@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
@@ -69,6 +70,7 @@ func sendRequestWithHeader(t *testing.T, url string, headerName string, headerVa
 
 func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, _, urlStr := startNewWSServer(t, 100_000)
 
 	longString := "abcdefgh"
@@ -82,6 +84,7 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 
 func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, _, urlStr := startNewWSServer(t, 100_000)
 
 	resp := sendRequestWithHeader(t, urlStr, network.WsServerHandshakeAuthHeaderName, "}}}")
@@ -90,6 +93,7 @@ func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T)
 
 func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, acceptor, urlStr := startNewWSServer(t, 100_000)
 
 	acceptor.On("StartHandshake", mock.Anything).Return("", []byte{}, errors.New("invalid auth header"))
@@ -101,6 +105,7 @@ func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 
 func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, acceptor, urlStr := startNewWSServer(t, 10_000)
 
 	waitCh := make(chan struct{})
@@ -127,6 +132,7 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 }
 
 func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	quarantine.Flaky(t, "DX-1752")
 	t.Parallel()
 	_, acceptor, urlStr := startNewWSServer(t, 10_000)

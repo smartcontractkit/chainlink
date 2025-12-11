@@ -294,6 +294,7 @@ func setupFullDBWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 
 func TestFluxMonitor_PollIfEligible(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	testCases := []struct {
 		name              string
 		eligible          bool
@@ -502,6 +503,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 // incorrect address) then the pollIfEligible method should create a JobErr record
 func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
@@ -534,6 +536,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
@@ -734,6 +737,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	g := gomega.NewWithT(t)
 
 	testCases := []struct {
@@ -825,6 +829,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 
 func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
@@ -909,6 +914,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1806")
 	t.Parallel()
 	db, nodeAddr := setupFullDBWithKey(t)
@@ -1029,6 +1035,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1857")
 	t.Parallel()
 
@@ -1135,6 +1142,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
@@ -1181,6 +1189,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1845")
 	t.Parallel()
 	g := gomega.NewWithT(t)
@@ -1244,6 +1253,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	g := gomega.NewWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
@@ -1321,6 +1331,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
@@ -1396,6 +1407,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	fm, tm := setup(t, db)
@@ -1415,6 +1427,7 @@ func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 
 func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	testCases := []struct {
 		name     string
@@ -1442,6 +1455,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 
 func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
 		db, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, testutils.NewAddress()}
@@ -1819,6 +1833,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 // with the same unexpected call).
 func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}

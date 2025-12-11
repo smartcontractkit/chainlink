@@ -31,6 +31,7 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -115,6 +116,7 @@ func mockEngineFactory(ctx context.Context, wfid string, owner string, name type
 }
 
 func Test_Handler(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("fails with unsupported event type", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		lf := limits.Factory{Logger: lggr}
@@ -167,6 +169,7 @@ const (
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	binaryURLFactory := func(wfID string) string {
 		return "http://example.com/" + wfID + "/binary"
 	}

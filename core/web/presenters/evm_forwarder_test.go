@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 func TestEVMForwarderResource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ID        = int64(1)
 		address   = utils.RandomAddress()

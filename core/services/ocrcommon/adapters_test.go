@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -104,6 +105,7 @@ func (f fakeOnchainKeyring) MaxSignatureLength() int {
 }
 
 func TestOCR3OnchainKeyringAdapter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr := ocrcommon.NewOCR3OnchainKeyringAdapter(fakeOnchainKeyring{})
 
 	_, err := kr.Sign(configDigest, seqNr, rwi)
@@ -115,6 +117,7 @@ func TestOCR3OnchainKeyringAdapter(t *testing.T) {
 }
 
 func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	evmBundle, err := ocr2key.New(chaintype.EVM)
 	require.NoError(t, err)
 
@@ -188,6 +191,7 @@ func newMultichainAdapter(t *testing.T) *ocrcommon.OCR3OnchainKeyringMultiChainA
 }
 
 func TestNewOCR3OnchainKeyringMultiChainAdapter_VerifyFromDifferentNodesPublicKeys(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	firstNodeAdapter := newMultichainAdapter(t)
 	secondNodeAdapter := newMultichainAdapter(t)
 
@@ -264,6 +268,7 @@ func (f fakeContractTransmitter) FromAccount(context.Context) (ocrtypes.Account,
 }
 
 func TestContractTransmitter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	ct := ocrcommon.NewOCR3ContractTransmitterAdapter(fakeContractTransmitter{})
 

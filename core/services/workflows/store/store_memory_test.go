@@ -10,10 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestInMemoryStore_Add(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 
 	execution, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{
@@ -34,6 +36,7 @@ func TestInMemoryStore_Add(t *testing.T) {
 }
 
 func TestInMemoryStore_UpsertStep(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	fakeClock := clockwork.NewFakeClock()
 	store := NewInMemoryStore(logger.TestLogger(t), fakeClock)
 
@@ -53,6 +56,7 @@ func TestInMemoryStore_UpsertStep(t *testing.T) {
 }
 
 func TestInMemoryStore_Get(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 	_, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
@@ -65,6 +69,7 @@ func TestInMemoryStore_Get(t *testing.T) {
 }
 
 func TestInMemoryStore_FinishedExecution(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
 		10*time.Millisecond, 1*time.Hour)
 	servicetest.Run(t, store)
@@ -87,6 +92,7 @@ func TestInMemoryStore_FinishedExecution(t *testing.T) {
 }
 
 func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	expirationDuration := 50 * time.Millisecond
 
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),

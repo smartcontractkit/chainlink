@@ -6,10 +6,13 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestApi_ParsePaginatedRequest(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name      string
@@ -58,6 +61,7 @@ func (r *TestResource) SetID(value string) error {
 
 func TestApi_NewPaginatedResponse(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name     string
@@ -123,6 +127,7 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 
 func TestPagination_ParsePaginatedResponse(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var docs []TestResource
 	var links jsonapi.Links
@@ -151,6 +156,7 @@ func (d DummyResource) GetID() string {
 
 func TestNewJSONAPIResponse(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	buffer, err := NewJSONAPIResponse(12981)
 	assert.Error(t, err)

@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestLogEventBufferV1(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
 
 	buf.Enqueue(big.NewInt(1),
@@ -33,6 +35,7 @@ func TestLogEventBufferV1(t *testing.T) {
 }
 
 func TestLogEventBufferV1_SyncFilters(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
 
 	buf.Enqueue(big.NewInt(1),
@@ -69,6 +72,7 @@ func (l *readableLogger) With(args ...any) logger.Logger {
 }
 
 func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("enqueuing logs for a block older than latest seen logs a message", func(t *testing.T) {
 		logReceived := false
 		readableLogger := &readableLogger{
@@ -137,6 +141,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 }
 
 func TestLogEventBufferV1_Dequeue(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name         string
 		logsInBuffer map[*big.Int][]logpoller.Log
@@ -225,6 +230,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 }
 
 func TestLogEventBufferV1_Enqueue(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                             string
 		logsToAdd                        map[*big.Int][]logpoller.Log
@@ -347,6 +353,7 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 }
 
 func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("enqueue dequeue", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
@@ -387,6 +394,7 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 }
 
 func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("empty", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
@@ -405,6 +413,7 @@ func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
 }
 
 func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("empty", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
@@ -442,6 +451,7 @@ func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 }
 
 func TestLogEventBufferV1_BlockWindow(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		block     int64

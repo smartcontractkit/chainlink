@@ -10,6 +10,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -41,6 +42,7 @@ func (m *mockORM) LoadConfigs(ctx context.Context) ([]Config, error) {
 
 func Test_RetirementReportCache(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)

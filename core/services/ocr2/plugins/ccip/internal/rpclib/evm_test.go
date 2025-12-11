@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,6 +23,7 @@ import (
 )
 
 func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name                          string
 		maxBatchSize                  uint
@@ -104,6 +106,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 }
 
 func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	testCases := []struct {
@@ -160,6 +163,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 }
 
 func TestParseOutput(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type testCase[T any] struct {
 		name       string
 		dataAndErr rpclib.DataAndErr

@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -40,6 +41,7 @@ func (m *mockGenerator) GenMultitypeMonitoringEndpoint(network string, chainID s
 }
 
 func TestTelemetryAdapter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ta := generic.NewTelemetryAdapter(&mockGenerator{})
 
 	tests := []struct {

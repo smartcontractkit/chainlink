@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -164,6 +165,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 }
 
 func TestReader_Integration(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
@@ -392,6 +394,7 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_V2_DBIntegration(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
@@ -559,6 +562,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 }
 
 func TestSyncer_V2_LocalNode(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
@@ -674,6 +678,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 }
 
 func TestReader_V2_FamilyOperations(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 

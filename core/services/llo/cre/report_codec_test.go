@@ -16,9 +16,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_ReportCodec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("Encode: Without Opts SUCCESS", func(t *testing.T) {
 		donID := uint32(1)
 		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)

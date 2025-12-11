@@ -9,11 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(10))
 	sk := randomScalar(t, r)
 	skNum := secp256k1.ToInt(sk)

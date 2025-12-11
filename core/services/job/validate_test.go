@@ -5,9 +5,12 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestValidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var tt = []struct {
 		name      string
 		spec      string

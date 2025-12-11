@@ -7,10 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 func Test_ValidateSignatures_Valid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
 	require.NoError(t, err)
 	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")
@@ -39,6 +41,7 @@ func Test_ValidateSignatures_Valid(t *testing.T) {
 }
 
 func Test_ValidateSignatures_InsufficientSignatures(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
 	require.NoError(t, err)
 	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")
@@ -63,6 +66,7 @@ func Test_ValidateSignatures_InsufficientSignatures(t *testing.T) {
 }
 
 func Test_ValidateSignatures_DoesntCountDuplicates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
 	require.NoError(t, err)
 	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")
@@ -88,6 +92,7 @@ func Test_ValidateSignatures_DoesntCountDuplicates(t *testing.T) {
 }
 
 func Test_ValidateSignatures_InvalidSignature(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx, err := hex.DecodeString("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 	require.NoError(t, err)
 	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")

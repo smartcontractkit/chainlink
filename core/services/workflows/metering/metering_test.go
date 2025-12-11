@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -113,6 +114,7 @@ var (
 
 func Test_Report(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("error if incorrect labels", func(t *testing.T) {
 		t.Parallel()
@@ -125,6 +127,7 @@ func Test_Report(t *testing.T) {
 
 func Test_Report_MeteringMode(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("Reserve switches to metering mode", func(t *testing.T) {
 		t.Parallel()
@@ -407,6 +410,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 
 func Test_medianSpend(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tt := []struct {
 		name     string
@@ -471,6 +475,7 @@ func Test_medianSpend(t *testing.T) {
 
 func Test_Report_Reserve(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("returns an error if insufficient funding", func(t *testing.T) {
 		t.Parallel()
@@ -517,6 +522,7 @@ func Test_Report_Reserve(t *testing.T) {
 
 func Test_Report_Deduct(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	one := decimal.NewFromInt(1)
 	two := decimal.NewFromInt(2)
@@ -802,6 +808,7 @@ func Test_Report_Deduct(t *testing.T) {
 
 func Test_Report_Settle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
@@ -1023,6 +1030,7 @@ func Test_Report_Settle(t *testing.T) {
 
 func Test_Report_FormatReport(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("does not contain metadata", func(t *testing.T) {
 		t.Parallel()
@@ -1296,6 +1304,7 @@ func Test_Report_FormatReport(t *testing.T) {
 
 func Test_Report_SendReceipt(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
@@ -1496,6 +1505,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 }
 
 func Test_Report_EmitReceipt(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("happy path", func(t *testing.T) {
 		// No parallel
 		beholderTester := beholdertest.NewObserver(t)
@@ -1612,6 +1622,7 @@ func Test_Report_EmitReceipt(t *testing.T) {
 
 func Test_MeterReports(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	workflowExecutionID1 := "exec1"
 	capabilityCall1 := "ref1"
@@ -1687,6 +1698,7 @@ func Test_MeterReports(t *testing.T) {
 
 func Test_MeterReports_Length(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	billingClient := mocks.NewBillingClient(t)
 
@@ -1719,6 +1731,7 @@ func Test_MeterReports_Length(t *testing.T) {
 
 func Test_MeterReports_Start(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("can only start report once", func(t *testing.T) {
 		t.Parallel()
@@ -1740,6 +1753,7 @@ func Test_MeterReports_Start(t *testing.T) {
 
 func Test_MeterReports_Get(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("returns when report exists", func(t *testing.T) {
 		t.Parallel()
@@ -1774,6 +1788,7 @@ func Test_MeterReports_Get(t *testing.T) {
 
 func Test_MeterReports_End(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("can only end existing report", func(t *testing.T) {
 		t.Parallel()
@@ -1836,6 +1851,7 @@ func Test_MeterReports_End(t *testing.T) {
 
 func TestRatiosFromConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("happy path", func(t *testing.T) {
 		t.Parallel()

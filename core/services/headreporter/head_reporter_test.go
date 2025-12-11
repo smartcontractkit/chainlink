@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -21,6 +22,7 @@ func NewHead() evmtypes.Head {
 }
 
 func Test_HeadReporterService(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("report everything", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 

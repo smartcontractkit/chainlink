@@ -8,10 +8,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // TestCallOnceOnNoErrorCachingSuccess tests caching behavior when the function succeeds.
 func TestCallOnceOnNoErrorCachingSuccess(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	callCount := 0
 	testFunc := func(ctx context.Context) (string, error) {
 		callCount++
@@ -32,6 +35,7 @@ func TestCallOnceOnNoErrorCachingSuccess(t *testing.T) {
 
 // TestCallOnceOnNoErrorCachingError tests that the function is retried after an error.
 func TestCallOnceOnNoErrorCachingError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	callCount := 0
 	testFunc := func(ctx context.Context) (string, error) {
 		callCount++
@@ -56,6 +60,7 @@ func TestCallOnceOnNoErrorCachingError(t *testing.T) {
 
 // TestCallOnceOnNoErrorCachingConcurrency tests that the function works correctly under concurrent access.
 func TestCallOnceOnNoErrorCachingConcurrency(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var wg sync.WaitGroup
 	callCount := 0
 	testFunc := func(ctx context.Context) (string, error) {

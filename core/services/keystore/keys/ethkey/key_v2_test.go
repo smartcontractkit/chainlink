@@ -11,10 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestEthKeyV2_ToKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	require.NoError(t, err)
 
@@ -27,6 +29,7 @@ func TestEthKeyV2_ToKey(t *testing.T) {
 }
 
 func TestEthKeyV2_NewV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	keyV2, err := NewV2()
 	require.NoError(t, err)
 

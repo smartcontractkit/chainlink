@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -151,6 +152,7 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 }
 
 func TestRegisterUnregister(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
 
@@ -196,6 +198,7 @@ func TestRegisterUnregister(t *testing.T) {
 }
 
 func TestCapability_Execute(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
 	th.connector.EXPECT().DonID(matches.AnyContext).Return("donID", nil)

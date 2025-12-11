@@ -21,6 +21,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -34,6 +35,7 @@ import (
 )
 
 func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r := &EvmRegistry{}
 	tests := []struct {
 		name       string
@@ -79,6 +81,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 }
 
 func TestRegistry_VerifyCheckBlock(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(big.NewInt(12345))
@@ -226,6 +229,7 @@ func (p *mockLogPoller) IndexedLogs(ctx context.Context, eventSig common.Hash, a
 }
 
 func TestRegistry_VerifyLogExists(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(big.NewInt(12345))
@@ -376,6 +380,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 }
 
 func TestRegistry_CheckUpkeeps(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
 	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
@@ -537,6 +542,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 }
 
 func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
 	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
 	uid2 := core.GenUpkeepID(autotypes.UpkeepType(1), "p2")

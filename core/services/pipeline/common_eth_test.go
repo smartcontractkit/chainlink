@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func mustABIType(t *testing.T, ty string) abi.Type {
@@ -21,6 +23,7 @@ func mustABIType(t *testing.T, ty string) abi.Type {
 
 func Test_convertToETHABIType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	emptyHash := common.Hash{}
 	emptyAddr := common.Address{}
@@ -109,6 +112,7 @@ func Test_convertToETHABIType(t *testing.T) {
 
 func Test_convertToETHABIType_Errors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	for _, tt := range []struct {
 		val    any
@@ -127,6 +131,7 @@ func Test_convertToETHABIType_Errors(t *testing.T) {
 
 func Test_convertToETHABIBytes_Errors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	for _, tt := range []struct {
 		val    any

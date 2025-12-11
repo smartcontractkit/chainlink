@@ -11,6 +11,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
@@ -32,6 +33,7 @@ var (
 
 func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -81,6 +83,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 
 func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
 	awaitRegistrationMessageCh := make(chan struct{})
@@ -146,6 +149,7 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 
 func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
 	agg := aggregation.NewDefaultModeAggregator(1)
@@ -211,6 +215,7 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 
 func TestTriggerSubscriber_RegistrationLoopWithConfigUpdate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	capInfo, capDon, _ := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)

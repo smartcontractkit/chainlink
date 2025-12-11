@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -58,7 +59,10 @@ type node struct {
 // It measures time needed to receive and process trigger events from multiple nodes and produce a local aggregated event.
 // For more meaningful measurements, increase the values of parameters P and T.
 func TestStreamsTrigger(t *testing.T) {
-	N := 31 // trigger DON nodes
+	tests.BelongsToCISuite(
+		// trigger DON nodes
+		t, "unit")
+	N := 31
 	F := 10 // faulty nodes
 	R := 5  // different reports per feed (i.e. prices and timestamps)
 	P := 2  // feeds

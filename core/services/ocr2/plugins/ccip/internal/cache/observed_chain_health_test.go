@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache/mocks"
 )
 
 var address = cciptypes.Address(common.HexToAddress("0x1234567890123456789012345678901234567890").String())
 
 func Test_ObservedChainStateSkipErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockedHealthcheck := mocks.NewChainHealthcheck(t)
 	mockedHealthcheck.On("IsHealthy", mock.Anything).Return(false, errors.New("error"))
 
@@ -34,6 +36,7 @@ func Test_ObservedChainStateSkipErrors(t *testing.T) {
 }
 
 func Test_ObservedChainStateReportsStatus(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockedHealthcheck := mocks.NewChainHealthcheck(t)
 	mockedHealthcheck.On("IsHealthy", mock.Anything).Return(true, nil).Once()
 

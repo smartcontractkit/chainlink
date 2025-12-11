@@ -6,9 +6,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestP2PKeys_PeerID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("make peer ID", func(t *testing.T) {
 		id, err := MakePeerID("12D3KooWM1111111111111111111111111111111111111111111")
 		require.NoError(t, err)
@@ -46,6 +49,7 @@ func TestP2PKeys_PeerID(t *testing.T) {
 }
 
 func TestPeerID_marshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	id, err := MakePeerID("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")
 	require.NoError(t, err)
 	t.Run("json", func(t *testing.T) {

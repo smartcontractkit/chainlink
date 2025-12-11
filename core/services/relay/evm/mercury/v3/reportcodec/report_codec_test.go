@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 )
 
@@ -27,6 +28,7 @@ func newValidReportFields() v3.ReportFields {
 }
 
 func Test_ReportCodec_BuildReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r := ReportCodec{}
 
 	t.Run("BuildReport errors on zero values", func(t *testing.T) {
@@ -125,6 +127,7 @@ func buildSampleReport(ts int64) []byte {
 }
 
 func Test_ReportCodec_ObservationTimestampFromReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r := ReportCodec{}
 
 	t.Run("ObservationTimestampFromReport extracts observation timestamp from a valid report", func(t *testing.T) {
@@ -148,6 +151,7 @@ func Test_ReportCodec_ObservationTimestampFromReport(t *testing.T) {
 }
 
 func Test_ReportCodec_BenchmarkPriceFromReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r := ReportCodec{}
 
 	t.Run("BenchmarkPriceFromReport extracts the benchmark price from valid report", func(t *testing.T) {

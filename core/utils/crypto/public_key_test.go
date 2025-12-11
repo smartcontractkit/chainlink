@@ -8,10 +8,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_PublicKey_String(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
@@ -24,6 +27,7 @@ func Test_PublicKey_String(t *testing.T) {
 
 func Test_PublicKey_MarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
@@ -38,6 +42,7 @@ func Test_PublicKey_MarshalJSON(t *testing.T) {
 
 func Test_PublicKey_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
@@ -51,6 +56,7 @@ func Test_PublicKey_UnmarshalJSON(t *testing.T) {
 }
 
 func Test_PublicKey_Scan(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -73,6 +79,7 @@ func Test_PublicKey_Scan(t *testing.T) {
 }
 
 func Test_PublicKey_Value(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 

@@ -9,10 +9,12 @@ import (
 
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func TestDatabaseConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 		SecretsStrings: []string{`[Database]

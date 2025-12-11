@@ -36,6 +36,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func newOffchainRequest(t *testing.T, sender []byte, ageSec uint64) (*api.Message, functions.RequestID) {
@@ -66,6 +68,7 @@ func newOffchainRequest(t *testing.T, sender []byte, ageSec uint64) (*api.Messag
 
 func TestFunctionsConnectorHandler(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	logger := logger.TestLogger(t)
 	privateKey, addr := testutils.NewPrivateKeyAndAddress(t)

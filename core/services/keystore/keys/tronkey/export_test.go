@@ -3,10 +3,12 @@ package tronkey
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 )
 
 func TestTronKeys_ExportImport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
 }
 

@@ -23,6 +23,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -57,6 +58,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
 }
 
 func TestObservationContext_Observe(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -142,6 +144,7 @@ func TestObservationContext_Observe(t *testing.T) {
 }
 
 func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -217,6 +220,7 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
 }
 
 func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)

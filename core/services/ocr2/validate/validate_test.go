@@ -13,6 +13,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -22,6 +23,7 @@ import (
 )
 
 func TestValidateOracleSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var tt = []struct {
 		name      string
 		toml      string
@@ -612,6 +614,7 @@ type envelope struct {
 }
 
 func TestOCR2GenericPluginConfig_Unmarshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	payload := `
 [pluginConfig]
 pluginName = "median"
@@ -651,6 +654,7 @@ type envelope2 struct {
 }
 
 func TestOCR2OnchainSigningStrategy_Unmarshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	payload := `
 [onchainSigningStrategy]
 strategyName = "single-chain"

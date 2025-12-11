@@ -14,10 +14,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func Test_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1001, 64, 1002, lggr)
 
@@ -27,6 +29,7 @@ func Test_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -45,6 +48,7 @@ func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) 
 }
 
 func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 16, testutils.WaitTimeout(t), lggr)
 
@@ -55,6 +59,7 @@ func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -65,6 +70,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 10, 64, testutils.WaitTimeout(t), lggr)
 
@@ -75,6 +81,7 @@ func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -85,6 +92,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -102,6 +110,7 @@ func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, 100, lggr)
 
@@ -113,6 +122,7 @@ func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -134,6 +144,7 @@ func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 }
 
 func Test_decryptionQueue_GetRequests(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -169,6 +180,7 @@ func Test_decryptionQueue_GetRequests(t *testing.T) {
 }
 
 func Test_decryptionQueue_GetCiphertext(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -189,6 +201,7 @@ func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 }
 
 func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -197,6 +210,7 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -212,6 +226,7 @@ func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 }
 
 func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, 100, lggr)
 
@@ -227,6 +242,7 @@ func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -246,6 +262,7 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 	ciphertextId := []byte{0x12, 0x0f}
@@ -262,6 +279,7 @@ func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
 }
 
 func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 	ciphertextId := []byte{0x00, 0xff}
@@ -278,6 +296,7 @@ func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t 
 }
 
 func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -322,6 +341,7 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 }
 
 func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 10, 64, testutils.WaitTimeout(t), lggr)
 
@@ -366,6 +386,7 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 }
 
 func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCountLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -388,6 +409,7 @@ func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCount
 }
 
 func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -410,6 +432,7 @@ func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 }
 
 func Test_decryptionQueue_Start(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -421,6 +444,7 @@ func Test_decryptionQueue_Start(t *testing.T) {
 }
 
 func Test_decryptionQueue_Close(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 

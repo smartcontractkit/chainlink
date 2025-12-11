@@ -11,9 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/ton/wallet"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTONKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("Generate new key and verify its components", func(t *testing.T) {
 		// Generate a new key
 		key, err := New()

@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
@@ -84,6 +85,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 }
 
 func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tests := []struct {
 		name       string
 		apiFile    string

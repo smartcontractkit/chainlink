@@ -9,9 +9,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestNewOnchainKeyringV3Wrapper(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("the on chain keyring wrapper gets the public key and max signature length from the wrapped keyring", func(t *testing.T) {
 		onchainKeyring := &mockOnchainKeyring{
 			MaxSignatureLengthFn: func() int {

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -44,6 +45,7 @@ Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 
 func TestConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tomlConfig := parseTOMLConfig(t, defaultConfig)
 
@@ -52,6 +54,7 @@ func TestConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
 
 func TestConnectionManager_NewConnectionManager_InvalidConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	invalidCases := map[string]string{
 		"duplicate DON ID": `
@@ -129,6 +132,7 @@ func signAndPackAuthHeader(t *testing.T, authHeaderElems *network.AuthHeaderElem
 
 func TestConnectionManager_StartHandshake(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config, nodes := newTestConfig(t, 4)
 	unrelatedNode := gc.NewTestNodes(t, 1)[0]
@@ -182,6 +186,7 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 
 func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config, nodes := newTestConfig(t, 4)
 	clock := clockwork.NewFakeClock()
@@ -215,6 +220,7 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 
 func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config, nodes := newTestConfig(t, 2)
 	clock := clockwork.NewFakeClock()
@@ -231,6 +237,7 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 
 func TestConnectionManager_CleanStartClose(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config, _ := newTestConfig(t, 2)
 	config.ConnectionManagerConfig.HeartbeatIntervalSec = 1

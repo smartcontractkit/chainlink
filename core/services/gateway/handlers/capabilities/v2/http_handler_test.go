@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	triggermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/mocks"
@@ -27,6 +28,7 @@ import (
 )
 
 func TestNewGatewayHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("successful creation", func(t *testing.T) {
 		cfg := serviceCfg()
 		configBytes, err := json.Marshal(cfg)
@@ -105,6 +107,7 @@ func TestNewGatewayHandler(t *testing.T) {
 }
 
 func TestHandleNodeMessage(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler := createTestHandler(t)
 
 	t.Run("successful node message handling", func(t *testing.T) {
@@ -265,6 +268,7 @@ func TestHandleNodeMessage(t *testing.T) {
 }
 
 func TestServiceLifecycle(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler := createTestHandler(t)
 
 	t.Run("start and stop", func(t *testing.T) {
@@ -283,8 +287,10 @@ func TestServiceLifecycle(t *testing.T) {
 	})
 }
 func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// This test covers the case where the response ID does not contain a "/"
 	// and should be routed to the triggerHandler.HandleNodeTriggerResponse.
+
 	mockTriggerHandler := triggermocks.NewHTTPTriggerHandler(t)
 	handler := createTestHandler(t)
 	handler.triggerHandler = mockTriggerHandler
@@ -307,6 +313,7 @@ func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
 }
 
 func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -321,6 +328,7 @@ func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
 }
 
 func TestHandleNodeMessage_EmptyID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -366,6 +374,7 @@ func (m *mockResponseCache) DeleteExpired(ctx context.Context) int {
 }
 
 func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cfg := serviceCfg()
 	cfg.CleanUpPeriodMs = 100 // fast cleanup for test
 
@@ -434,6 +443,7 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 }
 
 func TestCreateHTTPRequestCallback(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	requestID := "test-request-id"
@@ -536,6 +546,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 // TestMakeOutgoingRequestCachingBehavior tests the specific caching logic in makeOutgoingRequest
 func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("MaxAgeMs=0 and Store=true calls Set", func(t *testing.T) {
 		handler := createTestHandler(t)
 		mockCache := newMockResponseCache()
@@ -706,6 +717,7 @@ func expectSuccessfulRequest(mockHTTPClient *httpmocks.HTTPClient, mockDon *hand
 }
 
 func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("node rate limiting with AllowVerbose", func(t *testing.T) {
 		cfg := ServiceConfig{
 			NodeRateLimiter: ratelimit.RateLimiterConfig{

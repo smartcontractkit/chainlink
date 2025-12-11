@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 
 func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		id     = "1"
@@ -61,6 +63,7 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListP2PKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -79,6 +82,7 @@ func TestShell_ListP2PKeys(t *testing.T) {
 
 func TestShell_CreateP2PKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -93,6 +97,7 @@ func TestShell_CreateP2PKey(t *testing.T) {
 
 func TestShell_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -120,6 +125,7 @@ func TestShell_DeleteP2PKey(t *testing.T) {
 
 func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	defer deleteKeyExportFile(t)

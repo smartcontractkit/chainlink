@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 
 func TestCSAKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		pubKey = "somepubkey"
@@ -54,6 +56,7 @@ func TestCSAKeyPresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListCSAKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -72,6 +75,7 @@ func TestShell_ListCSAKeys(t *testing.T) {
 
 func TestShell_CreateCSAKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -85,6 +89,7 @@ func TestShell_CreateCSAKey(t *testing.T) {
 
 func TestShell_ImportExportCsaKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	defer deleteKeyExportFile(t)
 	ctx := testutils.Context(t)

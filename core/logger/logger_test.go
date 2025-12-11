@@ -9,9 +9,11 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// no sampling
 	assert.Nil(t, newZapConfigBase().Sampling)
 	assert.Nil(t, newZapConfigProd(false, false).Sampling)
@@ -22,6 +24,7 @@ func TestConfig(t *testing.T) {
 }
 
 func TestStderrWriter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sw := stderrWriter{}
 
 	// Test Write
@@ -35,6 +38,7 @@ func TestStderrWriter(t *testing.T) {
 }
 
 func TestOtelCore(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name       string
 		enableOtel bool

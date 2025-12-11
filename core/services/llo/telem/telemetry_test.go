@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var _ telemetry.MultitypeMonitoringEndpoint = &mockMonitoringEndpoint{}
@@ -140,6 +141,7 @@ var trrs = pipeline.TaskRunResults{
 }
 
 func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	m := &mockMonitoringEndpoint{}
 
@@ -271,6 +273,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 
 func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 
 	donID := uint32(1)
@@ -406,6 +409,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 
 func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.TestLogger(t)
 	donID := uint32(1)
@@ -533,6 +537,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 
 func Test_Telemeter_reportTelemetry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.TestLogger(t)
 	donID := uint32(1)

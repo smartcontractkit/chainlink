@@ -5,9 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_CCIPSubjectUUID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// We want the function to be
 	// (1) an actual function (i.e., deterministic)
 	assert.Equal(t, chainToUUID(big.NewInt(1)), chainToUUID(big.NewInt(1)))

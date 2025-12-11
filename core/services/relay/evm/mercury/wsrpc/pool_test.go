@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -50,6 +51,7 @@ func newMockClient(lggr logger.Logger) *mockClient {
 }
 
 func Test_Pool(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Sugared(logger.Test(t)).Named("PoolTestLogger")
 
 	ctx := testutils.Context(t)

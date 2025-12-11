@@ -4,9 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestStringSet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("add and contains", func(t *testing.T) {
 		s := make(StringSet)
 

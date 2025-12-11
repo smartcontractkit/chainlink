@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -32,6 +33,7 @@ type testCase struct {
 
 func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Log.Level = ptr(toml.LogLevel(zapcore.WarnLevel))
@@ -65,6 +67,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 
 func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	sqlTrue := true
 	sqlFalse := false

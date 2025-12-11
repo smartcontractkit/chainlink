@@ -28,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -46,6 +47,7 @@ import (
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		contractAddress = cltest.NewEIP55Address()
 	)
@@ -106,6 +108,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 }
 
 func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	app, client := setupJobsControllerTests(t)
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
@@ -140,6 +143,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 }
 
 func TestJobController_Create_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetDB())
@@ -507,6 +511,7 @@ targets:
 }
 
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -536,6 +541,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 var webhookSpecTemplate string
 
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -556,6 +562,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 }
 
 func TestJobsController_Index_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	_, client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	url := url.URL{Path: "/v2/jobs"}
@@ -578,6 +585,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	_, client, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)))
@@ -622,6 +630,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
@@ -630,6 +639,7 @@ func TestJobsController_Show_InvalidID(t *testing.T) {
 }
 
 func TestJobsController_Show_NonExistentID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/999999999")
@@ -639,6 +649,7 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
@@ -705,6 +716,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Update_NonExistentID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)

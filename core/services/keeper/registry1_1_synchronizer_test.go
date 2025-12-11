@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	registry1_1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -70,6 +71,7 @@ func mockRegistry1_1(
 }
 
 func Test_LogListenerOpts1_1(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
 	ethClient := clienttest.NewClientWithDefaultChainID(t)

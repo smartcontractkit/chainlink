@@ -9,10 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 )
 
 func Test_CacheSet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	cs := newCacheSet(lggr, Config{LatestReportTTL: 1})
 	disabledCs := newCacheSet(lggr, Config{LatestReportTTL: 0})

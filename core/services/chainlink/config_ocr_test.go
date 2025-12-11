@@ -5,9 +5,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestOCRConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

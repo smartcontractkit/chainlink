@@ -17,10 +17,13 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithKey(t)
 	ctx := testutils.Context(t)
@@ -67,6 +70,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithKey(t)
 	ctx := testutils.Context(t)
@@ -80,6 +84,7 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithKey(t)
 	ctx := testutils.Context(t)
@@ -114,6 +119,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithKey(t)
 	ctx := testutils.Context(t)

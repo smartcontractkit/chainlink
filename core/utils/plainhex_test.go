@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type marshalTest struct {
@@ -48,6 +50,7 @@ var (
 )
 
 func TestUnmarshalBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, test := range unmarshalBytesTests {
 		var v PlainHexBytes
 		err := json.Unmarshal([]byte(test.input), &v)
@@ -62,6 +65,7 @@ func TestUnmarshalBytes(t *testing.T) {
 }
 
 func TestMarshalBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, test := range encodeBytesTests {
 		in := test.input.([]byte)
 		out, err := json.Marshal(PlainHexBytes(in))

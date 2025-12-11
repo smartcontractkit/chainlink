@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -24,6 +25,7 @@ func (r *registry) PerformGasOverhead() uint32 { return r.pgo }
 func (r *registry) MaxPerformDataSize() uint32 { return r.mpds }
 
 func TestBuildJobSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	from := types.EIP55Address(testutils.NewAddress().Hex())
 	contract := types.EIP55Address(testutils.NewAddress().Hex())
 	chainID := "250"

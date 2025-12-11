@@ -29,10 +29,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 
@@ -76,6 +79,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 
 func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 
@@ -118,6 +122,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 
 func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 
@@ -165,6 +170,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 
 func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -191,6 +197,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 
 func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 
@@ -227,6 +234,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 
 func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 
@@ -266,6 +274,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 
 func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -280,6 +289,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 
 func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 
@@ -341,6 +351,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 }
 
 func TestTransfersController_FindTxAttempt(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tx := txmgr.Tx{ID: 1}
 	attempt := txmgr.TxAttempt{ID: 2}
 	txWithAttempt := txmgr.Tx{ID: 1, TxAttempts: []txmgr.TxAttempt{attempt}}

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -69,6 +70,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 }
 
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	cfg, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	lggr := logger.TestLogger(t)
 	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
@@ -341,6 +343,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	ctx := testutils.Context(t)
 	p, err := migrate.NewProvider(ctx, db.DB)
@@ -394,6 +397,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 }
 
 func TestMigrate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
@@ -422,6 +426,7 @@ func TestMigrate(t *testing.T) {
 }
 
 func TestSetMigrationENVVars(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("ValidEVMConfig", func(t *testing.T) {
 		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -450,6 +455,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 }
 
 func TestNoTriggers(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
 	require.NoError(t, err)
@@ -529,6 +535,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 }
 
 func TestRollback_247_TxStateEnumUpdate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, db := heavyweight.FullTestDBV2(t, nil)
 	p, err := migrate.NewProvider(ctx, db.DB)

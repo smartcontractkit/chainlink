@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
@@ -31,6 +32,7 @@ type (
 )
 
 func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// offchain key
 	offKey, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)

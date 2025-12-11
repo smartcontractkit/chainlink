@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -22,6 +23,7 @@ import (
 )
 
 func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	g := gomega.NewWithT(t)
 
 	// Create mocks

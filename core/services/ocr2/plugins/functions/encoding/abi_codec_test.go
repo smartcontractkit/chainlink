@@ -6,11 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 )
 
 func TestABICodec_EncodeDecodeV1Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	codec, err := encoding.NewReportCodec(1)
 	require.NoError(t, err)
 
@@ -48,6 +50,7 @@ func TestABICodec_EncodeDecodeV1Success(t *testing.T) {
 
 func TestABICodec_SliceToByte32(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	_, err := encoding.SliceToByte32([]byte("abcd"))
 	require.Error(t, err)

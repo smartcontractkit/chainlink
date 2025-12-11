@@ -7,9 +7,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestFilterStore_CRUD(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name               string
 		initial            []upkeepFilter
@@ -68,6 +71,7 @@ func TestFilterStore_CRUD(t *testing.T) {
 }
 
 func TestFilterStore_Concurrency(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	s := NewUpkeepFilterStore()
 	var wg sync.WaitGroup
 

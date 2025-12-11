@@ -7,10 +7,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestAddressRange_NewFullAddressRange(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	full := s4.NewFullAddressRange()
 	assert.Equal(t, s4.MinAddress, full.MinAddress)
@@ -25,6 +28,7 @@ func TestAddressRange_NewFullAddressRange(t *testing.T) {
 
 func TestAddressRange_NewSingleAddressRange(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	addr := big.NewI(0x123)
 	sar, err := s4.NewSingleAddressRange(addr)
@@ -40,6 +44,7 @@ func TestAddressRange_NewSingleAddressRange(t *testing.T) {
 
 func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("invalid intervals", func(t *testing.T) {
 		_, err := s4.NewInitialAddressRangeForIntervals(0)
@@ -89,6 +94,7 @@ func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 
 func TestAddressRange_Contains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	r, err := s4.NewInitialAddressRangeForIntervals(256)
 	assert.NoError(t, err)

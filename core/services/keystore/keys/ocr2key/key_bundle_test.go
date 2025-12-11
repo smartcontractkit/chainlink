@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
@@ -18,6 +19,7 @@ func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.K
 
 func TestOCR2Keys_New(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var keys []ocr2key.KeyBundle
 
 	// create two keys for each chain type
@@ -52,6 +54,7 @@ func TestOCR2Keys_New(t *testing.T) {
 
 func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	for _, chain := range chaintype.SupportedChainTypes {
 		kb, err := ocr2key.New(chain)

@@ -19,6 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
@@ -193,6 +196,7 @@ func addChannelDefinitions(defs llotypes.ChannelDefinitions, startID, endID uint
 }
 
 func Test_ChannelDefinitionCache(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	donID := rand.Uint32()
 
 	t.Run("Definitions", func(t *testing.T) {
@@ -1275,6 +1279,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 }
 
 func Test_filterName(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	s := types.ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
 	require.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }

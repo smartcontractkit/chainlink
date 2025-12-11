@@ -12,10 +12,13 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func TestPluginPortManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// register one
 	m := NewTestLoopRegistry(logger.Test(t))
 	pFoo, err := m.Register("foo")
@@ -166,6 +169,7 @@ func (t mockCfgTransmitter) ReaperFrequency() time.Duration { return time.Hour }
 func (t mockCfgTransmitter) ReaperMaxAge() time.Duration { return time.Minute }
 
 func TestLoopRegistry_Register(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockCfgDatabase := &mockCfgDatabase{}
 	mockCfgMercury := &mockCfgMercury{}
 	mockCfgTracing := &mockCfgTracing{}

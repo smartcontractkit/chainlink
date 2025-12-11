@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func lease(c *chainlink.Config, s *chainlink.Secrets) {
@@ -23,6 +25,7 @@ func lease(c *chainlink.Config, s *chainlink.Secrets) {
 }
 
 func TestLockedDB_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -38,6 +41,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 }
 
 func TestLockedDB_ContextCancelled(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -51,6 +55,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 }
 
 func TestLockedDB_OpenTwice(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -64,6 +69,7 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 }
 
 func TestLockedDB_TwoInstances(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -85,6 +91,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 }
 
 func TestOpenUnlockedDB(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	ctx := testutils.Context(t)
 	config := configtest.NewGeneralConfig(t, nil)

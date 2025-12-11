@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 const (
@@ -25,6 +27,7 @@ APISecret = "indexer-api-secret"
 )
 
 func TestCCVConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsCCV},
 	}

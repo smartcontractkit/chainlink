@@ -13,6 +13,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
@@ -60,6 +62,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 }
 
 func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	params, err := json.Marshal(vaultcommon.UpdateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
@@ -99,6 +102,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 }
 
 func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
 		Ids: []*vaultcommon.SecretIdentifier{
 			{
@@ -132,6 +136,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 }
 
 func TestRequestAuthorizer_ListSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Namespace: "b",
 	})

@@ -11,9 +11,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestNewExternalInitiator(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	eia := auth.NewToken()
 	assert.Len(t, eia.AccessKey, 32)
 	assert.Len(t, eia.Secret, 64)
@@ -31,6 +33,7 @@ func TestNewExternalInitiator(t *testing.T) {
 }
 
 func TestAuthenticateExternalInitiator(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	eia := auth.NewToken()
 	ok, err := bridges.AuthenticateExternalInitiator(eia, &bridges.ExternalInitiator{
 		Salt:         "salt",

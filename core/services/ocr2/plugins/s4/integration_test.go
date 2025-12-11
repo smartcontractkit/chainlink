@@ -26,6 +26,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // Disclaimer: this is not a true integration test, it's more of a S4 feature test, on purpose.
@@ -154,6 +156,7 @@ func checkNoUnconfirmedRows(ctx context.Context, t *testing.T, orm s4_svc.ORM, l
 }
 
 func TestS4Integration_HappyDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 

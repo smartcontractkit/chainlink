@@ -10,9 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestCosmosKeyRing_Sign_Verify(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newCosmosKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newCosmosKeyring(cryptorand.Reader)
@@ -44,6 +47,7 @@ func TestCosmosKeyRing_Sign_Verify(t *testing.T) {
 }
 
 func TestCosmosKeyRing_Marshalling(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newCosmosKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()

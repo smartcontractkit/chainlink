@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -38,6 +39,7 @@ func setupMockConfig(t *testing.T, useBatchSend bool, chipIngressEnabled bool) *
 }
 
 func TestManagerAgents(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tic := setupMockConfig(t, true, false)
 	te := mocks.NewTelemetryIngressEndpoint(t)
 	te.On("Network").Return("network-1")
@@ -65,6 +67,7 @@ func TestManagerAgents(t *testing.T) {
 }
 
 func TestNewManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type endpointTest struct {
 		network       string
 		chainID       string
@@ -197,6 +200,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestCorrectEndpointRouting(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tic := setupMockConfig(t, true, false)
 	tic.On("Endpoints").Return(nil)
 
@@ -285,6 +289,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 
 // add test for current changes in manager
 func TestManager_ChipIngressClient(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("disabled chip ingress", func(t *testing.T) {
 		tic := setupMockConfig(t, true, false)
 		tic.On("Endpoints").Return(nil)

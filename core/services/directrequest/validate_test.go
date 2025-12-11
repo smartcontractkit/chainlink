@@ -6,10 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestValidatedDirectRequestSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	toml := `
 type                = "directrequest"
@@ -39,6 +42,7 @@ observationSource   = """
 
 func TestValidatedDirectRequestSpec_MinIncomingConfirmations(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("no minIncomingConfirmations specified", func(t *testing.T) {
 		t.Parallel()

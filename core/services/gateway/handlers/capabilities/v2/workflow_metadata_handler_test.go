@@ -14,6 +14,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -57,6 +58,7 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 }
 
 func TestSyncMetadata(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	// Test when aggregator has no data
@@ -110,6 +112,7 @@ func TestSyncMetadata(t *testing.T) {
 }
 
 func TestSyncMetadataMultipleWorkflows(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	ctx := testutils.Context(t)
@@ -162,6 +165,7 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 }
 
 func TestSendMetadataPullRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	for _, member := range donConfig.Members {
 		mockDon.EXPECT().SendToNode(mock.Anything, member.Address, mock.Anything).Return(nil).Once()
@@ -173,6 +177,7 @@ func TestSendMetadataPullRequest(t *testing.T) {
 }
 
 func TestSendMetadataPullRequestWithErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 
 	// Mock errors for some nodes
@@ -195,6 +200,7 @@ func TestSendMetadataPullRequestWithErrors(t *testing.T) {
 }
 
 func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	// Capture the request payload
 	var capturedReq *jsonrpc.Request[json.RawMessage]
@@ -214,6 +220,7 @@ func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
 }
 
 func TestOnMetadataPush(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -258,6 +265,7 @@ func TestOnMetadataPush(t *testing.T) {
 }
 
 func TestOnMetadataPushInvalidJSON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -272,6 +280,7 @@ func TestOnMetadataPushInvalidJSON(t *testing.T) {
 }
 
 func TestOnMetadataPullResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -369,6 +378,7 @@ func TestOnMetadataPullResponse(t *testing.T) {
 }
 
 func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -383,6 +393,7 @@ func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 }
 
 func TestStartAndClose(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -400,6 +411,7 @@ func TestStartAndClose(t *testing.T) {
 }
 
 func TestValidateAuthMetadata(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	tests := []struct {
@@ -801,6 +813,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 }
 
 func TestOnMetadataPushWithValidation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -867,6 +880,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 }
 
 func TestOnMetadataPullResponseWithValidation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -965,6 +979,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 }
 
 func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -1154,6 +1169,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 }
 
 func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	workflowOwner := testWorkflowOwner1
@@ -1197,6 +1213,7 @@ func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 }
 
 func TestWorkflowMetadataHandler_GetWorkflowReference(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	workflowOwner := testWorkflowOwner1

@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -59,6 +60,7 @@ func TestLBTCReader_callAttestationApi(t *testing.T) {
 }
 
 func TestLBTCReader_callAttestationApiMock(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	response := attestationResponse{
 		Attestations: []messageAttestationResponse{
 			{
@@ -85,6 +87,7 @@ func TestLBTCReader_callAttestationApiMock(t *testing.T) {
 
 func TestLBTCReader_callAttestationApiMockError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	sessionApprovedResponse := attestationResponse{
 		Attestations: []messageAttestationResponse{
@@ -191,6 +194,7 @@ func TestLBTCReader_callAttestationApiMockError(t *testing.T) {
 }
 
 func TestLBTCReader_rateLimiting(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sessionApprovedResponse := attestationResponse{
 		Attestations: []messageAttestationResponse{
 			{
@@ -321,6 +325,7 @@ func TestLBTCReader_rateLimiting(t *testing.T) {
 }
 
 func TestLBTCReader_skipApiOnFullPayload(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sessionApprovedResponse := attestationResponse{
 		Attestations: []messageAttestationResponse{
 			{
@@ -363,6 +368,7 @@ func TestLBTCReader_skipApiOnFullPayload(t *testing.T) {
 
 func TestLBTCReader_expectedOutput(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name           string
@@ -481,6 +487,7 @@ func TestLBTCReader_expectedOutput(t *testing.T) {
 }
 
 func Test_DecodeSourceTokenData(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	input, err := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000249f00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000267d40f64ecc4d95f3e8b2237df5f37b10812c250000000000000000000000000000000000000000000000000000000000000020000000000000000000000000c47e4b3124597fdf8dd07843d4a7052f2ee80c3000000000000000000000000000000000000000000000000000000000000000e45c70a5050000000000000000000000000000000000000000000000000000000000aa36a7000000000000000000000000845f8e3c214d8d0e4d83fc094f302aa26a12a0bc0000000000000000000000000000000000000000000000000000000000014a34000000000000000000000000845f8e3c214d8d0e4d83fc094f302aa26a12a0bc00000000000000000000000062f10ce5b727edf787ea45776bd050308a61150800000000000000000000000000000000000000000000000000000000000003e6000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000")
 	require.NoError(t, err)
 	decoded, err := abihelpers.DecodeAbiStruct[sourceTokenData](input)

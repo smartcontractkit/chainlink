@@ -14,6 +14,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/curve25519"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
@@ -36,6 +37,7 @@ func printTest(t *testing.T, msg *big.Int, private kyber.Scalar,
 }
 
 func TestShortSchnorr_SignAndVerify(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	if printTests {
 		t.Log("tests = [\n")
 	}
@@ -95,11 +97,13 @@ func TestShortSchnorr_SignAndVerify(t *testing.T) {
 }
 
 func TestShortSchnorr_NewSignature(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	s := NewSignature()
 	require.Equal(t, s.Signature, big.NewInt(0))
 }
 
 func TestShortSchnorr_ChallengeHash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	point := secp256k1Group.Point()
 	var hash [20]byte
 	h, err := ChallengeHash(point, hash, big.NewInt(-1))

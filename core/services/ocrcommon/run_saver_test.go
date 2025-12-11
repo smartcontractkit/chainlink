@@ -6,12 +6,14 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
 func TestRunSaver(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	pipelineRunner := mocks.NewRunner(t)
 	rs := NewResultRunSaver(
 		pipelineRunner,

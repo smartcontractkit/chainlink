@@ -6,10 +6,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestBackoffTicker_Bounds(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	bt := NewBackoffTicker(1*time.Millisecond, 2*time.Second)
 	min, max := bt.Bounds()
@@ -19,6 +22,7 @@ func TestBackoffTicker_Bounds(t *testing.T) {
 
 func TestBackoffTicker_StartTwice(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	bt := NewBackoffTicker(1*time.Second, 10*time.Second)
 	defer bt.Stop()
@@ -32,6 +36,7 @@ func TestBackoffTicker_StartTwice(t *testing.T) {
 
 func TestBackoffTicker_StopTwice(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	bt := NewBackoffTicker(1*time.Second, 10*time.Second)
 	ok := bt.Start()
@@ -46,6 +51,7 @@ func TestBackoffTicker_StopTwice(t *testing.T) {
 
 func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	min := 100 * time.Millisecond
 	max := 5 * time.Second
@@ -79,6 +85,7 @@ func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
 
 func TestBackoffTicker_Ticks(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	min := 100 * time.Millisecond
 	max := 5 * time.Second
@@ -124,6 +131,7 @@ func TestBackoffTicker_Ticks(t *testing.T) {
 
 func TestBackoffTicker_Restart(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	min := 1 * time.Second
 	max := 10 * time.Second

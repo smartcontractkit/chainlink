@@ -6,9 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestGetSignersEthAddress_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -23,6 +26,7 @@ func TestGetSignersEthAddress_Success(t *testing.T) {
 }
 
 func TestGetSignersEthAddress_InvalidSignatureLength(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	msg := []byte("test message")
 	sig := []byte("invalid signature length")
 	_, err := GetSignersEthAddress(msg, sig)
@@ -30,6 +34,7 @@ func TestGetSignersEthAddress_InvalidSignatureLength(t *testing.T) {
 }
 
 func TestGenerateEthPrefixedMsgHash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	msg := []byte("test message")
 	expectedPrefix := "\x19Ethereum Signed Message:\n"
 	expectedHash := crypto.Keccak256Hash([]byte(expectedPrefix + "12" + string(msg)))
@@ -39,6 +44,7 @@ func TestGenerateEthPrefixedMsgHash(t *testing.T) {
 }
 
 func TestGenerateEthSignature(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	privateKey, err := crypto.GenerateKey()
 	assert.NoError(t, err)
 

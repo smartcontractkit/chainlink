@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
@@ -21,6 +22,7 @@ func createTestMetrics(t *testing.T) *metrics.Metrics {
 }
 
 func TestWorkflowMetadataAggregator_StartStop(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond, testMetrics)
@@ -64,6 +66,7 @@ func createTestWorkflowMetadata(workflowID, workflowName, workflowOwner, workflo
 }
 
 func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
@@ -122,6 +125,7 @@ func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
@@ -166,6 +170,7 @@ func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -231,6 +236,7 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -283,6 +289,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNameOwnerTag(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -350,6 +357,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNam
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)
@@ -385,6 +393,7 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)
@@ -422,6 +431,7 @@ func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *tes
 }
 
 func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 
 	t.Run("empty workflow ID", func(t *testing.T) {

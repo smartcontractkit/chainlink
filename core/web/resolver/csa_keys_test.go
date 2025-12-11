@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
@@ -20,6 +21,7 @@ type expectedKey struct {
 }
 
 func Test_CSAKeysQuery(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	query := `
 	query GetCSAKeys {
 		csaKeys {
@@ -73,6 +75,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 }
 
 func Test_CreateCSAKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	query := `
 	mutation CreateCSAKey {
 		createCSAKey {
@@ -141,6 +144,7 @@ func Test_CreateCSAKey(t *testing.T) {
 }
 
 func Test_DeleteCSAKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	query := `
 	mutation DeleteCSAKey($id: ID!) {
 		deleteCSAKey(id: $id) {

@@ -9,12 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 func TestTransmitEventLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	uid := core.GenUpkeepID(types.ConditionTrigger, "111")
 
 	tests := []struct {

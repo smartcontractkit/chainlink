@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -23,6 +24,8 @@ import (
 )
 
 func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// Create mocks
 	telemClient := mocks.NewTelemClient(t)
 

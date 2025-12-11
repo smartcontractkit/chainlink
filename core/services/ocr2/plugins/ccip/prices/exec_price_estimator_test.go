@@ -10,12 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 )
 
 func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -107,6 +109,7 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 }
 
 func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	val1e18 := func(val int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(val)) }
 
 	testCases := []struct {
@@ -148,6 +151,7 @@ func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
 }
 
 func TestExecPriceEstimator_Median(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	val1e18 := func(val int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(val)) }
 
 	testCases := []struct {
@@ -200,6 +204,7 @@ func TestExecPriceEstimator_Median(t *testing.T) {
 }
 
 func TestExecPriceEstimator_Deviates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name         string
 		gasPrice1    *big.Int
@@ -256,6 +261,7 @@ func TestExecPriceEstimator_Deviates(t *testing.T) {
 }
 
 func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name               string
 		gasPrice           *big.Int

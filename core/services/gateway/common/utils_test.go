@@ -8,11 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 )
 
 func TestUtils_BytesUint32Conversions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	val := uint32(time.Now().Unix())
 	data := common.Uint32ToBytes(val)
@@ -21,6 +23,7 @@ func TestUtils_BytesUint32Conversions(t *testing.T) {
 
 func TestUtils_StringAlignedBytesConversions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	val := "my_string"
 	data := common.StringToAlignedBytes(val, 40)
@@ -37,6 +40,7 @@ func TestUtils_StringAlignedBytesConversions(t *testing.T) {
 
 func TestUtils_BytesSignAndValidate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	data := []byte("data_data")
 	incorrectData := []byte("some_other_data")

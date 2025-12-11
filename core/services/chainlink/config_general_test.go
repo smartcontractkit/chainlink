@@ -15,11 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
@@ -35,6 +37,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 
 func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {
 		config, err := GeneralConfigOpts{}.New()
@@ -83,6 +86,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 }
 
 func TestValidateDB(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Setenv(string(env.Config), "")
 
 	t.Run("unset db url", func(t *testing.T) {
@@ -118,6 +122,7 @@ func TestValidateDB(t *testing.T) {
 }
 
 func TestConfig_LogSQL(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 
@@ -156,6 +161,7 @@ var WebServerLDAPSecretsTOML string
 var WebServerOIDCSecretsTOML string
 
 func TestConfig_SecretsMerging(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
 		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
 		require.NoErrorf(t, err, "error: %s", err)

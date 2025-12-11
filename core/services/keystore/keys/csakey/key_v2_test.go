@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestCSAKeyV2_FromRawPrivateKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	pubKey, privKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -23,6 +25,7 @@ func TestCSAKeyV2_FromRawPrivateKey(t *testing.T) {
 }
 
 func TestCSAKeyV2_NewV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	keyV2, err := NewV2()
 	require.NoError(t, err)
 

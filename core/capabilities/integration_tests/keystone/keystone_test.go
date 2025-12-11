@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
@@ -23,10 +24,12 @@ import (
 )
 
 func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testTransmissionSchedule(t, "2s", "allAtOnce")
 }
 
 func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testTransmissionSchedule(t, "2s", "oneAtATime")
 }
 

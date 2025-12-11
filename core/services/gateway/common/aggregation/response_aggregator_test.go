@@ -7,9 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("single node response below threshold", func(t *testing.T) {
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
@@ -196,6 +198,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 }
 
 func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("empty response", func(t *testing.T) {
 		agg, err := NewIdenticalNodeResponseAggregator(1)
 		require.NoError(t, err)
@@ -240,6 +243,7 @@ func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
 }
 
 func TestIdenticalNodeResponseAggregator_NodeChangesResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("node changes response and reaches threshold", func(t *testing.T) {
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)

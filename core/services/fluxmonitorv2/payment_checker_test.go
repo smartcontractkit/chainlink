@@ -7,11 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 )
 
 func TestPaymentChecker_SufficientFunds(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		checker     = fluxmonitorv2.NewPaymentChecker(nil, nil)
 		payment     = 100
@@ -45,6 +47,7 @@ func TestPaymentChecker_SufficientFunds(t *testing.T) {
 
 func TestPaymentChecker_SufficientPayment(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		payment int64 = 10
 		eq            = payment

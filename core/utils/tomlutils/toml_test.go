@@ -4,10 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestUtils_TomlFloat32_Success_Decimal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var tomlF32 Float32
 
@@ -19,6 +22,7 @@ func TestUtils_TomlFloat32_Success_Decimal(t *testing.T) {
 
 func TestUtils_TomlFloat32_Success_Integer(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var tomlF32 Float32
 
@@ -30,6 +34,7 @@ func TestUtils_TomlFloat32_Success_Integer(t *testing.T) {
 
 func TestUtils_TomlFloat32_Failure(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var tomlF32 Float32
 
@@ -40,6 +45,7 @@ func TestUtils_TomlFloat32_Failure(t *testing.T) {
 
 func TestUtils_TomlFloat64_Success_Decimal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var tomlF64 Float64
 
@@ -51,6 +57,7 @@ func TestUtils_TomlFloat64_Success_Decimal(t *testing.T) {
 
 func TestUtils_TomlFloat64_Success_Integer(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var tomlF64 Float64
 
@@ -62,6 +69,7 @@ func TestUtils_TomlFloat64_Success_Integer(t *testing.T) {
 
 func TestUtils_TomlFloat64_Failure(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var tomlF64 Float64
 

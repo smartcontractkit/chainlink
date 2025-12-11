@@ -29,6 +29,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -91,6 +92,7 @@ var (
 )
 
 func TestNewServices(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		pluginConfig job.JSONConfig
 		feedID       utils.FeedID

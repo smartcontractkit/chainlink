@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -72,6 +73,7 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 }
 
 func TestLauncher(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("OK-wires_up_external_capabilities", func(t *testing.T) {
 		lggr := logger.Test(t)
 		registry := NewRegistry(lggr)
@@ -280,6 +282,7 @@ func newTriggerEventMsg(t *testing.T,
 }
 
 func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
@@ -389,6 +392,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 }
 
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -436,6 +440,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -497,6 +502,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -552,6 +558,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 }
 
 func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -618,6 +625,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 }
 
 func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -711,6 +719,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 }
 
 func TestLauncher_DonPairsToUpdate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -769,6 +778,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 }
 
 func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -823,6 +833,7 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 }
 
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -945,6 +956,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 }
 
 func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	fullTriggerCapID := "streams-trigger@1.0.0"

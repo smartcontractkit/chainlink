@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -23,6 +24,7 @@ import (
 )
 
 func TestHealthController_Readyz(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var tt = []struct {
 		name   string
 		ready  bool
@@ -59,6 +61,7 @@ func TestHealthController_Readyz(t *testing.T) {
 }
 
 func TestHealthController_Health_status(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var tt = []struct {
 		name   string
 		ready  bool
@@ -110,6 +113,7 @@ var (
 )
 
 func TestHealthController_Health_body(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	bodyJSON = strings.ReplaceAll(bodyJSON, "1399100", testutils.FixtureChainID.String())
 	bodyHTML = strings.ReplaceAll(bodyHTML, "1399100", testutils.FixtureChainID.String())
 	bodyTXT = strings.ReplaceAll(bodyTXT, "1399100", testutils.FixtureChainID.String())

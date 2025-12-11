@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 
 func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		bundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
@@ -66,6 +68,7 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -84,6 +87,7 @@ func TestShell_ListOCRKeyBundles(t *testing.T) {
 
 func TestShell_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -103,6 +107,7 @@ func TestShell_CreateOCRKeyBundle(t *testing.T) {
 
 func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -130,6 +135,7 @@ func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 }
 
 func TestShell_ImportExportOCRKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	defer deleteKeyExportFile(t)
 	ctx := testutils.Context(t)
 

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func modifyCopy[T any](c T, f func(c *T)) T {
@@ -26,6 +27,7 @@ func modifyCopy[T any](c T, f func(c *T)) T {
 
 func TestExecOffchainConfig120_Encoding(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	validConfig := JSONExecOffchainConfig{
 		SourceFinalityDepth:         3,
 		DestOptimisticConfirmations: 6,
@@ -114,6 +116,7 @@ func TestExecOffchainConfig120_Encoding(t *testing.T) {
 
 func TestExecOffchainConfig120_ParseRawJson(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name   string
@@ -181,6 +184,7 @@ func TestExecOffchainConfig120_ParseRawJson(t *testing.T) {
 }
 
 func Test_GetSendersNonce(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sender1 := cciptypes.Address(utils.RandomAddress().String())
 	sender2 := cciptypes.Address(utils.RandomAddress().String())
 

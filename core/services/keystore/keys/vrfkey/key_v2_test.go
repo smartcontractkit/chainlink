@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 func TestVRFKeys_KeyV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	k, err := NewV2()
 	require.NoError(t, err)
 

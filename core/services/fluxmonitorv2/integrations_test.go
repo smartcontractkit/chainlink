@@ -436,6 +436,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1763")
 	tests := []struct {
 		name    string
@@ -621,6 +622,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1865")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
@@ -733,6 +735,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
@@ -849,6 +852,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_InvalidSubmission(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// 8 decimals places used for prices.
 	fa := setupFluxAggregatorUniverse(t, WithMinMaxSubmission(
 		big.NewInt(100000000),     // 1 * 10^8
@@ -927,6 +931,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// - deploy a brand new FM contract
 	fa := setupFluxAggregatorUniverse(t)
 

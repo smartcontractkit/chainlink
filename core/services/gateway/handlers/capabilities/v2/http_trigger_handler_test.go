@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -44,6 +45,7 @@ func requireUserErrorSent(t *testing.T, payload handlers.UserCallbackPayload, er
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	triggerReq := createTestTriggerRequest(workflowID)
 	reqBytes, err := json.Marshal(triggerReq)
 	require.NoError(t, err)
@@ -407,6 +409,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("successful aggregation", func(t *testing.T) {
 		handler, mockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
@@ -483,6 +486,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("start and stop", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
 
@@ -527,6 +531,7 @@ func registerWorkflow(t *testing.T, handler *httpTriggerHandler, workflowID stri
 }
 
 func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	requestID := "test-request-id"
 	triggerReq := gateway_common.HTTPTriggerRequest{
 		Workflow: gateway_common.WorkflowSelector{
@@ -605,6 +610,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 }
 
 func TestIsValidJSON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		input    []byte
@@ -651,6 +657,7 @@ func TestIsValidJSON(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	cfg := ServiceConfig{
 		MaxTriggerRequestDurationMs: 2000, // 2 seconds for test
@@ -712,6 +719,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := testutils.Context(t)
 
@@ -857,6 +865,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := testutils.Context(t)
 
@@ -1059,6 +1068,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	})
 }
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, mockDon := createTestTriggerHandler(t)
 
 	t.Run("workflowID uppercase", func(t *testing.T) {
@@ -1573,6 +1583,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cfg := ServiceConfig{
 		CleanUpPeriodMs:             60000,
 		MaxTriggerRequestDurationMs: 300000,
@@ -1685,6 +1696,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	cfg := WithDefaults(ServiceConfig{})
 

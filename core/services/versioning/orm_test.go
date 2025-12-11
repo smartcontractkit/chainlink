@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -14,6 +15,7 @@ import (
 )
 
 func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 

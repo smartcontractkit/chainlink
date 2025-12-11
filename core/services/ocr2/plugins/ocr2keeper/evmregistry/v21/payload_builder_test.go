@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -18,6 +19,7 @@ import (
 )
 
 func TestNewPayloadBuilder(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tc := range []struct {
 		name         string
 		activeList   ActiveUpkeepList

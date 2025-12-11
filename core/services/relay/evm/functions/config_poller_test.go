@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -38,6 +39,7 @@ import (
 )
 
 func TestFunctionsConfigPoller(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("FunctionsPlugin", func(t *testing.T) {
 		runTest(t, functions.FunctionsPlugin, functions.FunctionsDigestPrefix)
 	})

@@ -6,9 +6,12 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestParseBigIntFromAny(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	decimalVal := decimal.New(123, 0)
 
 	testCases := []struct {

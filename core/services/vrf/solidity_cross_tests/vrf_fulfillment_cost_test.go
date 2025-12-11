@@ -10,11 +10,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // TestMeasureFulfillmentGasCost establishes rough bounds on the cost of
 // providing a proof to the VRF coordinator.
 func TestMeasureFulfillmentGasCost(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)

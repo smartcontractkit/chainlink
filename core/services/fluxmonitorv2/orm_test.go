@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
@@ -29,6 +30,7 @@ import (
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := t.Context()
 
 	db := pgtest.NewSqlxDB(t)
@@ -84,6 +86,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 
 func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := t.Context()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
@@ -170,6 +173,7 @@ func makeJob(t *testing.T) *job.Job {
 
 func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()

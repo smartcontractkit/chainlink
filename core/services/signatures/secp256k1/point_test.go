@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
 )
 
@@ -20,10 +21,12 @@ var numPointSamples = 10
 var randomStreamPoint = cryptotest.NewStream(&testing.T{}, 0)
 
 func TestPoint_String(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	require.Equal(t, "Secp256k1{X: fieldElt{0}, Y: fieldElt{0}}", newPoint().String())
 }
 
 func TestPoint_CloneAndEqual(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := newPoint()
 	for range numPointSamples {
 		g := f.Clone()
@@ -39,6 +42,7 @@ func TestPoint_CloneAndEqual(t *testing.T) {
 }
 
 func TestPoint_NullAndAdd(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f, g := newPoint(), newPoint()
 	for range numPointSamples {
 		g.Null()
@@ -49,6 +53,7 @@ func TestPoint_NullAndAdd(t *testing.T) {
 }
 
 func TestPoint_Set(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	p := newPoint()
 	base := newPoint().Base()
 	assert.NotEqual(t, p, base, "generator should not be zero")
@@ -57,6 +62,7 @@ func TestPoint_Set(t *testing.T) {
 }
 
 func TestPoint_Embed(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	p := newPoint()
 	for range numPointSamples {
 		data := make([]byte, p.EmbedLen())
@@ -93,6 +99,7 @@ func TestPoint_Embed(t *testing.T) {
 }
 
 func TestPoint_AddSubAndNeg(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	zero := newPoint().Null()
 	p := newPoint()
 	for range numPointSamples {
@@ -116,6 +123,7 @@ func TestPoint_AddSubAndNeg(t *testing.T) {
 }
 
 func TestPoint_Mul(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	zero := newPoint().Null()
 	multiplier := newScalar(bigZero)
 	one := newScalar(big.NewInt(int64(1)))
@@ -148,6 +156,7 @@ func TestPoint_Mul(t *testing.T) {
 }
 
 func TestPoint_Marshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	p := newPoint()
 	for range numPointSamples {
 		p.Pick(randomStreamPoint)
@@ -185,6 +194,7 @@ func TestPoint_Marshal(t *testing.T) {
 }
 
 func TestPoint_BaseTakesCopy(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	p := newPoint().Base()
 	p.Add(p, p)
 	q := newPoint().Base()
@@ -193,6 +203,8 @@ func TestPoint_BaseTakesCopy(t *testing.T) {
 }
 
 func TestPoint_EthereumAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// Example taken from
 	// https://theethereum.wiki/w/index.php/Accounts,_Addresses,_Public_And_Private_Keys,_And_Tokens
 	pString := "3a1076bf45ab87712ad64ccb3b10217737f7faacbf2872e88fdd9a537d8fe266"
@@ -205,23 +217,27 @@ func TestPoint_EthereumAddress(t *testing.T) {
 }
 
 func TestIsSecp256k1Point(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	p := curve25519.NewBlakeSHA256Curve25519(false).Point()
 	require.False(t, IsSecp256k1Point(p))
 	require.True(t, IsSecp256k1Point(newPoint()))
 }
 
 func TestCoordinates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	x, y := Coordinates(newPoint())
 	require.Equal(t, x, bigZero)
 	require.Equal(t, y, bigZero)
 }
 
 func TestValidPublicKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	require.False(t, ValidPublicKey(newPoint()), "zero is not a valid key")
 	require.True(t, ValidPublicKey(newPoint().Base()))
 }
 
 func TestGenerate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for !ValidPublicKey(Generate(randomStreamPoint).Public) {
 
 	}

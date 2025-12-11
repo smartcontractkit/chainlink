@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -32,6 +33,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1902")
 	t.Parallel()
 	// Run tke batches of tests for both pipeline and dynamic price getter setups.
@@ -657,6 +659,7 @@ func TestIntegration_CCIP(t *testing.T) {
 // TestReorg ensures that CCIP works even when a below finality depth reorg happens
 func TestReorg(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	// We need higher finality depth on the destination to perform reorg deep enough to revert commit and execution reports
 	destinationFinalityDepth := uint32(50)
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(

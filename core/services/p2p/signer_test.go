@@ -6,11 +6,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
 func TestSigner_InitializeAndSign(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	keystoreP2P := ksmocks.NewP2P(t)
 	key, err := p2pkey.NewV2()
 	require.NoError(t, err)

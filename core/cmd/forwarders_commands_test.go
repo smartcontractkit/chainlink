@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -20,6 +21,7 @@ import (
 
 func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		id         = "ID:"
@@ -64,6 +66,7 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 
 func TestShell_TrackEVMForwarder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	id := newRandChainID()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -109,6 +112,7 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 
 func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	id := newRandChainID()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -130,6 +134,7 @@ func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
 
 func TestShell_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)

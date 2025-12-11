@@ -6,11 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 func TestConfirmedLogExtraction(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lsn := Listener{}
 	lsn.Reqs = []request{
 		{
@@ -50,6 +52,7 @@ func TestConfirmedLogExtraction(t *testing.T) {
 }
 
 func TestResponsePruning(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lsn := Listener{}
 	lsn.LatestHead = 10000
 	lsn.ResponseCount = map[[32]byte]uint64{

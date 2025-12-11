@@ -4,9 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestNewPlugin(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tt := range []struct {
 		name string
 		kind string

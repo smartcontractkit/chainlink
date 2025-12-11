@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 func TestEngineRegistry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	workflowID1 := types.WorkflowID([32]byte{0, 1, 2, 3, 4})
 	workflowID2 := types.WorkflowID([32]byte{0, 1, 2, 3, 4, 5})
 

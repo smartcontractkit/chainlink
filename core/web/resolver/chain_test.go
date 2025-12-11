@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestResolver_Chains(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		chainID = *big.NewI(1)
 		query   = `
@@ -140,6 +142,7 @@ ResendAfterThreshold = '1h0m0s'
 }
 
 func TestResolver_Chain(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		chainID = *big.NewI(1)
 		query   = `

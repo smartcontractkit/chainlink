@@ -8,10 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 func TestUpkeepFilter_Select(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var zeroBytes [32]byte
 	emptyTopic := common.BytesToHash(zeroBytes[:])
 	contractAddress := common.HexToAddress("0xB9F3af0c2CbfE108efd0E23F7b0a151Ea42f764E")

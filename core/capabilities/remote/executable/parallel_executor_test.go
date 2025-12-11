@@ -10,9 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_CancellingContext_StopsTask(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tp := newParallelExecutor(10)
 	servicetest.Run(t, tp)
 
@@ -45,6 +47,7 @@ func Test_CancellingContext_StopsTask(t *testing.T) {
 }
 
 func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tp := newParallelExecutor(3)
 	servicetest.Run(t, tp)
 
@@ -64,6 +67,7 @@ func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) 
 }
 
 func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tp := newParallelExecutor(10)
 	servicetest.Run(t, tp)
 
@@ -83,6 +87,7 @@ func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
 }
 
 func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tp := newParallelExecutor(10)
 	var counter int32
 	t.Cleanup(func() {

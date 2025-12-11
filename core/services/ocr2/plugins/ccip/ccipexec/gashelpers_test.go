@@ -7,9 +7,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestOverheadGas(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Only Data and TokenAmounts are used from the messages
 	// And only the length is used so the contents doesn't matter.
 	tests := []struct {
@@ -38,6 +41,7 @@ func TestOverheadGas(t *testing.T) {
 }
 
 func TestMaxGasOverHeadGas(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Only Data and TokenAmounts are used from the messages
 	// And only the length is used so the contents doesn't matter.
 	tests := []struct {
@@ -69,6 +73,7 @@ func TestMaxGasOverHeadGas(t *testing.T) {
 }
 
 func TestWaitBoostedFee(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                     string
 		sendTimeDiff             time.Duration

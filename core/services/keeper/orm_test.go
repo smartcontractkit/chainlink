@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -71,6 +72,7 @@ func assertLastRunHeight(t *testing.T, db *sqlx.DB, upkeep keeper.UpkeepRegistra
 
 func TestKeeperDB_Registries(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -85,6 +87,7 @@ func TestKeeperDB_Registries(t *testing.T) {
 
 func TestKeeperDB_RegistryByContractAddress(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -99,6 +102,7 @@ func TestKeeperDB_RegistryByContractAddress(t *testing.T) {
 
 func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -135,6 +139,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 
 func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -162,6 +167,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -193,6 +199,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 
 func TestKeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -221,6 +228,7 @@ func TestKeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 
 func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -265,6 +273,7 @@ func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 
 func TestKeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -288,6 +297,7 @@ func TestKeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testi
 
 func TestKeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -313,6 +323,7 @@ func TestKeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
 
 func TestKeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -335,6 +346,7 @@ func TestKeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
 
 func TestKeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -360,6 +372,7 @@ func TestKeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 
 func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -389,6 +402,7 @@ func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 
 func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -404,6 +418,7 @@ func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
 
 func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -442,6 +457,7 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 
 func TestKeeperDB_LeastSignificant(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	db, _, _ := setupKeeperDB(t)
 	sql := `SELECT least_significant($1, $2)`
 	inputBytes := "10001000101010101101"
@@ -488,6 +504,7 @@ func TestKeeperDB_LeastSignificant(t *testing.T) {
 
 func TestKeeperDB_Uint256ToBit(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	db, _, _ := setupKeeperDB(t)
 	sql := `SELECT uint256_to_bit($1)`
 	for _, test := range []struct {

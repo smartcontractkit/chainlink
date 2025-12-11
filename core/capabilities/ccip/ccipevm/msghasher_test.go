@@ -30,6 +30,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -48,6 +49,7 @@ var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainE
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.
 func TestMessageHasher_EVM2EVM(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	d := testSetup(t)
 
@@ -221,6 +223,7 @@ func testSetup(t *testing.T) *testSetupData {
 }
 
 func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	transactor := evmtestutils.MustNewSimTransactor(t)
 	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},

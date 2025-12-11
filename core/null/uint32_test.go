@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 func TestUint32From(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		input uint32
 	}{
@@ -30,6 +32,7 @@ func TestUint32From(t *testing.T) {
 }
 
 func TestUnmarshalUint32_Valid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -49,6 +52,7 @@ func TestUnmarshalUint32_Valid(t *testing.T) {
 }
 
 func TestUnmarshalUint32_Invalid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -67,6 +71,7 @@ func TestUnmarshalUint32_Invalid(t *testing.T) {
 }
 
 func TestUnmarshalUint32_Error(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -86,6 +91,7 @@ func TestUnmarshalUint32_Error(t *testing.T) {
 }
 
 func TestUnmarshalUint32Overflow(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	maxUint32 := uint64(math.MaxUint32)
 
 	// Max uint32 should decode successfully
@@ -99,6 +105,7 @@ func TestUnmarshalUint32Overflow(t *testing.T) {
 }
 
 func TestTextUnmarshalInt_Valid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var i null.Uint32
 	err := i.UnmarshalText([]byte("12345"))
 	require.NoError(t, err)
@@ -107,6 +114,7 @@ func TestTextUnmarshalInt_Valid(t *testing.T) {
 }
 
 func TestTextUnmarshalInt_Invalid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -125,6 +133,7 @@ func TestTextUnmarshalInt_Invalid(t *testing.T) {
 }
 
 func TestMarshalInt(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	i := null.Uint32From(12345)
 	data, err := json.Marshal(i)
 	require.NoError(t, err)
@@ -138,6 +147,7 @@ func TestMarshalInt(t *testing.T) {
 }
 
 func TestMarshalIntText(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	i := null.Uint32From(12345)
 	data, err := i.MarshalText()
 	require.NoError(t, err)
@@ -151,6 +161,7 @@ func TestMarshalIntText(t *testing.T) {
 }
 
 func TestUint32SetValid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	change := null.NewUint32(0, false)
 	change.SetValid(12345)
 	assert.True(t, change.Valid)
@@ -158,6 +169,7 @@ func TestUint32SetValid(t *testing.T) {
 }
 
 func TestUint32Scan(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var i null.Uint32
 	err := i.Scan(12345)
 	require.NoError(t, err)

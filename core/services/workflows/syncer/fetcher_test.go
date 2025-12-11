@@ -22,6 +22,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -48,6 +49,7 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 }
 
 func TestNewFetcherService(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
 	connector := gcmocks.NewGatewayConnector(t)
@@ -298,6 +300,7 @@ func TestNewFetcherService(t *testing.T) {
 }
 
 func TestNewFetcherFunc(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 	testContent := []byte("test content")

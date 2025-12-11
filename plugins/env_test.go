@@ -6,9 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestParseEnvFile(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("valid", func(t *testing.T) {
 		got, err := ParseEnvFile("testdata/valid.env")
 		require.NoError(t, err)

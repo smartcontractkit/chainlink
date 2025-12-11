@@ -12,6 +12,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -54,6 +55,7 @@ func setupORM(t *testing.T) *TestORM {
 
 func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -81,6 +83,7 @@ func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 
 func Test_ORM_CreateManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -108,6 +111,7 @@ func Test_ORM_CreateManager(t *testing.T) {
 
 func Test_ORM_GetManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -137,6 +141,7 @@ func Test_ORM_GetManager(t *testing.T) {
 
 func Test_ORM_ListManagers(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -165,6 +170,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 
 func Test_ORM_ListManagersByIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -193,6 +199,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 
 func Test_ORM_UpdateManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -227,6 +234,7 @@ func Test_ORM_UpdateManager(t *testing.T) {
 
 func Test_ORM_EnableAndDisableManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -257,6 +265,7 @@ func Test_ORM_EnableAndDisableManager(t *testing.T) {
 
 func Test_ORM_CreateChainConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -307,6 +316,7 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 
 func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -371,6 +381,7 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 
 func Test_ORM_DeleteChainConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -401,6 +412,7 @@ func Test_ORM_DeleteChainConfig(t *testing.T) {
 
 func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -452,6 +464,7 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 
 func Test_ORM_UpdateChainConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -515,6 +528,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 
 func Test_ORM_CreateJobProposal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -549,6 +563,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 
 func Test_ORM_GetJobProposal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -614,6 +629,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	testCases := []struct {
 		name                                                                             string
@@ -808,6 +824,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 
 func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -841,6 +858,7 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 
 func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -863,6 +881,7 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 
 func Test_ORM_UpsertJobProposal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -981,6 +1000,7 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 
 func Test_ORM_ApproveSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1023,6 +1043,7 @@ func Test_ORM_ApproveSpec(t *testing.T) {
 
 func Test_ORM_CancelSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	testCases := []struct {
 		name               string
@@ -1096,6 +1117,7 @@ func Test_ORM_CancelSpec(t *testing.T) {
 
 func Test_ORM_DeleteProposal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	testCases := []struct {
 		name                      string
@@ -1251,6 +1273,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 
 func Test_ORM_RevokeSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	testCases := []struct {
 		name               string
@@ -1371,6 +1394,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 
 func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1392,6 +1416,7 @@ func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
 
 func Test_ORM_GetSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1412,6 +1437,7 @@ func Test_ORM_GetSpec(t *testing.T) {
 
 func Test_ORM_GetApprovedSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1448,6 +1474,7 @@ func Test_ORM_GetApprovedSpec(t *testing.T) {
 
 func Test_ORM_GetLatestSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1477,6 +1504,7 @@ func Test_ORM_GetLatestSpec(t *testing.T) {
 
 func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1512,6 +1540,7 @@ func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
 
 func Test_ORM_RejectSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	testCases := []struct {
 		name               string
@@ -1620,6 +1649,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 
 func Test_ORM_UpdateSpecDefinition(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1651,6 +1681,7 @@ func Test_ORM_UpdateSpecDefinition(t *testing.T) {
 
 func Test_ORM_IsJobManaged(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -1685,6 +1716,7 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 
 func Test_ORM_IsJobManagedByFeedsManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (

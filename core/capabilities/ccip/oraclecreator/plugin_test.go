@@ -14,11 +14,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
 func TestPluginTypeToTelemetryType(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name       string
 		pluginType types.PluginType
@@ -59,6 +61,7 @@ func TestPluginTypeToTelemetryType(t *testing.T) {
 }
 
 func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	poc := &pluginOracleCreator{p2pID: key}
 
@@ -129,6 +132,7 @@ func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
 
 // Sanity-check that these parameters are not accidentally changed without breaking CI
 func Test_defaultLocalConfigProperties(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lc := defaultLocalConfig()
 
 	assert.Equal(t, 30*time.Second, lc.DefaultMaxDurationInitialization)

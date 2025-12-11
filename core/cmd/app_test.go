@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -56,6 +57,7 @@ func withDefaults(t *testing.T, c chainlink.Config, s chainlink.Secrets) chainli
 }
 
 func Test_initServerConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		opts         *chainlink.GeneralConfigOpts
 		fileNames    []string

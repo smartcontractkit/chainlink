@@ -20,6 +20,7 @@ import (
 // Test for Log Event Trigger Capability happy path for EVM
 func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	th := testutils.NewContractReaderTH(t)
 
 	logEventConfig := Config{
@@ -67,6 +68,7 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 // by using cursor and does not receive duplicate logs
 func TestLogEventTriggerCursorNewLogs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	th := testutils.NewContractReaderTH(t)
 
 	logEventConfig := Config{

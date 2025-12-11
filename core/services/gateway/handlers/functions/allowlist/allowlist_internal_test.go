@@ -12,12 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	amocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
 )
 
 func TestUpdateAllowedSendersInBatches(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("OK-simple_update_in_batches", func(t *testing.T) {
 		ctx := context.Background()
 		config := OnchainAllowlistConfig{

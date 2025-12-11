@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -32,6 +33,7 @@ func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 
 func TestORM_FindBridges(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	_, orm := setupORM(t)
 
 	bt := bridges.BridgeType{
@@ -69,6 +71,7 @@ func TestORM_FindBridges(t *testing.T) {
 
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
@@ -104,6 +107,7 @@ func TestORM_FindBridge(t *testing.T) {
 	}
 }
 func TestORM_UpdateBridgeType(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 

@@ -12,11 +12,13 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 func TestPacker_PackReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tc := range []struct {
 		name       string
 		report     ac.IAutomationV21PlusCommonReport
@@ -116,6 +118,7 @@ func TestPacker_PackReport(t *testing.T) {
 }
 
 func TestPacker_UnpackCheckResults(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	uid, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(uid)
@@ -205,6 +208,7 @@ func TestPacker_UnpackCheckResults(t *testing.T) {
 }
 
 func TestPacker_UnpackPerformResult(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		Name    string
 		RawData string
@@ -228,6 +232,7 @@ func TestPacker_UnpackPerformResult(t *testing.T) {
 }
 
 func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name    string
 		raw     []byte
@@ -272,6 +277,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 }
 
 func TestPacker_PackReport_UnpackReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	report := ac.IAutomationV21PlusCommonReport{
 		FastGasWei:   big.NewInt(1),
 		LinkNative:   big.NewInt(1),

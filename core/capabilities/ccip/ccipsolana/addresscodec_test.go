@@ -8,9 +8,12 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestPublicKeyFromBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		inHex    string
@@ -62,6 +65,7 @@ func TestPublicKeyFromBytes(t *testing.T) {
 }
 
 func TestPublicKeyFromBase58(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		in          string
@@ -97,6 +101,7 @@ func TestPublicKeyFromBase58(t *testing.T) {
 }
 
 func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	codec := AddressCodec{}
 
 	testCases := []struct {

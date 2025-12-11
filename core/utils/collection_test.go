@@ -4,9 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestBatchSplit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	list := []int{}
 	for i := range 100 {
 		list = append(list, i)

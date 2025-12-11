@@ -13,12 +13,15 @@ import (
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 func TestEmit(t *testing.T) {
 	// t.Parallel() // TODO: the beholder tester uses t.SetEnv and cannot use t.Parallel
+	tests.BelongsToCISuite(t, "unit")
+
 	triggerID := "trigger_" + uuid.NewString()
 	executionID := "execution_" + uuid.NewString()
 	capabilityID := "capability_" + uuid.NewString()

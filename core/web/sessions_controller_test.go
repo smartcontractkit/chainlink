@@ -18,10 +18,13 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -88,6 +91,7 @@ func mustInsertSession(t *testing.T, ds sqlutil.DataSource, session *sessions.Se
 
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -125,6 +129,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -170,6 +175,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()

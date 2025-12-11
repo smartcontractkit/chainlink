@@ -10,10 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestNew(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key, err := New()
 	require.NoError(t, err)
 
@@ -22,6 +24,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestPublicKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key, err := New()
 	require.NoError(t, err)
 
@@ -29,6 +32,7 @@ func TestPublicKey(t *testing.T) {
 }
 
 func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	boxPubKey, boxPrivKey, err := box.GenerateKey(cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -46,6 +50,7 @@ func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
 }
 
 func TestPublicKeyStringAndID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := "my-test-public-key"
 	var pubkey [32]byte
 	copy(pubkey[:], key)
@@ -64,6 +69,7 @@ func TestPublicKeyStringAndID(t *testing.T) {
 }
 
 func TestDecrypt(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key, err := New()
 	require.NoError(t, err)
 
@@ -78,6 +84,7 @@ func TestDecrypt(t *testing.T) {
 }
 
 func TestMustNewXXXTestingOnly(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		k           *big.Int

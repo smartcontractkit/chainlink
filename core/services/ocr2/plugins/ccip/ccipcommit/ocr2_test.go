@@ -26,6 +26,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
@@ -45,6 +46,7 @@ import (
 )
 
 func TestCommitReportingPlugin_Observation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sourceNativeTokenAddr := ccipcalc.HexToAddress("1000")
 	destChainSelector := uint64(1)
 	sourceChainSelector := uint64(2)
@@ -224,6 +226,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_Report(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	sourceChainSelector := uint64(rand.Int())
 	var gasPrice = big.NewInt(1)
@@ -476,6 +479,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	newPlugin := func() *CommitReportingPlugin {
@@ -599,6 +603,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	report := cciptypes.CommitStoreReport{
 		TokenPrices: []cciptypes.TokenPrice{
 			{Token: cciptypes.Address(utils.RandomAddress().String()), Value: big.NewInt(9e18)},
@@ -657,6 +662,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_observePriceUpdates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	destChainSelector := uint64(12345)
 	sourceChainSelector := uint64(67890)
 
@@ -757,6 +763,7 @@ type CommitObservationLegacy struct {
 }
 
 func TestCommitReportingPlugin_extractObservationData(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	token1 := ccipcalc.HexToAddress("0xa")
 	token2 := ccipcalc.HexToAddress("0xb")
 	token1Price := big.NewInt(1)
@@ -1031,6 +1038,7 @@ func TestCommitReportingPlugin_extractObservationData(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	const defaultSourceChainSelector = 10 // we reuse this value across all test cases
 	feeToken1 := ccipcalc.HexToAddress("0xa")
 	feeToken2 := ccipcalc.HexToAddress("0xb")
@@ -1567,6 +1575,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_isStaleReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
 	merkleRoot1 := utils.Keccak256Fixed([]byte("some merkle root 1"))
@@ -1621,6 +1630,7 @@ func TestCommitReportingPlugin_isStaleReport(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name              string
 		commitStoreSeqNum uint64
@@ -1709,6 +1719,7 @@ func TestCommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 	chainSelector1 := uint64(1234)
 	chainSelector2 := uint64(5678)
@@ -1795,6 +1806,7 @@ func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 }
 
 func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 	tk1 := cciptypes.Address(utils.RandomAddress().String())
 	tk2 := cciptypes.Address(utils.RandomAddress().String())
@@ -1864,6 +1876,7 @@ func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
 }
 
 func Test_commitReportSize(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testParams := gopter.DefaultTestParameters()
 	testParams.MinSuccessfulTests = 100
 	p := gopter.NewProperties(testParams)
@@ -1888,6 +1901,7 @@ func Test_commitReportSize(t *testing.T) {
 }
 
 func Test_calculateIntervalConsensus(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name       string
 		intervals  []cciptypes.CommitStoreInterval
@@ -1930,6 +1944,7 @@ func Test_calculateIntervalConsensus(t *testing.T) {
 }
 
 func TestCommitReportToEthTxMeta(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mctx := hashutil.NewKeccak()
 	tree, err := merklemulti.NewTree(mctx, [][32]byte{mctx.Hash([]byte{0xaa})})
 	require.NoError(t, err)

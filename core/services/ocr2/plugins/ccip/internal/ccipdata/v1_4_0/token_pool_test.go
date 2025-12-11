@@ -5,10 +5,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 func TestTokenPool(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	addr := utils.RandomAddress()
 	chainSelector := uint64(2000)
 	poolType := "BurnMint"

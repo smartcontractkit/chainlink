@@ -11,9 +11,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_calculateMessageMaxGas(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		dataLen          int
 		numTokens        int
@@ -71,6 +73,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 // TestCalculateMaxGas is taken from the ccip repo where the CalculateMerkleTreeGas and CalculateMessageMaxGas values
 // are combined to one function.
 func TestCalculateMaxGas(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name             string
 		numRequests      int

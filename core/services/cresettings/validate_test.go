@@ -7,10 +7,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func TestValidatedCRESettingsSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	settingsString := `Foo = "bar"
 `
 	noHash := fmt.Sprintf(`type = "cresettings"

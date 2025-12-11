@@ -5,10 +5,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_NonNegativeInt64ToUint64(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		input    int64
 		expected uint64

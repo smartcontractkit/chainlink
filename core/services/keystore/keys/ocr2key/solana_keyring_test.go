@@ -9,9 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestSolanaKeyring_Sign_Verify(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newSolanaKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newSolanaKeyring(cryptorand.Reader)
@@ -43,6 +46,7 @@ func TestSolanaKeyring_Sign_Verify(t *testing.T) {
 }
 
 func TestSolanaKeyring_Marshalling(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newSolanaKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()

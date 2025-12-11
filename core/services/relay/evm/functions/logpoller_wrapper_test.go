@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
@@ -87,6 +88,7 @@ func getMockedRequestLog(t *testing.T) logpoller.Log {
 
 func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: int64(100)}, nil)
@@ -109,6 +111,7 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 
 func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: int64(100)}, nil)
@@ -122,6 +125,7 @@ func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 
 func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: int64(100)}, nil)
@@ -158,6 +162,7 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	_, lpWrapper, _ := setUp(t, 100_000)
 
 	inputLogs := make([]logpoller.Log, maxLogsToProcess+100)
@@ -176,6 +181,7 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testin
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	_, lpWrapper, _ := setUp(t, 100_000)
 	inputLogs := []logpoller.Log{getMockedRequestLog(t)}
 	inputLogs[0].Topics = [][]byte{[]byte("invalid topic")}
@@ -191,6 +197,7 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *test
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	_, lpWrapper, _ := setUp(t, 100_000)
 	mockedRequestLog := getMockedRequestLog(t)
 	inputLogs := []logpoller.Log{mockedRequestLog}
@@ -218,6 +225,7 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetect
 
 func TestLogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lp, lpWrapper, _ := setUp(t, 100_000) // check only once
 	wrapper := lpWrapper.(*logPollerWrapper)

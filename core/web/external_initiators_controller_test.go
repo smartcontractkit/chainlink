@@ -19,10 +19,13 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	orm := bridges.NewORM(db)
@@ -66,6 +69,7 @@ func TestValidateExternalInitiator(t *testing.T) {
 
 func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithConfig(t,
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -132,6 +136,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithConfig(t,
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -159,6 +164,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 
 func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithConfig(t,
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -186,6 +192,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithConfig(t,
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -204,6 +211,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 
 func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithConfig(t,
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -226,6 +234,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationWithConfig(t,
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

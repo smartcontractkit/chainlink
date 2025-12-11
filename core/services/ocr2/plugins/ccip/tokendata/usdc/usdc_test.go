@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -54,6 +55,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 
 func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 	response := attestationResponse{
 		Status:      attestationStatusSuccess,
@@ -78,6 +80,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 
 func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name                 string
@@ -232,6 +235,7 @@ func getMockUSDCEndpoint(t *testing.T, response attestationResponse) *httptest.S
 
 func TestGetUSDCMessageBody(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	expectedBody := []byte("0x0000000000000001000000020000000000048d71000000000000000000000000eb08f243e5d3fcff26a9e38ae5520a669f4019d000000000000000000000000023a04d5935ed8bc8e3eb78db3541f0abfb001c6e0000000000000000000000006cb3ed9b441eb674b58495c8b3324b59faff5243000000000000000000000000000000005425890298aed601595a70ab815c96711a31bc65000000000000000000000000ab4f961939bfe6a93567cc57c59eed7084ce2131000000000000000000000000000000000000000000000000000000000000271000000000000000000000000035e08285cfed1ef159236728f843286c55fc0861")
 	usdcReader := ccipdatamocks.USDCReader{}
@@ -260,6 +264,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 
 func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	usdcToken := utils.RandomAddress()
 	nonUsdcToken := utils.RandomAddress()
 
@@ -313,6 +318,7 @@ func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
 
 func TestUSDCReader_rateLimiting(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name         string
 		requests     uint64

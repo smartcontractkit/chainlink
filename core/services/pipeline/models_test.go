@@ -11,11 +11,13 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestRun_Status(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	assert.False(t, pipeline.RunStatusUnknown.Finished())
 	assert.False(t, pipeline.RunStatusRunning.Finished())
@@ -74,6 +76,7 @@ func TestRun_Status(t *testing.T) {
 }
 
 func TestRunErrors_ToError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runErrors := pipeline.RunErrors{}
 	runErrors = append(runErrors, null.NewString("bad thing happened", true))
 	runErrors = append(runErrors, null.NewString("pretty bad thing happened", true))
@@ -83,6 +86,7 @@ func TestRunErrors_ToError(t *testing.T) {
 
 func TestRun_StringOutputs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("invalid outputs", func(t *testing.T) {
 		run := &pipeline.Run{

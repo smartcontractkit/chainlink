@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 
 func TestCommitReportEncoding(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	report := cciptypes.CommitStoreReport{
 		TokenPrices: []cciptypes.TokenPrice{
@@ -64,6 +66,7 @@ func TestCommitReportEncoding(t *testing.T) {
 
 func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	validConfig := JSONCommitOffchainConfig{
 		SourceFinalityDepth:      3,
 		DestFinalityDepth:        4,
@@ -154,6 +157,7 @@ func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 
 func TestCommitStoreV120ffchainConfigDecodingCompatibility(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name                   string

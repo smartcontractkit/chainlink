@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -91,6 +92,7 @@ func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
 }
 
 func TestMeasureHashToCurveGasCost(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	contract, owner := deployVRFContract(t)
 	numSamples := int64(numSamples())
 	for i := range numSamples {

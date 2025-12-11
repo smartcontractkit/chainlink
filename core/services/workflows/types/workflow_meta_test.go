@@ -4,10 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestWorkflowName_Validate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, err := NewWorkflowName("")
 	require.Error(t, err)
 
@@ -20,6 +23,7 @@ func TestWorkflowName_Validate(t *testing.T) {
 
 func TestWorkflowID_FromHex(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, err := WorkflowIDFromHex("wrong chars")
 	require.Error(t, err)
 
@@ -32,6 +36,7 @@ func TestWorkflowID_FromHex(t *testing.T) {
 
 func TestValidateWorkflowOwner(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	require.Error(t, ValidateWorkflowOwner("wrong chars"))
 	require.Error(t, ValidateWorkflowOwner("00112233")) // wrong length
 	require.NoError(t, ValidateWorkflowOwner("aabbccddeeff00112233aabbccddeeff00112233"))

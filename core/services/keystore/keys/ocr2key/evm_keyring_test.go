@@ -13,10 +13,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestEVMKeyring_SignVerify(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newEVMKeyring(cryptorand.Reader)
@@ -49,6 +51,7 @@ func TestEVMKeyring_SignVerify(t *testing.T) {
 }
 
 func TestEVMKeyring_Sign3Verify3(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newEVMKeyring(cryptorand.Reader)
@@ -81,6 +84,7 @@ func TestEVMKeyring_Sign3Verify3(t *testing.T) {
 }
 
 func TestEVMKeyring_Marshalling(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -99,6 +103,7 @@ func TestEVMKeyring_Marshalling(t *testing.T) {
 }
 
 func TestRawReportContext3(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name     string
 		digest   [32]byte

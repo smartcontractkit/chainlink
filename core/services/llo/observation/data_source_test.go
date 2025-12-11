@@ -23,6 +23,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
@@ -175,6 +176,7 @@ func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { 
 var observationTimeout = 100 * time.Millisecond
 
 func Test_DataSource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.NullLogger
 	mainCtx := testutils.Context(t)
 	opts := &mockOpts{}

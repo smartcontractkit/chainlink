@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 )
@@ -19,6 +20,7 @@ import (
 const finality = uint32(4)
 
 func TestNewAutomationCustomTelemetryService(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	me := &MockMonitoringEndpoint{}
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster

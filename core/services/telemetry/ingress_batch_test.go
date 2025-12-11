@@ -6,12 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
 func TestIngressAgentBatch(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	telemetryBatchClient := mocks.NewTelemetryService(t)
 	ingressAgentBatch := telemetry.NewIngressAgentWrapper(telemetryBatchClient)
 	monitoringEndpoint := ingressAgentBatch.GenMonitoringEndpoint("test-network", "test-chainID", "0xa", synchronization.OCR)

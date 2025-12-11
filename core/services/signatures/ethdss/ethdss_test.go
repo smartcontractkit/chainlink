@@ -14,6 +14,8 @@ import (
 
 	"go.dedis.ch/kyber/v3"
 	dkg "go.dedis.ch/kyber/v3/share/dkg/rabin"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
@@ -51,6 +53,7 @@ func init() {
 }
 
 func TestDSSNew(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dssArgs := DSSArgs{secret: partSec[0], participants: partPubs,
 		long: longterms[0], random: randoms[0], msg: msg, T: 4}
 	dss, err := NewDSS(dssArgs)
@@ -63,6 +66,7 @@ func TestDSSNew(t *testing.T) {
 }
 
 func TestDSSPartialSigs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dss0 := getDSS(0)
 	dss1 := getDSS(1)
 	ps0, err := dss0.PartialSig()
@@ -148,6 +152,7 @@ func printTest(t *testing.T, msg *big.Int, public kyber.Point,
 }
 
 func TestDSSSignature(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dsss := make([]*DSS, nbParticipants)
 	pss := make([]*PartialSig, nbParticipants)
 	for i := range nbParticipants {
@@ -179,6 +184,7 @@ func TestDSSSignature(t *testing.T) {
 }
 
 func TestPartialSig_Hash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	observedHashes := make(map[*big.Int]bool)
 	for i := range nbParticipants {
 		psig, err := getDSS(i).PartialSig()

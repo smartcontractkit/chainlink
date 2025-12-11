@@ -15,10 +15,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -34,6 +37,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -73,6 +77,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 
 func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)

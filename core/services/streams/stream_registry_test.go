@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var _ Pipeline = &mockPipeline{}
@@ -31,6 +33,7 @@ func (m *mockPipeline) StreamIDs() []StreamID {
 }
 
 func Test_Registry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	runner := &mockRunner{}
 

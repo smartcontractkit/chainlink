@@ -144,6 +144,7 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -171,6 +172,7 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 }
 
 func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -372,6 +374,7 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 }
 
 func TestClient_SetConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	capabilityID := "test_capability@1.0.0"
 
@@ -461,6 +464,7 @@ func TestClient_SetConfig(t *testing.T) {
 }
 
 func TestClient_SetConfig_StartClose(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	capabilityID := "test_capability@1.0.0"

@@ -5,10 +5,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 func TestTracing_Config(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Test when all fields are non-nil
 	enabled := true
 	collectorTarget := "http://localhost:9000"

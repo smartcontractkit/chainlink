@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metering"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
@@ -92,6 +93,7 @@ func setup(t *testing.T, config Config) testHarness {
 }
 
 func TestComputeStartAddsToRegistry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -107,6 +109,7 @@ func TestComputeStartAddsToRegistry(t *testing.T) {
 
 func TestComputeExecuteMissingConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(t.Context()))
 
@@ -128,6 +131,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 }
 
 func TestComputeExecuteMissingBinary(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -149,6 +153,7 @@ func TestComputeExecuteMissingBinary(t *testing.T) {
 
 func TestComputeExecute(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -208,6 +213,7 @@ func TestComputeExecute(t *testing.T) {
 
 func TestComputeFetch(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	th := setup(t, defaultConfig)
@@ -299,6 +305,7 @@ func TestComputeFetch(t *testing.T) {
 
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// because we are using ms precision and test overhead can result in variance, we use a range of 400ms
 	// to apply assertions.
@@ -383,6 +390,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 
 func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 

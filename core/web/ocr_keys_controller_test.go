@@ -13,9 +13,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestOCRKeysController_Index_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -33,6 +36,7 @@ func TestOCRKeysController_Index_HappyPath(t *testing.T) {
 }
 
 func TestOCRKeysController_Create_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -60,6 +64,7 @@ func TestOCRKeysController_Create_HappyPath(t *testing.T) {
 }
 
 func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, _ := setupOCRKeysControllerTests(t)
 
 	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
@@ -69,6 +74,7 @@ func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 }
 
 func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 

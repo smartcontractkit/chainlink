@@ -6,12 +6,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 )
 
 func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	telemPayload := synchronization.TelemPayload{
 		Telemetry:  []byte("Mock telemetry"),
 		ContractID: "0xa",

@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
@@ -33,6 +34,7 @@ func (ssl *serverSideLogic) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	// server
 	wsConn := network.NewWSConnectionWrapper(lggr)

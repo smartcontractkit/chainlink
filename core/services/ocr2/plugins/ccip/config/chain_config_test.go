@@ -9,11 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func TestGetChainFromSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testChainID := int64(1337)
 
 	tests := []struct {
@@ -61,6 +63,7 @@ func TestGetChainFromSpec(t *testing.T) {
 }
 
 func TestGetChainByChainSelector_success(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockChain := mocks.NewChain(t)
 	mockChain.On("ID").Return(big.NewInt(11155111))
 
@@ -75,6 +78,7 @@ func TestGetChainByChainSelector_success(t *testing.T) {
 }
 
 func TestGetChainByChainSelector_selectorNotFound(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockChainSet := mocks.NewLegacyChainContainer(t)
 
 	_, _, err := GetChainByChainSelector(mockChainSet, uint64(444000444))
@@ -82,6 +86,7 @@ func TestGetChainByChainSelector_selectorNotFound(t *testing.T) {
 }
 
 func TestGetChainById_notFound(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockChainSet := mocks.NewLegacyChainContainer(t)
 	mockChainSet.On("Get", "444").Return(nil, errors.New("test")).Maybe()
 
@@ -91,6 +96,7 @@ func TestGetChainById_notFound(t *testing.T) {
 }
 
 func TestResolveChainNames(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                    string
 		sourceChainId           int64

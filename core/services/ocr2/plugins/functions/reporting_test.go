@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -130,6 +131,7 @@ func newObservation(t *testing.T, observerId uint8, requests ...*encoding.Proces
 
 func TestFunctionsReporting_Query(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	const batchSize = 10
 	plugin, orm, _, _ := preparePlugin(t, batchSize, 0)
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
@@ -148,6 +150,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 
 func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	const batchSize = 10
 	plugin, orm, _, _ := preparePlugin(t, batchSize, 1000000)
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
@@ -168,6 +171,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 
 func TestFunctionsReporting_Observation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, orm, _, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("abc"))
@@ -203,6 +207,7 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 
 func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, orm, _, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("abc"))
@@ -230,6 +235,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 
 func TestFunctionsReporting_Report(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, _, codec, _ := preparePlugin(t, 10, 1000000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
@@ -267,6 +273,7 @@ func TestFunctionsReporting_Report(t *testing.T) {
 
 func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
@@ -308,6 +315,7 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 
 func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult, meta := []byte("aaa"), []byte("meta")
@@ -338,6 +346,7 @@ func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 
 func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, _, codec, _ := preparePlugin(t, 10, 200000)
 	reqId1, reqId2 := newRequestID(), newRequestID()
 	compResult := []byte("aaa")
@@ -369,6 +378,7 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 
 func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, _, codec, _ := preparePlugin(t, 10, 0)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
@@ -398,6 +408,7 @@ func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 
 func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, _, _, _ := preparePlugin(t, 10, 0)
 	reqId1 := newRequestID()
 	compResult := []byte("aaa")
@@ -432,6 +443,7 @@ func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_
 
 func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, orm, codec, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
@@ -471,6 +483,7 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 
 func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, orm, codec, offchainTransmitter := preparePlugin(t, 10, 0)
 	req1 := newRequestWithResult([]byte("abc"))
 	req1.OnchainMetadata = []byte(functions_srv.OffchainRequestMarker)
@@ -486,6 +499,7 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *
 
 func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	plugin, orm, codec, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
@@ -524,6 +538,7 @@ func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 
 func TestFunctionsReporting_ShouldIncludeCoordinator(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	zeroAddr, coord1, coord2 := &common.Address{}, &common.Address{1}, &common.Address{2}
 

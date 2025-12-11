@@ -6,10 +6,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // the equivalent test with the same values exists in the Aptos offramp.move contract, see test_calculate_message_hash
 func TestComputeMessageDataHash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	expectedHashStr := "0xc8d6cf666864a60dd6ecd89e5c294734c53b3218d3f83d2d19a3c3f9e200e00d"
 
 	metadataHashBytes, err := hexutil.Decode("0xaabbccddeeff00112233445566778899aabbccddeeff00112233445566778899")
@@ -76,6 +79,7 @@ func TestComputeMessageDataHash(t *testing.T) {
 
 // the equivalent test with the same values exists in the Aptos offramp.move contract, see test_calculate_metadata_hash
 func TestComputeMetadataHash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	expectedHashStr := "0x812acb01df318f85be452cf6664891cf5481a69dac01e0df67102a295218dd17"
 	expectedHashAlternateStr := "0x6caf8756ae02ee4f12b83b38e0f21b5e43e90d203bd06729486fd4a0fc8bcc5e"
 

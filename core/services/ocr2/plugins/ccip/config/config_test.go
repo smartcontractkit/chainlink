@@ -10,11 +10,13 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
 func TestCommitConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                    string
 		cfg                     CommitPluginJobSpecConfig
@@ -131,6 +133,7 @@ func TestCommitConfig(t *testing.T) {
 }
 
 func TestExecutionConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	exampleConfig := ExecPluginJobSpecConfig{
 		SourceStartBlock: 222,
 		DestStartBlock:   333,
@@ -146,6 +149,7 @@ func TestExecutionConfig(t *testing.T) {
 }
 
 func TestUSDCValidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testcases := []struct {
 		config USDCConfig
 		err    string
@@ -206,6 +210,7 @@ func TestUSDCValidate(t *testing.T) {
 }
 
 func TestDynamicPriceGetterConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// this test goes through unmarshal -> move deprecated -> validate -> assert equal to expected
 	// for verifying e2e config loading and validation
 	destChain := chainsel.TEST_1000   // 11787463284727550157
@@ -327,7 +332,7 @@ func TestDynamicPriceGetterConfig(t *testing.T) {
 				      "price": 1000000000000000000
 				    }
 				  }
-				}				
+				}
 			`,
 			expCfg:   DynamicPriceGetterConfig{TokenPrices: expTokenPrices},
 			expError: false,

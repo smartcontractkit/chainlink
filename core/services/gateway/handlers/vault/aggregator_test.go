@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
@@ -27,6 +28,7 @@ func makeNodes(t *testing.T, signers []string) []capabilities.Node {
 }
 
 func TestAggregator_Valid_Signatures(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	signers := []string{
 		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
 		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
@@ -105,6 +107,7 @@ func newMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 }
 
 func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),
@@ -137,6 +140,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 }
 
 func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),
@@ -173,6 +177,7 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 }
 
 func TestAggregator_InsufficientResponses(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mcr := &mockCapabilitiesRegistry{F: 1}
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
 
@@ -191,6 +196,7 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 }
 
 func TestAggregator_QuorumUnobtainable(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),

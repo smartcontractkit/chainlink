@@ -12,12 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func Test_Bridges(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		query = `
@@ -86,6 +88,7 @@ func Test_Bridges(t *testing.T) {
 
 func Test_Bridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		query = `
@@ -163,6 +166,7 @@ func Test_Bridge(t *testing.T) {
 
 func Test_CreateBridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		name     = bridges.BridgeName("bridge1")
@@ -243,6 +247,7 @@ func Test_CreateBridge(t *testing.T) {
 
 func Test_UpdateBridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		name     = bridges.BridgeName("bridge1")
@@ -361,6 +366,7 @@ func Test_UpdateBridge(t *testing.T) {
 
 func Test_DeleteBridgeMutation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	name := bridges.BridgeName("bridge1")
 

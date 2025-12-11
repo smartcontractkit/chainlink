@@ -7,9 +7,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_DecodeBase58(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	invalidAddresses := []string{
 		"TronEnergyioE1Z3ukeRv38sYkv5Jn55bL",
 		"TronEnergyioNijNo8g3LF2ABKUAae6D2Z",
@@ -34,6 +37,7 @@ func Test_DecodeBase58(t *testing.T) {
 }
 
 func TestAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("Valid Addresses", func(t *testing.T) {
 		validAddresses := []string{
 			"TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -104,6 +108,7 @@ func TestAddress(t *testing.T) {
 }
 
 func TestHexToAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("Valid Hex Addresses", func(t *testing.T) {
 		validHexAddresses := []string{
 			"41a614f803b6fd780986a42c78ec9c7f77e6ded13c",

@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestInflightReportsContainer_add(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	container := newInflightExecReportsContainer(time.Second)
 
@@ -27,6 +29,7 @@ func TestInflightReportsContainer_add(t *testing.T) {
 }
 
 func TestInflightReportsContainer_expire(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	container := newInflightExecReportsContainer(time.Second)
 

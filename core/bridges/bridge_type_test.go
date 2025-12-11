@@ -17,9 +17,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestBridgeTypeRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	u, err := url.Parse("http://example.com/test")
 	require.NoError(t, err)
 	r := bridges.BridgeTypeRequest{
@@ -38,6 +40,7 @@ func TestBridgeTypeRequest(t *testing.T) {
 
 func TestBridgeType_Authenticate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	bta, bt := cltest.NewBridgeType(t, cltest.BridgeOpts{})
 	tests := []struct {
@@ -84,6 +87,7 @@ func BenchmarkParseBridgeName(b *testing.B) {
 }
 
 func TestBridgeName_UnmarshalJSON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var b bridges.BridgeName
 	require.NoError(t, json.Unmarshal([]byte(`"asdf123test"`), &b))
 	require.Equal(t, "asdf123test", b.String())
@@ -97,6 +101,7 @@ func TestBridgeName_UnmarshalJSON(t *testing.T) {
 
 func TestMarshalBridgeMetaData(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name         string

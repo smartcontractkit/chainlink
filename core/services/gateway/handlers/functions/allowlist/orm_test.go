@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
@@ -38,6 +39,7 @@ func seedAllowedSenders(t *testing.T, orm allowlist.ORM, amount int) []common.Ad
 }
 func TestORM_GetAllowedSenders(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("fetch first page", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		orm, err := setupORM(t)
@@ -63,6 +65,7 @@ func TestORM_GetAllowedSenders(t *testing.T) {
 
 func TestORM_CreateAllowedSenders(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("OK-create_an_allowed_sender", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -141,6 +144,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 
 func TestORM_DeleteAllowedSenders(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("OK-delete_blocked_sender_from_allowed_list", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -194,6 +198,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 
 func TestORM_PurgeAllowedSenders(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("OK-purge_allowed_list", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -260,6 +265,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 }
 
 func Test_NewORM(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("OK-create_ORM", func(t *testing.T) {
 		_, err := allowlist.NewORM(pgtest.NewSqlxDB(t), logger.Test(t), testutils.NewAddress())
 		require.NoError(t, err)

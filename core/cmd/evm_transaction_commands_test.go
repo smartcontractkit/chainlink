@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -27,6 +28,7 @@ import (
 
 func TestShell_IndexTransactions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -67,6 +69,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 func TestShell_ShowTransaction(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -92,6 +95,7 @@ func TestShell_ShowTransaction(t *testing.T) {
 
 func TestShell_IndexTxAttempts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -131,6 +135,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 func TestShell_SendEther_From_Txm(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 	fromAddress := key.Address
@@ -194,6 +199,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 
 func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.MustGenerateRandomKey(t)
 	fromAddress := key.Address

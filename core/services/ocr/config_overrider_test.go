@@ -15,6 +15,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -56,6 +57,7 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 }
 
 func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	g := gomega.NewWithT(t)
 
 	flagsContract := mocks.NewFlags(t)
@@ -86,6 +88,7 @@ func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
 
 func Test_OCRConfigOverrider(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("Before first tick returns nil override, later does return a specific override when hibernating", func(t *testing.T) {
 		flagsContract := mocks.NewFlags(t)

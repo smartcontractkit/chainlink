@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -11,6 +12,7 @@ import (
 
 func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.WebServer.AllowOrigins = ptr("http://localhost:3000,http://localhost:6689")
@@ -41,6 +43,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 func TestCors_OverrideOrigins(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		allow      string

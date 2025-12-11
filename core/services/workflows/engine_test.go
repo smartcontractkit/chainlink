@@ -367,6 +367,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 
 func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	const meteringSimpleWorkflow = `
 triggers:
@@ -689,6 +690,7 @@ targets:
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	beholderTester := tests.Beholder(t)
@@ -860,6 +862,7 @@ func (m *mc) UnregisterFromWorkflow(ctx context.Context, request capabilities.Un
 }
 
 func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cmd := "core/services/workflows/test/zerotimeout/cmd"
 
 	ctx := t.Context()
@@ -1065,6 +1068,7 @@ func mockTarget(id string) *mockCapability {
 }
 
 func TestEngine_RateLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	t.Run("per user rate limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -1353,6 +1357,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -1377,6 +1382,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 
 func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -1467,6 +1473,7 @@ func mockAction(t *testing.T) (*mockCapability, values.Value) {
 
 func TestEngine_MultiStepDependencies(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -1554,6 +1561,7 @@ targets:
 
 func TestEngine_WrapsTargets(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -1600,6 +1608,7 @@ func TestEngine_WrapsTargets(t *testing.T) {
 
 func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -1692,6 +1701,7 @@ targets:
 `
 
 func TestEngine_PassthroughInterpolation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -1740,6 +1750,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 }
 
 func TestEngine_Error(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	err := errors.New("some error")
 	tests := []struct {
 		name   string
@@ -1807,6 +1818,7 @@ func TestEngine_Error(t *testing.T) {
 }
 
 func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx            = testutils.Context(t)
 		writeID        = "write_polygon-testnet-mumbai@1.0.0"
@@ -1936,6 +1948,7 @@ targets:
 // TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence tests that the engine merges the
 // workflow config with the CR config correctly, with the CR config taking precedence.
 func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx              = testutils.Context(t)
 		actionID         = "custom-compute@1.0.0"
@@ -2018,6 +2031,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 }
 
 func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -2069,6 +2083,8 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 }
 
 func TestEngine_MultiBranchExecution(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// This workflow describes 2 branches in the workflow graph.
 	// A -> B -> C
 	// A -> D -> E
@@ -2186,6 +2202,7 @@ func basicTestTrigger(t *testing.T) *mockTriggerCapability {
 }
 
 func TestEngine_WithCustomComputeStep(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cmd := "core/services/workflows/test/wasm/legacy/cmd"
 
 	ctx := testutils.Context(t)
@@ -2261,6 +2278,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 }
 
 func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cmd := "core/services/workflows/test/break/cmd"
 
 	ctx := testutils.Context(t)
@@ -2381,6 +2399,7 @@ targets:
 `
 
 func TestEngine_FetchesSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -2446,6 +2465,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 }
 
 func TestEngine_CloseHappensOnlyIfWorkflowHasBeenRegistered(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -2496,6 +2516,7 @@ func TestEngine_CloseHappensOnlyIfWorkflowHasBeenRegistered(t *testing.T) {
 }
 
 func TestEngine_CloseUnregisterFails_NotFound(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -2576,6 +2597,7 @@ func (t mockRuntimeTrigger) UnregisterTrigger(ctx context.Context, request capab
 }
 
 func TestMerge(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name             string
 		baseConfig       map[string]any
@@ -2661,6 +2683,7 @@ func TestMerge(t *testing.T) {
 // Test_stepUpdateManager ensures that the manager is concurrency safe by sending concurrent
 // requests to send and remove a given execution ID.
 func Test_stepUpdateManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		wg             sync.WaitGroup
 		ctx            = testutils.Context(t)
@@ -2771,6 +2794,7 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 
 func TestEngine_WorkflowRegistry_BillingClientCalls(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	const testWorkflow = `
 triggers:

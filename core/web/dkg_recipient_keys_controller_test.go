@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func setupDKGRecipientKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
@@ -30,6 +32,7 @@ func setupDKGRecipientKeysControllerTests(t *testing.T) (cltest.HTTPClientCleane
 }
 
 func TestDKGRecipientKeysController_Index_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, keyStore := setupDKGRecipientKeysControllerTests(t)
 	keys, err := keyStore.DKGRecipient().GetAll()
 	require.NoError(t, err)

@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestSigningMethodEth_Sign(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("valid ECDSA key", func(t *testing.T) {
 		privateKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
@@ -37,6 +39,7 @@ func TestSigningMethodEth_Sign(t *testing.T) {
 }
 
 func TestSigningMethodEth_Verify(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -84,6 +87,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 }
 
 func TestWithExpiry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	duration := 30 * time.Minute
 	opts := &jwtOptions{}
 
@@ -94,6 +98,7 @@ func TestWithExpiry(t *testing.T) {
 }
 
 func TestWithIssuer(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	issuer := "test-issuer"
 	opts := &jwtOptions{}
 
@@ -104,6 +109,7 @@ func TestWithIssuer(t *testing.T) {
 }
 
 func TestWithAudience(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	audience := []string{"aud1", "aud2"}
 	opts := &jwtOptions{}
 
@@ -113,6 +119,7 @@ func TestWithAudience(t *testing.T) {
 }
 
 func TestWithSubject(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	subject := "test-subject"
 	opts := &jwtOptions{}
 
@@ -123,6 +130,7 @@ func TestWithSubject(t *testing.T) {
 }
 
 func TestWithMaxExpiryDuration(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	duration := 10 * time.Minute
 	opts := &verifyOptions{}
 
@@ -133,6 +141,7 @@ func TestWithMaxExpiryDuration(t *testing.T) {
 }
 
 func TestWithIssuedAtTolerance(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	duration := 10 * time.Minute
 	opts := &verifyOptions{}
 
@@ -153,6 +162,7 @@ func testRequest(t *testing.T) jsonrpc.Request[json.RawMessage] {
 }
 
 func TestCreateRequestJWT(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	req := testRequest(t)
 
 	t.Run("default options", func(t *testing.T) {
@@ -199,6 +209,7 @@ func TestCreateRequestJWT(t *testing.T) {
 }
 
 func TestSplitToken(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("valid token format", func(t *testing.T) {
 		tokenString := "header.payload.signature"
 
@@ -224,6 +235,7 @@ func TestSplitToken(t *testing.T) {
 }
 
 func TestVerifyRequestJWT_Integration(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
@@ -489,6 +501,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 }
 
 func TestSigningMethodRegistration(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	method := jwt.GetSigningMethod("ETH")
 	require.NotNil(t, method)
 

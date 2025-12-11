@@ -65,6 +65,7 @@ func TestCache(t *testing.T) {
 // Verify that an expired module is not evicted because evictAfterSize is 1
 func TestCache_EvictAfterSize(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
 	timeout := 1 * time.Second

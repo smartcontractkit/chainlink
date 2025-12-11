@@ -12,6 +12,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -20,6 +21,7 @@ import (
 
 func TestQuery_PaginatedJobRuns(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetJobsRuns {
@@ -86,6 +88,7 @@ func TestQuery_PaginatedJobRuns(t *testing.T) {
 
 func TestResolver_JobRun(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetJobRun($id: ID!) {
@@ -237,6 +240,7 @@ func TestResolver_JobRun(t *testing.T) {
 
 func TestResolver_RunJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation RunJob($id: ID!) {

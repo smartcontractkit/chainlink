@@ -13,10 +13,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, keyStore := setupCosmosKeysControllerTests(t)
 	keys, _ := keyStore.Cosmos().GetAll()
@@ -37,6 +40,7 @@ func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
 
 func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	ctx := testutils.Context(t)
@@ -64,6 +68,7 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 
 func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupCosmosKeysControllerTests(t)
 
@@ -75,6 +80,7 @@ func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 
 func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client, keyStore := setupCosmosKeysControllerTests(t)

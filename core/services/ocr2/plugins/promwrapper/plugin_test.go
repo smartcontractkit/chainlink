@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper/mocks"
 )
@@ -66,6 +67,8 @@ func (fakeReportingPlugin) Close() error {
 var _ types.ReportingPlugin = &fakeReportingPlugin{}
 
 func TestPlugin_MustInstantiate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// Ensure instantiation without panic for no override backend.
 	var reportingPlugin = &fakeReportingPlugin{}
 	promPlugin := New(reportingPlugin, "test", "EVM", big.NewInt(1), types.ReportingPluginConfig{}, nil)
@@ -78,6 +81,7 @@ func TestPlugin_MustInstantiate(t *testing.T) {
 }
 
 func TestPlugin_GetLatencies(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Use arbitrary report timestamp and label values.
 	configDigest := common.BytesToHash(crypto.Keccak256([]byte("foobar")))
 	reportTimestamp := types.ReportTimestamp{

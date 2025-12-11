@@ -14,6 +14,7 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 )
 
 func TestShell_CreateUser(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	client.PasswordPrompter = cltest.MockPasswordPrompter{
@@ -61,6 +63,7 @@ func TestShell_CreateUser(t *testing.T) {
 }
 
 func TestShell_ChangeRole(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -101,6 +104,7 @@ func TestShell_ChangeRole(t *testing.T) {
 }
 
 func TestShell_DeleteUser(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -136,6 +140,7 @@ func TestShell_DeleteUser(t *testing.T) {
 }
 
 func TestShell_ListUsers(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -166,6 +171,7 @@ func TestShell_ListUsers(t *testing.T) {
 }
 
 func TestAdminUsersPresenter_RenderTable(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	user := sessions.User{
 		Email:     "foo@bar.com",
 		Role:      "admin",

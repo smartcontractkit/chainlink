@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // mockGitExecutor simulates git commands for testing as an alternative to systemGitExecutor
@@ -75,6 +77,7 @@ func (m *mockSystemOperator) WriteFile(path string, data []byte, perm os.FileMod
 }
 
 func TestUpdater_Run(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testTime := time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC)
 	// Use a full 40-character SHA
 	testSHA := "ac7a7395feed" + strings.Repeat("0", 28)
@@ -286,6 +289,7 @@ replace github.com/smartcontractkit/chainlink/v3 => ../
 }
 
 func TestUpdater_FindLocalReplaceModules(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sysOp := newMockSystemOperator()
 	sysOp.files["go.mod"] = []byte(`
 module test

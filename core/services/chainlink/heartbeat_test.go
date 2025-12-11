@@ -15,12 +15,14 @@ import (
 	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name     string
@@ -52,6 +54,7 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 }
 
 func TestHeartbeat_MeterEvents(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 
 	// Use a thread-safe byte collector

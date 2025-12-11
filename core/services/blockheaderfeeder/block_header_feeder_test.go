@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -35,6 +36,7 @@ type testCase struct {
 }
 
 func TestFeeder(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []testCase{
 		{
 			name:                "single missing block",
@@ -233,6 +235,7 @@ func (test testCase) testFeeder(t *testing.T) {
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	coordinator := &blockhashstore.TestCoordinator{
 		RequestEvents: []blockhashstore.Event{{Block: 74, ID: "request"}},
 	}

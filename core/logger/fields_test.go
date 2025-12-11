@@ -5,11 +5,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestFields_Merge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	f1 := make(logger.Fields)
 	f1["key1"] = "value1"
@@ -38,6 +40,7 @@ func TestFields_Merge(t *testing.T) {
 
 func TestFields_Slice(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	f := make(logger.Fields)
 	f["str"] = "foo"
@@ -64,6 +67,7 @@ func TestFields_Slice(t *testing.T) {
 
 func TestFields_With(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	f := make(logger.Fields)
 	f["str"] = "foo"

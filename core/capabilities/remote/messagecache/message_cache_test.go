@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 )
 
@@ -17,6 +18,7 @@ const (
 )
 
 func TestMessageCache_InsertReady(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cache := messagecache.NewMessageCache[string, string]()
 
 	// not ready with one message
@@ -43,6 +45,7 @@ func TestMessageCache_InsertReady(t *testing.T) {
 }
 
 func TestMessageCache_DeleteOlderThan(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cache := messagecache.NewMessageCache[string, string]()
 
 	ts := cache.Insert(eventID1, peerID1, 100, []byte(payloadA))

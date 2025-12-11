@@ -8,11 +8,13 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	mocktypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 )
 
 func Test_ccipDeployment_Transitions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// we use a pointer to the oracle here for mock assertions
 	type args struct {
 		prevDeployment map[ocrtypes.ConfigDigest]*mocktypes.CCIPOracle

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -21,6 +22,7 @@ func assertBetween(t *testing.T, got time.Duration, low time.Duration, high time
 }
 
 func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var gotTime time.Time
 	var called bool
 

@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestMerge(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	vars := map[string]any{
 		"jb": map[string]any{
 			"databaseID": "some-job-id",

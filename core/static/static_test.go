@@ -4,9 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_short(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tt := range []struct {
 		ver, sha       string
 		expVer, expSha string

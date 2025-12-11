@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
@@ -34,6 +35,7 @@ const (
 
 func TestUpdateAndCheck(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("OK-with_ToS_V1.0.0", func(t *testing.T) {
 		client := clienttest.NewClient(t)
@@ -120,6 +122,7 @@ func TestUpdateAndCheck(t *testing.T) {
 
 func TestUnsupportedVersion(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	client := clienttest.NewClient(t)
 	config := allowlist.OnchainAllowlistConfig{
@@ -135,6 +138,7 @@ func TestUnsupportedVersion(t *testing.T) {
 
 func TestUpdatePeriodically(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("OK-with_ToS_V1.0.0", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -227,6 +231,7 @@ func TestUpdatePeriodically(t *testing.T) {
 
 func TestUpdateFromContract(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("OK-fetch_complete_list_of_allowed_senders", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -316,6 +321,7 @@ func TestUpdateFromContract(t *testing.T) {
 }
 
 func TestExtractContractVersion(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type tc struct {
 		name           string
 		versionStr     string

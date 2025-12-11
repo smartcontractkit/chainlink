@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -76,6 +77,7 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 }
 
 func Test_Datasource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	orm := &mockORM{}
 	jb := job.Job{
 		Type: job.Type(pipeline.OffchainReporting2JobType),

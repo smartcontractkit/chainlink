@@ -15,6 +15,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
@@ -31,8 +32,10 @@ const expectedWrapper = "core/services/ocr2/plugins/ccip/internal/observability.
 // TestOnRampObservedMethods tests that all methods of OnRampReader are observed by a wrapper.
 // It uses the runtime to detect if the call stack contains the wrapper class.
 func TestOnRampObservedMethods(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Methods not expected to be observed.
 	// Add a method name here to exclude it from the test.
+
 	excludedMethods := []string{
 		"Address",
 		"Close",

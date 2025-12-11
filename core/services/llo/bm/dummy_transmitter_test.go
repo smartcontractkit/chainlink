@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_DummyTransmitter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	tr := NewTransmitter(lggr, "dummy")
 

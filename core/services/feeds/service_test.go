@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -273,6 +274,7 @@ func setupTestServiceCfg(
 
 func Test_Service_RegisterManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		id        = int64(1)
@@ -320,6 +322,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 
 func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		id        = int64(1)
@@ -371,6 +374,7 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 
 func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		id        = int64(1)
@@ -414,6 +418,7 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 
 func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	pubKeyHex := "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	var pubKey crypto.PublicKey
@@ -451,6 +456,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 
 func Test_Service_ListManagers(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -470,6 +476,7 @@ func Test_Service_ListManagers(t *testing.T) {
 
 func Test_Service_GetManager(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -489,6 +496,7 @@ func Test_Service_GetManager(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)

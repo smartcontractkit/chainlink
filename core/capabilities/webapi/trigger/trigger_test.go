@@ -18,6 +18,7 @@ import (
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -160,6 +161,7 @@ func requireChanMsg[T capabilities.TriggerResponse](t *testing.T, ch <-chan capa
 }
 
 func TestTriggerExecute(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t)
 	ctx := testutils.Context(t)
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
@@ -324,6 +326,7 @@ func TestTriggerExecute(t *testing.T) {
 }
 
 func TestRegisterNoAllowedSenders(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t)
 	ctx := testutils.Context(t)
 	Config, _ := workflowTriggerConfig(th, []string{}, []string{"daily_price_update"})
@@ -343,6 +346,7 @@ func TestRegisterNoAllowedSenders(t *testing.T) {
 }
 
 func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t)
 	ctx := testutils.Context(t)
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
@@ -402,6 +406,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 }
 
 func TestRegisterUnregister(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	th := setup(t)
 	ctx := testutils.Context(t)
 	Config, err := workflowTriggerConfig(th, []string{address1}, []string{"daily_price_update"})

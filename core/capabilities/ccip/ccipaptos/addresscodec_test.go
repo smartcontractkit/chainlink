@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func generateAddressBytes32() [32]byte {
@@ -34,6 +36,7 @@ func generateAddressString() string {
 }
 
 func TestAddressBytesToString(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		inHex    string
@@ -85,6 +88,7 @@ func TestAddressBytesToString(t *testing.T) {
 }
 
 func TestAddressStringToBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		in          string

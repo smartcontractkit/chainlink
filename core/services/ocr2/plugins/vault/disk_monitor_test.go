@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -21,6 +22,7 @@ func (m *mockGauge) Record(ctx context.Context, value int64, options ...metric.R
 }
 
 func TestDiskMonitor_emitDirSizeMetric(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	dm := &DiskMonitor{
@@ -38,6 +40,7 @@ func TestDiskMonitor_emitDirSizeMetric(t *testing.T) {
 }
 
 func TestDiskMonitor_emitDirSizeMetric_error(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	dm := &DiskMonitor{

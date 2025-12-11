@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
@@ -25,6 +26,7 @@ import (
 const password = "password"
 
 func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	csa1, csa2 := csakey.MustNewV2XXXTestingOnly(big.NewInt(1)), csakey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	eth1, eth2 := mustNewEthKey(t), mustNewEthKey(t)
 	ocr := []ocrkey.KeyV2{

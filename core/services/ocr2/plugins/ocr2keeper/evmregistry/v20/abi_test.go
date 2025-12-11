@@ -12,10 +12,12 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 func TestUnpackTransmitTxInput(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	assert.NoError(t, err)
 
@@ -37,6 +39,7 @@ func TestUnpackTransmitTxInput(t *testing.T) {
 }
 
 func TestUnpackTransmitTxInputErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		Name    string
 		RawData string
@@ -63,6 +66,7 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 }
 
 func TestUnpackCheckResults(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		assert.NoError(t, err)
@@ -124,6 +128,7 @@ func TestUnpackCheckResults(t *testing.T) {
 }
 
 func TestUnpackPerformResult(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		assert.NoError(t, err)

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
@@ -42,6 +43,7 @@ const (
 
 func TestEngineConfig_Validate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	cfg := defaultTestConfig(t, nil)
 
 	t.Run("nil module", func(t *testing.T) {

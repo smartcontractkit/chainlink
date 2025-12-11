@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -100,6 +101,7 @@ func sendNodeReponse(t *testing.T, handler handlers.Handler, userRequestMsg api.
 }
 
 func TestFunctionsHandler_Minimal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.Test(t))
 	require.NoError(t, err)
 
@@ -110,6 +112,7 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 }
 
 func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.Test(t))
 	require.NoError(t, err)
 
@@ -117,6 +120,7 @@ func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
 }
 
 func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                     string
 		nodeResults              []bool
@@ -166,6 +170,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 }
 
 func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                     string
 		nodeResults              []bool
@@ -214,6 +219,7 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 }
 
 func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 	handler, _, allowlist, _ := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24, user.Address)
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.PrivateKey)
@@ -225,6 +231,7 @@ func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 }
 
 func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 	handler, don, allowlist, subscriptions := newFunctionsHandlerForATestDON(t, nodes, time.Millisecond*10, user.Address)
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.PrivateKey)

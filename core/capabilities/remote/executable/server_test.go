@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -28,6 +29,7 @@ import (
 )
 
 func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
@@ -81,6 +83,7 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 }
 
 func Test_Server_DefaultExcludedAttributes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
@@ -117,6 +120,7 @@ func Test_Server_DefaultExcludedAttributes(t *testing.T) {
 }
 
 func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
@@ -153,6 +157,7 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 }
 
 func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
@@ -180,6 +185,7 @@ func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 }
 
 func Test_Server_InsufficientCallers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
@@ -207,6 +213,7 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 }
 
 func Test_Server_CapabilityError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
@@ -234,6 +241,7 @@ func Test_Server_CapabilityError(t *testing.T) {
 }
 
 func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
@@ -444,6 +452,7 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 }
 
 func Test_Server_SetConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
 
@@ -571,6 +580,7 @@ func Test_Server_SetConfig(t *testing.T) {
 }
 
 func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
 	broker := newTestAsyncMessageBroker(t, 100)
@@ -628,6 +638,7 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 }
 
 func Test_Server_SetConfig_StartValidation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	t.Run("Start without SetConfig should fail", func(t *testing.T) {
@@ -689,6 +700,7 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 }
 
 func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
@@ -777,6 +789,7 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 }
 
 func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
@@ -842,6 +855,7 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 }
 
 func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	numWorkflowPeers := 4

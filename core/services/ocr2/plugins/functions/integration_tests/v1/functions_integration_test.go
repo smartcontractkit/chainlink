@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/quarantine"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	utils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/integration_tests/v1/internal"
 )
@@ -23,6 +24,7 @@ var (
 )
 
 func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1804")
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
@@ -51,6 +53,8 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 }
 
 func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()
@@ -88,6 +92,7 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 }
 
 func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1808")
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)

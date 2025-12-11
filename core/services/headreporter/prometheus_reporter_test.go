@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -28,6 +29,7 @@ import (
 )
 
 func Test_PrometheusReporter(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("with nothing in the database", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 

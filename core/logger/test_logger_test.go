@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func init() {
@@ -15,6 +17,7 @@ func init() {
 }
 
 func TestTestLogger(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 
 	const (

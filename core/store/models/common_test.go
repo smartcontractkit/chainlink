@@ -13,10 +13,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestJSON_Merge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name      string
@@ -94,6 +97,7 @@ func TestJSON_Merge(t *testing.T) {
 }
 
 func TestJSON_MergeNull(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	merged, err := models.Merge(models.JSON{}, models.JSON{})
 	require.NoError(t, err)
 	assert.Equal(t, `{}`, merged.String())
@@ -101,6 +105,7 @@ func TestJSON_MergeNull(t *testing.T) {
 
 func TestJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name        string
@@ -122,6 +127,7 @@ func TestJSON_UnmarshalJSON(t *testing.T) {
 
 func TestJSON_ParseJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name        string
@@ -145,6 +151,7 @@ func TestJSON_ParseJSON(t *testing.T) {
 
 func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	j := []byte(`"NotAUrl"`)
 	wurl := &models.WebURL{}
 	err := json.Unmarshal(j, wurl)
@@ -153,6 +160,7 @@ func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 
 func TestWebURL_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	j := []byte(`"http://www.duckduckgo.com"`)
 	wurl := &models.WebURL{}
 	err := json.Unmarshal(j, wurl)
@@ -161,6 +169,7 @@ func TestWebURL_UnmarshalJSON(t *testing.T) {
 
 func TestWebURL_MarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	str := "http://www.duckduckgo.com"
 	parsed, err := url.ParseRequestURI(str)
@@ -173,6 +182,7 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 
 func TestWebURL_String_HasURL(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	u, _ := url.Parse("http://www.duckduckgo.com")
 	w := models.WebURL(*u)
@@ -182,6 +192,7 @@ func TestWebURL_String_HasURL(t *testing.T) {
 
 func TestWebURL_String_HasNilURL(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	w := models.WebURL{}
 
@@ -190,6 +201,7 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 
 func TestCron_UnmarshalJSON_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name  string
@@ -209,6 +221,7 @@ func TestCron_UnmarshalJSON_Success(t *testing.T) {
 
 func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name      string
@@ -228,6 +241,7 @@ func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
 
 func TestSha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 	json, err := hash.MarshalJSON()
@@ -243,6 +257,7 @@ func TestSha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
 
 func TestSha256Hash_Sha256HashFromHex(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	_, err := models.Sha256HashFromHex("abczzz")
 	require.Error(t, err)
@@ -256,6 +271,7 @@ func TestSha256Hash_Sha256HashFromHex(t *testing.T) {
 
 func TestSha256Hash_String(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 	assert.Equal(t, "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5", hash.String())
@@ -263,6 +279,7 @@ func TestSha256Hash_String(t *testing.T) {
 
 func TestSha256Hash_Scan_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 	val, err := hash.Value()
@@ -277,6 +294,7 @@ func TestSha256Hash_Scan_Value(t *testing.T) {
 
 func TestAddressCollection_Scan_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ac := models.AddressCollection{
 		common.HexToAddress(strings.Repeat("AA", 20)),
@@ -295,6 +313,7 @@ func TestAddressCollection_Scan_Value(t *testing.T) {
 
 func TestAddressCollection_ToStrings(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	hex1 := "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa"
 	hex2 := "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
@@ -312,6 +331,7 @@ func TestAddressCollection_ToStrings(t *testing.T) {
 
 func TestWebURL_Scan_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	u, err := url.Parse("https://chain.link")
 	require.NoError(t, err)
@@ -330,6 +350,7 @@ func TestWebURL_Scan_Value(t *testing.T) {
 
 func TestJSON_Scan_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	js, err := models.ParseJSON([]byte(`{"foo":123}`))
 	require.NoError(t, err)
@@ -346,6 +367,7 @@ func TestJSON_Scan_Value(t *testing.T) {
 
 func TestJSON_Bytes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	jsBytes := []byte(`{"foo":123}`)
 
@@ -357,6 +379,7 @@ func TestJSON_Bytes(t *testing.T) {
 
 func TestJSON_MarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	jsBytes := []byte(`{"foo":123}`)
 
@@ -371,6 +394,7 @@ func TestJSON_MarshalJSON(t *testing.T) {
 
 func TestJSON_UnmarshalTOML(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	jsBytes := []byte(`{"foo":123}`)
 

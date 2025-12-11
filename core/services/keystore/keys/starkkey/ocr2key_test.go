@@ -15,6 +15,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
@@ -37,6 +38,7 @@ import (
 //     privKey 3571531812827697194985986636869245829152430835021673171507607525908246940354 r 3242770073040892094735101607173275538752888766491356946211654602282309624331 s 2150742645846855766116236144967953798077492822890095121354692808525999221887 pubKey 2445157821578193538289426656074203099996547227497157254541771705133209838679
 
 func TestStarknetKeyring_TestVector(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var kr1 OCR2Key
 	bigKey, _ := new(big.Int).SetString("2137244795266879235401249500471353867704187908407744160927664772020405449078", 10)
 	feltKey, err := new(felt.Felt).SetString(bigKey.String())
@@ -115,6 +117,7 @@ func TestStarknetKeyring_TestVector(t *testing.T) {
 }
 
 func TestStarknetKeyring_Sign_Verify(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := NewOCR2Key(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := NewOCR2Key(cryptorand.Reader)
@@ -177,6 +180,7 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 }
 
 func TestStarknetKeyring_Marshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testStarknetKeyringMarshal(t, cryptorand.Reader)
 }
 

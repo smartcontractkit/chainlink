@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
@@ -26,6 +27,7 @@ const (
 )
 
 func Test_Simple_EVMEncoder(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nSigners := 4
 	signers := []ocr2key.KeyBundle{}
 	for range nSigners {

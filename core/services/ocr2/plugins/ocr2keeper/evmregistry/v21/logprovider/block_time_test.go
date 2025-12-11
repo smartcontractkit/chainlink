@@ -8,12 +8,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestBlockTimeResolver_BlockTime(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 
 	tests := []struct {

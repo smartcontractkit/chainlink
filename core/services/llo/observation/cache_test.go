@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 )
 
@@ -48,6 +49,7 @@ func (m *mockStreamValue) Type() llo.LLOStreamValue_Type {
 }
 
 func TestNewCache(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name            string
 		cleanupInterval time.Duration
@@ -77,6 +79,7 @@ func TestNewCache(t *testing.T) {
 }
 
 func TestCache_Add_Get(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		streamID  llotypes.StreamID
@@ -129,6 +132,7 @@ func TestCache_Add_Get(t *testing.T) {
 }
 
 func TestCache_Cleanup(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cache := NewCache(time.Millisecond)
 	streamID := llotypes.StreamID(1)
 	value := &mockStreamValue{value: []byte{42}}
@@ -141,6 +145,7 @@ func TestCache_Cleanup(t *testing.T) {
 }
 
 func TestCache_ConcurrentAccess(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cache := NewCache(0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
@@ -171,6 +176,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 }
 
 func TestCache_ConcurrentReadWrite(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cache := NewCache(0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
@@ -204,6 +210,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 }
 
 func TestCache_ConcurrentAddGet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cache := NewCache(0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)

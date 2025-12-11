@@ -6,9 +6,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestOCRKey_ConfigPublicKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	k := MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	t.Run("fails to unmarshal invalid JSON", func(t *testing.T) {

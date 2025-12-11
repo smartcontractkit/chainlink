@@ -8,11 +8,13 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
 func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "method": "upload", "params": {"body":{"don_id": "functions_local", "payload": {"field": 123}}}}`)
 	codec := api.JsonRPCCodec{}
@@ -34,6 +36,7 @@ func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
 
 func TestJsonRPCRequest_Decode_Incorrect(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	testCases := map[string]string{
 		"missing params":        `{"jsonrpc": "2.0", "id": "abc", "method": "upload"}`,
@@ -51,6 +54,7 @@ func TestJsonRPCRequest_Decode_Incorrect(t *testing.T) {
 
 func TestJsonRPCRequest_Encode(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var msg api.Message
 	msg.Body = api.MessageBody{
@@ -71,6 +75,7 @@ func TestJsonRPCRequest_Encode(t *testing.T) {
 
 func TestJsonRPCResponse_Decode(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "result": {"body": {"don_id": "functions_local", "payload": {"field": 123}}}}`)
 	codec := api.JsonRPCCodec{}
@@ -83,6 +88,7 @@ func TestJsonRPCResponse_Decode(t *testing.T) {
 
 func TestJsonRPCResponse_Encode(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var msg api.Message
 	msg.Body = api.MessageBody{

@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestUnmarshalDuration(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	raw := `"2s"`
 
 	var value Duration
@@ -19,6 +22,7 @@ func TestUnmarshalDuration(t *testing.T) {
 }
 
 func TestUnmarshalConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	raw := `{"cacheExpiration":"2s","maxServiceWorkers":42}`
 
 	var config PluginConfig

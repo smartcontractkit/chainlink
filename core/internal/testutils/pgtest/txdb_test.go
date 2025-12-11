@@ -9,10 +9,12 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestTxDBDriver(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := NewSqlxDB(t)
 	dropTable := func() error {
 		_, err := db.Exec(`DROP TABLE IF EXISTS txdb_test`)

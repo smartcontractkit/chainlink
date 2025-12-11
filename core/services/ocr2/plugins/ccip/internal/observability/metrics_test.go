@@ -10,11 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func TestProperLabelsArePassed(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	histogram := readerHistogram
 	successCounter := 10
 	failedCounter := 5
@@ -40,6 +42,7 @@ func TestProperLabelsArePassed(t *testing.T) {
 }
 
 func TestMetricsSendFromContractDirectly(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	expectedCounter := 4
 	ctx := testutils.Context(t)
 	chainId := int64(420)

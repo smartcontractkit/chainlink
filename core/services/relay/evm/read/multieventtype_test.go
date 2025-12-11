@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestCreateQueryName(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	eventQueries := []EventQuery{
 		{
 			Filter: query.KeyFilter{Key: "key1"},
@@ -51,6 +53,7 @@ func TestCreateQueryName(t *testing.T) {
 }
 
 func TestValidateEventQueries(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name          string
 		eventQueries  []EventQuery

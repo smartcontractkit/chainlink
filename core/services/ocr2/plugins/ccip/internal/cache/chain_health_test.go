@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func Test_RMNStateCaching(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
@@ -61,6 +63,7 @@ func Test_RMNStateCaching(t *testing.T) {
 }
 
 func Test_ChainStateIsCached(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
@@ -104,6 +107,7 @@ func Test_ChainStateIsCached(t *testing.T) {
 }
 
 func Test_ChainStateIsHealthy(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name                 string
 		commitStoreDown      bool
@@ -190,6 +194,7 @@ func Test_ChainStateIsHealthy(t *testing.T) {
 }
 
 func Test_RefreshingInBackground(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockCommitStore := newCommitStoreWrapper(t, true, nil)
 	mockCommitStore.CommitStoreReader.On("IsDestChainHealthy", mock.Anything).Return(true, nil).Maybe()
 

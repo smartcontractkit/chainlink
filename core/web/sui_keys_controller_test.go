@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -17,6 +18,7 @@ import (
 
 func TestSuiKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, keyStore := setupSuiKeysControllerTests(t)
 	keys, _ := keyStore.Sui().GetAll()
@@ -37,6 +39,7 @@ func TestSuiKeysController_Index_HappyPath(t *testing.T) {
 
 func TestSuiKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -63,6 +66,7 @@ func TestSuiKeysController_Create_HappyPath(t *testing.T) {
 
 func TestSuiKeysController_Delete_NonExistentSuiKeyID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupSuiKeysControllerTests(t)
 
@@ -74,6 +78,7 @@ func TestSuiKeysController_Delete_NonExistentSuiKeyID(t *testing.T) {
 
 func TestSuiKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client, keyStore := setupSuiKeysControllerTests(t)

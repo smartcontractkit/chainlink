@@ -10,9 +10,12 @@ import (
 	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTONKeyring_Sign_Verify(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newTONKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newTONKeyring(cryptorand.Reader)
@@ -44,6 +47,7 @@ func TestTONKeyring_Sign_Verify(t *testing.T) {
 }
 
 func TestTONKeyring_Sign3_Verify3(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newTONKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newTONKeyring(cryptorand.Reader)
@@ -80,6 +84,7 @@ func TestTONKeyring_Sign3_Verify3(t *testing.T) {
 }
 
 func TestTONKeyring_Marshalling(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr1, err := newEd25519Keyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()

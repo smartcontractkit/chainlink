@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
@@ -43,6 +44,7 @@ func createTestResponse(statusCode int, body string) gateway_common.OutboundHTTP
 }
 
 func TestIsCacheableStatusCode(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name       string
 		statusCode int
@@ -87,6 +89,7 @@ func TestIsCacheableStatusCode(t *testing.T) {
 }
 
 func TestRequestHash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	req := createTestRequest("GET", "https://example.com")
 
 	t.Run("generates consistent hash", func(t *testing.T) {
@@ -171,6 +174,7 @@ func TestRequestHash(t *testing.T) {
 }
 
 func TestIsExpiredOrNotCached(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 1000, testMetrics) // 1 second TTL
 	workflowID := "workflow-123"
@@ -203,6 +207,7 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 }
 
 func TestFetch(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 	workflowID := "workflow-123"
@@ -318,6 +323,7 @@ func TestFetch(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 	workflowID := "workflow-123"
@@ -376,6 +382,7 @@ func TestSet(t *testing.T) {
 }
 
 func TestDeleteExpired(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 1000, testMetrics)
 
@@ -419,6 +426,7 @@ func TestDeleteExpired(t *testing.T) {
 }
 
 func TestEdgeCases(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("zero TTL cache", func(t *testing.T) {
 		testMetrics := createCacheTestMetrics(t)
 		cache := newResponseCache(logger.Test(t), 0, testMetrics)

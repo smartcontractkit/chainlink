@@ -6,9 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTransmitEventCache_Sanity(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		cap         int64

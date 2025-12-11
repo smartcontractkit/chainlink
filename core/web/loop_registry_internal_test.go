@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -35,6 +36,7 @@ func newResponseWriter() *responseWriter {
 }
 
 func TestLoopRegistryServer_CantWriteToResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	l, o := logger.TestLoggerObserved(t, zap.ErrorLevel)
 	s := &LoopRegistryServer{
 		exposedPromPort: 1,
@@ -50,6 +52,7 @@ func TestLoopRegistryServer_CantWriteToResponse(t *testing.T) {
 }
 
 func TestLoopRegistryServer_CantMarshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	l, o := logger.TestLoggerObserved(t, zap.ErrorLevel)
 	s := &LoopRegistryServer{
 		exposedPromPort: 1,

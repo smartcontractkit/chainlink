@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
@@ -58,6 +59,7 @@ func newNoopCacheSet() cache.CacheSet {
 }
 
 func Test_Client_Transmit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	req := &pb.TransmitRequest{}
@@ -128,6 +130,7 @@ func Test_Client_Transmit(t *testing.T) {
 }
 
 func Test_Client_LatestReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	cacheReads := 5

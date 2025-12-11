@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type testcfg struct{}
@@ -22,6 +24,7 @@ func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
 }
 
 func TestValidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1852")
 	t.Parallel()
 	var tt = []struct {

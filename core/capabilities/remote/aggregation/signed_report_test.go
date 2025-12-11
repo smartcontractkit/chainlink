@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	// "github.com/smartcontractkit/chainlink/common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -27,6 +28,7 @@ import (
 
 func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Setup test keys
 	kb1, err := ocr2key.New(chaintype.EVM)

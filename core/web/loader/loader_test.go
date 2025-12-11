@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -34,6 +35,7 @@ import (
 
 func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
@@ -107,6 +109,7 @@ func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 
 func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
@@ -137,6 +140,7 @@ func TestLoader_Nodes(t *testing.T) {
 
 func TestLoader_FeedsManagers(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	fsvc := feedsMocks.NewService(t)
 	app := coremocks.NewApplication(t)
@@ -176,6 +180,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 
 func TestLoader_JobProposals(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	fsvc := feedsMocks.NewService(t)
 	app := coremocks.NewApplication(t)
@@ -215,6 +220,7 @@ func TestLoader_JobProposals(t *testing.T) {
 
 func TestLoader_JobRuns(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	jobsORM := jobORMMocks.NewORM(t)
 	app := coremocks.NewApplication(t)
@@ -242,6 +248,7 @@ func TestLoader_JobRuns(t *testing.T) {
 
 func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("with out errors", func(t *testing.T) {
 		t.Parallel()
@@ -293,6 +300,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 
 func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("with out errors", func(t *testing.T) {
 		t.Parallel()
@@ -319,6 +327,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)
@@ -353,6 +362,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 
 func TestLoader_SpecErrorsByJobID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("without errors", func(t *testing.T) {
 		t.Parallel()
@@ -404,6 +414,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)

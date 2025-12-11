@@ -9,11 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestRetryableZeroMaxRetries(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
@@ -28,6 +30,7 @@ func TestRetryableZeroMaxRetries(t *testing.T) {
 
 func TestRetryableSuccessOnFirstAttempt(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx := t.Context()
 
@@ -41,6 +44,7 @@ func TestRetryableSuccessOnFirstAttempt(t *testing.T) {
 
 func TestRetryableSuccessAfterRetries(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx := t.Context()
 
@@ -60,6 +64,7 @@ func TestRetryableSuccessAfterRetries(t *testing.T) {
 
 func TestRetryableErrorOnFirstTryNoRetries(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx := t.Context()
 
@@ -74,6 +79,7 @@ func TestRetryableErrorOnFirstTryNoRetries(t *testing.T) {
 
 func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx := t.Context()
 
@@ -92,6 +98,7 @@ func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
 
 func TestRetryableCancellationHandling(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx, cancel := context.WithCancel(context.Background())
 

@@ -7,10 +7,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func TestNewCCIPSpecToml(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		specArgs validate.SpecArgs
@@ -33,6 +35,7 @@ func TestNewCCIPSpecToml(t *testing.T) {
 }
 
 func TestValidatedCCIPSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		tomlString string
 	}

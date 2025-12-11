@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestLogEventProvider_LifeCycle(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name           string
 		errored        bool
@@ -144,6 +146,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 }
 
 func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -187,6 +190,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 }
 
 func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	contractAddress := common.HexToAddress("0xB9F3af0c2CbfE108efd0E23F7b0a151Ea42f764E")
 	eventSig := common.HexToHash("0x3bdab8bffae631cfee411525ebae27f3fb61b10c662c09ec2a7dbb5854c87e8c")
 	tests := []struct {

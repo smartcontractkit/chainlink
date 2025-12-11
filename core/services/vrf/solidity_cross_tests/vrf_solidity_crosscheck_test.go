@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -69,6 +70,7 @@ func numSamples() int {
 
 func TestVRF_CompareProjectiveECAddToVerifier(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(11))
 	for j := 0; j < numSamples(); j++ {
 		p := randomPoint(t, r)
@@ -88,6 +90,7 @@ func TestVRF_CompareProjectiveECAddToVerifier(t *testing.T) {
 
 func TestVRF_CompareBigModExpToVerifier(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(0))
 	for j := 0; j < numSamples(); j++ {
 		base := randomUint256(t, r)
@@ -103,6 +106,7 @@ func TestVRF_CompareBigModExpToVerifier(t *testing.T) {
 
 func TestVRF_CompareSquareRoot(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(1))
 	for j := 0; j < numSamples(); j++ {
 		maybeSquare := randomUint256(t, r) // Might not be square; should get same result anyway
@@ -124,6 +128,7 @@ func TestVRF_CompareSquareRoot(t *testing.T) {
 
 func TestVRF_CompareYSquared(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(2))
 	for i := 0; i < numSamples(); i++ {
 		x := randomUint256(t, r)
@@ -136,6 +141,7 @@ func TestVRF_CompareYSquared(t *testing.T) {
 
 func TestVRF_CompareFieldHash(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(3))
 	msg := make([]byte, 32)
 	for j := 0; j < numSamples(); j++ {
@@ -168,6 +174,7 @@ func asPair(p kyber.Point) [2]*big.Int { return pair(secp256k1.Coordinates(p)) }
 
 func TestVRF_CompareHashToCurve(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(4))
 	for i := 0; i < numSamples(); i++ {
 		input := randomUint256(t, r)
@@ -219,6 +226,7 @@ func randomScalar(t *testing.T, r *mrand.Rand) kyber.Scalar {
 
 func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(5))
 	for j := 0; j < numSamples(); j++ {
 		p1 := randomPoint(t, r)
@@ -247,6 +255,7 @@ func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 
 func TestVRF_CheckSolidityECMulVerify(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(6))
 	for j := 0; j < numSamples(); j++ {
 		p := randomPoint(t, r)
@@ -268,6 +277,7 @@ func TestVRF_CheckSolidityECMulVerify(t *testing.T) {
 
 func TestVRF_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(7))
 	for j := 0; j < numSamples(); j++ {
 		c := randomScalar(t, r)
@@ -296,6 +306,7 @@ func TestVRF_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
 
 func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(8))
 	for j := 0; j < numSamples(); j++ {
 		c := randomScalar(t, r)
@@ -333,6 +344,7 @@ func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 
 func TestVRF_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(9))
 	for j := 0; j < numSamples(); j++ {
 		hash, hashPair := randomPointWithPair(t, r)
@@ -353,6 +365,7 @@ func TestVRF_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 
 func TestVRF_MarshalProof(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	r := mrand.New(mrand.NewSource(10))
 	for j := 0; j < numSamples(); j++ {
 		sk := randomScalar(t, r)

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/report_codec"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -97,6 +98,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uin
 }
 
 func TestExecutePluginCodecV1(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	d := testSetup(t)
 	ctx := testutils.Context(t)
 	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
@@ -231,6 +233,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodeReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	offRampABI, err := offramp.OffRampMetaData.GetAbi()
 	require.NoError(t, err)
 

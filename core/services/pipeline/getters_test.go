@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestGetters_VarExpr(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	vars := createTestVars()
 
@@ -59,6 +61,7 @@ func TestGetters_VarExpr(t *testing.T) {
 
 func TestGetters_JSONWithVarExprs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	vars := createTestVars()
 
@@ -117,6 +120,7 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 
 func TestGetters_Input(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("returns the requested input's Value and Error if they exist", func(t *testing.T) {
 		expectedVal := "bar"
@@ -136,6 +140,7 @@ func TestGetters_Input(t *testing.T) {
 
 func TestGetters_Inputs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	theErr := errors.New("some issue")
 
@@ -174,6 +179,7 @@ func TestGetters_Inputs(t *testing.T) {
 
 func TestGetters_NonemptyString(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("returns any non-empty string", func(t *testing.T) {
 		val, err := pipeline.NonemptyString("foo bar")()
@@ -191,6 +197,7 @@ func TestGetters_NonemptyString(t *testing.T) {
 
 func TestGetters_ValidDurationInSeconds(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("returns duration in seconds", func(t *testing.T) {
 		val, err := pipeline.ValidDurationInSeconds("10s")()
@@ -225,6 +232,7 @@ func TestGetters_ValidDurationInSeconds(t *testing.T) {
 
 func TestGetters_From(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("no inputs", func(t *testing.T) {
 		getters := pipeline.From()

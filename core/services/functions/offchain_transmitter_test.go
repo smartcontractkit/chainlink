@@ -7,12 +7,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
 
 func TestOffchainTransmitter(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	transmitter := functions.NewOffchainTransmitter(1)
 	ch := transmitter.ReportChannel()

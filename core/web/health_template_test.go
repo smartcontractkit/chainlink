@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -38,6 +39,7 @@ original error`},
 }
 
 func Test_checkTree_WriteHTMLTo(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ct := newCheckTree(checks())
 	var b bytes.Buffer
 	require.NoError(t, ct.WriteHTMLTo(&b))
@@ -46,6 +48,7 @@ func Test_checkTree_WriteHTMLTo(t *testing.T) {
 }
 
 func Test_writeTextTo(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var b bytes.Buffer
 	require.NoError(t, writeTextTo(&b, checks()))
 	got := b.String()

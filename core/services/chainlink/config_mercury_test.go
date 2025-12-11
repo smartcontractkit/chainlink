@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -26,6 +27,7 @@ Password = "password2"
 )
 
 func TestMercuryConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsMercury},
 	}
@@ -38,6 +40,7 @@ func TestMercuryConfig(t *testing.T) {
 }
 
 func TestMercuryTLS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	certPath := "/path/to/cert.pem"
 	transmission := toml.Mercury{
 		TLS: toml.MercuryTLS{

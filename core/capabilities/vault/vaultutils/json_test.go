@@ -6,9 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestToCanonicalJSON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testData, err := structpb.NewValue(map[string]any{
 		"field1": "value1",
 		"field2": 42,

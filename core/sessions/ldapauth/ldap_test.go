@@ -13,6 +13,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -41,6 +42,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 
 func TestORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -64,6 +66,7 @@ func TestORM_FindUser_Empty(t *testing.T) {
 
 func TestORM_FindUser_NoGroups(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -104,6 +107,7 @@ func TestORM_FindUser_NoGroups(t *testing.T) {
 
 func TestORM_FindUser_NotActive(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -144,6 +148,7 @@ func TestORM_FindUser_NotActive(t *testing.T) {
 
 func TestORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -202,6 +207,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 
 func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	// Initilaize LDAP Authentication Provider with mock client
@@ -216,6 +222,7 @@ func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	// Initilaize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)

@@ -7,9 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestDigString(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	in := map[string]any{
 		"pull_request": map[string]any{
 			"url": "some-url",
@@ -36,6 +39,7 @@ var prEventTemplate = `
 `
 
 func TestGetGithubMetadata(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	repo, eventName, sha, event, runID, runAttempt := "chainlink", "merge_group", "a-sha", `{}`, "1234", "1"
 	expectedRunURL := fmt.Sprintf("github.com/%s/actions/runs/%s/attempts/%s", repo, runID, runAttempt)
 	ctx := getGithubMetadata(repo, eventName, sha, strings.NewReader(event), runID, runAttempt)

@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 func TestInt64From(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		input int64
 	}{
@@ -30,6 +32,7 @@ func TestInt64From(t *testing.T) {
 }
 
 func TestUnmarshalInt64_Valid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -49,6 +52,7 @@ func TestUnmarshalInt64_Valid(t *testing.T) {
 }
 
 func TestUnmarshalInt64_Invalid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -67,6 +71,7 @@ func TestUnmarshalInt64_Invalid(t *testing.T) {
 }
 
 func TestUnmarshalInt64_Error(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -86,6 +91,7 @@ func TestUnmarshalInt64_Error(t *testing.T) {
 }
 
 func TestUnmarshalUint64Overflow(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Max int64 should decode successfully
 	var i null.Int64
 	err := json.Unmarshal([]byte(strconv.FormatInt(math.MaxInt64, 10)), &i)
@@ -97,6 +103,7 @@ func TestUnmarshalUint64Overflow(t *testing.T) {
 }
 
 func TestTextUnmarshalInt64_Valid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var i null.Int64
 	err := i.UnmarshalText([]byte("12345"))
 	require.NoError(t, err)
@@ -105,6 +112,7 @@ func TestTextUnmarshalInt64_Valid(t *testing.T) {
 }
 
 func TestTextUnmarshalInt64_Invalid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name, input string
 	}{
@@ -123,6 +131,7 @@ func TestTextUnmarshalInt64_Invalid(t *testing.T) {
 }
 
 func TestMarshalInt64(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	i := null.Int64From(12345)
 	data, err := json.Marshal(i)
 	require.NoError(t, err)
@@ -136,6 +145,7 @@ func TestMarshalInt64(t *testing.T) {
 }
 
 func TestMarshalInt64Text(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	i := null.Int64From(12345)
 	data, err := i.MarshalText()
 	require.NoError(t, err)
@@ -149,6 +159,7 @@ func TestMarshalInt64Text(t *testing.T) {
 }
 
 func TestInt64SetValid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	change := null.NewInt64(0, false)
 	change.SetValid(12345)
 	assert.True(t, change.Valid)
@@ -156,6 +167,7 @@ func TestInt64SetValid(t *testing.T) {
 }
 
 func TestInt64Scan(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var i null.Int64
 	err := i.Scan(int(12345))
 	require.NoError(t, err)

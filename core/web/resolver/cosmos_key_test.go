@@ -8,12 +8,14 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
 func TestResolver_CosmosKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetCosmosKeys {

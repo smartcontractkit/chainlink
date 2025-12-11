@@ -14,10 +14,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestP2PKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, keyStore := setupP2PKeysControllerTests(t)
 	keys, _ := keyStore.P2P().GetAll()
@@ -39,6 +42,7 @@ func TestP2PKeysController_Index_HappyPath(t *testing.T) {
 
 func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -68,6 +72,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 
 func TestP2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupP2PKeysControllerTests(t)
 
@@ -79,6 +84,7 @@ func TestP2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
 
 func TestP2PKeysController_Delete_InvalidPeerID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupP2PKeysControllerTests(t)
 
@@ -90,6 +96,7 @@ func TestP2PKeysController_Delete_InvalidPeerID(t *testing.T) {
 
 func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client, keyStore := setupP2PKeysControllerTests(t)

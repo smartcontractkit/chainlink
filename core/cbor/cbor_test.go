@@ -11,11 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func Test_ParseCBOR(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
@@ -153,6 +155,7 @@ func Test_ParseCBOR(t *testing.T) {
 
 func Test_ParseCBORToStruct_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
 	bytesCBOR, err := hexutil.Decode(hexCBOR)
@@ -171,6 +174,7 @@ func Test_ParseCBORToStruct_Success(t *testing.T) {
 
 func Test_ParseCBORToStruct_WrongFieldType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
 	bytesCBOR, err := hexutil.Decode(hexCBOR)
@@ -187,6 +191,7 @@ func Test_ParseCBORToStruct_WrongFieldType(t *testing.T) {
 
 func Test_ParseCBORToStruct_BinaryStringOfWrongType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// {"key":"value"} but with last byte replaced with invalid unicode (0x88)
 	hexCBOR := `0x636B65796576616C7588`
@@ -202,6 +207,7 @@ func Test_ParseCBORToStruct_BinaryStringOfWrongType(t *testing.T) {
 
 func Test_autoAddMapDelimiters(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name string
@@ -266,6 +272,7 @@ func jsonMustUnmarshal(t *testing.T, in string) any {
 
 func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name  string
@@ -310,6 +317,7 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 
 func TestCoerceInterfaceMapToStringMap_BadInputs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name  string
@@ -329,6 +337,7 @@ func TestCoerceInterfaceMapToStringMap_BadInputs(t *testing.T) {
 
 func TestJSON_CBOR(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name string

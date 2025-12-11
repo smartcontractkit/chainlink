@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // -----------------------------
@@ -62,6 +64,7 @@ func yamlMissingGitRefFor(module string) string {
 // -----------------------------
 
 func TestContains(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	if !contains([]string{"a", "b"}, "a") {
 		t.Fatal("expected contains to find element")
 	}
@@ -71,6 +74,7 @@ func TestContains(t *testing.T) {
 }
 
 func TestModuleSubdir(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cases := map[string]string{
 		"github.com/org/repo":         "",
 		"github.com/org/repo/relayer": "relayer",
@@ -89,6 +93,7 @@ func TestModuleSubdir(t *testing.T) {
 }
 
 func TestShaEqual(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cases := []struct {
 		a, b string
 		want bool
@@ -108,6 +113,7 @@ func TestShaEqual(t *testing.T) {
 }
 
 func TestNormalizeVersion(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("plain tag", func(t *testing.T) {
 		mv := normalizeVersion("v1.2.3")
 		if mv.Tag != "v1.2.3" || mv.SHA != "" || mv.TagPrefix != "" || mv.Raw != "v1.2.3" {
@@ -160,6 +166,7 @@ func TestNormalizeVersion(t *testing.T) {
 }
 
 func TestDesiredYAMLRefForModule(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cases := []struct {
 		module string
 		mv     ModuleVersion
@@ -182,6 +189,7 @@ func TestDesiredYAMLRefForModule(t *testing.T) {
 }
 
 func TestTagsMatchWithSubdir(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// root modules: tag equality only
 	if !tagsMatchWithSubdir("github.com/example/repo",
 		ModuleVersion{Tag: "v1.2.3", Raw: "v1.2.3"},
@@ -219,6 +227,7 @@ func TestTagsMatchWithSubdir(t *testing.T) {
 }
 
 func TestVersionsMatchForModule(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	module := "github.com/example/repo/sub"
 
 	t.Run("SHA equality (prefix)", func(t *testing.T) {
@@ -259,6 +268,7 @@ func TestVersionsMatchForModule(t *testing.T) {
 // -----------------------------
 
 func TestDiscoverPluginVersions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -278,6 +288,7 @@ func TestDiscoverPluginVersions(t *testing.T) {
 }
 
 func TestUpdateGitRefInYAML_SuccessAndPreserveFormatting(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -305,6 +316,7 @@ func TestUpdateGitRefInYAML_SuccessAndPreserveFormatting(t *testing.T) {
 }
 
 func TestUpdateGitRefInYAML_ModuleNotFound(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 	err := updateGitRefInYAML(yamlPath, "github.com/does/not/exist", ModuleVersion{Tag: "v0.1.0", Raw: "exist/v0.1.0"})
@@ -314,6 +326,7 @@ func TestUpdateGitRefInYAML_ModuleNotFound(t *testing.T) {
 }
 
 func TestUpdateGitRefInYAML_NoGitRefLineToReplace(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dir := t.TempDir()
 	mod := "github.com/example/repo"
 	yamlPath := writeFile(t, dir, "plugins.yaml", yamlMissingGitRefFor(mod))
@@ -328,8 +341,12 @@ func TestUpdateGitRefInYAML_NoGitRefLineToReplace(t *testing.T) {
 // -----------------------------
 
 func TestRunSync_CheckMode_WithMismatch(t *testing.T) {
+	tests.BelongsToCISuite(
+
+		// go.mod only needs to exist
+		t, "unit")
 	dir := t.TempDir()
-	// go.mod only needs to exist
+
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 	plugins := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -363,6 +380,7 @@ func TestRunSync_CheckMode_WithMismatch(t *testing.T) {
 }
 
 func TestRunSync_UpdateMode_AppliesChanges(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dir := t.TempDir()
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 	plugins := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
@@ -404,6 +422,7 @@ func TestRunSync_UpdateMode_AppliesChanges(t *testing.T) {
 }
 
 func TestRunSync_IgnoreModules_SkipsChecks(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dir := t.TempDir()
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 	plugins := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
@@ -430,8 +449,12 @@ func TestRunSync_IgnoreModules_SkipsChecks(t *testing.T) {
 }
 
 func TestRunSync_FileValidation(t *testing.T) {
+	tests.BelongsToCISuite(
+
+		// Missing go.mod
+		t, "unit")
 	dir := t.TempDir()
-	// Missing go.mod
+
 	_, err := runSync(Options{
 		GoModPath:   filepath.Join(dir, "missing.go.mod"),
 		PluginPaths: []string{filepath.Join(dir, "plugins.yaml")},

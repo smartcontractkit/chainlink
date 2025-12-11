@@ -8,6 +8,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -36,6 +37,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 }
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	sqlDB := setupDB(t)
 
 	config := ocrtypes.ContractConfig{

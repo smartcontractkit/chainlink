@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	logmocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -102,6 +103,7 @@ func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 
 func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
@@ -155,6 +157,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 
 func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	fixtureLogAddress := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
 	fixtureFilterer := mustNewFilterer(t)
@@ -347,6 +350,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 func Test_OCRContractTracker_IsLaterThan(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name     string

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
@@ -23,6 +24,7 @@ func (m *MockEmitter) Emit(ctx context.Context, body []byte, attrKVs ...any) err
 }
 
 func TestNewChipIngressAdapter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("Success - Ethereum Mainnet", func(t *testing.T) {
 		mockEmitter := new(MockEmitter)
 		lggr := logger.TestLogger(t)
@@ -115,6 +117,7 @@ func TestNewChipIngressAdapter(t *testing.T) {
 }
 
 func TestChipIngressAdapter_SendLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("Success - sends to beholder", func(t *testing.T) {
 		mockEmitter := new(MockEmitter)
 		lggr := logger.TestLogger(t)
@@ -206,6 +209,7 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 }
 
 func TestChipIngressAdapter_ExportedFields(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockEmitter := new(MockEmitter)
 	lggr := logger.TestLogger(t)
 	contractID := "0x1234567890"
@@ -240,6 +244,8 @@ func TestChipIngressAdapter_ExportedFields(t *testing.T) {
 }
 
 func TestChipIngressAdapter_InterfaceCompliance(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// This test verifies that ChipIngressAdapter implements commontypes.MonitoringEndpoint
 	mockEmitter := new(MockEmitter)
 	lggr := logger.TestLogger(t)

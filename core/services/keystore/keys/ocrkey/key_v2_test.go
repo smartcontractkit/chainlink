@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 )
@@ -20,6 +21,7 @@ func assertKeyBundlesNotEqual(t *testing.T, pk1 ocrkey.KeyV2, pk2 ocrkey.KeyV2) 
 
 func TestOCRKeys_New(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	pk1, err := ocrkey.NewV2()
 	require.NoError(t, err)
 	pk2, err := ocrkey.NewV2()
@@ -32,6 +34,7 @@ func TestOCRKeys_New(t *testing.T) {
 }
 func TestOCRKeys_Raw_Key(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	key := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	require.Equal(t, key.ID(), ocrkey.KeyFor(key.Raw()).ID())
 }

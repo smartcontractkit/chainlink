@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func newTestLogger(t *testing.T, cfg Config) Logger {
@@ -23,6 +25,7 @@ func newTestLogger(t *testing.T, cfg Config) Logger {
 }
 
 func TestZapLogger_OutOfDiskSpace(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
@@ -207,6 +210,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 }
 
 func TestZapLogger_LogCaller(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
@@ -259,6 +263,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 }
 
 func TestZapLogger_Name(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cfg := Config{}
 	lggr := newTestLogger(t, cfg)
 	require.Empty(t, lggr.Name())

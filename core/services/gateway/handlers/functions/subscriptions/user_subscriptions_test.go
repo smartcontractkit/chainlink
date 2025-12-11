@@ -9,10 +9,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestUserSubscriptions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	us := subscriptions.NewUserSubscriptions()
 
@@ -58,6 +61,7 @@ func TestUserSubscriptions(t *testing.T) {
 
 func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("update balance", func(t *testing.T) {
 		us := subscriptions.NewUserSubscriptions()

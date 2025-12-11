@@ -14,6 +14,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
@@ -31,6 +32,7 @@ func init() {
 }
 
 func TestReportEncoder_EncodeExtract(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	encoder := reportEncoder{
 		packer: NewAbiPacker(),
 	}
@@ -112,6 +114,7 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 }
 
 func TestReportEncoder_BackwardsCompatibility(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	encoder := reportEncoder{
 		packer: NewAbiPacker(),
 	}

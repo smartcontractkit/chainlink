@@ -8,11 +8,13 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 func TestTelemetryConfig_Enabled(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	trueVal := true
 	falseVal := false
 
@@ -34,6 +36,7 @@ func TestTelemetryConfig_Enabled(t *testing.T) {
 }
 
 func TestTelemetryConfig_InsecureConnection(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	trueVal := true
 	falseVal := false
 
@@ -55,6 +58,7 @@ func TestTelemetryConfig_InsecureConnection(t *testing.T) {
 }
 
 func TestTelemetryConfig_CACertFile(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -73,6 +77,7 @@ func TestTelemetryConfig_CACertFile(t *testing.T) {
 }
 
 func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -91,6 +96,7 @@ func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
 }
 
 func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -128,6 +134,7 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 }
 
 func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -145,6 +152,7 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 }
 
 func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -163,6 +171,7 @@ func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
 }
 
 func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -182,6 +191,7 @@ func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
 }
 
 func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -201,6 +211,7 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 }
 
 func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -227,6 +238,7 @@ func ptrFloat(f float64) *float64 {
 }
 
 func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -246,6 +258,7 @@ func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -264,6 +277,7 @@ func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogLevel(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -286,6 +300,7 @@ func TestTelemetryConfig_LogLevel(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -305,6 +320,7 @@ func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -322,6 +338,7 @@ func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
 	}
 }
 func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -344,6 +361,7 @@ func ptrInt(i int) *int {
 }
 
 func TestTelemetryConfig_LogExportInterval(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -362,6 +380,7 @@ func TestTelemetryConfig_LogExportInterval(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry

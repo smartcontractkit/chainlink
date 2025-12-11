@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -21,6 +22,7 @@ import (
 )
 
 func TestMercurySecrets_valid(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -47,6 +49,7 @@ func TestMercurySecrets_valid(t *testing.T) {
 }
 
 func TestMercurySecrets_duplicateURLs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -68,6 +71,7 @@ func TestMercurySecrets_duplicateURLs(t *testing.T) {
 }
 
 func TestMercurySecrets_emptyURL(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -85,6 +89,7 @@ func TestMercurySecrets_emptyURL(t *testing.T) {
 
 func Test_validateDBURL(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name    string
@@ -114,6 +119,7 @@ func Test_validateDBURL(t *testing.T) {
 }
 
 func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	validUrl := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
 	validSecretURL := *models.NewSecretURL(&validUrl)
 
@@ -187,6 +193,7 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 	}
 }
 func TestTracing_ValidateCollectorTarget(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name            string
 		collectorTarget *string
@@ -315,6 +322,7 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 }
 
 func TestTracing_ValidateSamplingRatio(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name          string
 		samplingRatio *float64
@@ -375,6 +383,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 }
 
 func TestTracing_ValidateTLSCertPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// tests for Tracing.Mode = 'tls'
 	tls_tests := []struct {
 		name        string
@@ -475,6 +484,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 }
 
 func TestTracing_ValidateMode(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		mode        *string
@@ -537,6 +547,7 @@ func TestTracing_ValidateMode(t *testing.T) {
 }
 
 func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		tlsCertPath *string
@@ -583,6 +594,7 @@ func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
 
 func TestEthKeys_TOMLSerialization(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("encode", func(t *testing.T) {
 		ethKeysWrapper := EthKeys{
 			Keys: []*EthKey{
@@ -624,6 +636,7 @@ Password = 'something'`
 
 func TestSolKeys_TOMLSerialization(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("encode", func(t *testing.T) {
 		solKeys := SolKeys{
@@ -666,6 +679,7 @@ Password = 'secret'`
 
 func TestSolKeys_SetFrom(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	solKeysWrapper1 := &SolKeys{}
 	solKeysWrapper2 := SolKeys{
@@ -684,6 +698,7 @@ func TestSolKeys_SetFrom(t *testing.T) {
 }
 
 func TestEthKeys_SetFrom(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ethKeysWrapper1 := &EthKeys{}
 	ethKeysWrapper2 := EthKeys{
 		Keys: []*EthKey{
@@ -700,6 +715,7 @@ func TestEthKeys_SetFrom(t *testing.T) {
 func ptr[T any](t T) *T { return &t }
 
 func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name        string
 		config      *BridgeStatusReporter

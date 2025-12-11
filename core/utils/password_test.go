@@ -7,11 +7,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestVerifyPasswordComplexity(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		password       string
@@ -52,6 +54,7 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 
 func TestPasswordFromFile(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		password string

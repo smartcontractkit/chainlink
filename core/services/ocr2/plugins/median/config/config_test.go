@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestValidatePluginConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type testCase struct {
 		name          string
 		pipeline      string

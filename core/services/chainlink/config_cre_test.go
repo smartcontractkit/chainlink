@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -34,6 +35,7 @@ URL = "file:///path/to/workflows"
 )
 
 func TestCREConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsCRE},
 		ConfigStrings:  []string{configCRE},
@@ -55,6 +57,7 @@ func TestCREConfig(t *testing.T) {
 }
 
 func TestCREConfigWithFileURL(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{configCREWithFileURL},
 	}
@@ -68,6 +71,7 @@ func TestCREConfigWithFileURL(t *testing.T) {
 }
 
 func TestEmptyCREConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cfg := creConfig{s: toml.CreSecrets{}, c: toml.CreConfig{}}
 	assert.Empty(t, cfg.StreamsAPIKey())
 	assert.Empty(t, cfg.StreamsAPISecret())
@@ -81,6 +85,7 @@ func TestEmptyCREConfig(t *testing.T) {
 }
 
 func TestWorkflowFetcherConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name     string
 		config   string

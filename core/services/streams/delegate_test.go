@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type mockRegistry struct{}
@@ -27,6 +29,7 @@ func (m *mockDelegateConfig) MaxSuccessfulRuns() uint64     { return 0 }
 func (m *mockDelegateConfig) ResultWriteQueueDepth() uint64 { return 0 }
 
 func Test_Delegate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	registry := &mockRegistry{}
 	runner := &mockRunner{}
@@ -57,6 +60,7 @@ func Test_Delegate(t *testing.T) {
 }
 
 func Test_ValidatedStreamSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var tt = []struct {
 		name      string
 		toml      string

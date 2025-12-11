@@ -22,6 +22,7 @@ import (
 
 	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -32,6 +33,7 @@ import (
 )
 
 func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	const numSrcTokens = 20
 
@@ -102,6 +104,8 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 }
 
 func TestCachedOffRampTokens(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// Test data.
 	srcTks, dstTks, _ := generateTokensAndOutputs(3)
 
@@ -157,6 +161,7 @@ func generateTokensAndOutputs(nbTokens uint) ([]common.Address, []common.Address
 }
 
 func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	minSeqNr := uint64(10)
 	maxSeqNr := uint64(14)
 	inputLogs := []logpoller.Log{
@@ -212,6 +217,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 }
 
 func TestGetRouter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	routerAddr := utils.RandomAddress()
 
 	mockOffRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)

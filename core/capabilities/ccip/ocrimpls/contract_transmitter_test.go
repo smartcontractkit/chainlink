@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
@@ -56,6 +57,7 @@ import (
 )
 
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	type testCase struct {
 		name                string
 		pluginType          uint8

@@ -328,6 +328,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-2042")
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
@@ -492,6 +493,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 
 func TestMaxPerformDataSize(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		maxPerformDataSize := 1000 // Will be set as config override

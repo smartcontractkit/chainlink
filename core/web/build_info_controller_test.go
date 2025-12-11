@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
@@ -14,6 +15,7 @@ import (
 
 func TestBuildInfoController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	ctx := testutils.Context(t)
@@ -33,6 +35,7 @@ func TestBuildInfoController_Show_APICredentials(t *testing.T) {
 
 func TestBuildInfoController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	ctx := testutils.Context(t)

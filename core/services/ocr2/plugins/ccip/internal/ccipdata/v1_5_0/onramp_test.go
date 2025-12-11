@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,6 +28,7 @@ import (
 )
 
 func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	onRampAddr := utils.RandomAddress()
 	seqNum := uint64(100)
 	limit := uint64(10)
@@ -67,6 +69,7 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 }
 
 func Test_ProperlyRecognizesPerLaneCurses(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	user, bc := ccipdata.NewSimulation(t)
 	ctx := testutils.Context(t)
 	destChainSelector := uint64(100)

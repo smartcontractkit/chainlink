@@ -5,9 +5,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestVRFKeys_Models(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kv2, err := NewV2()
 	require.NoError(t, err)
 	k := EncryptedVRFKey{

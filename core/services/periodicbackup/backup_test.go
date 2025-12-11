@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -31,6 +32,7 @@ func must(t testing.TB, s string) *url.URL {
 }
 
 func TestPeriodicBackup_RunBackup(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -50,6 +52,7 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeLite)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -69,6 +72,7 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -87,6 +91,7 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
 	backupConfig := newTestConfig(time.Minute, altUrl, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
@@ -98,12 +103,14 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 }
 
 func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	backupConfig := newTestConfig(time.Second, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
 }
 
 func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	backupDir := filepath.Join(os.TempDir(), "alternative")
 	backupConfig := newTestConfig(time.Second, nil, backupDir, config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)

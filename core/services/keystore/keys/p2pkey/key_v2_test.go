@@ -9,9 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestP2PKeys_KeyV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kv2, err := NewV2()
 	require.NoError(t, err)
 

@@ -9,10 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestHandleShutdown(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	proc, err := os.FindProcess(os.Getpid())
 	require.NoError(t, err)
 

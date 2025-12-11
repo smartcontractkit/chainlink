@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -20,6 +21,7 @@ import (
 
 func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetOCR2KeyBundles {
@@ -107,6 +109,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 
 func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation CreateOCR2KeyBundle($chainType: OCR2ChainType!) {
@@ -190,6 +193,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 
 func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
 

@@ -10,10 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 func TestProofFlagToBits(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	genFlags := func(indexesSet []int, size int) []bool {
 		bools := make([]bool, size)
 		for _, indexSet := range indexesSet {
@@ -57,6 +59,7 @@ func TestProofFlagToBits(t *testing.T) {
 }
 
 func TestEvmWord(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		inp uint64
 		exp common.Hash
@@ -74,6 +77,7 @@ func TestEvmWord(t *testing.T) {
 }
 
 func TestABIEncodeDecode(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	abiStr := `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`
 	values := []any{struct {
 		Int1 *big.Int `json:"int1"`

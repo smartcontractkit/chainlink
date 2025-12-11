@@ -8,10 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestMergeEpochAndRound(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		epoch uint32
 		round uint8
@@ -53,6 +55,7 @@ func TestMergeEpochAndRound(t *testing.T) {
 }
 
 func TestContiguousReqs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		min    uint64
 		max    uint64
@@ -74,6 +77,7 @@ func TestContiguousReqs(t *testing.T) {
 }
 
 func TestCalculateUsdPerUnitGas(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name           string
 		sourceGasPrice *big.Int
@@ -103,6 +107,7 @@ func TestCalculateUsdPerUnitGas(t *testing.T) {
 }
 
 func TestBigIntSortedMiddle(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name string
 		vals []*big.Int
@@ -137,6 +142,7 @@ func TestBigIntSortedMiddle(t *testing.T) {
 }
 
 func TestDeviates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		x1  *big.Int
 		x2  *big.Int
@@ -221,6 +227,7 @@ func TestDeviates(t *testing.T) {
 }
 
 func TestDeviatesOnCurve(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		xNew  *big.Int
 		xOld  *big.Int
@@ -293,6 +300,7 @@ func TestDeviatesOnCurve(t *testing.T) {
 }
 
 func TestCalculateCurveThresholdPPB(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		x             float64
 		ppbLowerBound int64

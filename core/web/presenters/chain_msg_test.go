@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 )
 
 func TestSolanaMessageResource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	id := "1"
 	chainID := solanatest.RandomChainID()
 	r := NewSolanaMsgResource(id, chainID)
@@ -40,6 +42,7 @@ func TestSolanaMessageResource(t *testing.T) {
 }
 
 func TestCosmosMessageResource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	id := "1"
 	chainID := cosmostest.RandomChainID()
 	contractID := "cosmos1p3ucd3ptpw902fluyjzkq3fflq4btddac9sa3s"

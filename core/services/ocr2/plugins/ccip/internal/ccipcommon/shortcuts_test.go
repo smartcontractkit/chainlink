@@ -12,9 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestGetMessageIDsAsHexString(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("base", func(t *testing.T) {
 		hashes := make([]cciptypes.Hash, 10)
 		for i := range hashes {
@@ -39,6 +41,7 @@ func TestGetMessageIDsAsHexString(t *testing.T) {
 }
 
 func TestFlattenUniqueSlice(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name           string
 		inputSlices    [][]int
@@ -64,6 +67,7 @@ func TestFlattenUniqueSlice(t *testing.T) {
 }
 
 func TestFlattenedAndSortedTokens(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name           string
 		inputSlices    [][]cciptypes.Address
@@ -109,6 +113,7 @@ func TestFlattenedAndSortedTokens(t *testing.T) {
 }
 
 func TestIsTxRevertError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name           string
 		inputError     error
@@ -128,6 +133,7 @@ func TestIsTxRevertError(t *testing.T) {
 }
 
 func TestRetryUntilSuccess(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Set delays to 0 for tests
 	initialDelay := 0 * time.Nanosecond
 	maxDelay := 0 * time.Nanosecond

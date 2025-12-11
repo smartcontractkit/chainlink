@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -23,6 +24,7 @@ import (
 )
 
 func TestCodec_WrapUnwrap(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	codec := streams.NewCodec(logger.Test(t))
 
 	id1, id1Str := newFeedID(t)

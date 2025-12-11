@@ -11,11 +11,13 @@ import (
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig/mocks"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func TestFeeEstimatorConfigService(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	svc := estimatorconfig.NewFeeEstimatorConfigService()
 	ctx := context.Background()
 
@@ -51,6 +53,7 @@ func TestFeeEstimatorConfigService(t *testing.T) {
 }
 
 func TestModifyGasPriceComponents(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("success modification", func(t *testing.T) {
 		svc := estimatorconfig.NewFeeEstimatorConfigService()
 		ctx := context.Background()

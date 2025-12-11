@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -20,6 +21,7 @@ import (
 
 func TestBridgePresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		name          = "Bridge 1"
@@ -64,6 +66,7 @@ func TestBridgePresenter_RenderTable(t *testing.T) {
 
 func TestShell_IndexBridges(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -101,6 +104,7 @@ func TestShell_IndexBridges(t *testing.T) {
 
 func TestShell_ShowBridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -129,6 +133,7 @@ func TestShell_ShowBridge(t *testing.T) {
 
 func TestShell_CreateBridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -166,6 +171,7 @@ func TestShell_CreateBridge(t *testing.T) {
 
 func TestShell_RemoveBridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -194,6 +200,7 @@ func TestShell_RemoveBridge(t *testing.T) {
 }
 func TestShell_UpdateBridge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()

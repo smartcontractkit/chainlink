@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func setupWorkflowKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
@@ -29,6 +31,7 @@ func setupWorkflowKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, k
 }
 
 func TestWorkflowKeysController_Index_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, keyStore := setupWorkflowKeysControllerTests(t)
 	keys, err := keyStore.Workflow().GetAll()
 	require.NoError(t, err)

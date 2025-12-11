@@ -7,9 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestMakeRequest_SingleTest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
@@ -31,6 +34,7 @@ func TestMakeRequest_SingleTest(t *testing.T) {
 }
 
 func TestMakeRequest_MultipleTests(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
@@ -55,6 +59,7 @@ func TestMakeRequest_MultipleTests(t *testing.T) {
 }
 
 func TestMakeRequest_NoTests(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := NewReport()
@@ -69,6 +74,7 @@ func TestMakeRequest_NoTests(t *testing.T) {
 }
 
 func TestMakeRequest_WithContext(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := NewReport()
@@ -83,6 +89,7 @@ func TestMakeRequest_WithContext(t *testing.T) {
 }
 
 func TestMakeRequest_Panics(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
@@ -109,6 +116,7 @@ func TestMakeRequest_Panics(t *testing.T) {
 }
 
 func TestDedupeEntries(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r := &Report{
 		tests: map[string]map[string]int{
 			"core/assets": map[string]int{

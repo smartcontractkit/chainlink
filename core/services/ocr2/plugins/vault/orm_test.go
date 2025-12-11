@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
@@ -58,6 +59,7 @@ func createTestInstanceID() dkgocrtypes.InstanceID {
 
 func TestORM_WriteAndReadResultPackage(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
@@ -84,6 +86,7 @@ func TestORM_WriteAndReadResultPackage(t *testing.T) {
 
 func TestORM_ReadResultPackage_NotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
@@ -96,6 +99,7 @@ func TestORM_ReadResultPackage_NotFound(t *testing.T) {
 
 func TestORM_WriteResultPackage_Upsert(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db, orm := setupORM(t)
@@ -140,6 +144,7 @@ func TestORM_WriteResultPackage_Upsert(t *testing.T) {
 
 func TestORM_WriteResultPackage_MultipleSignatures(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
@@ -170,6 +175,7 @@ func TestORM_WriteResultPackage_MultipleSignatures(t *testing.T) {
 
 func TestORM_WriteResultPackage_DifferentInstanceIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db, orm := setupORM(t)
@@ -205,6 +211,7 @@ func TestORM_WriteResultPackage_DifferentInstanceIDs(t *testing.T) {
 
 func TestORM_WriteResultPackage_TimestampsUpdated(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db, orm := setupORM(t)
@@ -241,6 +248,7 @@ func TestORM_WriteResultPackage_TimestampsUpdated(t *testing.T) {
 
 func TestORM_ConfigDigestHandling(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
@@ -269,6 +277,7 @@ func TestORM_ConfigDigestHandling(t *testing.T) {
 
 func TestORM_WriteResultPackage_ValidationErrors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)

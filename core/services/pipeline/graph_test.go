@@ -7,11 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/graph"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestGraph_Decode(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	expected := map[string]map[string]bool{
 		"ds1": {
@@ -119,6 +121,7 @@ func TestGraph_Decode(t *testing.T) {
 
 func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	p, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
@@ -211,6 +214,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 
 func TestGraph_HasCycles(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	_, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
@@ -226,6 +230,7 @@ func TestGraph_HasCycles(t *testing.T) {
 
 func TestGraph_ImplicitDependencies(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	g := pipeline.NewGraph()
 	err := g.UnmarshalText([]byte(`
@@ -252,6 +257,7 @@ func TestGraph_ImplicitDependencies(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, s := range []struct {
 		name     string
 		pipeline string

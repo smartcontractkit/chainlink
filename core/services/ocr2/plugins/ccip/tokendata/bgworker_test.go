@@ -13,12 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
 
 func TestBackgroundWorker(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	const numTokens = 100
@@ -98,6 +100,7 @@ func TestBackgroundWorker(t *testing.T) {
 }
 
 func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	tk1 := cciptypes.Address(utils.RandomAddress().String())
@@ -166,6 +169,7 @@ func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 }
 
 func TestBackgroundWorker_Timeout(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	tk1 := cciptypes.Address(utils.RandomAddress().String())

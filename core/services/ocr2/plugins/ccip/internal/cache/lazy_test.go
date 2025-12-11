@@ -6,9 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestLazyFetchPass(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	counterFunction := createPassingCounter()
 
 	counter, _ := counterFunction()
@@ -23,6 +26,7 @@ func TestLazyFetchPass(t *testing.T) {
 }
 
 func TestLazyFetchFail(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	counterFunction := createFailingCounter()
 
 	_, err := counterFunction()
@@ -37,6 +41,7 @@ func TestLazyFetchFail(t *testing.T) {
 }
 
 func TestLazyFetchMultipleRoutines(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	routines := 100
 	counterFunction := LazyFetch(createPassingCounter())
 

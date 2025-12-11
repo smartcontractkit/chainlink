@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
@@ -18,6 +19,7 @@ import (
 
 func TestContracts_TypeAndVersion(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("happy path", func(t *testing.T) {
 		t.Parallel()
@@ -97,6 +99,7 @@ func TestContracts_TypeAndVersion(t *testing.T) {
 
 func TestContracts_VerifyTypeAndVersion(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("incorrect type", func(t *testing.T) {
 		t.Parallel()
@@ -121,6 +124,7 @@ func TestContracts_VerifyTypeAndVersion(t *testing.T) {
 
 func TestContracts_ParseTypeAndVersion(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("valid string", func(t *testing.T) {
 		t.Parallel()
@@ -150,6 +154,7 @@ func TestContracts_ParseTypeAndVersion(t *testing.T) {
 
 func TestContracts_RunWithRetries(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("returns an error if max retries are exceeded", func(t *testing.T) {
 		t.Parallel()

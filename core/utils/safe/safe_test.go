@@ -4,9 +4,13 @@ import (
 	"math"
 	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestIntToUint64(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// Test Case 1: Positive integer within the range of uint64
 	t.Run("PositiveInteger", func(t *testing.T) {
 		input := 12345

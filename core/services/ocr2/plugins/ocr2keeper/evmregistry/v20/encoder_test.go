@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestEVMAutomationEncoder20(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	encoder := EVMAutomationEncoder20{}
 
 	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {

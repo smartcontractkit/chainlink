@@ -9,11 +9,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
 func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	req1a := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 	req1b := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
 	req2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
@@ -31,6 +33,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nilReq := capabilities.CapabilityRequest{Payload: nil}
 	nilReqBytes, err := pb.MarshalCapabilityRequest(nilReq)
 	require.NoError(t, err)
@@ -44,6 +47,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nilReq := &evmcappb.WriteReportRequest{Report: nil}
 	nilPb, err := anypb.New(nilReq)
 	require.NoError(t, err)
@@ -61,6 +65,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Test with completely invalid payload that cannot be unmarshaled
 	msgBody := &types.MessageBody{
 		Payload: []byte("invalid protobuf data"),
@@ -73,6 +78,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
 }
 
 func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Create two requests with identical payloads but different SpendLimits
 	req1 := getRequestWithSpendLimits(t, []byte("testdata"), []capabilities.SpendLimit{
 		{SpendType: "gas", Limit: "1000"},
@@ -100,6 +106,7 @@ func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Create two requests with identical payloads but different SpendLimits
 	req1 := getWriteReportRequestWithSpendLimits(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")}, []capabilities.SpendLimit{
 		{SpendType: "gas", Limit: "1000"},

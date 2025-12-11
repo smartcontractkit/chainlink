@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -30,6 +31,7 @@ func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
 
 func TestShell_IndexEVMNodes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	chainID := newRandChainID()
 	node1 := configtoml.Node{
@@ -108,6 +110,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest
 
 func TestShell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	id := solanatest.RandomChainID()
 	node1 := solcfg.Node{

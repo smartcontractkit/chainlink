@@ -6,12 +6,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 )
 
 const pathPrefix = "core/services/workflows/cmd/cre/examples"
 
 func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	paths := []string{
 		"legacy/data_feeds",
 		"v2/http_read",

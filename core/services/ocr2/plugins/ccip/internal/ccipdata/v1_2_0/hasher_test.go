@@ -12,10 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 
 	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
 func TestHasherV1_2_0(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
 	onRampABI := abihelpers.MustParseABI(evm_2_evm_onramp_1_2_0.EVM2EVMOnRampABI)
@@ -78,6 +80,7 @@ func TestHasherV1_2_0(t *testing.T) {
 }
 
 func TestMetaDataHash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
 	ctx := hashutil.NewKeccak()

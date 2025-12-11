@@ -24,6 +24,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
@@ -194,6 +195,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 }
 
 func TestDelegate_ReorgAttackProtection(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	vuni, listener, jb := setup(t)
 
 	// Same request has already been fulfilled twice

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -20,6 +21,7 @@ import (
 const defaultGasLimit uint32 = 500000
 
 func TestRequestIDMatches(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	keyHash := common.HexToHash("0x01")
 	key := cltest.MustGenerateRandomKey(t)
 	baseContract := vrftesthelpers.NewVRFCoordinatorUniverse(t, key).RequestIDBase
@@ -54,6 +56,7 @@ func registerProvingKey(t *testing.T, coordinator vrftesthelpers.CoordinatorUniv
 }
 
 func TestRegisterProvingKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := cltest.MustGenerateRandomKey(t)
 	coord := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, jobID, fee := registerProvingKey(t, coord)
@@ -77,6 +80,7 @@ func TestRegisterProvingKey(t *testing.T) {
 }
 
 func TestFailToRegisterProvingKeyFromANonOwnerAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 
@@ -130,6 +134,7 @@ func requestRandomnessV08(t *testing.T, coordinator vrftesthelpers.CoordinatorUn
 }
 
 func TestRandomnessRequestLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := cltest.MustGenerateRandomKey(t)
 	coord := vrftesthelpers.NewVRFCoordinatorUniverseWithV08Consumer(t, key)
 	keyHash_, jobID_, fee := registerProvingKey(t, coord)
@@ -207,6 +212,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator vrftesthelpers.Coordinat
 }
 
 func TestFulfillRandomness(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
@@ -232,6 +238,7 @@ func TestFulfillRandomness(t *testing.T) {
 }
 
 func TestWithdraw(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)

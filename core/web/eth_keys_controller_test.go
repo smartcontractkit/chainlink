@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -28,6 +29,7 @@ import (
 
 func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -79,6 +81,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 func TestETHKeysController_Index_Errors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -117,6 +120,7 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 
 func TestETHKeysController_Index_Disabled(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -151,6 +155,7 @@ func TestETHKeysController_Index_Disabled(t *testing.T) {
 
 func TestETHKeysController_Index_NotDev(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
@@ -187,6 +192,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 
 func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	ctx := testutils.Context(t)
@@ -206,6 +212,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 
 func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -247,6 +254,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -289,6 +297,7 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 
 func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -334,6 +343,7 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 
 func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -378,6 +388,7 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 
 func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -451,6 +462,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 
 func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -485,6 +497,7 @@ func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 
 func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -519,6 +532,7 @@ func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 
 func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -548,6 +562,7 @@ func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 
 func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -577,6 +592,7 @@ func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 
 func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -606,6 +622,7 @@ func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 
 func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -639,6 +656,7 @@ func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 
 func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Twice()
@@ -690,6 +708,7 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 
 func TestETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -712,6 +731,7 @@ func TestETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 
 func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

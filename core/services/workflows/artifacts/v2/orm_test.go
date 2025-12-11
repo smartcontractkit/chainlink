@@ -11,9 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_UpsertWorkflowSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("inserts new spec", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ctx := testutils.Context(t)

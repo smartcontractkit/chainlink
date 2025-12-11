@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_Config(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("unmarshals from toml", func(t *testing.T) {
 		cdjson := `{
 	"42": {
@@ -145,6 +147,7 @@ func Test_Config(t *testing.T) {
 }
 
 func Test_PluginConfig_Validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("with invalid URLs or keys", func(t *testing.T) {
 		servers := map[string]utils.PlainHexBytes{
 			"not a valid url":                utils.PlainHexBytes([]byte{1, 2, 3}),
@@ -159,6 +162,7 @@ func Test_PluginConfig_Validate(t *testing.T) {
 }
 
 func Test_PluginConfig_GetServers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("with multiple servers", func(t *testing.T) {
 		servers := map[string]utils.PlainHexBytes{
 			"example.com:80":                 utils.PlainHexBytes([]byte{1, 2, 3}),

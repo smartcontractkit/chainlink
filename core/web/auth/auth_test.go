@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -61,6 +62,7 @@ func (u userFindSuccesser) FindUserByAPIToken(ctx context.Context, token string)
 }
 
 func TestAuthenticateByToken_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	user := cltest.MustRandomUser(t)
 	key, secret := uuid.New().String(), uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
@@ -87,6 +89,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 }
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	authr := userFindFailer{err: auth.ErrorAuthFailed}
 
 	called := false
@@ -108,6 +111,7 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 }
 
 func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	user := cltest.MustRandomUser(t)
 	key, secret := "", uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
@@ -134,6 +138,7 @@ func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
 }
 
 func TestRequireAuth_NoneRequired(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	called := false
 	var authr webauth.Authenticator
 
@@ -153,6 +158,7 @@ func TestRequireAuth_NoneRequired(t *testing.T) {
 }
 
 func TestRequireAuth_AuthFailed(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -171,6 +177,7 @@ func TestRequireAuth_AuthFailed(t *testing.T) {
 }
 
 func TestRequireAuth_LastAuthSuccess(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -189,6 +196,7 @@ func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 }
 
 func TestRequireAuth_Error(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -343,6 +351,7 @@ var routesRolesMap = [...]routeRules{
 // Iterate over the above routesRolesMap and assert each path is wrapped and
 // the user role is enforced with the correct middleware
 func TestRBAC_Routemap_Admin(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -381,6 +390,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 }
 
 func TestRBAC_Routemap_Edit(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -428,6 +438,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 }
 
 func TestRBAC_Routemap_Run(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -475,6 +486,7 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 }
 
 func TestRBAC_Routemap_ViewOnly(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 

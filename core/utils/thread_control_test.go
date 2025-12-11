@@ -9,9 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestThreadControl_Close(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	n := 10
 	tc := NewThreadControl()
 
@@ -30,6 +33,7 @@ func TestThreadControl_Close(t *testing.T) {
 }
 
 func TestThreadControl_GoCtx(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tc := NewThreadControl()
 	defer tc.Close()
 

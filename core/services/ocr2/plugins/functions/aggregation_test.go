@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
@@ -39,6 +40,7 @@ func reqMeta(id int, result []byte, err []byte, callbackGas uint32, coordinatorC
 
 func TestCanAggregate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	obs := make([]*encoding.ProcessedRequest, 10)
 
 	require.True(t, functions.CanAggregate(4, 1, obs[:4]))
@@ -53,6 +55,7 @@ func TestCanAggregate(t *testing.T) {
 
 func TestAggregate_Successful(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name     string

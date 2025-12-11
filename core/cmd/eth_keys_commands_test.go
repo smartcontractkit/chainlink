@@ -19,6 +19,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -32,6 +33,7 @@ func ptr[T any](t T) *T { return &t }
 
 func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		address        = "0x5431F5F973781809D18643b87B44921b11355d81"
@@ -88,6 +90,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListETHKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
@@ -113,6 +116,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 
 func TestShell_ListETHKeys_Error(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
@@ -138,6 +142,7 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 
 func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ethClient := newEthMock(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -167,6 +172,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 
 func TestShell_CreateETHKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
@@ -208,6 +214,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 
 func TestShell_DeleteETHKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -240,6 +247,7 @@ func TestShell_DeleteETHKey(t *testing.T) {
 
 func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
@@ -346,6 +354,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 }
 func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 

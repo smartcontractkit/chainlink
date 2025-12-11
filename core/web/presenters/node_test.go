@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestNodeResource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var nodeResource NodeResource
 	state := "test"
 	cfg := "cfg"

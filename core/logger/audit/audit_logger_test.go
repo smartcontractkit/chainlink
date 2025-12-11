@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -84,6 +85,7 @@ func (c Config) JsonWrapperKey() string {
 
 func TestCheckLoginAuditLog(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	// Create a channel that will be used instead of an HTTP client
 	loggingChannel := make(chan MockedHTTPEvent, 2048)

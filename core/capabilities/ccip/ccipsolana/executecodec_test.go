@@ -23,6 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) ccipocr3.ExecutePluginReport {
@@ -103,6 +105,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) ccipocr
 }
 
 func TestExecutePluginCodecV1(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name          string
 		report        func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport
@@ -215,6 +218,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodingExecuteReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),

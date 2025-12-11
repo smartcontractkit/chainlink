@@ -6,10 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 func Test_CommitReportWithSendRequests_uniqueSenders(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	messageFn := func(address cciptypes.Address) cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta {
 		return cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{EVM2EVMMessage: cciptypes.EVM2EVMMessage{Sender: address}}
 	}

@@ -9,11 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func TestResolver_SetSQLLogging(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation SetSQLLogging($input: SetSQLLoggingInput!) {
@@ -65,6 +67,7 @@ func (d *databaseConfig) LogSQL() bool { return d.logSQL }
 
 func TestResolver_SQLLogging(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetSQLLogging {
@@ -108,6 +111,7 @@ func (l *log) Level() zapcore.Level {
 
 func TestResolver_GlobalLogLevel(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetGlobalLogLevel {
@@ -146,6 +150,7 @@ func TestResolver_GlobalLogLevel(t *testing.T) {
 
 func TestResolver_SetGlobalLogLevel(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation SetGlobalLogLevel($level: LogLevel!) {

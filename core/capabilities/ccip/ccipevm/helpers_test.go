@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
 	extraDataDecoder := &ExtraDataDecoder{}

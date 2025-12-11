@@ -3,9 +3,12 @@ package updater
 import (
 	"errors"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestConfig_Validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name    string
 		config  *Config
@@ -97,6 +100,7 @@ func TestConfig_Validate(t *testing.T) {
 }
 
 func TestConfig_ValidateErrorType(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cfg := &Config{
 		RepoRemote:  "invalid*remote",
 		BranchTrunk: "develop",
@@ -116,6 +120,7 @@ func TestConfig_ValidateErrorType(t *testing.T) {
 }
 
 func TestParseFlags(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name    string
 		args    []string

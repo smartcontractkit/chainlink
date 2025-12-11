@@ -9,6 +9,7 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	client2 "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -24,6 +25,7 @@ func newRandChainID() *big.Big {
 
 func TestShell_IndexEVMChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -42,6 +44,7 @@ func TestShell_IndexEVMChains(t *testing.T) {
 
 func TestShell_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	id := solanatest.RandomChainID()
 	cfg := solcfg.TOMLConfig{

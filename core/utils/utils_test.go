@@ -16,10 +16,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestUtils_NewBytes32ID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	id := utils.NewBytes32ID()
 	assert.NotContains(t, id, "-")
@@ -27,6 +30,7 @@ func TestUtils_NewBytes32ID(t *testing.T) {
 
 func TestUtils_NewSecret(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		numOfBytes int
@@ -46,6 +50,7 @@ func TestUtils_NewSecret(t *testing.T) {
 
 func TestUtils_StringToHex(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		utf8 string
@@ -67,6 +72,7 @@ func TestUtils_StringToHex(t *testing.T) {
 
 func TestUtils_DurationFromNow(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	future := time.Now().Add(time.Second)
 	duration := utils.DurationFromNow(future)
@@ -75,6 +81,7 @@ func TestUtils_DurationFromNow(t *testing.T) {
 
 func TestBoundedQueue(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	q := utils.NewBoundedQueue[int](3)
 	require.True(t, q.Empty())
@@ -115,6 +122,7 @@ func TestBoundedQueue(t *testing.T) {
 
 func TestBoundedPriorityQueue(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	q := utils.NewBoundedPriorityQueue[int](map[uint]int{
 		1: 3,
@@ -167,6 +175,7 @@ func TestBoundedPriorityQueue(t *testing.T) {
 
 func Test_WithJitter(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	d := 10 * time.Second
 
@@ -179,6 +188,7 @@ func Test_WithJitter(t *testing.T) {
 
 func TestIsEmpty(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	b := make([]byte, 32)
 	assert.True(t, utils.IsEmpty(b))
@@ -189,6 +199,7 @@ func TestIsEmpty(t *testing.T) {
 
 func TestHashPassword(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	h, err := utils.HashPassword("Qwerty123!")
 	assert.NoError(t, err)
@@ -203,6 +214,7 @@ func TestHashPassword(t *testing.T) {
 
 func TestISO8601UTC(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ts := time.Unix(1651818206, 0)
 	str := utils.ISO8601UTC(ts)
@@ -211,6 +223,7 @@ func TestISO8601UTC(t *testing.T) {
 
 func TestFormatJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	json := `{"foo":123}`
 	formatted, err := utils.FormatJSON(json)
@@ -220,6 +233,7 @@ func TestFormatJSON(t *testing.T) {
 
 func TestMustUnmarshalToMap(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	json := `{"foo":123.45}`
 	expected := make(map[string]any)
@@ -238,6 +252,7 @@ func TestMustUnmarshalToMap(t *testing.T) {
 
 func TestSha256(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	hexHash, err := utils.Sha256("test")
 	assert.NoError(t, err)
@@ -249,6 +264,7 @@ func TestSha256(t *testing.T) {
 
 func TestWithCloseChan(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
 		select {
@@ -298,6 +314,7 @@ func TestWithCloseChan(t *testing.T) {
 
 func TestContextFromChan(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ch := make(chan struct{})
 	ctx, cancel := utils.ContextFromChan(ch)
@@ -314,6 +331,7 @@ func TestContextFromChan(t *testing.T) {
 
 func TestContextFromChanWithTimeout(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
 		select {
@@ -348,6 +366,7 @@ func TestContextFromChanWithTimeout(t *testing.T) {
 
 func TestLeftPadBitString(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	for _, test := range []struct {
 		str      string
@@ -367,6 +386,7 @@ func TestLeftPadBitString(t *testing.T) {
 
 func TestValidateCronSchedule(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	err := utils.ValidateCronSchedule("")
 	assert.Error(t, err)
@@ -383,6 +403,7 @@ func TestValidateCronSchedule(t *testing.T) {
 
 func TestPausableTicker(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var counter atomic.Int32
 
@@ -418,6 +439,7 @@ func TestPausableTicker(t *testing.T) {
 
 func TestCronTicker(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var counter atomic.Int32
 
@@ -450,6 +472,7 @@ func TestCronTicker(t *testing.T) {
 
 func TestErrorBuffer(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	err1 := errors.New("err1")
 	err2 := errors.New("err2")

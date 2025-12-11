@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -36,6 +37,7 @@ answer;
 `
 
 func TestAdapter_Integration(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	ctx := testutils.Context(t)
 	logger := logger.TestLogger(t)
@@ -105,6 +107,7 @@ func (m *mockPipelineRunner) ExecuteAndInsertFinishedRun(ctx context.Context, sp
 }
 
 func TestAdapter_AddsDefaultVars(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name := int32(100), uuid.New(), null.StringFrom("job-name")
@@ -127,6 +130,7 @@ func TestAdapter_AddsDefaultVars(t *testing.T) {
 }
 
 func TestPipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name, jobType := int32(100), uuid.New(), null.StringFrom("job-name"), job.Type("generic")

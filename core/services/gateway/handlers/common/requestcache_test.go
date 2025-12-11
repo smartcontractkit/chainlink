@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -22,6 +23,7 @@ type requestState struct {
 
 func TestRequestCache_Simple(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	cache := common.NewRequestCache[requestState](time.Hour, 1000)
 	callback := common.NewCallback()
@@ -52,6 +54,7 @@ func TestRequestCache_Simple(t *testing.T) {
 
 func TestRequestCache_MultiResponse(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	nRequests := 10
 	nResponsesPerRequest := 100
@@ -104,6 +107,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 
 func TestRequestCache_Timeout(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	cache := common.NewRequestCache[requestState](time.Millisecond*10, 1000)
 	callback := common.NewCallback()
@@ -124,6 +128,7 @@ func TestRequestCache_Timeout(t *testing.T) {
 
 func TestRequestCache_MaxSize(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	cache := common.NewRequestCache[requestState](time.Hour, 2)
 	callback := common.NewCallback()

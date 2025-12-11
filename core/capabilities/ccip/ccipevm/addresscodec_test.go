@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestAddressBytesToString(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	addressCodec := AddressCodec{}
 	addr := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13}
 	want := "0x000102030405060708090a0b0c0d0e0f10111213"
@@ -17,6 +20,7 @@ func TestAddressBytesToString(t *testing.T) {
 }
 
 func TestAddressStringToBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	addressCodec := AddressCodec{}
 	addr := "0x000102030405060708090a0b0c0d0e0f10111213"
 	want := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13}
@@ -34,6 +38,7 @@ func TestAddressStringToBytes(t *testing.T) {
 // }
 
 func TestInvalidAddressStringToBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	addressCodec := AddressCodec{}
 	addr := "0x000102030405060708090a0b0c0d0e0f1011121"
 	_, err := addressCodec.AddressStringToBytes(addr)
@@ -41,6 +46,7 @@ func TestInvalidAddressStringToBytes(t *testing.T) {
 }
 
 func TestValidEVMAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	addressCodec := AddressCodec{}
 	addr := []byte{0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef}
 	want := "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"
@@ -50,6 +56,7 @@ func TestValidEVMAddress(t *testing.T) {
 }
 
 func TestInvalidHexString(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	addressCodec := AddressCodec{}
 	addr := "0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
 	_, err := addressCodec.AddressStringToBytes(addr)
@@ -57,6 +64,7 @@ func TestInvalidHexString(t *testing.T) {
 }
 
 func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	codec := AddressCodec{}
 
 	testCases := []struct {

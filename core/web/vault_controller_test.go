@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/tdh2shim"
 	"github.com/smartcontractkit/smdkg/dummydkg"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -41,6 +42,7 @@ func setupVaultControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore
 }
 
 func TestVaultController_VerifyDKGResult_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -97,6 +99,7 @@ func TestVaultController_VerifyDKGResult_HappyPath(t *testing.T) {
 }
 
 func TestVaultController_VerifyDKGResult_WrongKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -158,6 +161,7 @@ func TestVaultController_VerifyDKGResult_WrongKey(t *testing.T) {
 }
 
 func TestVaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -172,6 +176,7 @@ func TestVaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.
 }
 
 func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -194,6 +199,7 @@ func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing
 }
 
 func TestVaultController_ExportDKGResult(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()

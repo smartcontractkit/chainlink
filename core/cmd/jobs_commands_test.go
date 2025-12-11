@@ -17,6 +17,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -27,6 +28,7 @@ import (
 
 func TestJobPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		id              = "1"
@@ -91,6 +93,7 @@ func TestJobPresenter_RenderTable(t *testing.T) {
 
 func TestJobRenderer_GetTasks(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	r := &cmd.JobPresenter{}
 
@@ -123,6 +126,7 @@ func TestJobRenderer_GetTasks(t *testing.T) {
 
 func TestJob_FriendlyTasks(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	r := &cmd.JobPresenter{}
 
@@ -149,6 +153,7 @@ func TestJob_FriendlyTasks(t *testing.T) {
 
 func TestJob_FriendlyCreatedAt(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	now := time.Now()
 
@@ -270,6 +275,7 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 
 func TestJob_ToRows(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	now := time.Now()
 
@@ -309,6 +315,7 @@ func getDirectRequestSpec() string {
 
 func TestShell_ListFindJobs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -335,6 +342,7 @@ func TestShell_ListFindJobs(t *testing.T) {
 
 func TestShell_ShowJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -368,6 +376,7 @@ var ocrBootstrapSpec string
 
 func TestShell_CreateJobV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
@@ -406,6 +415,7 @@ func TestShell_CreateJobV2(t *testing.T) {
 
 func TestShell_DeleteJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)

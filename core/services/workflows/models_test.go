@@ -8,12 +8,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func TestParse_Graph(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name   string
 		yaml   string
@@ -322,6 +324,7 @@ targets:
 }
 
 func TestParsesIntsCorrectly(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	spec, _, _, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), hardcodedWorkflow, "")
 	require.NoError(t, err)
 

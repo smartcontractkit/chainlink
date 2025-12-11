@@ -2,9 +2,12 @@ package feeds
 
 import (
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_connectionsManager_IsConnected(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type fields struct {
 		connections map[int64]*connection
 	}

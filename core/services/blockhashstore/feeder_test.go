@@ -361,6 +361,7 @@ type testCase struct {
 }
 
 func TestFeeder(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, test := range tests {
 		t.Run(test.name, test.testFeeder)
 	}
@@ -398,6 +399,7 @@ func (test testCase) testFeeder(t *testing.T) {
 }
 
 func TestFeederWithLogPollerVRFv1(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, test := range tests {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv1)
 	}
@@ -492,6 +494,7 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 }
 
 func TestFeederWithLogPollerVRFv2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, test := range tests {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2)
 	}
@@ -590,6 +593,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 }
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, test := range tests {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2Plus)
 	}
@@ -688,6 +692,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	coordinator := &TestCoordinator{
 		RequestEvents: []Event{{Block: 100, ID: "1000"}},
 	}

@@ -36,6 +36,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type mockFetchResp struct {
@@ -118,6 +120,7 @@ func newMockDecrypter() *mockDecrypter {
 }
 
 func Test_Handler(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()
 	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
@@ -315,6 +318,7 @@ const (
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	binaryURL := "http://example.com/binary"
 	secretsURL := "http://example.com/secrets"
 	configURL := "http://example.com/config"

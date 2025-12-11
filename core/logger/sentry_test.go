@@ -4,9 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_toMap(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("with even number of keys/values", func(t *testing.T) {
 		keysAndValues := []any{
 			"foo", 1, "bar", 42.43, "boggly", "str",

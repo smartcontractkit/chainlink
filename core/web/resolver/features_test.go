@@ -4,11 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func Test_ToFeatures(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	query := `
 	{
 		features {

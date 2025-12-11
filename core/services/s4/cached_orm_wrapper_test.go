@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -21,6 +22,7 @@ import (
 )
 
 func TestGetSnapshotEmpty(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("OK-no_rows", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		psqlORM := setupORM(t, "test")

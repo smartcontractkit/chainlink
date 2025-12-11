@@ -18,12 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	capmock "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	appmocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockApp := appmocks.NewApplication(t)
 
 	controller := web.CapabilityController{App: mockApp}
@@ -41,6 +43,7 @@ func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
 }
 
 func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockApp := appmocks.NewApplication(t)
 	requestBody := web.CapabilityRequestOuter{
 		CapabilityName:    "test-capability",
@@ -64,6 +67,7 @@ func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testin
 }
 
 func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockApp := appmocks.NewApplication(t)
 	mockApp.EXPECT().GetCapabilitiesRegistry().Return(nil)
 
@@ -84,6 +88,7 @@ func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing
 }
 
 func TestCapabilityController_ExecuteCapability(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mockApp := appmocks.NewApplication(t)
 	mockRegistry := registrymock.NewCapabilitiesRegistry(t)
 	mockApp.EXPECT().GetCapabilitiesRegistry().Return(&capabilities.Registry{

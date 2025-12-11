@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -30,6 +31,7 @@ import (
 )
 
 func TestCapability_CapabilityCall(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -128,6 +130,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -225,6 +228,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -300,6 +304,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	fakeClock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -371,6 +376,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 }
 
 func TestCapability_CRUD(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	owner := "0x0001020304050607080900010203040506070809"
 	requestID := owner + "::" + "test-request-id"
 	sid := &vault.SecretIdentifier{
@@ -1073,6 +1079,7 @@ func TestCapability_CRUD(t *testing.T) {
 }
 
 func TestCapability_Lifecycle(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -1105,6 +1112,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 }
 
 func TestCapability_PublicKeyGet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second

@@ -42,6 +42,7 @@ import (
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager"
@@ -141,6 +142,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, evmtypes.Backend, *verif
 
 func TestIntegration_MercuryV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	integration_MercuryV2(t)
 }
@@ -415,6 +417,7 @@ func integration_MercuryV2(t *testing.T) {
 
 func TestIntegration_MercuryV3(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	integration_MercuryV3(t)
 }
@@ -706,6 +709,7 @@ func integration_MercuryV3(t *testing.T) {
 
 func TestIntegration_MercuryV4(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	integration_MercuryV4(t)
 }

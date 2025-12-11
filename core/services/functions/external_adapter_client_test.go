@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
@@ -65,6 +66,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 }
 
 func TestFetchEncryptedSecrets_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 			"result": "success",
 			"data": {
@@ -76,6 +78,7 @@ func TestFetchEncryptedSecrets_Success(t *testing.T) {
 }
 
 func TestFetchEncryptedSecrets_UserError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 			"result": "error",
 			"data": {
@@ -87,6 +90,7 @@ func TestFetchEncryptedSecrets_UserError(t *testing.T) {
 }
 
 func TestFetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 			"invalid": "invalid",
 			"statusCode": 200
@@ -94,6 +98,7 @@ func TestFetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 }
 
 func TestFetchEncryptedSecrets_FailedStatusCode(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 			"result": "success",
 			"data": {
@@ -105,6 +110,7 @@ func TestFetchEncryptedSecrets_FailedStatusCode(t *testing.T) {
 }
 
 func TestFetchEncryptedSecrets_MissingData(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 			"result": "success",
 			"statusCode": 200
@@ -112,6 +118,7 @@ func TestFetchEncryptedSecrets_MissingData(t *testing.T) {
 }
 
 func TestFetchEncryptedSecrets_InvalidResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 				"result": "success",
 				"data": {
@@ -123,6 +130,7 @@ func TestFetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 }
 
 func TestFetchEncryptedSecrets_InvalidUserError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 				"result": "error",
 				"data": {
@@ -134,6 +142,7 @@ func TestFetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 }
 
 func TestFetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runFetcherTest(t, `{
 				"result": "unexpected",
 				"data": {
@@ -145,10 +154,12 @@ func TestFetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 }
 
 func TestRunComputation_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runRequestTest(t, runComputationSuccessResponse, "abcdef", "", []string{"domain1", "domain2"}, nil)
 }
 
 func TestRunComputation_MissingData(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runRequestTest(t, `{
 				"result": "success",
 				"statusCode": 200
@@ -156,6 +167,7 @@ func TestRunComputation_MissingData(t *testing.T) {
 }
 
 func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
@@ -184,6 +196,7 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 }
 
 func TestRunComputation_HTTP500(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -198,6 +211,7 @@ func TestRunComputation_HTTP500(t *testing.T) {
 }
 
 func TestRunComputation_ContextRespected(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	done := make(chan struct{})
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-done
@@ -216,6 +230,7 @@ func TestRunComputation_ContextRespected(t *testing.T) {
 }
 
 func TestRunComputationRetrial(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("OK-retry_succeeds_after_one_failure", func(t *testing.T) {
 		counter := 0
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

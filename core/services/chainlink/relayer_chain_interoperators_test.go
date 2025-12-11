@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -33,6 +34,7 @@ import (
 )
 
 func TestCoreRelayerChainInteroperators(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 

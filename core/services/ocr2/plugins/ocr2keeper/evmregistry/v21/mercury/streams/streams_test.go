@@ -31,6 +31,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -120,6 +121,7 @@ func setupStreams(t *testing.T) *streams {
 }
 
 func TestStreams_CheckErrorHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	upkeepId := big.NewInt(123456789)
 	blockNumber := uint64(999)
 	tests := []struct {
@@ -266,6 +268,7 @@ func TestStreams_CheckErrorHandler(t *testing.T) {
 }
 
 func TestStreams_CheckCallback(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	upkeepId := big.NewInt(123456789)
 	bn := uint64(999)
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
@@ -420,6 +423,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 }
 
 func TestStreams_AllowedToUseMercury(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
 	tests := []struct {
@@ -605,6 +609,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 }
 
 func TestStreams_StreamsLookup(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	var upkeepIdentifier [32]byte
 	copy(upkeepIdentifier[:], upkeepId.Bytes())

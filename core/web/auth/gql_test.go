@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,6 +22,7 @@ import (
 
 func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	sessionORM := mocks.NewAuthenticationProvider(t)
 	sessionStore := cookie.NewStore([]byte("secret"))
@@ -44,6 +46,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 
 func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	sessionORM := mocks.NewAuthenticationProvider(t)
 	sessionStore := cookie.NewStore([]byte(cltest.SessionSecret))
@@ -73,6 +76,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 
 func Test_GetAndSetGQLAuthenticatedSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx := testutils.Context(t)
 	user := clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}

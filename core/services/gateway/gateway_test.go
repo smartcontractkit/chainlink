@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -59,6 +60,7 @@ func newGatewayHandler(t *testing.T) gateway.HandlerFactory {
 
 func TestGateway_NewGatewayFromConfig_ValidConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tomlConfig := buildConfig(`
 [[dons]]
@@ -81,6 +83,7 @@ Address = "0x0001020304050607080900010203040506070809"
 
 func TestGateway_NewGatewayFromConfig_DuplicateID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tomlConfig := buildConfig(`
 [[dons]]
@@ -99,6 +102,7 @@ HandlerName = "dummy"
 
 func TestGateway_NewGatewayFromConfig_InvalidHandler(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tomlConfig := buildConfig(`
 [[dons]]
@@ -113,6 +117,7 @@ HandlerName = "no_such_handler"
 
 func TestGateway_NewGatewayFromConfig_MissingID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tomlConfig := buildConfig(`
 [[dons]]
@@ -127,6 +132,7 @@ SomeOtherField = "abcd"
 
 func TestGateway_NewGatewayFromConfig_InvalidNodeAddress(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tomlConfig := buildConfig(`
 [[dons]]
@@ -145,6 +151,7 @@ Address = "0xnot_an_address"
 
 func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.Test(t)
 	gatewayObj, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
@@ -216,6 +223,7 @@ func newJSONRpcRequest(t *testing.T, requestID string, method string, payload []
 
 func TestGateway_ProcessRequest_ParseError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, _ := newGatewayWithMockHandler(t)
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), []byte("{{}"), "")
@@ -225,6 +233,7 @@ func TestGateway_ProcessRequest_ParseError(t *testing.T) {
 
 func TestGateway_ProcessRequest_MessageValidationError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", api.NullChar, []byte{})
@@ -235,6 +244,7 @@ func TestGateway_ProcessRequest_MessageValidationError(t *testing.T) {
 
 func TestGateway_ProcessRequest_MissingDonId(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", "", []byte{})
@@ -245,6 +255,7 @@ func TestGateway_ProcessRequest_MissingDonId(t *testing.T) {
 
 func TestGateway_ProcessRequest_IncorrectDonId(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", "unknownDON", []byte{})
@@ -255,6 +266,7 @@ func TestGateway_ProcessRequest_IncorrectDonId(t *testing.T) {
 
 func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
@@ -278,6 +290,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 
 func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
@@ -305,6 +318,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 
 func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -319,6 +333,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 
 func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("failure"))
@@ -367,6 +382,7 @@ func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
 }
 
 func TestGateway_Multihandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tomlConfig := buildConfig(`
 [[dons]]
 DonId = "1"

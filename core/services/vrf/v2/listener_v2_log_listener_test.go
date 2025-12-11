@@ -31,6 +31,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -239,6 +240,8 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 
 func TestLogPollerFilterRegistered(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	// Instantiate listener.
 	th := setupVRFLogPollerListenerTH(t)
 
@@ -829,6 +832,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 
 func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
@@ -858,6 +862,7 @@ func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 
 func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
@@ -916,6 +921,7 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 
 func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
@@ -957,6 +963,7 @@ func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 
 func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
@@ -1004,6 +1011,7 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 
 func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 

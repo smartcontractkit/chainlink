@@ -9,11 +9,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 func Test_FeedsManagers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		query = `
 			query GetFeedsManagers {
@@ -87,6 +89,7 @@ func Test_FeedsManagers(t *testing.T) {
 }
 
 func Test_FeedsManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		mgrID = int64(1)
 		query = `
@@ -161,6 +164,7 @@ func Test_FeedsManager(t *testing.T) {
 }
 
 func Test_CreateFeedsManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -334,6 +338,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 }
 
 func Test_UpdateFeedsManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -463,6 +468,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 }
 
 func Test_EnableFeedsManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -570,6 +576,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 }
 
 func Test_DisableFeedsManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"

@@ -12,9 +12,12 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_ReportsGeneratedGauge(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	pluginObservationSize := 5
 	pluginOutcomeSize := 3
 
@@ -118,6 +121,7 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 }
 
 func Test_DurationHistograms(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
 		"evm", "1", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,

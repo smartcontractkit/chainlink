@@ -7,9 +7,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTrace(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lgr, observed := TestLoggerObserved(t, zapcore.InfoLevel)
 
 	const (

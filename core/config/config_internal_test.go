@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 )
 
 func TestStore_bigIntParser(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	val, err := parse.BigInt("0")
 	assert.NoError(t, err)
 	assert.Equal(t, new(big.Int).SetInt64(0), val)
@@ -31,6 +33,7 @@ func TestStore_bigIntParser(t *testing.T) {
 }
 
 func TestStore_levelParser(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	val, err := parse.LogLevel("ERROR")
 	assert.NoError(t, err)
 	assert.Equal(t, zapcore.ErrorLevel, val)
@@ -45,6 +48,7 @@ func TestStore_levelParser(t *testing.T) {
 }
 
 func TestStore_urlParser(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		input     string
@@ -72,6 +76,7 @@ func TestStore_urlParser(t *testing.T) {
 }
 
 func TestStore_boolParser(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	val, err := parse.Bool("true")
 	assert.NoError(t, err)
 	assert.Equal(t, true, val)

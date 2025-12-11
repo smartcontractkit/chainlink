@@ -4,9 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestResponseValidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tt := []struct {
 		name        string
 		response    Response

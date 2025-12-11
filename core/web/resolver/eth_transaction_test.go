@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -28,6 +29,7 @@ import (
 
 func TestResolver_EthTransaction(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetEthTransaction($hash: ID!) {
@@ -243,6 +245,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 
 func TestResolver_EthTransactions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetEthTransactions {
@@ -349,6 +352,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 
 func TestResolver_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetEthTransactionsAttempts {

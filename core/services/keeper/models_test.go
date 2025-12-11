@@ -6,10 +6,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 func TestUpkeepIdentifer_String(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, test := range []struct {
 		name string
 		id   string

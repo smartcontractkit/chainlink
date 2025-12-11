@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 const (
@@ -21,6 +22,7 @@ const (
 func Test_SequenceNumbers(t *testing.T) {
 	// setup
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var b strings.Builder
 
 	bhClient, err := beholder.NewWriterClient(&b)
@@ -42,6 +44,7 @@ func Test_SequenceNumbers(t *testing.T) {
 func Test_NumberOfMessages(t *testing.T) {
 	// setup
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var b strings.Builder
 	bhClient, err := beholder.NewWriterClient(&b)
 	require.NoError(t, err)
@@ -68,6 +71,7 @@ func Test_NumberOfMessages(t *testing.T) {
 func Test_UnexpiredCommitRoots(t *testing.T) {
 	// setup
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var b strings.Builder
 	bhClient, err := beholder.NewWriterClient(&b)
 	require.NoError(t, err)

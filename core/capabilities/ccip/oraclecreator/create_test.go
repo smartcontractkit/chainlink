@@ -23,6 +23,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
@@ -37,6 +38,7 @@ import (
 // before any heavy initialisation takes place.
 func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.Test(t)
 
@@ -85,6 +87,7 @@ func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 // has not been started – this guards a critical control-flow condition.
 func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.Test(t)
 
@@ -125,6 +128,7 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 // is created when destChainWriter is nil for both commit and execute plugin types.
 func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.Test(t)
 	p2pk := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))

@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -64,6 +65,7 @@ func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (
 
 func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -105,6 +107,7 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 
 func TestORM_SetResult(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -126,6 +129,7 @@ func TestORM_SetResult(t *testing.T) {
 
 func TestORM_SetError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -149,6 +153,7 @@ func TestORM_SetError(t *testing.T) {
 
 func TestORM_SetError_Internal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -169,6 +174,7 @@ func TestORM_SetError_Internal(t *testing.T) {
 
 func TestORM_SetFinalized(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -186,6 +192,7 @@ func TestORM_SetFinalized(t *testing.T) {
 
 func TestORM_SetConfirmed(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -201,6 +208,7 @@ func TestORM_SetConfirmed(t *testing.T) {
 
 func TestORM_StateTransitions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -237,6 +245,7 @@ func TestORM_StateTransitions(t *testing.T) {
 
 func TestORM_FindOldestEntriesByState(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	orm := setupORM(t)
 	now := time.Now()
@@ -276,6 +285,7 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 
 func TestORM_TimeoutExpiredResults(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -325,6 +335,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 
 func TestORM_PruneOldestRequests(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)
@@ -369,6 +380,7 @@ func TestORM_PruneOldestRequests(t *testing.T) {
 
 func TestORM_PruneOldestRequests_Large(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t)

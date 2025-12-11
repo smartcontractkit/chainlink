@@ -11,10 +11,12 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 func TestActiveUpkeepList(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	logIDs := []ocr2keepers.UpkeepIdentifier{
 		core.GenUpkeepID(types.LogTrigger, "0"),
 		core.GenUpkeepID(types.LogTrigger, "1"),
@@ -93,6 +95,7 @@ func TestActiveUpkeepList(t *testing.T) {
 }
 
 func TestActiveUpkeepList_error(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("if invalid or negative numbers are in the store, they are excluded from the view operation", func(t *testing.T) {
 		al := &activeList{}
 		al.items = make(map[string]bool)

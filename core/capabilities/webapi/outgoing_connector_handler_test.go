@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -31,6 +32,7 @@ const (
 )
 
 func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	gateways := []string{"gateway1", "gateway2"}
 
 	type testCase struct {
@@ -145,6 +147,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 }
 
 func TestHandleSingleNodeRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("uses default timeout if no timeout is provided", func(t *testing.T) {
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
@@ -409,6 +412,7 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 }
 
 func TestServiceConfigDefaults(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("fills default RateLimiterConfigs", func(t *testing.T) {
 		var cfg ServiceConfig
 
@@ -429,6 +433,7 @@ func TestServiceConfigDefaults(t *testing.T) {
 	})
 }
 func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	_, handler := newFunctionWithDefaultConfig(
 		t,
 		func(gc *gcmocks.GatewayConnector) {},

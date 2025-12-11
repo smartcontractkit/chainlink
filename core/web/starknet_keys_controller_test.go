@@ -13,10 +13,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestStarkNetKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, keyStore := setupStarkNetKeysControllerTests(t)
 	keys, _ := keyStore.StarkNet().GetAll()
@@ -37,6 +40,7 @@ func TestStarkNetKeysController_Index_HappyPath(t *testing.T) {
 
 func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -63,6 +67,7 @@ func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 
 func TestStarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupStarkNetKeysControllerTests(t)
 
@@ -74,6 +79,7 @@ func TestStarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.T) {
 
 func TestStarkNetKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client, keyStore := setupStarkNetKeysControllerTests(t)

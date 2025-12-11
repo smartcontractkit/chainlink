@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -21,6 +22,7 @@ import (
 
 func TestUserController_UpdatePassword(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -86,6 +88,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 
 func TestUserController_CreateUser(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -180,6 +183,7 @@ func TestUserController_CreateUser(t *testing.T) {
 
 func TestUserController_UpdateRole(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -227,6 +231,7 @@ func TestUserController_UpdateRole(t *testing.T) {
 
 func TestUserController_DeleteUser(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -254,6 +259,7 @@ func TestUserController_DeleteUser(t *testing.T) {
 
 func TestUserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -275,6 +281,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 
 func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -291,6 +298,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 
 func TestUserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -308,6 +316,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 
 func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))

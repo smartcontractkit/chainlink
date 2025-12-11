@@ -63,12 +63,15 @@ import (
 	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 const triggerID = "basic-test-trigger@1.0.0"
 
 func TestEngine_Init(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -100,6 +103,7 @@ func TestEngine_Init(t *testing.T) {
 
 func TestEngine_Start_RateLimited(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.Test(t), syncerlimiter.Config{
 		Global:   2,
 		PerOwner: 1,
@@ -166,6 +170,7 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 
 func TestEngine_TriggerSubscriptions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -277,6 +282,7 @@ func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 
 func TestEngine_OrganizationIdLogger(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -363,6 +369,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 
 func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -477,6 +484,7 @@ func (m *mockOrgResolver) Ready() error {
 }
 
 func TestEngine_Execution(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	quarantine.Flaky(t, "DX-1725")
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -588,6 +596,7 @@ func TestEngine_Execution(t *testing.T) {
 
 func TestEngine_ExecutionTimeout(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -675,6 +684,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 
 func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -1075,6 +1085,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -1194,6 +1205,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_Simple(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
@@ -1299,6 +1311,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 // TODO fix
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
 
@@ -1394,6 +1407,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 }
 
 func TestSecretsFetcher_Integration(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
 
@@ -1584,6 +1598,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 
 func TestEngine_HandleNewDON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("subscribe and update successfully", func(t *testing.T) {
 		module := modulemocks.NewModuleV2(t)
@@ -1794,6 +1809,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 // 4. Verify that the beholder logger labels are updated to reflect ConfigVersion = 2
 func TestEngine_DonVersionLabelUpdate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

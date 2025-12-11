@@ -17,6 +17,7 @@ import (
 	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -29,6 +30,7 @@ import (
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	lp := &lpmocks.LogPoller{}
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: 100}, nil)
@@ -99,6 +101,7 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 }
 
 func TestLogRecoverer_Clean(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	oldLogsOffset := int64(20)
 
 	tests := []struct {
@@ -212,6 +215,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 }
 
 func TestLogRecoverer_Recover(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	tests := []struct {
@@ -455,6 +459,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 }
 
 func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	n := recoveryBatchSize*2 + 2
 	filters := []upkeepFilter{}
 	for i := range n {
@@ -472,6 +477,7 @@ func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
 }
 
 func TestLogRecoverer_getFilterBatch(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		offsetBlock int64
@@ -520,6 +526,7 @@ func TestLogRecoverer_getFilterBatch(t *testing.T) {
 }
 
 func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name   string
 		logs   []logpoller.Log
@@ -561,6 +568,7 @@ func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
 }
 
 func TestLogRecoverer_GetProposalData(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tc := range []struct {
 		name        string
 		proposal    ocr2keepers.CoordinatedBlockProposal
@@ -1090,6 +1098,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 }
 
 func TestLogRecoverer_pending(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name         string
 		maxPerUpkeep int

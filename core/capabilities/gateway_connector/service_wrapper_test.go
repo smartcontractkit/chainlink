@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -49,6 +50,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 
 func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	key, _ := testutils.NewPrivateKeyAndAddress(t)
 	wrapper, err := generateWrapper(t, key, key)
@@ -65,6 +67,7 @@ func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 
 func TestGatewayConnectorServiceWrapper_NonexistentKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	key, _ := testutils.NewPrivateKeyAndAddress(t)
 	keystoreKey, _ := testutils.NewPrivateKeyAndAddress(t)

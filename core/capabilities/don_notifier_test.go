@@ -11,10 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 )
 
 func TestDonNotifier_WaitForDon(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	notifier := capabilities.NewDonNotifier()
 	don := commoncap.DON{
 		ID: 1,
@@ -45,6 +47,7 @@ func TestDonNotifier_WaitForDon(t *testing.T) {
 }
 
 func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	notifier := capabilities.NewDonNotifier()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -56,6 +59,7 @@ func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 }
 
 func TestDonNotifier_DonUpdate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	notifier := capabilities.NewDonNotifier()
 	notifyChs := []chan struct{}{
 		make(chan struct{}),

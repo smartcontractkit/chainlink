@@ -4,10 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestFilePersistedSecretGenerator(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	rootDir := t.TempDir()
 	var secretGenerator FilePersistedSecretGenerator
 

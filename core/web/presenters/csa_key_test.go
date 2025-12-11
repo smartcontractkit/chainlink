@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
 
 func TestCSAKeyResource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	keyV2, err := csakey.NewV2()
 	require.NoError(t, err)
 

@@ -9,10 +9,12 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_WrapperFactory(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	validFactory := NewReportingPluginFactory(
 		fakeFactory[uint]{},
 		logger.TestLogger(t),

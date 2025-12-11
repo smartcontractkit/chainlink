@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -42,6 +43,7 @@ type testCase struct {
 
 func Test_NewBatchingStrategy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mockStatusChecker := mockstatuschecker.NewCCIPTransactionStatusChecker(t)
 
@@ -59,6 +61,7 @@ func Test_NewBatchingStrategy(t *testing.T) {
 }
 
 func Test_validateSendRequests(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name             string
 		seqNums          []uint64
@@ -126,6 +129,7 @@ func (m delayedTokenDataWorker) GetMsgTokenData(ctx context.Context, msg cciptyp
 }
 
 func TestExecutionReportingPlugin_getTokenDataWithCappedLatency(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name               string
 		allowedWaitingTime time.Duration
@@ -167,6 +171,7 @@ func TestExecutionReportingPlugin_getTokenDataWithCappedLatency(t *testing.T) {
 }
 
 func TestBatchingStrategies(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	sender1 := ccipcalc.HexToAddress("0xa")
 	destNative := ccipcalc.HexToAddress("0xb")
 	srcNative := ccipcalc.HexToAddress("0xc")

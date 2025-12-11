@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -24,6 +25,7 @@ import (
 )
 
 func TestTransmitEventProvider_Sanity(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	lp := new(mocks.LogPoller)
@@ -101,6 +103,7 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 }
 
 func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lp := new(mocks.LogPoller)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	client := clienttest.NewClient(t)

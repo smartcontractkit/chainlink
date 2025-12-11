@@ -6,11 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestNewJSONAPIErrors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	res := models.NewJSONAPIErrors()
 	require.NotNil(t, res)
@@ -20,6 +22,7 @@ func TestNewJSONAPIErrors(t *testing.T) {
 
 func TestNewJSONAPIErrorsWith(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	res := models.NewJSONAPIErrorsWith("foo")
 	require.NotNil(t, res)
@@ -30,6 +33,7 @@ func TestNewJSONAPIErrorsWith(t *testing.T) {
 
 func TestJSONAPIErrors_Error(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	res := models.NewJSONAPIErrorsWith("foo")
 	require.NotNil(t, res)
@@ -41,6 +45,7 @@ func TestJSONAPIErrors_Error(t *testing.T) {
 
 func TestJSONAPIErrors_CoerceEmptyToNil(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	res := models.NewJSONAPIErrors()
 	require.NotNil(t, res)
@@ -57,6 +62,7 @@ func TestJSONAPIErrors_CoerceEmptyToNil(t *testing.T) {
 
 func TestJSONAPIErrors_Merge(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	res1 := models.NewJSONAPIErrorsWith("foo")
 	require.NotNil(t, res1)

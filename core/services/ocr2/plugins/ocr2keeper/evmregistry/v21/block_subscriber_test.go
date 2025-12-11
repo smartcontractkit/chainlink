@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -26,6 +27,7 @@ const blockSize = int64(4)
 const finality = uint32(4)
 
 func TestBlockSubscriber_Subscribe(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
@@ -45,6 +47,7 @@ func TestBlockSubscriber_Subscribe(t *testing.T) {
 }
 
 func TestBlockSubscriber_Unsubscribe(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
@@ -63,6 +66,7 @@ func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 }
 
 func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
@@ -75,6 +79,7 @@ func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 }
 
 func TestBlockSubscriber_GetBlockRange(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 
@@ -114,6 +119,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 }
 
 func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 
@@ -177,6 +183,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 }
 
 func TestBlockSubscriber_BuildHistory(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
@@ -227,6 +234,7 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 }
 
 func TestBlockSubscriber_Cleanup(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
@@ -275,6 +283,7 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 }
 
 func TestBlockSubscriber_Start(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	hb := headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})

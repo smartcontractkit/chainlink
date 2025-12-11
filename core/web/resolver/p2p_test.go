@@ -10,12 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func TestResolver_GetP2PKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetP2PKeys {
@@ -69,6 +71,7 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 
 func TestResolver_CreateP2PKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		mutation CreateP2PKey {
@@ -118,6 +121,7 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 
 func TestResolver_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	fakeKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 

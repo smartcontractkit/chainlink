@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestSuiKey(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	bytes, err := hex.DecodeString("f0d07ab448018b2754475f9a3b580218b0675a1456aad96ad607c7bbd7d9237b")
 	require.NoError(t, err)
 	k := KeyFor(internal.NewRaw(bytes))

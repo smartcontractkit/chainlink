@@ -23,6 +23,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
@@ -34,6 +35,7 @@ import (
 )
 
 func TestMercuryConfig_RemoveTrailingSlash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		Name      string
 		URL       string
@@ -77,6 +79,7 @@ func TestMercuryConfig_RemoveTrailingSlash(t *testing.T) {
 }
 
 func TestPollLogs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		Name             string
 		LastPoll         int64
@@ -245,6 +248,7 @@ func TestPollLogs(t *testing.T) {
 }
 
 func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tc := range []struct {
 		name             string
 		ids              []*big.Int

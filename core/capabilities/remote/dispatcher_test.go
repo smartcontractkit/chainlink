@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 
 	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type testReceiver struct {
@@ -80,6 +81,7 @@ func (c testConfig) SendToSharedPeer() bool {
 }
 
 func TestDispatcher_CleanStartClose(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	peer := mocks.NewPeer(t)
@@ -99,6 +101,7 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 }
 
 func TestDispatcher_Receive(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -144,6 +147,7 @@ func TestDispatcher_Receive(t *testing.T) {
 }
 
 func TestDispatcher_ReceiveForMethod(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -196,6 +200,7 @@ func TestDispatcher_ReceiveForMethod(t *testing.T) {
 }
 
 func TestDispatcher_RespondWithError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -230,6 +235,7 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 }
 
 func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -271,6 +277,7 @@ func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
 }
 
 func TestDispatcher_SendToSharedPeer(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	_, peerID1 := newKeyPair(t)

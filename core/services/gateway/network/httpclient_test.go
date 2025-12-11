@@ -15,10 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestHTTPClient_Send(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Setup the test environment
 	lggr := logger.Test(t)
@@ -308,7 +310,7 @@ func TestHTTPClient_Send(t *testing.T) {
 // run on osx or on linux.
 func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 	t.Parallel()
-
+	tests.BelongsToCISuite(t, "unit")
 	// Setup the test environment
 	lggr := logger.Test(t)
 	// Define test cases
@@ -512,6 +514,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 
 func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Setup the test environment
 	lggr := logger.Test(t)
@@ -582,6 +585,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 
 func Test_ConfigApplyDefaults(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("successfully overrides defaults", func(t *testing.T) {
 		config := HTTPClientConfig{
 			MaxResponseBytes: 1024,
@@ -606,6 +610,7 @@ func Test_ConfigApplyDefaults(t *testing.T) {
 
 func TestHTTPClient_ValidateMethod(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 
 	tests := []struct {
@@ -667,6 +672,7 @@ func TestHTTPClient_ValidateMethod(t *testing.T) {
 
 func TestHTTPClient_ValidateHeaders(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 
 	tests := []struct {
@@ -749,6 +755,7 @@ func TestHTTPClient_ValidateHeaders(t *testing.T) {
 
 func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.Test(t)
 

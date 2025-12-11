@@ -27,6 +27,7 @@ import (
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -104,6 +105,7 @@ func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string
 }
 
 func TestActiveRequest_SendResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	rm := json.RawMessage([]byte(`{}`))
 	cb := common.NewCallback()
 	activeRequest := &activeRequest{
@@ -128,6 +130,7 @@ func TestActiveRequest_SendResponse(t *testing.T) {
 }
 
 func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	createSecretsRequest := &vaultcommon.CreateSecretsRequest{
 		RequestId: "test_request_id",
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -738,6 +741,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 }
 
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	h, callback, don, _ := setupHandler(t)
 	signers := []string{
 		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",

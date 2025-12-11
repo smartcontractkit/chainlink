@@ -9,10 +9,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestPrometheusLogger_Counters(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	createRandomNameCounter := func() prometheus.Counter {
 		name := fmt.Sprintf("test_counter_%d", rand.Int31n(999999))

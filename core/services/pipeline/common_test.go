@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -18,6 +19,7 @@ import (
 )
 
 func TestAtrributesAttribute(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	a := `ds1 [type=http method=GET tags=<{"attribute1":"value1", "attribute2":42}>];`
 	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
@@ -27,6 +29,7 @@ func TestAtrributesAttribute(t *testing.T) {
 
 func TestTimeoutAttribute(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	a := `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
 	p, err := pipeline.Parse(a)
@@ -45,6 +48,7 @@ func TestTimeoutAttribute(t *testing.T) {
 
 func TestTaskHTTPUnmarshal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	a := `ds1 [type=http allowunrestrictednetworkaccess=true method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
 	p, err := pipeline.Parse(a)
@@ -57,6 +61,7 @@ func TestTaskHTTPUnmarshal(t *testing.T) {
 
 func TestTaskAnyUnmarshal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	a := `ds1 [type=any failEarly=true];`
 	p, err := pipeline.Parse(a)
@@ -69,6 +74,7 @@ func TestTaskAnyUnmarshal(t *testing.T) {
 
 func TestRetryUnmarshal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name    string
@@ -116,6 +122,7 @@ func TestRetryUnmarshal(t *testing.T) {
 
 func TestUnmarshalTaskFromMap(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("returns error if task is not the right type", func(t *testing.T) {
 		taskMap := any(nil)
@@ -184,6 +191,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 
 func TestCheckInputs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	emptyPR := []pipeline.Result{}
 	nonEmptyPR := []pipeline.Result{
@@ -225,6 +233,7 @@ func TestCheckInputs(t *testing.T) {
 
 func TestTaskRunResult_IsPending(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	trr := &pipeline.TaskRunResult{}
 	assert.True(t, trr.IsPending())
@@ -238,6 +247,7 @@ func TestTaskRunResult_IsPending(t *testing.T) {
 
 func TestSelectGasLimit(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(999))
@@ -294,6 +304,7 @@ func TestSelectGasLimit(t *testing.T) {
 	})
 }
 func TestGetNextTaskOf(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	trrs := pipeline.TaskRunResults{
 		{
 			Task: &pipeline.BridgeTask{
@@ -333,6 +344,7 @@ func TestGetNextTaskOf(t *testing.T) {
 
 func TestGetDescendantTasks(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("GetDescendantTasks with multiple levels of tasks", func(t *testing.T) {
 		l3T2 := pipeline.AnyTask{

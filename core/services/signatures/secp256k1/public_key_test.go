@@ -7,9 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestValueScanIdentityPointSet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	randomStream := cryptotest.NewStream(t, 0)
 	for range 10 {
 		p := NewBlakeKeccackSecp256k1().Point().Pick(randomStream)
@@ -34,6 +37,7 @@ func TestValueScanIdentityPointSet(t *testing.T) {
 
 // Tests that PublicKey.Hash gives the same result as the VRFCoordinator's
 func TestHash(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	pk, err := NewPublicKeyFromHex("0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01")
 	assert.NoError(t, err)
 	assert.Equal(t, "0xc4406d555db624837188b91514a5f47e34d825d935ab887a35c06a3e7c41de69", pk.MustHash().String())

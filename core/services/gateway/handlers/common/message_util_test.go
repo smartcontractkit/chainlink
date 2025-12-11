@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
@@ -27,6 +28,7 @@ func unsignedMessage() api.Message {
 }
 
 func TestValidatedMessageFromReq(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	validMsg := unsignedMessage()
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
@@ -118,6 +120,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 }
 
 func TestValidatedMessageFromResp(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	validMsg := unsignedMessage()
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
@@ -191,6 +194,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 }
 
 func TestValidatedResponseFromMessage(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	validMsg := unsignedMessage()
 
 	t.Run("valid message", func(t *testing.T) {
@@ -224,6 +228,7 @@ func TestValidatedResponseFromMessage(t *testing.T) {
 }
 
 func TestValidatedRequestFromMessage(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	validMsg := unsignedMessage()
 
 	t.Run("valid message", func(t *testing.T) {

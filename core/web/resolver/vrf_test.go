@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 )
 
 func TestResolver_GetVRFKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetVRFKey($id: ID!) {
@@ -104,6 +106,7 @@ func TestResolver_GetVRFKey(t *testing.T) {
 
 func TestResolver_GetVRFKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetVRFKeys {
@@ -162,6 +165,7 @@ func TestResolver_GetVRFKeys(t *testing.T) {
 
 func TestResolver_CreateVRFKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation CreateVRFKey {
@@ -214,6 +218,7 @@ func TestResolver_CreateVRFKey(t *testing.T) {
 
 func TestResolver_DeleteVRFKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation DeleteVRFKey($id: ID!) {

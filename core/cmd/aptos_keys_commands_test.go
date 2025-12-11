@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 
 func TestAptosKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		id     = "1"
@@ -56,6 +58,7 @@ func TestAptosKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_AptosKeys(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Aptos()
 	cleanup := func() {

@@ -15,6 +15,7 @@ import (
 	retirement "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/retirement"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func FuzzPluginScopedRetirementReportCache_CheckAttestedRetirementReport(f *testing.F) {
@@ -69,6 +70,7 @@ func (m *mockCodec) Decode(b []byte) (datastreamsllo.RetirementReport, error) {
 }
 
 func Test_PluginScopedRetirementReportCache(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	rrc := &mockRetirementReportCache{}
 	v := &mockVerifier{}
 	c := &mockCodec{}

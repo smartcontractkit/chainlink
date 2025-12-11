@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	gatewaymocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
@@ -56,6 +57,7 @@ func newTestConnector(t *testing.T, config *ConnectorConfig) (*gatewayConnector,
 
 func TestGatewayConnector_NewGatewayConnector_ValidConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tomlConfig := parseTOMLConfig(t, `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
@@ -71,6 +73,7 @@ URL = "ws://localhost:8081/node"
 
 func TestGatewayConnector_NewGatewayConnector_InvalidConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	invalidCases := map[string]string{
 		"invalid DON ID": `
@@ -119,6 +122,7 @@ URL = "ws://localhost:8081/node"
 
 func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
 	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
@@ -127,6 +131,7 @@ func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
 
 func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
 	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
@@ -139,6 +144,7 @@ func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
 
 func TestGatewayConnector_NewAuthHeader_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	testSignature := make([]byte, network.HandshakeSignatureLen)
 	testSignature[1] = 0xfa
@@ -154,6 +160,7 @@ func TestGatewayConnector_NewAuthHeader_Success(t *testing.T) {
 
 func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	testSignature := make([]byte, network.HandshakeSignatureLen)
 	testSignature[1] = 0xfa
@@ -195,6 +202,7 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 
 func TestGatewayConnector_AddHandler(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	connector, _, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
 	// testMethod1 already exists

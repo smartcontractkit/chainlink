@@ -17,11 +17,13 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		Name         string
 		LatestHead   int64
@@ -76,6 +78,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 }
 
 func TestPollLogs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		Name             string
 		LastPoll         int64

@@ -20,6 +20,7 @@ import (
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	mercuryv4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -99,6 +100,7 @@ var trrs = pipeline.TaskRunResults{
 }
 
 func TestShouldCollectTelemetry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -119,6 +121,7 @@ func TestShouldCollectTelemetry(t *testing.T) {
 }
 
 func TestGetContract(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -142,6 +145,7 @@ func TestGetContract(t *testing.T) {
 }
 
 func TestGetChainID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -165,6 +169,7 @@ func TestGetChainID(t *testing.T) {
 }
 
 func TestParseEATelemetry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
 	assert.Equal(t, "data-source-name", ea.DataSource)
@@ -178,6 +183,7 @@ func TestParseEATelemetry(t *testing.T) {
 }
 
 func TestGetJsonParsedValue(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	resp := getJsonParsedValue(trrs[0], &trrs)
 	assert.Equal(t, 123456.123456789, *resp)
 
@@ -190,6 +196,7 @@ func TestGetJsonParsedValue(t *testing.T) {
 }
 
 func TestGetJsonParsedValueHexValues(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	trrsHexData := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
@@ -284,6 +291,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 }
 
 func TestSendEATelemetry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -372,6 +380,7 @@ func TestSendEATelemetry(t *testing.T) {
 }
 
 func TestGetObservation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -397,6 +406,7 @@ func TestGetObservation(t *testing.T) {
 }
 
 func TestCollectAndSend(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -575,6 +585,7 @@ var trrsMercuryV4 = pipeline.TaskRunResults{
 }
 
 func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
 	// These are intentionally out of order from the "legacy" method which expects order of `benchmark, bid, ask`
 	jsonParseTaskBid := pipeline.JSONParseTask{
@@ -644,6 +655,7 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 }
 
 func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
 
 	benchmarkPrice, bid, ask := getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV1, 1)
@@ -712,6 +724,7 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 }
 
 func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := job.Job{
 		Type: job.Type(pipeline.OffchainReporting2JobType),
 		OCR2OracleSpec: &job.OCR2OracleSpec{
@@ -728,6 +741,7 @@ func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
 }
 
 func TestParseBridgeRequestData(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	require.Equal(t, bridgeRequestData{}, parseBridgeRequestData("", 2))
 
 	reqData := `{"data":{"to":"LINK","from":"USD"}}`
@@ -817,6 +831,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 }
 
 func TestCollectMercuryEnhancedTelemetryV1ViewFunction(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -904,6 +919,7 @@ func TestCollectMercuryEnhancedTelemetryV1ViewFunction(t *testing.T) {
 }
 
 func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -1021,6 +1037,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 }
 
 func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -1137,6 +1154,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 }
 
 func TestCollectMercuryEnhancedTelemetryV4(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("test-network", "test-chainID", "0xa", synchronization.EnhancedEAMercury)

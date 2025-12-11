@@ -16,6 +16,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 //go:embed fixtures/operator_ui/assets
@@ -23,6 +25,7 @@ var testFs embed.FS
 
 func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -54,6 +57,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 
 func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -86,6 +90,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	config := configtest.NewGeneralConfig(t, nil)
 	app := cltest.NewApplicationWithConfig(t, config)
@@ -113,6 +118,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 
 func TestGuiAssets_AssetsFS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	efs := web.NewEmbedFileSystem(testFs, "fixtures/operator_ui")
 	handler := web.ServeGzippedAssets("/fixtures/operator_ui/", efs, logger.TestLogger(t))

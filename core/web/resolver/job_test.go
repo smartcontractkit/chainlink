@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -29,6 +30,7 @@ import (
 // This tests the main fields on the job results. Embedded spec testing is done
 // in the `spec_test` file
 func TestResolver_Jobs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
 
@@ -139,6 +141,7 @@ func TestResolver_Jobs(t *testing.T) {
 }
 
 func TestResolver_Job(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		id            = int32(1)
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
@@ -293,6 +296,7 @@ func TestResolver_Job(t *testing.T) {
 
 func TestResolver_CreateJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation CreateJob($input: CreateJobInput!) {
@@ -403,6 +407,7 @@ func TestResolver_CreateJob(t *testing.T) {
 
 func TestResolver_DeleteJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	id := int32(123)
 	extJID := uuid.New()

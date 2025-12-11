@@ -13,10 +13,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	r := cmd.RendererJSON{Writer: io.Discard}
 	keys := []cmd.VRFKeyPresenter{
@@ -33,6 +36,7 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 
 func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	wantUser, wantEffective := app.Config.ConfigTOML()
@@ -73,6 +77,7 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 
 func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	eia := webpresenters.ExternalInitiatorAuthentication{
 		Name:           "bitcoin",
@@ -106,6 +111,7 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 
 func TestRendererTable_RenderUnknown(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	r := cmd.RendererTable{Writer: io.Discard}
 	anon := struct{ Name string }{"Romeo"}
 	assert.Error(t, r.Render(&anon))

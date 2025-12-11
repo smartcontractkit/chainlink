@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evmassets "github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -27,6 +28,8 @@ import (
 )
 
 func TestJob(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// Used in multiple tests
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	contractAddress, err := types.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
@@ -1260,7 +1263,7 @@ func TestJob(t *testing.T) {
 			},
 			want: `
 			{
-				"data": {	
+				"data": {
 					"type": "jobs",
 					"id": "1",
 					"attributes": {
@@ -1299,7 +1302,7 @@ func TestJob(t *testing.T) {
 							"jobID": 0,
 							"dotDagSource": ""
 						},
-						"errors": []						
+						"errors": []
 					}
 				}
 			}`,

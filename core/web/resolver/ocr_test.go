@@ -9,12 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 )
 
 func TestResolver_GetOCRKeyBundles(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	query := `
 		query GetOCRKeyBundles {
@@ -70,6 +72,7 @@ func TestResolver_GetOCRKeyBundles(t *testing.T) {
 
 func TestResolver_OCRCreateBundle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation CreateOCRKeyBundle {
@@ -121,6 +124,7 @@ func TestResolver_OCRCreateBundle(t *testing.T) {
 
 func TestResolver_OCRDeleteBundle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	fakeKey := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 

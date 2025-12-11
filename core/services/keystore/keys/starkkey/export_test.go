@@ -3,11 +3,13 @@ package starkkey
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestStarkNetKeys_ExportImport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
 }
 

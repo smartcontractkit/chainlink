@@ -13,10 +13,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestS4ReportingPluginFactory_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	orm := s4_mocks.NewORM(t)

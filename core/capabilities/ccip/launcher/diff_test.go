@@ -9,12 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func Test_diff(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		capabilityID string
 		oldState     registrysyncer.LocalRegistry
@@ -116,6 +118,7 @@ func Test_diff(t *testing.T) {
 }
 
 func Test_compareDONs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		currCCIPDONs map[registrysyncer.DonID]registrysyncer.DON
 		newCCIPDONs  map[registrysyncer.DonID]registrysyncer.DON
@@ -198,6 +201,7 @@ func Test_compareDONs(t *testing.T) {
 }
 
 func Test_filterCCIPDONs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		ccipCapability registrysyncer.Capability
 		state          registrysyncer.LocalRegistry
@@ -278,6 +282,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 }
 
 func Test_checkCapabilityPresence(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		capabilityID string
 		state        registrysyncer.LocalRegistry
@@ -330,6 +335,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 }
 
 func Test_isMemberOfDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var p2pIDs []ragep2ptypes.PeerID
 	for i := range [4]struct{}{} {
 		p2pIDs = append(p2pIDs, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(i+1))).PeerID()))

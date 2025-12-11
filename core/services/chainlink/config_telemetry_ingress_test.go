@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 func TestTelemetryIngressConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}
@@ -36,6 +38,7 @@ func TestTelemetryIngressConfig(t *testing.T) {
 }
 
 func TestTelemetryIngressConfig_ChipIngressEnabled(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("returns false when ChipIngressEnabled is explicitly false", func(t *testing.T) {
 		falseVal := false
 		config := &telemetryIngressConfig{

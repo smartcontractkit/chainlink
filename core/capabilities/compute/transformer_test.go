@@ -12,14 +12,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_NotFoundError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nfe := NewNotFoundError("test")
 	assert.Equal(t, "could not find \"test\" in map", nfe.Error())
 }
 
 func Test_popValue(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	m, err := values.NewMap(
 		map[string]any{
 			"test":     "value",
@@ -51,6 +55,7 @@ func Test_popValue(t *testing.T) {
 }
 
 func Test_popOptionalValue(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	m, err := values.NewMap(
 		map[string]any{
 			"test": "value",
@@ -83,6 +88,7 @@ func Test_popOptionalValue(t *testing.T) {
 }
 
 func Test_transformer(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		lgger   = logger.Test(t)
 		emitter = custmsg.NewLabeler()

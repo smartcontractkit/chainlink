@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -142,6 +143,7 @@ func countChannels(defsJSON json.RawMessage) int {
 
 func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		invalidDefinitions    = []byte(`{{{`)
 		invalidDefinitionsSHA = sha3.Sum256(invalidDefinitions)

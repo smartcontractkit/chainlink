@@ -19,6 +19,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -27,6 +28,7 @@ import (
 )
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	registeredExtraDataCodecMap := map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
@@ -44,6 +46,7 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 }
 
 func TestMessageHasher_InvalidReceiver(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
 
 	// Set receiver to a []byte of 2 length
@@ -74,6 +77,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 }
 
 func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
 
 	// Set DestTokenAddress to a []byte of 2 length
@@ -196,6 +200,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 }
 
 func TestToLittleEndian(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mustSetString := func(s string) *big.Int {
 		b, ok := big.NewInt(0).SetString(s, 10)
 		if !ok {

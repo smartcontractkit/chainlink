@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type response struct {
@@ -41,6 +42,7 @@ func (k *kv) Write(key []byte, data []byte) error {
 var _ (ocr3_1types.KeyValueReadWriter) = (*kv)(nil)
 
 func TestKVStore_Secrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kv := &kv{
 		m: make(map[string]response),
 	}
@@ -94,6 +96,7 @@ func TestKVStore_Secrets(t *testing.T) {
 }
 
 func TestKVStore_DeleteSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kv := &kv{
 		m: make(map[string]response),
 	}
@@ -119,6 +122,7 @@ func TestKVStore_DeleteSecrets(t *testing.T) {
 }
 
 func TestKVStore_Metadata(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	owner := "owner"
 	kv := &kv{
 		m: make(map[string]response),
@@ -188,6 +192,7 @@ func TestKVStore_Metadata(t *testing.T) {
 }
 
 func TestKVStore_Metadata_Delete(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	owner := "owner"
 	kv := &kv{
 		m: make(map[string]response),
@@ -225,6 +230,7 @@ func TestKVStore_Metadata_Delete(t *testing.T) {
 }
 
 func TestKVStore_InconsistentWrites(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kv := &kv{
 		m: make(map[string]response),
 	}

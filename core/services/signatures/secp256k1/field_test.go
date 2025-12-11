@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
 )
 
@@ -30,6 +31,7 @@ func observedFieldElt(t *testing.T, s *fieldElt) {
 var randomStream = cryptotest.NewStream(&testing.T{}, 0)
 
 func TestField_SetIntAndEqual(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []int64{5, 67108864, 67108865, 4294967295}
 	g := newFieldZero()
 	for _, test := range tests {
@@ -46,16 +48,19 @@ func TestField_SetIntAndEqual(t *testing.T) {
 }
 
 func TestField_String(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	require.Equal(t, "fieldElt{0}", fieldZero.String())
 }
 
 func TestField_Equal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	require.True(t, (*fieldElt)(nil).Equal((*fieldElt)(nil)))
 	require.False(t, (*fieldElt)(nil).Equal(fieldZero))
 	require.False(t, fieldZero.Equal((*fieldElt)(nil)))
 }
 
 func TestField_Set(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := fieldEltFromInt(1)
 	g := newFieldZero()
 	g.Set(f)
@@ -65,12 +70,14 @@ func TestField_Set(t *testing.T) {
 }
 
 func TestFieldEltFromInt(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	assert.Equal(t, fieldEltFromInt(1), // Also tests fieldElt.modQ
 		fieldEltFromBigInt(new(big.Int).Add(q, big.NewInt(1))),
 		"only one representation of a ℤ/qℤ element should be used")
 }
 
 func TestField_SmokeTestPick(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := newFieldZero()
 	f.Pick(randomStream)
 	observedFieldElt(t, f)
@@ -79,6 +86,7 @@ func TestField_SmokeTestPick(t *testing.T) {
 }
 
 func TestField_Neg(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := newFieldZero()
 	for range numFieldSamples {
 		f.Pick(randomStream)
@@ -92,6 +100,7 @@ func TestField_Neg(t *testing.T) {
 }
 
 func TestField_Sub(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := newFieldZero()
 	for range numFieldSamples {
 		f.Pick(randomStream)
@@ -103,6 +112,7 @@ func TestField_Sub(t *testing.T) {
 }
 
 func TestField_Clone(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := fieldEltFromInt(1)
 	g := f.Clone()
 	h := f.Clone()
@@ -112,6 +122,7 @@ func TestField_Clone(t *testing.T) {
 }
 
 func TestField_SetBytesAndBytes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := newFieldZero()
 	g := newFieldZero()
 	for range numFieldSamples {
@@ -125,6 +136,7 @@ func TestField_SetBytesAndBytes(t *testing.T) {
 }
 
 func TestField_MaybeSquareRootInField(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	f := newFieldZero()
 	minusOne := fieldEltFromInt(-1)
 	assert.Nil(t, maybeSqrtInField(minusOne), "-1 is not a square, in this field")
@@ -153,6 +165,7 @@ func TestField_MaybeSquareRootInField(t *testing.T) {
 }
 
 func TestField_RightHandSide(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	assert.Equal(t, rightHandSide(fieldEltFromInt(1)), fieldEltFromInt(8))
 	assert.Equal(t, rightHandSide(fieldEltFromInt(2)), fieldEltFromInt(15))
 }

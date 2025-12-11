@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/quarantine"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 )
@@ -29,6 +30,7 @@ func (o outsideDeviationRow) String() string {
 }
 
 func TestDeviationChecker_OutsideDeviation(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1856")
 	t.Parallel()
 

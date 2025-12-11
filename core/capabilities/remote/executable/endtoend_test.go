@@ -28,6 +28,7 @@ import (
 )
 
 func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_AllAtOnce(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	workflowIDToPause := map[string]time.Duration{}
@@ -91,6 +92,7 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 }
 
 func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_OneAtATime(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	workflowIDToPause := map[string]time.Duration{}
@@ -194,6 +196,7 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	capability := &TestErrorCapability{}
@@ -218,6 +221,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 }
 
 func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	capability := &TestRandomErrorCapability{}

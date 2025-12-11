@@ -19,6 +19,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -32,6 +33,7 @@ import (
 )
 
 func TestPriceService_writeGasPrices(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChainSelector := uint64(12345)
@@ -96,6 +98,7 @@ func TestPriceService_writeGasPrices(t *testing.T) {
 }
 
 func TestPriceService_writeTokenPrices(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChainSelector := uint64(12345)
@@ -168,6 +171,7 @@ func TestPriceService_writeTokenPrices(t *testing.T) {
 }
 
 func TestPriceService_observeGasPriceUpdates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338
@@ -282,6 +286,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 }
 
 func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338
@@ -503,6 +508,7 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 }
 
 func TestPriceService_calculateUsdPer1e18TokenAmount(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name       string
 		price      *big.Int
@@ -543,6 +549,7 @@ func TestPriceService_calculateUsdPer1e18TokenAmount(t *testing.T) {
 }
 
 func TestPriceService_GetGasAndTokenPrices(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChainSelector := uint64(12345)
@@ -762,6 +769,7 @@ func checkResultLen(t *testing.T, priceService PriceService, destChainSelector u
 }
 
 func TestPriceService_priceWriteInBackground(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338

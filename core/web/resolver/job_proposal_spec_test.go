@@ -8,11 +8,13 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
 func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation ApproveJobProposalSpec($id: ID!) {
@@ -121,6 +123,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 
 func TestResolver_CancelJobProposalSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation CancelJobProposalSpec($id: ID!) {
@@ -208,6 +211,7 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 
 func TestResolver_RejectJobProposalSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation RejectJobProposalSpec($id: ID!) {
@@ -295,6 +299,7 @@ func TestResolver_RejectJobProposalSpec(t *testing.T) {
 
 func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mutation := `
 		mutation UpdateJobProposalSpecDefinition($id: ID!, $input: UpdateJobProposalSpecDefinitionInput!) {
@@ -387,6 +392,7 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 // query, we rely on the GetJobProposal query to fetch the nested specs
 func TestResolver_GetJobProposal_Spec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	timestamp := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
 	query := `

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
@@ -65,6 +66,7 @@ func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origi
 
 func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, handler, url := startNewServer(t, 100_000, 100_000, false, nil)
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
@@ -78,6 +80,7 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 
 func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, _, url := startNewServer(t, 5, 100_000, false, nil)
 
 	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
@@ -86,6 +89,7 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 
 func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, _, url := startNewServer(t, 100_000, 100_000, false, nil)
 
 	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
@@ -98,6 +102,7 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
 
@@ -116,6 +121,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://*.gov"})
 
@@ -158,6 +164,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, _, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
 
@@ -174,6 +181,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
 
@@ -192,6 +200,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://example.gov:8080"})
 

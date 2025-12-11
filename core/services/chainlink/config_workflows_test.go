@@ -5,9 +5,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestWorkflowsConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	workflowsTOML := `[Workflows]
 [Workflows.Limits]
 Global = 200

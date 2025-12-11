@@ -16,6 +16,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -23,6 +24,7 @@ import (
 )
 
 func TestLogEventProvider_GetFilters(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	_, f := newEntry(p, 1)
@@ -65,6 +67,7 @@ func TestLogEventProvider_GetFilters(t *testing.T) {
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	n := 10
@@ -109,6 +112,7 @@ func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
 }
 
 func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	mp := new(mocks.LogPoller)
 
 	tests := []struct {
@@ -239,6 +243,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 }
 
 func TestLogEventProvider_ReadLogs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	mp := new(mocks.LogPoller)
@@ -317,6 +322,7 @@ func remainingBlockWindowCounts(queues map[string]*upkeepLogQueue, blockRate int
 }
 
 func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("dequeuing from an empty buffer returns 0 logs", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
 

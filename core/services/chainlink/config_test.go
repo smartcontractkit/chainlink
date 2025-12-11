@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -221,6 +222,7 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	zeroSeconds := *commoncfg.MustNewDuration(time.Second * 0)
 	second := *commoncfg.MustNewDuration(time.Second)
 	minute := *commoncfg.MustNewDuration(time.Minute)
@@ -1471,6 +1473,7 @@ ReaperMaxAge = '678h0m0s'
 }
 
 func TestConfig_full(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var got Config
 	require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
@@ -1551,6 +1554,7 @@ func TestConfig_full(t *testing.T) {
 var invalidTOML string
 
 func TestConfig_Validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tt := range []struct {
 		name string
 		toml string
@@ -1706,6 +1710,7 @@ var (
 )
 
 func Test_generalConfig_LogConfiguration(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	const (
 		secrets   = "# Secrets:\n"
 		input     = "# Input Configuration:\n"
@@ -1778,6 +1783,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 }
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	invalidTOML := "{ bad syntax {"
 	opts := GeneralConfigOpts{
 		ConfigStrings:  []string{invalidTOML},
@@ -1788,6 +1794,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	invalidTOML := `Dev = false
 Dev = true`
 	opts := GeneralConfigOpts{
@@ -1799,6 +1806,7 @@ Dev = true`
 }
 
 func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Provide a keystore password file and an env var with DB URL
 	const PWD_OVERRIDE = "great_password"
 	const DBURL_OVERRIDE = "http://user@db"
@@ -1819,6 +1827,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 }
 
 func TestSecrets_Validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tt := range []struct {
 		name string
 		toml string
@@ -1838,25 +1847,25 @@ BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = false`,
 			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
-		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-	
-		- BackupURL: invalid value (*****): missing or insufficiently complex password: 
+
+		- BackupURL: invalid value (*****): missing or insufficiently complex password:
 	Expected password complexity:
 	Must be at least 16 characters long
 	Must not comprise:
 		Leading or trailing whitespace
 		A user's API email
-	
+
 	Faults:
 		password is less than 16 characters long
-	. Database should be secured by a password matching the following complexity requirements: 
+	. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-	
+
 	- Password.Keystore: empty: must be provided and non-empty`},
 
 		{name: "invalid-urls-allowed",
@@ -1883,6 +1892,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 }
 
 func TestConfig_setDefaults(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: ubig.NewI(99999133712345)}}
 	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
@@ -1897,6 +1907,7 @@ func TestConfig_setDefaults(t *testing.T) {
 }
 
 func Test_validateEnv(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Setenv("LOG_LEVEL", "warn")
 	t.Setenv("DATABASE_URL", "foo")
 	assert.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
@@ -1914,6 +1925,7 @@ func Test_validateEnv(t *testing.T) {
 
 func TestConfig_SetFrom(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tt := range []struct {
 		name string
 		exp  string
@@ -1941,6 +1953,7 @@ func TestConfig_SetFrom(t *testing.T) {
 }
 
 func TestConfig_warnings(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name           string
 		config         Config
@@ -1989,6 +2002,7 @@ func mustHexToBig(t *testing.T, hx string) *big.Int {
 }
 
 func TestRawConfig_IsEnabled(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	assert.True(t, RawConfig{"Enabled": true}.IsEnabled())
 	assert.True(t, RawConfig{"Enabled": nil}.IsEnabled())
 	assert.True(t, RawConfig{}.IsEnabled())
@@ -1998,6 +2012,7 @@ func TestRawConfig_IsEnabled(t *testing.T) {
 }
 
 func TestRawConfig_SetDefaults(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	c := RawConfig{"Enabled": true}
 	c.SetDefaults()
 	require.NotContains(t, c, "Enabled")

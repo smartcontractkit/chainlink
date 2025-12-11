@@ -31,6 +31,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -46,6 +47,7 @@ import (
 const ChainID = 1337
 
 func Test_USDCReader_MessageHashes(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	finalityDepth := 5
 
 	ctx := testutils.Context(t)

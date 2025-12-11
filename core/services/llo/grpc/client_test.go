@@ -14,12 +14,14 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_Client(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	clientPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 	serverPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 

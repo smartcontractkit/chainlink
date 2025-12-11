@@ -12,10 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTONKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, keyStore := setupTONKeysControllerTests(t)
 	keys, _ := keyStore.TON().GetAll()
@@ -36,6 +39,7 @@ func TestTONKeysController_Index_HappyPath(t *testing.T) {
 
 func TestTONKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -64,6 +68,7 @@ func TestTONKeysController_Create_HappyPath(t *testing.T) {
 
 func TestTONKeysController_Delete_NonExistentTONKeyID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupTONKeysControllerTests(t)
 
@@ -75,6 +80,7 @@ func TestTONKeysController_Delete_NonExistentTONKeyID(t *testing.T) {
 
 func TestTONKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client, keyStore := setupTONKeysControllerTests(t)

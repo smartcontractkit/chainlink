@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -54,6 +55,7 @@ func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscr
 
 func TestORM_GetSubscriptions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("fetch first page", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		orm, err := setupORM(t)
@@ -79,6 +81,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 
 func TestORM_UpsertSubscription(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("create a subscription", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -238,6 +241,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 }
 func Test_NewORM(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("OK-create_ORM", func(t *testing.T) {
 		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.Test(t), testutils.NewAddress())
 		require.NoError(t, err)

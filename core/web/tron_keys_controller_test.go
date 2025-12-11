@@ -12,10 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTronKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, keyStore := setupTronKeysControllerTests(t)
 	keys, _ := keyStore.Tron().GetAll()
@@ -36,6 +39,7 @@ func TestTronKeysController_Index_HappyPath(t *testing.T) {
 
 func TestTronKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -62,6 +66,7 @@ func TestTronKeysController_Create_HappyPath(t *testing.T) {
 
 func TestTronKeysController_Delete_NonExistentTronKeyID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupTronKeysControllerTests(t)
 
@@ -73,6 +78,7 @@ func TestTronKeysController_Delete_NonExistentTronKeyID(t *testing.T) {
 
 func TestTronKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client, keyStore := setupTronKeysControllerTests(t)

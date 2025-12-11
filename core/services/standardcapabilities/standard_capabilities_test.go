@@ -15,12 +15,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 func TestStandardCapabilityStart(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("NOK-not_found_binary_does_not_block", func(t *testing.T) {
 		ctx := t.Context()
 		lggr := logger.TestLogger(t)

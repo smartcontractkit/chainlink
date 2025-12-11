@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -33,6 +34,7 @@ import (
 
 func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -89,6 +91,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -149,6 +152,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	url := url.URL{Path: "/v2/pipeline/runs"}
@@ -177,6 +181,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs")
@@ -200,6 +205,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs?page=1&size=1")
@@ -222,6 +228,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
@@ -242,6 +249,7 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient(nil)

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -17,6 +18,7 @@ import (
 
 func TestAptosKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, keyStore := setupAptosKeysControllerTests(t)
 	keys, _ := keyStore.Aptos().GetAll()
@@ -37,6 +39,7 @@ func TestAptosKeysController_Index_HappyPath(t *testing.T) {
 
 func TestAptosKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -63,6 +66,7 @@ func TestAptosKeysController_Create_HappyPath(t *testing.T) {
 
 func TestAptosKeysController_Delete_NonExistentAptosKeyID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	client, _ := setupAptosKeysControllerTests(t)
 
@@ -74,6 +78,7 @@ func TestAptosKeysController_Delete_NonExistentAptosKeyID(t *testing.T) {
 
 func TestAptosKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	client, keyStore := setupAptosKeysControllerTests(t)

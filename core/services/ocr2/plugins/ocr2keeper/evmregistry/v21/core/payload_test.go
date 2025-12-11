@@ -10,9 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestWorkID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		upkeepID string
@@ -95,6 +97,7 @@ func TestWorkID(t *testing.T) {
 }
 
 func TestNewUpkeepPayload(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name       string
 		upkeepID   *big.Int

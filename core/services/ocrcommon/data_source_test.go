@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	serializablebig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,6 +35,7 @@ var (
 )
 
 func Test_InMemoryDataSource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(&pipeline.Run{}, pipeline.TaskRunResults{
@@ -53,6 +55,7 @@ func Test_InMemoryDataSource(t *testing.T) {
 }
 
 func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	changeResultValue := func(runner *pipelinemocks.Runner, value string, returnErr, once bool) {
 		result := pipeline.Result{
 			Value: value,
@@ -145,6 +148,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 }
 
 func Test_InMemoryDataSourceWithProm(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runner := pipelinemocks.NewRunner(t)
 
 	jsonParseTask := pipeline.JSONParseTask{
@@ -201,6 +205,7 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 }
 
 func Test_NewDataSourceV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runner := pipelinemocks.NewRunner(t)
 	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
@@ -222,6 +227,7 @@ func Test_NewDataSourceV2(t *testing.T) {
 }
 
 func Test_NewDataSourceV1(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	runner := pipelinemocks.NewRunner(t)
 	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).

@@ -10,9 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestOffchainKeyring(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 	pubKey := kr.OffchainPublicKey()
@@ -20,6 +23,7 @@ func TestOffchainKeyring(t *testing.T) {
 }
 
 func TestOffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -36,6 +40,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
 }
 
 func TestOffchainKeyring_NaclBoxSealAnonymous_ShortCiphertext(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -46,6 +51,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous_ShortCiphertext(t *testing.T) {
 }
 
 func TestOffchainKeyring_NaclBoxSealAnonymous_FailedDecryption(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 

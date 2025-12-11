@@ -85,6 +85,7 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 
 func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -264,6 +265,7 @@ observationSource   = """
 
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
@@ -353,6 +355,7 @@ var multiWordSpecTemplate string
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1761")
 	t.Parallel()
 	tests := []struct {
@@ -501,6 +504,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1767")
 	t.Parallel()
 	operatorContracts := setupOperatorContracts(t)
@@ -1266,6 +1270,7 @@ observationSource = """
 
 func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var initialDefaultGasPrice int64 = 5_000_000_000

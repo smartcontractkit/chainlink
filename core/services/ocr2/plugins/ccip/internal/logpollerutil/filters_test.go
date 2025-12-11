@@ -7,10 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 func Test_FiltersDiff(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		filtersBefore []logpoller.Filter
 		filtersNow    []logpoller.Filter
@@ -68,6 +70,7 @@ func Test_FiltersDiff(t *testing.T) {
 }
 
 func Test_filterContainsZeroAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		addrs []common.Address
 	}
@@ -113,6 +116,7 @@ func Test_filterContainsZeroAddress(t *testing.T) {
 }
 
 func Test_containsFilter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		filters []logpoller.Filter
 		f       logpoller.Filter

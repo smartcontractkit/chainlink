@@ -9,10 +9,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_NewEncoder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("All ocr3 encoder types return a factory", func(t *testing.T) {
 		evmEncoding, err := values.NewMap(map[string]any{"abi": "bytes[] Full_reports"})
 		require.NoError(t, err)

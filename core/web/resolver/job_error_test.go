@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
@@ -19,6 +20,7 @@ import (
 // so we test the job error resolvers by fetching a job by id.
 
 func TestResolver_JobErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		id      = int32(1)
 		errorID = int64(200)
@@ -77,6 +79,7 @@ func TestResolver_JobErrors(t *testing.T) {
 
 func TestResolver_DismissJobError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	id := int64(1)
 	mutation := `

@@ -7,10 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_NewChainType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name    string
@@ -60,6 +63,7 @@ func Test_NewChainType(t *testing.T) {
 
 func Test_ToPluginType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	pt, err := ToPluginType("commit")
 	require.NoError(t, err)
@@ -89,6 +93,7 @@ func Test_ToPluginType(t *testing.T) {
 
 func Test_FromPluginType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	assert.Equal(t, "commit", FromPluginTypeInput(PluginTypeCommit))
 	assert.Equal(t, "execute", FromPluginTypeInput(PluginTypeExecute))
@@ -100,6 +105,7 @@ func Test_FromPluginType(t *testing.T) {
 
 func Test_FluxMonitorConfig_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	cfg := FluxMonitorConfig{Enabled: true}
 	want := `{"enabled":true}`
@@ -115,6 +121,7 @@ func Test_FluxMonitorConfig_Value(t *testing.T) {
 
 func Test_FluxMonitorConfig_Scan(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		give = `{"enabled":true}`
@@ -130,6 +137,7 @@ func Test_FluxMonitorConfig_Scan(t *testing.T) {
 
 func Test_OCR1Config_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		multiaddr   = "multiaddr"
@@ -192,6 +200,7 @@ func Test_OCR1Config_Value(t *testing.T) {
 
 func Test_OCR1Config_Scan(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		multiaddr   = "multiaddr"
@@ -252,6 +261,7 @@ func Test_OCR1Config_Scan(t *testing.T) {
 
 func Test_Plugins_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		give = Plugins{
@@ -275,6 +285,7 @@ func Test_Plugins_Value(t *testing.T) {
 
 func Test_Plugins_Scan(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		give = `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}`
@@ -296,6 +307,7 @@ func Test_Plugins_Scan(t *testing.T) {
 
 func Test_OCR2Config_Value(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		give = OCR2ConfigModel{
@@ -327,6 +339,7 @@ func Test_OCR2Config_Value(t *testing.T) {
 
 func Test_OCR2Config_Scan(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","forwarder_address":"forwarderaddress","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}}`
@@ -356,6 +369,7 @@ func Test_OCR2Config_Scan(t *testing.T) {
 
 func Test_JobProposal_CanEditDefinition(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name   string
@@ -397,6 +411,7 @@ func Test_JobProposal_CanEditDefinition(t *testing.T) {
 // Test_toMetrics tests the toMetrics method
 func Test_toMetrics(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	jpCounts := JobProposalCounts{
 		Cancelled: 0,

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -30,6 +31,7 @@ type attestationResponse struct {
 
 func TestUSDCReader_ReadTokenData(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                string
 		attestationResponse attestationResponse

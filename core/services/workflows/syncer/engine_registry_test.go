@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 func TestEngineRegistry(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var srv services.Service = &fakeService{}
 
 	const id1 = "foo"
@@ -72,6 +74,7 @@ func TestEngineRegistry(t *testing.T) {
 }
 
 func TestEngineRegistry_keyFor(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	owner := []byte("owner")
 	k := EngineRegistryKey{Owner: owner, Name: "name"}
 	assert.Equal(t, k.keyFor(), fmt.Sprintf("%x-name", owner))

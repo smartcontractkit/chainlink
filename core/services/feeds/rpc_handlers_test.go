@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -36,6 +37,7 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 }
 
 func Test_RPCHandlers_ProposeJob(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx                  = testutils.Context(t)
 		jobID                = uuid.New()
@@ -63,6 +65,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 }
 
 func Test_RPCHandlers_DeleteJob(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -83,6 +86,7 @@ func Test_RPCHandlers_DeleteJob(t *testing.T) {
 }
 
 func Test_RPCHandlers_RevokeJob(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -103,6 +107,7 @@ func Test_RPCHandlers_RevokeJob(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -158,6 +163,7 @@ func Test_RPCHandlers_GetJobRuns(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	h := setupTestHandlers(t)
 
@@ -171,6 +177,7 @@ func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -193,6 +200,7 @@ func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns_ExceedsMaxLimit(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()

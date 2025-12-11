@@ -26,11 +26,13 @@ import (
 
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	config "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 func TestParsingDifferentFormats(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tests := []struct {
 		name          string
 		inputValue    string

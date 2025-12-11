@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 )
 
@@ -40,6 +41,7 @@ var (
 )
 
 func TestVRFParseRandomnessRequestLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r := solidity_cross_tests.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
 	rawLog, err := r.RawData()
 	require.NoError(t, err)

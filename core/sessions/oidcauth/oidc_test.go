@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -36,6 +37,7 @@ func setupAuthenticationProvider(t *testing.T) (*sqlx.DB, sessions.Authenticatio
 
 func TestORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	_, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -46,6 +48,7 @@ func TestORM_FindUser_Empty(t *testing.T) {
 
 func TestORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -67,6 +70,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -17,6 +18,7 @@ import (
 
 func TestBridgeCache_Type(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("loads bridge from data source - single", func(t *testing.T) {
 		t.Parallel()
@@ -130,6 +132,7 @@ func TestBridgeCache_Type(t *testing.T) {
 
 func TestBridgeCache_Response(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("loads response from data source", func(t *testing.T) {
 		t.Parallel()

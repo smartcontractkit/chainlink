@@ -18,10 +18,13 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestValidateBridgeType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		description string
@@ -113,6 +116,7 @@ func TestValidateBridgeType(t *testing.T) {
 
 func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
@@ -145,6 +149,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 
 func TestBridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -214,6 +219,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 
 func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -243,6 +249,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 
 func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -269,6 +276,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -300,6 +308,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -316,6 +325,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -332,6 +342,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))

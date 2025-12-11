@@ -7,10 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
 func TestMessage_Validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: "abcd",
@@ -71,6 +73,7 @@ func TestMessage_Validate(t *testing.T) {
 
 func TestMessage_MessageSignAndValidateSignature(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	msg := &api.Message{
 		Body: api.MessageBody{

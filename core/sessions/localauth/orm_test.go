@@ -13,6 +13,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -35,6 +36,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 
 func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db, orm := setupORM(t)
@@ -54,6 +56,7 @@ func TestORM_FindUser(t *testing.T) {
 
 func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name            string
@@ -99,6 +102,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 func TestORM_DeleteUser(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
@@ -114,6 +118,7 @@ func TestORM_DeleteUser(t *testing.T) {
 
 func TestORM_DeleteUserSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db, orm := setupORM(t)
@@ -137,6 +142,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 }
 
 func TestORM_DeleteUserCascade(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, orm := setupORM(t)
 

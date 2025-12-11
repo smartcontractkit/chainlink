@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -16,6 +17,7 @@ import (
 
 func TestResolver_CreateAPIToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	defaultPassword := "my-password"
 	mutation := `
@@ -173,6 +175,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 
 func TestResolver_DeleteAPIToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	defaultPassword := "my-password"
 	mutation := `

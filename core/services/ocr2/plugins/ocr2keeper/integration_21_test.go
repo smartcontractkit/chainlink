@@ -64,6 +64,7 @@ import (
 )
 
 func TestFilterNamesFromSpec21(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	b := make([]byte, 20)
 	_, err := crand.Read(b)
 	require.NoError(t, err)
@@ -90,6 +91,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -402,6 +404,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	g := gomega.NewWithT(t)
 
 	// setup blockchain

@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 func TestUserResource(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		ts = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	)

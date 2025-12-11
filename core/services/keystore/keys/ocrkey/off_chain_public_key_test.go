@@ -7,11 +7,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 )
 
 func TestOCR_OffchainPublicKey_MarshalJSON(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	rawBytes := make([]byte, 32)
 	rawBytes[31] = 1
 	pubKey := ocrkey.OffChainPublicKey(rawBytes)
@@ -26,6 +28,7 @@ func TestOCR_OffchainPublicKey_MarshalJSON(t *testing.T) {
 
 func TestOCR_OffchainPublicKey_UnmarshalJSON_Happy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	pubKeyString := "918a65a518c005d6367309bec4b26805f8afabef72cbf9940d9a0fd04ec80b38"
 	pubKeyJSON := fmt.Sprintf(`"%s"`, pubKeyString)
@@ -38,6 +41,7 @@ func TestOCR_OffchainPublicKey_UnmarshalJSON_Happy(t *testing.T) {
 
 func TestOCR_OffchainPublicKey_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	pubKeyString := "hello world"
 	pubKeyJSON := fmt.Sprintf(`"%s"`, pubKeyString)

@@ -8,9 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestDeferableWriteCloser_Close(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	d := t.TempDir()
 	f, err := os.Create(filepath.Join(d, "test-file"))
 	require.NoError(t, err)

@@ -15,6 +15,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -23,6 +24,7 @@ import (
 
 func TestObservationFilter(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	obs1 := CommitObservation{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 10}}
 	b1, err := obs1.Marshal()
@@ -41,6 +43,7 @@ type CommitObservationLegacy struct {
 
 func TestObservationCompat_MultiChainGas(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	obsLegacy := CommitObservationLegacy{
 		Interval: cciptypes.CommitStoreInterval{
 			Min: 1,
@@ -69,6 +72,7 @@ func TestObservationCompat_MultiChainGas(t *testing.T) {
 
 func TestCommitObservationJsonDeserialization(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	expectedObservation := CommitObservation{
 		Interval: cciptypes.CommitStoreInterval{
 			Min: 1,
@@ -97,6 +101,7 @@ func TestCommitObservationJsonDeserialization(t *testing.T) {
 
 func TestCommitObservationMarshal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	obs := CommitObservation{
 		Interval: cciptypes.CommitStoreInterval{
 			Min: 1,
@@ -125,6 +130,7 @@ func TestCommitObservationMarshal(t *testing.T) {
 
 func TestExecutionObservationJsonDeserialization(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	expectedObservation := ExecutionObservation{Messages: map[uint64]MsgData{
 		2: {TokenData: tokenData("c")},
 		1: {TokenData: tokenData("c")},
@@ -148,6 +154,7 @@ func TestExecutionObservationJsonDeserialization(t *testing.T) {
 
 func TestObservationSize(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	testParams := gopter.DefaultTestParameters()
 	testParams.MinSuccessfulTests = 100
 	p := gopter.NewProperties(testParams)
@@ -173,6 +180,7 @@ func TestObservationSize(t *testing.T) {
 
 func TestNewExecutionObservation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name         string
 		observations []ObservedMessage
@@ -230,6 +238,7 @@ func tokenData(value string) [][]byte {
 
 func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	jsonEncoded := `{
 		"interval": {
 			"Min":1,
@@ -285,13 +294,13 @@ func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
 
 func TestAddressEncodingBackwardsCompatibility(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	// The intention of this test is to remind including proper formatting of addresses after config is updated.
 	//
 	// The following tests will fail when a new cciptypes.Address field is added or removed.
 	// If you notice that the test is failing, make sure to apply proper address formatting
 	// after the struct is marshalled/unmarshalled and then include your new field in the expected fields slice to
 	// make this test pass or if you removed a field, remove it from the expected fields slice.
-
 	t.Run("job spec config", func(t *testing.T) {
 		exp := []string{"ccip.Address OffRamp"}
 

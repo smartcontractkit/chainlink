@@ -55,6 +55,7 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -415,6 +416,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
@@ -657,6 +659,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
@@ -1407,6 +1410,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
@@ -1644,6 +1648,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
@@ -1819,6 +1824,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	// starting offchainConfig, the test will handle
 	// blue green for ProtocolVersion and EnableObservationCompression changes

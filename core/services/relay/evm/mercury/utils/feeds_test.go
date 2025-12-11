@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var (
@@ -16,6 +18,7 @@ var (
 )
 
 func Test_FeedID_Version(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("versioned feed ID", func(t *testing.T) {
 		assert.Equal(t, REPORT_V1, v1FeedID.Version())
 		assert.True(t, v1FeedID.IsV1())

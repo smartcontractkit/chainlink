@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func tempFileName() string {
@@ -22,6 +24,7 @@ func tempFileName() string {
 
 func TestFileExists(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	exists, err := FileExists(tempFileName())
 	require.NoError(t, err)
@@ -34,6 +37,7 @@ func TestFileExists(t *testing.T) {
 
 func TestTooPermissive(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	res := TooPermissive(os.FileMode(0700), os.FileMode(0600))
 	assert.True(t, res)
@@ -47,6 +51,7 @@ func TestTooPermissive(t *testing.T) {
 
 func TestFileSize_MarshalText_String(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		input    FileSize
@@ -77,6 +82,7 @@ func TestFileSize_MarshalText_String(t *testing.T) {
 
 func TestFileSize_UnmarshalText(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		input    string

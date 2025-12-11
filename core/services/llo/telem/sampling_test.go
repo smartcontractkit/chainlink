@@ -15,11 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
 func TestFingerprint(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ot := time.Now()
 	bytes32 := sha256.Sum256([]byte(ot.String()))
@@ -113,6 +115,7 @@ func TestFingerprint(t *testing.T) {
 // TestSample ensures Sample() correctly chooses which messages to send.
 func TestSample(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	lggr := logger.TestSugared(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -143,6 +146,7 @@ func TestSample(t *testing.T) {
 // TestPruningLoop ensures the pruning loop works as expected.
 func TestPruningLoop(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.TestSugared(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -193,6 +197,7 @@ func TestPruningLoop(t *testing.T) {
 // TestPruningLoop_Exits ensures the pruning loop exits when its context is cancelled and doesn't leak goroutines.
 func TestPruningLoop_Exits(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.TestSugared(t)
 	ctx, cancel := context.WithCancel(context.Background())

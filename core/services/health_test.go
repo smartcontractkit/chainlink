@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 func TestNewStartUpHealthReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 	ibhr := services.NewStartUpHealthReport(1234, lggr)
 

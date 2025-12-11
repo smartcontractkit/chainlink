@@ -7,6 +7,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
@@ -16,6 +17,7 @@ var (
 )
 
 func TestDefaultModeAggregator_Aggregate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	val, err := values.NewMap(triggerEvent1)
 	require.NoError(t, err)
 	capResponse1 := commoncap.TriggerResponse{

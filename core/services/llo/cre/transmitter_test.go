@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -23,6 +24,7 @@ const (
 )
 
 func Test_Transmitter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	digest := types.ConfigDigest{1, 2, 3}
 	sigs := []types.AttributedOnchainSignature{
 		{

@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -165,6 +166,7 @@ func packFlags(requestSizeTier int, secretSizeTier int) [32]byte {
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -193,6 +195,7 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 }
 
 func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -215,6 +218,7 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 }
 
 func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
@@ -239,6 +243,7 @@ func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
 }
 
 func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
@@ -259,6 +264,7 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -287,6 +293,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -328,6 +335,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -354,6 +362,7 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 }
 
 func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -394,6 +403,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 }
 
 func TestFunctionsListener_PruneRequests(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -409,6 +419,7 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 }
 
 func TestFunctionsListener_TimeoutRequests(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -424,6 +435,7 @@ func TestFunctionsListener_TimeoutRequests(t *testing.T) {
 }
 
 func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	t.Parallel()
 

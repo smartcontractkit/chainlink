@@ -15,6 +15,7 @@ import (
 
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -63,6 +64,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 }
 
 func Test_DB_ReadWriteState(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	sqlDB := setupDB(t)
 
 	configDigest := testhelpers.MakeConfigDigest(t)

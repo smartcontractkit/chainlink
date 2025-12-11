@@ -6,11 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 )
 
 func TestOCR_OnChainSigningAddress_String(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// should contain EIP55CapitalizedAddress
 	const ocrSigningKey = "ocrsad_0x30762A700F7d836528dfB14DD60Ec2A3aEaA7694"

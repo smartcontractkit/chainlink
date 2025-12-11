@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -18,6 +19,8 @@ type event struct {
 }
 
 func TestScheduler(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// NOTE: task type does not matter in the test cases, it's just there so it's parsed successfully
 	tests := []struct {
 		name      string
