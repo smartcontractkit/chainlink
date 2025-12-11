@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -1348,7 +1349,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			tooManyDefs[i] = llotypes.ChannelDefinition{
 				ReportFormat: llotypes.ReportFormatJSON,
 				Streams: []llotypes.Stream{
-					{StreamID: uint32(i), Aggregator: llotypes.AggregatorMedian},
+					{StreamID: i, Aggregator: llotypes.AggregatorMedian},
 				},
 				Source:    adder1ID,
 				Tombstone: false,
@@ -1380,7 +1381,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		// Verify error is logged and channels are not merged
 		testutils.WaitForLogMessageWithField(t, observedLogs, "adder limit exceeded, skipping remaining definitions for source",
-			"source", fmt.Sprintf("%d", adder1ID))
+			"source", strconv.FormatUint(uint64(adder1ID), 10))
 
 		// Verify no channels above the limit were added
 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
@@ -1390,7 +1391,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 				addedDefinitionsCount++
 			}
 		}
-		require.Equal(t, addedDefinitionsCount, channeldefinitions.MaxChannelsPerAdder)
+		require.Equal(t, channeldefinitions.MaxChannelsPerAdder, addedDefinitionsCount)
 	})
 
 	t.Run("deterministic processing order", func(t *testing.T) {

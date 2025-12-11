@@ -600,8 +600,6 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 			continue
 		}
 	}
-
-	return
 }
 
 // fetchLatestLoop is an asynchronous goroutine that receives fetch triggers from the poll chain

@@ -2317,7 +2317,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					seenChannels[r.ChannelID] = true
 				}
 			}
-			require.Equal(t, len(expectedChannels), len(seenChannels), "expected reports from all channels: got %v, expected %v", seenChannels, expectedChannels)
+			require.Len(t, seenChannels, len(expectedChannels), "expected reports from all channels: got %v, expected %v", seenChannels, expectedChannels)
 		}
 
 		// Scenario 1: Owner adds initial channels
@@ -2366,9 +2366,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
 
 			// Verify reports were generated
-			require.Greater(t, len(reportsByChannel[1]), 0, "channel 1 should have reports")
-			require.Greater(t, len(reportsByChannel[2]), 0, "channel 2 should have reports")
-			require.Greater(t, len(reportsByChannel[3]), 0, "channel 3 should have reports")
+			require.NotEmpty(t, reportsByChannel[1], "channel 1 should have reports")
+			require.NotEmpty(t, reportsByChannel[2], "channel 2 should have reports")
+			require.NotEmpty(t, reportsByChannel[3], "channel 3 should have reports")
 
 			// Verify report content
 			for channelID := range expectedChannels {
@@ -2416,10 +2416,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			adder1DefinitionsSHA := sha3.Sum256(adder1DefinitionsJSON)
 
 			adder1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder1DefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				_, err := w.Write(adder1DefinitionsJSON)
-				require.NoError(t, err)
 			}))
 			t.Cleanup(adder1Server.Close)
 
@@ -2454,10 +2457,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			adder2DefinitionsSHA := sha3.Sum256(adder2DefinitionsJSON)
 
 			adder2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder2DefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				_, err := w.Write(adder2DefinitionsJSON)
-				require.NoError(t, err)
 			}))
 			t.Cleanup(adder2Server.Close)
 
@@ -2474,7 +2480,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// Verify all channels have reports
 			for channelID := range expectedChannels {
-				require.Greater(t, len(reportsByChannel[channelID]), 0, "channel %d should have reports", channelID)
+				require.NotEmpty(t, reportsByChannel[channelID], "channel %d should have reports", channelID)
 			}
 		})
 
@@ -2648,10 +2654,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			adder1NewDefinitionsSHA := sha3.Sum256(adder1NewDefinitionsJSON)
 
 			adder1NewServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder1NewDefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				_, err := w.Write(adder1NewDefinitionsJSON)
-				require.NoError(t, err)
 			}))
 			t.Cleanup(adder1NewServer.Close)
 
@@ -2715,10 +2724,13 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 	channelDefinitionsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		_, errWrite := w.Write(channelDefinitionsJSON)
+		if errWrite != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, err := w.Write(channelDefinitionsJSON)
-		require.NoError(t, err)
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA

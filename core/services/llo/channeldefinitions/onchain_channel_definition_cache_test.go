@@ -929,7 +929,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Include these existing channels in the new definition file (they'll be skipped)
 			addChannelDefinitions(newDefinitions, 1, existingEnd, adderID)
 
-			//Add 9 new channels to reach exactly MaxChannelsPerAdder total in the file
+			// Add 9 new channels to reach exactly MaxChannelsPerAdder total in the file
 			addChannelDefinitions(newDefinitions, existingEnd+1, existingEnd+9, adderID)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
