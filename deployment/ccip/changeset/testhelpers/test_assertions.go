@@ -580,7 +580,8 @@ type EventWithTxn[T any] struct {
 	Txn   *solrpc.GetTransactionResult
 }
 
-// Scan for events referencing address
+// SolEventEmitter listens for events of type T emitted by the Solana program at the given address. Failed transactions
+// can be included by setting the includeFailed flag to true.
 func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker, includeFailed bool) (<-chan EventWithTxn[T], <-chan error) {
 	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
@@ -1052,6 +1053,10 @@ type MessageStateEvent struct {
 	State          ccip_offramp.MessageExecutionState
 }
 
+// GetMessageStatesWithSeqNrsSol waits for execution state changes on the destination Solana chain with the expected
+// sequence numbers. The timeout is configurable.
+// If "inProgress" is true, and there are unexecutable messages, it will continue to watch for additional "InProgress"
+// states for the entire timeoutDuration.
 func GetMessageStatesWithSeqNrsSol(
 	t *testing.T,
 	timeoutDuration time.Duration,
@@ -1121,6 +1126,9 @@ func GetMessageStatesWithSeqNrsSol(
 	}
 }
 
+// ConfirmExecWithSeqNrsSol waits for an execution state change on the destination Solana chain with the expected
+// sequence numbers. The timeout is automatically set to 30 seconds or 90% of the test timeout (if there is one).
+// This is a wrapper around the more general GetMessageStatesWithSeqNrsSol.
 func ConfirmExecWithSeqNrsSol(
 	t *testing.T,
 	srcSelector uint64,
