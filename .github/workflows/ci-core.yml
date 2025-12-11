@@ -204,7 +204,7 @@ jobs:
           - cmd: go_core_tests
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            # test-suite: "unit"
+            test-suite: "unit"
             # trunk-auto-quarantine: "true"
 
           # - cmd: go_core_tests_integration

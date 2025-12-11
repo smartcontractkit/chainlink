@@ -33,10 +33,10 @@ jobs:
       fail-fast: false
       matrix:
         type:
-          # - module: Core
-          #   test-suite: "with-db"
-          #   cmd: go_core_tests
-          #   os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+          - module: Core
+            test-suite: "with-db"
+            cmd: go_core_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
 
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
