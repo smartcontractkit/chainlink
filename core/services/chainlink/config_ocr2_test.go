@@ -36,6 +36,7 @@ func TestOCR2Config(t *testing.T) {
 	require.Equal(t, expectedContractSubscribeInterval, ocr2Cfg.ContractSubscribeInterval())
 	require.False(t, ocr2Cfg.SimulateTransactions())
 	require.False(t, ocr2Cfg.TraceLogging())
+	require.False(t, ocr2Cfg.SampleTelemetry())
 	require.Equal(t, uint32(1), ocr2Cfg.DefaultTransactionQueueDepth())
 	require.False(t, ocr2Cfg.CaptureEATelemetry())
 	require.True(t, ocr2Cfg.CaptureAutomationCustomTelemetry())

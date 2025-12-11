@@ -70,11 +70,6 @@ var (
 )
 
 const (
-	TopologyWorkflow                    = "workflow"
-	TopologyWorkflowGateway             = "workflow-gateway"
-	TopologyWorkflowGatewayCapabilities = "workflow-gateway-capabilities"
-	TopologyMock                        = "mock"
-
 	WorkflowTriggerWebTrigger = "web-trigger"
 	WorkflowTriggerCron       = "cron"
 )
@@ -243,6 +238,7 @@ func startCmd() *cobra.Command {
 		cleanupWait              time.Duration
 		withBeholder             bool
 		withDashboards           bool
+		withObs                  bool
 		withBilling              bool
 		setupConfig              SetupConfig
 	)
@@ -386,6 +382,13 @@ func startCmd() *cobra.Command {
 				}
 			}
 
+			if withObs {
+				if err := framework.ObservabilityUpFull(); err != nil {
+					return fmt.Errorf("failed to start ctf observability stack: %w", err)
+				}
+				fmt.Print(libformat.PurpleText("\nObservability stack started successfully\n"))
+			}
+
 			if withDashboards {
 				err := setupDashboards(setupConfig)
 				if err != nil {
@@ -478,6 +481,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
+	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
@@ -491,33 +495,31 @@ func setupDashboards(setupCfg SetupConfig) error {
 		return errors.Wrap(cfgErr, "failed to read config")
 	}
 
-	// Run the `ctf obs up -f` command from the ./bin directory
-	ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
-
-	obsOutput, err := ctfCmd.CombinedOutput()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		return errors.Wrap(err, "failed to start ctf observability stack: "+string(obsOutput))
-	}
-
-	fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
-
 	// Wait for grafana at localhost:3000 to be available
-	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
-	grafanaContacted := false
-	for range 30 {
-		time.Sleep(1 * time.Second)
-		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
-		_, err = http.DefaultClient.Do(req)
-		if err != nil {
-			continue
+	var isGrafanaUp = func() bool {
+		for range 30 {
+			time.Sleep(1 * time.Second)
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
+			_, err := http.DefaultClient.Do(req)
+			if err != nil {
+				continue
+			}
+			return true
 		}
-		grafanaContacted = true
-		break
+
+		return false
 	}
 
-	if !grafanaContacted {
-		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
+	// if Grafana isn't running start it
+	if !isGrafanaUp() {
+		if err := framework.ObservabilityUpFull(); err != nil {
+			return fmt.Errorf("failed to start ctf observability stack: %w", err)
+		}
+		fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
+		if !isGrafanaUp() {
+			return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
+		}
+		fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
 	}
 
 	targetPath := cfg.Observability.TargetPath
@@ -532,9 +534,11 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 	// Check the file exists before trying to run the script
 	scriptPath := filepath.Join(targetPath, "deploy-cre-local.sh")
-	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
-		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run")
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		return fmt.Errorf("%s script does not exist, ensure the setup command has been run", scriptPath)
 	}
+
+	fmt.Print(libformat.PurpleText("\nDeploying dashboards...") + "\n(watch for potential authorization requests!)\n")
 
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
 	deployDashboardsCmd.Dir = targetPath
@@ -597,12 +601,17 @@ func stopCmd() *cobra.Command {
 			if allFlag {
 				stopBeholderErr := stopBeholder()
 				if stopBeholderErr != nil {
-					return errors.Wrap(stopBeholderErr, "failed to stop beholder")
+					framework.L.Warn().Msgf("failed to stop Beholder: %s", stopBeholderErr)
 				}
 
 				stopBillingErr := stopBilling()
 				if stopBillingErr != nil {
-					return errors.Wrap(stopBillingErr, "failed to stop billing")
+					framework.L.Warn().Msgf("failed to stop Billing: %s", stopBillingErr)
+				}
+
+				stopObsStack := framework.ObservabilityDown()
+				if stopObsStack != nil {
+					framework.L.Warn().Msgf("failed to stop observability stack: %s", stopObsStack)
 				}
 
 				removeCacheErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
