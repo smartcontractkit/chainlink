@@ -241,7 +241,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 
 func TestDeployAptosChain_Apply(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "aptos")
 
 	// Setup environment with 1 Aptos chain
 	selector := chain_selectors.APTOS_LOCALNET.Selector

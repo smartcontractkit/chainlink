@@ -39,7 +39,7 @@ var testTokenTransferFeeConfig = fee_quoter.TokenTransferFeeConfig{
 }
 
 func TestAddTokenPool_Apply(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "aptos")
 	quarantine.Flaky(t, "DX-2088")
 	t.Parallel()
 	// Setup environment and config with 1 Aptos chain

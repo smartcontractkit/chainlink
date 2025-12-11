@@ -21,7 +21,7 @@ import (
 
 func TestDeployAptosCache(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "aptos")
 
 	selector := chain_selectors.APTOS_LOCALNET.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

@@ -23,7 +23,7 @@ import (
 
 func TestSetOCR3Offramp_Apply(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "aptos")
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,
