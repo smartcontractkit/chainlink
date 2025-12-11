@@ -215,7 +215,7 @@ func Test_ORM(t *testing.T) {
 			// try to update with an older version
 			emptyDefsJSON, err := json.Marshal(map[uint32]types.SourceDefinition{})
 			require.NoError(t, err)
-			err = orm.StoreChannelDefinitions(ctx, addr1, donID1, 41, emptyDefsJSON, expectedBlockNum, channeldefinitions.MultiChannelDefinitionsFormat)
+			err = orm.StoreChannelDefinitions(ctx, addr1, donID1, 41, emptyDefsJSON, expectedBlockNum-1, channeldefinitions.MultiChannelDefinitionsFormat)
 			require.NoError(t, err)
 
 			pd, err := orm.LoadChannelDefinitions(ctx, addr1, donID1)

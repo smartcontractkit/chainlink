@@ -550,7 +550,7 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 		if newFeedID != (common.Hash{}) {
 			if existingChannelID, exists := feedIDToChannelID[newFeedID]; exists && existingChannelID != channelID {
 				c.lggr.Warnw("feedID collision detected, skipping channel definition",
-					"channelID", channelID, "feedID", newFeedID.Hex(), "existingChannelID", existingChannelID, "source", source, "feedID", newFeedID.Hex())
+					"channelID", channelID, "feedID", newFeedID.Hex(), "existingChannelID", existingChannelID, "source")
 				continue
 			}
 		}
@@ -643,11 +643,6 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 // or the context is canceled (e.g., during cache shutdown). This isolates retry logic from the
 // main fetch loop, allowing it to continue processing new triggers while retries occur in the
 // background.
-//
-// Special handling for adder limit errors: If the error is due to adder limits being exceeded
-// (errChannelsPerAdderLimitExceeded), retries are stopped immediately and the block number is
-// updated to prevent reprocessing the same trigger. These errors indicate a permanent configuration
-// issue that won't be resolved by retrying but by submitting a new definition file.
 func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger types.Trigger) {
 	defer c.wg.Done()
 	var err error
@@ -793,7 +788,7 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, tr
 
 // persist atomically writes the in-memory source definitions (c.definitions.Sources) to the database.
 // Returns the memory and persisted block numbers along with any error that occurred during persistence.
-func (c *channelDefinitionCache) persist(ctx context.Context) (memoryBlockNum, persistedBlockNum int64, err error) {
+func (c *channelDefinitionCache) persist(ctx context.Context) (int64, int64, error) {
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
 
@@ -811,7 +806,7 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (memoryBlockNum, p
 	definitionsVersion := c.definitions.Version
 	c.definitionsMu.Unlock()
 
-	if persistedBlockNum >= definitionsBlockNum {
+	if c.persistedBlockNum >= definitionsBlockNum {
 		return definitionsBlockNum, c.persistedBlockNum, nil
 	}
 
