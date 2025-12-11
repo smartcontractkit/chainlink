@@ -60,6 +60,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)
@@ -99,6 +100,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)

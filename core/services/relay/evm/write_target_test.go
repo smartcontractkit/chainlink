@@ -497,6 +497,7 @@ func findLogMatch(t *testing.T, observed *observer.ObservedLogs, msg string, key
 	}, 30*time.Second, 1*time.Second)
 }
 func TestExtractNetwork(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		networkName  string
 		expectedName string

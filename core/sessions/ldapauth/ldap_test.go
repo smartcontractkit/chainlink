@@ -264,6 +264,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 
 func TestORM_ListUsers_Full(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -398,6 +399,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 
 func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -460,6 +462,7 @@ func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -497,6 +500,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 
 func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -534,6 +538,7 @@ func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 
 func TestORM_MapSearchGroups(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	cfg := ldapauth.TestConfig{}
 

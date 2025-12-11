@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,8 @@ import (
 )
 
 func Test_generateReconciliationEventsV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	// Validate that if no engines are on the node in the registry,
 	// and we see that the contract has workflow state,
 	// that we generate a WorkflowActivatedEvent
@@ -758,6 +761,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 }
 
 func Test_Start(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("successful start and close", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
@@ -788,6 +792,7 @@ func Test_Start(t *testing.T) {
 }
 
 func Test_GetAllowlistedRequests(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	workflowDonNotifier := capabilities.NewDonNotifier()

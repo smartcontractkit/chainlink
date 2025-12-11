@@ -210,7 +210,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 }
 
 func TestZapLogger_LogCaller(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()

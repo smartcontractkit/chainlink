@@ -213,6 +213,7 @@ func TestS4Integration_HappyDON_4X(t *testing.T) {
 }
 
 func TestS4Integration_WrongSignature(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 
@@ -248,6 +249,7 @@ func TestS4Integration_WrongSignature(t *testing.T) {
 }
 
 func TestS4Integration_MaxObservations(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	config := createPluginConfig(100)
 	config.MaxObservationEntries = 5
 	don := newDON(t, 4, config)
@@ -275,6 +277,7 @@ func TestS4Integration_MaxObservations(t *testing.T) {
 }
 
 func TestS4Integration_Expired(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	config := createPluginConfig(100)
 	config.MaxObservationEntries = 5
 	don := newDON(t, 4, config)
@@ -300,6 +303,7 @@ func TestS4Integration_Expired(t *testing.T) {
 }
 
 func TestS4Integration_NSnapshotShards(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	config := createPluginConfig(10000)
 	config.NSnapshotShards = 4
 	don := newDON(t, 4, config)
@@ -328,6 +332,7 @@ func TestS4Integration_NSnapshotShards(t *testing.T) {
 }
 
 func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 
@@ -355,6 +360,7 @@ func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
 }
 
 func TestS4Integration_RandomState(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	don := newDON(t, 4, createPluginConfig(1000))
 	ctx := testutils.Context(t)
 

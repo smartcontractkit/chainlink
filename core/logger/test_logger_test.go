@@ -17,7 +17,7 @@ func init() {
 }
 
 func TestTestLogger(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 
 	const (

@@ -129,6 +129,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 }
 
 func TestORM_CheckVersion_CCIP(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 
@@ -209,6 +210,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 }
 
 func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(db, logger.TestLogger(t))

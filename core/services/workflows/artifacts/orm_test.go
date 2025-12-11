@@ -124,6 +124,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 }
 
 func Test_DeleteWorkflowSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -165,6 +166,7 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 }
 
 func Test_GetWorkflowSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -204,6 +206,7 @@ func Test_GetWorkflowSpec(t *testing.T) {
 }
 
 func Test_GetWorkflowSpecByID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -243,6 +246,7 @@ func Test_GetWorkflowSpecByID(t *testing.T) {
 }
 
 func Test_GetContentsByWorkflowID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -303,6 +307,7 @@ func Test_GetContentsByWorkflowID(t *testing.T) {
 }
 
 func Test_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -337,6 +342,7 @@ func Test_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
 }
 
 func Test_UpsertWorkflowSpecWithSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)

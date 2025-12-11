@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -41,6 +42,7 @@ type offRampReaderTH struct {
 }
 
 func TestExecOnchainConfig120(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		want      v1_2_0.ExecOnchainConfig
@@ -83,6 +85,7 @@ func TestExecOnchainConfig120(t *testing.T) {
 }
 
 func TestOffRampReaderInit(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tests := []struct {
 		name    string
 		version string
@@ -286,6 +289,7 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 }
 
 func TestNewOffRampReader(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string

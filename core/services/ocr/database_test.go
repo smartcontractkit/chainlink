@@ -186,6 +186,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 }
 
 func Test_DB_PendingTransmissions(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -390,6 +391,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 }
 
 func Test_DB_LatestRoundRequested(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 

@@ -153,6 +153,7 @@ func TestORM(t *testing.T) {
 }
 
 func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 
@@ -198,6 +199,7 @@ func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 }
 
 func TestORM_PruneTransmitRequests(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
@@ -291,6 +293,7 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 }
 
 func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
@@ -363,6 +366,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 }
 
 func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("FeedIDFromReport extracts the current block number from a valid report", func(t *testing.T) {
 		report := buildSampleV2Report(42)
 

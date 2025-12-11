@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -118,6 +119,7 @@ func deleteKeyExportFile(t *testing.T) {
 
 func TestShell_ReplayBlocks(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -153,6 +155,7 @@ func TestShell_ReplayBlocks(t *testing.T) {
 
 func TestShell_CreateExternalInitiator(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name string
@@ -193,6 +196,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 
 func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name string
@@ -230,6 +234,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 
 func TestShell_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
@@ -256,6 +261,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 
 func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
@@ -273,6 +279,8 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 }
 
 func TestShell_RemoteLogin(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	app := startNewApplicationV2(t, nil)
 	orm := app.AuthenticationProvider()
 
@@ -315,6 +323,7 @@ func TestShell_RemoteLogin(t *testing.T) {
 
 func TestShell_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
@@ -354,6 +363,7 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 
 func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
@@ -430,6 +440,7 @@ func (h *mockHTTPClient) Delete(ctx context.Context, path string) (*http.Respons
 
 func TestShell_ChangePassword(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
@@ -479,6 +490,7 @@ func TestShell_ChangePassword(t *testing.T) {
 }
 
 func TestShell_Profile(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1796")
 	t.Parallel()
 
@@ -515,6 +527,7 @@ func TestShell_Profile(t *testing.T) {
 
 func TestShell_Profile_Unauthenticated(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 
@@ -531,6 +544,7 @@ func TestShell_Profile_Unauthenticated(t *testing.T) {
 
 func TestShell_ConfigV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -550,6 +564,7 @@ func TestShell_ConfigV2(t *testing.T) {
 
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -596,6 +611,7 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 
 func TestShell_RunOCRJob_MissingJobID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -613,6 +629,7 @@ func TestShell_RunOCRJob_MissingJobID(t *testing.T) {
 
 func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -632,6 +649,7 @@ func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 
 func TestShell_AutoLogin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -661,6 +679,7 @@ func TestShell_AutoLogin(t *testing.T) {
 
 func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
@@ -700,6 +719,7 @@ func (FailingAuthenticator) Logout() error {
 
 func TestShell_SetLogConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()

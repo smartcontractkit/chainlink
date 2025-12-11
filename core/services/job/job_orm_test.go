@@ -703,6 +703,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -731,6 +732,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 }
 
 func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	config := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -815,6 +817,8 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -892,6 +896,8 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -954,6 +960,8 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -1013,6 +1021,8 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 }
 
 func TestORM_ValidateKeyStoreMatch(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
@@ -1125,6 +1135,8 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 func Test_FindJobs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1200,6 +1212,8 @@ func Test_FindJobs(t *testing.T) {
 
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	evmRelay := "evm"
 	chainID1 := int64(1337)
@@ -1445,6 +1459,8 @@ func Test_FindJob(t *testing.T) {
 
 func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1496,6 +1512,8 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 func Test_FindPipelineRuns(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1565,6 +1583,8 @@ func Test_FindPipelineRuns(t *testing.T) {
 
 func Test_PipelineRunsByJobID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1633,6 +1653,8 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 }
 
 func Test_FindPipelineRunIDsByJobID(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	var jb job.Job
 
@@ -1755,6 +1777,8 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 
 func Test_FindPipelineRunsByIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1822,6 +1846,8 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 
 func Test_FindPipelineRunByID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1868,6 +1894,8 @@ func Test_FindPipelineRunByID(t *testing.T) {
 
 func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1906,6 +1934,8 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 
 func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1941,6 +1971,8 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 
 func Test_CountPipelineRunsByJobID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -1998,9 +2030,11 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 }
 
 func Test_ORM_FindJobByWorkflow(t *testing.T) {
+	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	var addr1 = "0x0123456789012345678901234567890123456789"
 	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-	t.Parallel()
 	type fields struct {
 		ds sqlutil.DataSource
 	}
@@ -2123,9 +2157,11 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 }
 
 func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
+	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	var addr1 = "0x012345678901234567890123456789012345ffff"
 	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdef0000"
-	t.Parallel()
 	t.Run("multiple jobs", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		o := NewTestORM(t,
@@ -2226,6 +2262,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 }
 
 func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -2307,6 +2344,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 }
 
 func TestORM_CreateJob_KeyLocking(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -2409,6 +2447,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 
 func Test_FindGatewayJobID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -2446,6 +2485,7 @@ func Test_FindGatewayJobID(t *testing.T) {
 
 func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -2483,6 +2523,7 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 
 func Test_FindStandardCapabilityJobID(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -2516,6 +2557,7 @@ func Test_FindStandardCapabilityJobID(t *testing.T) {
 
 func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -2548,6 +2590,8 @@ func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 }
 
 func TestORM_CRESettings(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	config := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)

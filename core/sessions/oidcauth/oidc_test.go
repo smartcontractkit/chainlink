@@ -106,6 +106,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 }
 
 func TestORM_ListUsers(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -143,6 +144,7 @@ func TestORM_ListUsers(t *testing.T) {
 
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -163,6 +165,7 @@ func TestORM_CreateSession(t *testing.T) {
 
 func TestORM_DeleteSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -186,6 +189,7 @@ func TestORM_DeleteSession(t *testing.T) {
 
 func TestORM_ClearNonConcurrentSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -209,6 +213,7 @@ func TestORM_ClearNonConcurrentSession(t *testing.T) {
 
 func Test_AuthorizeUserWithSession_Success(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -267,6 +272,7 @@ func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 
 func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -293,6 +299,7 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -321,6 +328,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 
 func Test_IDClaimsToUserRole(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
 	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
@@ -394,6 +402,7 @@ func Test_IDClaimsToUserRole(t *testing.T) {
 
 func Test_ExtractIDClaimValues(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
 	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})

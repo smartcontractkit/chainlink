@@ -1109,6 +1109,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 }
 
 func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("success pausing activating and updating existing engine and spec", func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)
@@ -1243,6 +1244,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 
 func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 	config := []byte(`{"key": "value"}`)

@@ -84,6 +84,7 @@ func TestPersistenceManager(t *testing.T) {
 }
 
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	donID := uint32(1234)
 	db := pgtest.NewSqlxDB(t)
@@ -108,6 +109,7 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 }
 
 func TestPersistenceManagerPrune(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	donID1 := uint32(123456)
 	donID2 := uint32(654321)
 	db := pgtest.NewSqlxDB(t)
@@ -158,6 +160,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 }
 
 func Test_PersistenceManager_deleteTransmissions(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	donID1 := uint32(123456)
 	db := pgtest.NewSqlxDB(t)
 

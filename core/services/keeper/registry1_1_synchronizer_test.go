@@ -123,6 +123,7 @@ func Test_RegistrySynchronizer1_1_Start(t *testing.T) {
 
 func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	for _, upkeepID := range []int64{0, 1, 100, 10_000} {
 		_, err := keeper.CalcPositioningConstant(ubig.NewI(upkeepID), cltest.NewEIP55Address())
 		require.NoError(t, err)
@@ -130,6 +131,7 @@ func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
@@ -204,6 +206,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
@@ -252,6 +255,7 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
@@ -298,6 +302,7 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 }
 func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
@@ -336,6 +341,7 @@ func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 

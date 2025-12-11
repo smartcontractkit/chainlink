@@ -13,6 +13,7 @@ import (
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
@@ -58,10 +59,11 @@ var (
 // -run param of go test without the txtar or txt suffix, like so:
 // go test . -run TestScripts/node/validate/default
 func TestScripts(t *testing.T) {
+	t.Parallel()
+	tests.BelongsToCISuite(t, "test-scripts")
 	if testing.Short() {
 		t.Skip("skipping testscript")
 	}
-	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
 		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {

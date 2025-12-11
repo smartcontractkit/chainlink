@@ -983,6 +983,7 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 }
 
 func Test_Handler_OrganizationID(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	observer := beholdertest.NewObserver(t)
 	emitter := custmsg.NewLabeler()
 	ctx := testutils.Context(t)

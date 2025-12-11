@@ -24,6 +24,7 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -42,6 +43,7 @@ import (
 
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -73,6 +75,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -123,6 +126,7 @@ func (d diskCookieStoreConfig) RootDir() string {
 
 func TestDiskCookieStore_Retrieve(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	cfg := diskCookieStoreConfig{}
 
@@ -151,6 +155,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	email := "good@email.com"
 
 	tests := []struct {
@@ -224,6 +229,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 }
 
 func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tests := []struct {
 		name      string
 		file      string
@@ -261,6 +267,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
@@ -291,6 +298,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 
 func TestPromptingSessionRequestBuilder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		email, pwd string
@@ -314,6 +322,7 @@ func TestPromptingSessionRequestBuilder(t *testing.T) {
 
 func TestFileSessionRequestBuilder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	builder := cmd.NewFileSessionRequestBuilder(logger.TestLogger(t))
 	tests := []struct {
@@ -339,6 +348,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 }
 
 func TestNewUserCache(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	r, err := rand.Int(rand.Reader, big.NewInt(256*1024*1024))
 	require.NoError(t, err)
 	// NewUserCache owns it's Dir.
@@ -356,6 +366,8 @@ func TestNewUserCache(t *testing.T) {
 }
 
 func TestSetupSolanaRelayer(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewTestLoopRegistry(lggr)
 	ks := &keystore.StarknetLooppSigner{StarkNet: mocks.NewStarkNet(t)}
@@ -484,6 +496,8 @@ func TestSetupSolanaRelayer(t *testing.T) {
 }
 
 func TestSetupStarkNetRelayer(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewTestLoopRegistry(lggr)
 	ks := &keystore.StarknetLooppSigner{StarkNet: mocks.NewStarkNet(t)}
@@ -624,6 +638,7 @@ func getFuncName(i any) string {
 }
 
 func TestShell_emitNodeConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
 
 	ctx := testutils.Context(t)

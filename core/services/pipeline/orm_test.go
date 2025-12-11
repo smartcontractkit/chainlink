@@ -184,6 +184,7 @@ answer2 [type=bridge name=election_winner index=1];
 }
 
 func TestInsertFinishedRuns(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, orm, _ := setupLiteORM(t)
 
@@ -331,6 +332,7 @@ answer2 [type=bridge name=election_winner index=1];
 
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
 func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
@@ -411,6 +413,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
 // will detect a restart and update the result data on the Run.
 func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, orm, jorm := setupLiteORM(t)
 
@@ -476,6 +479,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 }
 
 func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
@@ -558,6 +562,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
@@ -601,6 +606,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupHeavyORM(t)
 
@@ -647,6 +653,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 
 func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	// The test configures single Keeper job with two running tasks.
@@ -750,6 +757,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 
 func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	// The test configures single DR job with two task runs: one is running and one is suspended.
@@ -845,6 +853,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 
 func Test_Prune(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	n := uint64(2)
 

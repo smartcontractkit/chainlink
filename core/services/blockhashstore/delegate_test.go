@@ -27,10 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestDelegate_JobType(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	lggr := logger.TestLogger(t)
 	delegate := blockhashstore.NewDelegate(nil, lggr, nil, nil)
@@ -85,6 +87,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	delegate, testData := createTestDelegate(t)
 
@@ -152,6 +155,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 func TestDelegate_StartStop(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	delegate, testData := createTestDelegate(t)
 

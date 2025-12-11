@@ -159,6 +159,7 @@ WHERE transmission_hash IN (
 }
 
 func Test_OrphanedTransmissionReaper(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}

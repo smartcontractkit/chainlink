@@ -1827,7 +1827,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 }
 
 func TestSecrets_Validate(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tt := range []struct {
 		name string
 		toml string

@@ -353,6 +353,7 @@ func TestCommitStoreReaders(t *testing.T) {
 }
 
 func TestNewCommitStoreReader(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string

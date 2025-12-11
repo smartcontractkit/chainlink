@@ -216,6 +216,7 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 
 // Not very likely, but let's be more defensive here and verify if cache works properly and can deal with duplicates
 func Test_BlocksWithTheSameTimestamps(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	chainID := testutils.NewRandomEVMChainID()
 	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))

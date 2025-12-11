@@ -383,6 +383,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 }
 
 func TestUpkeepStateStore_emptyDB(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("querying non-stored workIDs on empty db returns unknown state results", func(t *testing.T) {
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		chainID := testutils.FixtureChainID
@@ -417,6 +418,7 @@ func TestUpkeepStateStore_emptyDB(t *testing.T) {
 }
 
 func TestUpkeepStateStore_Upsert(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -447,6 +449,7 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 }
 
 func TestUpkeepStateStore_Service(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 	orm := &mockORM{
 		onDelete: func(tm time.Time) {

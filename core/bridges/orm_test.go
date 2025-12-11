@@ -165,6 +165,7 @@ func TestORM_TestCachedResponse(t *testing.T) {
 }
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
@@ -183,6 +184,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 

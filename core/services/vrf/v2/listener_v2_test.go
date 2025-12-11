@@ -182,6 +182,7 @@ func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, 
 }
 
 func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
@@ -337,10 +338,12 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 }
 
 func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
 }
 
 func TestMaybeSubtractReservedNativeV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
@@ -369,6 +372,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 }
 
 func TestListener_GetConfirmedAt(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 	}).Toml())
@@ -409,6 +413,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 }
 
 func TestListener_Backoff(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var tests = []struct {
 		name     string
 		initial  time.Duration
