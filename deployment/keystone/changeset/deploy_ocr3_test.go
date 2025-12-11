@@ -18,6 +18,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -27,6 +28,7 @@ import (
 
 func TestDeployOCR3(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	registrySel := chain_selectors.TEST_90000001.Selector
 	otherSel := chain_selectors.TEST_90000002.Selector
@@ -61,6 +63,7 @@ func TestDeployOCR3(t *testing.T) {
 
 func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	nWfNodes := 4
 	c := ocr3.OracleConfig{

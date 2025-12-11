@@ -20,6 +20,7 @@ import (
 
 func TestDeployPrerequisites(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 2),
@@ -35,6 +36,7 @@ func TestDeployPrerequisitesZk(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db") // ?
 
 	e, err := environment.New(t.Context(),
 		environment.WithZKSyncContainerN(t, 2),

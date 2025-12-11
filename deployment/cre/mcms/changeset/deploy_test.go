@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	testenv "github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -19,7 +20,9 @@ import (
 
 func TestMCMSDeployment(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	// Test environment with a simulated EVM blockchain
+
 	loader := testenv.NewLoader()
 	env, err := loader.Load(t.Context(), testenv.WithEVMSimulatedN(t, 2))
 	require.NoError(t, err)

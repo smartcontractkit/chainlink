@@ -7,9 +7,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestOracleConfig_JSON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("Legacy config returns an error", func(t *testing.T) {
 		var cfg OracleConfig
 		err := json.Unmarshal([]byte(legacyOcr3Cfg), &cfg)

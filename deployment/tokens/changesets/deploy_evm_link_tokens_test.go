@@ -8,6 +8,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -19,6 +20,7 @@ import (
 
 func Test_DeployEVMLinkTokens_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		csel    = chain_selectors.TEST_1000.Selector
@@ -141,6 +143,7 @@ func Test_DeployEVMLinkTokens_VerifyPreconditions(t *testing.T) {
 
 func Test_DeployEVMLinkTokens_Apply(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name     string

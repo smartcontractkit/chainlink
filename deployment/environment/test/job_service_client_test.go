@@ -13,13 +13,14 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
 func TestNewJobServiceClient(t *testing.T) {
 	t.Parallel()
-
+	tests.BelongsToCISuite(t, "unit")
 	// Create a mock JobApprover getter
 	mockGetter := &mockJobApproverGetter{
 		jobApprovers: make(map[string]*mockJobApprover),
@@ -41,9 +42,12 @@ func TestNewJobServiceClient(t *testing.T) {
 
 func TestBatchProposeJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t,
+
+		// Create mock job approvers
+		"unit")
 	ctx := t.Context()
 
-	// Create mock job approvers
 	mockGetter := &mockJobApproverGetter{
 		jobApprovers: make(map[string]*mockJobApprover),
 	}
@@ -121,6 +125,7 @@ func TestBatchProposeJob(t *testing.T) {
 
 func TestProposeJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 
 	// Create mock job approvers
@@ -239,6 +244,7 @@ name = "Test Job"
 
 func TestRevokeJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mockGetter := &mockJobApproverGetter{
 		jobApprovers: make(map[string]*mockJobApprover),
@@ -316,6 +322,7 @@ func TestRevokeJob(t *testing.T) {
 
 func TestGetJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 
 	// Create mock job approvers
@@ -369,6 +376,7 @@ func TestGetJob(t *testing.T) {
 
 func TestGetProposal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 
 	// Create mock job approvers
@@ -421,6 +429,7 @@ func TestGetProposal(t *testing.T) {
 
 func TestListJobs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 
 	// Create mock job approvers
@@ -533,6 +542,7 @@ func TestListJobs(t *testing.T) {
 
 func TestListProposals(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := context.Background()
 
 	// Create mock job approvers
@@ -631,6 +641,7 @@ func TestListProposals(t *testing.T) {
 
 func TestMapJobStore(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	store := newMapJobStore()
 
@@ -709,6 +720,7 @@ func TestMapJobStore(t *testing.T) {
 
 func TestMapProposalStore(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	store := newMapProposalStore()
 
@@ -775,6 +787,7 @@ func TestMapProposalStore(t *testing.T) {
 
 func TestMatchesSelectors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name      string

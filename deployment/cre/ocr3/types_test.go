@@ -13,11 +13,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func Test_toNodeKeys(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	registryChainSel := chainsel.TEST_90000001
 	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel.Selector)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -25,6 +26,7 @@ import (
 
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	evmSelector1 := chain_selectors.TEST_90000001.Selector
 	evmSelector2 := chain_selectors.TEST_90000002.Selector

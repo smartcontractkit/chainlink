@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccip_attestation "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ccip-attestation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -53,6 +54,7 @@ func deployTestSignerRegistry(t *testing.T, env cldf.Environment, selector uint6
 
 func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	e, err := environment.New(t.Context(),
@@ -137,6 +139,7 @@ func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
 
 func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -186,6 +189,7 @@ func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 
 func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -235,6 +239,7 @@ func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 
 func TestEVMSignerRegistryConfiguration_NoRegistries(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

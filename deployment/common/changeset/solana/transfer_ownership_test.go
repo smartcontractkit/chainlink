@@ -16,14 +16,16 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
-	quarantine.Flaky(t, "DX-1773")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1773")
+	tests.BelongsToCISuite(t, "unit")
 
 	// --- arrange ---
 	rt, selector := setupTest(t)

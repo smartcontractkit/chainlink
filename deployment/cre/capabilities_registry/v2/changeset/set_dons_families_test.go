@@ -10,6 +10,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
@@ -19,6 +20,7 @@ import (
 )
 
 func TestSetDONsFamilies_VerifyPreconditions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cs := changeset.SetDONsFamilies{}
 
 	env := test.SetupEnvV2(t, false)
@@ -55,6 +57,7 @@ func TestSetDONsFamilies_VerifyPreconditions(t *testing.T) {
 }
 
 func TestSetDONsFamilies_Apply(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cs := changeset.SetDONsFamilies{}
 
 	env := test.SetupEnvV2(t, false)

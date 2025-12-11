@@ -9,11 +9,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
 func TestDeployOCR3(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	env := test.SetupEnvV2(t, false)
 
 	// Apply the changeset to deploy the V2 capabilities registry

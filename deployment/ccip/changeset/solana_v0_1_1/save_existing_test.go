@@ -12,6 +12,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -21,6 +22,7 @@ import (
 
 func TestSaveExistingCCIP(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, err := environment.New(t.Context())
 	require.NoError(t, err)
@@ -60,6 +62,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 
 func TestSaveExisting(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, err := environment.New(t.Context())
 	require.NoError(t, err)

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoschain "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
@@ -31,6 +32,7 @@ import (
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		env       cldf.Environment
@@ -239,6 +241,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 
 func TestDeployAptosChain_Apply(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	// Setup environment with 1 Aptos chain
 	selector := chain_selectors.APTOS_LOCALNET.Selector

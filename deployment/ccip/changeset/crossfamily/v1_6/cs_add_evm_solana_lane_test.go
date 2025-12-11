@@ -21,6 +21,7 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	crossfamily "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily/v1_6"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -30,6 +31,7 @@ import (
 )
 
 func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1741")
 	for _, tc := range []struct {
 		name        string

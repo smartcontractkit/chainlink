@@ -8,10 +8,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func TestOCR2TaskJobSpec_String(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tt := range []struct {
 		name string
 		spec OCR2TaskJobSpec

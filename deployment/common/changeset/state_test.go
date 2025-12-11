@@ -16,9 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type testCase struct {
 		name      string
 		chain     cldf_evm.Chain

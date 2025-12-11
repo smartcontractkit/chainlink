@@ -39,6 +39,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -81,6 +82,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 // remote chain setup
 func TestAddRemoteChainWithMcms(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	doTestAddRemoteChain(t, true)
 }
 
@@ -643,6 +645,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1723")
 	t.Parallel()
 	doTestBilling(t, true)
@@ -655,6 +658,7 @@ func TestBillingWithoutMcms(t *testing.T) {
 }
 
 func TestSetTokenAuthority(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1778")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
@@ -877,6 +881,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
@@ -988,6 +993,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
@@ -1010,6 +1016,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 
 // ocr3 test
 func TestSetOcr3Active(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1775")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
@@ -1040,6 +1047,7 @@ func TestSetOcr3Active(t *testing.T) {
 }
 
 func TestSetOcr3Candidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1771")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,

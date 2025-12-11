@@ -32,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -44,6 +45,7 @@ func TestOnboardTokenPoolForSelfServeWithMCMs(t *testing.T) {
 
 func TestOnboardTokenPoolForSelfServeWithoutMCMs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	doTestOnboardTokenPoolForSelfServe(t, false)
 }
 

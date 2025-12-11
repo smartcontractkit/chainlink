@@ -11,10 +11,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_Deploy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	registrySel := chain_selectors.TEST_90000001.Selector
 	otherSel := chain_selectors.TEST_90000002.Selector

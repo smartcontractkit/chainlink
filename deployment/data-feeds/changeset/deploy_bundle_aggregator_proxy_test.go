@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 func TestBundleAggregatorProxy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

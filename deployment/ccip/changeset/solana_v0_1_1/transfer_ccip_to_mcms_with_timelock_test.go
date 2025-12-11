@@ -26,6 +26,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
@@ -41,6 +42,7 @@ import (
 )
 
 func TestValidateContracts(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	validPubkey := solana.NewWallet().PublicKey()
 
 	zeroPubkey := solana.PublicKey{} // Zero public key
@@ -103,6 +105,7 @@ func TestValidateContracts(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
 
 	tests := []struct {

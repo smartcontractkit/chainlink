@@ -189,9 +189,9 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 }
 
 func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
-	quarantine.Flaky(t, "DX-2064")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-2064")
+	tests.BelongsToCISuite(t, "with-db")
 
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	chains := rt.Environment().BlockChains.EVMChains()

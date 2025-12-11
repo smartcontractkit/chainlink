@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -19,6 +20,7 @@ import (
 )
 
 func TestConfigureForwardersSeq(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	envWrapper, donConfig := setupForwarderTest(t, false)
 	env := envWrapper.Env
 
@@ -40,6 +42,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 }
 
 func TestConfigureForwarders(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	envWrapper, donConfig := setupForwarderTest(t, false)
 	env := envWrapper.Env
 	registryChainSel := envWrapper.RegistrySelector
@@ -61,6 +64,7 @@ func TestConfigureForwarders(t *testing.T) {
 }
 
 func TestConfigureForwarders_WithMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	envWrapper, donConfig := setupForwarderTest(t, true)
 	env := envWrapper.Env
 	registryChainSel := envWrapper.RegistrySelector
@@ -87,6 +91,7 @@ func TestConfigureForwarders_WithMCMS(t *testing.T) {
 }
 
 func TestConfigureForwarders_SpecificChains(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// This test needs a custom setup to deploy to multiple chains first
 	envWrapper := test.SetupEnvV2(t, false)
 	env := envWrapper.Env

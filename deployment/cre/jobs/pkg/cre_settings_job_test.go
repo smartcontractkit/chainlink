@@ -5,10 +5,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
 func TestCRESettingsJob_ResolveJob(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		settings string

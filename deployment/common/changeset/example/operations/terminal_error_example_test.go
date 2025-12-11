@@ -5,11 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
 func TestTerminalErrorExampleChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	env, err := environment.New(t.Context())
 	require.NoError(t, err)
 

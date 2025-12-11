@@ -14,9 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestDownloadProgramArtifacts(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name        string
 		setupServer func() *httptest.Server
@@ -160,6 +162,7 @@ func TestDownloadProgramArtifacts(t *testing.T) {
 }
 
 func TestDownloadProgramArtifacts_ContextCancellation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Create a server that delays response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate a slow server
@@ -182,6 +185,7 @@ func TestDownloadProgramArtifacts_ContextCancellation(t *testing.T) {
 }
 
 func TestDownloadProgramArtifacts_InvalidURL(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tempDir := t.TempDir()
 
 	err := downloadProgramArtifacts(t.Context(), "http://invalid-url", tempDir, logger.Test(t))
@@ -189,6 +193,7 @@ func TestDownloadProgramArtifacts_InvalidURL(t *testing.T) {
 }
 
 func TestDownloadProgramArtifacts_NonExistentTargetDir(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/gzip")
 

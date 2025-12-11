@@ -5,10 +5,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 )
 
 func TestSetupEnvV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	envV2 := SetupEnvV2(t, false)
 	env := envV2.Env
 

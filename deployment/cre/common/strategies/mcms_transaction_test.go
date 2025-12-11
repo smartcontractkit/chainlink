@@ -13,6 +13,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -35,6 +36,7 @@ func getMCMSTransaction(t *testing.T, env deployment.Environment) *strategies.MC
 
 func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	fixture := test.SetupEnvV2(t, true)
 

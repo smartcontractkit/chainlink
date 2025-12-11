@@ -7,6 +7,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	chainevm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	chainevmprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -17,6 +18,7 @@ import (
 
 func Test_SeqDeployEVMTokens(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		chainSelector = chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector

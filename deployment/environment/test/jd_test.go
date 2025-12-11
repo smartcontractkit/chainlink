@@ -12,6 +12,7 @@ import (
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestJDNodeService_GetNode(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nodes := []deployment.Node{
 		{
 			NodeID: "node1",
@@ -71,6 +73,7 @@ func TestJDNodeService_GetNode(t *testing.T) {
 }
 
 func TestJDNodeService_ListNodes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	workflowKey1 := "workflow_key_1"
 	workflowKey2 := "workflow_key_2"
 	nodes := []deployment.Node{
@@ -158,6 +161,7 @@ func TestJDNodeService_ListNodes(t *testing.T) {
 }
 
 func TestJDNodeService_ListNodeChainConfigs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	nodes := []deployment.Node{
 		{
 			NodeID: "node1",
@@ -332,6 +336,7 @@ func TestJDNodeService_ListNodeChainConfigs(t *testing.T) {
 }
 
 func TestNewJDServiceFromListNodes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	workflowKey1 := "workflow_key_1"
 	workflowKey2 := "workflow_key_2"
 	workflowKey3 := "workflow_key_3"

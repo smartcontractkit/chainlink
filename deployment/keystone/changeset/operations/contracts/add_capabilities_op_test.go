@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -62,10 +63,12 @@ func doAppendCapabilitiesOp(t *testing.T, useMcms bool) {
 }
 func TestAppendCapabilitiesWithMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	doAppendCapabilitiesOp(t, true)
 }
 func TestAppendCapabilitiesWithoutMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	doAppendCapabilitiesOp(t, false)
 }
 
@@ -125,9 +128,11 @@ func doUpdateDonOp(t *testing.T, useMcms bool) {
 }
 func TestUpdateDonOpWithMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	doUpdateDonOp(t, true)
 }
 func TestUpdateDonOpWithoutMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	doUpdateDonOp(t, false)
 }

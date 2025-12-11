@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -207,6 +208,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 // Happy path: non-workflow DON; also renames the DON; capability config updated; visibility/F preserved.
 func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false, false)
 
 	// New config to apply
@@ -256,6 +258,7 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 
 func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false, true)
 
 	// New config to apply
@@ -297,6 +300,7 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 // Safety gate: workflow DON should refuse without Force=true (changeset passes Force through to operation).
 func TestUpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
 
 	_, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
@@ -315,6 +319,7 @@ func TestUpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
 // Force override: workflow DON update succeeds when Force=true.
 func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
 
 	// Use a valid protobuf structure with proper fields format
@@ -354,6 +359,7 @@ func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 // NOTE: current implementation returns "must provide a non-empty DONName"
 func TestUpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var cs changeset.UpdateDON
 	err := cs.VerifyPreconditions(cldf.Environment{}, changeset.UpdateDONInput{
 		RegistryQualifier: "q",
@@ -367,6 +373,7 @@ func TestUpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
 // Chain not found: Apply should fail early with a clear message.
 func TestUpdateDONChangeset_ByName_ChainNotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Env with no chains (or use a selector not present in env)
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -387,6 +394,7 @@ func TestUpdateDONChangeset_ByName_ChainNotFound(t *testing.T) {
 // Qualifier not found in DataStore: Apply should fail when it cannot look up the registry address.
 func TestUpdateDONChangeset_ByName_QualifierNotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainselectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

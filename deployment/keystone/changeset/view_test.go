@@ -17,6 +17,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -54,6 +55,7 @@ var oracleConfig = changeset.OracleConfig{
 
 func TestKeystoneView(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	env := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 		WFDonConfig:     test.DonConfig{N: 4, Name: "wfDon"},
 		AssetDonConfig:  test.DonConfig{N: 4, Name: "assetDon"},

@@ -12,12 +12,14 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestSaveExisting(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
@@ -61,6 +63,7 @@ func TestSaveExisting(t *testing.T) {
 }
 
 func TestSaveExistingAddressWithLabels(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
@@ -100,6 +103,7 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 }
 
 func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),

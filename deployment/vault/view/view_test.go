@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -20,6 +21,7 @@ import (
 
 func TestVault_NoChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	env, err := environment.New(t.Context())
 	require.NoError(t, err)
@@ -36,6 +38,7 @@ func TestVault_NoChains(t *testing.T) {
 
 func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector}
 	env, err := environment.New(t.Context(),
@@ -59,6 +62,7 @@ func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
 
 func TestGenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

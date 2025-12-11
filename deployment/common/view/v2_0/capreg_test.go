@@ -10,6 +10,7 @@ import (
 
 	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
@@ -24,6 +25,7 @@ type fields struct {
 }
 
 func TestCapRegView_Denormalize(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	donConfig := map[string]any{
 		"defaultConfig": map[string]any{},
 	}

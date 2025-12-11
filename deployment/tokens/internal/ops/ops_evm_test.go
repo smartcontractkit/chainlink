@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	chainevm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	chainevmprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -14,6 +15,7 @@ import (
 
 func Test_OpEVMDeployLinkToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		chainSelector uint64 = 16015286601757825753

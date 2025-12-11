@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/node"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset"
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
@@ -21,6 +22,7 @@ import (
 
 func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	zone := test.Zone
 
@@ -375,6 +377,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 
 func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("registers nodes for a DON", func(t *testing.T) {
 		input := changeset.CsRegisterNodesWithJDInputV2{

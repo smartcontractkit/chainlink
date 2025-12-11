@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -24,6 +25,7 @@ import (
 
 func TestDeployForwarder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	registrySel := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -54,6 +56,7 @@ func TestDeployForwarder(t *testing.T) {
 
 func TestConfigureForwarders(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	testCases := []struct {
 		nChains      int

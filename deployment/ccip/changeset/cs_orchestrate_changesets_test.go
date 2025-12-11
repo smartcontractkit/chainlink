@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -110,6 +111,7 @@ func newRuntimeWithMCMS(t *testing.T) *runtime.Runtime {
 }
 
 func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("description failure", func(t *testing.T) {
 		env, err := environment.New(t.Context(),
 			environment.WithLogger(logger.Test(t)),
@@ -180,6 +182,7 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 }
 
 func TestOrchestrateChangesets_Apply(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("first fails", func(t *testing.T) {
 		rt := newRuntimeWithMCMS(t)
 
@@ -258,6 +261,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 }
 
 func TestOrchestrateChangesetsConfig_MCMSGetsOverridden(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	rt := newRuntimeWithMCMS(t)
 	env := rt.Environment()
 	state, err := stateview.LoadOnchainState(env)

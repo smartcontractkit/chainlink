@@ -4,10 +4,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 func TestAddValueToNestedMap(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		mapping  map[string]map[string]int

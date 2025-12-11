@@ -6,11 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 func TestCapRegView_Denormalize(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type fields struct {
 		ContractMetaData types.ContractMetaData
 		Capabilities     []CapabilityView

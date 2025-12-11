@@ -8,6 +8,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	chainsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	chainsolprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -20,6 +21,7 @@ var once sync.Once
 
 func Test_SeqDeploySolTokens(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		chainSelector = chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector

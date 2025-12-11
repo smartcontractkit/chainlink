@@ -37,6 +37,7 @@ import (
 )
 
 func TestGrantRoleInTimeLock(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedWithConfig(t, []uint64{selector}, onchain.EVMSimLoaderConfig{
@@ -122,6 +123,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 }
 
 func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 
 	selector1 := chain_selectors.TEST_90000001.Selector
@@ -254,6 +256,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 }
 
 func TestDeployMCMSWithTimelockV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	quarantine.Flaky(t, "DX-1719")
 	t.Parallel()
 

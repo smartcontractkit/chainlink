@@ -13,6 +13,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -25,6 +26,7 @@ const (
 
 func TestSetWhitelistValidation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector1 := chainselectors.TEST_90000001.Selector
 
@@ -140,6 +142,7 @@ func TestSetWhitelistValidation(t *testing.T) {
 
 func TestGetWhitelistedAddresses(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector1 := chainselectors.TEST_90000001.Selector
 	selector2 := chainselectors.TEST_90000002.Selector
@@ -256,6 +259,7 @@ func TestGetWhitelistedAddresses(t *testing.T) {
 
 func TestValidateWhitelist(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 2),
@@ -355,6 +359,7 @@ func TestValidateWhitelist(t *testing.T) {
 
 func TestGetChainWhitelist(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainselectors.TEST_90000001.Selector
 
@@ -408,6 +413,7 @@ func TestGetChainWhitelist(t *testing.T) {
 
 func TestSetWhitelistChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		selector1 = chainselectors.TEST_90000001.Selector
@@ -539,6 +545,7 @@ func TestSetWhitelistChangeset(t *testing.T) {
 
 func TestOverwriteWhitelistChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		selector1 = chainselectors.TEST_90000001.Selector

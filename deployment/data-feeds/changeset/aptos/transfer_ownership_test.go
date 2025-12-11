@@ -16,10 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestTransferOwnership(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	selector := chain_selectors.APTOS_LOCALNET.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithAptosContainer(t, []uint64{selector}),

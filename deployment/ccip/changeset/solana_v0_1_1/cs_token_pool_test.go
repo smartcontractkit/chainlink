@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -58,6 +59,7 @@ func TestAddTokenPoolWithoutMcms(t *testing.T) {
 }
 
 func TestAddTokenPoolWithMcms(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1797")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
@@ -672,6 +674,7 @@ var zeroRateLimitConfig = ccipChangesetSolana.RateLimiterConfig{
 }
 
 func TestAddTokenPoolE2EWithMcms(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1774")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))

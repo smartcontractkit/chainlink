@@ -13,6 +13,7 @@ import (
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
@@ -69,6 +70,7 @@ var (
 )
 
 func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	cs := changeset.AddCapabilities{}
 
 	env := test.SetupEnvV2(t, false)
@@ -188,6 +190,7 @@ func requireCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 }
 
 func TestAddCapabilities_Apply(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
 	fixture := test.SetupEnvV2(t, false)
 
@@ -201,6 +204,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 }
 
 func TestAddCapabilities_Apply_MCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
 	fixture := test.SetupEnvV2(t, true)
 

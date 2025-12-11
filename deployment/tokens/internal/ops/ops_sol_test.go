@@ -7,6 +7,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 )
@@ -19,6 +20,7 @@ import (
 // This test is limited to verifying operation error handling.
 func Test_OpSolDeployLinkToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		chainSelector = chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector

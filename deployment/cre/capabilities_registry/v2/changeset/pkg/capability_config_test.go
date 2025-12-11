@@ -6,11 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 )
 
 func TestCapabilityConfig_MarshalUnmarshal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("matching keys to proto", func(t *testing.T) {
 		t.Parallel()
@@ -56,6 +58,7 @@ func TestCapabilityConfig_MarshalUnmarshal(t *testing.T) {
 
 func TestCapabilityConfig_UnmarshalWithValidation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("unknown fields are detected and reported", func(t *testing.T) {
 		t.Parallel()

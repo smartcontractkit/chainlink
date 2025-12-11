@@ -6,10 +6,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 )
 
 func TestRootMap_AddAndGet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Mock data
 	root1 := manualexechelpers.RootCacheEntry{Root: offramp.InternalMerkleRoot{MinSeqNr: 1, MaxSeqNr: 10}, BlockNumber: 1}
 	root2 := manualexechelpers.RootCacheEntry{Root: offramp.InternalMerkleRoot{MinSeqNr: 11, MaxSeqNr: 20}, BlockNumber: 2}

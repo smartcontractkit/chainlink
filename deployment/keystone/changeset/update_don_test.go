@@ -14,6 +14,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -32,6 +33,7 @@ var (
 
 func TestUpdateDon(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	capACfg, err := proto.Marshal(test.GetDefaultCapConfig(t, capA))
 	require.NoError(t, err)
@@ -152,7 +154,7 @@ func TestUpdateDon(t *testing.T) {
 
 func TestUpdateDon_ChangeComposition(t *testing.T) {
 	t.Parallel()
-
+	tests.BelongsToCISuite(t, "unit")
 	// Test capability configurations
 	capACfg, err := proto.Marshal(test.GetDefaultCapConfig(t, capA))
 	require.NoError(t, err)

@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
@@ -129,6 +130,7 @@ var commonInput = ProposeGatewayJobInput{
 
 func TestProposeGatewayJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	testCases := []struct {
 		name                  string

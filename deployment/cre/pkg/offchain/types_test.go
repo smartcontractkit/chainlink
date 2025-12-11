@@ -5,11 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 )
 
 func TestAddToFilter(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("CSA public key appends", func(t *testing.T) {
 		req := require.New(t)
 
@@ -61,6 +63,7 @@ func TestAddToFilter(t *testing.T) {
 }
 
 func TestAddToFilterIfNotPresent(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("CSA key dedupes", func(t *testing.T) {
 		req := require.New(t)
 
@@ -158,6 +161,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 }
 
 func TestMultipleFilters(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	req := require.New(t)
 
 	filter := &nodev1.ListNodesRequest_Filter{}

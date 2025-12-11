@@ -28,11 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 func TestGetOwnableContractV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	v1 := semver.MustParse("1.1.0")
 
 	selector := chainsel.TEST_90000001.Selector
@@ -99,6 +101,7 @@ func TestGetOwnableContractV2(t *testing.T) {
 
 func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainsel.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -188,6 +191,7 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 
 func TestNewOwnableV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainsel.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -296,6 +300,7 @@ func TestNewOwnableV2(t *testing.T) {
 
 func TestGetOwnedContractV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainsel.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

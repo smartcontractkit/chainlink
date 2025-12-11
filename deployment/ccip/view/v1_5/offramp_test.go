@@ -19,10 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestOffRampView(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	srcSelector := chainsel.TEST_90000001.Selector
 	dstSelector := chainsel.TEST_90000002.Selector

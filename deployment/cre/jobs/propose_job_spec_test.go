@@ -15,6 +15,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -30,6 +31,7 @@ import (
 )
 
 func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := jobs.ProposeJobSpec{}
 	var env cldf.Environment
 
@@ -263,6 +265,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 }
 
 func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := jobs.ProposeJobSpec{}
 	var env cldf.Environment
 
@@ -439,6 +442,7 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 }
 
 func TestProposeJobSpec_Apply(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -1688,6 +1692,7 @@ PerSenderBurst = 100
 }
 
 func TestProposeJobSpec_VerifyPreconditions_CRESettings(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	allDefault, err := toml.Marshal(map[string]any{
 		"global":   cresettings.Default,
 		"org":      map[string]any{"org_foo": cresettings.Default},

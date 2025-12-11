@@ -3,10 +3,12 @@ package client
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/internal/generated"
 )
 
 func TestDecodeInput(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		in  any
 		out any

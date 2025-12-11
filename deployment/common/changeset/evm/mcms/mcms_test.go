@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestDeployMCMSWithConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 
 	selector := chainsel.TEST_90000001.Selector
@@ -60,6 +62,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 }
 
 func TestDeployMCMSWithTimelockContracts(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chainsel.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),

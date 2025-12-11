@@ -5,9 +5,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_MergeWithOverrides(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	assert.Equal(t, ExecOCRParams.DeltaProgress, ExecOCRParamsForEthereum.DeltaProgress)
 	assert.Equal(t, ExecOCRParams.DeltaResend, ExecOCRParamsForEthereum.DeltaResend)
 	assert.Equal(t, ExecOCRParams.DeltaInitial, ExecOCRParamsForEthereum.DeltaInitial)

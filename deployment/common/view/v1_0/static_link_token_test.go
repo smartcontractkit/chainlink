@@ -12,10 +12,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 )
 
 func TestStaticLinkTokenView(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),

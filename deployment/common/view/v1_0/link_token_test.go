@@ -17,6 +17,7 @@ import (
 )
 
 func TestLinkTokenView(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chainselectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -35,6 +36,7 @@ func TestLinkTokenView(t *testing.T) {
 func TestLinkTokenViewZk(t *testing.T) {
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	selector := chainselectors.TEST_90000050.Selector
 	env, err := environment.New(t.Context(),

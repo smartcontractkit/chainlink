@@ -16,6 +16,7 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -24,6 +25,7 @@ import (
 )
 
 func Test_RemoveDONsRequest_validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type fields struct {
 		DONs                 []uint32
 		chain                cldf_evm.Chain
@@ -79,6 +81,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 // TestRemoveDONs tests the RemoveDONs function
 func TestRemoveDONs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 
 	var (

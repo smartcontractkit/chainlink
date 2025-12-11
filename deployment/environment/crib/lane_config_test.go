@@ -6,9 +6,12 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestGenerateBidirectionalRandomLanesWithMinConnectivity(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name         string
 		chains       []uint64
@@ -50,6 +53,7 @@ func TestGenerateBidirectionalRandomLanesWithMinConnectivity(t *testing.T) {
 }
 
 func TestBidirectionalPairGeneration(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	chains := []uint64{1, 2, 3, 4}
 	numLanes := 12 // full connectivity
 
@@ -197,6 +201,7 @@ func findBidirectionalPairs(lanes []LaneConfig) [][]LaneConfig {
 }
 
 func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name            string
 		lc              *LaneConfiguration
@@ -281,6 +286,7 @@ func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 }
 
 func Test_generateChainTierLanes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	chains := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802, 909606746561742123, 5548718428018410741}
 
 	t.Run("happy path", func(t *testing.T) {

@@ -25,12 +25,14 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func Test_UpdateNodesRequest_validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type fields struct {
 		p2pToUpdates         map[p2pkey.PeerID]internal.NodeUpdate
 		nopToNodes           map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
@@ -103,6 +105,7 @@ func newEncryptionKey(t *testing.T) [32]byte {
 }
 
 func TestUpdateNodes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	chain := testChain(t)
 	require.NotNil(t, chain)
 	lggr := logger.Test(t)
@@ -619,6 +622,7 @@ func TestUpdateNodes(t *testing.T) {
 }
 
 func TestAppendCapabilities(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		capMap = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 			testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{

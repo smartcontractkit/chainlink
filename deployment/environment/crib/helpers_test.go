@@ -4,9 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_getTierChainSelectors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	otherSelectors := []uint64{909606746561742123, 5548718428018410741, 789068866484373046, 5721565186521185178, 964127714438319834}
 	defaultSelectors := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802}
 	//nolint:gocritic // append is used here to combine the two slices for testing purposes

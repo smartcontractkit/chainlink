@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -28,8 +29,9 @@ import (
 )
 
 func TestBuildProposalFromBatchesV2(t *testing.T) {
-	quarantine.Flaky(t, "DX-1824")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1824")
+	tests.BelongsToCISuite(t, "unit")
 
 	evmSelector := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector

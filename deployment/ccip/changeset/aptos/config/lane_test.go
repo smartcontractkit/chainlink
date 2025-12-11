@@ -10,6 +10,7 @@ import (
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -17,6 +18,7 @@ import (
 
 func TestToEVMUpdateLanesConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name     string
 		input    UpdateAptosLanesConfig

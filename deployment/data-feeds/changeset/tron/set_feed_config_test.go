@@ -15,11 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 func TestSetFeedConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chain_selectors.TRON_DEVNET.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

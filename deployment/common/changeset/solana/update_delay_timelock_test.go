@@ -24,6 +24,7 @@ import (
 
 func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector1 := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
 	selector2 := chainselectors.TEST_33333333333333333333333333333333333333333333.Selector
@@ -127,6 +128,7 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-762")
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	rt, selector := setupTest(t)
 	require.Len(t, rt.Environment().BlockChains.SolanaChains(), 1)

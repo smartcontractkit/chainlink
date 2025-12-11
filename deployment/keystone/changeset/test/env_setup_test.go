@@ -6,12 +6,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
 func TestSetupEnv(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("test env with in memory nodes", func(t *testing.T) {
 		for _, useMCMS := range []bool{true, false} {

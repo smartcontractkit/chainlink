@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 func TestDeployBalanceReader(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	registrySel := chain_selectors.TEST_90000001.Selector
 	otherSel := chain_selectors.TEST_90000002.Selector

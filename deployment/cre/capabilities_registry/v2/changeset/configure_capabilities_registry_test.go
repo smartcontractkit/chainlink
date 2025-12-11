@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -50,6 +51,7 @@ const (
 
 func TestConfigureCapabilitiesRegistry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("select by address", func(t *testing.T) {
 		t.Parallel()
@@ -129,6 +131,7 @@ func suite(t *testing.T, fixture *testFixture) {
 }
 
 func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	originalInput := changeset.ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               123456789,
 		CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
@@ -279,6 +282,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 }
 
 func TestConfigureCapabilitiesRegistryInput_YAMLFromFile(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	yamlConfig := `
 chainSelector: 421614
 capabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890"

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -24,6 +25,7 @@ import (
 
 func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector1 := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
 	selector2 := chainselectors.TEST_33333333333333333333333333333333333333333333.Selector
@@ -205,6 +207,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	quarantine.Flaky(t, "DX-1776")
 	t.Parallel()
 

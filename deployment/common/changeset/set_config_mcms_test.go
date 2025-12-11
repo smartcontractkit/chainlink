@@ -32,6 +32,7 @@ import (
 
 func TestSetConfigMCMSV2EVM(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector1 := chain_selectors.TEST_90000001.Selector
 	selector2 := chain_selectors.TEST_90000002.Selector
@@ -167,6 +168,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 
 func TestSetConfigMCMSV2Solana(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
 
@@ -516,6 +518,7 @@ func createSolSigner(t *testing.T) (*ecdsa.PrivateKey, common.Address) {
 
 func TestSetConfigMCMSV2Partial(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chain_selectors.TEST_90000001.Selector
 

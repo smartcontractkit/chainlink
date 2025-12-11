@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccip_attestation "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ccip-attestation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -54,6 +55,7 @@ func makeSigners(n int) []signer_registry.ISignerRegistrySigner {
 
 func TestEVMSignerRegistry_Preconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Create a minimal environment for precondition tests
 	e, terr := environment.New(t.Context(),
@@ -195,6 +197,7 @@ func TestEVMSignerRegistry_Preconditions(t *testing.T) {
 
 func TestEVMSignerRegistry_DeploysOnlyOnBaseChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Create environment with Base Mainnet and Base Sepolia chain IDs
 	baseMainnetSelector := uint64(ccip_attestation.BaseMainnetSelector)
@@ -255,6 +258,7 @@ func TestEVMSignerRegistry_DeploysOnlyOnBaseChains(t *testing.T) {
 
 func TestEVMSignerRegistry_SkipsNonBaseChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Create environment with non-Base chains
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

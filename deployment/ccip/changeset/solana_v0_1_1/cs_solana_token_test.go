@@ -23,10 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func TestSolanaTokenOps(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1728")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(changeset_solana.SolanaContractV0_1_1))
@@ -177,6 +179,7 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithSolanaContainer(t, []uint64{selector}, t.TempDir(), map[string]string{}),

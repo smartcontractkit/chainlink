@@ -19,6 +19,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -55,6 +56,7 @@ func setupLinkTransferRuntime(t *testing.T) (*runtime.Runtime, uint64) {
 }
 
 func TestValidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	rt, selector := setupLinkTransferRuntime(t)
 
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
@@ -227,6 +229,7 @@ func TestValidate(t *testing.T) {
 
 func TestLinkTransferMCMSV2(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		ctx          = t.Context()

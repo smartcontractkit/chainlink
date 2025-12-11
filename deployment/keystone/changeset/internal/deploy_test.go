@@ -19,6 +19,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -26,6 +27,7 @@ import (
 )
 
 func Test_RegisterNOPS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		useMCMS   bool
 		lggr      = logger.Test(t)
@@ -67,6 +69,7 @@ func Test_RegisterNOPS(t *testing.T) {
 }
 
 func Test_AddCapabilities(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		useMCMS   bool
 		lggr      = logger.Test(t)
@@ -141,6 +144,7 @@ func Test_AddCapabilities(t *testing.T) {
 }
 
 func Test_RegisterNodes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		useMCMS                  bool
 		lggr                     = logger.Test(t)
@@ -395,6 +399,7 @@ func assertNodesExist(t *testing.T, registry *kcr.CapabilitiesRegistry, nodes ..
 }
 
 func Test_RegisterDons(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		useMCMS   bool
 		lggr      = logger.Test(t)
@@ -583,6 +588,7 @@ func Test_RegisterDons(t *testing.T) {
 }
 
 func TestAddNodes(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		lggr                     = logger.Test(t)
 		existingNOP              = testNop(t, "testNop")

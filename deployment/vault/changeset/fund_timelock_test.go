@@ -7,6 +7,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -19,6 +20,7 @@ var (
 
 func TestFundTimelockValidation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainselectors.TEST_90000001.Selector
 
@@ -102,6 +104,7 @@ func TestFundTimelockValidation(t *testing.T) {
 
 func TestGetTimelockBalances(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -149,6 +152,7 @@ func TestGetTimelockBalances(t *testing.T) {
 
 func TestCalculateFundingRequirements(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -223,6 +227,7 @@ func TestCalculateFundingRequirements(t *testing.T) {
 
 func TestFundTimelockChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector1 := chainselectors.TEST_90000001.Selector
 	selector2 := chainselectors.TEST_90000002.Selector

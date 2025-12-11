@@ -18,6 +18,7 @@ import (
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -38,6 +39,7 @@ var testTokenTransferFeeConfig = fee_quoter.TokenTransferFeeConfig{
 }
 
 func TestAddTokenPool_Apply(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-2088")
 	t.Parallel()
 	// Setup environment and config with 1 Aptos chain

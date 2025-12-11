@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -18,6 +19,7 @@ import (
 
 func TestAddDONs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var testCap = kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "cap1",
 		Version:        "1.0",

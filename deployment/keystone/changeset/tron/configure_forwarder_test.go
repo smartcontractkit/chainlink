@@ -11,12 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 )
 
 func TestConfigureForwarder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	testCases := []struct {
 		nChains int

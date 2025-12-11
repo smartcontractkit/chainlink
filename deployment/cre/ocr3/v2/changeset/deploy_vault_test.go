@@ -5,11 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
 func TestDeployVault(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	env := test.SetupEnvV2(t, false)
 
 	changesetOutput, err := DeployVault{}.Apply(*env.Env, DeployVaultInput{

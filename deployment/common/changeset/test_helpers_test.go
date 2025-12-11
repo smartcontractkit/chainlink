@@ -12,11 +12,13 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	e := NewNoopEnvironment(t)
 
 	executedCs := false
@@ -42,6 +44,7 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 
 func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	e := NewNoopEnvironment(t)
 
 	executedCs := false
@@ -81,6 +84,7 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 
 func TestApplyChangesetsHelpers(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	changesets := []ConfiguredChangeSet{
 		Configure(cldf.CreateChangeSet(

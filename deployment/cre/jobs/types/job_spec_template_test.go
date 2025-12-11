@@ -7,11 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 )
 
 func TestJobSpecTemplate_UnmarshalJSON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("cron string", func(t *testing.T) {
 		var in jobs.ProposeJobSpecInput
 		js := `{"environment":"e","domain":"d","don_name":"don","don_filters":[],"job_name":"j","template":"cron","inputs":{}}`
@@ -35,6 +37,7 @@ func TestJobSpecTemplate_UnmarshalJSON(t *testing.T) {
 }
 
 func TestJobSpecTemplate_UnmarshalYAML(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("cron string", func(t *testing.T) {
 		var in jobs.ProposeJobSpecInput
 		yml := "environment: e\ndomain: d\ndon_name: don\ndon_filters: []\njob_name: j\ntemplate: cron\ninputs: {}\n"

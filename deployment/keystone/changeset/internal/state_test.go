@@ -19,9 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_GetContractSet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type testCase struct {
 		name        string
 		giveRequest *GetContractSetsRequest

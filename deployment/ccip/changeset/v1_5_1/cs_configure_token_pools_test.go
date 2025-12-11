@@ -725,8 +725,9 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 }
 
 func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
-	quarantine.Flaky(t, "DX-1726")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1726")
+	tests.BelongsToCISuite(t, "with-db")
 	var err error
 
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {

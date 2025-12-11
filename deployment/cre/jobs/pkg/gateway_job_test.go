@@ -6,10 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestGateway_Validate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	g := GatewayJob{}
 	require.ErrorContains(t, g.Validate(), "must provide job name")
@@ -327,6 +330,7 @@ WriteTimeoutMillis = 16000
 
 func TestGateway_Resolve(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	g := GatewayJob{
 		JobName:           "Gateway1",
@@ -387,6 +391,7 @@ func TestGateway_Resolve(t *testing.T) {
 
 func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	g := GatewayJob{
 		JobName:           "Gateway1",
@@ -449,6 +454,7 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 
 func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	g := GatewayJob{
 		JobName:           "Gateway1",

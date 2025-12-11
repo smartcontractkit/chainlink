@@ -7,6 +7,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/tokens/internal/ops"
@@ -14,6 +15,7 @@ import (
 
 func Test_validateNoDupeSelectors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name    string
@@ -52,6 +54,7 @@ func Test_validateNoDupeSelectors(t *testing.T) {
 }
 
 func Test_validateNoExistingLinkToken(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		csel    = chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
 		ethAddr = "0xeC91988D7dD84d8adE801b739172ad15c860A700"
@@ -149,6 +152,7 @@ func Test_validateNoExistingLinkToken(t *testing.T) {
 
 func Test_validateChainSelectorsFamily(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		csel = chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector

@@ -27,6 +27,7 @@ import (
 )
 
 func TestTransferToMCMSWithTimelockV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -91,6 +92,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 }
 
 func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -256,6 +258,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 }
 
 func TestRenounceTimelockDeployer(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, []uint64{selector}),

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -20,6 +21,7 @@ import (
 
 func TestGenerateNopsView(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 	// Create 3 node IDs
 	nodeIDs := []string{"node_1", "node_2", "node_3"}

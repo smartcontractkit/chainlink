@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -163,6 +164,7 @@ func setupRegistryForDeleteDON(t *testing.T, secondDON bool) *delFixture {
 
 func TestDeleteDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	fx := setupRegistryForDeleteDON(t, false)
 
 	_, err := fx.registry.GetDONByName(nil, fx.donNames[0])
@@ -185,6 +187,7 @@ func TestDeleteDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 
 func TestDeleteDONChangeset_ByNames_Multi_Succeeds(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	fx := setupRegistryForDeleteDON(t, true)
 
 	// Both exist
@@ -210,6 +213,7 @@ func TestDeleteDONChangeset_ByNames_Multi_Succeeds(t *testing.T) {
 
 func TestDeleteDONChangeset_VerifyPreconditions_EmptyList(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var cs changeset.DeleteDONs
 	err := cs.VerifyPreconditions(cldf.Environment{}, changeset.DeleteDONsInput{
 		RegistryQualifier: "q",
@@ -222,6 +226,7 @@ func TestDeleteDONChangeset_VerifyPreconditions_EmptyList(t *testing.T) {
 
 func TestDeleteDONChangeset_Apply_MissingDON_Fails(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainselectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -250,6 +255,7 @@ func TestDeleteDONChangeset_Apply_MissingDON_Fails(t *testing.T) {
 
 func TestDeleteDONChangeset_ChainNotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithLogger(logger.Test(t)),
@@ -267,6 +273,7 @@ func TestDeleteDONChangeset_ChainNotFound(t *testing.T) {
 
 func TestDeleteDONChangeset_QualifierNotFound(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainselectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -286,6 +293,7 @@ func TestDeleteDONChangeset_QualifierNotFound(t *testing.T) {
 
 func TestDeleteDON_MCMS_Configuration(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	fx := setupRegistryForDeleteDON(t, false)
 
 	_, err := fx.registry.GetDONByName(nil, fx.donNames[0])

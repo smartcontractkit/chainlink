@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -37,6 +38,7 @@ var (
 
 func TestBatchNativeTransferValidation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	env, err := environment.New(t.Context())
 	require.NoError(t, err)
@@ -123,6 +125,7 @@ func TestBatchNativeTransferValidation(t *testing.T) {
 
 func TestSetWhitelist(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt, err := runtime.New(t.Context())
 	require.NoError(t, err)
@@ -195,6 +198,7 @@ func TestSetWhitelist(t *testing.T) {
 
 func TestBatchNativeTransferIntegration(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("full workflow with MCMS setup", func(t *testing.T) {
 		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

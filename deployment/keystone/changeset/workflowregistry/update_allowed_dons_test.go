@@ -14,6 +14,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -21,6 +22,7 @@ import (
 )
 
 func TestUpdateAllowedDons(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 
 	chainSel := chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
@@ -74,6 +76,7 @@ func TestUpdateAllowedDons(t *testing.T) {
 }
 
 func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 		WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 		AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},

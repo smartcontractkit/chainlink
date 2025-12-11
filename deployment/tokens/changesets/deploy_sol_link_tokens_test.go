@@ -7,6 +7,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -18,6 +19,7 @@ import (
 
 func Test_DeploySolLinkTokens_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		csel    = chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -140,6 +142,7 @@ func Test_DeploySolLinkTokens_VerifyPreconditions(t *testing.T) {
 
 func Test_DeploySolLinkTokens_Apply(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name     string

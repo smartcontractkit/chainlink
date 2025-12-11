@@ -10,12 +10,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0/mocks"
 )
 
 // TestNewWorkflowView tests the helper function that converts on-chain WorkflowMetadata -> WorkflowView.
 func TestNewWorkflowView(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("nil input => error", func(t *testing.T) {
 		// Updated: nil input now returns an error.
 		wv, err := NewWorkflowView(nil)
@@ -54,6 +56,7 @@ func TestNewWorkflowView(t *testing.T) {
 
 // TestGenerateWorkflowRegistryView uses a mock workflow registry to test the main view generation function.
 func TestGenerateWorkflowRegistryView(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name            string
 		mockSetup       func(*mocks.WorkflowRegistryInterface)
@@ -171,6 +174,7 @@ func TestGenerateWorkflowRegistryView(t *testing.T) {
 }
 
 func TestWorkflowStatus_MarshalUnmarshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name string
 		ws   WorkflowStatus

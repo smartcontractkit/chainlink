@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
@@ -110,10 +111,12 @@ func doDeployConfigureForwardersSeq(t *testing.T, useMcms bool) {
 
 func Test_DeployConfigureForwardersSeqWithoutMCMSSetup(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	doDeployConfigureForwardersSeq(t, false)
 }
 
 func Test_DeployConfigureForwardersSeqWithMCMSSetup(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	doDeployConfigureForwardersSeq(t, true)
 }

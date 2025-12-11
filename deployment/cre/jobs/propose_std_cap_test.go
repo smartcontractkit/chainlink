@@ -9,12 +9,14 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
 func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := jobs.ProposeStandardCapabilityJob{}
 	var env cldf.Environment
 
@@ -52,6 +54,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testEnv := test.SetupEnvV2(t, false)
 
 	// Build minimal environment
@@ -79,6 +82,7 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -116,6 +120,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -153,6 +158,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_VerifyPreconditions_HTTPJobs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	j := jobs.ProposeStandardCapabilityJob{}
 	var env cldf.Environment
 

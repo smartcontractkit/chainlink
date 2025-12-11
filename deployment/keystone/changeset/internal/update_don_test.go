@@ -21,6 +21,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	kscs "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -33,8 +34,11 @@ var (
 )
 
 func TestUpdateDon(t *testing.T) {
-	var (
+	tests.BelongsToCISuite(
+
 		// nodes
+		t, "unit")
+	var (
 		p2p1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))
 		pubKey1  = "11114981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e1098e7" // valid csa key
 		admin1   = common.HexToAddress("0x1111567890123456789012345678901234567890")  // valid eth address
@@ -170,8 +174,11 @@ func TestUpdateDon(t *testing.T) {
 }
 
 func TestUpdateDon_ChangeComposition(t *testing.T) {
-	var (
+	tests.BelongsToCISuite(
+
 		// Initial nodes (n1-n4)
+		t, "unit")
+	var (
 		p2p1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))
 		pubKey1  = "11114981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e1098e7"
 		admin1   = common.HexToAddress("0x1111567890123456789012345678901234567890")

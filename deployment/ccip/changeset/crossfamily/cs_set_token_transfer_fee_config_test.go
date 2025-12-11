@@ -32,6 +32,7 @@ import (
 
 	solstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily"
 	ccip_cs_sol_v0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 )
@@ -89,6 +90,7 @@ func getSolanaTokenTransferFeeConfig(t *testing.T, tEnv cldf.Environment, srcSel
 }
 
 func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// Build a mixed env with EVM + non-EVM so we can validate both families in one table-driven test
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
@@ -281,6 +283,7 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
 		testhelpers.WithNumOfChains(2),
@@ -297,6 +300,7 @@ func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) 
 }
 
 func TestSetTokenTransferFeeConfig_EVM_V1_6_0_Only(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// Setup EVM environment
 	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
@@ -360,6 +364,7 @@ func TestSetTokenTransferFeeConfig_EVM_V1_6_0_Only(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_EVM_V1_5_1_Only(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// Setup EVM environment
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -455,6 +460,7 @@ func TestSetTokenTransferFeeConfig_EVM_V1_5_1_Only(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_Solana_V0_1_0_Only(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// Setup Solana environment
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
@@ -548,6 +554,7 @@ func TestSetTokenTransferFeeConfig_Solana_V0_1_0_Only(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// Build a mixed env with EVM + non-EVM
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),

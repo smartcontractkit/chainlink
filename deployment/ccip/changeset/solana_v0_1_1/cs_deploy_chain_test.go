@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
@@ -104,6 +105,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	quarantine.Flaky(t, "DX-1729")
 	t.Parallel()
 

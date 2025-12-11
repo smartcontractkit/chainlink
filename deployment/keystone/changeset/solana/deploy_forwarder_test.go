@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -86,7 +87,7 @@ func TestDeployForwarder(t *testing.T) {
 
 func TestConfigureForwarder(t *testing.T) {
 	t.Parallel()
-
+	tests.BelongsToCISuite(t, "unit")
 	// Setup the solana programs
 	programsPath := t.TempDir()
 	solSel := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector

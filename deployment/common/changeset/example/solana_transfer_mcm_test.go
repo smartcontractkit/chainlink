@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
@@ -33,6 +34,7 @@ import (
 
 func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	receiverKey := solana.NewWallet().PublicKey()
 	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -188,8 +190,9 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 }
 
 func TestTransferFromTimelockConfig_Apply(t *testing.T) {
-	quarantine.Flaky(t, "DX-1754")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1754")
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
 	programsPath, programIDs, ab := soltestutils.PreloadMCMS(t, selector)

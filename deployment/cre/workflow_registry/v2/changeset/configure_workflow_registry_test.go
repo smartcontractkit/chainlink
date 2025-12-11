@@ -7,11 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 func TestSetConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("basic metadata config", func(t *testing.T) {
 		fixture := setupTest(t)
@@ -61,6 +63,7 @@ func TestSetConfig(t *testing.T) {
 
 func TestUpdateAllowedSigners(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("update allowed signers", func(t *testing.T) {
 		fixture := setupTest(t)
@@ -110,6 +113,7 @@ func TestUpdateAllowedSigners(t *testing.T) {
 
 func TestSetWorkflowOwnerConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("set workflow owner config", func(t *testing.T) {
 		fixture := setupTest(t)
@@ -154,6 +158,7 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 
 func TestSetDONLimit(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("set DON limit", func(t *testing.T) {
 		fixture := setupTest(t)
@@ -200,6 +205,7 @@ func TestSetDONLimit(t *testing.T) {
 
 func TestSetUserDONOverride(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("set user DON override", func(t *testing.T) {
 		fixture := setupTest(t)
@@ -270,6 +276,7 @@ func TestSetUserDONOverride(t *testing.T) {
 
 func TestSetCapabilitiesRegistry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	// Test data for DON registry configuration
 	donRegistryAddress := common.HexToAddress("0x1234567890123456789012345678901234567890")
@@ -369,6 +376,7 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 
 func TestConfigureWorkflowRegistryValidation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	fixture := setupTest(t)
 

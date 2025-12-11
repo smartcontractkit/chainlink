@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -15,6 +16,7 @@ import (
 
 func Test_RemoveDONsRequest_validate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	env := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 		WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
@@ -78,6 +80,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 
 func TestRemoveDONs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name            string

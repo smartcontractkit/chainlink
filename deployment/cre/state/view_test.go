@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/state"
 	test2 "github.com/smartcontractkit/chainlink/deployment/cre/test"
@@ -17,6 +18,7 @@ import (
 
 func TestCREView(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	env := test2.SetupEnvV2(t, false)
 
 	addrs := env.Env.DataStore.Addresses().Filter(

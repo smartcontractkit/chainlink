@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
@@ -15,6 +16,7 @@ import (
 )
 
 func TestConfigureOCR3(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	env := test.SetupEnvV2(t, false)
 
 	testCases := []struct {

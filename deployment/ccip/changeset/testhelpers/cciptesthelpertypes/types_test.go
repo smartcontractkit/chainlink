@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes/mocks"
 )
 
@@ -23,6 +24,7 @@ func chainSelectorSlice(n int) []cciptypes.ChainSelector {
 }
 
 func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		chainSelectors []cciptypes.ChainSelector
 	}
@@ -156,6 +158,7 @@ func generateTestP2PIDs(count int) [][32]byte {
 }
 
 func TestRandomTopology_getNodesForChain(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		fChain             int
 		nonBootstrapP2pIDs [][32]byte
@@ -278,6 +281,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 }
 
 func TestRandomTopology_validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	const homeChainSelector = 1
 	type args struct {
 		chainSelectors    []cciptypes.ChainSelector
@@ -402,6 +406,7 @@ func TestRandomTopology_validate(t *testing.T) {
 }
 
 func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	const homeChainSelector = 1
 	type args struct {
 		nonBootstrapP2pIDs [][32]byte
@@ -587,6 +592,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 }
 
 func TestTopology_ChainToNodeMapping(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		nonBootstrapP2pIDs    [][32]byte
 		nonHomeChainSelectors []cciptypes.ChainSelector
