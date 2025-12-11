@@ -6,7 +6,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink-ccv/verifier"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/commit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -35,7 +35,7 @@ func ValidatedCCVCommitteeVerifierSpec(tomlString string) (jb job.Job, err error
 		return job.Job{}, errors.New("committeeVerifierConfig must be set")
 	}
 
-	var cfg verifier.Config
+	var cfg commit.Config
 	err = toml.Unmarshal([]byte(jb.CCVCommitteeVerifierSpec.CommitteeVerifierConfig), &cfg)
 	if err != nil {
 		return job.Job{}, fmt.Errorf("failed to unmarshal committeeVerifierConfig into the verifier config struct: %w", err)
