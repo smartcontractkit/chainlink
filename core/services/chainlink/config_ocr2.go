@@ -53,6 +53,10 @@ func (o *ocr2Config) TraceLogging() bool {
 	return *o.c.TraceLogging
 }
 
+func (o *ocr2Config) SampleTelemetry() bool {
+	return *o.c.SampleTelemetry
+}
+
 func (o *ocr2Config) CaptureEATelemetry() bool {
 	return *o.c.CaptureEATelemetry
 }

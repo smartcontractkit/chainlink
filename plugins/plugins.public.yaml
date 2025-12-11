@@ -15,7 +15,7 @@ plugins:
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
-      gitRef: "v0.0.0-20251128231234-4fdf15cd020c"
+      gitRef: "v0.0.0-20251205161630-88314452254c"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -45,7 +45,7 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.6"
+      gitRef: "v0.1.7-0.20251209111830-ccd12a5b2a19"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
