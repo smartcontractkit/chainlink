@@ -17,8 +17,6 @@ on:
 
 jobs:
   integration-tests:
-    # TODO: Enable once tests are added
-    if: false
     name: "${{ matrix.type.module }} (${{matrix.type.test-suite}})"
     timeout-minutes: 20
     runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/${{ matrix.type.os }}
@@ -35,25 +33,25 @@ jobs:
       fail-fast: false
       matrix:
         type:
-          - module: Core
-            test-suite: "with-db"
-            cmd: go_core_tests
-            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+          # - module: Core
+          #   test-suite: "with-db"
+          #   cmd: go_core_tests
+          #   os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
 
-          - module: Deployment
-            cmd: go_core_ccip_deployment_tests
-            test-suite: "solana"
-            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            go-mod-directory: "deployment/"
-            setup-solana: "true"
+          # - module: Deployment
+          #   cmd: go_core_ccip_deployment_tests
+          #   test-suite: "solana"
+          #   os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+          #   go-mod-directory: "deployment/"
+          #   setup-solana: "true"
             # setup-loopps: "true"
 
-          - module: Deployment
-            test-suite: "aptos"
-            cmd: go_core_ccip_deployment_tests
-            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            go-mod-directory: "deployment/"
-            aptos-cli-version: "7.10.0"
+          # - module: Deployment
+          #   test-suite: "aptos"
+          #   cmd: go_core_ccip_deployment_tests
+          #   os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+          #   go-mod-directory: "deployment/"
+          #   aptos-cli-version: "7.10.0"
             # setup-loopps: "true"
 
           - module: Deployment
