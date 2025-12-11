@@ -351,6 +351,20 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
 	for _, sub := range subs.Subscriptions {
+		_, labels, _ := capabilities.ParseID(sub.Id)
+		chainSelector, err2 := capabilities.ChainSelectorLabel(labels)
+		if err2 != nil {
+			return fmt.Errorf("invalid chain selector for ID %s: %w", sub.Id, err2)
+		}
+		if chainSelector != nil {
+			err2 := e.cfg.LocalLimiters.ChainAllowed.AllowErr(contexts.WithChainSelector(ctx, *chainSelector))
+			if err2 != nil {
+				if errors.Is(err2, limits.ErrorNotAllowed{}) {
+					return fmt.Errorf("unable to subscribe to capability %s: ChainSelector %d: %w", sub.Id, *chainSelector, err2)
+				}
+				return fmt.Errorf("failed to check access for ChainSelector %d: %w", *chainSelector, err2)
+			}
+		}
 		triggerCap, triggerErr := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
 		if triggerErr != nil {
 			return fmt.Errorf("trigger capability not found: %w", triggerErr)
