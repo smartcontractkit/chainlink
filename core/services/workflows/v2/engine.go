@@ -38,6 +38,11 @@ import (
 
 var executingWorkflows atomic.Int64
 
+type triggerMgr interface {
+	RegisterTrigger(ctx context.Context, trigger capabilities.TriggerCapability, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error)
+	UnregisterTrigger(ctx context.Context, trigger capabilities.TriggerCapability, request capabilities.TriggerRegistrationRequest) error
+}
+
 type Engine struct {
 	services.Service
 	srvcEng *services.Engine
