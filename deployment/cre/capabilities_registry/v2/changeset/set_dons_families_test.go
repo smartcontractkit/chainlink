@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
@@ -111,7 +112,9 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 	t.Run("set families for existing DON - MCMS", func(t *testing.T) {
 		mcmsEnv := test.SetupEnvV2(t, true)
 
-		duration := cretime.Duration(1 * time.Second)
+		duration, testErr := commonconfig.NewDuration(1 * time.Second)
+		require.NoError(t, testErr)
+		d := cretime.Duration(duration)
 		csOut, testErr := cs.Apply(*mcmsEnv.Env, changeset.SetDONsFamiliesInput{
 			RegistrySelector:  chainSelector,
 			RegistryQualifier: test.RegistryQualifier,
@@ -126,7 +129,7 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 				TimelockQualifierPerChain: map[uint64]string{
 					chainSelector: "",
 				},
-				ValidDuration: &duration,
+				ValidDuration: &d,
 			},
 		})
 		require.NoError(t, testErr)

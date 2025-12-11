@@ -216,7 +216,7 @@ func BuildProposalFromBatchesV2(
 
 	proposalDuration := DefaultValidUntil
 	if mcmsCfg.ValidDuration != nil {
-		proposalDuration = time.Duration(*mcmsCfg.ValidDuration)
+		proposalDuration = mcmsCfg.ValidDuration.Duration()
 	}
 	validUntil := time.Now().Add(proposalDuration).Unix()
 

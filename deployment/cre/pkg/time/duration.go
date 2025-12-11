@@ -1,15 +1,18 @@
 package time
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
-type Duration time.Duration
+type Duration commonconfig.Duration
 
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var (
@@ -30,11 +33,15 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 		if err != nil {
 			return fmt.Errorf("invalid day duration %q: %w", raw, err)
 		}
-		*d = Duration(time.Duration(v * float64(24*time.Hour)))
+		duration, err := commonconfig.NewDuration(time.Duration(v * float64(24*time.Hour)))
+		if err != nil {
+			return fmt.Errorf("failed to create duration from days %q: %w", raw, err)
+		}
+		*d = Duration(duration)
 		return nil
 	}
 
-	p, err := time.ParseDuration(raw)
+	p, err := commonconfig.ParseDuration(raw)
 	if err != nil {
 		return err
 	}
@@ -47,7 +54,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 // otherwise it falls back to Go's native duration string, e.g. "36h0m0s".
 func (d Duration) MarshalJSON() ([]byte, error) {
 	const day = 24 * time.Hour
-	dur := time.Duration(d)
+	dur := commonconfig.Duration(d).Duration()
 
 	var s string
 	if dur%day == 0 {
@@ -61,6 +68,10 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func (d Duration) Value() time.Duration {
-	return time.Duration(d)
+func (d Duration) Value() (driver.Value, error) {
+	return commonconfig.Duration(d).Value()
+}
+
+func (d Duration) Duration() time.Duration {
+	return commonconfig.Duration(d).Duration()
 }
