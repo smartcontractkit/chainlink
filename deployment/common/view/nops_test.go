@@ -91,7 +91,6 @@ func TestGenerateNopsView(t *testing.T) {
 			assert.Equal(t, "workflow_"+id, node.WorkflowKey)
 
 			t.Logf("checking networks for node %s, %v", nodeName, node.Networks)
-			require.False(t, true)
 			// Check labels
 			require.Len(t, node.Labels, 2)
 			assertLabelExists(t, node.Labels, "role", "tester")
