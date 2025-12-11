@@ -14,11 +14,10 @@ func TestDuration_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name          string
-		input         string
-		expectedDur   time.Duration
-		expectErr     bool
-		expectedPanic bool
+		name        string
+		input       string
+		expectedDur time.Duration
+		expectErr   bool
 	}{
 		{
 			name:        "unmarshal seconds",
