@@ -93,6 +93,7 @@ func (d *AtomicCore) cleanup() {
 		wg.Go(c.cleanup)
 		return false
 	})
+	d.children = shrink(d.children)
 }
 
 func (d *AtomicCore) startPeriodicCleanup() {
@@ -213,4 +214,8 @@ func (l *zapLogger) Sync() error {
 
 func (l *zapLogger) Recover(panicErr any) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
+}
+
+func shrink[T any](s []T) []T {
+	return append([]T(nil), s...)
 }
