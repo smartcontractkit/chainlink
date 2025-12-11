@@ -29,7 +29,7 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	nopsView, err := view.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
+	nopsView, err := view.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain, "ccip")
 	if err != nil {
 		return nil, err
 	}
