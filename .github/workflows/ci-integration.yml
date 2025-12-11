@@ -16,11 +16,19 @@ on:
 
 
 jobs:
-  tagged-tests:
+  integration-tests:
+    name: "${{ matrix.type.module }} - ${{matrix.type.regex}}"
+    timeout-minutes: 20
+    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/${{ matrix.type.os }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
     env:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
       # when they should not be using it, while still allowing us to DRY up the setup
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+
     strategy:
       fail-fast: false
       matrix:
@@ -53,14 +61,6 @@ jobs:
             regex: "^TestIntegration_Shared_"
             go-mod-directory: "deployment/"
             setup-plugins: "true"
-
-    name: "${{ matrix.type.module }} - ${{matrix.type.regex}}"
-    timeout-minutes: 20
-    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/${{ matrix.type.os }}
-    permissions:
-      id-token: write
-      contents: read
-      actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -106,11 +106,12 @@ jobs:
         with:
           CLI_VERSION: ${{ matrix.type.aptos-cli-version }}
 
-      # - name: Setup Sui CLI v1.57.2
-      #   uses: ./.github/actions/setup-sui
-      #   with:
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     version: mainnet-1.57.2
+      - name: Setup Sui CLI v1.57.2
+        if: ${{ matrix.type.sui-cli-version != '' }}
+        uses: ./.github/actions/setup-sui
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ matrix.type.sui-cli-version }}
 
       - name: Setup wasmd
         if: matrix.type.setup-plugins == 'true'
