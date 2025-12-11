@@ -180,7 +180,7 @@ answer2 [type=bridge name=election_winner index=1];
 	return run
 }
 
-func TestUnit_InsertFinishedRuns(t *testing.T) {
+func TestIntegration_Shared_InsertFinishedRuns(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm, _ := setupLiteORM(t)
 

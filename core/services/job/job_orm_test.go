@@ -697,7 +697,7 @@ func TestIntegration_Shared_ORM_CreateJob_VRFV2Plus(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
-func TestUnit_ORM_CreateJob_OCRBootstrap(t *testing.T) {
+func TestIntegration_Shared_ORM_CreateJob_OCRBootstrap(t *testing.T) {
 	ctx := testutils.Context(t)
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)

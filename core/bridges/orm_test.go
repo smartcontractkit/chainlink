@@ -159,7 +159,7 @@ func TestIntegration_Shared_ORM_TestCachedResponse(t *testing.T) {
 	require.Equal(t, []byte{111, 222, 2}, val)
 }
 
-func TestUnit_ORM_CreateExternalInitiator(t *testing.T) {
+func TestIntegration_Shared_ORM_CreateExternalInitiator(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 

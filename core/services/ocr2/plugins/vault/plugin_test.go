@@ -210,7 +210,7 @@ func TestIntegration_Shared_Plugin_ReportingPluginFactory_UseDKGResult(t *testin
 	assert.Equal(t, pkBytes, key)
 }
 
-func TestUnit_Plugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
+func TestIntegration_Shared_Plugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 

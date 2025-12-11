@@ -49,7 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-func TestUnit_InitialStateSyncV2(t *testing.T) {
+func TestIntegration_Shared_InitialStateSyncV2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)

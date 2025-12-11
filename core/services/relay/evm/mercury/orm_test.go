@@ -150,7 +150,7 @@ func TestIntegration_Shared_ORM(t *testing.T) {
 	require.Len(t, transmissions, 1)
 }
 
-func TestUnit_ORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
+func TestIntegration_Shared_ORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 

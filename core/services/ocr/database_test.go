@@ -182,7 +182,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 	}
 }
 
-func TestUnit_DB_PendingTransmissions(t *testing.T) {
+func TestIntegration_Shared_DB_PendingTransmissions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()

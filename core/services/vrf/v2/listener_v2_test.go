@@ -333,7 +333,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	require.Equal(t, "70000", start.String())
 }
 
-func TestUnit_MaybeSubtractReservedNativeV2Plus(t *testing.T) {
+func TestIntegration_Shared_MaybeSubtractReservedNativeV2Plus(t *testing.T) {
 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
 }
 

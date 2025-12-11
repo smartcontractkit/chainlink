@@ -82,7 +82,7 @@ func TestUnit_ExecOnchainConfig120(t *testing.T) {
 	}
 }
 
-func TestUnit_OffRampReaderInit(t *testing.T) {
+func TestIntegration_Shared_OffRampReaderInit(t *testing.T) {
 	tests := []struct {
 		name    string
 		version string

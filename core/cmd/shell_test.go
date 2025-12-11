@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-func TestUnit_TerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
+func TestIntegration_Shared_TerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -71,7 +71,7 @@ func TestUnit_TerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.
 	}
 }
 
-func TestUnit_TerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
+func TestIntegration_Shared_TerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -121,7 +121,7 @@ func (d diskCookieStoreConfig) RootDir() string {
 	return d.rootdir
 }
 
-func TestUnit_DiskCookieStore_Retrieve(t *testing.T) {
+func TestIntegration_Shared_DiskCookieStore_Retrieve(t *testing.T) {
 	t.Parallel()
 
 	cfg := diskCookieStoreConfig{}
@@ -150,7 +150,7 @@ func TestUnit_DiskCookieStore_Retrieve(t *testing.T) {
 	})
 }
 
-func TestUnit_TerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+func TestIntegration_Shared_TerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	email := "good@email.com"
 
 	tests := []struct {

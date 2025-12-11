@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
 
-func TestUnit_CSAKeyStore_E2E(t *testing.T) {
+func TestIntegration_Shared_CSAKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
 	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))

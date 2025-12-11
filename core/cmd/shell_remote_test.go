@@ -116,7 +116,7 @@ func deleteKeyExportFile(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUnit_Shell_ReplayBlocks(t *testing.T) {
+func TestIntegration_Shared_Shell_ReplayBlocks(t *testing.T) {
 	t.Parallel()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -151,7 +151,7 @@ func TestUnit_Shell_ReplayBlocks(t *testing.T) {
 	assert.NoError(t, client.ReplayFromBlock(c))
 }
 
-func TestUnit_Shell_CreateExternalInitiator(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -191,7 +191,7 @@ func TestUnit_Shell_CreateExternalInitiator(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_CreateExternalInitiator_Errors(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateExternalInitiator_Errors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -228,7 +228,7 @@ func TestUnit_Shell_CreateExternalInitiator_Errors(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_DestroyExternalInitiator(t *testing.T) {
+func TestIntegration_Shared_Shell_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -254,7 +254,7 @@ func TestUnit_Shell_DestroyExternalInitiator(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
-func TestUnit_Shell_DestroyExternalInitiator_NotFound(t *testing.T) {
+func TestIntegration_Shared_Shell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -272,7 +272,7 @@ func TestUnit_Shell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
-func TestUnit_Shell_RemoteLogin(t *testing.T) {
+func TestIntegration_Shared_Shell_RemoteLogin(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	orm := app.AuthenticationProvider()
 
@@ -313,7 +313,7 @@ func TestUnit_Shell_RemoteLogin(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_RemoteBuildCompatibility(t *testing.T) {
+func TestIntegration_Shared_Shell_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -352,7 +352,7 @@ func TestUnit_Shell_RemoteBuildCompatibility(t *testing.T) {
 	assert.EqualError(t, err, expErr)
 }
 
-func TestUnit_Shell_CheckRemoteBuildCompatibility(t *testing.T) {
+func TestIntegration_Shared_Shell_CheckRemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -428,7 +428,7 @@ func (h *mockHTTPClient) Delete(ctx context.Context, path string) (*http.Respons
 	return h.HTTP.Delete(ctx, path)
 }
 
-func TestUnit_Shell_ChangePassword(t *testing.T) {
+func TestIntegration_Shared_Shell_ChangePassword(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -478,7 +478,7 @@ func TestUnit_Shell_ChangePassword(t *testing.T) {
 	require.Contains(t, err.Error(), "Unauthorized")
 }
 
-func TestUnit_Shell_Profile(t *testing.T) {
+func TestIntegration_Shared_Shell_Profile(t *testing.T) {
 	quarantine.Flaky(t, "DX-1796")
 	t.Parallel()
 
@@ -513,7 +513,7 @@ func TestUnit_Shell_Profile(t *testing.T) {
 	require.NotEmpty(t, ents, "ents %+v", ents)
 }
 
-func TestUnit_Shell_Profile_Unauthenticated(t *testing.T) {
+func TestIntegration_Shared_Shell_Profile_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -529,7 +529,7 @@ func TestUnit_Shell_Profile_Unauthenticated(t *testing.T) {
 	require.ErrorContains(t, err, "Unauthorized")
 }
 
-func TestUnit_Shell_ConfigV2(t *testing.T) {
+func TestIntegration_Shared_Shell_ConfigV2(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -548,7 +548,7 @@ func TestUnit_Shell_ConfigV2(t *testing.T) {
 	})
 }
 
-func TestUnit_Shell_RunOCRJob_HappyPath(t *testing.T) {
+func TestIntegration_Shared_Shell_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -594,7 +594,7 @@ func TestUnit_Shell_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, client.TriggerPipelineRun(c))
 }
 
-func TestUnit_Shell_RunOCRJob_MissingJobID(t *testing.T) {
+func TestIntegration_Shared_Shell_RunOCRJob_MissingJobID(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -611,7 +611,7 @@ func TestUnit_Shell_RunOCRJob_MissingJobID(t *testing.T) {
 	assert.EqualError(t, client.TriggerPipelineRun(c), "Must pass the job id to trigger a run")
 }
 
-func TestUnit_Shell_RunOCRJob_JobNotFound(t *testing.T) {
+func TestIntegration_Shared_Shell_RunOCRJob_JobNotFound(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -630,7 +630,7 @@ func TestUnit_Shell_RunOCRJob_JobNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "findJob failed: failed to load job")
 }
 
-func TestUnit_Shell_AutoLogin(t *testing.T) {
+func TestIntegration_Shared_Shell_AutoLogin(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -659,7 +659,7 @@ func TestUnit_Shell_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUnit_Shell_AutoLogin_AuthFails(t *testing.T) {
+func TestIntegration_Shared_Shell_AutoLogin_AuthFails(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -698,7 +698,7 @@ func (FailingAuthenticator) Logout() error {
 	return errors.New("no luck")
 }
 
-func TestUnit_Shell_SetLogConfig(t *testing.T) {
+func TestIntegration_Shared_Shell_SetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)

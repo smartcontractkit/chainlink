@@ -212,7 +212,7 @@ func TestIntegration_Shared_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 }
 
 // Not very likely, but let's be more defensive here and verify if cache works properly and can deal with duplicates
-func TestUnit_BlocksWithTheSameTimestamps(t *testing.T) {
+func TestIntegration_Shared_BlocksWithTheSameTimestamps(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := testutils.NewRandomEVMChainID()
 	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))

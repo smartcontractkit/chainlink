@@ -118,7 +118,7 @@ func TestIntegration_Shared_RegistrySynchronizer1_1_Start(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUnit_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
+func TestIntegration_Shared_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 	t.Parallel()
 	for _, upkeepID := range []int64{0, 1, 100, 10_000} {
 		_, err := keeper.CalcPositioningConstant(ubig.NewI(upkeepID), cltest.NewEIP55Address())
@@ -126,7 +126,7 @@ func TestUnit_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 	}
 }
 
-func TestUnit_RegistrySynchronizer1_1_FullSync(t *testing.T) {
+func TestIntegration_Shared_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
