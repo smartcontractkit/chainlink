@@ -228,7 +228,6 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
 			return params
 		}),
 	)
@@ -365,7 +364,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
 			return params
 		}),
 	)
@@ -686,7 +684,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
-	inflightDuration := time.Millisecond
+	inflightDuration := time.Minute
 
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
@@ -698,7 +696,6 @@ func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
 			return params
 		}),
 	)
