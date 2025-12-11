@@ -25,10 +25,16 @@ jobs:
       fail-fast: false
       matrix:
         type:
+          - module: Core
+            cmd: go_core_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            regex: "^TestScripts"
+            go-mod-directory: "./"
+
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            regex: "(TestIntegration_Solana_)"
+            regex: "TestIntegration_Solana_"
             go-mod-directory: "deployment/"
             setup-solana: "true"
             setup-plugins: "true"
