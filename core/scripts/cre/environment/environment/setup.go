@@ -501,13 +501,13 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 			return
 		}
 	} else {
-		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Ingress setup, as configuration is missing from the config file")
+		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Ingress setup, because configuration is not provided in the config file")
 	}
 
 	var billingLocalImage string
 	if withBilling {
 		if cfg.BillingService == nil {
-			setupErr = errors.New("billing service configuration is missing")
+			setupErr = errors.New("billing service configuration is required when using --with-billing flag")
 			return
 		}
 
@@ -523,7 +523,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 			return
 		}
 	} else {
-		logger.Warn().Msgf("Skipping Billing Platform Service setup, as no flag was provided")
+		logger.Warn().Msgf("Skipping Billing Platform Service setup, because the --with-billing flag was not provided")
 	}
 
 	observabilityRepoPath, _, err := setupRepo(ctx, logger, cfg.Observability.RepoURL, cfg.Observability.Branch,
