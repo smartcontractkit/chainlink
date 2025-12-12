@@ -23,32 +23,30 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/spf13/cobra"
-
-	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/spf13/cobra"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
-	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
+	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
 const (
@@ -325,8 +323,8 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-		features := feature_set.New()
-		gatewayWhitelistConfig := gateway.WhitelistConfig{
+			features := feature_set.New()
+			gatewayWhitelistConfig := gateway.WhitelistConfig{
 				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}

@@ -1,6 +1,7 @@
 package infra
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/rs/zerolog"
@@ -38,7 +39,7 @@ type KubernetesInput struct {
 	// Use TLS for external JD GRPC connections (default: true for port 443, false otherwise)
 	UseTLSForJD *bool `toml:"use_tls_for_jd"`
 	// Kubernetes provider type (aws, kind, etc.) - optional
-	Provider string `toml:"provider" validate:"omitempty,oneof=aws kind"`
+	Provider string `toml:"provider" validate:"oneof=aws kind ''"`
 	// Required for cost attribution in AWS
 	TeamInput *Team `toml:"team_input" validate:"required_if=Provider aws"`
 }
@@ -69,7 +70,7 @@ func GetKubernetesClient() (*kubernetes.Clientset, error) {
 // GenerateKubernetesJDOutput generates JD service URLs for Kubernetes-deployed Job Distributor
 func GenerateKubernetesJDOutput(infraInput *Provider, lggr zerolog.Logger) (*jd.Output, error) {
 	if infraInput.Kubernetes == nil {
-		return nil, fmt.Errorf("Kubernetes configuration is required for GenerateKubernetesJDOutput")
+		return nil, errors.New("kubernetes configuration is required for GenerateKubernetesJDOutput")
 	}
 
 	externalDomain := infraInput.Kubernetes.ExternalDomain
