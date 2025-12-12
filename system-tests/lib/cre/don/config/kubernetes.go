@@ -82,7 +82,7 @@ func CreateSecretsOverride(ctx context.Context, logger zerolog.Logger, input Cre
 		secret.Labels = input.Labels
 	}
 
-	return createOrUpdateResource(ctx, clientset, secret, input.Namespace, secretName, logger, "Secret")
+	return createOrUpdateResource(ctx, clientset, input.Namespace, secretName, secret, logger, "Secret")
 }
 
 // CreateConfigOverrideInput contains input for creating a config override K8s ConfigMap
@@ -108,5 +108,5 @@ func CreateConfigOverride(ctx context.Context, logger zerolog.Logger, input Crea
 		},
 	}
 
-	return createOrUpdateResource(ctx, clientset, configMap, input.Namespace, configMapName, logger, "ConfigMap")
+	return createOrUpdateResource(ctx, clientset, input.Namespace, configMapName, configMap, logger, "ConfigMap")
 }
