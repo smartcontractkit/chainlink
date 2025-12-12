@@ -116,6 +116,13 @@ var (
 const DefaultSetupConfigPath = "configs/setup.toml"
 const DefaultCapabilityBinariesPath = ".binaries"
 
+type EnsureOption = string
+
+const (
+	PullOption  EnsureOption = "p"
+	BuildOption EnsureOption = "b"
+)
+
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
 	ConfigPath string
@@ -319,7 +326,7 @@ type ImageConfig struct {
 	PullConfig  PullConfig
 }
 
-func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, purge bool) (localImage string, err error) {
+func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
 	// If purge flag is set, remove existing images first
 	if purge {
 		logger := framework.L
@@ -354,7 +361,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [P]", name)
 
-		var input = "b" // Default to Build; TODO default to Pull when AWS access is sorted
+		var input = PullOption // Default to Pull
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {
@@ -366,12 +373,12 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		}
 		// check that input is valid
 		input = strings.TrimSpace(strings.ToLower(input))
-		if input != "p" && input != "b" {
+		if input != PullOption && input != BuildOption {
 			logger.Warn().Msg("Invalid input. Please enter 'p' or 'b'.")
 			return "", fmt.Errorf("invalid input: %s", input)
 		}
 
-		if strings.ToLower(input) == "b" {
+		if strings.ToLower(input) == BuildOption {
 			return c.BuildConfig.Build(ctx)
 		}
 
@@ -481,7 +488,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		PullConfig:  cfg.JobDistributor.PullConfig,
 	}
 
-	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
 	if jdErr != nil {
 		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
 		return
@@ -495,7 +502,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+		chipLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
 			return
@@ -517,7 +524,8 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var billingErr error
-		billingLocalImage, billingErr = billingConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+		// Try to build Billing service since almost noone has access the ECR that stores the image
+		billingLocalImage, billingErr = billingConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, BuildOption, purge)
 		if billingErr != nil {
 			setupErr = errors.Wrap(billingErr, "failed to ensure Billing Platform Service image")
 			return
