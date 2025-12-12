@@ -133,17 +133,6 @@ jobs:
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
 
-      # required to satsify setup function's check
-      - name: Create AWS profile for CRE
-        shell: bash
-        run: |
-          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile staging-default
-          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile staging-default
-          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile staging-default
-          aws configure set region "$AWS_REGION" --profile staging-default
-
-          aws ecr get-login-password --region us-west-2 --profile staging-default --debug
-
       # setup step installs Bun via Homebrew, but it is not available in the CI and we don't want to install it (too slow)
       - name: Install Bun
         run: |

@@ -882,61 +882,68 @@ func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage stri
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
 
-	// Check if AWS profile exists
-	configureCmd := exec.Command("aws", "configure", "list-profiles")
-	output, configureCmdErr := configureCmd.Output()
-	if configureCmdErr != nil {
-		return "", errors.Wrap(configureCmdErr, "failed to list AWS profiles")
-	}
-
-	if !strings.Contains(string(output), awsProfile) {
-		return "", fmt.Errorf("AWS profile '%s' not found. Please ensure you have the correct AWS profile configured. Please see https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI", awsProfile)
-	}
-
-	// Get ECR login password
-	// Check if we already have a valid AWS SSO session
-	logger.Info().Msgf("Checking for valid AWS SSO session for profile %s...", awsProfile)
-	checkCmd := exec.CommandContext(ctx, "aws", "sts", "get-caller-identity", "--profile", awsProfile)
-	if err := checkCmd.Run(); err == nil {
-		logger.Info().Msgf("  ✓ Valid AWS SSO session exists for profile %s", awsProfile)
-	} else {
-		// No valid session, need to log in
-		logger.Info().Msgf("AWS SSO Login required for profile %s...", awsProfile)
-		loginCmd := exec.CommandContext(ctx, "aws", "sso", "login", "--profile", awsProfile)
-		loginCmd.Stdout = os.Stdout
-		loginCmd.Stderr = os.Stderr
-
-		if err := loginCmd.Run(); err != nil {
-			return "", errors.Wrap(err, "failed to complete AWS SSO login")
-		}
-		logger.Info().Msgf("  ✓ AWS SSO login successful for profile %s", awsProfile)
-	}
-
-	// Get ECR login password after successful SSO login
-	ecrHostname := strings.Split(ecrImage, "/")[0]
-	ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile, "--debug")
-	password, passErr := ecrLoginCmd.Output()
-	if passErr != nil {
-		return "", errors.Wrap(passErr, "failed to get ECR login password")
-	}
-
-	// Login to ECR
-	dockerLoginCmd := exec.CommandContext(ctx, "docker", "login", "--username", "AWS", "--password-stdin", ecrHostname)
-	dockerLoginCmd.Stdin = bytes.NewBuffer(password)
-	dockerLoginCmd.Stdout = os.Stdout
-	dockerLoginCmd.Stderr = os.Stderr
-	if err := dockerLoginCmd.Run(); err != nil {
-		return "", errors.Wrap(err, "docker login to ECR failed")
-	}
-	logger.Info().Msg("  ✓ Docker login to ECR successful")
-	// Pull image
-	logger.Info().Msgf("🔍 Pulling %s image from ECR...", name)
-
+	// Try pulling the image we need and login only if it doesn't succeed
+	logger.Info().Msgf("Trying to pull Docker image %s...", ecrImage)
 	pullCmd := exec.CommandContext(ctx, "docker", "pull", ecrImage)
 	pullCmd.Stdout = os.Stdout
 	pullCmd.Stderr = os.Stderr
 	if err := pullCmd.Run(); err != nil {
-		return "", errors.Wrapf(err, "failed to pull %s image", name)
+		// Check if AWS profile exists
+		configureCmd := exec.Command("aws", "configure", "list-profiles")
+		output, configureCmdErr := configureCmd.Output()
+		if configureCmdErr != nil {
+			return "", errors.Wrap(configureCmdErr, "failed to list AWS profiles")
+		}
+
+		if !strings.Contains(string(output), awsProfile) {
+			return "", fmt.Errorf("AWS profile '%s' not found. Please ensure you have the correct AWS profile configured. Please see https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI", awsProfile)
+		}
+
+		// Get ECR login password
+		// Check if we already have a valid AWS SSO session
+		logger.Info().Msgf("Checking for valid AWS SSO session for profile %s...", awsProfile)
+		checkCmd := exec.CommandContext(ctx, "aws", "sts", "get-caller-identity", "--profile", awsProfile)
+		if err := checkCmd.Run(); err == nil {
+			logger.Info().Msgf("  ✓ Valid AWS SSO session exists for profile %s", awsProfile)
+		} else {
+			// No valid session, need to log in
+			logger.Info().Msgf("AWS SSO Login required for profile %s...", awsProfile)
+			loginCmd := exec.CommandContext(ctx, "aws", "sso", "login", "--profile", awsProfile)
+			loginCmd.Stdout = os.Stdout
+			loginCmd.Stderr = os.Stderr
+
+			if err := loginCmd.Run(); err != nil {
+				return "", errors.Wrap(err, "failed to complete AWS SSO login")
+			}
+			logger.Info().Msgf("  ✓ AWS SSO login successful for profile %s", awsProfile)
+		}
+
+		// Get ECR login password after successful SSO login
+		ecrHostname := strings.Split(ecrImage, "/")[0]
+		ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile)
+		password, passErr := ecrLoginCmd.Output()
+		if passErr != nil {
+			return "", errors.Wrap(passErr, "failed to get ECR login password")
+		}
+
+		// Login to ECR
+		dockerLoginCmd := exec.CommandContext(ctx, "docker", "login", "--username", "AWS", "--password-stdin", ecrHostname)
+		dockerLoginCmd.Stdin = bytes.NewBuffer(password)
+		dockerLoginCmd.Stdout = os.Stdout
+		dockerLoginCmd.Stderr = os.Stderr
+		if err := dockerLoginCmd.Run(); err != nil {
+			return "", errors.Wrap(err, "docker login to ECR failed")
+		}
+		logger.Info().Msg("  ✓ Docker login to ECR successful")
+		// Pull image
+		logger.Info().Msgf("🔍 Pulling %s image from ECR...", name)
+
+		pullCmd = exec.CommandContext(ctx, "docker", "pull", ecrImage)
+		pullCmd.Stdout = os.Stdout
+		pullCmd.Stderr = os.Stderr
+		if err := pullCmd.Run(); err != nil {
+			return "", errors.Wrapf(err, "failed to pull %s image", name)
+		}
 	}
 
 	// Tag image
