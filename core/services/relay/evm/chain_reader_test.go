@@ -27,9 +27,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestChainReaderSizedBigIntTypes(t *testing.T) {

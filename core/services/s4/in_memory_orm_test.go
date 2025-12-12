@@ -9,8 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestInMemoryORM(t *testing.T) {

@@ -396,7 +396,7 @@ decode_log -> decode_cbor;
 
 func Test_PipelineRunner_CBORParse(t *testing.T) {
 	tests.BelongsToCISuite(t, "with-db")
-	
+
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
