@@ -2185,6 +2185,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	offchainConfig := datastreamsllo.OffchainConfig{
 		ProtocolVersion:                     1,

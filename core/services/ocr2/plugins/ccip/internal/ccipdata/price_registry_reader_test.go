@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -238,6 +239,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 }
 
 func TestPriceRegistryReader(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	th := setupPriceRegistryReaderTH(t)
 	// Assert all readers produce the same expected results.
 	for version, pr := range th.readers {
@@ -248,6 +250,7 @@ func TestPriceRegistryReader(t *testing.T) {
 }
 
 func TestNewPriceRegistryReader(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string
