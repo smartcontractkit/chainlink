@@ -156,7 +156,6 @@ jobs:
         shell: bash
         working-directory: core/scripts/cre/environment
         env:
-          CTF_CONFIGS: "./configs/workflow-don.toml"
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}"
           # Simplest/default topology has misconfigured gateway node and web-API-trigger based example fails
@@ -305,12 +304,45 @@ jobs:
 
   notify-test-failure:
     name: Notify about local env startup failure
-    if: failure() && github.event_name != 'pull_request'
+    if: (failure() || cancelled()) && github.event_name != 'pull_request'
     needs: [test-cli]
     runs-on: ubuntu-latest
     steps:
-      - name: Send slack notification for failed local env startup
-        id: send-slack-notification
+      - name: Check if job timed out or failed (not manually cancelled)
+        id: check-timeout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get job details from GitHub API
+          job_data=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs --jq '.jobs[] | select(.name == "test-cli")')
+
+          started_at=$(echo "$job_data" | jq -r '.started_at')
+          completed_at=$(echo "$job_data" | jq -r '.completed_at')
+          conclusion=$(echo "$job_data" | jq -r '.conclusion')
+
+          # Calculate duration in minutes
+          start_epoch=$(date -d "$started_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s)
+          end_epoch=$(date -d "$completed_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$completed_at" +%s)
+          duration_minutes=$(( (end_epoch - start_epoch) / 60 ))
+
+          echo "duration_minutes=$duration_minutes" >> $GITHUB_OUTPUT
+          echo "conclusion=$conclusion" >> $GITHUB_OUTPUT
+
+          # Job timeout is 30 minutes - if cancelled and duration is >= 28 minutes, likely a timeout
+          # If failed, always notify
+          should_notify="false"
+          if [[ "$conclusion" == "failure" ]]; then
+            should_notify="true"
+            echo "reason=failure" >> $GITHUB_OUTPUT
+          elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 28 ]]; then
+            should_notify="true"
+            echo "reason=timeout" >> $GITHUB_OUTPUT
+          fi
+
+          echo "should_notify=$should_notify" >> $GITHUB_OUTPUT
+
+      - name: Send slack notification
+        if: steps.check-timeout.outputs.should_notify == 'true'
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           errors: "true"
@@ -325,14 +357,14 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*:rotating_light: Local CRE test failed :rotating_light:*"
+                    "text": "*:rotating_light: Local CRE test ${{ steps.check-timeout.outputs.reason == 'timeout' && 'timed out' || 'failed' }} :rotating_light:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <@U060CGGPY8H> local CRE test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
+                    "text": "Alerting <@U060CGGPY8H> local CRE test ${{ steps.check-timeout.outputs.reason == 'timeout' && 'timed out' || 'failed' }} (duration: ${{ steps.check-timeout.outputs.duration_minutes }}min) for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
                   }
                 }
               ]
