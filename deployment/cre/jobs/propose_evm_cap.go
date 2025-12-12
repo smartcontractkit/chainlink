@@ -33,8 +33,9 @@ type OverrideDefaultCfg struct {
 	LogTriggerPollInterval          uint64 `json:"logTriggerPollInterval,omitempty" yaml:"logTriggerPollInterval,omitempty"`
 	LogTriggerSendChannelBufferSize uint64 `json:"logTriggerSendChannelBufferSize,omitempty" yaml:"logTriggerSendChannelBufferSize,omitempty"`
 	LogTriggerLimitQueryLogSize     uint64 `json:"logTriggerLimitQueryLogSize,omitempty" yaml:"logTriggerLimitQueryLogSize,omitempty"`
-	BlockDepth                      int64  `json:"blockDepth,omitempty" yaml:"blockDepth,omitempty"`
-	CREForwarderAddress             string `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
+	// ForwarderLookbackBlocks defines how many blocks back to search for the ReportProcessed event (default 100).
+	ForwarderLookbackBlocks int64  `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
+	CREForwarderAddress     string `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
 	// ReceiverGasMinimum is the minimum amount of gas that the receiver contract must get to process the forwarder report.
 	// This is the default value used when the user doesn't specify a gas limit when invoking WriteReport.
 	ReceiverGasMinimum            uint64        `json:"receiverGasMinimum,omitempty" yaml:"receiverGasMinimum,omitempty"`
@@ -56,12 +57,14 @@ type ProposeEVMCapJobSpecInput struct {
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
 
-	ChainSelector        uint64               `json:"chainSelector" yaml:"chainSelector"`
-	BootstrapperOCR3Urls []string             `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
-	OCRContractQualifier string               `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
-	OCRChainSelector     uint64               `json:"ocrChainSelector" yaml:"ocrChainSelector"`
-	ForwardersQualifier  string               `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
-	EVMCapabilityInputs  []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
+	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
+	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
+	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
+	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	// ForwarderLookbackBlocks defines how many blocks back to search for the ReportProcessed event (default 100)
+	ForwarderLookbackBlocks int64                `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
+	EVMCapabilityInputs     []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
 }
 
 type ProposeEVMCapJobSpec struct{}
@@ -227,6 +230,9 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		cfg.Network = network
 		cfg.NodeAddress = string(evmOCRConfig.TransmitAccount)
 		cfg.CREForwarderAddress = fwdAddress.Address
+		if cfg.ForwarderLookbackBlocks == 0 {
+			cfg.ForwarderLookbackBlocks = input.ForwarderLookbackBlocks
+		}
 
 		// Apply defaults if unset (zero-values). Values provided and validated in VerifyPreconditions are preserved.
 		if cfg.LogTriggerPollInterval == 0 {
