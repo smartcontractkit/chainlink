@@ -914,7 +914,7 @@ func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage stri
 
 	// Get ECR login password after successful SSO login
 	ecrHostname := strings.Split(ecrImage, "/")[0]
-	ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile)
+	ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile, "--debug")
 	password, passErr := ecrLoginCmd.Output()
 	if passErr != nil {
 		return "", errors.Wrap(passErr, "failed to get ECR login password")
