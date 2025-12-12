@@ -24,7 +24,7 @@ import (
 // Setup oidc Auth authenticator
 func setupAuthenticationProvider(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	t.Helper()
-
+	tests.BelongsToCISuite(t, "with-db")
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
 	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})

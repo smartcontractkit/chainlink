@@ -27,6 +27,7 @@ import (
 // Setup LDAP Auth authenticator
 func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (*sqlx.DB, sessions.AuthenticationProvider) {
 	t.Helper()
+	tests.BelongsToCISuite(t, "with-db")
 
 	cfg := ldapauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)

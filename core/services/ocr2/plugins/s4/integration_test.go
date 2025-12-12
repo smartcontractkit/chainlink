@@ -46,6 +46,8 @@ type don struct {
 func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 	t.Helper()
 
+	tests.BelongsToCISuite(t, "with-db")
+
 	logger := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 

@@ -2272,6 +2272,7 @@ func Test_Service_ListJobProposalsByManagersIDs(t *testing.T) {
 
 func Test_Service_GetJobProposal(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (

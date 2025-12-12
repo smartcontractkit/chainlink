@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,8 @@ import (
 )
 
 func TestJobKVStore(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := t.Context()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -74,6 +77,8 @@ func TestJobKVStore(t *testing.T) {
 }
 
 func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 

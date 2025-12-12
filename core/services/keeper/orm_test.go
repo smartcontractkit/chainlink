@@ -37,6 +37,7 @@ func setupKeeperDB(t *testing.T) (
 	chainlink.GeneralConfig,
 	*keeper.ORM,
 ) {
+	tests.BelongsToCISuite(t, "with-db")
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	orm := keeper.NewORM(db, logger.TestLogger(t))

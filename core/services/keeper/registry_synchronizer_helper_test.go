@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
@@ -35,6 +36,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	korm := keeper.NewORM(db, logger.TestLogger(t))

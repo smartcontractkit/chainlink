@@ -697,6 +697,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
 	const ETHMainnetChainSelector uint64 = 5009297550715157269

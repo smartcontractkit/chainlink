@@ -11,12 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var (
@@ -25,6 +25,8 @@ var (
 
 func setupORM(t *testing.T) (ORM, sqlutil.DataSource) {
 	t.Helper()
+
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	orm, err := NewORM(db, logger.TestLogger(t))

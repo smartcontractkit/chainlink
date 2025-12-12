@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	registry1_2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -92,6 +93,8 @@ func mockRegistry1_2(
 }
 
 func Test_LogListenerOpts1_2(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	db := pgtest.NewSqlxDB(t)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -118,6 +121,8 @@ func Test_LogListenerOpts1_2(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_Start(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
@@ -145,6 +150,8 @@ func Test_RegistrySynchronizer1_2_Start(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
@@ -219,6 +226,8 @@ func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 
@@ -271,6 +280,8 @@ func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 
@@ -322,6 +333,8 @@ func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepCanceledLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 
@@ -361,6 +374,8 @@ func Test_RegistrySynchronizer1_2_UpkeepCanceledLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 
@@ -403,6 +418,8 @@ func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepPerformedLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 
@@ -458,6 +475,8 @@ func Test_RegistrySynchronizer1_2_UpkeepPerformedLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
@@ -511,6 +530,8 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 
@@ -553,6 +574,8 @@ func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepMigratedLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 

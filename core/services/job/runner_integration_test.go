@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -54,6 +55,8 @@ import (
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -214,7 +217,7 @@ func TestRunner(t *testing.T) {
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = "%s"
-			transmitterID 	   = "%s"	
+			transmitterID 	   = "%s"
 			contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 			isBootstrapPeer    = false
 			blockchainTimeout  = "1s"
@@ -901,7 +904,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 				ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"value": $(parse)}>]
 				ds1_parse [type=jsonparse lax=false  path="data,result"]
 				ds1_multiply [type=multiply times=1000000000000000000 index=0]
-			
+
 				parse->ds1->ds1_parse->ds1_multiply;
 			"""
     `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec), bridgeName)
@@ -1080,7 +1083,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 				ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"value": $(parse)}>]
 				ds1_parse [type=jsonparse lax=false  path="data,result"]
 				ds1_multiply [type=multiply times=1000000000000000000 index=0]
-			
+
 				parse->ds1->ds1_parse->ds1_multiply;
 			"""
     `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec), bridgeName)

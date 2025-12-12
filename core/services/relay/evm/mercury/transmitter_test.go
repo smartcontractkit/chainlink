@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -42,6 +43,7 @@ func (m mockCfg) TransmitTimeout() time.Duration {
 }
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
 	var jobID int32
@@ -127,6 +129,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 
 func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
 	var jobID int32
@@ -236,6 +239,7 @@ func (m *mockCodec) ObservationTimestampFromReport(ctx context.Context, report o
 
 func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
 	var jobID int32
@@ -315,6 +319,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 
 func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
@@ -394,6 +399,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 }
 
 func Test_sortReportsLatestFirst(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	reports := []*pb.Report{
 		nil,
 		{ObservationsTimestamp: 1},
@@ -448,6 +454,7 @@ func (m *mockQ) Init(transmissions []*Transmission) {}
 func (m *mockQ) IsEmpty() bool                      { return false }
 
 func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	feedIDHex := utils.NewHash().Hex()
 	lggr := logger.Test(t)
 	c := &mocks.MockWSRPCClient{}

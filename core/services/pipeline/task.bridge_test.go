@@ -24,6 +24,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -212,6 +213,7 @@ func fakeStringResponder(t *testing.T, s string) http.Handler {
 
 func TestBridgeTask_Happy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -271,6 +273,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 
 func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
@@ -332,6 +335,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 
 func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 
@@ -426,6 +430,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -477,6 +482,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 
 func TestBridgeTask_Variables(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	validMeta := map[string]any{"theMeta": "yes"}
 
@@ -720,6 +726,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	theErr := errors.New("foo")
 
@@ -787,6 +794,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 
 func TestBridgeTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -829,6 +837,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 
 func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -868,6 +877,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 
 func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -895,6 +905,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 // https://github.com/smartcontractkit/price-adapters#chainlink-price-request-adapters
 func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name, content string
@@ -918,6 +929,8 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_Headers(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -1025,6 +1038,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db := pgtest.NewSqlxDB(t)
@@ -1131,6 +1145,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 
 func TestBridgeTask_AdapterTimeout(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db := pgtest.NewSqlxDB(t)
@@ -1202,6 +1217,7 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 
 func TestBridgeTask_PipelineAdapterLWBAError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	dag := `
 ds [type=bridge name="adapter-error-bridge" timeout="50ms" requestData="{\"data\":{\"from\":\"ETH\",\"to\":\"USD\"}}"];
