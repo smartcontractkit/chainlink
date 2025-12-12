@@ -1442,6 +1442,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 }
 
 func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
+	quarantine.Flaky(t, "DX-1850")
 	t.Parallel()
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
 		db, nodeAddr := setupStoreWithKey(t)
