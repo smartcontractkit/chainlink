@@ -154,6 +154,7 @@ jobs:
         env:
           DISABLE_DX_TRACKING: true
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS_ECR: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.us-west-2.amazonaws.com
         run: |
           go run . env setup --no-prompt
 
@@ -174,13 +175,13 @@ jobs:
           # we could use the 'plugins' image here that has all the capabilities, but we want to test a different execution path
           # from the one used in cre-system-tests.yaml, which uses the 'plugins' image
           # caveat: since these aren't real capability binaries, all workflows that use them will fail
-          mkdir ./binaries
-          touch ./binaries/cron
-          touch ./binaries/readcontract
-          touch ./binaries/http_action
-          touch ./binaries/http_trigger
-          touch ./binaries/consensus
-          touch ./binaries/evm
+          #mkdir ./binaries
+          #touch ./binaries/cron
+          #touch ./binaries/readcontract
+          #touch ./binaries/http_action
+          #touch ./binaries/http_trigger
+          #touch ./binaries/consensus
+          #touch ./binaries/evm
           { time go run . env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
