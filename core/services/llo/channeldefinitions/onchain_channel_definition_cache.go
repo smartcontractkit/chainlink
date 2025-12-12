@@ -123,9 +123,10 @@ func WithLogPollInterval(d time.Duration) Option {
 // It tracks the latest block number processed, the version (for owner sources), and
 // source definitions keyed by source ID.
 type Definitions struct {
-	LastBlockNum int64                             // The latest block number from which channel definitions were processed
-	Version      uint32                            // The version number from the owner source (only updated for SourceOwner)
-	Sources      map[uint32]types.SourceDefinition // Channel definitions grouped by source ID
+	LastBlockNum   int64                             // The latest block number from which channel definitions were processed
+	Version        uint32                            // The version number from the owner source (only updated for SourceOwner)
+	Sources        map[uint32]types.SourceDefinition // Channel definitions grouped by source ID
+	LatestTriggers map[uint32]types.TriggerPosition  // Tracks triggers found during processing
 }
 
 // channelDefinitionCache maintains an in-memory cache of channel definitions fetched from on-chain
@@ -621,6 +622,16 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 				c.lggr.Warnw("Undefined source to fetch", "url", trigger.URL, "source", trigger.Source)
 				continue
 			}
+
+			c.definitionsMu.RLock()
+			c.definitions.LatestTriggers[trigger.Source] = types.MaxTriggerPosition(
+				c.definitions.LatestTriggers[trigger.Source],
+				types.TriggerPosition{
+					BlockNum: trigger.BlockNum,
+					LogIndex: trigger.LogIndex,
+				})
+			c.definitionsMu.RUnlock()
+
 			c.wg.Add(1)
 			go c.fetchLoop(trigger)
 
@@ -683,14 +694,14 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
 	if sourceDef, exists := c.definitions.Sources[trigger.Source]; exists {
-		if sourceDef.Trigger.BlockNum > trigger.BlockNum {
+		if sourceDef.LastProcessedTrigger.BlockNum > trigger.BlockNum {
 			return nil
 		}
 	}
 
 	c.definitions.Sources[trigger.Source] = types.SourceDefinition{
-		Trigger:     trigger,
-		Definitions: defs,
+		LastProcessedTrigger: trigger,
+		Definitions:          defs,
 	}
 
 	if trigger.Source == SourceOwner {
@@ -790,9 +801,37 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (int64, int64, err
 
 	c.definitionsMu.RLock()
 	definitions := maps.Clone(c.definitions.Sources)
-	definitionsBlockNum := c.definitions.LastBlockNum
+	latestTriggers := maps.Clone(c.definitions.LatestTriggers)
 	definitionsVersion := c.definitions.Version
 	c.definitionsMu.RUnlock()
+
+	globalLatestProcessedTrigger := types.TriggerPosition{
+		BlockNum: 0,
+		LogIndex: 0,
+	}
+
+	for _, sourceDefinition := range definitions {
+		sourceLatestProcessedTrigger := types.TriggerPosition{
+			sourceDefinition.LastProcessedTrigger.BlockNum,
+			sourceDefinition.LastProcessedTrigger.LogIndex,
+		}
+		globalLatestProcessedTrigger = types.MaxTriggerPosition(globalLatestProcessedTrigger, sourceLatestProcessedTrigger)
+	}
+
+	globalEarliestUnprocessedTrigger := globalLatestProcessedTrigger
+
+	for sourceID, sourceLatestDiscoveredTrigger := range latestTriggers {
+		sourceDefinition, exists := c.definitions.Sources[sourceID]
+		sourceLastProcessedTrigger := types.TriggerPosition{
+			sourceDefinition.LastProcessedTrigger.BlockNum,
+			sourceDefinition.LastProcessedTrigger.LogIndex,
+		}
+		if !exists || sourceLastProcessedTrigger != sourceLatestDiscoveredTrigger {
+			globalEarliestUnprocessedTrigger = types.MinTriggerPosition(globalEarliestUnprocessedTrigger, sourceLatestDiscoveredTrigger)
+		}
+	}
+
+	definitionsBlockNum := globalEarliestUnprocessedTrigger.BlockNum
 
 	if c.persistedBlockNum >= definitionsBlockNum {
 		return definitionsBlockNum, c.persistedBlockNum, nil
@@ -890,15 +929,15 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 
 	// process definitions deterministically
 	sort.Slice(src, func(i, j int) bool {
-		if src[i].Trigger.BlockNum == src[j].Trigger.BlockNum {
-			return src[i].Trigger.LogIndex < src[j].Trigger.LogIndex
+		if src[i].LastProcessedTrigger.BlockNum == src[j].LastProcessedTrigger.BlockNum {
+			return src[i].LastProcessedTrigger.LogIndex < src[j].LastProcessedTrigger.LogIndex
 		}
-		return src[i].Trigger.BlockNum < src[j].Trigger.BlockNum
+		return src[i].LastProcessedTrigger.BlockNum < src[j].LastProcessedTrigger.BlockNum
 	})
 
 	feedIDToChannelID := buildFeedIDMap(merged)
 	for _, sourceDefinition := range src {
-		c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
+		c.mergeDefinitions(sourceDefinition.LastProcessedTrigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
 	}
 
 	return merged

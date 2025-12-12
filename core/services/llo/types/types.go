@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"slices"
 	"strconv"
 	"time"
 
@@ -42,6 +43,48 @@ type Trigger struct {
 // SourceDefinition stores the channel definitions fetched from a specific source along with
 // the trigger that initiated the fetch.
 type SourceDefinition struct {
-	Trigger     Trigger                     `json:"trigger"`
-	Definitions llotypes.ChannelDefinitions `json:"definitions"`
+	HighestFoundTriggerPosition TriggerPosition             `json:"highest_found_trigger_position"`
+	LastProcessedTrigger        Trigger                     `json:"trigger"`
+	Definitions                 llotypes.ChannelDefinitions `json:"definitions"`
+}
+
+type TriggerPosition struct {
+	BlockNum int64 `db:"block_num"`
+	LogIndex int64 `db:"log_index"`
+}
+
+func MaxTriggerPosition(triggers ...TriggerPosition) TriggerPosition {
+	return slices.MaxFunc(triggers, func(a, b TriggerPosition) int {
+		if a.BlockNum < b.BlockNum {
+			return -1
+		}
+		if a.BlockNum > b.BlockNum {
+			return 1
+		}
+		if a.LogIndex < b.LogIndex {
+			return -1
+		}
+		if a.LogIndex > b.LogIndex {
+			return 1
+		}
+		return 0
+	})
+}
+
+func MinTriggerPosition(triggers ...TriggerPosition) TriggerPosition {
+	return slices.MinFunc(triggers, func(a, b TriggerPosition) int {
+		if a.BlockNum < b.BlockNum {
+			return -1
+		}
+		if a.BlockNum > b.BlockNum {
+			return 1
+		}
+		if a.LogIndex < b.LogIndex {
+			return -1
+		}
+		if a.LogIndex > b.LogIndex {
+			return 1
+		}
+		return 0
+	})
 }

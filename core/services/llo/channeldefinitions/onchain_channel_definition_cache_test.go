@@ -228,7 +228,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			},
 		}
 		cdc.definitions.Sources[adderID] = types.SourceDefinition{
-			Trigger: types.Trigger{
+			LastProcessedTrigger: types.Trigger{
 				Source:   adderID,
 				BlockNum: 1000,
 			},
@@ -259,7 +259,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			},
 		}
 		cdc.definitions.Sources[SourceOwner] = types.SourceDefinition{
-			Trigger: types.Trigger{
+			LastProcessedTrigger: types.Trigger{
 				Source:   SourceOwner,
 				BlockNum: 2000,
 			},
@@ -809,7 +809,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.definitions.LastBlockNum = 142
 			cdc.definitions.Sources = map[uint32]types.SourceDefinition{
 				SourceOwner: {
-					Trigger: types.Trigger{
+					LastProcessedTrigger: types.Trigger{
 						Source:   SourceOwner,
 						BlockNum: 142,
 						Version:  42,
@@ -837,7 +837,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.definitions.LastBlockNum = 143
 			cdc.definitions.Sources = map[uint32]types.SourceDefinition{
 				SourceOwner: {
-					Trigger: types.Trigger{
+					LastProcessedTrigger: types.Trigger{
 						Source:   SourceOwner,
 						BlockNum: 143,
 						Version:  43,
@@ -861,7 +861,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.definitions.LastBlockNum = 143
 			cdc.definitions.Sources = map[uint32]types.SourceDefinition{
 				SourceOwner: {
-					Trigger: types.Trigger{
+					LastProcessedTrigger: types.Trigger{
 						Source:   SourceOwner,
 						BlockNum: 143,
 						Version:  43,

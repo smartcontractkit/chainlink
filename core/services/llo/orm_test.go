@@ -110,8 +110,8 @@ func Test_ORM(t *testing.T) {
 			err = json.Unmarshal(pd.Definitions, &loadedDefs)
 			require.NoError(t, err)
 			require.Len(t, loadedDefs, 1)
-			assert.Equal(t, sourceID, loadedDefs[sourceID].Trigger.Source)
-			assert.Equal(t, int64(142), loadedDefs[sourceID].Trigger.BlockNum)
+			assert.Equal(t, sourceID, loadedDefs[sourceID].LastProcessedTrigger.Source)
+			assert.Equal(t, int64(142), loadedDefs[sourceID].LastProcessedTrigger.BlockNum)
 			assert.Equal(t, llotypes.ChannelDefinitions{
 				cid1: llotypes.ChannelDefinition{
 					ReportFormat: 42,
@@ -151,7 +151,7 @@ func Test_ORM(t *testing.T) {
 		cid4 := rand.Uint32()
 		defs := map[uint32]types.SourceDefinition{
 			1: {
-				Trigger: types.Trigger{
+				LastProcessedTrigger: types.Trigger{
 					Source:   1,
 					BlockNum: 142,
 					Version:  42,
@@ -169,7 +169,7 @@ func Test_ORM(t *testing.T) {
 				},
 			},
 			2: {
-				Trigger: types.Trigger{
+				LastProcessedTrigger: types.Trigger{
 					Source:   2,
 					BlockNum: 142,
 					Version:  42,
