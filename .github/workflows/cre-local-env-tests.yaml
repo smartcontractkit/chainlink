@@ -58,7 +58,8 @@ jobs:
   test-cli:
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 15
+    # set to 15 minutes after testing
+    timeout-minutes: 5
     permissions:
       contents: read
       id-token: write
@@ -304,7 +305,9 @@ jobs:
 
   notify-test-failure:
     name: Notify about local env startup failure
-    if: always() && github.event_name != 'pull_request' && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
+    # if: always() && github.event_name != 'pull_request' && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
+    # remove after testing
+    if: always() && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
     needs: [test-cli]
     runs-on: ubuntu-latest
     steps:
@@ -334,7 +337,8 @@ jobs:
           if [[ "$conclusion" == "failure" ]]; then
             should_notify="true"
             echo "reason=failure" >> $GITHUB_OUTPUT
-          elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 28 ]]; then
+          # TODO: change duration in comparison back to 28 minutes
+          elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 4 ]]; then
             should_notify="true"
             echo "reason=timeout" >> $GITHUB_OUTPUT
           fi
