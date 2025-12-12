@@ -1065,7 +1065,7 @@ func GetMessageStatesWithSeqNrsSol(
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNrs []uint64,
-	inprogress bool,
+	inProgress bool,
 ) (executionStates map[uint64][]MessageStateEvent, err error) {
 	// TODO: share with EVM
 	// some state to efficiently track the execution states
@@ -1080,7 +1080,7 @@ func GetMessageStatesWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second), false)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second), inProgress)
 
 	timeout := time.NewTimer(timeoutDuration)
 	defer timeout.Stop()
