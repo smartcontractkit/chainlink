@@ -123,6 +123,34 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      # required to satsify setup function's check
+      - name: Create AWS profile for CRE
+        shell: bash
+        run: |
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile staging-default
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile staging-default
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile staging-default
+          aws configure set region "$AWS_REGION" --profile staging-default
+
+      - name: Setup the environment
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        env:
+          DISABLE_DX_TRACKING: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          go run . env setup --no-prompt
+
       - name: Start the environment
         id: start-cli
         shell: bash
@@ -206,6 +234,18 @@ jobs:
 
           # Compile and deploy TS workflow
           go run . env workflow deploy --compile -n tsworkflow -w examples/workflows/ts/cron/index.ts -c examples/workflows/ts/cron/config.json
+
+      - name: Swap cron capability
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run . env swap capability -n cron -b ./binaries/cron
+
+      - name: Swap CL node image
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run . env swap nodes
 
       - name: Execute example PoR workflow
         shell: bash
