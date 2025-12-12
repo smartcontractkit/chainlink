@@ -683,7 +683,13 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
 	if sourceDef, exists := c.definitions.Sources[trigger.Source]; exists {
-		if sourceDef.Trigger.BlockNum > trigger.BlockNum {
+		switch {
+		// don't process a trigger with an earlier block number
+		case trigger.BlockNum < sourceDef.Trigger.BlockNum:
+			return nil
+
+		// don't process a trigger with the same block number and an earlier log index
+		case trigger.BlockNum == sourceDef.Trigger.BlockNum && trigger.LogIndex <= sourceDef.Trigger.LogIndex:
 			return nil
 		}
 	}
