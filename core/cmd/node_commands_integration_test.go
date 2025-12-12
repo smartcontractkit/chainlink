@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
@@ -28,6 +29,7 @@ func cosmosStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltes
 func TestShell_IndexCosmosNodes(t *testing.T) {
 	t.Parallel()
 
+	tests.BelongsToCISuite(t, "integration")
 	chainID := cosmostest.RandomChainID()
 	node := map[string]any{
 		"Name":          ptr("second"),
@@ -77,6 +79,7 @@ func starknetStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *clt
 func TestShell_IndexStarkNetNodes(t *testing.T) {
 	t.Parallel()
 
+	tests.BelongsToCISuite(t, "integration")
 	id := "starknet chain ID"
 	node1 := map[string]any{
 		"Name": ptr("first"),

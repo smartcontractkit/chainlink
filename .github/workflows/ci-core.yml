@@ -207,12 +207,10 @@ jobs:
             test-suite: "unit"
             # trunk-auto-quarantine: "true"
 
-          # - cmd: go_core_tests_integration
-          #   os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
-          #   should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-          #   trunk-auto-quarantine: "true"
-          #   setup-solana: "true"
-          #   install-loopps: "true"
+          # migrated to ci-integration.yml workflow
+          - cmd: go_core_tests_integration
+            os: ubuntu-latest
+            should-run: false
 
           - cmd: go_core_fuzz
             os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}

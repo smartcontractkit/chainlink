@@ -13,8 +13,9 @@ import (
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/freeport"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"

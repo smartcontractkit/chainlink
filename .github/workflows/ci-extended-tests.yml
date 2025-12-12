@@ -1,5 +1,4 @@
-name: CI Core Integration
-run-name: CI Core Integration
+name: CI Extended Tests
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -16,7 +15,26 @@ on:
 
 
 jobs:
-  integration-tests:
+  identify-test-suites:
+    name: Identify Test Suites
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Identify Test Suites
+        run: |
+          find . -name '*_test.go' -print0 \
+            | xargs -0 grep -Pho 'tests\.BelongsToCISuite\s*\(\s*t\s*,\s*"\K[^"]*(?="\s*\))' \
+            | sort \
+            | uniq -c \
+            | sort -nr
+
+  extended-tests:
     name: "${{ matrix.type.module }} (${{matrix.type.test-suite}})"
     timeout-minutes: 20
     runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/${{ matrix.type.os }}
@@ -40,6 +58,12 @@ jobs:
 
           - module: Core
             test-suite: "test-scripts"
+            cmd: go_core_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+
+          - module: Core
+            test-suite: "integration"
+            go-build-tags: "integration"
             cmd: go_core_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
 
@@ -135,6 +159,7 @@ jobs:
         shell: bash
         env:
           CL_CURRENT_TEST_SUITE: ${{ matrix.type.test-suite }}
+          GO_BUILD_TAGS: ${{ matrix.type.go-build-tags }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: "true"

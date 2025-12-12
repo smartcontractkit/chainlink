@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -25,6 +26,7 @@ import (
 
 func Test_CosmosChainsController_Show(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "integration")
 
 	const validID = "Chainlink-12"
 
@@ -132,6 +134,7 @@ TendermintURL = 'http://tender.mint'
 
 func Test_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "integration")
 
 	chainA := chainlink.RawConfig{
 		"ChainID":          "a" + cosmostest.RandomChainID(),

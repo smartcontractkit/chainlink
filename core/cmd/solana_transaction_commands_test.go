@@ -26,7 +26,7 @@ import (
 
 // TODO: move this test to `chainlink-solana` https://smartcontract-it.atlassian.net/browse/NONEVM-790
 func TestShell_SolanaSendSol(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "integration")
 
 	ctx := testutils.Context(t)
 	chainID := "localnet"

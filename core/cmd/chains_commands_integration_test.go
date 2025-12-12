@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
@@ -17,6 +18,7 @@ import (
 func TestShell_IndexCosmosChains(t *testing.T) {
 	t.Parallel()
 
+	tests.BelongsToCISuite(t, "integration")
 	chainID := cosmostest.RandomChainID()
 	chain := chainlink.RawConfig{
 		"ChainID": chainID,

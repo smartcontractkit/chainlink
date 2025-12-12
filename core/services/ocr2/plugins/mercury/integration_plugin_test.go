@@ -5,15 +5,20 @@ package mercury_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 func TestIntegration_MercuryV2_Plugin(t *testing.T) {
+	tests.BelongsToCISuite(t, "integration")
+
 	t.Setenv(string(env.MercuryPlugin.Cmd), "chainlink-mercury")
 	integration_MercuryV2(t)
 }
 
 func TestIntegration_MercuryV3_Plugin(t *testing.T) {
+	tests.BelongsToCISuite(t, "integration")
+
 	t.Setenv(string(env.MercuryPlugin.Cmd), "chainlink-mercury")
 	integration_MercuryV3(t)
 }
