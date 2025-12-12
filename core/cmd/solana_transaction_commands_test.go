@@ -16,6 +16,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	solanatesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/testing"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -25,6 +26,8 @@ import (
 
 // TODO: move this test to `chainlink-solana` https://smartcontract-it.atlassian.net/browse/NONEVM-790
 func TestShell_SolanaSendSol(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	chainID := "localnet"
 	url := solanatesting.SetupLocalSolNode(t)

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -30,6 +31,7 @@ import (
 func TestETHCallTask(t *testing.T) {
 	t.Parallel()
 	testutils.SkipShortDB(t)
+	tests.BelongsToCISuite(t, "with-db")
 
 	var specGasLimit uint32 = 123
 	const gasLimit uint64 = 500_000

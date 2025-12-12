@@ -9,6 +9,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,6 +21,7 @@ import (
 
 func TestVRFKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		compressed   = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01"
@@ -68,6 +70,7 @@ func AssertKeysEqualNoTimestamps(t *testing.T, k1, k2 cmd.VRFKeyPresenter) {
 
 func TestShellVRF_CRUD(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>
@@ -126,6 +129,8 @@ func TestShellVRF_CRUD(t *testing.T) {
 
 func TestVRF_ImportExport(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>
 	app := startNewApplicationV2(t, nil)

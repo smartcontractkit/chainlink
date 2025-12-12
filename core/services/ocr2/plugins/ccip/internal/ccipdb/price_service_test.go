@@ -744,7 +744,7 @@ func val1e18(val int64) *big.Int {
 
 func setupORM(t *testing.T) cciporm.ORM {
 	t.Helper()
-
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	orm, err := cciporm.NewORM(db, logger.TestLogger(t))
 

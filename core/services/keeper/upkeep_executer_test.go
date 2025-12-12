@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -61,6 +62,7 @@ func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secre
 			fn(c, s)
 		}
 	})
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethClient := evmtest.NewEthClientMock(t)
@@ -112,6 +114,7 @@ var checkPerformResponse = struct {
 
 func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	_, _, _, executer, _, _, _, _, _, _, _, _ := setup(t, nil)
 	err := executer.Start(testutils.Context(t)) // already started in setup()
 	require.Error(t, err)
@@ -121,6 +124,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	taskRuns := 11
 
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t,
@@ -314,6 +318,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	g := gomega.NewWithT(t)
 

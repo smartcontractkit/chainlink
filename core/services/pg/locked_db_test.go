@@ -41,7 +41,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 }
 
 func TestLockedDB_ContextCancelled(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)

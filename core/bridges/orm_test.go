@@ -24,7 +24,7 @@ import (
 
 func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	t.Helper()
-
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	orm := bridges.NewORM(db)
 

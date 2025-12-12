@@ -14,6 +14,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -23,6 +24,7 @@ import (
 
 func TestSuiKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	var (
 		id     = "1"
@@ -57,6 +59,8 @@ func TestSuiKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_SuiKeys(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Sui()
 	cleanup := func() {

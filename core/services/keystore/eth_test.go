@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -25,7 +26,7 @@ import (
 
 func Test_EthKeyStore(t *testing.T) {
 	t.Parallel()
-
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
@@ -218,7 +219,7 @@ func Test_EthKeyStore(t *testing.T) {
 func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	ctx := testutils.Context(t)
 	t.Parallel()
-
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db)
@@ -338,6 +339,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 
 func Test_EthKeyStore_E2E(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 
@@ -464,6 +466,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 func Test_EthKeyStore_Enable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -512,6 +515,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 
 func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("creates one unique key per chain if none exist", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -584,6 +588,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 
 func Test_EthKeyStore_Delete(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 
@@ -631,6 +636,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 
 func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := testutils.Context(t)
 
@@ -718,6 +724,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 
 func Test_EthKeyStore_Disable(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)

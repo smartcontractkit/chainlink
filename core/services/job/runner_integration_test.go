@@ -635,6 +635,8 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
+		tests.BelongsToCISuite(t, "with-db")
+
 		ctx := testutils.Context(t)
 		// Create a keystore with an ocr key bundle and p2p key.
 		kb, err := keyStore.OCR().Create(ctx)
@@ -783,6 +785,7 @@ answer1      [type=median index=0];
 
 func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
@@ -962,6 +965,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
