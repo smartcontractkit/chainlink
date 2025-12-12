@@ -17,7 +17,7 @@ func init() {
 }
 
 func TestTestLogger(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "unit")
 	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 
 	const (
@@ -51,7 +51,7 @@ func TestTestLogger(t *testing.T) {
 	assert.Equal(t, serviceName, log.LoggerName)
 	assert.Equal(t, value, log.ContextMap()[key])
 	assert.Contains(t, log.Caller.String(), "core/logger/test_logger_test.go")
-	assert.Equal(t, 41, log.Caller.Line)
+	assert.Equal(t, 44, log.Caller.Line)
 
 	const (
 		workerName           = "WorkerName"

@@ -210,7 +210,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 }
 
 func TestZapLogger_LogCaller(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "unit")
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
@@ -259,7 +259,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:246")
+	require.Contains(t, lines[0], "logger/zap_test.go:250")
 }
 
 func TestZapLogger_Name(t *testing.T) {
