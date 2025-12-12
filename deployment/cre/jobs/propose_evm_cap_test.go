@@ -3,6 +3,7 @@ package jobs_test
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -318,9 +319,13 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 
+	// Validate exactly one override and three defaults
 	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
-	assert.Contains(t, outputStr, `"forwarderLookbackBlocks":999`)
-	assert.Contains(t, outputStr, `"forwarderLookbackBlocks":123`)
+	count999 := strings.Count(outputStr, `"forwarderLookbackBlocks":999`)
+	count123 := strings.Count(outputStr, `"forwarderLookbackBlocks":123`)
+	assert.Equal(t, 1, count999, "expected exactly one override lookbackBlocks=999")
+	assert.Equal(t, 3, count123, "expected exactly three defaulted lookbackBlocks=123")
+
 }
 
 func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
