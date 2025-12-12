@@ -824,10 +824,10 @@ func Test_CCIPMessaging_Revert_EVM2Solana(t *testing.T) {
 
 		fmt.Println(states)
 		_, ok := states[seqNrs[0]]
-		assert.True(t, ok, "status returned for seqNr")
+		require.True(t, ok, "status returned for seqNr")
 
 		// Only 1 event
-		assert.Len(t, states[seqNrs[0]], 1)
+		require.Len(t, states[seqNrs[0]], 1)
 		// And it is in progress.
 		assert.Equal(t, int(states[seqNrs[0]][0].State), int(ccip_offramp.InProgress_MessageExecutionState))
 	})

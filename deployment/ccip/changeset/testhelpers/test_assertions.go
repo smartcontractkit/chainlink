@@ -580,8 +580,9 @@ type EventWithTxn[T any] struct {
 	Txn   *solrpc.GetTransactionResult
 }
 
-// Scan for events referencing address
-func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker, inProgress bool) (<-chan EventWithTxn[T], <-chan error) {
+// SolEventEmitter listens for events of type T emitted by the Solana program at the given address. Failed transactions
+// can be included by setting the includeFailed flag to true.
+func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker, includeFailed bool) (<-chan EventWithTxn[T], <-chan error) {
 	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
@@ -612,7 +613,7 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 
 				// values are returned ordered newest to oldest, so we replay them backwards
 				for _, txSig := range slices.Backward(txSigs) {
-					if txSig.Err != nil && !inProgress {
+					if txSig.Err != nil && !includeFailed {
 						// We're not interested in failed transactions.
 						continue
 					}
@@ -1104,8 +1105,8 @@ func GetMessageStatesWithSeqNrsSol(
 					// continue watching for final state or timeout
 					continue
 				}
-				delete(seqNrsInProgress, execEvent.SequenceNumber)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
+				delete(seqNrsInProgress, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {
 					return executionStates, nil
 				}
@@ -1117,7 +1118,7 @@ func GetMessageStatesWithSeqNrsSol(
 			if len(seqNrsInProgress) == 0 {
 				return executionStates, nil
 			}
-			// Otherwise return a timeout error.
+			// Otherwise, return a timeout error.
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
 				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
 		}
