@@ -142,6 +142,8 @@ jobs:
           aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile staging-default
           aws configure set region "$AWS_REGION" --profile staging-default
 
+          aws ecr get-login-password --region us-west-2 --profile staging-default --debug
+
       # setup step installs Bun via Homebrew, but it is not available in the CI and we don't want to install it (too slow)
       - name: Install Bun
         run: |
