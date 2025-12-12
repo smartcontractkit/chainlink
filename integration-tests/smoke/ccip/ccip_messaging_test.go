@@ -253,7 +253,6 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		// nonce    uint64 // Nonce not used as Solana check is skipped
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
@@ -817,12 +816,10 @@ func Test_CCIPMessaging_Revert_EVM2Solana(t *testing.T) {
 			seqNrs,
 			true,
 		)
-		fmt.Println("Done checking for states.")
 		if err != nil {
 			t.Logf("Error getting message states: %v", err)
 		}
 
-		fmt.Println(states)
 		_, ok := states[seqNrs[0]]
 		require.True(t, ok, "status returned for seqNr")
 
