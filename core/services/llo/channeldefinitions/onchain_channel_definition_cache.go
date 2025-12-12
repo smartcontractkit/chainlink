@@ -46,7 +46,9 @@ const (
 	// dbPersistLoopInterval is the interval at which we check for failed persistence and attempt to save again
 	dbPersistLoopInterval = 1 * time.Second
 	// defaultFetchTimeout is the default timeout for fetching channel definitions.
-	defaultFetchTimeout = 30 * time.Second
+	defaultFetchTimeout = 15 * time.Second
+	// fetchRetryTimeout is the timeout for retrying to fetch channel definitions.
+	fetchRetryTimeout = 4 * defaultFetchTimeout
 
 	// MaxChannelsPerAdder is the maximum number of channels allowed per adder source. This limit
 	// is enforced based on existing channels from the same source in currentDefinitions plus new
@@ -117,10 +119,13 @@ func WithLogPollInterval(d time.Duration) Option {
 	}
 }
 
+// Definitions holds the in-memory state of channel definitions for a channel definition cache.
+// It tracks the latest block number processed, the version (for owner sources), and
+// source definitions keyed by source ID.
 type Definitions struct {
-	LastBlockNum int64
-	Version      uint32
-	Sources      map[uint32]types.SourceDefinition
+	LastBlockNum int64                             // The latest block number from which channel definitions were processed
+	Version      uint32                            // The version number from the owner source (only updated for SourceOwner)
+	Sources      map[uint32]types.SourceDefinition // Channel definitions grouped by source ID
 }
 
 // channelDefinitionCache maintains an in-memory cache of channel definitions fetched from on-chain
@@ -145,7 +150,6 @@ type channelDefinitionCache struct {
 	lggr             logger.SugaredLogger
 	initialBlockNum  int64
 
-	fetchMutex     sync.Mutex
 	fetchTriggerCh chan types.Trigger
 
 	definitionsMu sync.RWMutex
@@ -550,7 +554,7 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 		if newFeedID != (common.Hash{}) {
 			if existingChannelID, exists := feedIDToChannelID[newFeedID]; exists && existingChannelID != channelID {
 				c.lggr.Warnw("feedID collision detected, skipping channel definition",
-					"channelID", channelID, "feedID", newFeedID.Hex(), "existingChannelID", existingChannelID, "source")
+					"channelID", channelID, "feedID", newFeedID.Hex(), "existingChannelID", existingChannelID, "source", source)
 				continue
 			}
 		}
@@ -604,14 +608,11 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 
 // fetchLatestLoop is an asynchronous goroutine that receives fetch triggers from the poll chain
 // loop via a channel. It coordinates fetching channel definitions from URLs, verifying SHA hashes,
-// and storing them in c.definitions.Sources (the source definitions map). If an initial fetch fails, it
-// spawns a separate retry goroutine (fetchLoop) with exponential backoff. The loop manages context
-// cancellation to ensure proper cleanup when the cache is stopped, canceling any in-flight fetch
-// operations.
+// and storing them in c.definitions.Sources (the source definitions map).
+// It spawns a separate goroutine (fetchLoop) for each trigger.
 func (c *channelDefinitionCache) fetchLatestLoop() {
 	defer c.wg.Done()
 
-	var cancel context.CancelFunc = func() {}
 	var trigger types.Trigger
 	for {
 		select {
@@ -620,33 +621,27 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 				c.lggr.Warnw("Undefined source to fetch", "url", trigger.URL, "source", trigger.Source)
 				continue
 			}
-			cancel()
-
-			var ctx context.Context
-			ctx, cancel = c.chStop.NewCtx()
-
-			if err := c.fetchAndSetChannelDefinitions(ctx, trigger); err != nil {
-				c.lggr.Warnw("Error while fetching channel definitions", "donID", c.donID, "err", err, "source", trigger.Source)
-				c.wg.Add(1)
-				go c.fetchLoop(ctx, trigger)
-			}
+			c.wg.Add(1)
+			go c.fetchLoop(trigger)
 
 		case <-c.chStop:
-			cancel()
 			return
 		}
 	}
 }
 
 // fetchLoop is a retry goroutine spawned when an initial fetch attempt fails in fetchLatestLoop.
-// It uses exponential backoff to retry fetching channel definitions until either the fetch succeeds
-// or the context is canceled (e.g., during cache shutdown). This isolates retry logic from the
-// main fetch loop, allowing it to continue processing new triggers while retries occur in the
-// background.
-func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger types.Trigger) {
+// It uses exponential backoff to retry fetching channel definitions until either the fetch succeeds,
+// fetchRetryTimeout is reached or the cache is stopped (context cache shutdown).
+// This isolates retry logic from the main fetch loop, allowing it to continue processing new triggers
+// while retries occur in the background.
+func (c *channelDefinitionCache) fetchLoop(trigger types.Trigger) {
 	defer c.wg.Done()
 	var err error
 	b := utils.NewHTTPFetchBackoff()
+
+	ctx, cancel := c.chStop.CtxWithTimeout(fetchRetryTimeout)
+	defer cancel()
 
 	if err = c.fetchAndSetChannelDefinitions(ctx, trigger); err == nil {
 		return
@@ -677,21 +672,9 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger types.Tr
 // Definitions() is called.
 //
 // Returns an error if fetching, SHA verification, or JSON decoding fails. Note that adder limit
-// checks (errChannelsPerAdderLimitExceeded) occur during merging in Definitions(), not here.
+// checks occur during merging in Definitions(), where violations are handled by logging warnings
+// and stopping processing for that source, not by returning errors.
 func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Context, trigger types.Trigger) error {
-	c.fetchMutex.Lock()
-	defer c.fetchMutex.Unlock()
-
-	c.definitionsMu.RLock()
-	latestBlockNum := c.definitions.LastBlockNum
-	c.definitionsMu.RUnlock()
-
-	// we allow processing triggers at the latest block number or greater to ensure
-	// multiple triggers at the same block number are processed correctly
-	if trigger.BlockNum < latestBlockNum {
-		return nil
-	}
-
 	defs, err := c.fetchChannelDefinitions(ctx, trigger)
 	if err != nil {
 		return fmt.Errorf("failed to fetch channel definitions: %w", err)
@@ -699,10 +682,27 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
+	if sourceDef, exists := c.definitions.Sources[trigger.Source]; exists {
+		if sourceDef.Trigger.BlockNum > trigger.BlockNum {
+			return nil
+		}
+	}
+
 	c.definitions.Sources[trigger.Source] = types.SourceDefinition{
 		Trigger:     trigger,
 		Definitions: defs,
 	}
+
+	if trigger.Source == SourceOwner {
+		c.definitions.Version = trigger.Version
+	}
+
+	if trigger.BlockNum > c.definitions.LastBlockNum {
+		c.definitions.LastBlockNum = trigger.BlockNum
+	}
+
+	c.lggr.Infow("Set channel definitions for source",
+		"source", trigger.Source, "blockNum", trigger.BlockNum, "url", trigger.URL, "sha", hex.EncodeToString(trigger.SHA[:]))
 
 	return nil
 }
@@ -718,12 +718,8 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, tr
 		return nil, fmt.Errorf("failed to parse URL %s: %w", trigger.URL, err)
 	}
 
-	// If the context has no deadline, set a default timeout
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultFetchTimeout)
-		defer cancel()
-	}
+	ctx, cancel := context.WithTimeout(ctx, defaultFetchTimeout)
+	defer cancel()
 
 	request, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
@@ -768,7 +764,7 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, tr
 
 	actualSha := hash.Sum(nil)
 	if !bytes.Equal(trigger.SHA[:], actualSha) {
-		return nil, fmt.Errorf("SHA3 mismatch for channel definitions from %s: expected %x, got %x", trigger.URL, trigger.SHA, actualSha)
+		return nil, fmt.Errorf("SHA3 mismatch for channel definitions from %s: expected %s, got %x", trigger.URL, hex.EncodeToString(trigger.SHA[:]), actualSha)
 	}
 
 	var cd llotypes.ChannelDefinitions
@@ -792,19 +788,11 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (int64, int64, err
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
 
-	c.definitionsMu.Lock()
-	for _, def := range c.definitions.Sources {
-		if def.Trigger.Source == SourceOwner {
-			c.definitions.Version = def.Trigger.Version
-		}
-		if def.Trigger.BlockNum > c.definitions.LastBlockNum {
-			c.definitions.LastBlockNum = def.Trigger.BlockNum
-		}
-	}
+	c.definitionsMu.RLock()
 	definitions := maps.Clone(c.definitions.Sources)
 	definitionsBlockNum := c.definitions.LastBlockNum
 	definitionsVersion := c.definitions.Version
-	c.definitionsMu.Unlock()
+	c.definitionsMu.RUnlock()
 
 	if c.persistedBlockNum >= definitionsBlockNum {
 		return definitionsBlockNum, c.persistedBlockNum, nil
@@ -875,26 +863,24 @@ func (c *channelDefinitionCache) Name() string { return c.lggr.Name() }
 
 // Definitions merges all source definitions stored in c.definitions.Sources with the provided previous
 // outcome definitions and returns the merged result. It starts with a clone of the prev parameter,
-// applying source authority rules and adder limits. If any merge fails due to limit
-// violations, the error is logged but processing continues with other sources. After merging all
+// applying source authority rules and adder limits. If adder limit violations occur, warnings are
+// logged and processing stops for that source, but processing continues with other sources. After merging all
 // sources, it does not update any in-memory fields (merging is read-only). Persistence of source definitions
 // happens separately via the persistLoop goroutine, not directly triggered by this method.
 // This is the main method that performs the actual reconciliation of channel definitions from
 // multiple sources with the previous outcome definitions.
 func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) llotypes.ChannelDefinitions {
-	var merged llotypes.ChannelDefinitions
-
-	merged = maps.Clone(prev)
-	if merged == nil {
-		merged = make(llotypes.ChannelDefinitions)
-	}
-
-	c.definitionsMu.Lock()
-	defer c.definitionsMu.Unlock()
+	c.definitionsMu.RLock()
+	defer c.definitionsMu.RUnlock()
 
 	// nothing to merge
 	if len(c.definitions.Sources) == 0 {
 		return prev
+	}
+
+	merged := maps.Clone(prev)
+	if merged == nil {
+		merged = make(llotypes.ChannelDefinitions)
 	}
 
 	src := make([]types.SourceDefinition, 0, len(c.definitions.Sources))

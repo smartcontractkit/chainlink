@@ -326,8 +326,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		}
 
 		// Wait for the log trigger to be processed
-		le := testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
-			"url", "http://example.com/foo3")
+		le := testutils.WaitForLogMessage(t, observedLogs, "Set channel definitions for source")
 		fields := le.ContextMap()
 		assert.Contains(t, fields, "source")
 		assert.Contains(t, fields, "url")
