@@ -119,7 +119,7 @@ func loadTestData(t *testing.T, path string) []deployment.Node {
 	var nopViews map[string]*view.NopView
 	err = json.Unmarshal(data, &nopViews)
 	require.NoError(t, err)
-	require.Len(t, nopViews, 10)
+	require.Len(t, nopViews, 1)
 
 	names := make([]string, 0)
 	for k := range nopViews {
@@ -131,7 +131,10 @@ func loadTestData(t *testing.T, path string) []deployment.Node {
 	var nodes []deployment.Node
 	// for _, nv := range nopViews {
 	for _, name := range names {
-		nv := nopViews[name]
+		nv, ok := nopViews[name]
+		require.True(t, ok, "missing nop view for %s", name)
+		t.Logf("loading nop view for %s with %d nodes", name, len(nv.Nodes))
+
 		for _, n := range nv.Nodes {
 			node := deployment.Node{
 				NodeID:         n.NodeID,

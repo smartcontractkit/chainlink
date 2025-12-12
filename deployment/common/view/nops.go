@@ -103,15 +103,16 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			nodeName = node.NodeID
 		}
 
-		// group by node name, by extracting the first word before any hyphen, unless the word is cll-cre, cl-cre or
-		// clp-cre, if so, treat that as the first word
+		// Group by node name, by extracting the first word before any hyphen, unless the word is cll-<deployment>, cl-<deployment> or
+		// clp-<deployment>, if so, treat that as the first word.
+		// It assumes that <deployment> could be one of the following: cre, keystone, ccip, data-feeds, etc.
 		var nopName string
-		if strings.HasPrefix(nodeName, "cll-cre") {
-			nopName = "cll-cre"
-		} else if strings.HasPrefix(nodeName, "clp-cre") {
-			nopName = "clp-cre"
-		} else if strings.HasPrefix(nodeName, "cl-cre") {
-			nopName = "cl-cre"
+		if strings.HasPrefix(nodeName, "cll-"+deploymentKey) {
+			nopName = "cll-" + deploymentKey
+		} else if strings.HasPrefix(nodeName, "clp-"+deploymentKey) {
+			nopName = "clp-" + deploymentKey
+		} else if strings.HasPrefix(nodeName, "clp-"+deploymentKey) {
+			nopName = "clp-" + deploymentKey
 		} else {
 			parts := strings.Split(nodeName, "-")
 			nopName = parts[0]
