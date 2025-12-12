@@ -3,7 +3,7 @@
 ALTER TABLE
   channel_definitions
 ADD
-  COLUMN format bigint;
+  COLUMN format bigint NOT NULL DEFAULT 0;
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
