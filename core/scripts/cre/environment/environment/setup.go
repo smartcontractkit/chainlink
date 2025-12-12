@@ -534,15 +534,15 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		logger.Warn().Msgf("Skipping Billing Platform Service setup, because the --with-billing flag was not provided")
 	}
 
+	if err := runGHSetupGit(ctx); err != nil {
+		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
+	}
+
 	observabilityRepoPath, _, err := setupRepo(ctx, logger, cfg.Observability.RepoURL, cfg.Observability.Branch,
 		"", cfg.Observability.TargetPath)
 	if err != nil {
 		setupErr = errors.Wrap(err, "failed to clone observability repo")
 		return
-	}
-
-	if err := runGHSetupGit(ctx); err != nil {
-		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
 	}
 
 	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
