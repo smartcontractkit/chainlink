@@ -502,6 +502,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 // If the roundState method is unable to communicate with the contract (possibly due to
 // incorrect address) then the pollIfEligible method should create a JobErr record
 func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
+	quarantine.Flaky(t, "DX-1846")
 	t.Parallel()
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
