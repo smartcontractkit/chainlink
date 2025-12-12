@@ -58,7 +58,7 @@ jobs:
   test-cli:
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
@@ -304,7 +304,7 @@ jobs:
 
   notify-test-failure:
     name: Notify about local env startup failure
-    if: (failure() || cancelled()) && github.event_name != 'pull_request'
+    if: always() && github.event_name != 'pull_request' && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
     needs: [test-cli]
     runs-on: ubuntu-latest
     steps:
