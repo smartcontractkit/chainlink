@@ -308,7 +308,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	done := make(chan any)
 	defer close(done)
 	offrampAddress := state.SolChains[destChain].OffRamp
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](ctx, solChains[destChain].Client, offrampAddress, "Transmitted", 0, done, time.NewTicker(2*time.Second))
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](ctx, solChains[destChain].Client, offrampAddress, "Transmitted", 0, done, time.NewTicker(2*time.Second), false)
 	timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
 	defer timeout.Stop()
 
