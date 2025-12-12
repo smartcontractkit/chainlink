@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	bridgesMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -22,6 +23,7 @@ import (
 
 func TestDivideTask_Happy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name      string
@@ -134,6 +136,7 @@ func TestDivideTask_Happy(t *testing.T) {
 
 func TestDivideTask_Unhappy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name              string
@@ -175,6 +178,7 @@ func TestDivideTask_Unhappy(t *testing.T) {
 
 func TestDivideTask_Overflow(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	d1, err := decimal.NewFromString("6.34e-01")
 	assert.NoError(t, err)
@@ -201,6 +205,7 @@ func TestDivideTask_Overflow(t *testing.T) {
 
 func TestDivide_Example(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	dag := `
 ds1 [type=memo value=10000.1234];

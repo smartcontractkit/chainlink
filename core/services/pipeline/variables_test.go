@@ -6,11 +6,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestVars_Set(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	vars := pipeline.NewVarsFrom(nil)
 
@@ -29,6 +31,7 @@ func TestVars_Set(t *testing.T) {
 
 func TestVars_Get(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("gets the values at keypaths that exist", func(t *testing.T) {
 		vars := pipeline.NewVarsFrom(map[string]any{
@@ -125,6 +128,7 @@ func TestVars_Get(t *testing.T) {
 
 func TestVars_Copy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	vars := pipeline.NewVarsFrom(map[string]any{
 		"nested": map[string]any{

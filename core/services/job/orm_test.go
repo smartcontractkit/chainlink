@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -27,6 +28,7 @@ func NewTestORM(t *testing.T, ds sqlutil.DataSource, pipelineORM pipeline.ORM, b
 
 func TestLoadConfigVarsLocalOCR(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config := configtest.NewTestGeneralConfig(t)
 	chainConfig := evmtest.NewChainScopedConfig(t, config)
@@ -48,6 +50,7 @@ func TestLoadConfigVarsLocalOCR(t *testing.T) {
 
 func TestSetDRMinIncomingConfirmations(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		hundred := uint32(100)

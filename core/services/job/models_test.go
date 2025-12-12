@@ -18,12 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
 
 func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tomlData := `
 	type = "standardcapabilities"
 	schemaVersion = 1
@@ -32,7 +34,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 	forwardingAllowed = false
 	command = "consensus"
 	config = """"""
-	
+
 	[oracle_factory]
 	enabled = true
 	bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
@@ -64,6 +66,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 }
 
 func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type fields struct {
 		Relay       string
 		ChainID     string
@@ -135,6 +138,7 @@ var (
 )
 
 func TestOCR2OracleSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	val := job.OCR2OracleSpec{
 		Relay:                             relay.NetworkEVM,
 		PluginType:                        types.Median,
@@ -315,6 +319,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 }
 
 func TestWorkflowSpec_Validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type fields struct {
 		Workflow string
 	}

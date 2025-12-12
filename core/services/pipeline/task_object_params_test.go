@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	decimalValue := decimal.New(173, -1)
 
@@ -72,6 +74,7 @@ func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 }
 
 func TestObjectParam_Marshal(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name   string
 		input  *pipeline.ObjectParam

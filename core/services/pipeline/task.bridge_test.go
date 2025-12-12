@@ -675,6 +675,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 
 func TestBridgeTask_Meta(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)

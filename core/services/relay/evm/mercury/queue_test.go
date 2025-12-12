@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -62,6 +63,7 @@ func createTestTransmissions(t *testing.T) []TestTransmissionWithReport {
 
 func Test_Queue(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	testTransmissions := createTestTransmissions(t)
 	deleter := mocks.NewAsyncDeleter(t)
 	transmitQueue := NewTransmitQueue(logger.Test(t), sURL, "foo feed ID", 7, deleter)

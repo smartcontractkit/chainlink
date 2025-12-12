@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -15,6 +16,7 @@ import (
 
 func TestHexEncodeTask(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	bigTwo, bigThree := big.NewInt(2), big.NewInt(3)
 
 	tests := []struct {
@@ -93,6 +95,7 @@ func TestHexEncodeTask(t *testing.T) {
 
 func TestHexEncodeTaskInputParamLiteral(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name   string

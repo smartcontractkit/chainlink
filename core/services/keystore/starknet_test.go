@@ -111,6 +111,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 }
 
 func TestStarknetSigner(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		starknetSenderAddr = "legit"
 	)

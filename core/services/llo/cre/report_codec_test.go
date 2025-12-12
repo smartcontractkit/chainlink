@@ -336,6 +336,7 @@ func Test_ReportCodec(t *testing.T) {
 }
 
 func TestReportCodecCapabilityTrigger_ParseOpts(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("ParseOpts: Valid opts with multipliers SUCCESS", func(t *testing.T) {
 		donID := uint32(1)
 		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
@@ -35,6 +36,7 @@ import (
 
 func TestHTTPTask_Happy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config := configtest.NewTestGeneralConfig(t)
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
@@ -66,6 +68,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 
 func TestHTTPTask_Variables(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	validMeta := map[string]any{"theMeta": "yes"}
 
@@ -207,6 +210,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 
 func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -254,6 +258,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 
 func TestHTTPTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -287,6 +292,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 
 func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config := configtest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -316,6 +322,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 }
 
 func TestHTTPTask_Headers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	allHeaders := func(headers http.Header) (s []string) {
 		var keys []string
 		for k := range headers {

@@ -15,12 +15,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func TestWasmFileSpecFactory(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	binaryLocation := createTestBinary(t)
 	configLocation := "testdata/config.json"
 	config, err := os.ReadFile(configLocation)

@@ -10,6 +10,7 @@ import (
 
 	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -66,6 +67,7 @@ targets:
 
 func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	actual, raw, actualSha, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), anyYamlSpec, "")
 	require.NoError(t, err)
@@ -80,6 +82,7 @@ func TestYamlSpecFactory_GetSpec(t *testing.T) {
 
 func TestYamlSpecFactory_Config(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	config := "config"
 	actual, err := job.YAMLSpecFactory{}.Config(testutils.Context(t), config)

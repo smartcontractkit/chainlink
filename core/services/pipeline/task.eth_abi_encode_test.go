@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -17,6 +18,7 @@ import (
 )
 
 func TestETHABIEncodeTask(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var bytes32 [32]byte
 	copy(bytes32[:], []byte("chainlink chainlink chainlink"))
 
@@ -241,6 +243,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 }
 
 func TestETHABIEncode_EncodeIntegers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name                  string
 		abi                   string
@@ -531,6 +534,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 }
 
 func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name                  string
 		abi                   string

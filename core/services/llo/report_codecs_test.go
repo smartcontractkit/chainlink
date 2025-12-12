@@ -6,10 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_NewReportCodecs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	c := NewReportCodecs(logger.TestLogger(t), 1)
 
 	assert.Contains(t, c, llotypes.ReportFormatJSON, "expected JSON to be supported")

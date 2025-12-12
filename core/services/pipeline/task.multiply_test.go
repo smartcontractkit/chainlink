@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -22,6 +23,7 @@ func mustDecimal(t *testing.T, arg string) *decimal.Decimal {
 
 func TestMultiplyTask_Happy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name  string
@@ -148,6 +150,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 
 func TestMultiplyTask_Unhappy(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name              string
@@ -186,6 +189,7 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 
 func TestMultiplyTask_Overflow(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	d1, err := decimal.NewFromString("6.34e-1147483647")
 	assert.NoError(t, err)

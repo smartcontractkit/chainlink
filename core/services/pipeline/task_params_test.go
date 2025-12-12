@@ -13,12 +13,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
 func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var nilObjectParam *pipeline.ObjectParam
 
@@ -51,6 +53,7 @@ func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	expected := pipeline.StringSliceParam{"foo", "bar", "baz"}
 
@@ -86,6 +89,7 @@ func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name     string
@@ -114,6 +118,7 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var addr pipeline.AddressParam
 	copy(addr[:], []byte("deadbeefdeadbeefdead"))
@@ -160,6 +165,7 @@ func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	addr1 := common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
 	addr2 := common.HexToAddress("0xcafebabecafebabecafebabecafebabecafebabe")
@@ -196,6 +202,7 @@ func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name     string
@@ -241,6 +248,7 @@ func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
 
 func TestMaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name     string
@@ -287,6 +295,7 @@ func TestMaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
 
 func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	fromInt := func(n int64) pipeline.MaybeBigIntParam {
 		return pipeline.NewMaybeBigIntParam(big.NewInt(n))
@@ -342,6 +351,7 @@ func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestMaybeInt32Param_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		name     string
@@ -382,6 +392,7 @@ func TestMaybeInt32Param_UnmarshalPipelineParam(t *testing.T) {
 
 func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name     string
@@ -410,6 +421,7 @@ func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var nilObjectParam *pipeline.ObjectParam
 	d := decimal.NewFromFloat(123.45)
@@ -444,6 +456,7 @@ func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestURLParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	good, err := url.ParseRequestURI("https://chain.link/foo?bar=sergey")
 	require.NoError(t, err)
@@ -471,6 +484,7 @@ func TestURLParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestMapParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	var nilObjectParam *pipeline.ObjectParam
 
@@ -533,6 +547,7 @@ func TestMapParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		name     string
@@ -559,6 +574,7 @@ func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestHashSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	hash1 := common.HexToHash("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
 	hash2 := common.HexToHash("0xcafebabecafebabecafebabecafebabecafebabedeadbeefdeadbeefdeadbeef")
@@ -594,6 +610,7 @@ func TestHashSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestSliceParam_FilterErrors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	s := pipeline.SliceParam{"foo", errors.New("bar"), "baz"}
 	vals, n := s.FilterErrors()
@@ -603,6 +620,7 @@ func TestSliceParam_FilterErrors(t *testing.T) {
 
 func TestSliceParam_FilterNils(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	testErr := errors.New("bar")
 	s := pipeline.SliceParam{"foo", testErr, nil, "baz", nil}
 	vals, n := s.FilterNils()
@@ -612,6 +630,7 @@ func TestSliceParam_FilterNils(t *testing.T) {
 
 func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	expected := pipeline.DecimalSliceParam{*mustDecimal(t, "1.1"), *mustDecimal(t, "2.2"), *mustDecimal(t, "3.3")}
 	decimalsSlice := []decimal.Decimal{*mustDecimal(t, "1.1"), *mustDecimal(t, "2.2"), *mustDecimal(t, "3.3")}
@@ -643,6 +662,7 @@ func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	expected := pipeline.JSONPathParam{"1.1", "2.2", "3.3", "sergey"}
 
@@ -671,6 +691,7 @@ func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 
 func TestResolveValue(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	t.Run("calls getters in order until the first one that returns without ErrParameterEmpty", func(t *testing.T) {
 		param := mocks.NewPipelineParamUnmarshaler(t)
