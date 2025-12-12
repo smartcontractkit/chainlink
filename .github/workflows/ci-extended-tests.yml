@@ -26,9 +26,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Identify Test Suites
+      - name: Identify Test Suites (core)
         run: |
-          find . -name '*_test.go' -print0 \
+          find . -path './deployment' -prune -o -name '*_test.go' -print0 \
+            | xargs -0 grep -Pho 'tests\.BelongsToCISuite\s*\(\s*t\s*,\s*"\K[^"]*(?="\s*\))' \
+            | sort \
+            | uniq -c \
+            | sort -nr
+
+      - name: Identify Test Suites (deployment)
+        run: |
+          find ./deployment -name '*_test.go' -print0 \
             | xargs -0 grep -Pho 'tests\.BelongsToCISuite\s*\(\s*t\s*,\s*"\K[^"]*(?="\s*\))' \
             | sort \
             | uniq -c \
@@ -66,6 +74,7 @@ jobs:
             go-build-tags: "integration"
             cmd: go_core_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            setup-loopps: "true"
 
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
@@ -87,7 +96,7 @@ jobs:
             cmd: go_core_ccip_deployment_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             go-mod-directory: "deployment/"
-            # setup-loopps: "true"
+
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -95,14 +104,14 @@ jobs:
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
-          build-cache-version: ${{ matrix.type.cmd }}
+          build-cache-version: ${{ matrix.type.cmd }}-${{ matrix.type.test-suite }}
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 

@@ -6,6 +6,8 @@ package plugins
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/features/ocr2"
 )
