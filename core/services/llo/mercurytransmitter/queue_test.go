@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var _ asyncDeleter = &mockAsyncDeleter{}
@@ -29,6 +30,7 @@ func (m *mockAsyncDeleter) DonID() uint32 {
 
 func Test_Queue(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	const maxSize = 7
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)

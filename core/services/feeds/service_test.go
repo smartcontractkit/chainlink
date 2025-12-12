@@ -542,6 +542,7 @@ func Test_Service_DisableFeedsManager(t *testing.T) {
 
 func Test_Service_ListManagersByIDs(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -561,7 +562,7 @@ func Test_Service_ListManagersByIDs(t *testing.T) {
 }
 
 func Test_Service_CreateChainConfig(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	testCases := []struct {
 		name              string
 		chainType         feeds.ChainType
@@ -672,7 +673,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 }
 
 func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
 		cfg = feeds.ChainConfig{
@@ -694,7 +695,7 @@ func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 }
 
 func Test_Service_DeleteChainConfig(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
@@ -735,7 +736,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 }
 
 func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
@@ -756,7 +757,7 @@ func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
 }
 
 func Test_Service_UpdateChainConfig(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	testCases := []struct {
 		name              string
 		chainType         feeds.ChainType
@@ -854,7 +855,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 }
 
 func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
 		cfg = feeds.ChainConfig{
@@ -877,7 +878,7 @@ func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
 
 func Test_Service_ProposeJob(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		idFluxMonitor         = int64(1)
@@ -1359,7 +1360,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 
 func Test_Service_DeleteJob(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		remoteUUID = uuid.New()
@@ -1676,7 +1677,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 
 func Test_Service_RevokeJob(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		remoteUUID = uuid.New()
@@ -1903,7 +1904,7 @@ answer1      [type=median index=0];
 }
 
 func Test_Service_SyncNodeInfo(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	testCases := []struct {
 		name      string
 		chainType feeds.ChainType
@@ -2056,7 +2057,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	mgr := feeds.FeedsManager{ID: 1}
 	nodeVersion := &versioning.NodeVersion{Version: "1.0.0"}
@@ -2235,7 +2236,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 
 func Test_Service_IsJobManaged(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	svc := setupTestService(t)
 	ctx := testutils.Context(t)
@@ -2250,7 +2251,7 @@ func Test_Service_IsJobManaged(t *testing.T) {
 
 func Test_Service_ListJobProposalsByManagersIDs(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -2289,7 +2290,7 @@ func Test_Service_GetJobProposal(t *testing.T) {
 }
 
 func Test_Service_CancelSpec(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		externalJobID = uuid.New()
@@ -2523,7 +2524,7 @@ func Test_Service_CancelSpec(t *testing.T) {
 
 func Test_Service_GetSpec(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -2543,7 +2544,7 @@ func Test_Service_GetSpec(t *testing.T) {
 
 func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	var (
@@ -2564,7 +2565,7 @@ func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 }
 
 func Test_Service_ApproveSpec(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	var evmChainID *evmbig.Big
 	address := types.EIP55AddressFromAddress(common.Address{})
 	externalJobID := uuid.New()
@@ -3294,7 +3295,7 @@ answer1 [type=median index=0];
 }
 
 func Test_Service_ApproveSpec_OCR2(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
 	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
@@ -3887,7 +3888,7 @@ updateInterval = "20m"
 }
 
 func Test_Service_ApproveSpec_Stream(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	externalJobID := uuid.New()
 	streamName := "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
@@ -4407,7 +4408,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 }
 
 func Test_Service_ApproveSpec_Bootstrap(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
 	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
@@ -4954,7 +4955,7 @@ chainID = 0
 }
 
 func Test_Service_RejectSpec(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		ctx = testutils.Context(t)
@@ -5095,7 +5096,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 }
 
 func Test_Service_UpdateSpecDefinition(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		ctx         = testutils.Context(t)
@@ -5186,7 +5187,7 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 }
 
 func Test_Service_StartStop(t *testing.T) {
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	key := cltest.DefaultCSAKey
 
@@ -5285,7 +5286,7 @@ func logMessages(logEntries []observer.LoggedEntry) []string {
 
 func Test_Service_GetJobRuns(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 
 	var (
 		remoteUUID     = uuid.New()

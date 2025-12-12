@@ -245,6 +245,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 }
 
 func Test_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db, orm, jorm := setupLiteORM(t)
 

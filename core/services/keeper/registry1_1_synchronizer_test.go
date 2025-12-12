@@ -383,6 +383,7 @@ func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 

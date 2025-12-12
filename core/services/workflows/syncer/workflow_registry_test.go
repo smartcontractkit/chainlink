@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type mockService struct{}
@@ -30,6 +31,7 @@ func (m *mockService) Ready() error { return nil }
 func (m *mockService) Name() string { return "svc" }
 
 func Test_generateReconciliationEvents(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("WorkflowRegisteredEvent", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)

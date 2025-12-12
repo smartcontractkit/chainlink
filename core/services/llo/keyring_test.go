@@ -15,6 +15,7 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -63,6 +64,7 @@ func (m *mockKey) reset(format llotypes.ReportFormat) {
 }
 
 func Test_Keyring(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.TestLogger(t)
 
 	ks := map[llotypes.ReportFormat]Key{

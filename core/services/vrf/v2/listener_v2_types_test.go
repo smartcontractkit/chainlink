@@ -13,9 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_BatchFulfillments_AddRun(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2)
 	fromAddress := testutils.NewAddress()
@@ -54,6 +56,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 }
 
 func Test_BatchFulfillments_AddRun_V2Plus(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2Plus)
 	fromAddress := testutils.NewAddress()

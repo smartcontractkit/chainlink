@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
@@ -121,6 +122,7 @@ func rowsToShapshotRows(rows []*s4_svc.Row) []*s4_svc.SnapshotRow {
 
 func TestPlugin_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	orm := s4_mocks.NewORM(t)
@@ -167,6 +169,7 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 
 func TestPlugin_Close(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
@@ -180,6 +183,7 @@ func TestPlugin_Close(t *testing.T) {
 
 func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
@@ -194,6 +198,7 @@ func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 
 func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
@@ -254,6 +259,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 func TestPlugin_Query(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
@@ -331,6 +337,7 @@ func TestPlugin_Query(t *testing.T) {
 
 func TestPlugin_Observation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
@@ -464,6 +471,7 @@ func TestPlugin_Observation(t *testing.T) {
 
 func TestPlugin_Report(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)

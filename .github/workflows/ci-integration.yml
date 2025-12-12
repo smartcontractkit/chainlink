@@ -49,7 +49,6 @@ jobs:
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             go-mod-directory: "deployment/"
             setup-solana: "true"
-            # setup-loopps: "true"
 
           - module: Deployment
             test-suite: "aptos"
@@ -57,7 +56,7 @@ jobs:
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             go-mod-directory: "deployment/"
             aptos-cli-version: "7.10.0"
-            # setup-loopps: "true"
+            setup-loopps: "true"
 
           - module: Deployment
             test-suite: "with-db"

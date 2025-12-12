@@ -241,6 +241,7 @@ func Test_AuthorizeUserWithSession_Success(t *testing.T) {
 
 func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	cfg := oidcauth.TestConfig{}
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -328,13 +329,13 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 
 func Test_IDClaimsToUserRole(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "unit")
+	tests.BelongsToCISuite(t, "with-db")
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
 	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
 	require.NoError(t, err)
 
-	tests := []struct {
+	testCases := []struct {
 		name       string
 		idClaims   []string
 		adminClaim string
@@ -386,7 +387,7 @@ func Test_IDClaimsToUserRole(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			gotRole, err := oidcAuthProvider.IDClaimsToUserRole(tt.idClaims, tt.adminClaim, tt.editClaim, tt.runClaim, tt.readClaim)
 			if !errors.Is(err, nil) && !errors.Is(err, tt.wantErr) {
@@ -407,7 +408,7 @@ func Test_ExtractIDClaimValues(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
 	require.NoError(t, err)
-	tests := []struct {
+	testCases := []struct {
 		name    string
 		claims  map[string]any
 		key     string
@@ -458,7 +459,7 @@ func Test_ExtractIDClaimValues(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotErr := oidcAuthProvider.ExtractIDClaimValues(tt.claims, tt.key)
 			if !reflect.DeepEqual(got, tt.want) {

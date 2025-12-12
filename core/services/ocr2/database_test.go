@@ -522,6 +522,7 @@ func Test_DB_ReadWriteProtocolState(t *testing.T) {
 }
 
 func Test_DB_ReadWriteBlock(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	sqlDB := setupDB(t)
 
 	lggr := logger.TestLogger(t)

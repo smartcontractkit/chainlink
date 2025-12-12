@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -61,6 +62,7 @@ func (m *MockGRPCClient) Transmit(ctx context.Context, in *rpc.TransmitRequest) 
 func (m *MockGRPCClient) ServerURL() string { return "mock server url" }
 
 func Test_Transmitter_Transmit(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	donID := uint32(123456)
@@ -185,6 +187,7 @@ func (m *mockQ) Init(transmissions []*Transmission) error { return nil }
 func (m *mockQ) IsEmpty() bool                            { return false }
 
 func Test_Transmitter_runQueueLoop(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	donIDStr := "555"
 	lggr := logger.TestLogger(t)
 	c := &MockGRPCClient{}

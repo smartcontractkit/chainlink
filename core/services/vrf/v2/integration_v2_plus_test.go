@@ -339,6 +339,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -391,6 +392,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1882")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -446,6 +448,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -524,6 +527,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *tes
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerEIP150(
@@ -539,6 +543,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerEIP150Revert(
@@ -554,6 +559,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EIP150_Revert(t *testing.T) {
 
 func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -592,6 +598,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 
 func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -632,6 +639,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 
 func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -689,6 +697,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-1730")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
@@ -704,6 +713,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfil
 }
 
 func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
 	testConsumerProxyHappyPath(
@@ -717,12 +727,14 @@ func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
 }
 
 func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	quarantine.Flaky(t, "DX-2222")
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
@@ -806,6 +818,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -856,6 +869,7 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 
 func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 	testMaliciousConsumer(
@@ -869,6 +883,7 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
@@ -945,6 +960,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 	carol := uni.vrfConsumers[0]
@@ -1025,6 +1041,7 @@ func requestAndEstimateFulfillmentCost(
 }
 
 func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
@@ -1165,6 +1182,7 @@ func setupSubscriptionAndFund(
 
 func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -1338,6 +1356,7 @@ func requestRandomnessAndValidate(t *testing.T,
 }
 
 func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 	consumer := uni.vrfConsumers[0]
@@ -1374,6 +1393,7 @@ func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
 
 func TestVRFV2PlusIntegration_ReplayOldRequestsOnStartUp(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 

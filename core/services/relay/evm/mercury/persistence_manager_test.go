@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -22,6 +23,7 @@ func bootstrapPersistenceManager(t *testing.T, jobID int32, db *sqlx.DB) *Persis
 }
 
 func TestPersistenceManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
 
@@ -64,6 +66,8 @@ func TestPersistenceManager(t *testing.T) {
 }
 
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	ctx := testutils.Context(t)
 	jobID := rand.Int32()
 	db := testutils.NewSqlxDB(t)
@@ -112,6 +116,8 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 }
 
 func TestPersistenceManagerPrune(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
 	db := testutils.NewSqlxDB(t)

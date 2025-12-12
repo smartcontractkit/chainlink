@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,6 +44,7 @@ func (m *mockFetcher) RetrieveURL(ctx context.Context, req *storage_service.Down
 }
 
 func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -94,6 +96,8 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 }
 
 func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -141,6 +145,8 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 }
 
 func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -184,6 +190,8 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 }
 
 func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}

@@ -11,6 +11,7 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
@@ -18,6 +19,7 @@ import (
 )
 
 func Test_ORM(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	const ETHMainnetChainSelector uint64 = 5009297550715157269
 	const OtherChainSelector uint64 = 1234567890
 

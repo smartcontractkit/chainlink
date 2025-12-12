@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var (
@@ -46,6 +47,7 @@ var (
 
 func TestVRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -62,6 +64,7 @@ func TestVRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
 
 func TestVRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 
@@ -88,6 +91,7 @@ func TestVRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
 
 func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -110,6 +114,7 @@ func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 }
 func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -132,6 +137,7 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
 }
 
 func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
@@ -160,6 +166,7 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 }
 
 func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},

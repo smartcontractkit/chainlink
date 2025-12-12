@@ -22,11 +22,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_Handler_SecretsFor(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -87,6 +89,8 @@ func Test_Handler_SecretsFor(t *testing.T) {
 }
 
 func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -152,6 +156,8 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 }
 
 func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}

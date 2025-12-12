@@ -23,6 +23,7 @@ import (
 
 	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -37,6 +38,7 @@ type onRampReaderTH struct {
 }
 
 func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	ctx := t.Context()
 	_, bc := ccipdata.NewSimulation(t)
 	addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
@@ -45,6 +47,7 @@ func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
 }
 
 func TestOnRampReaderInit(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tests := []struct {
 		name    string
 		version string
@@ -288,6 +291,7 @@ func testOnRampReader(t *testing.T, th onRampReaderTH, expectedRouterAddress com
 }
 
 func TestNewOnRampReader(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string

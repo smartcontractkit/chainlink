@@ -12,10 +12,12 @@ import (
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_MarshalUnmarshalRows(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	const n = 1000
 	rows := generateTestRows(t, n, time.Minute)
@@ -34,6 +36,7 @@ func Test_MarshalUnmarshalRows(t *testing.T) {
 
 func Test_MarshalUnmarshalQuery(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	const n = 100
 	rows := generateTestOrmRows(t, n, time.Minute)
@@ -85,6 +88,7 @@ func marshalUnmarshal(t *testing.T, row *s4.Row) *s4.Row {
 
 func Test_VerifySignature(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rows := generateTestRows(t, 2, time.Minute)
 	err := rows[0].VerifySignature()

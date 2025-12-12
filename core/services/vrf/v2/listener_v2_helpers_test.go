@@ -10,9 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestListener_EstimateFeeJuels(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	callbackGasLimit := uint32(150_000)
 	maxGasPriceGwei := assets.GWei(30).ToInt()
 	weiPerUnitLink := big.NewInt(5898160000000000)
@@ -33,6 +35,7 @@ func TestListener_EstimateFeeJuels(t *testing.T) {
 }
 
 func Test_TxListDeduper(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tx1 := &txmgr.Tx{
 		ID:      1,
 		Value:   *big.NewInt(0),

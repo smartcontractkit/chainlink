@@ -14,10 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestValidatedWebJobSpec(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	var tt = []struct {
 		name      string
 		toml      string

@@ -111,6 +111,7 @@ func (t *testDonNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DO
 }
 
 func Test_EventHandlerStateSync(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -244,6 +245,8 @@ func Test_EventHandlerStateSync(t *testing.T) {
 }
 
 func Test_InitialStateSync(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -310,6 +313,7 @@ func Test_InitialStateSync(t *testing.T) {
 
 func Test_SecretsWorker(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
+	tests.BelongsToCISuite(t, "with-db")
 	tc := []struct {
 		ss SyncStrategy
 	}{
@@ -453,6 +457,7 @@ func Test_SecretsWorker(t *testing.T) {
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -535,6 +540,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -633,6 +639,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -731,6 +738,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 }
 
 func Test_StratReconciliation_InitialStateSync(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-2063")
 	t.Run("with heavy load", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -802,6 +810,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 }
 
 func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
