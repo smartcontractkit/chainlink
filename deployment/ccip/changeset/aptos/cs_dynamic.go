@@ -17,12 +17,19 @@ import (
 
 var _ cldf.ChangeSetV2[config.DynamicConfig] = DynamicCS{}
 
-// TODO: add description
-// DynamicCS ...
+// DynamicCS enables dynamic execution of multiple Aptos operations at runtime
+// without requiring dedicated changesets. It allows for flexible, configurable
+// operation sequences to be applied based on runtime input, streamlining the
+// process of managing Aptos chain changes.
 type DynamicCS struct{}
 
 func (cs DynamicCS) VerifyPreconditions(env cldf.Environment, cfg config.DynamicConfig) error {
-	// TODO: implement precondition checks
+	if len(cfg.Defs) != len(cfg.Inputs) {
+		return fmt.Errorf("precondition failed: cfg.Defs and cfg.Inputs must have matching lengths (got %d and %d)", len(cfg.Defs), len(cfg.Inputs))
+	}
+	if cfg.MCMSConfig == nil {
+		return fmt.Errorf("precondition failed: cfg.MCMSConfig must not be nil")
+	}
 	return nil
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 )
 
-// DynamicSeqInput ...
 type DynamicSeqInput struct {
 	Defs          []operations.Definition
 	Inputs        []any // Each element should be the corresponding input type for its operation
