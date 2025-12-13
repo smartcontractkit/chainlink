@@ -73,8 +73,6 @@ jobs:
           # core-non-ignored - all changes except for paths which do not affect core module
           #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on core unless listed here specifically.
           #  - For example: core module does not depend on deployment or integration-tests module.
-          # all - changes in any directory
-          #  - This is used resolve all affected modules based on changed files
           list-files: json
           filters: |
             core-non-ignored:
@@ -93,8 +91,6 @@ jobs:
               - '!LICENSE'
               - '!.github/**'
               - '!core/scripts/cre/environment/examples/workflows/**'
-            all:
-              - '**'
 
       - name: Changed modules
         id: changed-modules

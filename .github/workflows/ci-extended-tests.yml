@@ -42,6 +42,47 @@ jobs:
             | uniq -c \
             | sort -nr
 
+  changed-modules:
+    name: Detect Changes
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    outputs:
+      core-changes: ${{ contains(fromJson(steps.changed-modules.outputs.modules-json), '.') }}
+      deployment-changes: ${{ contains(fromJson(steps.changed-modules.outputs.modules-json), 'deployment') }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Detect changed modules
+        id: changed-modules
+        uses: smartcontractkit/.github/actions/changed-modules-go@changed-modules-go/v1
+        with:
+          file-patterns: |
+            **
+            !.changeset/**
+            !**/*.Dockerfile
+            !tools/secrets/**
+            !tools/docker/**
+            !tools/benchmark/**
+            !**/README.md
+            !**/CHANGELOG.md
+            !*.nix
+            !sonar-project.properties
+            !nix.conf
+            !nix-darwin-shell-hook.sh
+            !LICENSE
+            !.github/**
+            !core/scripts/cre/environment/examples/workflows/**
+          module-patterns: |
+            **
+            !core/scripts/**
+            !integration-tests/**
+            !system-tests/**
+
   extended-tests:
     name: "${{ matrix.type.module }} (${{matrix.type.test-suite}})"
     timeout-minutes: 20
@@ -75,6 +116,7 @@ jobs:
             cmd: go_core_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             setup-loopps: "true"
+            setup-solana: "true"
 
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
