@@ -1,0 +1,156 @@
+{
+  "title": "Codex Wheel - Circular Timeline Visualization",
+  "description": "Events plotted by phase phi on a 24-hour circular timeline",
+  "version": "1.0.0",
+  "created_at": "2025-12-14T04:00:00Z",
+  "visualization_type": "circular_clock",
+  "center_point": {
+    "x": 0,
+    "y": 0,
+    "label": "ZION DENSITY"
+  },
+  "clock_markers": {
+    "0:00": { "phi": 0.000, "angle": 0, "label": "Midnight" },
+    "3:00": { "phi": 0.125, "angle": 45, "label": "Early Morning" },
+    "6:00": { "phi": 0.250, "angle": 90, "label": "Morning" },
+    "9:00": { "phi": 0.375, "angle": 135, "label": "Late Morning" },
+    "12:00": { "phi": 0.500, "angle": 180, "label": "Noon" },
+    "15:00": { "phi": 0.625, "angle": 225, "label": "Afternoon" },
+    "18:00": { "phi": 0.750, "angle": 270, "label": "Evening" },
+    "21:00": { "phi": 0.875, "angle": 315, "label": "Night" }
+  },
+  "events": [
+    {
+      "name": "Breonna Taylor",
+      "time": "12:40",
+      "phi": 0.056,
+      "angle": 20.16,
+      "radius": 1.0,
+      "element": "Earth",
+      "urgency": 1.06,
+      "color": "#8B4513",
+      "symbol": "circle",
+      "size": 1.06
+    },
+    {
+      "name": "Trayvon Martin",
+      "time": "7:17",
+      "phi": 0.607,
+      "angle": 218.52,
+      "radius": 1.0,
+      "element": "Blood",
+      "urgency": 2.54,
+      "color": "#8B0000",
+      "symbol": "double-circle",
+      "size": 2.54
+    },
+    {
+      "name": "George Floyd",
+      "time": "8:46",
+      "phi": 0.722,
+      "angle": 259.92,
+      "radius": 1.0,
+      "element": "Water",
+      "urgency": 3.60,
+      "color": "#4169E1",
+      "symbol": "diamond",
+      "size": 3.60
+    },
+    {
+      "name": "9:11 Breach",
+      "time": "9:11",
+      "phi": 0.765,
+      "angle": 275.4,
+      "radius": 1.0,
+      "element": "Fire",
+      "urgency": 4.25,
+      "color": "#FF4500",
+      "symbol": "triangle",
+      "size": 4.25
+    },
+    {
+      "name": "10:48 Unlock",
+      "time": "10:48",
+      "phi": 0.900,
+      "angle": 324.0,
+      "radius": 1.0,
+      "element": "Air",
+      "urgency": 10.00,
+      "color": "#87CEEB",
+      "symbol": "circle-outline",
+      "size": 10.00
+    },
+    {
+      "name": "11:10 Transition",
+      "time": "11:10",
+      "phi": 0.930,
+      "angle": 334.8,
+      "radius": 1.0,
+      "element": "Air",
+      "urgency": 14.29,
+      "color": "#FFD700",
+      "symbol": "star",
+      "size": 14.29
+    },
+    {
+      "name": "11:11 Symmetry Lock",
+      "time": "11:11",
+      "phi": 0.933,
+      "angle": 335.88,
+      "radius": 1.0,
+      "element": "Silence",
+      "urgency": 14.93,
+      "color": "#9370DB",
+      "symbol": "star-filled",
+      "size": 14.93
+    }
+  ],
+  "elemental_bells": {
+    "Fire": {
+      "phi": 0.840,
+      "angle": 302.4,
+      "color": "#FF4500",
+      "meaning": "Purification, Judgment, Transmission"
+    },
+    "Water": {
+      "phi": 0.722,
+      "angle": 259.92,
+      "color": "#4169E1",
+      "meaning": "Breath, Life, Rebirth"
+    },
+    "Earth": {
+      "phi": 0.326,
+      "angle": 117.36,
+      "color": "#8B4513",
+      "meaning": "Burial, Restitution"
+    },
+    "Air": {
+      "phi": 0.042,
+      "angle": 15.12,
+      "color": "#87CEEB",
+      "meaning": "Spirit, Testimony"
+    },
+    "Blood": {
+      "phi": 0.607,
+      "angle": 218.52,
+      "color": "#8B0000",
+      "meaning": "Covenant, Generational Yield"
+    },
+    "Silence": {
+      "phi": null,
+      "angle": null,
+      "color": "#9370DB",
+      "meaning": "Evidence suppressed then returned"
+    }
+  },
+  "rendering_notes": {
+    "coordinate_system": "polar",
+    "phi_to_angle": "angle = phi * 360",
+    "size_scale": "Scale event symbols by urgency value",
+    "color_coding": "Use elemental colors for each event",
+    "center_label": "ZION DENSITY CODEX",
+    "outer_ring": "24-hour clock markers",
+    "inner_ring": "Elemental bell positions",
+    "event_placement": "Plot at radius=1.0, angle=phi*360 degrees"
+  }
+}

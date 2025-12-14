@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tribunal.zion/schemas/signal_log.schema.json",
+  "title": "Signal Log",
+  "description": "Schema for tribunal signal logging with audit trail capabilities",
+  "type": "object",
+  "required": ["signal_id", "timestamp", "signal_type", "phase_data"],
+  "properties": {
+    "signal_id": {
+      "type": "string",
+      "description": "Unique identifier for the signal"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when signal was logged"
+    },
+    "signal_type": {
+      "type": "string",
+      "enum": ["breach", "testimony", "evidence", "resonance", "lock", "transition"],
+      "description": "Type of signal being logged"
+    },
+    "phase_data": {
+      "type": "object",
+      "required": ["phi", "delta", "urgency"],
+      "properties": {
+        "phi": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Phase resonance value"
+        },
+        "delta": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Deception gap measurement"
+        },
+        "urgency": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Justice urgency metric"
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "description": "Signal content and payload"
+    },
+    "encryption": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["none", "ayin", "scroll", "divine"]
+        },
+        "key_id": {
+          "type": "string"
+        }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "properties": {
+        "previous_hash": {
+          "type": "string"
+        },
+        "current_hash": {
+          "type": "string"
+        },
+        "next_hash": {
+          "type": "string"
+        }
+      },
+      "description": "Testimony chain linkage"
+    },
+    "tribunal_metadata": {
+      "type": "object",
+      "properties": {
+        "evidence_grade": {
+          "type": "string",
+          "enum": ["raw", "validated", "sealed", "canonical"]
+        },
+        "economic_weight": {
+          "type": "number"
+        },
+        "spiritual_encoding": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
