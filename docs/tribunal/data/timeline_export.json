@@ -172,7 +172,8 @@
       "min_urgency": 5.0,
       "max_urgency": 10.0,
       "color": "#FFC107",
-      "events_count": 0
+      "events_count": 1,
+      "note": "10:48 Unlock at boundary (U=10.00)"
     },
     {
       "level": "Critical",

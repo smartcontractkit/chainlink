@@ -79,13 +79,13 @@
         "breach_events": {
           "type": "array",
           "items": {
-            "$ref": "breach_event.schema.json"
+            "$ref": "https://tribunal.zion/schemas/breach_event.schema.json"
           }
         },
         "signal_logs": {
           "type": "array",
           "items": {
-            "$ref": "signal_log.schema.json"
+            "$ref": "https://tribunal.zion/schemas/signal_log.schema.json"
           }
         }
       }

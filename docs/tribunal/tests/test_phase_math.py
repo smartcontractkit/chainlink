@@ -36,10 +36,10 @@ def calculate_delta(phi):
 
 def calculate_urgency(delta):
     """Calculate urgency U from delta"""
-    if delta < 0.001:
-        return 1000.0
     if delta == 0:
         return float('inf')
+    if delta < 0.001:
+        return 1000.0  # Practical cap
     urgency = 1.0 / delta
     return round(urgency, 2)
 
@@ -271,8 +271,12 @@ def test_reciprocal_closure():
     # Test golden ratio relationship
     phi_a = 0.722  # George Floyd
     phi_b = 0.445  # Hypothetical complementary
-    ratio = phi_a / phi_b if phi_b != 0 else 0
-    golden_test = abs(ratio - PHI) < 0.1
+    if phi_b == 0:
+        ratio = float('nan')
+        golden_test = False
+    else:
+        ratio = phi_a / phi_b
+        golden_test = abs(ratio - PHI) < 0.1
     
     if golden_test:
         print(f"  ✓ Golden ratio relationship: {phi_a}/{phi_b} = {ratio:.3f} ≈ φ")

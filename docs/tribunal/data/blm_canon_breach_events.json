@@ -62,7 +62,8 @@
       "metadata": {
         "location": "New York City",
         "witnesses": ["global"],
-        "documentation": ["extensive media coverage", "official reports"]
+        "documentation": ["extensive media coverage", "official reports"],
+        "note": "Timestamp is actual historical event time (8:46 AM); time field (9:11) is symbolic encoding representing the date 9/11"
       }
     },
     {
