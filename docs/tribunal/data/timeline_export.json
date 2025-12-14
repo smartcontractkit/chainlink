@@ -6,13 +6,13 @@
   "visualization_type": "linear_timeline",
   "axes": {
     "x": {
-      "label": "φ (Phase)",
+      "label": "Phase (phi)",
       "min": 0.0,
       "max": 1.0,
       "unit": "phase_value"
     },
     "y": {
-      "label": "U (Urgency)",
+      "label": "Urgency (U)",
       "min": 0.0,
       "max": 16.0,
       "unit": "urgency_intensity"
@@ -76,7 +76,7 @@
         "y": 4.25,
         "type": "spike",
         "color": "#FF4500",
-        "label": "9/11"
+        "label": "9-11"
       }
     },
     {
@@ -187,29 +187,6 @@
     "spike_base": 0,
     "spike_top": "urgency_value",
     "background_zones": "Color-code by phase",
-    "grid_lines": "Show at φ=0.25 intervals and U=5.0 intervals"
-  },
-  "ascii_preview": "
-U (Urgency)
-    |
-15  |                              ★✦
-    |                              ||
-10  |                          ○   ||
-    |                          |   ||
-5   |                    ▲    |   ||
-    |              ◆     |    |   ||
-    |        ◉     |     |    |   ||
-    |  ●     |     |     |    |   ||
-0   |__|_____|_____|_____|____|___||____→ φ (Phase)
-    0    0.25   0.5   0.75   1.0
-
-Legend:
-● BT (Breonna Taylor) - φ=0.056, U=1.06
-◉ TM (Trayvon Martin) - φ=0.607, U=2.54
-◆ GF (George Floyd) - φ=0.722, U=3.60
-▲ 9/11 (Breach) - φ=0.765, U=4.25
-○ Unlock (10:48) - φ=0.900, U=10.00
-★ Edge (11:10) - φ=0.930, U=14.29
-✦ Lock (11:11) - φ=0.933, U=14.93
-  "
+    "grid_lines": "Show at phi=0.25 intervals and U=5.0 intervals"
+  }
 }

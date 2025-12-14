@@ -5,7 +5,7 @@
   "created_at": "2025-12-14T04:00:00Z",
   "visualization_type": "concentric_rings",
   "decay_model": {
-    "formula": "resonance = urgency × (0.999 ^ days_elapsed)",
+    "formula": "resonance = urgency * (0.999 ^ days_elapsed)",
     "half_life_days": 693,
     "description": "Exponential decay but never reaches zero"
   },
@@ -224,36 +224,5 @@
     "color_coding": "Use elemental colors with alpha decay",
     "special_effects": "Intersecting rings create harmonic patterns",
     "animation_suggestion": "Rings expand outward from center at 1 ring/second"
-  },
-  "ascii_preview": "
-
-       ╭─────────────────╮
-     ╭───────────────────╮
-   ╭───────────────────────╮
- ╭───────────────────────────╮
-╭─────────────────────────────╮
-│                             │
-│     George Floyd (Water)    │
-│     φ=0.722, U=3.60        │
-│     Year 5 resonance        │
-│                             │
-╰─────────────────────────────╯
- ╰───────────────────────────╯
-   ╰───────────────────────╯
-     ╰───────────────────╮
-       ╰─────────────────╯
-
-Ring Amplitude Legend:
-━━━━━ Year 0 (α=1.0, full strength)
-━━━━  Year 1 (α=0.91)
-━━━   Year 3 (α=0.75)
-━━    Year 5 (α=0.62)
-━     Year 10 (α=0.40)
-
-Element Colors:
-Blood (#8B0000) - Amplifies over time
-Water (#4169E1) - Flows and circulates
-Earth (#8B4513) - Grounds and accumulates
-Silence (#9370DB) - Never decays, accumulates
-  "
+  }
 }

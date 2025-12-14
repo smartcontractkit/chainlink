@@ -1,6 +1,6 @@
 {
   "title": "Codex Wheel - Circular Timeline Visualization",
-  "description": "Events plotted by phase φ on a 24-hour circular timeline",
+  "description": "Events plotted by phase phi on a 24-hour circular timeline",
   "version": "1.0.0",
   "created_at": "2025-12-14T04:00:00Z",
   "visualization_type": "circular_clock",
@@ -10,11 +10,11 @@
     "label": "ZION DENSITY"
   },
   "clock_markers": {
-    "12:00": { "phi": 0.000, "angle": 0, "label": "Midnight/Noon" },
-    "3:00": { "phi": 0.125, "angle": 45, "label": "Dawn/Afternoon" },
-    "6:00": { "phi": 0.250, "angle": 90, "label": "Morning/Evening" },
-    "9:00": { "phi": 0.375, "angle": 135, "label": "Late Morning/Night" },
-    "12:00": { "phi": 0.500, "angle": 180, "label": "Noon/Midnight" },
+    "0:00": { "phi": 0.000, "angle": 0, "label": "Midnight" },
+    "3:00": { "phi": 0.125, "angle": 45, "label": "Early Morning" },
+    "6:00": { "phi": 0.250, "angle": 90, "label": "Morning" },
+    "9:00": { "phi": 0.375, "angle": 135, "label": "Late Morning" },
+    "12:00": { "phi": 0.500, "angle": 180, "label": "Noon" },
     "15:00": { "phi": 0.625, "angle": 225, "label": "Afternoon" },
     "18:00": { "phi": 0.750, "angle": 270, "label": "Evening" },
     "21:00": { "phi": 0.875, "angle": 315, "label": "Night" }
@@ -29,7 +29,7 @@
       "element": "Earth",
       "urgency": 1.06,
       "color": "#8B4513",
-      "symbol": "●",
+      "symbol": "circle",
       "size": 1.06
     },
     {
@@ -41,7 +41,7 @@
       "element": "Blood",
       "urgency": 2.54,
       "color": "#8B0000",
-      "symbol": "◉",
+      "symbol": "double-circle",
       "size": 2.54
     },
     {
@@ -53,7 +53,7 @@
       "element": "Water",
       "urgency": 3.60,
       "color": "#4169E1",
-      "symbol": "◆",
+      "symbol": "diamond",
       "size": 3.60
     },
     {
@@ -65,7 +65,7 @@
       "element": "Fire",
       "urgency": 4.25,
       "color": "#FF4500",
-      "symbol": "▲",
+      "symbol": "triangle",
       "size": 4.25
     },
     {
@@ -77,7 +77,7 @@
       "element": "Air",
       "urgency": 10.00,
       "color": "#87CEEB",
-      "symbol": "○",
+      "symbol": "circle-outline",
       "size": 10.00
     },
     {
@@ -89,7 +89,7 @@
       "element": "Air",
       "urgency": 14.29,
       "color": "#FFD700",
-      "symbol": "★",
+      "symbol": "star",
       "size": 14.29
     },
     {
@@ -101,7 +101,7 @@
       "element": "Silence",
       "urgency": 14.93,
       "color": "#9370DB",
-      "symbol": "✦",
+      "symbol": "star-filled",
       "size": 14.93
     }
   ],
@@ -140,41 +140,17 @@
       "phi": null,
       "angle": null,
       "color": "#9370DB",
-      "meaning": "Evidence suppressed → then returned"
+      "meaning": "Evidence suppressed then returned"
     }
   },
   "rendering_notes": {
     "coordinate_system": "polar",
-    "phi_to_angle": "angle = φ × 360",
+    "phi_to_angle": "angle = phi * 360",
     "size_scale": "Scale event symbols by urgency value",
     "color_coding": "Use elemental colors for each event",
     "center_label": "ZION DENSITY CODEX",
     "outer_ring": "24-hour clock markers",
     "inner_ring": "Elemental bell positions",
-    "event_placement": "Plot at (radius=1.0, angle=φ×360)"
-  },
-  "ascii_preview": "
-        12:00 (φ=0.000)
-            ↑
-      ○     |
-  ★✦  |     |
-    \\   |     |
-     \\ |     |     ● (Breonna)
-9:00 ←--+------+------→ 3:00
-        |  ◉   |    /
-        | /    |   /
-        |/ ▲   |  /
-        ◆      | /
-        ↓
-    6:00 (φ=0.500)
-
-  Legend:
-  ● Earth (Breonna) - φ=0.056
-  ◉ Blood (Trayvon) - φ=0.607
-  ◆ Water (George) - φ=0.722
-  ▲ Fire (9:11) - φ=0.765
-  ○ Air (10:48) - φ=0.900
-  ★ Edge (11:10) - φ=0.930
-  ✦ Lock (11:11) - φ=0.933
-  "
+    "event_placement": "Plot at radius=1.0, angle=phi*360 degrees"
+  }
 }
