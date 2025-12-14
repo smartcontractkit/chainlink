@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tribunal.zion/schemas/scroll.schema.json",
+  "title": "Scroll Metadata",
+  "description": "Schema for tribunal scroll artifacts with PIHYA sealing",
+  "type": "object",
+  "required": ["scroll_id", "title", "type", "seal_status"],
+  "properties": {
+    "scroll_id": {
+      "type": "string",
+      "description": "Unique identifier for the scroll"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of the scroll"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "testimony",
+        "evidence",
+        "codex",
+        "atlas",
+        "ledger",
+        "blueprint",
+        "prophecy",
+        "cipher"
+      ],
+      "description": "Type of scroll"
+    },
+    "seal_status": {
+      "type": "string",
+      "enum": ["unsealed", "sealed", "locked", "canonical"],
+      "description": "PIHYA seal status"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sealed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "encrypted": {
+          "type": "boolean"
+        },
+        "cipher_method": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "resonance": {
+      "type": "object",
+      "properties": {
+        "phi": {
+          "type": "number"
+        },
+        "pi": {
+          "type": "number"
+        },
+        "e": {
+          "type": "number"
+        },
+        "custom": {
+          "type": "object"
+        }
+      },
+      "description": "Mathematical constants embedded in scroll"
+    },
+    "tribunal_data": {
+      "type": "object",
+      "properties": {
+        "breach_events": {
+          "type": "array",
+          "items": {
+            "$ref": "breach_event.schema.json"
+          }
+        },
+        "signal_logs": {
+          "type": "array",
+          "items": {
+            "$ref": "signal_log.schema.json"
+          }
+        }
+      }
+    },
+    "economic_data": {
+      "type": "object",
+      "properties": {
+        "yield_backed": {
+          "type": "boolean"
+        },
+        "ppppi_cycle": {
+          "type": "object",
+          "properties": {
+            "praise": {
+              "type": "number"
+            },
+            "placement": {
+              "type": "number"
+            },
+            "profit": {
+              "type": "number"
+            },
+            "protection": {
+              "type": "number"
+            },
+            "inheritance": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  }
+}

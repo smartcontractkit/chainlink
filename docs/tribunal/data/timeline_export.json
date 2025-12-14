@@ -1,0 +1,215 @@
+{
+  "title": "Timeline - Linear Urgency Visualization",
+  "description": "Linear timeline showing urgency spikes across phase values",
+  "version": "1.0.0",
+  "created_at": "2025-12-14T04:00:00Z",
+  "visualization_type": "linear_timeline",
+  "axes": {
+    "x": {
+      "label": "φ (Phase)",
+      "min": 0.0,
+      "max": 1.0,
+      "unit": "phase_value"
+    },
+    "y": {
+      "label": "U (Urgency)",
+      "min": 0.0,
+      "max": 16.0,
+      "unit": "urgency_intensity"
+    }
+  },
+  "events": [
+    {
+      "name": "Breonna Taylor",
+      "time": "12:40",
+      "phi": 0.056,
+      "urgency": 1.06,
+      "element": "Earth",
+      "role": "Hidden Law, Tribunal Echo",
+      "marker": {
+        "x": 0.056,
+        "y": 1.06,
+        "type": "spike",
+        "color": "#8B4513",
+        "label": "BT"
+      }
+    },
+    {
+      "name": "Trayvon Martin",
+      "time": "7:17",
+      "phi": 0.607,
+      "urgency": 2.54,
+      "element": "Blood",
+      "role": "Covenant, Return Bell",
+      "marker": {
+        "x": 0.607,
+        "y": 2.54,
+        "type": "spike",
+        "color": "#8B0000",
+        "label": "TM"
+      }
+    },
+    {
+      "name": "George Floyd",
+      "time": "8:46",
+      "phi": 0.722,
+      "urgency": 3.60,
+      "element": "Water",
+      "role": "Breath Lock, Tribunal Seal",
+      "marker": {
+        "x": 0.722,
+        "y": 3.60,
+        "type": "spike",
+        "color": "#4169E1",
+        "label": "GF"
+      }
+    },
+    {
+      "name": "9:11 Breach",
+      "time": "9:11",
+      "phi": 0.765,
+      "urgency": 4.25,
+      "element": "Fire",
+      "role": "Breach, Collapse Trigger",
+      "marker": {
+        "x": 0.765,
+        "y": 4.25,
+        "type": "spike",
+        "color": "#FF4500",
+        "label": "9/11"
+      }
+    },
+    {
+      "name": "10:48 Unlock",
+      "time": "10:48",
+      "phi": 0.900,
+      "urgency": 10.00,
+      "element": "Air",
+      "role": "Unlock Bell, Appointed Action",
+      "marker": {
+        "x": 0.900,
+        "y": 10.00,
+        "type": "spike",
+        "color": "#87CEEB",
+        "label": "Unlock"
+      }
+    },
+    {
+      "name": "11:10 Transition",
+      "time": "11:10",
+      "phi": 0.930,
+      "urgency": 14.29,
+      "element": "Air",
+      "role": "Transition Edge",
+      "marker": {
+        "x": 0.930,
+        "y": 14.29,
+        "type": "spike",
+        "color": "#FFD700",
+        "label": "Edge"
+      }
+    },
+    {
+      "name": "11:11 Symmetry Lock",
+      "time": "11:11",
+      "phi": 0.933,
+      "urgency": 14.93,
+      "element": "Silence",
+      "role": "Symmetry Lock",
+      "marker": {
+        "x": 0.933,
+        "y": 14.93,
+        "type": "spike",
+        "color": "#9370DB",
+        "label": "Lock"
+      }
+    }
+  ],
+  "phase_zones": [
+    {
+      "name": "Early Phase",
+      "phi_start": 0.0,
+      "phi_end": 0.25,
+      "color": "#E8F5E9",
+      "label": "Seed",
+      "events_count": 1
+    },
+    {
+      "name": "Growth Phase",
+      "phi_start": 0.25,
+      "phi_end": 0.625,
+      "color": "#FFF9C4",
+      "label": "Growth",
+      "events_count": 1
+    },
+    {
+      "name": "Return Phase",
+      "phi_start": 0.625,
+      "phi_end": 0.875,
+      "color": "#FFE0B2",
+      "label": "Return",
+      "events_count": 2
+    },
+    {
+      "name": "Lock Phase",
+      "phi_start": 0.875,
+      "phi_end": 1.0,
+      "color": "#F3E5F5",
+      "label": "Lock",
+      "events_count": 3
+    }
+  ],
+  "urgency_thresholds": [
+    {
+      "level": "Standard",
+      "min_urgency": 0.0,
+      "max_urgency": 5.0,
+      "color": "#4CAF50",
+      "events_count": 4
+    },
+    {
+      "level": "Elevated",
+      "min_urgency": 5.0,
+      "max_urgency": 10.0,
+      "color": "#FFC107",
+      "events_count": 0
+    },
+    {
+      "level": "Critical",
+      "min_urgency": 10.0,
+      "max_urgency": 16.0,
+      "color": "#F44336",
+      "events_count": 3
+    }
+  ],
+  "rendering_notes": {
+    "spike_width": 0.01,
+    "spike_base": 0,
+    "spike_top": "urgency_value",
+    "background_zones": "Color-code by phase",
+    "grid_lines": "Show at φ=0.25 intervals and U=5.0 intervals"
+  },
+  "ascii_preview": "
+U (Urgency)
+    |
+15  |                              ★✦
+    |                              ||
+10  |                          ○   ||
+    |                          |   ||
+5   |                    ▲    |   ||
+    |              ◆     |    |   ||
+    |        ◉     |     |    |   ||
+    |  ●     |     |     |    |   ||
+0   |__|_____|_____|_____|____|___||____→ φ (Phase)
+    0    0.25   0.5   0.75   1.0
+
+Legend:
+● BT (Breonna Taylor) - φ=0.056, U=1.06
+◉ TM (Trayvon Martin) - φ=0.607, U=2.54
+◆ GF (George Floyd) - φ=0.722, U=3.60
+▲ 9/11 (Breach) - φ=0.765, U=4.25
+○ Unlock (10:48) - φ=0.900, U=10.00
+★ Edge (11:10) - φ=0.930, U=14.29
+✦ Lock (11:11) - φ=0.933, U=14.93
+  "
+}

@@ -1,0 +1,259 @@
+{
+  "title": "Resonance Rings - Emanation Visualization",
+  "description": "Concentric rings emanating from breach events showing temporal resonance decay",
+  "version": "1.0.0",
+  "created_at": "2025-12-14T04:00:00Z",
+  "visualization_type": "concentric_rings",
+  "decay_model": {
+    "formula": "resonance = urgency × (0.999 ^ days_elapsed)",
+    "half_life_days": 693,
+    "description": "Exponential decay but never reaches zero"
+  },
+  "events": [
+    {
+      "name": "Trayvon Martin",
+      "timestamp": "2012-02-26T19:17:00Z",
+      "phi": 0.607,
+      "urgency": 2.54,
+      "element": "Blood",
+      "center": {
+        "x": 0,
+        "y": 0
+      },
+      "rings": [
+        {
+          "year": 0,
+          "radius": 0.0,
+          "amplitude": 2.54,
+          "color": "#8B0000",
+          "alpha": 1.0
+        },
+        {
+          "year": 1,
+          "radius": 1.0,
+          "amplitude": 2.31,
+          "color": "#8B0000",
+          "alpha": 0.91
+        },
+        {
+          "year": 5,
+          "radius": 5.0,
+          "amplitude": 1.97,
+          "color": "#8B0000",
+          "alpha": 0.78
+        },
+        {
+          "year": 10,
+          "radius": 10.0,
+          "amplitude": 1.62,
+          "color": "#8B0000",
+          "alpha": 0.64
+        },
+        {
+          "year": 13,
+          "radius": 13.0,
+          "amplitude": 1.43,
+          "color": "#8B0000",
+          "alpha": 0.56,
+          "note": "2025 - Current resonance"
+        }
+      ],
+      "description": "Blood covenant rings amplify over time (lineage element)",
+      "amplification_factor": 1.5
+    },
+    {
+      "name": "George Floyd",
+      "timestamp": "2020-05-25T20:46:00Z",
+      "phi": 0.722,
+      "urgency": 3.60,
+      "element": "Water",
+      "center": {
+        "x": 5,
+        "y": 5
+      },
+      "rings": [
+        {
+          "year": 0,
+          "radius": 0.0,
+          "amplitude": 3.60,
+          "color": "#4169E1",
+          "alpha": 1.0
+        },
+        {
+          "year": 1,
+          "radius": 1.0,
+          "amplitude": 3.27,
+          "color": "#4169E1",
+          "alpha": 0.91
+        },
+        {
+          "year": 2,
+          "radius": 2.0,
+          "amplitude": 2.98,
+          "color": "#4169E1",
+          "alpha": 0.83
+        },
+        {
+          "year": 3,
+          "radius": 3.0,
+          "amplitude": 2.71,
+          "color": "#4169E1",
+          "alpha": 0.75
+        },
+        {
+          "year": 4,
+          "radius": 4.0,
+          "amplitude": 2.47,
+          "color": "#4169E1",
+          "alpha": 0.68
+        },
+        {
+          "year": 5,
+          "radius": 5.0,
+          "amplitude": 2.24,
+          "color": "#4169E1",
+          "alpha": 0.62,
+          "note": "2025 - Current resonance"
+        }
+      ],
+      "description": "Water rings flow and circulate (breath element)",
+      "amplification_factor": 1.3
+    },
+    {
+      "name": "Breonna Taylor",
+      "timestamp": "2020-03-13T00:40:00Z",
+      "phi": 0.056,
+      "urgency": 1.06,
+      "element": "Earth",
+      "center": {
+        "x": -5,
+        "y": -5
+      },
+      "rings": [
+        {
+          "year": 0,
+          "radius": 0.0,
+          "amplitude": 1.06,
+          "color": "#8B4513",
+          "alpha": 1.0
+        },
+        {
+          "year": 1,
+          "radius": 1.0,
+          "amplitude": 0.96,
+          "color": "#8B4513",
+          "alpha": 0.91
+        },
+        {
+          "year": 2,
+          "radius": 2.0,
+          "amplitude": 0.88,
+          "color": "#8B4513",
+          "alpha": 0.83
+        },
+        {
+          "year": 3,
+          "radius": 3.0,
+          "amplitude": 0.80,
+          "color": "#8B4513",
+          "alpha": 0.75
+        },
+        {
+          "year": 4,
+          "radius": 4.0,
+          "amplitude": 0.73,
+          "color": "#8B4513",
+          "alpha": 0.68
+        },
+        {
+          "year": 5,
+          "radius": 5.0,
+          "amplitude": 0.66,
+          "color": "#8B4513",
+          "alpha": 0.62,
+          "note": "2025 - Current resonance, hidden law slowly emerging"
+        }
+      ],
+      "description": "Earth rings ground and accumulate (burial/restitution element)",
+      "amplification_factor": 1.2
+    },
+    {
+      "name": "11:11 Symmetry Lock",
+      "timestamp": "2025-12-14T04:00:00Z",
+      "phi": 0.933,
+      "urgency": 14.93,
+      "element": "Silence",
+      "center": {
+        "x": 0,
+        "y": 10
+      },
+      "rings": [
+        {
+          "year": 0,
+          "radius": 0.0,
+          "amplitude": 14.93,
+          "color": "#9370DB",
+          "alpha": 1.0,
+          "note": "Active lock - infinite resonance when sealed"
+        }
+      ],
+      "description": "Silence rings don't decay - they accumulate suppressed truth",
+      "amplification_factor": 2.0,
+      "special": "Suppressed evidence rings appear when unveiled"
+    }
+  ],
+  "ring_interactions": [
+    {
+      "event1": "Trayvon Martin",
+      "event2": "George Floyd",
+      "intersection_year": 8,
+      "resonance_amplification": 1.5,
+      "description": "Blood and Water rings intersect, amplifying covenant through breath"
+    },
+    {
+      "event1": "George Floyd",
+      "event2": "Breonna Taylor",
+      "intersection_year": 3,
+      "resonance_amplification": 1.3,
+      "description": "Water and Earth rings merge, grounding breath into restitution"
+    }
+  ],
+  "rendering_notes": {
+    "ring_spacing": "1 unit = 1 year",
+    "amplitude_visualization": "Line thickness or color intensity",
+    "color_coding": "Use elemental colors with alpha decay",
+    "special_effects": "Intersecting rings create harmonic patterns",
+    "animation_suggestion": "Rings expand outward from center at 1 ring/second"
+  },
+  "ascii_preview": "
+
+       ╭─────────────────╮
+     ╭───────────────────╮
+   ╭───────────────────────╮
+ ╭───────────────────────────╮
+╭─────────────────────────────╮
+│                             │
+│     George Floyd (Water)    │
+│     φ=0.722, U=3.60        │
+│     Year 5 resonance        │
+│                             │
+╰─────────────────────────────╯
+ ╰───────────────────────────╯
+   ╰───────────────────────╯
+     ╰───────────────────╮
+       ╰─────────────────╯
+
+Ring Amplitude Legend:
+━━━━━ Year 0 (α=1.0, full strength)
+━━━━  Year 1 (α=0.91)
+━━━   Year 3 (α=0.75)
+━━    Year 5 (α=0.62)
+━     Year 10 (α=0.40)
+
+Element Colors:
+Blood (#8B0000) - Amplifies over time
+Water (#4169E1) - Flows and circulates
+Earth (#8B4513) - Grounds and accumulates
+Silence (#9370DB) - Never decays, accumulates
+  "
+}

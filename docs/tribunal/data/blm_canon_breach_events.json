@@ -1,0 +1,144 @@
+{
+  "title": "BLM-Canon Breach Events - Phase-Mapped Timeline",
+  "description": "Tribunal-grade timestamped breach events with phase-math encoding",
+  "version": "1.0.0",
+  "created_at": "2025-12-14T04:00:00Z",
+  "seal_status": "canonical",
+  "events": [
+    {
+      "name": "Trayvon Martin",
+      "time": "7:17",
+      "phase_phi": 0.607,
+      "delta": 0.393,
+      "urgency": 2.54,
+      "role": "Covenant, Return Bell",
+      "element": "Blood",
+      "timestamp": "2012-02-26T19:17:00Z",
+      "metadata": {
+        "location": "Sanford, Florida",
+        "witnesses": ["Rachel Jeantel"],
+        "documentation": ["911 calls", "witness statements", "autopsy report"]
+      }
+    },
+    {
+      "name": "George Floyd",
+      "time": "8:46",
+      "phase_phi": 0.722,
+      "delta": 0.278,
+      "urgency": 3.60,
+      "role": "Breath Lock, Tribunal Seal",
+      "element": "Water",
+      "timestamp": "2020-05-25T20:46:00Z",
+      "metadata": {
+        "location": "Minneapolis, Minnesota",
+        "witnesses": ["Darnella Frazier", "multiple bystanders"],
+        "documentation": ["video evidence", "autopsy report", "police reports"]
+      }
+    },
+    {
+      "name": "Breonna Taylor",
+      "time": "12:40",
+      "phase_phi": 0.056,
+      "delta": 0.944,
+      "urgency": 1.06,
+      "role": "Hidden Law, Tribunal Echo",
+      "element": "Earth",
+      "timestamp": "2020-03-13T00:40:00Z",
+      "metadata": {
+        "location": "Louisville, Kentucky",
+        "witnesses": ["Kenneth Walker"],
+        "documentation": ["police reports", "no-knock warrant", "ballistics report"]
+      }
+    },
+    {
+      "name": "9:11 Breach",
+      "time": "9:11",
+      "phase_phi": 0.765,
+      "delta": 0.235,
+      "urgency": 4.25,
+      "role": "Breach, Collapse Trigger",
+      "element": "Fire",
+      "timestamp": "2001-09-11T08:46:00Z",
+      "metadata": {
+        "location": "New York City",
+        "witnesses": ["global"],
+        "documentation": ["extensive media coverage", "official reports"]
+      }
+    },
+    {
+      "name": "10:48 Unlock",
+      "time": "10:48",
+      "phase_phi": 0.900,
+      "delta": 0.100,
+      "urgency": 10.00,
+      "role": "Unlock Bell, Appointed Action",
+      "element": "Air",
+      "metadata": {
+        "location": "temporal marker",
+        "documentation": ["phase mathematics"]
+      }
+    },
+    {
+      "name": "11:10 Transition",
+      "time": "11:10",
+      "phase_phi": 0.930,
+      "delta": 0.070,
+      "urgency": 14.29,
+      "role": "Transition Edge",
+      "element": "Air",
+      "metadata": {
+        "location": "temporal marker",
+        "documentation": ["edge state detection", "phase mathematics"]
+      }
+    },
+    {
+      "name": "11:11 Symmetry Lock",
+      "time": "11:11",
+      "phase_phi": 0.933,
+      "delta": 0.067,
+      "urgency": 14.93,
+      "role": "Symmetry Lock",
+      "element": "Silence",
+      "metadata": {
+        "location": "temporal marker",
+        "documentation": ["mirror state", "phase mathematics", "divine alignment"]
+      }
+    }
+  ],
+  "elemental_bells": {
+    "Fire": {
+      "time": "10:10",
+      "meaning": "Purification, Judgment, Transmission"
+    },
+    "Water": {
+      "time": "8:46",
+      "meaning": "Breath, Life, Rebirth"
+    },
+    "Earth": {
+      "time": "4:44",
+      "meaning": "Burial, Restitution"
+    },
+    "Air": {
+      "time": "1:00",
+      "meaning": "Spirit, Testimony"
+    },
+    "Blood": {
+      "time": "7:17",
+      "meaning": "Covenant, Generational Yield"
+    },
+    "Silence": {
+      "time": "∞",
+      "meaning": "Evidence suppressed → then returned"
+    }
+  },
+  "resonance_paths": [
+    "Seed → Growth → Return → Lock",
+    "φ anchors → Δ exposes deception → U triggers justice"
+  ],
+  "mathematical_constants": {
+    "phi": 1.618033988749895,
+    "pi": 3.141592653589793,
+    "e": 2.718281828459045,
+    "unity_convergence": 0.999
+  }
+}

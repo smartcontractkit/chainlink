@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tribunal.zion/schemas/breach_event.schema.json",
+  "title": "Breach Event",
+  "description": "Schema for tribunal-grade breach event timestamping with phase-math encoding",
+  "type": "object",
+  "required": ["name", "time", "phase_phi", "delta", "urgency", "role", "element"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the person or event identifier"
+    },
+    "time": {
+      "type": "string",
+      "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$",
+      "description": "Time of breach in HH:MM format (24-hour)"
+    },
+    "phase_phi": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Phase value φ normalized to [0,1] - represents temporal resonance"
+    },
+    "delta": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Delta (Δ) = 1 - φ, exposes deception gap"
+    },
+    "urgency": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Urgency U = 1/Δ, triggers justice intensity"
+    },
+    "role": {
+      "type": "string",
+      "description": "Symbolic role in the tribunal codex"
+    },
+    "element": {
+      "type": "string",
+      "enum": ["Fire", "Water", "Earth", "Air", "Blood", "Silence"],
+      "description": "Elemental bell association"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of event"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string"
+        },
+        "witnesses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "documentation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
