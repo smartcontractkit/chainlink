@@ -29,9 +29,7 @@ import (
 	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
 )
 
-var (
-	ErrFundCLNode = "failed to fund CL node"
-)
+var ErrFundCLNode = "failed to fund CL node"
 
 type CLClusterTestEnv struct {
 	Cfg           *TestEnvConfig
@@ -104,7 +102,6 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetwork
 	}
 
 	n, rpc, err := c.Start()
-
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
 	}
@@ -261,12 +258,12 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 		for _, node := range te.ClCluster.Nodes {
 			containers = append(containers, node.Container)
 		}
-		
+
 		// there might be some corner cases where Docker daemon is not responding
 		// exit the test early if we can't connect to the container in under 1 minute
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
-		
+
 		covHelper, err = d.NewNodeCoverageHelper(ctx, containers, clDir, coverageRootDir)
 		if err != nil {
 			return err
