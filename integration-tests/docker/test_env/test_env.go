@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -260,8 +261,13 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 		for _, node := range te.ClCluster.Nodes {
 			containers = append(containers, node.Container)
 		}
-
-		covHelper, err = d.NewNodeCoverageHelper(context.Background(), containers, clDir, coverageRootDir)
+		
+		// there might be some corner cases where Docker daemon is not responding
+		// exit the test early if we can't connect to the container in under 1 minute
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		
+		covHelper, err = d.NewNodeCoverageHelper(ctx, containers, clDir, coverageRootDir)
 		if err != nil {
 			return err
 		}
