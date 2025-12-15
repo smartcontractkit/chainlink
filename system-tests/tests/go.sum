@@ -427,8 +427,8 @@ github.com/confluentinc/confluent-kafka-go v1.9.2 h1:gV/GxhMBUb03tFWkN+7kdhg+zf+
 github.com/confluentinc/confluent-kafka-go v1.9.2/go.mod h1:ptXNqsuDfYbAE/LBW6pnwWZElUoWxHoV8E43DCrliyo=
 github.com/confluentinc/confluent-kafka-go/v2 v2.3.0 h1:icCHutJouWlQREayFwCc7lxDAhws08td+W3/gdqgZts=
 github.com/confluentinc/confluent-kafka-go/v2 v2.3.0/go.mod h1:/VTy8iEpe6mD9pkCH5BhijlUl8ulUXymKv1Qig5Rgb8=
-github.com/consensys/gnark-crypto v0.18.1 h1:RyLV6UhPRoYYzaFnPQA4qK3DyuDgkTgskDdoGqFt3fI=
-github.com/consensys/gnark-crypto v0.18.1/go.mod h1:L3mXGFTe1ZN+RSJ+CLjUt9x7PNdx8ubaYfDROyp2Z8c=
+github.com/consensys/gnark-crypto v0.19.2 h1:qrEAIXq3T4egxqiliFFoNrepkIWVEeIYwt3UL0fvS80=
+github.com/consensys/gnark-crypto v0.19.2/go.mod h1:rT23F0XSZqE0mUA0+pRtnL56IbPxs6gp4CeRsBk4XS0=
 github.com/containerd/cgroups v1.1.0 h1:v8rEWFl6EoqHB+swVNjVoCJE8o3jX7e8nqBGPLaDFBM=
 github.com/containerd/cgroups/v3 v3.0.5 h1:44na7Ud+VwyE7LIoJ8JTNQOa549a8543BmzaJHo6Bzo=
 github.com/containerd/cgroups/v3 v3.0.5/go.mod h1:SA5DLYnXO8pTGYiAHXz94qvLQTKfVM5GEVisn4jpins=
@@ -690,8 +690,8 @@ github.com/gagliardetto/metaplex-go v0.2.1 h1:NMBsgJe3I2avKZ39dfYQvXsGsr2BxUgARk
 github.com/gagliardetto/metaplex-go v0.2.1/go.mod h1:6ZLYBvlWcXktXQ/QcBJYRzKgK7Q3WgiGD7BjE7Zxpw4=
 github.com/gagliardetto/solana-go v1.4.0/go.mod h1:NFuoDwHPvw858ZMHUJr6bkhN8qHt4x6e+U3EYHxAwNY=
 github.com/gagliardetto/solana-go v1.5.0/go.mod h1:1KFOW7mlR/TSjYFeLCYmfpSptRdNJMtpgChelKy2oU0=
-github.com/gagliardetto/solana-go v1.13.0 h1:uNzhjwdAdbq9xMaX2DF0MwXNMw6f8zdZ7JPBtkJG7Ig=
-github.com/gagliardetto/solana-go v1.13.0/go.mod h1:l/qqqIN6qJJPtxW/G1PF4JtcE3Zg2vD2EliZrr9Gn5k=
+github.com/gagliardetto/solana-go v1.14.0 h1:3WfAi70jOOjAJ0deFMjdhFYlLXATF4tOQXsDNWJtOLw=
+github.com/gagliardetto/solana-go v1.14.0/go.mod h1:l/qqqIN6qJJPtxW/G1PF4JtcE3Zg2vD2EliZrr9Gn5k=
 github.com/gagliardetto/treeout v0.1.4 h1:ozeYerrLCmCubo1TcIjFiOWTTGteOOHND1twdFpgwaw=
 github.com/gagliardetto/treeout v0.1.4/go.mod h1:loUefvXTrlRG5rYmJmExNryyBRh8f89VZhmMOyCyqok=
 github.com/gagliardetto/utilz v0.1.1/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
@@ -1838,8 +1838,8 @@ github.com/smartcontractkit/chainlink-protos/svr v1.1.0 h1:79Z9N9dMbMVRGaLoDPAQ+
 github.com/smartcontractkit/chainlink-protos/svr v1.1.0/go.mod h1:TcOliTQU6r59DwG4lo3U+mFM9WWyBHGuFkkxQpvSujo=
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4 h1:ZISmdiYAU0qXt2kC8/qxdIs4zg2PLRriatNDw6fANpo=
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4/go.mod h1:HIpGvF6nKCdtZ30xhdkKWGM9+4Z4CVqJH8ZBL1FTEiY=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251121223352-370eb61346d6 h1:4cvFf82P3VcNHgqUG0aRBeIMZd+wSX37ha28Gkie9Lk=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251121223352-370eb61346d6/go.mod h1:zX8dX6aXjJNkfbpr1AiTzCioma0sHh5CBPZKtqC7plY=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251215162739-66755998e90d h1:tF8H4OUda5PsgN/36WcqVK97s4Gue3xHp8v18QSoJb8=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251215162739-66755998e90d/go.mod h1:V1Z5LiVNJjQaD3jl6EcP3P9TP6EtdaR+KHVhLTxAb/E=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20251126141220-50fc8beada30 h1:l0F+Cpka3kzW26J6ftIMae3zO6T0/+ZufjtwELx/pOs=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20251126141220-50fc8beada30/go.mod h1:zrtmeh3wHL+qXu/vaaR7lZ5TSh00I4JYbpOqqb9bXp0=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251126141220-50fc8beada30 h1:Pc4MkArvzdKOjf6sH/x4OmYI9LV6Bq+etJ19GuSgTlw=

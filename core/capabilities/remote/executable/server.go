@@ -241,6 +241,7 @@ func (r *server) expireRequests() {
 }
 
 func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
+	r.lggr.Debug("magic3")
 	cfg := r.cfg.Load()
 	if cfg == nil {
 		r.lggr.Errorw("config not set, cannot process request")

@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -39,7 +40,7 @@ const (
 	configTemplate = `{
 		"creForwarderAddress":"{{.CREForwarderAddress}}",
 		"creForwarderState":"{{.CREForwarderState}}",
-		"nodeAddress":"{{.NodeAddress}}",
+		"transmitter":"{{.NodeAddress}}",
 		"isLocal":{{.IsLocal}},
 		"chainId":"{{.ChainID}}",
 		"network":"{{.Network}}"
@@ -185,8 +186,8 @@ func createJobs(
 			return errors.Wrapf(err, "failed to get sol genesis hash")
 		}
 		runtimeFallbacks := map[string]any{
-			"CREForwarderAddress": creForwarderAddress,
-			"CREForwarderState":   creForwarderStateAddress,
+			"CREForwarderAddress": creForwarderAddress.Address,
+			"CREForwarderState":   creForwarderStateAddress.Address,
 			"NodeAddress":         nodeAddress,
 			"IsLocal":             true,
 			"Network":             "solana",
@@ -325,11 +326,16 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.NodeSet, curren
 		return nil, fmt.Errorf("unexpected length of solana chain configs, expected 1, got %d", len(typedConfig.Solana))
 	}
 
+	skip := true
+	typedConfig.Solana[0].Chain.SkipPreflight = &skip
+	t, _ := config.NewDuration(time.Second * 30)
+	typedConfig.Solana[0].Chain.TxRetentionTimeout = &t
+
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
 	if mErr != nil {
 		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 	}
-
+	fmt.Println("solcfg", string(stringifiedConfig))
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 

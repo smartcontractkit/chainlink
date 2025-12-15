@@ -44,10 +44,13 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	// 2. Deploy data-feeds cache
 	framework.L.Info().Msg("Deploy and configure data-feeds cache programs...")
 	deployAndConfigureCache(t, &s, *creEnvironment.CldfEnvironment, solChain)
+	testLogger := tenv.Logger
 	framework.L.Info().Msg("Successfully deployed and configured")
 	// 3. Compile and deploy workflow
 	var workflowConfig config.Config
-	testLogger := tenv.Logger
+	workflowConfig.Receiver = s.CacheProgramID
+	workflowConfig.ForwarderState = s.ForwarderState
+	workflowConfig.ForwarderProgramID = s.ForwarderProgramID
 
 	const workflowFileLocation = "./solana/solwrite/main.go"
 	//const workflowFileLocation = "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main.go"

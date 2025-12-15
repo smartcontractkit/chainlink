@@ -125,6 +125,11 @@
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
 
+[capability_configs.solana.config]
+  TxAcceptanceState = 3
+  TxRetentonTimeout = "120s"
+  SkipPreflight = true
+
 [capability_configs.mock]
   binary_path = "./binaries/mock"
 

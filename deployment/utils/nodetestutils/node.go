@@ -828,6 +828,8 @@ func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TO
 	txRetentionTimeout := config.MustNewDuration(10 * time.Minute)
 	chainConfig.ComputeUnitPriceDefault = &computeUnitPriceDefault
 	chainConfig.TxRetentionTimeout = txRetentionTimeout
+	skip := true
+	chainConfig.SkipPreflight = &skip
 
 	url, err := config.ParseURL(chain.URL)
 	if err != nil {
