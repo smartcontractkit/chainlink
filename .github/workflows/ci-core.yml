@@ -168,12 +168,13 @@ jobs:
       actions: read
     steps:
       - name: Check matrix results
-        uses: smartcontractkit/.github/actions/matrix-job-check@fix/matrix-job-check-github-token
-        # allow this to fail if 'allow-lint-issues' label is present on the PR
-        continue-on-error: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
+        uses: smartcontractkit/.github/actions/matrix-job-check@matrix-job-check/v1
         with:
           job-name-prefix: "GolangCI Lint"
+          # Allow for no jobs when no modules are affected
           assert-jobs-exist: ${{ needs.filter.outputs.affected-modules != '[]' }}
+          # Assert no failures unless "allow-lint-issues" label is present
+          assert-no-failures: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
 
       - name: Check Golangci-lint Matrix Results
         env:
@@ -245,7 +246,7 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            
+
     timeout-minutes: ${{ github.event_name == 'schedule' && 40 || 25 }} # 40 minute timeout for scheduled events (race tests)
     permissions:
       id-token: write
@@ -424,7 +425,7 @@ jobs:
       actions: read
     steps:
       - name: Check matrix results
-        uses: smartcontractkit/.github/actions/matrix-job-check@fix/matrix-job-check-github-token
+        uses: smartcontractkit/.github/actions/matrix-job-check@matrix-job-check/v1
         with:
           job-name-prefix: "Core Tests"
 
