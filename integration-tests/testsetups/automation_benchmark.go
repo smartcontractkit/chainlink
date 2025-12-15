@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -141,7 +142,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config testcon
 		for nodeIndex, node := range k.chainlinkNodes {
 			for registryIndex := 1; registryIndex < len(inputs.RegistryVersions); registryIndex++ {
 				k.log.Debug().Str("URL", node.URL()).Int("NodeIndex", nodeIndex).Int("RegistryIndex", registryIndex).Msg("Create Tx key")
-				_, _, err := node.CreateTxKey("evm", fmt.Sprint(k.Inputs.BlockchainClient.ChainID))
+				_, _, err := node.CreateTxKey("evm", strconv.FormatInt(k.Inputs.BlockchainClient.ChainID, 10))
 				require.NoError(k.t, err, "Creating transaction key shouldn't fail")
 			}
 		}
@@ -330,7 +331,7 @@ func (k *KeeperBenchmarkTest) Run() {
 					select {
 					case <-stopAllGoroutinesCh: // header listening failed, exit
 						return errors.New("header distribution channel closed")
-					case <-errCtx.Done(): //one of goroutines errored, shut down gracefully, no need to return error
+					case <-errCtx.Done(): // one of goroutines errored, shut down gracefully, no need to return error
 						k.log.Error().Err(errCtx.Err()).Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping observations due to error in one of the goroutines")
 						return nil
 					case header := <-contractChannels[chIndex]: // new block, check if upkeep was performed
@@ -393,7 +394,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			}
 
 			// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
-			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+			err = errors.New("initial error") // to ensure our for loop runs at least once
 			for err != nil {
 				ctx, cancel := context.WithTimeout(testcontext.Get(k.t), timeout)
 				logs, err = k.chainClient.Client.FilterLogs(ctx, filterQuery)
@@ -558,7 +559,8 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 						Str("Registry", k.keeperRegistries[rIndex].Address()).
 						Msg("Got removed log")
 				}
-				if eventDetails.Name == "UpkeepPerformed" {
+				switch eventDetails.Name {
+				case "UpkeepPerformed":
 					parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&vLog)
 					require.NoError(k.t, err, "Parsing upkeep performed log shouldn't fail")
 
@@ -577,7 +579,7 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 							Str("Registry", k.keeperRegistries[rIndex].Address()).
 							Msg("Got reverted Upkeep Performed log on Registry")
 					}
-				} else if eventDetails.Name == "StaleUpkeepReport" {
+				case "StaleUpkeepReport":
 					parsedLog, err := k.keeperRegistries[rIndex].ParseStaleUpkeepReportLog(&vLog)
 					require.NoError(k.t, err, "Parsing stale upkeep report log shouldn't fail")
 					k.log.Warn().
@@ -604,7 +606,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	k.chainClient = inputs.BlockchainClient
 	require.GreaterOrEqual(k.t, inputs.Upkeeps.NumberOfUpkeeps, 1, "Expecting at least 1 keeper contracts")
 	if inputs.Timeout == 0 {
-		require.Greater(k.t, inputs.Upkeeps.BlockRange, int64(0), "If no `timeout` is provided, a `testBlockRange` is required")
+		require.Positive(k.t, inputs.Upkeeps.BlockRange, "If no `timeout` is provided, a `testBlockRange` is required")
 	} else if inputs.Upkeeps.BlockRange <= 0 {
 		require.GreaterOrEqual(k.t, inputs.Timeout, time.Second, "If no `testBlockRange` is provided a `timeout` is required")
 	}
@@ -612,11 +614,11 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	require.NotNil(k.t, k.Inputs.ChainlinkNodeFunding, "You need to set a funding amount for chainlink nodes")
 	clFunds, _ := k.Inputs.ChainlinkNodeFunding.Float64()
 	require.GreaterOrEqual(k.t, clFunds, 0.0, "Expecting Chainlink node funding to be more than 0 ETH")
-	require.Greater(k.t, inputs.Upkeeps.CheckGasToBurn, int64(0), "You need to set an expected amount of gas to burn on checkUpkeep()")
+	require.Positive(k.t, inputs.Upkeeps.CheckGasToBurn, "You need to set an expected amount of gas to burn on checkUpkeep()")
 	require.GreaterOrEqual(
 		k.t, int64(inputs.KeeperRegistrySettings.CheckGasLimit), inputs.Upkeeps.CheckGasToBurn, "CheckGasLimit should be >= CheckGasToBurn",
 	)
-	require.Greater(k.t, inputs.Upkeeps.PerformGasToBurn, int64(0), "You need to set an expected amount of gas to burn on performUpkeep()")
+	require.Positive(k.t, inputs.Upkeeps.PerformGasToBurn, "You need to set an expected amount of gas to burn on performUpkeep()")
 	require.NotNil(k.t, inputs.UpkeepSLA, "Expected UpkeepSLA to be set")
 	require.NotNil(k.t, inputs.Upkeeps.FirstEligibleBuffer, "You need to set FirstEligibleBuffer")
 	require.NotNil(k.t, inputs.RegistryVersions[0], "You need to set RegistryVersion")

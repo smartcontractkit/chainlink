@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 func deployTimelockProgram(
@@ -35,8 +36,8 @@ func deployTimelockProgram(
 
 	if programID.IsZero() {
 		deployedProgramID, err := chain.DeployProgram(log, cldf_solana.ProgramInfo{
-			Name:  deployment.TimelockProgramName,
-			Bytes: deployment.SolanaProgramBytes[deployment.TimelockProgramName],
+			Name:  solutils.ProgTimelock,
+			Bytes: solutils.GetProgramBufferBytes(solutils.ProgTimelock),
 		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy timelock program: %w", err)

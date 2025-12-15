@@ -15,6 +15,6 @@ func TestPasswordConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	p := cfg.Password()
-	assert.Equal(t, "", p.VRF())
-	assert.Equal(t, "", p.Keystore())
+	assert.Empty(t, p.VRF())
+	assert.Empty(t, p.Keystore())
 }

@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -10,15 +11,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -46,7 +45,7 @@ func CreateOCRJobs(
 		}
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 		bootstrapSpec := &nodeclient.OCRBootstrapJobSpec{
-			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
+			Name:            "bootstrap-" + uuid.New().String(),
 			ContractAddress: ocrInstance.Address(),
 			EVMChainID:      evmChainID,
 			P2PPeerID:       bootstrapP2PId,
@@ -125,7 +124,7 @@ func CreateOCRJobsWithForwarder(
 		require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 		bootstrapSpec := &nodeclient.OCRBootstrapJobSpec{
-			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
+			Name:            "bootstrap-" + uuid.New().String(),
 			ContractAddress: ocrInstance.Address(),
 			EVMChainID:      strconv.FormatInt(evmChainID, 10),
 			P2PPeerID:       bootstrapP2PId,
@@ -183,7 +182,7 @@ func SetAdapterResponse(
 	if err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/%s", nodeContractPairID)
+	path := "/" + nodeContractPairID
 	err = mockserver.SetValuePath(path, response)
 	if err != nil {
 		return fmt.Errorf("setting mockserver value path failed: %w", err)
@@ -215,10 +214,10 @@ func SetAllAdapterResponsesToTheSameValue(
 // BuildNodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCR contract
 func BuildNodeContractPairID(node contracts.ChainlinkNodeWithKeysAndAddress, ocrInstance contracts.OffchainAggregator) (string, error) {
 	if node == nil {
-		return "", fmt.Errorf("chainlink node is nil")
+		return "", errors.New("chainlink node is nil")
 	}
 	if ocrInstance == nil {
-		return "", fmt.Errorf("OCR Instance is nil")
+		return "", errors.New("OCR Instance is nil")
 	}
 	nodeAddress, err := node.PrimaryEthAddress()
 	if err != nil {
@@ -259,7 +258,7 @@ func SetupOCRv1Feed(
 	if err != nil {
 		return nil, err
 	}
-	err = CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, msClient, fmt.Sprint(seth.ChainID))
+	err = CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, msClient, strconv.FormatInt(seth.ChainID, 10))
 	if err != nil {
 		return nil, err
 	}

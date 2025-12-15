@@ -51,6 +51,7 @@ var TokenPoolVersions = map[semver.Version]struct{}{
 	deployment.Version1_5_1:      {},
 	FastTransferTokenPoolVersion: {},
 	deployment.Version1_6_0:      {},
+	deployment.Version1_6_1:      {},
 	deployment.Version1_6_2:      {},
 }
 

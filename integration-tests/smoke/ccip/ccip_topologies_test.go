@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,15 +25,11 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource(t *tes
 
 func runCCIPTopologiesTest(t *testing.T, fChainSource, fChainDest int) {
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
-	chains := []chainsel.Chain{
-		chainsel.TEST_90000001,
-		chainsel.TEST_90000002,
-		chainsel.TEST_90000003,
-	}
-	sort.Slice(chains, func(i, j int) bool { return chains[i].Selector < chains[j].Selector })
-	homeChainSel := chains[0].Selector
-	sourceChainSel := chains[1].Selector
-	destChainSel := chains[2].Selector
+	homeChainSel := chainsel.TEST_90000001.Selector
+	sourceChainSel := chainsel.TEST_90000002.Selector
+	destChainSel := chainsel.TEST_90000003.Selector
+
+	selectors := []uint64{homeChainSel, sourceChainSel, destChainSel}
 
 	const (
 		fRoleDON = 2
@@ -44,7 +39,7 @@ func runCCIPTopologiesTest(t *testing.T, fChainSource, fChainDest int) {
 	// Setup 3 chains and a single lane.
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithNumOfChains(len(chains)),
+		testhelpers.WithEVMChainsBySelectors(selectors),
 		testhelpers.WithNumOfNodes(nRoleDON),
 		testhelpers.WithRoleDONTopology(cciptesthelpertypes.NewRandomTopology(
 			cciptesthelpertypes.RandomTopologyArgs{

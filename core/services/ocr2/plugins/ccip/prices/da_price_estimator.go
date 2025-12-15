@@ -49,7 +49,7 @@ func (g DAGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error) 
 	if err != nil {
 		return nil, err
 	}
-	var gasPrice *big.Int = execGasPrice
+	var gasPrice = execGasPrice
 	if gasPrice.BitLen() > int(g.priceEncodingLength) {
 		return nil, fmt.Errorf("native gas price exceeded max range %+v", gasPrice)
 	}

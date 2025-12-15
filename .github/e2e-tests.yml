@@ -35,10 +35,10 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     test_cmd: \
       gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "^TestOCRv1Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+      --junitfile=/tmp/junit.xml \
+      --jsonfile=/tmp/gotest.log \
+      --format=github-actions \
+      -- -v -run "^TestOCRv1Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak

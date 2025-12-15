@@ -27,7 +27,7 @@ func TestTestLogger(t *testing.T) {
 	log := logs[0]
 	assert.Equal(t, zap.WarnLevel, log.Level)
 	assert.Equal(t, testMessage, log.Message)
-	assert.Equal(t, "", log.LoggerName)
+	assert.Empty(t, log.LoggerName)
 	ver := log.ContextMap()["version"]
 	assert.Contains(t, ver, "@")
 
@@ -77,5 +77,5 @@ func TestTestLogger(t *testing.T) {
 	log = logs[0]
 	assert.Equal(t, zap.DPanicLevel, log.Level)
 	assert.Equal(t, critMsg, log.Message)
-	assert.Equal(t, "", log.LoggerName)
+	assert.Empty(t, log.LoggerName)
 }

@@ -59,11 +59,6 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 			return SetDONFamiliesOutput{}, err
 		}
 
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
-		if !ok {
-			return SetDONFamiliesOutput{}, cldf.ErrChainNotFound
-		}
-
 		// Fetch the DON to get the ID. We don't want callers using the ID, since the name is more user-friendly.
 		don, err := deps.CapabilitiesRegistry.GetDONByName(&bind.CallOpts{}, input.DonName)
 		if err != nil {
@@ -71,10 +66,30 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 			return SetDONFamiliesOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
 		}
 
-		var resultDon capabilities_registry_v2.CapabilitiesRegistryDONInfo
+		latestDON, err := deps.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, don.Id)
+		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+			return SetDONFamiliesOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
+		}
+
+		for _, familyToRemove := range input.RemoveFromFamilies {
+			// Remove family from latestDON.DonFamilies to return an optimistic result
+			index := -1
+			for i, family := range latestDON.DonFamilies {
+				if family == familyToRemove {
+					index = i
+					break
+				}
+			}
+			if index != -1 {
+				latestDON.DonFamilies = append(latestDON.DonFamilies[:index], latestDON.DonFamilies[index+1:]...)
+			}
+		}
+
+		latestDON.DonFamilies = append(latestDON.DonFamilies, input.AddToFamilies...)
 
 		// Execute the transaction using the strategy
-		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return deps.CapabilitiesRegistry.SetDONFamilies(opts, don.Id, input.AddToFamilies, input.RemoveFromFamilies)
 		})
 		if err != nil {
@@ -86,25 +101,10 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 			deps.Env.Logger.Infof("Created MCMS proposal for SetDONFamilies '%s' on chain %d", input.DonName, input.RegistryChainSel)
 		} else {
 			deps.Env.Logger.Infof("Successfully set DON families '%s' on chain %d", input.DonName, input.RegistryChainSel)
-
-			ctx := b.GetContext()
-			_, err = bind.WaitMined(ctx, chain.Client, tx)
-			if err != nil {
-				return SetDONFamiliesOutput{}, fmt.Errorf("failed to mine SetDONFamilies transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			latestDON, err := deps.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, don.Id)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return SetDONFamiliesOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
-			}
-
-			// Get the updated DON info
-			resultDon = latestDON
 		}
 
 		return SetDONFamiliesOutput{
-			DonInfo:   resultDon,
+			DonInfo:   latestDON,
 			Operation: operation,
 		}, nil
 	},

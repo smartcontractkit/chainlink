@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
@@ -31,7 +30,7 @@ type RegisterDonsInput struct {
 }
 
 type RegisterDonsOutput struct {
-	DONs      []capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	DONs      []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 	Operation *mcmstypes.BatchOperation
 }
 
@@ -56,8 +55,6 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 			return RegisterDonsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
 		}
 
-		var resultDONs []capabilities_registry_v2.CapabilitiesRegistryDONInfo
-
 		// Execute the transaction using the strategy
 		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return capReg.AddDONs(opts, input.DONs)
@@ -70,28 +67,11 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterDons on chain %d", input.ChainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully registered %d DONs on chain %d", len(resultDONs), input.ChainSelector)
-
-			// Get the CapabilitiesRegistryCaller contract
-			capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-				common.HexToAddress(input.Address),
-				chain.Client,
-			)
-			if err != nil {
-				return RegisterDonsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryCaller: %w", err)
-			}
-
-			// Fetch all DONs via generic pagination helper
-			donsInfo, err := pkg.GetDONs(nil, capReg)
-			if err != nil {
-				return RegisterDonsOutput{}, fmt.Errorf("failed to call GetDONs: %w", err)
-			}
-
-			resultDONs = donsInfo
+			deps.Env.Logger.Infof("Successfully registered %d DONs on chain %d", len(input.DONs), input.ChainSelector)
 		}
 
 		return RegisterDonsOutput{
-			DONs:      resultDONs,
+			DONs:      input.DONs,
 			Operation: operation,
 		}, nil
 	},

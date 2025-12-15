@@ -28,7 +28,7 @@ type NewDonConfigurationParams struct {
 }
 
 func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error) {
-	if !(don.NumNodes >= int(3*don.F+1)) {
+	if don.NumNodes < int(3*don.F+1) {
 		return DonConfiguration{}, errors.New("invalid configuration, number of nodes must be at least 3*F+1")
 	}
 

@@ -82,7 +82,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	secretValue := "Secret Value to be stored"
 	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	encryptedSecret, err := crevault.EncryptSecret(secretValue, vaultPublicKey)
+	encryptedSecret, err := crevault.EncryptSecret(secretValue, vaultPublicKey, sethClient.MustGetRootKeyAddress())
 	require.NoError(t, err, "failed to encrypt secret")
 
 	// Wait for the node to be up.
@@ -492,7 +492,7 @@ func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.R
 	require.NoError(t, err, "failed to allowlist request")
 
 	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
-	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated onchain, gateway and vault don nodes
+	time.Sleep(10 * time.Second) // wait a bit to ensure the allowlist is propagated onchain, gateway and vault don nodes
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {

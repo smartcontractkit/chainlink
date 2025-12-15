@@ -53,6 +53,7 @@ import (
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -101,7 +102,6 @@ import (
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
@@ -177,7 +177,7 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 	var err error
 
 	switch oc := oc.(type) {
-	case *memory.JobClient:
+	case *jdtestutils.JobClient:
 		err = oc.ReplayLogs(t.Context(), replayBlocks)
 	case *devenv.JobDistributor:
 		err = oc.ReplayLogs(replayBlocks)
@@ -218,14 +218,13 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 		return fmt.Errorf("failed to find event with name %s in onramp or offramp ABIs", eventName)
 	case chainsel.FamilySolana:
 		eventID = eventName
+	case chainsel.FamilyTon:
+		eventID = eventName
 	case chainsel.FamilyAptos:
 		// Aptos is not using LogPoller
 		return nil
 	case chainsel.FamilySui:
 		// Sui is not using LogPoller
-	case chainsel.FamilyTon:
-		// TODO: TON is not using LogPoller
-		return nil
 	default:
 		return fmt.Errorf("unsupported chain family; %v", family)
 	}
@@ -243,7 +242,7 @@ func isLogFilterRegistered(t *testing.T, oc cldf_offchain.Client, chainSel uint6
 	var registered bool
 	var err error
 	switch oc := oc.(type) {
-	case *memory.JobClient:
+	case *jdtestutils.JobClient:
 		registered, err = oc.IsLogFilterRegistered(t.Context(), chainSel, eventName, address)
 	default:
 		return false, fmt.Errorf("unsupported offchain client type %T", oc)
@@ -1916,7 +1915,6 @@ func MintAndAllow(
 	allowance := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 
 	for chain, mintTokenInfos := range tokenMap {
-
 		configurePoolGrp.Go(func() error {
 			for _, mintTokenInfo := range mintTokenInfos {
 				sender := mintTokenInfo.sender
@@ -2261,7 +2259,7 @@ func WaitForTheTokenBalance(
 		)
 
 		return actualBalance.Cmp(expected) == 0
-	}, tests.WaitTimeout(t), 100*time.Millisecond)
+	}, tests.WaitTimeout(t), 2000*time.Millisecond)
 }
 
 func WaitForTheTokenBalanceSol(
@@ -2320,117 +2318,60 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 	}
 }
 
-// GetSolanaPreloadedAddressBook returns an address book with the preloaded Solana addresses for
-// the given selector.
-//
-// This is used because Solana programs have already been predeployed, and we need to seed the
-// address book with the preloaded addresses.
-func GetSolanaPreloadedAddressBook(t *testing.T, selector uint64) *cldf.AddressBookMap {
-	t.Helper()
-
-	ab := cldf.NewMemoryAddressBook()
-
-	tv := cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0)
-	err := ab.Save(selector, memory.SolanaProgramIDs["ccip_router"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["test_ccip_receiver"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["fee_quoter"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["ccip_offramp"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["burnmint_token_pool"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["lockrelease_token_pool"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["cctp_token_pool"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["mcm"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["access_controller"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["timelock"], tv)
-	require.NoError(t, err)
-
-	tv = cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0)
-	err = ab.Save(selector, memory.SolanaProgramIDs["rmn_remote"], tv)
-	require.NoError(t, err)
-
-	return ab
-}
-
 // TODO: this should be linked to the solChain function
 func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) error {
 	tv := cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0)
-	err := e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_router"], tv)
+	err := e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPRouter), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["test_ccip_receiver"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTestCCIPReceiver), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["fee_quoter"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgFeeQuoter), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_offramp"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPOfframp), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["burnmint_token_pool"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgBurnMintTokenPool), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["lockrelease_token_pool"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgLockReleaseTokenPool), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["cctp_token_pool"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCTPTokenPool), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["mcm"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgMCM), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["access_controller"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgAccessController), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTimelock), tv)
 	if err != nil {
 		return err
 	}
 	tv = cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["rmn_remote"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgRMNRemote), tv)
 	if err != nil {
 		return err
 	}

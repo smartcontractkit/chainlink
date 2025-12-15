@@ -35,11 +35,10 @@ import (
 	writetarget "github.com/smartcontractkit/chainlink-solana/pkg/solana/write_target"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_sol "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
@@ -232,11 +231,16 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 	copy(wfname[:], []byte(s.WFName))
 
 	ds := datastore.NewMemoryDataStore()
-	populateContracts := map[string]datastore.ContractType{
-		deployment.DataFeedsCacheProgramName: df_sol.CacheContract,
-	}
-	err := memory.PopulateDatastore(ds.AddressRefStore, populateContracts, semver.MustParse("1.0.0"), ks_sol.DefaultForwarderQualifier, solChain.ChainSelector())
+
+	err := ds.AddressRefStore.Add(datastore.AddressRef{
+		Address:       solutils.GetProgramID(solutils.ProgDataFeedsCache),
+		ChainSelector: solChain.ChainSelector(),
+		Type:          df_sol.CacheContract,
+		Version:       semver.MustParse("1.0.0"),
+		Qualifier:     ks_sol.DefaultForwarderQualifier,
+	})
 	require.NoError(t, err, "failed to populate datastore")
+
 	env.DataStore = ds.Seal()
 
 	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheContract)

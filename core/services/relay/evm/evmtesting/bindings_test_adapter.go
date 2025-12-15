@@ -143,7 +143,7 @@ func (b bindingClientTester) GetContractReader(t *testing.T) commontypes.Contrac
 }
 
 func (b bindingClientTester) addDefaultBindings(t *testing.T) {
-	defaultBindings := b.ChainComponentsInterfaceTester.GetBindings(t)
+	defaultBindings := b.GetBindings(t)
 	for _, binding := range defaultBindings {
 		chainReaderTester := b.bindingsMapping.chainReaderTesters[binding.Address]
 		if chainReaderTester == nil {
@@ -159,7 +159,7 @@ func (b bindingClientTester) addDefaultBindings(t *testing.T) {
 }
 
 func (b bindingClientTester) GetChainWriter(t *testing.T) commontypes.ContractWriter {
-	chainWriter := b.ChainComponentsInterfaceTester.GetContractWriter(t)
+	chainWriter := b.GetContractWriter(t)
 	if b.bindingsMapping.chainWriterProxy.ContractWriter == nil {
 		b.addDefaultBindings(t)
 		for _, tester := range b.bindingsMapping.chainReaderTesters {

@@ -7,6 +7,7 @@ import (
 )
 
 type Telemetry interface {
+	AuthHeadersTTL() time.Duration
 	Enabled() bool
 	InsecureConnection() bool
 	CACertFile() string

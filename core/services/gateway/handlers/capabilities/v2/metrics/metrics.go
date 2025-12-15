@@ -15,12 +15,13 @@ import (
 
 // Attribute constants for consistent labeling
 const (
-	AttrNodeAddress = "node_address"
-	AttrNodeName    = "node_name"
-	AttrStatusCode  = "status_code"
-	AttrErrorCode   = "error_code"
-	AttrErrorString = "error_string"
-	AttrMethodName  = "method_name"
+	AttrNodeAddress   = "node_address"
+	AttrNodeName      = "node_name"
+	AttrStatusCode    = "status_code"
+	AttrErrorCode     = "error_code"
+	AttrErrorString   = "error_string"
+	AttrMethodName    = "method_name"
+	AttrHTTPErrorCode = "http_error_code"
 )
 
 // CommonMetrics contains shared metrics between action and trigger handlers
@@ -488,10 +489,12 @@ func (m *Metrics) IncrementTriggerRequestCount(ctx context.Context, lggr logger.
 }
 
 func (m *Metrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
-	errorString := api.FromJSONRPCErrorCode(errorCode).String()
+	errCode := api.FromJSONRPCErrorCode(errorCode)
+	httpErrorCode := api.ToHttpErrorCode(errCode)
 	m.trigger.requestErrors.Add(ctx, 1, metric.WithAttributes(
 		attribute.Int64(AttrErrorCode, errorCode),
-		attribute.String(AttrErrorString, errorString),
+		attribute.String(AttrErrorString, errCode.String()),
+		attribute.Int(AttrHTTPErrorCode, httpErrorCode),
 	))
 }
 

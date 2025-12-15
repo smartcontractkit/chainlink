@@ -82,6 +82,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 
 	remainingResponses := len(don.Members) - len(resps)
 	if maxShaToCount+remainingResponses < requiredQuorum {
+		l.Warnw("quorum unattainable for request", "requiredQuorum", requiredQuorum, "remainingResponses", remainingResponses, "maxShaToCount", maxShaToCount, "remainingResponses", remainingResponses, "allResponses", resps)
 		return nil, errors.New(errQuorumUnobtainable.Error() + ". RequiredQuorum=" + strconv.Itoa(requiredQuorum) + ". maxShaToCount=" + strconv.Itoa(maxShaToCount) + " remainingResponses=" + strconv.Itoa(remainingResponses))
 	}
 
@@ -132,7 +133,10 @@ func (a *baseAggregator) sha(resp *jsonrpc.Response[json.RawMessage]) (string, e
 
 func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []capabilities.Node, resp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if resp.Result == nil {
-		return nil, errors.New("response result is nil: cannot validate signatures")
+		if resp.Error != nil {
+			return nil, errors.New("response has an error, cannot validate signatures. Error: " + resp.Error.Error())
+		}
+		return nil, errors.New("response result and error both are is nil: cannot validate signatures")
 	}
 
 	if resp.Method == vaulttypes.MethodSecretsGet {

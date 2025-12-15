@@ -425,6 +425,10 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
 	}
 
+	if err2 := s.CCV.SetFrom(&f.CCV); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "CCV"))
+	}
+
 	_, err = commonconfig.MultiErrorList(err)
 
 	return err
@@ -458,7 +462,7 @@ func (e InvalidSecretsError) Unwrap() error {
 }
 
 func (e InvalidSecretsError) Is(err error) bool {
-	_, ok := err.(InvalidSecretsError) //nolint:errcheck // implementing errors.Is
+	_, ok := err.(InvalidSecretsError)
 	return ok
 }
 

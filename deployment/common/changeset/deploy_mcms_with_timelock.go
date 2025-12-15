@@ -267,9 +267,9 @@ func ValidateOwnership(ctx context.Context, mcms bool, deployerKey, timelock com
 		return fmt.Errorf("failed to get owner: %w", err)
 	}
 	if mcms && owner != timelock {
-		return fmt.Errorf("%s not owned by timelock", contract.Address())
+		return fmt.Errorf("%s not owned by timelock, Owner: %s", contract.Address(), owner.Hex())
 	} else if !mcms && owner != deployerKey {
-		return fmt.Errorf("%s not owned by deployer key", contract.Address())
+		return fmt.Errorf("%s not owned by deployer key, Owner: %s", contract.Address(), owner.Hex())
 	}
 	return nil
 }

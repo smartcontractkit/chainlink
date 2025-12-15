@@ -46,14 +46,14 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		chainsel.TEST_90000001, // dest
 	}
 	var chainIDs = []uint64{
-		chains[0].EvmChainID,
-		chains[1].EvmChainID,
+		chains[0].Selector,
+		chains[1].Selector,
 	}
 	// Setup 2 chains and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithChainIDs(chainIDs),
+		testhelpers.WithEVMChainsBySelectors(chainIDs),
 		testhelpers.WithCLNodeConfigOpts(nodetestutils.WithFinalityDepths(map[uint64]uint32{
 			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
 		})),

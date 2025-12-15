@@ -264,7 +264,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error)
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
-	var authority solana.PublicKey = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
+	var authority = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
 	var addresses map[string]cldf.TypeAndVersion
 	var err error
 	if d.mcmConfig != nil {
@@ -335,7 +335,7 @@ func (d *DeployerGroup) Enact() (cldf.ChangesetOutput, error) {
 	return d.enactDeployer()
 }
 
-func ValidateMCMS(env cldf.Environment, selector uint64, mcmConfig *proposalutils.TimelockConfig) error {
+func ValidateMCMSWithState(env cldf.Environment, selector uint64, mcmConfig *proposalutils.TimelockConfig, state stateview.CCIPOnChainState) error {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain selector family: %w", err)
@@ -343,10 +343,6 @@ func ValidateMCMS(env cldf.Environment, selector uint64, mcmConfig *proposalutil
 
 	switch family {
 	case chain_selectors.FamilyEVM:
-		state, err := stateview.LoadOnchainState(env)
-		if err != nil {
-			return fmt.Errorf("failed to load onchain state: %w", err)
-		}
 		mcmsState, ok := state.EVMMCMSStateByChain()[selector]
 		if !ok {
 			return fmt.Errorf("failed to get mcms state for chain %d", selector)
@@ -376,7 +372,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		batches := make([]mcmstypes.BatchOperation, 0, len(dc.transactions))
 		describedBatches := make([][]string, 0, len(dc.transactions))
 		for selector, txs := range dc.transactions {
-			err := ValidateMCMS(d.e, selector, d.mcmConfig)
+			err := ValidateMCMSWithState(d.e, selector, d.mcmConfig, d.state)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate mcms state: %w", err)
 			}
@@ -547,7 +543,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 	for _, chain := range e.BlockChains.EVMChains() {
 		mcmContract, err := mcmCfg.MCMBasedOnAction(onchainState.EVMMCMSStateByChain()[chain.Selector])
 		if err != nil {
-			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
+			return nil, fmt.Errorf("failed to get mcms for action %s (chain: %d): %w", mcmCfg.MCMSAction, chain.Selector, err)
 		}
 		addressPerChain[chain.Selector] = mcmContract.Address().Hex()
 	}
@@ -576,7 +572,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 		}
 		address, err := mcmCfg.MCMBasedOnActionSolana(*mcmState)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
+			return nil, fmt.Errorf("failed to get mcms for action %s (chain: %d): %w", mcmCfg.MCMSAction, selector, err)
 		}
 		addressPerChain[selector] = address
 	}
@@ -585,7 +581,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 }
 
 func addressForChain(e cldf.Environment, selector uint64) (map[string]cldf.TypeAndVersion, error) {
-	return e.ExistingAddresses.AddressesForChain(selector) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
+	return e.ExistingAddresses.AddressesForChain(selector)
 }
 
 func addressForChainFromDatastore(e cldf.Environment, selector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {

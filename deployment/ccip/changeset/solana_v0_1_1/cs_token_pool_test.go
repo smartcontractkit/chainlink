@@ -573,7 +573,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 			}
 		}
 
-		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools at the moment, so
+		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools, so
 		// we'll only create the multisig account and run the changeset if the pool type is BnM.
 		if !mcms && testCase.poolType == shared.BurnMintTokenPool {
 			tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(tokenAddress, testCase.poolAddress)
@@ -885,4 +885,26 @@ func getTokenPoolBaseChainConfig(t *testing.T, e cldf.Environment, solChain uint
 		require.Fail(t, "unsupported token pool type")
 	}
 	return base
+}
+
+func TestCreatingMultisig(t *testing.T) {
+	skipInCI(t)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
+	e, newTokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{deployerKey.String()}, "TEST_TOKEN")
+	require.NoError(t, err)
+	_, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CreateTokenMultisig),
+			ccipChangesetSolana.CreateTokenMultisigConfig{
+				ChainSelector:           solChain,
+				TokenMint:               newTokenAddress,
+				PoolType:                &shared.BurnMintTokenPool,
+				Metadata:                shared.CLLMetadata,
+				CustomerMintAuthorities: []solana.PublicKey{solana.MustPublicKeyFromBase58("9o9vS5dHHQLaZLv8gHuNu6k6J5HjisF9ravgRZigiDkb"), solana.MustPublicKeyFromBase58("HhYZJrX45ARhK5GtpXeULu6gf8ESGkYFfGr91bBTKkS1")},
+			},
+		),
+	})
+	require.NoError(t, err)
 }

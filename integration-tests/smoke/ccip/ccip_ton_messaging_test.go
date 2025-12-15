@@ -3,28 +3,33 @@ package ccip
 import (
 	"math/big"
 	"slices"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/xssnick/tonutils-go/tlb"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
+	tonconfig "github.com/smartcontractkit/chainlink-ton/deployment/config"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	// setup environment with 1 ton chain
+	once := &sync.Once{}
+	ctfConfig := tonconfig.LocalNetworkConfig(once)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithNumOfChains(2),
+		testhelpers.WithNumOfChains(2), // required 2 evm chains
 		testhelpers.WithTonChains(1),
+		testhelpers.WithTonContainerConfig(ctfConfig),
 	)
 
 	// load state
@@ -84,7 +89,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				Replayed:               true,
+				Replayed:               false,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Nonce:                  nil, // TON nonce check is skipped
@@ -101,9 +106,12 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 
 func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 	// setup environment with 1 ton chain
+	once := &sync.Once{}
+	ctfConfig := tonconfig.LocalNetworkConfig(once)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithTonChains(1),
+		testhelpers.WithTonContainerConfig(ctfConfig),
 	)
 
 	// load state
@@ -165,6 +173,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				Replayed:               false,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Nonce:                  nil, // TON nonce check is skipped

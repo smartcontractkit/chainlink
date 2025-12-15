@@ -301,7 +301,7 @@ func DeployLocalCluster(
 			}
 		}
 
-		require.Equal(t, len(selectedNetworks), len(privateEthereumNetworks), "failed to create undefined selected networks. Maybe some of them had the same chain ids?")
+		require.Len(t, privateEthereumNetworks, len(selectedNetworks), "failed to create undefined selected networks. Maybe some of them had the same chain ids?")
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
@@ -491,7 +491,7 @@ func DeployEnvironments(
 								"tag":        "v0.3.0",
 							},
 							"anvil": map[string]any{
-								"chainId":                   fmt.Sprintf("%d", network.ChainID),
+								"chainId":                   strconv.FormatInt(network.ChainID, 10),
 								"blockTime":                 anvilConfig.BlockTime,
 								"forkURL":                   anvilConfig.URL,
 								"forkBlockNumber":           anvilConfig.BlockNumber,
@@ -500,8 +500,8 @@ func DeployEnvironments(
 								"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
 								"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
 								"blocksToKeepInMemory":      anvilConfig.BlocksToKeepInMem,
-								"blockGasLimit":             fmt.Sprintf("%d", pointer.GetInt64(anvilConfig.BlockGaslimit)),
-								"baseFee":                   fmt.Sprintf("%d", pointer.GetInt64(anvilConfig.BaseFee)),
+								"blockGasLimit":             strconv.FormatInt(pointer.GetInt64(anvilConfig.BlockGaslimit), 10),
+								"baseFee":                   strconv.FormatInt(pointer.GetInt64(anvilConfig.BaseFee), 10),
 							},
 							"resources": GethResourceProfile,
 							"cache": map[string]any{
@@ -527,7 +527,7 @@ func DeployEnvironments(
 				Values: map[string]any{
 					"geth": map[string]any{
 						"genesis": map[string]any{
-							"networkId": fmt.Sprint(network.ChainID),
+							"networkId": strconv.FormatInt(network.ChainID, 10),
 						},
 						"tx": map[string]any{
 							"replicas":  strconv.Itoa(numOfTxNodes),

@@ -32,6 +32,8 @@ const (
 	CRESettings                    string = "cresettings"
 	CronJobType                    string = "cron"
 	CCIPJobType                    string = "ccip"
+	CCVCommitteeVerifierJobType    string = "ccvcommitteeverifier"
+	CCVExecutorJobType             string = "ccvexecutor"
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
 	GatewayJobType                 string = "gateway"

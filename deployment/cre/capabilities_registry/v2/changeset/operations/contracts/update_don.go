@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -30,8 +31,9 @@ type UpdateDONInput struct {
 	ChainSelector uint64
 
 	// P2PIDs are the peer ids that compose the don. Optional, only provided if the DON composition is changing.
-	P2PIDs            []p2pkey.PeerID
-	CapabilityConfigs []CapabilityConfig
+	P2PIDs                            []p2pkey.PeerID
+	CapabilityConfigs                 []CapabilityConfig
+	MergeCapabilityConfigsWithOnChain bool
 
 	// DonName to update, this is required
 	DonName string
@@ -63,7 +65,7 @@ func (r *UpdateDONInput) Validate() error {
 }
 
 type UpdateDONOutput struct {
-	DonInfo   capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	DonInfo   capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams
 	Operation *mcmstypes.BatchOperation
 }
 
@@ -93,10 +95,6 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 		}
 
 		registry := deps.CapabilitiesRegistry
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return UpdateDONOutput{}, cldf.ErrChainNotFound
-		}
 
 		// DonName is required
 		don, err := registry.GetDONByName(&bind.CallOpts{}, input.DonName)
@@ -113,7 +111,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("refusing to update workflow don %d at config version %d because we cannot validate that all forwarder contracts are ready to accept the new configure version", don.Id, don.ConfigCount)
 		}
 
-		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations)
+		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain)
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)
 		}
@@ -135,18 +133,18 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			name = input.NewDonName
 		}
 
-		var resultDon capabilities_registry_v2.CapabilitiesRegistryDONInfo
+		donUpdate := capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
+			Name:                     name,
+			Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
+			CapabilityConfigurations: cfgs,
+			IsPublic:                 isPublic,
+			F:                        f,
+			Config:                   don.Config,
+		}
 
 		// Execute the transaction using the strategy
-		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return registry.UpdateDONByName(opts, input.DonName, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
-				Name:                     name,
-				Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
-				CapabilityConfigurations: cfgs,
-				IsPublic:                 isPublic,
-				F:                        f,
-				Config:                   don.Config,
-			})
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return registry.UpdateDONByName(opts, input.DonName, donUpdate)
 		})
 		if err != nil {
 			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
@@ -157,44 +155,65 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			deps.Env.Logger.Infof("Created MCMS proposal for UpdateDON '%s' on chain %d", input.DonName, input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully updated DON '%s' on chain %d", input.DonName, input.ChainSelector)
-
-			ctx := b.GetContext()
-			if _, err = bind.WaitMined(ctx, chain.Client, tx); err != nil {
-				return UpdateDONOutput{}, fmt.Errorf("failed to mine UpdateDON transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			don, err := registry.GetDONByName(&bind.CallOpts{}, name)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return UpdateDONOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
-			}
-
-			// Get the updated DON info
-			resultDon = don
 		}
 
 		return UpdateDONOutput{
-			DonInfo:   resultDon,
+			DonInfo:   donUpdate,
 			Operation: operation,
 		}, nil
 	},
 )
 
-func computeConfigs(capCfgs []CapabilityConfig, existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
-	var out []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+func computeConfigs(
+	capCfgs []CapabilityConfig,
+	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
+	mergeCapabilities bool) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	capSet := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration)
 	for _, capCfg := range capCfgs {
-		cfg := capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
-		cfg.CapabilityId = capCfg.Capability.CapabilityID
-		var err error
-		x := pkg.CapabilityConfig(capCfg.Config)
-		cfg.Config, err = x.MarshalProto()
+		onChainCap, err := capabilityConfigToOnChain(capCfg)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
+			return nil, fmt.Errorf("failed to convert capability config to on-chain format: %w", err)
 		}
-		if cfg.Config == nil {
-			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
+
+		_, ok := capSet[onChainCap.CapabilityId]
+		if ok {
+			return nil, fmt.Errorf("duplicate capability configuration for id: %s", onChainCap.CapabilityId)
 		}
-		out = append(out, cfg)
+
+		capSet[onChainCap.CapabilityId] = *onChainCap
 	}
+
+	if mergeCapabilities {
+		for _, existingCapConfig := range existingCapConfigs {
+			_, ok := capSet[existingCapConfig.CapabilityId]
+			if !ok {
+				capSet[existingCapConfig.CapabilityId] = existingCapConfig
+			}
+		}
+	}
+	var out []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+	for _, capCfg := range capSet {
+		out = append(out, capCfg)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CapabilityId < out[j].CapabilityId
+	})
 	return out, nil
+}
+
+func capabilityConfigToOnChain(capCfg CapabilityConfig) (*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	cfg := capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
+	cfg.CapabilityId = capCfg.Capability.CapabilityID
+	var err error
+	x := pkg.CapabilityConfig(capCfg.Config)
+	cfg.Config, err = x.MarshalProto()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
+	}
+	if cfg.Config == nil {
+		return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
+	}
+
+	return &cfg, nil
 }

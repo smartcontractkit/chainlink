@@ -16,14 +16,14 @@ import (
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := stateview.LoadOnchainState(e.Env)
+	_, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChains := maps.Keys(e.Env.BlockChains.EVMChains())
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
 	// to the timelock contract
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets

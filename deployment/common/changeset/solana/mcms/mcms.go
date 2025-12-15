@@ -42,12 +42,12 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// access controller
 	err = deployAccessControllerProgram(e, chainState, chain, addressBook)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy access controller program: %w", err)
+	}
 	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 30*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("access controller program not ready: %w", err)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy access controller program: %w", err)
 	}
 	err = initAccessController(e, chainState, commontypes.ProposerAccessControllerAccount, chain, addressBook)
 	if err != nil {
@@ -68,12 +68,12 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// mcm
 	err = deployMCMProgram(e, chainState, chain, addressBook)
-	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 30*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("access controller program not ready: %w", err)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy mcm program: %w", err)
+	}
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.McmProgram, 30*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("mcm program not ready: %w", err)
 	}
 	err = initMCM(e, chainState, commontypes.BypasserManyChainMultisig, chain, addressBook, &config.Bypasser)
 	if err != nil {
@@ -90,12 +90,12 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// timelock
 	err = deployTimelockProgram(e, chainState, chain, addressBook)
-	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 30*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("access controller program not ready: %w", err)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy timelock program: %w", err)
+	}
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.TimelockProgram, 30*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("timelock program not ready: %w", err)
 	}
 	err = initTimelock(e, chainState, chain, addressBook, config.TimelockMinDelay)
 	if err != nil {

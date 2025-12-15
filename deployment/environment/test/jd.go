@@ -159,7 +159,7 @@ func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.Li
 	var out []*nodev1.ChainConfig
 	for _, w := range s.store.list() {
 		if ApplyNodeFilter(filter, w.toJDNode()) {
-			cc, err := w.Node.ChainConfigs()
+			cc, err := w.ChainConfigs()
 			if err != nil {
 				return nil, err
 			}
@@ -331,8 +331,8 @@ func newStore(node []deployment.Node) *store {
 	for _, v := range node {
 		w := newWrapper(v)
 		s.db2[v.NodeID] = w
-		s.p2pToID[p2pKey(w.Node.PeerID.String())] = v.NodeID
-		s.csaToID[w.Node.CSAKey] = v.NodeID
+		s.p2pToID[p2pKey(w.PeerID.String())] = v.NodeID
+		s.csaToID[w.CSAKey] = v.NodeID
 	}
 	return s
 }
@@ -380,9 +380,9 @@ func (s *store) list() []*wrappedNode {
 func (s *store) put(n *wrappedNode) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.db2[n.Node.NodeID] = n
-	s.csaToID[n.Node.CSAKey] = n.NodeID
-	s.p2pToID[p2pKey(n.Node.PeerID.String())] = n.NodeID
+	s.db2[n.NodeID] = n
+	s.csaToID[n.CSAKey] = n.NodeID
+	s.p2pToID[p2pKey(n.PeerID.String())] = n.NodeID
 }
 
 func (s *store) addProposedJob(req *jobv1.ProposeJobRequest) {

@@ -8,10 +8,13 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -1682,4 +1685,71 @@ PerSenderBurst = 100
 		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
 		assert.Contains(t, err.Error(), "command is required and must be a string")
 	})
+}
+
+func TestProposeJobSpec_VerifyPreconditions_CRESettings(t *testing.T) {
+	allDefault, err := toml.Marshal(map[string]any{
+		"global":   cresettings.Default,
+		"org":      map[string]any{"org_foo": cresettings.Default},
+		"owner":    map[string]any{"0xabcd": cresettings.Default},
+		"workflow": map[string]any{"asdf": cresettings.Default},
+	})
+	require.NoError(t, err)
+
+	unknownMsg := `unknown fields - if these are new fields, then chainlink-common must be updated`
+
+	for _, tt := range []struct {
+		name         string
+		settingsTOML string
+		expErrMsg    string
+	}{
+		{"defaults", string(allDefault), ""},
+		{"empty", "", ""},
+		{"valid-workflow", `
+[workflow.abcd.PerWorkflow]
+WASMMemoryLimit = "100kb"`, ""},
+
+		{"unknown-global", `[global]
+Bar = "baz"`, unknownMsg},
+		{"unknown-workflow", `
+[workflow.abcd.PerWorkflow]
+Bar = "baz"`, unknownMsg},
+		{"invalid-global", `[global]
+WorkflowExecutionConcurrencyLimit = "not an int"`, `WorkflowExecutionConcurrencyLimit: failed to parse not an int`},
+		{"invalid-workflow", `
+[workflow.abcd.PerWorkflow]
+WASMMemoryLimit = "100asdf"`, `invalid toml settings: toml: PerWorkflow.WASMMemoryLimit: failed to parse 100asdf: bad filesize expression: "100asdf"`},
+		{"valid-global", `[global]
+WorkflowExecutionConcurrencyLimit = 42`, "invalid inputs for CRE settings job spec: invalid global: WorkflowExecutionConcurrencyLimit is not a string: int64"},
+		{"int-field", `
+[workflow.abcd.PerWorkflow]
+WASMMemoryLimit = 100`, "invalid inputs for CRE settings job spec: invalid wf abcd: PerWorkflow.WASMMemoryLimit is not a string: int64"},
+		{"int-size", `
+[workflow.abcd.PerWorkflow]
+WASMMemoryLimit = 1_000`, "invalid inputs for CRE settings job spec: invalid wf abcd: PerWorkflow.WASMMemoryLimit is not a string: int64"},
+		{"invalid-int-field", `
+[workflow.abcd.PerWorkflow.ChainRead]
+CallLimit = 1_000`, "invalid inputs for CRE settings job spec: invalid wf abcd: PerWorkflow.ChainRead.CallLimit is not a string: int64"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var j jobs.ProposeJobSpec
+			err := j.VerifyPreconditions(cldf.Environment{}, jobs.ProposeJobSpecInput{
+				Environment: "test", Domain: "cre", JobName: "ocr3-consensus-job", DONName: test.DONName,
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: test.DONName},
+					{Key: "environment", Value: "test"},
+					{Key: "product", Value: offchain.ProductLabel},
+				},
+				Template: job_types.CRESettings,
+				Inputs: job_types.JobSpecInput{
+					"settings": tt.settingsTOML,
+				}},
+			)
+			if tt.expErrMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.expErrMsg)
+			}
+		})
+	}
 }

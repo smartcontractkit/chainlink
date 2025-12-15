@@ -49,7 +49,6 @@ func Test_AptosKeyStore_E2E(t *testing.T) {
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
 		requireEqualKeys(t, key, retrievedKey)
-
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {

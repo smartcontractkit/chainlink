@@ -54,7 +54,8 @@ func (d DonConfiguration) ForwarderConfig(chainFamily string, c offchain.Client)
 }
 
 type ConfigureSeqInput struct {
-	DON DonConfiguration // the DON to configuration for the forwarder to accept
+	DON       DonConfiguration // the DON to configuration for the forwarder to accept
+	Qualifier string           // used to differentiate Forwarder contracts deployed to the same chain.
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *contracts.MCMSConfig
@@ -96,20 +97,29 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 				continue
 			}
 
-			addressesRefs := deps.Env.DataStore.Addresses().Filter(
+			filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{
 				datastore.AddressRefByChainSelector(chain.Selector),
-				datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)),
-			)
+				datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder))}
+			if input.Qualifier != "" {
+				filters = append(filters, datastore.AddressRefByQualifier(input.Qualifier))
+			}
+
+			addressesRefs := deps.Env.DataStore.Addresses().Filter(filters...)
 			if len(addressesRefs) == 0 {
 				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chain.Selector)
+			}
+
+			if len(addressesRefs) > 1 {
+				deps.Env.Logger.Warnf(
+					"Found %d forwarder contracts for a chain. Config will be applied to all of them.", len(addressesRefs))
 			}
 
 			var mcmsContracts *changesetstate.MCMSWithTimelockState
 			if input.MCMSConfig != nil {
 				var mcmsErr error
-				mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, "")
+				mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, *input.MCMSConfig)
 				if mcmsErr != nil {
-					return ConfigureSeqOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+					return ConfigureSeqOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
 				}
 			}
 
@@ -263,6 +273,7 @@ func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.
 	return out, nil
 }
 
+// ConfigureForwarders is a changeset that configures Keystone Forwarder contracts for a given DON.
 type ConfigureForwarders struct{}
 
 var _ cldf.ChangeSetV2[ConfigureSeqInput] = ConfigureForwarders{}

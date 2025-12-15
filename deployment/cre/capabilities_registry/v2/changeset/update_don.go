@@ -55,7 +55,7 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.RegistryChainSel, emptyQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.RegistryChainSel, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}

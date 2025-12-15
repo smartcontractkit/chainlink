@@ -109,6 +109,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
 				AuthPublicKeyHex:               csaPubKeyHex,
 				AuthHeaders:                    beholderAuthHeaders,
+				AuthHeadersTTL:                 cfgTelemetry.AuthHeadersTTL(),
 				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
@@ -154,7 +155,6 @@ type Shell struct {
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
-	SetOtelCore                    func(zapcore.Core)      // reference to AtomicCore.Store
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -1042,9 +1042,10 @@ func confirmAction(c *cli.Context) bool {
 	var answer string
 	for {
 		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no) ")
-		if answer == "yes" {
+		switch answer {
+		case "yes":
 			return true
-		} else if answer == "no" {
+		case "no":
 			return false
 		}
 		fmt.Printf("%s is not valid. Please type yes or no\n", answer)

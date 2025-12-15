@@ -30,7 +30,12 @@ type RegisterNodesInput struct {
 	Address       string
 	ChainSelector uint64
 	Nodes         []NodesInput
-	MCMSConfig    *contracts.MCMSConfig
+
+	// AllNOPsInContract Optional: map of all NOP names to their IDs (or expected IDs) in the contract.
+	// Useful when using MCMS, since the NOPs won't be present in the contract yet, but we can assume their IDs based on the existing NOPs.
+	// If not provided, the operation will fail if it encounters a NOP that is not in the contract.
+	AllNOPsInContract map[string]int
+	MCMSConfig        *contracts.MCMSConfig
 }
 
 type NodesInput struct {
@@ -43,7 +48,7 @@ type NodesInput struct {
 }
 
 type RegisterNodesOutput struct {
-	Nodes     []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
+	Nodes     []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Operation *mcmstypes.BatchOperation
 }
 
@@ -60,7 +65,7 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 		if len(input.Nodes) == 0 {
 			// The contract allows to pass an empty array of nodes.
 			return RegisterNodesOutput{
-				Nodes: []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded{},
+				Nodes: []capabilities_registry_v2.CapabilitiesRegistryNodeParams{},
 			}, nil
 		}
 		if input.ChainSelector == 0 {
@@ -89,22 +94,25 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 		if len(dedupedNodes) == 0 {
 			deps.Env.Logger.Info("All nodes are already registered in the contract, nothing to do")
 			return RegisterNodesOutput{
-				Nodes: []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded{},
+				Nodes: []capabilities_registry_v2.CapabilitiesRegistryNodeParams{},
 			}, nil
 		}
 
-		contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
-		if err != nil {
-			return RegisterNodesOutput{}, fmt.Errorf("failed to fetch node operators from contract: %w", err)
-		}
+		allNOPsNamesInContract := input.AllNOPsInContract
+		if len(allNOPsNamesInContract) == 0 {
+			contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
+			if err != nil {
+				return RegisterNodesOutput{}, fmt.Errorf("failed to fetch node operators from contract: %w", err)
+			}
 
-		allNOPsNamesInContract := make(map[string]int)
-		for i, nop := range contractNOPs {
-			// NodeOperatorId is 1-based and returned in order from the contract.
-			// So the ID is the index + 1
-			// See the implementation of `AddNodeOperators` in the contract for reference:
-			// https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/v2/CapabilitiesRegistry.sol#L568
-			allNOPsNamesInContract[nop.Name] = i + 1
+			allNOPsNamesInContract = make(map[string]int)
+			for i, nop := range contractNOPs {
+				// NodeOperatorId is 1-based and returned in order from the contract.
+				// So the ID is the index + 1
+				// See the implementation of `AddNodeOperators` in the contract for reference:
+				// https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/v2/CapabilitiesRegistry.sol#L568
+				allNOPsNamesInContract[nop.Name] = i + 1
+			}
 		}
 
 		var nodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams
@@ -128,10 +136,8 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			return RegisterNodesOutput{}, fmt.Errorf("node validation failed: %w", err)
 		}
 
-		var resultNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
-
 		// Execute the transaction using the strategy
-		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return capReg.AddNodes(opts, nodes)
 		})
 		if err != nil {
@@ -142,40 +148,11 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterNodes on chain %d", input.ChainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully registered %d nodes on chain %d", len(resultNodes), input.ChainSelector)
-
-			ctx := b.GetContext()
-			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-			if err != nil {
-				return RegisterNodesOutput{}, fmt.Errorf("failed to mine AddNodes transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			// Get the CapabilitiesRegistryFilterer contract for parsing logs
-			capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
-				common.HexToAddress(input.Address),
-				chain.Client,
-			)
-			if err != nil {
-				return RegisterNodesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
-			}
-
-			// Parse the logs to get the added nodes
-			resultNodes = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeAdded, 0, len(receipt.Logs))
-			for i, log := range receipt.Logs {
-				if log == nil {
-					continue
-				}
-
-				o, err := capabilityRegistryFilterer.ParseNodeAdded(*log)
-				if err != nil {
-					return RegisterNodesOutput{}, fmt.Errorf("failed to parse log %d for node added: %w", i, err)
-				}
-				resultNodes = append(resultNodes, o)
-			}
+			deps.Env.Logger.Infof("Successfully registered %d nodes on chain %d", len(nodes), input.ChainSelector)
 		}
 
 		return RegisterNodesOutput{
-			Nodes:     resultNodes,
+			Nodes:     nodes,
 			Operation: operation,
 		}, nil
 	},

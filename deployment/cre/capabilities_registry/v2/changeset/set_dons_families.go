@@ -44,7 +44,7 @@ func (l SetDONsFamilies) Apply(e cldf.Environment, config SetDONsFamiliesInput) 
 	var mcmscrecontracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmscrecontracts, err = strategies.GetMCMSContracts(e, config.RegistrySelector, emptyQualifier)
+		mcmscrecontracts, err = strategies.GetMCMSContracts(e, config.RegistrySelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS crecontracts: %w", err)
 		}

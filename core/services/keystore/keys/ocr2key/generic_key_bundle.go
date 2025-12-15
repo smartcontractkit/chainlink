@@ -120,7 +120,7 @@ func (kb *keyBundle[K]) OnChainPublicKey() string {
 }
 
 func (kb *keyBundle[K]) Marshal() ([]byte, error) {
-	offchainKeyringBytes, err := kb.offchainKeyring.marshal()
+	offchainKeyringBytes, err := kb.marshal()
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 		return err
 	}
 
-	err = kb.offchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
+	err = kb.unmarshal(rawKeyData.OffchainKeyring)
 	if err != nil {
 		return err
 	}

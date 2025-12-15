@@ -11,6 +11,7 @@ import (
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -817,8 +818,19 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 				// if the config has not been set yet, we auto-fill any missing input fields with sensible defaults
 				env.Logger.Infof("current config = %+v", curConfig)
 				if !curConfig.TokenTransferConfig.IsEnabled {
+					// this config is dynamically adjusted (ethereum is very expensive)
+					minFeeUsdCentsVal := uint32(25)
+
+					// NOTE: we validate that src != dst so only one of these if statements will execute
+					if srcSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+						minFeeUsdCentsVal = 50
+					}
+					if dstSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+						minFeeUsdCentsVal = 150
+					}
+
 					// only use sensible defaults to fill in missing fields - do not overwrite anything that the user provided
-					minFeeUsdCents := pointer.Coalesce(feeConfig.MinFeeUsdcents, uint32(175_000))
+					minFeeUsdCents := pointer.Coalesce(feeConfig.MinFeeUsdcents, minFeeUsdCentsVal)
 					maxFeeUsdCents := pointer.Coalesce(feeConfig.MaxFeeUsdcents, math.MaxUint32)
 					destGasOverhead := pointer.Coalesce(feeConfig.DestGasOverhead, uint32(90_000))
 					destBytesOverhead := pointer.Coalesce(feeConfig.DestBytesOverhead, uint32(32))

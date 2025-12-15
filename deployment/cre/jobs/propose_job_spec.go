@@ -7,7 +7,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	job_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -62,6 +62,10 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
 	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract:
+	case job_types.CRESettings:
+		if err := verifyCRESettingsSpecInputs(config.Inputs); err != nil {
+			return fmt.Errorf("invalid inputs for CRE settings job spec: %w", err)
+		}
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -86,9 +90,9 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
-			operations2.ProposeStandardCapabilityJob,
-			operations2.ProposeStandardCapabilityJobDeps{Env: e},
-			operations2.ProposeStandardCapabilityJobInput{
+			job_ops.ProposeStandardCapabilityJob,
+			job_ops.ProposeStandardCapabilityJobDeps{Env: e},
+			job_ops.ProposeStandardCapabilityJobInput{
 				Job:         job,
 				Domain:      input.Domain,
 				DONName:     input.DONName,
@@ -116,9 +120,9 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteOperation(
 			e.OperationsBundle,
-			operations2.ProposeOCR3BootstrapJob,
-			operations2.ProposeOCR3BootstrapJobDeps{Env: e},
-			operations2.ProposeOCR3BootstrapJobInput{
+			job_ops.ProposeOCR3BootstrapJob,
+			job_ops.ProposeOCR3BootstrapJobDeps{Env: e},
+			job_ops.ProposeOCR3BootstrapJobInput{
 				Domain:           input.Domain,
 				DONName:          input.DONName,
 				ContractID:       contractAddrRef.Address,
@@ -159,9 +163,9 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
-			operations2.ProposeOCR3Job,
-			operations2.ProposeOCR3JobDeps{Env: e},
-			operations2.ProposeOCR3JobInput{
+			job_ops.ProposeOCR3Job,
+			job_ops.ProposeOCR3JobDeps{Env: e},
+			job_ops.ProposeOCR3JobInput{
 				Domain:                     input.Domain,
 				EnvName:                    input.Environment,
 				DONName:                    input.DONName,
@@ -185,7 +189,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		report = r.ToGenericReport()
 	case job_types.Gateway:
-		typedInputs := operations2.ProposeGatewayJobInput{
+		typedInputs := job_ops.ProposeGatewayJobInput{
 			Domain:     input.Domain,
 			DONFilters: input.DONFilters,
 			JobLabels:  input.ExtraLabels,
@@ -197,8 +201,8 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteOperation(
 			e.OperationsBundle,
-			operations2.ProposeGatewayJob,
-			operations2.ProposeGatewayJobDeps{Env: e},
+			job_ops.ProposeGatewayJob,
+			job_ops.ProposeGatewayJobDeps{Env: e},
 			typedInputs,
 		)
 		if rErr != nil {
@@ -230,6 +234,30 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 		)
 		if rErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 bootstrap job: %w", rErr)
+		}
+
+		report = r.ToGenericReport()
+	case job_types.CRESettings:
+		jobInput := job_ops.ProposeCRESettingsJobsInput{}
+		err := input.Inputs.UnmarshalTo(&jobInput)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to CRE settings job input: %w", err)
+		}
+
+		r, rErr := operations.ExecuteOperation(
+			e.OperationsBundle,
+			job_ops.ProposeCRESettingsJobs,
+			job_ops.ProposeCRESettingsJobsDeps{Env: e},
+			job_ops.ProposeCRESettingsJobsInput{
+				Domain:      input.Domain,
+				DONName:     input.DONName,
+				DONFilters:  input.DONFilters,
+				ExtraLabels: input.ExtraLabels,
+				Settings:    jobInput.Settings,
+			},
+		)
+		if rErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose CRE settings job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

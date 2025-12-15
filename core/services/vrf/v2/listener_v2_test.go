@@ -54,11 +54,12 @@ func txMetaSubIDs(t *testing.T, vrfVersion vrfcommon.Version, subID *big.Int) (*
 		txMetaSubID       *uint64
 		txMetaGlobalSubID *string
 	)
-	if vrfVersion == vrfcommon.V2Plus {
+	switch vrfVersion {
+	case vrfcommon.V2Plus:
 		txMetaGlobalSubID = ptr(subID.String())
-	} else if vrfVersion == vrfcommon.V2 {
+	case vrfcommon.V2:
 		txMetaSubID = ptr(subID.Uint64())
-	} else {
+	default:
 		t.Errorf("unsupported vrf version: %s", vrfVersion)
 	}
 	return txMetaSubID, txMetaGlobalSubID

@@ -37,11 +37,11 @@ import (
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
+	tonlptesting "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/store/postgres/testing"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/internal/evmtestutils"
-	"github.com/smartcontractkit/chainlink/deployment/internal/suitestutils"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -146,6 +146,10 @@ func NewNodes(
 		fundNodesSol(t, solChain, nodes)
 	}
 
+	for _, suiChain := range cfg.BlockChains.SuiChains() {
+		fundNodesSui(t, suiChain, nodes)
+	}
+
 	return nodesByPeerID
 }
 
@@ -205,6 +209,9 @@ func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventN
 		exists, err = orm.HasFilterByEventSig(ctx, chainID, common.HexToHash(eventName), address)
 	case chainsel.FamilySolana:
 		orm := sollptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
+	case chainsel.FamilyTon:
+		orm := tonlptesting.NewTestORM(n.App.GetDB())
 		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
 	default:
 		return false, fmt.Errorf("unsupported chain family; %v", family)
@@ -752,24 +759,17 @@ func CreateKeys(t *testing.T,
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		keybundle := keys[0]
-
 		keybundles[ctype] = keybundle
 
-		for sel, chain := range suichains {
-			keystore := app.GetKeyStore().Sui()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for sui")
+		err = app.GetKeyStore().Sui().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Sui")
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
-
-			transmitter := keys[0]
-			transmitters[sel] = transmitter.ID()
-			t.Logf("Created Sui Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
-
-			err = suitestutils.FundAccount(chain.FaucetURL, "0x"+transmitter.Account())
-			require.NoError(t, err)
+		suiKeys, err := app.GetKeyStore().Sui().GetAll()
+		require.NoError(t, err)
+		require.Len(t, suiKeys, 1)
+		transmitter := suiKeys[0]
+		for chainSelector := range suichains {
+			transmitters[chainSelector] = transmitter.ID()
 		}
 	}
 

@@ -195,10 +195,14 @@ jobs:
       - name: Install CTF binary
         shell: bash
         working-directory: core/scripts/cre/environment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CTF_TAG: "framework/v0.11.9"
         run: |
           echo "::startgroup::Install CTF binary"
           mkdir -p bin
-          curl -L https://github.com/smartcontractkit/chainlink-testing-framework/releases/download/framework%2Fv0.11.9/framework-v0.11.9-linux-amd64.tar.gz | tar -xz
+          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
           echo "::endgroup::"
@@ -219,13 +223,13 @@ jobs:
           if [[ "${TEST_NAME}" == *"Beholder_Suite" ]]; then
             echo "::group::Starting Observability Stack"
             echo "Test requires observability stack, starting..."
-            
+
             # Start observability stack
             ./bin/ctf obs up -f
-            
+
             echo "::endgroup::"
             echo "::group::Validating Observability Stack"
-            
+
             # Wait for Loki to be available
             echo "Waiting for Loki to be available at http://localhost:3030..."
             loki_ready=false
@@ -237,12 +241,12 @@ jobs:
               fi
               sleep 1
             done
-            
+
             if [[ "$loki_ready" == "false" ]]; then
               echo "❌ ERROR: Loki failed to become ready after 30 seconds"
               exit 1
             fi
-            
+
             # Validate OTel collector is running and accessible
             echo "Validating OTel collector on port 4317..."
             if docker ps --filter "name=otel-collector" --format "{{.Names}}" | grep -q "otel-collector"; then
@@ -280,7 +284,7 @@ jobs:
           aws-region: us-west-2
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
-          
+
       - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
         id: run-tests
         shell: bash
@@ -315,7 +319,6 @@ jobs:
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
-          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
 

@@ -53,9 +53,9 @@ func (i *AddCapabilitiesInput) Validate() error {
 }
 
 type AddCapabilitiesOutput struct {
-	DonInfo           capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	UpdatedNodes      []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
-	AddedCapabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
+	AddedCapabilities []contracts.RegisterableCapability
+	DonInfo           capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams
+	UpdatedNodes      []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Proposals         []mcmslib.TimelockProposal
 }
 
@@ -97,7 +97,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}
 
 		nodeUpdates := make(map[string]contracts.NodeConfig, len(p2pIDs))
-		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
+		capabilities := make([]contracts.RegisterableCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
 			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
 			if err != nil {
@@ -108,7 +108,11 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				ConfigurationContract: cfg.Capability.ConfigurationContract,
 				Metadata:              metadataBytes,
 			}
-			capabilities[i] = capability
+			capabilities[i] = contracts.RegisterableCapability{
+				Metadata:              cfg.Capability.Metadata,
+				CapabilityID:          cfg.Capability.CapabilityID,
+				ConfigurationContract: cfg.Capability.ConfigurationContract,
+			}
 			for _, p2pID := range p2pIDs {
 				p2pIDStr := p2pID.String()
 				nodeUpdate, exists := nodeUpdates[p2pIDStr]
@@ -180,14 +184,15 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				Strategy:             strategy,
 			},
 			contracts.UpdateDONInput{
-				ChainSelector:     chainSel,
-				P2PIDs:            p2pIDs,
-				CapabilityConfigs: input.CapabilityConfigs,
-				DonName:           input.DonName,
-				F:                 don.F,
-				IsPrivate:         !don.IsPublic,
-				Force:             input.Force,
-				MCMSConfig:        input.MCMSConfig,
+				ChainSelector:                     chainSel,
+				P2PIDs:                            p2pIDs,
+				CapabilityConfigs:                 input.CapabilityConfigs,
+				MergeCapabilityConfigsWithOnChain: true,
+				DonName:                           input.DonName,
+				F:                                 don.F,
+				IsPrivate:                         !don.IsPublic,
+				Force:                             input.Force,
+				MCMSConfig:                        input.MCMSConfig,
 			},
 		)
 		if err != nil {
@@ -197,14 +202,17 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		var proposals []mcmslib.TimelockProposal
 
 		if input.MCMSConfig != nil {
-			proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{
-				*regCapsReport.Output.Operation, *updateNodesReport.Output.Operation, *updateDonReport.Output.Operation,
-			})
-			if mcmsErr != nil {
-				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
-			}
+			ops := toOpsSlice(regCapsReport.Output.Operation, updateNodesReport.Output.Operation, updateDonReport.Output.Operation)
+			if len(ops) > 0 {
+				proposal, mcmsErr := strategy.BuildProposal(ops)
+				if mcmsErr != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+				}
 
-			proposals = append(proposals, *proposal)
+				proposals = append(proposals, *proposal)
+			} else {
+				deps.Env.Logger.Warnw("Add capability sequence has not produced any operations to execute")
+			}
 		}
 
 		return AddCapabilitiesOutput{
@@ -215,6 +223,17 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}, nil
 	},
 )
+
+func toOpsSlice(opPtrs ...*types.BatchOperation) []types.BatchOperation {
+	var result []types.BatchOperation
+	for _, opPtr := range opPtrs {
+		if opPtr != nil {
+			result = append(result, *opPtr)
+		}
+	}
+
+	return result
+}
 
 func GetDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRegistry) (
 	*capabilities_registry_v2.CapabilitiesRegistryDONInfo,

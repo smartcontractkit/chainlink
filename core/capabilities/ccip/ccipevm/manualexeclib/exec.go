@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
@@ -70,7 +71,7 @@ func GetMerkleProof(
 	lggr.Debugw("merkle roots match", "calculated", hexutil.Encode(root[:]), "committed", hexutil.Encode(merkleRoot.MerkleRoot[:]))
 
 	// get the index of the msgSeqNr in the messageHashes
-	var idx int = -1
+	var idx = -1
 	var j int
 	for i := merkleRoot.MinSeqNr; i <= merkleRoot.MaxSeqNr; i++ {
 		if i == msgSeqNr {

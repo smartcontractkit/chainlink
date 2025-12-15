@@ -46,7 +46,7 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	}); err != nil {
 		return nil, fmt.Errorf("failed to update settings: %w", err)
 	}
-	d.lggr.Info("Updated settings", "hash", j.CRESettingsSpec.Hash)
+	d.lggr.Infow("Updated settings", "hash", j.CRESettingsSpec.Hash)
 
 	return nil, nil // no active services
 }

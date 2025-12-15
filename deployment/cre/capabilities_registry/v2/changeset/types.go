@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -32,15 +31,11 @@ type CapabilitiesRegistryCapability struct {
 	Metadata              map[string]any `json:"metadata" yaml:"metadata"`
 }
 
-func (cap CapabilitiesRegistryCapability) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
-	metadataBytes, err := json.Marshal(cap.Metadata)
-	if err != nil {
-		return capabilities_registry_v2.CapabilitiesRegistryCapability{}, fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-	return capabilities_registry_v2.CapabilitiesRegistryCapability{
-		CapabilityId:          cap.CapabilityID,
+func (cap CapabilitiesRegistryCapability) ToWrapper() (contracts.RegisterableCapability, error) {
+	return contracts.RegisterableCapability{
+		CapabilityID:          cap.CapabilityID,
 		ConfigurationContract: cap.ConfigurationContract,
-		Metadata:              metadataBytes,
+		Metadata:              cap.Metadata,
 	}, nil
 }
 

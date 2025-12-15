@@ -122,7 +122,6 @@ var testsABIDecode = []struct {
 
 func TestETHABIDecodeTask(t *testing.T) {
 	for _, test := range testsABIDecode {
-
 		t.Run(test.name, func(t *testing.T) {
 			task := ETHABIDecodeTask{
 				BaseTask: NewBaseTask(0, "decode", nil, nil, 0),

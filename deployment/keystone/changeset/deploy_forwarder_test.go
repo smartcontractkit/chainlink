@@ -179,11 +179,20 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
-					MCMSConfig:       &crecontracts.MCMSConfig{MinDelay: 0},
+					MCMSConfig: &crecontracts.MCMSConfig{
+						MinDelay: 0,
+						TimelockQualifierPerChain: map[uint64]string{
+							te.RegistrySelector: "",
+						},
+					},
 				}
 
 				var chainToExclude uint64
 				chainToExclude, cfg.Chains = excludeChainsIfNeeded(testCase.ExcludeChain, te.Env)
+
+				for chainSel := range cfg.Chains {
+					cfg.MCMSConfig.TimelockQualifierPerChain[chainSel] = ""
+				}
 
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)

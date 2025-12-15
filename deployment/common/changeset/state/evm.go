@@ -145,29 +145,50 @@ func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelector
 
 func MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(env cldf.Environment, chainSelectors []uint64, qualifier string) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
+	ds := env.DataStore
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
-
-		addressesChain, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		state, err := GetMCMSWithTimelockState(ds.Addresses(), chain, qualifier)
 		if err != nil {
-			return nil, err
-		}
-
-		state, err := MaybeLoadMCMSWithTimelockChainState(chain, addressesChain)
-		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get MCMSWithTimelock state for chain %d, qualifier %s: %w", chainSelector, qualifier, err)
 		}
 		result[chainSelector] = state
 	}
 	return result, nil
 }
 
+// GetMCMSWithTimelockState loads the MCMSWithTimelockState for a specific chain and qualifier from the DataStore.
+func GetMCMSWithTimelockState(store datastore.AddressRefStore, chain cldf_evm.Chain, qualifier string) (*MCMSWithTimelockState, error) {
+	addressesChain, err := GetAddressTypeVersionByQualifier(store, chain.Selector, qualifier)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load addresses from DataStore for chain %d, qualifier %s: %w", chain.Selector, qualifier, err)
+	}
+
+	state, err := MaybeLoadMCMSWithTimelockChainState(chain, addressesChain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load MCMSWithTimelock state for chain %d: %w", chain.Selector, err)
+	}
+	return state, nil
+}
+
 // LoadAddressesFromDataStore loads addresses from DataStore with optional qualifier.
 // This is a public utility function that can be used by other packages to avoid duplication.
+//
+// Deprecated: Use GetTypeVersionByQualifier instead.
 func LoadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+	addressesChain, err := GetAddressTypeVersionByQualifier(ds.Addresses(), chainSelector, qualifier)
+	if err != nil {
+		return nil, err
+	}
+	return addressesChain, nil
+}
+
+// GetAddressTypeVersionByQualifier loads addresses from DataStore for a specific chain and qualifier.
+// returns a map of address to TypeAndVersion.
+func GetAddressTypeVersionByQualifier(store datastore.AddressRefStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
 	addressesChain := make(map[string]cldf.TypeAndVersion)
 
 	// Build filter list starting with chain selector
@@ -178,7 +199,7 @@ func LoadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qu
 		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
 	}
 
-	addresses := ds.Addresses().Filter(filters...)
+	addresses := store.Filter(filters...)
 	if len(addresses) == 0 {
 		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
 	}

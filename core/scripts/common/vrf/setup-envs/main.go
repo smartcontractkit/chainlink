@@ -180,9 +180,10 @@ func main() {
 
 		// assumption that we are dealing with VRF nodes
 		numKeysToCreate := numEthKeys
-		if key == model.BHSNodeName || key == model.BHSBackupNodeName {
+		switch key {
+		case model.BHSNodeName, model.BHSBackupNodeName:
 			numKeysToCreate = numBHSSendingKeys
-		} else if key == model.BHFNodeName {
+		case model.BHFNodeName:
 			numKeysToCreate = numBHFSendingKeys
 		}
 		ethKeys := createETHKeysIfNeeded(client, app, output, numKeysToCreate, &node.URL)

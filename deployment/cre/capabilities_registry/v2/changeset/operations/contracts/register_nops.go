@@ -32,8 +32,9 @@ type RegisterNopsInput struct {
 }
 
 type RegisterNopsOutput struct {
-	Nops      []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
-	Operation *mcmstypes.BatchOperation
+	AllContractExpectedNOPs map[string]int
+	Nops                    []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
+	Operation               *mcmstypes.BatchOperation
 }
 
 // RegisterNops is an operation that registers node operators in the V2 Capabilities Registry contract.
@@ -45,7 +46,7 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 		if len(input.Nops) == 0 {
 			// The contract allows to pass an empty array of NOPs.
 			return RegisterNopsOutput{
-				Nops: []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded{},
+				Nops: []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{},
 			}, nil
 		}
 
@@ -64,15 +65,13 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 			return RegisterNopsOutput{}, fmt.Errorf("failed to create NewCapabilitiesRegistry: %w", err)
 		}
 
-		dedupedNOPs, err := dedupNOPs(deps.Env.Logger, input.Nops, capReg)
+		dedupedNOPs, allExpectedNOPs, err := dedupNOPs(deps.Env.Logger, input.Nops, capReg)
 		if err != nil {
 			return RegisterNopsOutput{}, fmt.Errorf("failed to dedupe NOPs: %w", err)
 		}
 
-		var resultNops []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
-
 		// Execute the transaction using the strategy
-		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return capReg.AddNodeOperators(opts, dedupedNOPs)
 		})
 		if err != nil {
@@ -83,64 +82,43 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterNops on chain %d", input.ChainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully registered %d node operators on chain %d", len(resultNops), input.ChainSelector)
-
-			ctx := b.GetContext()
-			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-			if err != nil {
-				return RegisterNopsOutput{}, fmt.Errorf("failed to mine AddNodeOperators transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			// Get the CapabilitiesRegistryFilterer contract for parsing logs
-			capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
-				common.HexToAddress(input.Address),
-				chain.Client,
-			)
-			if err != nil {
-				return RegisterNopsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
-			}
-
-			// Parse the logs to get the added node operators
-			resultNops = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded, 0, len(receipt.Logs))
-			for i, log := range receipt.Logs {
-				if log == nil {
-					continue
-				}
-
-				o, err := capabilityRegistryFilterer.ParseNodeOperatorAdded(*log)
-				if err != nil {
-					return RegisterNopsOutput{}, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
-				}
-				resultNops = append(resultNops, o)
-			}
+			deps.Env.Logger.Infof("Successfully registered %d node operators on chain %d", len(dedupedNOPs), input.ChainSelector)
 		}
 
 		return RegisterNopsOutput{
-			Nops:      resultNops,
-			Operation: operation,
+			Nops:                    dedupedNOPs,
+			Operation:               operation,
+			AllContractExpectedNOPs: allExpectedNOPs,
 		}, nil
 	},
 )
 
-func dedupNOPs(lggr logger.Logger, inputNOPs []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, capReg *capabilities_registry_v2.CapabilitiesRegistry) ([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, error) {
+func dedupNOPs(lggr logger.Logger, inputNOPs []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, capReg *capabilities_registry_v2.CapabilitiesRegistry) ([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, map[string]int, error) {
 	contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch nodes from contract: %w", err)
+		return nil, nil, fmt.Errorf("failed to fetch nodes from contract: %w", err)
 	}
-	contractNOPsMap := make(map[string]struct{})
-	for _, nop := range contractNOPs {
-		contractNOPsMap[nop.Name] = struct{}{}
+	allNOPsNamesInContract := make(map[string]int)
+	for i, nop := range contractNOPs {
+		// NodeOperatorId is 1-based and returned in order from the contract.
+		// So the ID is the index + 1
+		// See the implementation of `AddNodeOperators` in the contract for reference:
+		// https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/v2/CapabilitiesRegistry.sol#L568
+		allNOPsNamesInContract[nop.Name] = i + 1
 	}
 
+	lastNOPID := len(contractNOPs)
 	var dedupedNOPs []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	for i, nop := range inputNOPs {
-		if _, exists := contractNOPsMap[nop.Name]; exists {
+		if _, exists := allNOPsNamesInContract[nop.Name]; exists {
 			lggr.Infof("NOP with name %s already registered in contract, skipping", nop.Name)
 			continue
 		}
 
+		lastNOPID++
+		allNOPsNamesInContract[nop.Name] = lastNOPID
 		dedupedNOPs = append(dedupedNOPs, inputNOPs[i])
 	}
 
-	return dedupedNOPs, nil
+	return dedupedNOPs, allNOPsNamesInContract, nil
 }

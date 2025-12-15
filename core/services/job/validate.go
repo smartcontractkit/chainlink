@@ -31,6 +31,8 @@ var (
 		Workflow:                {},
 		StandardCapabilities:    {},
 		CCIP:                    {},
+		CCVCommitteeVerifier:    {},
+		CCVExecutor:             {},
 	}
 )
 

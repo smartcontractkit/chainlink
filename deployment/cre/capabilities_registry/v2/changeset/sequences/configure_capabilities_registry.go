@@ -36,7 +36,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	ContractAddress string
 	Nops            []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	Nodes           []contracts.NodesInput
-	Capabilities    []capabilities_registry_v2.CapabilitiesRegistryCapability
+	Capabilities    []contracts.RegisterableCapability
 	DONs            []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 }
 
@@ -51,10 +51,10 @@ func (c ConfigureCapabilitiesRegistryInput) Validate() error {
 }
 
 type ConfigureCapabilitiesRegistryOutput struct {
-	Nops                  []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
-	Nodes                 []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
-	Capabilities          []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
-	DONs                  []capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	Capabilities          []contracts.RegisterableCapability
+	Nops                  []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
+	Nodes                 []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+	DONs                  []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
@@ -131,10 +131,11 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			Env:      deps.Env,
 			Strategy: strategy,
 		}, contracts.RegisterNodesInput{
-			ChainSelector: input.RegistryChainSel,
-			Address:       addr,
-			Nodes:         input.Nodes,
-			MCMSConfig:    input.MCMSConfig,
+			ChainSelector:     input.RegistryChainSel,
+			Address:           addr,
+			Nodes:             input.Nodes,
+			MCMSConfig:        input.MCMSConfig,
+			AllNOPsInContract: registerNopsReport.Output.AllContractExpectedNOPs,
 		})
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err

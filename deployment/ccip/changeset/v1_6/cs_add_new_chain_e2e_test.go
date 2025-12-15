@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -273,14 +274,14 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			chainIDs := []uint64{
-				chain_selectors.ETHEREUM_MAINNET.EvmChainID,
-				chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID,
-				chain_selectors.ETHEREUM_MAINNET_OPTIMISM_1.EvmChainID,
+			selectors := []uint64{
+				chain_selectors.ETHEREUM_MAINNET.Selector,
+				chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
+				chain_selectors.ETHEREUM_MAINNET_OPTIMISM_1.Selector,
 			}
 
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
-				testCfg.ChainIDs = chainIDs
+				testCfg.EVMChainsBySelectors = selectors
 			})
 			e := deployedEnvironment.Env
 			state, err := stateview.LoadOnchainState(e)
@@ -289,8 +290,8 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			// Identify and delete addresses from the new chain
 			var newChainSelector uint64
 			var linkAddress common.Address
-			remoteChainSelectors := make([]uint64, 0, len(chainIDs)-1)
-			addressesByChain := make(map[uint64]map[string]cldf.TypeAndVersion, len(chainIDs)-1)
+			remoteChainSelectors := make([]uint64, 0, len(selectors)-1)
+			addressesByChain := make(map[uint64]map[string]cldf.TypeAndVersion, len(selectors)-1)
 			ds := datastore.NewMemoryDataStore()
 			for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if selector != deployedEnvironment.HomeChainSel && newChainSelector == 0 {
@@ -608,13 +609,13 @@ func TestValidateTransmitterAddresses(t *testing.T) {
 		// Test the core validation logic from ValidateTransmitters method
 		// fChain := uint8(1)
 		// requiredTransmitters := 3*int(fChain) + 1
-		chainIDs := []uint64{
-			chain_selectors.ETHEREUM_TESTNET_SEPOLIA.EvmChainID,
-			chain_selectors.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.EvmChainID,
-			chain_selectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.EvmChainID,
+		selectors := []uint64{
+			chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+			chain_selectors.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector,
+			chain_selectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector,
 		}
 		deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
-			testCfg.ChainIDs = chainIDs
+			testCfg.EVMChainsBySelectors = selectors
 			testCfg.Nodes = 4
 		})
 		e := deployedEnvironment.Env

@@ -2971,7 +2971,6 @@ targets:
 			cfg.Lggr = lggr
 		})
 		require.NoError(t, err) // Empty address gets default value, no error expected
-
 	})
 	t.Run("includes step data when billing client errors", func(t *testing.T) {
 		t.Parallel()

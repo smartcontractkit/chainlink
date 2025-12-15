@@ -66,7 +66,7 @@ func NewBackgroundWorker(
 }
 
 func (w *BackgroundWorker) Start(context.Context) error {
-	return w.StateMachine.StartOnce("Token BackgroundWorker", func() error {
+	return w.StartOnce("Token BackgroundWorker", func() error {
 		for i := 0; i < w.numWorkers; i++ {
 			w.wg.Add(1)
 			w.run()
@@ -76,7 +76,7 @@ func (w *BackgroundWorker) Start(context.Context) error {
 }
 
 func (w *BackgroundWorker) Close() error {
-	return w.StateMachine.StopOnce("Token BackgroundWorker", func() error {
+	return w.StopOnce("Token BackgroundWorker", func() error {
 		close(w.stopChan)
 		w.wg.Wait()
 		return nil

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -370,7 +371,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 }
 
 func TestCapability_CRUD(t *testing.T) {
-	owner := "test-owner"
+	owner := "0x0001020304050607080900010203040506070809"
 	requestID := owner + "::" + "test-request-id"
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -382,7 +383,10 @@ func TestCapability_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	lpk.Set(pk)
 	rawSecret := "raw secret string"
-	cipher, err := tdh2easy.Encrypt(pk, []byte(rawSecret))
+	ownerAddr := common.HexToAddress(owner) // canonical 20-byte address
+	var label [32]byte
+	copy(label[12:], ownerAddr.Bytes()) // left-pad with 12 zero bytes
+	cipher, err := tdh2easy.EncryptWithLabel(pk, []byte(rawSecret), label)
 	require.NoError(t, err)
 	cipherBytes, err := cipher.Marshal()
 	require.NoError(t, err)
@@ -480,7 +484,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "CreateSecrets_Invalid_Owner",
 			response: nil,
-			error:    "secret ID owner: a does not match authorized owner: test-owner at index 0",
+			error:    "Encrypted Secret at index [0] doesn't have owner as the label.",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -682,7 +686,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID owner: random does not match authorized owner: test-owner at index 0",
+			error: "Encrypted Secret at index [0] doesn't have owner as the label.",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -737,7 +741,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "Foo",
 								Namespace: "Bar",
-								Owner:     "Owner",
+								Owner:     owner,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -745,7 +749,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "Foo",
 								Namespace: "Bar",
-								Owner:     "Owner",
+								Owner:     owner,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -911,7 +915,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "DeleteSecrets_Invalid_Owner",
 			response: nil,
-			error:    "secret ID owner: random does not match authorized owner: test-owner at index 0",
+			error:    "secret ID owner: random does not match authorized owner:",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,

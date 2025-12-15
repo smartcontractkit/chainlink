@@ -1,8 +1,24 @@
 # Changelog Chainlink Core
 
-## 2.31.0
+## 2.31.0 - 2025-12-11
 
 ### Minor Changes
+
+- [#19627](https://github.com/smartcontractkit/chainlink/pull/19627) [`8ae0dde`](https://github.com/smartcontractkit/chainlink/commit/8ae0dde7f6225a8e212750519d6120a62dd6bfda) - #internal system-tests improvement
+
+- [#19921](https://github.com/smartcontractkit/chainlink/pull/19921) [`f25ce92`](https://github.com/smartcontractkit/chainlink/commit/f25ce92ba677ab11c8ee03a806bb1d4a7d9a59e6) - #added confidential-http to proposable job specs in chainlink/deployment
+
+- [#20510](https://github.com/smartcontractkit/chainlink/pull/20510) [`fb101b5`](https://github.com/smartcontractkit/chainlink/commit/fb101b5fa61204b3323276de30a24e048a6a17a8) - #added functionality to set deployer fee token on tempo
+
+- [#19874](https://github.com/smartcontractkit/chainlink/pull/19874) [`643b2c7`](https://github.com/smartcontractkit/chainlink/commit/643b2c7d0ce24c6e9420f3dee0fd4239cd4c37f9) - #internal LLO Observation loop
+
+- [#19915](https://github.com/smartcontractkit/chainlink/pull/19915) [`96c9324`](https://github.com/smartcontractkit/chainlink/commit/96c9324234071a40ad6b6d48a6e42638863b8bd2) - #updated operator ui version
+
+- [#19862](https://github.com/smartcontractkit/chainlink/pull/19862) [`7109dea`](https://github.com/smartcontractkit/chainlink/commit/7109dea854155c6b2fb78140ebef5febf2698f35) - #fixed #bug update DKGRecipient keystore error to work correctly in shell_cmd.go for imports.
+
+- [#20040](https://github.com/smartcontractkit/chainlink/pull/20040) [`6a700a7`](https://github.com/smartcontractkit/chainlink/commit/6a700a7337de6a93d143a798e112a81a6cc183b7) - #added Mix and Max pipeline tasks.
+
+- [#20495](https://github.com/smartcontractkit/chainlink/pull/20495) [`c05c3a4`](https://github.com/smartcontractkit/chainlink/commit/c05c3a495d0830776274f7f73eaf0ba6a5ec985e) - Updated dependency to include TXMv2 changes #internal
 
 - [#19459](https://github.com/smartcontractkit/chainlink/pull/19459) [`f1ac655`](https://github.com/smartcontractkit/chainlink/commit/f1ac65512fc1896342440d929f06fb3237480bcb) - #added capability API controller
 
@@ -38,6 +54,84 @@
 
 ### Patch Changes
 
+- [#20312](https://github.com/smartcontractkit/chainlink/pull/20312) [`fa16e52`](https://github.com/smartcontractkit/chainlink/commit/fa16e5288c0c60fcf3a1dc33ab54a3b79194991c) - #added add an e2e test for managed token pool for Sui
+
+- [#20255](https://github.com/smartcontractkit/chainlink/pull/20255) [`7bccfa3`](https://github.com/smartcontractkit/chainlink/commit/7bccfa391d901cef807efc38957bdbf18de2002e) - Improved Solana LogPoller retry mechanism. #internal
+
+- [#19987](https://github.com/smartcontractkit/chainlink/pull/19987) [`5b2db31`](https://github.com/smartcontractkit/chainlink/commit/5b2db31f28ff6bd003582ada8dcbe5a0c253ba7a) - #updated chain-selectors to v1.0.75
+
+- [#19845](https://github.com/smartcontractkit/chainlink/pull/19845) [`9e56563`](https://github.com/smartcontractkit/chainlink/commit/9e56563c3b1eef632a2baf8351e00827943421d3) - #internal changed vault request digest to use jsonrpc2 Digest method
+
+- [#20243](https://github.com/smartcontractkit/chainlink/pull/20243) [`fd628ed`](https://github.com/smartcontractkit/chainlink/commit/fd628ed29848a79023566abeeba6b17535c106d0) - #bugfix check http method
+
+- [#20449](https://github.com/smartcontractkit/chainlink/pull/20449) [`f0ad0a4`](https://github.com/smartcontractkit/chainlink/commit/f0ad0a4c1d67efa45af98be6e052bac23a845718) - #updated chain selector to version v1.0.85
+
+- [#19870](https://github.com/smartcontractkit/chainlink/pull/19870) [`ac90258`](https://github.com/smartcontractkit/chainlink/commit/ac9025829be36b698759a5672e62048899db51f0) - #updated Add ChIP ingress adapter for OTI telemetry
+
+- [#20175](https://github.com/smartcontractkit/chainlink/pull/20175) [`42887e9`](https://github.com/smartcontractkit/chainlink/commit/42887e9020da7233cb5625defc06bf3816e470c8) - #added Add beholder logs streaming config params to control batching
+
+- [#20001](https://github.com/smartcontractkit/chainlink/pull/20001) [`8f5976d`](https://github.com/smartcontractkit/chainlink/commit/8f5976d12e2078c084efc8cf9ee3709a62438604) - #bugfix block number in fake evm cap
+
+- [#19989](https://github.com/smartcontractkit/chainlink/pull/19989) [`29be5e1`](https://github.com/smartcontractkit/chainlink/commit/29be5e1a8f546c06c2eae1da5a9a00953443de3c) - #internal exposes proposed jobs as nop view
+
+- [#19784](https://github.com/smartcontractkit/chainlink/pull/19784) [`95094d3`](https://github.com/smartcontractkit/chainlink/commit/95094d30743487ceb5aaffd0eb6bbd7cf05b0c34) - #internal Use new getActiveAllowlistedRequestsReverse WR method
+
+- [#20148](https://github.com/smartcontractkit/chainlink/pull/20148) [`c630e4f`](https://github.com/smartcontractkit/chainlink/commit/c630e4f384992121b36373f2d5538d9b243a3388) - #internal adds human readable name to gateway spec
+
+- [#20333](https://github.com/smartcontractkit/chainlink/pull/20333) [`ca2519f`](https://github.com/smartcontractkit/chainlink/commit/ca2519fd21a4e6a4db341b14f555d6c76ce9c1c6) - #added more managed token pool e2e tests
+
+- [#20313](https://github.com/smartcontractkit/chainlink/pull/20313) [`be12274`](https://github.com/smartcontractkit/chainlink/commit/be12274ee5dbf9ac022416f9125ca9161e4784e3) - #Update chain selector to version v1.0.82
+
+- [#20282](https://github.com/smartcontractkit/chainlink/pull/20282) [`abe18d1`](https://github.com/smartcontractkit/chainlink/commit/abe18d17385826ee8981794fc13e090c102fd2ca) - chore: changeset
+
+- [#19945](https://github.com/smartcontractkit/chainlink/pull/19945) [`d9afd43`](https://github.com/smartcontractkit/chainlink/commit/d9afd43923d8e0b6af028db6a49bb114674741af) - #updated chainlink-tron relayer
+
+- [#20077](https://github.com/smartcontractkit/chainlink/pull/20077) [`8c7baf6`](https://github.com/smartcontractkit/chainlink/commit/8c7baf69e9b9472be01e0dd7364821edde3b6092) - #bugfix #internal fixes log to use Warnw to properly display count
+
+- [#19878](https://github.com/smartcontractkit/chainlink/pull/19878) [`7260ad6`](https://github.com/smartcontractkit/chainlink/commit/7260ad6c9dde0c0658f4e2f5e3a1bd84c977a450) - #updated chainlink-tron
+
+- [#19775](https://github.com/smartcontractkit/chainlink/pull/19775) [`281c2c6`](https://github.com/smartcontractkit/chainlink/commit/281c2c6a21760b167e64d0d4f77ece07839ebb2a) - #updated: add Telemetry LogLevel config option
+
+- [#20386](https://github.com/smartcontractkit/chainlink/pull/20386) [`61cf835`](https://github.com/smartcontractkit/chainlink/commit/61cf835f7a8b94862c65ac394a2c7115248f6a3f) - #changed Forward a job's gasLimit (in RelayConfig) to the transmitter.
+
+- [#20059](https://github.com/smartcontractkit/chainlink/pull/20059) [`1bcbaa4`](https://github.com/smartcontractkit/chainlink/commit/1bcbaa4a604a05a44ecdde00d8bcdad6154cc5b5) - #internal #bug_fix updates local node state on fetch of capability registry
+
+- [#19947](https://github.com/smartcontractkit/chainlink/pull/19947) [`c078f4c`](https://github.com/smartcontractkit/chainlink/commit/c078f4c906fca12366755facd131b839cc6f5be7) - #added Bump chainlink-common to include beholder grpc metrics
+
+- [#20156](https://github.com/smartcontractkit/chainlink/pull/20156) [`901a0fe`](https://github.com/smartcontractkit/chainlink/commit/901a0fe41c1396947b1608a11d6e1bf3dc6ec0a3) - #internal bump chainlink-sui repo version and update e2e tests
+
+- [#20293](https://github.com/smartcontractkit/chainlink/pull/20293) [`3ae0fe6`](https://github.com/smartcontractkit/chainlink/commit/3ae0fe6e797d528e240ef7ee7889025b1b1082f0) - #update chain-selectors version to v1.0.81
+
+- [#20259](https://github.com/smartcontractkit/chainlink/pull/20259) [`a8ed3ef`](https://github.com/smartcontractkit/chainlink/commit/a8ed3efbddbee17ebf726d3d5ed2c727ee155e52) - #bugfix logs a debug line of local node state in engine only if there is a config change
+
+- [#20079](https://github.com/smartcontractkit/chainlink/pull/20079) [`1d26bf1`](https://github.com/smartcontractkit/chainlink/commit/1d26bf13dfe5f17e208691fab0d17131afe0c4fe) - #internal add metric for workflow execution start
+
+- [#19983](https://github.com/smartcontractkit/chainlink/pull/19983) [`574cad9`](https://github.com/smartcontractkit/chainlink/commit/574cad99d99adf77f1da6301737404d4eaa77123) - #updated bump common
+
+- [#20019](https://github.com/smartcontractkit/chainlink/pull/20019) [`15f50a9`](https://github.com/smartcontractkit/chainlink/commit/15f50a93b7392a4b551d778b98ca7f5e6eafad6f) - #bugfix Fixing atomic core swapper after logger init
+
+- [#20520](https://github.com/smartcontractkit/chainlink/pull/20520) [`cc39f24`](https://github.com/smartcontractkit/chainlink/commit/cc39f241e2f9907fd4f327af6a8bd9af2bbf5785) - #bugfix LLO metric `llo_transmitter_grpc_transmit_duration_ms` now observes Transmit latency on successful Transmit calls. Before it was only Observing on failed Transmits.
+
+- [#19089](https://github.com/smartcontractkit/chainlink/pull/19089) [`5798b30`](https://github.com/smartcontractkit/chainlink/commit/5798b302fa7600554b69ba983e33e87019344969) - #added Wire up OTel logs streaming, integrate chainlink logger with otel
+
+- [#20112](https://github.com/smartcontractkit/chainlink/pull/20112) [`418f9c8`](https://github.com/smartcontractkit/chainlink/commit/418f9c8fcee9306f0a31d75a764a25b4c1e64341) - #bugfix fix block number nil issue in fake evm
+
+- [#19829](https://github.com/smartcontractkit/chainlink/pull/19829) [`dbdfe20`](https://github.com/smartcontractkit/chainlink/commit/dbdfe2043c5fcfb7c58593579421419b1ad5afa0) - #internal remove the use of panic
+
+- [#19846](https://github.com/smartcontractkit/chainlink/pull/19846) [`e5911fa`](https://github.com/smartcontractkit/chainlink/commit/e5911fa92623cdeccfe7248ba094883cf6b649ea) - #updated chain selectors
+
+- [#20041](https://github.com/smartcontractkit/chainlink/pull/20041) [`86a0769`](https://github.com/smartcontractkit/chainlink/commit/86a0769a28c52faf101bb2e4f25252c32f423be6) - #bugfix bump chainlink-aptos to include Gas Limit Overhead handling (https://github.com/smartcontractkit/chainlink-aptos/pull/315)
+
+- [#20131](https://github.com/smartcontractkit/chainlink/pull/20131) [`d3acb42`](https://github.com/smartcontractkit/chainlink/commit/d3acb421941cafa7213e541a4320f99cff1e566d) - #added Create test for Beholder logs streaming in CRE
+
+- [#20474](https://github.com/smartcontractkit/chainlink/pull/20474) [`438a457`](https://github.com/smartcontractkit/chainlink/commit/438a457aaefdfe0e2cc036dbe60d4b33e72a3ac8) - #added update ctf cldf and chainlink-sui deps
+
+- [#20063](https://github.com/smartcontractkit/chainlink/pull/20063) [`95d0730`](https://github.com/smartcontractkit/chainlink/commit/95d073091c72bb363dac1ef4f961aafaf301df59) - #updated Wire up CHIP ingress client in telemetry manager
+
+- [#19848](https://github.com/smartcontractkit/chainlink/pull/19848) [`e5c8d59`](https://github.com/smartcontractkit/chainlink/commit/e5c8d59919f60c355ec3c6943d8b39bef50b4498) - #added Sui keystore and relayer plugin basic integration
+
+- [#20407](https://github.com/smartcontractkit/chainlink/pull/20407) [`d51865a`](https://github.com/smartcontractkit/chainlink/commit/d51865a07142730111b77781886640050d4aa0bb) - #updated chain selector to version v1.0.84
+
 - [#19404](https://github.com/smartcontractkit/chainlink/pull/19404) [`84d34a5`](https://github.com/smartcontractkit/chainlink/commit/84d34a5f80f04fe029accbc3aa1317825f3bd91c) - #changed Support dynamic config updates in TriggerSubscriber
 
 - [#19320](https://github.com/smartcontractkit/chainlink/pull/19320) [`6f9d964`](https://github.com/smartcontractkit/chainlink/commit/6f9d964775c9cfbbcc060393fd611f6590073229) - #updated llo plugin data source and telemetry performance improvements
@@ -52,7 +146,14 @@
 
 - [#19667](https://github.com/smartcontractkit/chainlink/pull/19667) [`535a014`](https://github.com/smartcontractkit/chainlink/commit/535a014bef3a6a007ecf7fe8c2d9f21907e4d127) - #added Add Workflow Registry Chain Selector to CRE v2 registry events.
 
-## 2.30.0
+
+## 2.30.1 - 2025-11-18
+
+### Patch Changes
+
+- Metadata-only hotfix release to restore GitHub Release publishing capability after v2.30.0 Release object became immutable.
+
+## 2.30.0 - 2025-11-17
 
 ### Minor Changes
 

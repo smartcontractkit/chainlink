@@ -43,6 +43,8 @@ const (
 	CRESettings             Type = (Type)(pipeline.CRESettings)
 	Cron                    Type = (Type)(pipeline.CronJobType)
 	CCIP                    Type = (Type)(pipeline.CCIPJobType)
+	CCVCommitteeVerifier    Type = (Type)(pipeline.CCVCommitteeVerifierJobType)
+	CCVExecutor             Type = (Type)(pipeline.CCVExecutorJobType)
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
 	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
 	Gateway                 Type = (Type)(pipeline.GatewayJobType)
@@ -85,6 +87,8 @@ var (
 		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
+		CCVCommitteeVerifier:    false,
+		CCVExecutor:             false,
 		DirectRequest:           true,
 		FluxMonitor:             true,
 		Gateway:                 false,
@@ -106,6 +110,8 @@ var (
 		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
+		CCVCommitteeVerifier:    false,
+		CCVExecutor:             false,
 		DirectRequest:           true,
 		FluxMonitor:             false,
 		Gateway:                 false,
@@ -127,6 +133,8 @@ var (
 		CRESettings:             1,
 		Cron:                    1,
 		CCIP:                    1,
+		CCVCommitteeVerifier:    1,
+		CCVExecutor:             1,
 		DirectRequest:           1,
 		FluxMonitor:             1,
 		Gateway:                 1,
@@ -188,6 +196,10 @@ type Job struct {
 	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
 	CCIPSpecID                    *int32
 	CCIPSpec                      *CCIPSpec
+	CCVCommitteeVerifierSpecID    *int32
+	CCVCommitteeVerifierSpec      *CCVCommitteeVerifierSpec
+	CCVExecutorSpecID             *int32
+	CCVExecutorSpec               *CCVExecutorSpec
 	CCIPBootstrapSpecID           *int32
 	CRESettingsSpecID             *int32
 	CRESettingsSpec               *CRESettingsSpec
@@ -1078,6 +1090,30 @@ func (w *StandardCapabilitiesSpec) SetID(value string) error {
 	return nil
 }
 
+type CCVCommitteeVerifierSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	// CommitteeVerifierConfig is the TOML configuration for the CCV committee verifier.
+	// The configuration is inherently multichain (using chain selectors as keys where
+	// applicable).
+	// See chainlink-ccv/verifier/config.go for the Config struct.
+	CommitteeVerifierConfig string `toml:"committeeVerifierConfig" db:"committee_verifier_config"`
+}
+
+type CCVExecutorSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	// ExecutorConfig is the TOML configuration for the CCV executor.
+	// The configuration is inherently multichain (using chain selectors as keys where
+	// applicable).
+	// See chainlink-ccv/executor/config.go for the Configuration struct.
+	ExecutorConfig string `toml:"executorConfig" db:"executor_config"`
+}
+
 type CCIPSpec struct {
 	ID        int32
 	CreatedAt time.Time `toml:"-"`
@@ -1128,6 +1164,6 @@ type CRESettingsSpec struct {
 	CreatedAt time.Time `toml:"-"`
 	UpdatedAt time.Time `toml:"-"`
 
-	Settings string
-	Hash     string
+	Hash     string `toml:"hash"`
+	Settings string `toml:"settings"`
 }

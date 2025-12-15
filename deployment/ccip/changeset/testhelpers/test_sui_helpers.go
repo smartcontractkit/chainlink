@@ -26,11 +26,17 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
+	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
+	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
+	managedtokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_managed_token_pool"
+	managedtokenops "github.com/smartcontractkit/chainlink-sui/deployment/ops/managed_token"
 	suiofframp_helper "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/ptb/offramp"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	suideps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -51,8 +57,9 @@ type SuiSendRequest struct {
 }
 
 type SuiTokenAmount struct {
-	Token  string
-	Amount uint64
+	TokenPoolType sui_deployment.TokenPoolType
+	Token         string
+	Amount        uint64
 }
 
 type RampMessageHeader struct {
@@ -78,6 +85,16 @@ type CCIPMessageSent struct {
 	DestChainSelector string             `json:"dest_chain_selector"`
 	SequenceNumber    string             `json:"sequence_number"`
 	Message           Sui2AnyRampMessage `json:"message"`
+}
+
+type TokenPoolRateLimiterConfig struct {
+	RemoteChainSelector uint64
+	OutboundIsEnabled   bool
+	OutboundCapacity    uint64
+	OutboundRate        uint64
+	InboundIsEnabled    bool
+	InboundCapacity     uint64
+	InboundRate         uint64
 }
 
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
@@ -110,8 +127,16 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	}
 
 	ccipObjectRefID := state.SuiChains[cfg.SourceChain].CCIPObjectRef
-	ccipPackageID := state.SuiChains[cfg.SourceChain].CCIPAddress
-	onRampPackageID := state.SuiChains[cfg.SourceChain].OnRampAddress
+	ccipPackageID := state.SuiChains[cfg.SourceChain].CCIPMockV2PackageId
+	if ccipPackageID == "" {
+		fmt.Println("ccip v2 not set, using ccip v1")
+		ccipPackageID = state.SuiChains[cfg.SourceChain].CCIPAddress
+	}
+	onRampPackageID := state.SuiChains[cfg.SourceChain].OnRampMockV2PackageId
+	if onRampPackageID == "" {
+		fmt.Println("onRamp v2 not set, using onramp v1")
+		onRampPackageID = state.SuiChains[cfg.SourceChain].OnRampAddress
+	}
 	onRampStateObjectID := state.SuiChains[cfg.SourceChain].OnRampStateObjectId
 	linkTokenPkgID := state.SuiChains[cfg.SourceChain].LinkTokenAddress
 	linkTokenObjectMetadataID := state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId
@@ -176,12 +201,41 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// fmt.Println("VALIDATED FEE:", validatedFee)
 
 	if len(msg.TokenAmounts) > 0 {
-		bnmTokenPool, exists := state.SuiChains[cfg.SourceChain].BnMTokenPools[TokenSymbolLINK]
-		if !exists {
-			return nil, fmt.Errorf("no BurnMintTokenPool found for token: %s", TokenSymbolLINK)
+		var tokenPoolState sui_deployment.CCIPPoolState
+		var tokenPoolPkgName string
+		var tokenPoolModuleName string
+
+		switch msg.TokenAmounts[0].TokenPoolType {
+		case sui_deployment.TokenPoolTypeBurnMint:
+			bnmTokenPool, exists := state.SuiChains[cfg.SourceChain].BnMTokenPools[TokenSymbolLINK]
+			if !exists {
+				return nil, fmt.Errorf("no BurnMintTokenPool found for token: %s", TokenSymbolLINK)
+			}
+			tokenPoolState = bnmTokenPool
+			tokenPoolPkgName = "burn_mint_token_pool"
+			tokenPoolModuleName = "burn_mint_token_pool"
+		case sui_deployment.TokenPoolTypeManaged:
+			managedTokenPool, exists := state.SuiChains[cfg.SourceChain].ManagedTokenPools[TokenSymbolLINK]
+			if !exists {
+				return nil, fmt.Errorf("no ManagedTokenPool found for token: %s", TokenSymbolLINK)
+			}
+			tokenPoolState = managedTokenPool
+			tokenPoolPkgName = "managed_token_pool"
+			tokenPoolModuleName = "managed_token_pool"
+		case sui_deployment.TokenPoolTypeLockRelease:
+			lnrTokenPool, exists := state.SuiChains[cfg.SourceChain].LnRTokenPools[TokenSymbolLINK]
+			if !exists {
+				return nil, fmt.Errorf("no LockReleaseTokenPool found for token: %s", TokenSymbolLINK)
+			}
+			tokenPoolState = lnrTokenPool
+			tokenPoolPkgName = "lock_release_token_pool"
+			tokenPoolModuleName = "lock_release_token_pool"
+		default:
+			return nil, fmt.Errorf("unsupported token pool type: %s", msg.TokenAmounts[0].TokenPoolType)
 		}
-		BurnMintTPPkgID := bnmTokenPool.PackageID
-		BurnMintTPState := bnmTokenPool.StateObjectId
+
+		tokenPoolPkgID := tokenPoolState.PackageID
+		tokenPoolStateObjectID := tokenPoolState.StateObjectId
 
 		// 3 ptb calls
 		// 1. create_token_transfer_params
@@ -204,14 +258,14 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			return nil, errors.New("failed to create onramp state helper bound contract when appending PTB command: " + err.Error())
 		}
 
-		BurnMintTPContract, err := suiBind.NewBoundContract(
-			BurnMintTPPkgID,
-			"burn_mint_token_pool",
-			"burn_mint_token_pool",
+		tokenPoolContract, err := suiBind.NewBoundContract(
+			tokenPoolPkgID,
+			tokenPoolPkgName,
+			tokenPoolModuleName,
 			client,
 		)
 		if err != nil {
-			return nil, errors.New("failed to create burn_mint_token_pool bound contract when appending PTB command: " + err.Error())
+			return nil, fmt.Errorf("failed to create %s bound contract when appending PTB command: %w", tokenPoolPkgName, err)
 		}
 
 		onRampContract, err := suiBind.NewBoundContract(
@@ -267,15 +321,15 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		}
 
 		/*********  2. lock_or_burn *******/
-		normalizedModuleBMTP, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
-			Package:    BurnMintTPPkgID,
-			ModuleName: "burn_mint_token_pool",
+		normalizedModuleTP, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
+			Package:    tokenPoolPkgID,
+			ModuleName: tokenPoolModuleName,
 		})
 		if err != nil {
 			return nil, errors.New("failed to get normalized module: " + err.Error())
 		}
 
-		functionSignatureLnB, isValidLockOrBurn := normalizedModuleBMTP.ExposedFunctions["lock_or_burn"]
+		functionSignatureLnB, isValidLockOrBurn := normalizedModuleTP.ExposedFunctions["lock_or_burn"]
 		if !isValidLockOrBurn {
 			return nil, errors.New("missing function signature for receiver function not found in module lock_or_burn")
 		}
@@ -288,16 +342,43 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 		typeArgsListLinkTokenPkgID := []string{linkTokenPkgID + "::link::LINK"}
 		typeParamsList = []string{}
-		paramValuesLockBurn := []any{
-			suiBind.Object{Id: ccipObjectRefID},           // ref
-			createTokenTransferParamsResult,               // token_params
-			suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
-			cfg.DestChain,
-			suiBind.Object{Id: "0x6"},           // clock
-			suiBind.Object{Id: BurnMintTPState}, // BurnMintstate
+
+		var paramValuesLockBurn []any
+		switch msg.TokenAmounts[0].TokenPoolType {
+		case sui_deployment.TokenPoolTypeBurnMint:
+			paramValuesLockBurn = []any{
+				suiBind.Object{Id: ccipObjectRefID},           // ref
+				createTokenTransferParamsResult,               // token_params
+				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				cfg.DestChain,
+				suiBind.Object{Id: "0x6"},                  // clock
+				suiBind.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
+			}
+		case sui_deployment.TokenPoolTypeManaged:
+			paramValuesLockBurn = []any{
+				suiBind.Object{Id: ccipObjectRefID},           // ref
+				createTokenTransferParamsResult,               // token_params
+				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				cfg.DestChain,
+				suiBind.Object{Id: "0x6"},   // clock
+				suiBind.Object{Id: "0x403"}, // deny list
+				suiBind.Object{Id: state.SuiChains[cfg.SourceChain].ManagedTokens[TokenSymbolLINK].StateObjectId}, // Managed token state object id
+				suiBind.Object{Id: tokenPoolStateObjectID},                                                        // Managed TP state object id
+			}
+		case sui_deployment.TokenPoolTypeLockRelease:
+			paramValuesLockBurn = []any{
+				suiBind.Object{Id: ccipObjectRefID},           // ref
+				createTokenTransferParamsResult,               // token_params
+				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // locked token to send to EVM
+				cfg.DestChain,
+				suiBind.Object{Id: "0x6"},                  // clock
+				suiBind.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id
+			}
+		default:
+			return nil, fmt.Errorf("unsupported token pool type: %s", msg.TokenAmounts[0].TokenPoolType)
 		}
 
-		lockOrBurnParamsCall, err := BurnMintTPContract.EncodeCallArgsWithGenerics(
+		lockOrBurnParamsCall, err := tokenPoolContract.EncodeCallArgsWithGenerics(
 			"lock_or_burn",
 			typeArgsListLinkTokenPkgID,
 			typeParamsList,
@@ -309,7 +390,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			return nil, errors.New("failed to encode lockOrBurnParamsCall call: " + err.Error())
 		}
 
-		_, err = BurnMintTPContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, lockOrBurnParamsCall)
+		_, err = tokenPoolContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, lockOrBurnParamsCall)
 		if err != nil {
 			return nil, errors.New("failed to build PTB (get_token_param_data) using bindings: " + err.Error())
 		}
@@ -369,7 +450,20 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			return nil, errors.New("failed to execute ccip_send with err: " + err.Error())
 		}
 
-		suiEvent := executeCCIPSend.Events[2].ParsedJson
+		var suiEventResp models.SuiEventResponse
+		var found bool
+		for _, event := range executeCCIPSend.Events {
+			// find the CCIPMessageSent event emitted by the onramp package
+			if event.PackageId == onRampPackageID && strings.HasSuffix(event.Type, "CCIPMessageSent") {
+				suiEventResp = event
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, errors.New("no CCIPMessageSent event found")
+		}
+		suiEvent := suiEventResp.ParsedJson
 
 		seqStr, _ := suiEvent["sequence_number"].(string)
 		seq, _ := strconv.ParseUint(seqStr, 10, 64)
@@ -385,6 +479,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	ptb := suitx.NewTransaction()
 	ptb.SetSuiClient(client.(*sui.Client))
 
+	// ptb1
 	ccipStateHelperContract, err := suiBind.NewBoundContract(
 		ccipPackageID,
 		"ccip",
@@ -429,6 +524,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		return nil, errors.New("failed to build PTB (get_token_param_data) using bindings: " + err.Error())
 	}
 
+	// ptb2
 	onRampContract, err := suiBind.NewBoundContract(
 		onRampPackageID,
 		"ccip_onramp",
@@ -496,14 +592,29 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		return nil, errors.New("failed to execute ccip_send with err: " + err.Error())
 	}
 
-	if len(executeCCIPSend.Events) == 0 {
-		return nil, errors.New("no events returned from Sui CCIPSend")
+	var suiEventResp models.SuiEventResponse
+	var found bool
+	for _, event := range executeCCIPSend.Events {
+		// find the CCIPMessageSent event emitted by the onramp package
+		if event.PackageId == onRampPackageID && strings.HasSuffix(event.Type, "CCIPMessageSent") {
+			suiEventResp = event
+			found = true
+			break
+		}
 	}
+	if !found {
+		return nil, errors.New("no CCIPMessageSent event found")
+	}
+	suiEvent := suiEventResp.ParsedJson
 
-	suiEvent := executeCCIPSend.Events[0].ParsedJson
-
-	seqStr, _ := suiEvent["sequence_number"].(string)
-	seq, _ := strconv.ParseUint(seqStr, 10, 64)
+	seqStr, ok := suiEvent["sequence_number"].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to extract sequence_number from Sui event: %+v", suiEvent)
+	}
+	seq, err := strconv.ParseUint(seqStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse sequence number '%s': %w", seqStr, err)
+	}
 
 	return &ccipclient.AnyMsgSentEvent{
 		SequenceNumber: seq,
@@ -524,14 +635,14 @@ func MakeSuiExtraArgs(gasLimit uint64, allowOOO bool, receiverObjectIDs [][32]by
 	return extraArgs
 }
 
-func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+// HandleTokenAndBurnMintTokenPoolDeploymentForSUI deploys a transferrable token and a burn mint token pool on the EVM chain.
+// It also deploys a burn mint token pool on the SUI chain and configures it to work with the transferrable token on the EVM chain.
+func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64, rateLimiterConfigs []TokenPoolRateLimiterConfig) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	suiChains := e.BlockChains.SuiChains()
 	suiChain := suiChains[suiChainSel]
 
 	evmChain := e.BlockChains.EVMChains()[evmChainSel]
 
-	// Deploy Transferrable TOKEN on ETH
-	// EVM
 	evmDeployerKey := evmChain.DeployerKey
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -557,7 +668,7 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployTPAndConfigure{}, sui_cs.DeployTPAndConfigureConfig{
 			SuiChainSelector: suiChainSel,
-			TokenPoolTypes:   []string{"bnm"},
+			TokenPoolTypes:   []sui_deployment.TokenPoolType{sui_deployment.TokenPoolTypeBurnMint},
 			BurnMintTpInput: burnminttokenpoolops.DeployAndInitBurnMintTokenPoolInput{
 				CoinObjectTypeArg:    linkTokenPkgID + "::link::LINK",
 				CoinMetadataObjectId: linkTokenObjectMetadataID,
@@ -572,13 +683,13 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 				},
 
 				// set chain rate limiter configs
-				RemoteChainSelectors: []uint64{evmChainSel},
-				OutboundIsEnableds:   []bool{false},
-				OutboundCapacities:   []uint64{100000},
-				OutboundRates:        []uint64{100},
-				InboundIsEnableds:    []bool{false},
-				InboundCapacities:    []uint64{100000},
-				InboundRates:         []uint64{100},
+				RemoteChainSelectors: extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.RemoteChainSelector }),
+				OutboundIsEnableds:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.OutboundIsEnabled }),
+				OutboundCapacities:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundCapacity }),
+				OutboundRates:        extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundRate }),
+				InboundIsEnableds:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.InboundIsEnabled }),
+				InboundCapacities:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundCapacity }),
+				InboundRates:         extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundRate }),
 			},
 		}),
 	})
@@ -644,6 +755,229 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	return e, evmToken, evmPool, nil
 }
 
+// HandleTokenAndManagedTokenPoolDeploymentForSUI deploys a transferrable token and a burn mint token pool on the EVM chain.
+// It also deploys a managed token pool on the SUI chain and configures it to work with the transferrable token on the EVM chain.
+func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64, rateLimiterConfigs []TokenPoolRateLimiterConfig) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+	evmChain := e.BlockChains.EVMChains()[evmChainSel]
+	suiChain := e.BlockChains.SuiChains()[suiChainSel]
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to get deployer address " + err.Error())
+	}
+
+	// Deploy Transferrable TOKEN on ETH
+	// EVM
+	evmDeployerKey := evmChain.DeployerKey
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed load onstate chains " + err.Error())
+	}
+
+	linkTokenPkgID := state.SuiChains[suiChainSel].LinkTokenAddress
+	linkTokenObjectMetadataID := state.SuiChains[suiChainSel].LinkTokenCoinMetadataId
+	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
+
+	// Deploy & Configure Managed Token on SUI
+	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployManagedToken{}, sui_cs.DeployManagedTokenConfig{
+			DeployAndInitManagedTokenInput: managedtokenops.DeployAndInitManagedTokenInput{
+				CoinObjectTypeArg:   linkTokenPkgID + "::link::LINK",
+				TreasuryCapObjectId: linkTokenTreasuryCapID,
+				MinterAddress:       deployerAddr,
+				Allowance:           0,
+				IsUnlimited:         true,
+			},
+			ChainSelector: suiChainSel,
+		}),
+	})
+
+	if err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
+
+	// Deploy transferrable token on EVM
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
+	}
+
+	err = attachTokenToTheRegistry(evmChain, state.MustGetEVMChainState(evmChain.Selector), evmDeployerKey, evmToken.Address(), evmPool.Address())
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to attach token to registry for evm " + err.Error())
+	}
+
+	// reload onChainState to get deployed Managed Token contracts
+	state, err = stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed load onstate chains " + err.Error())
+	}
+
+	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployTPAndConfigure{}, sui_cs.DeployTPAndConfigureConfig{
+			SuiChainSelector: suiChainSel,
+			TokenPoolTypes:   []sui_deployment.TokenPoolType{sui_deployment.TokenPoolTypeManaged},
+			ManagedTPInput: managedtokenpoolops.DeployAndInitManagedTokenPoolInput{
+				CoinObjectTypeArg:         linkTokenPkgID + "::link::LINK",
+				CoinMetadataObjectId:      linkTokenObjectMetadataID,
+				MintCapObjectId:           state.SuiChains[suiChainSel].ManagedTokens[TokenSymbolLINK].MinterCapObjectIds[0],
+				ManagedTokenStateObjectId: state.SuiChains[suiChainSel].ManagedTokens[TokenSymbolLINK].StateObjectId,
+				ManagedTokenOwnerCapId:    state.SuiChains[suiChainSel].ManagedTokens[TokenSymbolLINK].OwnerCapObjectId,
+				// apply dest chain updates
+				RemoteChainSelectorsToRemove: []uint64{},
+				RemoteChainSelectorsToAdd:    []uint64{evmChainSel},
+				RemotePoolAddressesToAdd:     [][]string{{evmPool.Address().String()}}, // this gets convert to 32byte bytes internally
+				RemoteTokenAddressesToAdd: []string{
+					evmToken.Address().String(), // this gets convert to 32byte bytes internally
+				},
+
+				// set chain rate limiter configs
+				RemoteChainSelectors: extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.RemoteChainSelector }),
+				OutboundIsEnableds:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.OutboundIsEnabled }),
+				OutboundCapacities:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundCapacity }),
+				OutboundRates:        extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundRate }),
+				InboundIsEnableds:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.InboundIsEnabled }),
+				InboundCapacities:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundCapacity }),
+				InboundRates:         extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundRate }),
+			},
+		}),
+	})
+	if err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
+
+	// reload onChainState to get deployed managed token pool contracts
+	state, err = stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed load onstate chains " + err.Error())
+	}
+
+	suiTokenBytes, err := hex.DecodeString(strings.TrimPrefix(linkTokenObjectMetadataID, "0x"))
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiToken")
+	}
+
+	managedTokenPool, ok := state.SuiChains[suiChainSel].ManagedTokenPools[TokenSymbolLINK]
+	if !ok {
+		return cldf.Environment{}, nil, nil, fmt.Errorf("no ManagedTokenPool found for token: %s", TokenSymbolLINK)
+	}
+
+	suiPoolBytes, err := hex.DecodeString(strings.TrimPrefix(managedTokenPool.PackageID, "0x"))
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiPool")
+	}
+
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChain.Selector], evmPool, evmDeployerKey, suiChain.Selector, suiTokenBytes, suiPoolBytes)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to add token to the counterparty " + err.Error())
+	}
+
+	err = grantMintBurnPermissions(e.Logger, e.BlockChains.EVMChains()[evmChain.Selector], evmToken, evmDeployerKey, evmPool.Address())
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to grant burnMint " + err.Error())
+	}
+
+	return e, evmToken, evmPool, nil
+}
+
+func HandleTokenAndLockReleaseTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64, rateLimiterConfigs []TokenPoolRateLimiterConfig) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+	suiChains := e.BlockChains.SuiChains()
+	suiChain := suiChains[suiChainSel]
+
+	evmChain := e.BlockChains.EVMChains()[evmChainSel]
+
+	evmDeployerKey := evmChain.DeployerKey
+	deployerSuiAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to get deployer address " + err.Error())
+	}
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed load onstate chains " + err.Error())
+	}
+
+	linkTokenPkgID := state.SuiChains[suiChainSel].LinkTokenAddress
+	linkTokenObjectMetadataID := state.SuiChains[suiChainSel].LinkTokenCoinMetadataId
+	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
+
+	// Deploy transferrable token on EVM
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
+	}
+
+	err = attachTokenToTheRegistry(evmChain, state.MustGetEVMChainState(evmChain.Selector), evmDeployerKey, evmToken.Address(), evmPool.Address())
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to attach token to registry for evm " + err.Error())
+	}
+
+	// Deploy & Configure LockRelease TP on SUI
+	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployTPAndConfigure{}, sui_cs.DeployTPAndConfigureConfig{
+			SuiChainSelector: suiChainSel,
+			TokenPoolTypes:   []sui_deployment.TokenPoolType{sui_deployment.TokenPoolTypeLockRelease},
+			LockReleaseTPInput: lockreleasetokenpoolops.DeployAndInitLockReleaseTokenPoolInput{
+				CoinObjectTypeArg:    linkTokenPkgID + "::link::LINK",
+				CoinMetadataObjectId: linkTokenObjectMetadataID,
+				TreasuryCapObjectId:  linkTokenTreasuryCapID,
+				Rebalancer:           deployerSuiAddr,
+
+				// apply dest chain updates
+				RemoteChainSelectorsToRemove: []uint64{},
+				RemoteChainSelectorsToAdd:    []uint64{evmChainSel},
+				RemotePoolAddressesToAdd:     [][]string{{evmPool.Address().String()}}, // this gets convert to 32byte bytes internally
+				RemoteTokenAddressesToAdd: []string{
+					evmToken.Address().String(), // this gets convert to 32byte bytes internally
+				},
+
+				// set chain rate limiter configs
+				RemoteChainSelectors: extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.RemoteChainSelector }),
+				OutboundIsEnableds:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.OutboundIsEnabled }),
+				OutboundCapacities:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundCapacity }),
+				OutboundRates:        extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundRate }),
+				InboundIsEnableds:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.InboundIsEnabled }),
+				InboundCapacities:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundCapacity }),
+				InboundRates:         extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundRate }),
+			},
+		}),
+	})
+	if err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
+
+	// reload onChainState to get deployed TP contracts
+	state, err = stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed load onstate chains " + err.Error())
+	}
+
+	suiTokenBytes, err := hex.DecodeString(strings.TrimPrefix(linkTokenObjectMetadataID, "0x"))
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiToken")
+	}
+
+	lnrTokenPool, ok := state.SuiChains[suiChainSel].LnRTokenPools[TokenSymbolLINK]
+	if !ok {
+		return cldf.Environment{}, nil, nil, fmt.Errorf("no LockReleaseTokenPool found for token: %s", TokenSymbolLINK)
+	}
+
+	suiPoolBytes, err := hex.DecodeString(strings.TrimPrefix(lnrTokenPool.PackageID, "0x"))
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiPool")
+	}
+
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChain.Selector], evmPool, evmDeployerKey, suiChain.Selector, suiTokenBytes, suiPoolBytes)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to add token to the counterparty " + err.Error())
+	}
+
+	err = grantMintBurnPermissions(e.Logger, e.BlockChains.EVMChains()[evmChain.Selector], evmToken, evmDeployerKey, evmPool.Address())
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to grant burn mint " + err.Error())
+	}
+
+	return e, evmToken, evmPool, nil
+}
+
 func WaitForTokenBalanceSui(
 	ctx context.Context,
 	t *testing.T,
@@ -665,5 +999,140 @@ func WaitForTokenBalanceSui(
 		require.True(t, ok)
 
 		return balance.Cmp(expected) == 0
-	}, tests.WaitTimeout(t), 500*time.Millisecond)
+	}, tests.WaitTimeout(t), 2000*time.Millisecond)
+}
+
+func UpgradeContractDirect(
+	ctx context.Context,
+	callOpts *suiBind.CallOpts, // must include Signer, GasBudget, WaitForExecution
+	client sui.ISuiAPI,
+	packageToUpgrade string,
+	upgradeCapID string,
+	modules [][]byte,
+	dependencies []models.SuiAddress,
+	policy byte,
+	digest []byte,
+) (*models.SuiTransactionBlockResponse, error) {
+	lggr, _ := logger.New()
+
+	ptb := suitx.NewTransaction()
+	ptb.SetSuiClient(client.(*sui.Client))
+
+	packageContract, err := suiBind.NewBoundContract(
+		"0x2",     // Framework package
+		"sui",     // Package name
+		"package", // Module name
+		client,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to suibind package module: %w", err)
+	}
+
+	// Encode authorize_upgrade call
+	typeArgsList := []string{}
+	typeParamsList := []string{}
+
+	normalizedModulePackage, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
+		Package:    "0x2",
+		ModuleName: "package",
+	})
+	if err != nil {
+		return nil, errors.New("failed to get normalized module: " + err.Error())
+	}
+
+	functionSignatureAuthorizeUpgrade, isValidaAU := normalizedModulePackage.ExposedFunctions["authorize_upgrade"]
+	if !isValidaAU {
+		return nil, errors.New("missing function signature for receiver function not found in module authorize_upgrade")
+	}
+
+	// Figure out the parameter types from the normalized module of the token pool
+	paramTypesAuthorizeUpgrade, err := suiofframp_helper.DecodeParameters(lggr, functionSignatureAuthorizeUpgrade.(map[string]any), "parameters")
+	if err != nil {
+		return nil, errors.New("failed to decode parameters for commit upgrade function: " + err.Error())
+	}
+
+	paramValues := []any{
+		suiBind.Object{Id: upgradeCapID},
+		policy,
+		digest,
+	}
+
+	authCall, err := packageContract.EncodeCallArgsWithGenerics(
+		"authorize_upgrade",
+		typeArgsList,
+		typeParamsList,
+		paramTypesAuthorizeUpgrade,
+		paramValues,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode authorize_upgrade call: %w", err)
+	}
+
+	authResult, err := packageContract.AppendPTB(ctx, callOpts, ptb, authCall)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append authorize_upgrade to PTB: %w", err)
+	}
+
+	// Append the Upgrade command (consumes UpgradeTicket)
+	upgradeReceiptArg := ptb.Upgrade(
+		modules,                             // Raw bytes (from Call)
+		dependencies,                        // Dependencies as addresses (from Call)
+		models.SuiAddress(packageToUpgrade), // Package being upgraded (from Call)
+		*authResult,                         // UpgradeTicket from authorize step
+	)
+
+	// commit the ticket
+	typeArgsListCommit := []string{}
+	typeParamsListCommit := []string{}
+
+	functionSignatureCommitUpgrade, isValidaCU := normalizedModulePackage.ExposedFunctions["commit_upgrade"]
+	if !isValidaCU {
+		return nil, errors.New("missing function signature for receiver function not found in module commit_upgrade")
+	}
+
+	// Figure out the parameter types from the normalized module of the token pool
+	paramTypesCommitUpgrade, err := suiofframp_helper.DecodeParameters(lggr, functionSignatureCommitUpgrade.(map[string]any), "parameters")
+	if err != nil {
+		return nil, errors.New("failed to decode parameters for commit upgrade function: " + err.Error())
+	}
+
+	paramValuesCommit := []any{
+		suiBind.Object{Id: upgradeCapID},
+		upgradeReceiptArg,
+	}
+
+	commitEncoded, err := packageContract.EncodeCallArgsWithGenerics(
+		"commit_upgrade",
+		typeArgsListCommit,
+		typeParamsListCommit,
+		paramTypesCommitUpgrade,
+		paramValuesCommit,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode commit_upgrade call: %w", err)
+	}
+
+	_, err = packageContract.AppendPTB(ctx, callOpts, ptb, commitEncoded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append commit_upgrade to PTB: %w", err)
+	}
+
+	// ️ Execute PTB
+	resp, err := suiBind.ExecutePTB(ctx, callOpts, client, ptb)
+	if err != nil {
+		return nil, fmt.Errorf("failed executing upgrade PTB: %w", err)
+	}
+
+	return resp, nil
+}
+
+// Helper functions to extract rate limiter config fields from array using concise Go patterns
+func extractFields[T any](configs []TokenPoolRateLimiterConfig, selector func(TokenPoolRateLimiterConfig) T) []T {
+	result := make([]T, len(configs))
+	for i, config := range configs {
+		result[i] = selector(config)
+	}
+	return result
 }

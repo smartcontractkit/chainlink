@@ -91,7 +91,13 @@ func doDeployConfigureForwardersSeq(t *testing.T, useMcms bool) {
 		RegistryChainSel: te.RegistrySelector,
 	}
 	if useMcms {
-		input.MCMSConfig = &crecontracts.MCMSConfig{MinDelay: 0}
+		input.MCMSConfig = &crecontracts.MCMSConfig{
+			MinDelay: 0,
+			TimelockQualifierPerChain: map[uint64]string{
+				te.RegistrySelector: "",
+				testChain:           "",
+			},
+		}
 	}
 	b := optest.NewBundle(t)
 	seqOutput, err := operations.ExecuteSequence(b, contracts.DeployConfigureForwardersSeq, deps, input)

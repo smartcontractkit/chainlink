@@ -47,8 +47,7 @@ type EngineConfig struct {
 
 	LocalLimits                       EngineLimits
 	LocalLimiters                     *EngineLimiters
-	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner
-	GlobalExecutionRateLimiter        limits.RateLimiter          // global + per owner
+	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
 
 	BeholderEmitter custmsg.MessageEmitter
 
@@ -86,6 +85,7 @@ type EngineLimiters struct {
 	CapabilityCallTime    limits.TimeLimiter
 	LogEvent              limits.BoundLimiter[int]
 	LogLine               limits.BoundLimiter[config.Size]
+	ChainAllowed          limits.GateLimiter
 
 	ChainWriteTargets limits.BoundLimiter[int]
 	ChainReadCalls    limits.BoundLimiter[int]
@@ -169,6 +169,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ChainAllowed, err = limits.MakeGateLimiter(lf, cfg.ChainAllowed)
+	if err != nil {
+		return
+	}
 	l.ChainWriteTargets, err = limits.MakeBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
 	if err != nil {
 		return
@@ -203,6 +207,7 @@ func (l *EngineLimiters) Close() error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.ChainAllowed,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
 		l.ConsensusCalls,
@@ -223,6 +228,8 @@ type EngineLimits struct {
 }
 
 type LifecycleHooks struct {
+	// OnInitialized is used to emit a workflowActivated event after the engine
+	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string, status string)
@@ -267,9 +274,6 @@ func (c *EngineConfig) Validate() error {
 	c.LocalLimits.setDefaultLimits()
 	if c.GlobalExecutionConcurrencyLimiter == nil {
 		return errors.New("execution concurrency limiter not set")
-	}
-	if c.GlobalExecutionRateLimiter == nil {
-		return errors.New("execution rate limiter not set")
 	}
 
 	if c.BeholderEmitter == nil {

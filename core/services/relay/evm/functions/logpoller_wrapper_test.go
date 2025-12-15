@@ -103,8 +103,8 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	subscriber.updates.Wait()
 	reqs, resps, err := lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(reqs))
-	require.Equal(t, 0, len(resps))
+	require.Empty(t, reqs)
+	require.Empty(t, resps)
 }
 
 func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
@@ -146,14 +146,14 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 
 	oracleRequests, _, err := lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(oracleRequests))
+	assert.Len(t, oracleRequests, 1)
 	oracleRequests, _, err = lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(oracleRequests))
+	assert.Empty(t, oracleRequests)
 	require.NoError(t, err)
 	oracleRequests, _, err = lpWrapper.LatestEvents(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(oracleRequests))
+	assert.Empty(t, oracleRequests)
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testing.T) {
@@ -169,9 +169,9 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testin
 	mockedDetectedEvents := detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})}
 	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &mockedDetectedEvents, "request")
 
-	assert.Equal(t, maxLogsToProcess, len(outputLogs))
-	assert.Equal(t, 1000, len(mockedDetectedEvents.detectedEventsOrdered))
-	assert.Equal(t, 1000, len(mockedDetectedEvents.isPreviouslyDetected))
+	assert.Len(t, outputLogs, maxLogsToProcess)
+	assert.Len(t, mockedDetectedEvents.detectedEventsOrdered, 1000)
+	assert.Len(t, mockedDetectedEvents.isPreviouslyDetected, 1000)
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
@@ -184,9 +184,9 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *test
 	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
 	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &mockedDetectedEvents, "request")
 
-	assert.Equal(t, 0, len(outputLogs))
-	assert.Equal(t, 0, len(mockedDetectedEvents.detectedEventsOrdered))
-	assert.Equal(t, 0, len(mockedDetectedEvents.isPreviouslyDetected))
+	assert.Empty(t, outputLogs)
+	assert.Empty(t, mockedDetectedEvents.detectedEventsOrdered)
+	assert.Empty(t, mockedDetectedEvents.isPreviouslyDetected)
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
@@ -210,10 +210,10 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetect
 	functionsLpWrapper := lpWrapper.(*logPollerWrapper)
 	outputLogs := functionsLpWrapper.filterPreviouslyDetectedEvents(inputLogs, &mockedDetectedEvents, "request")
 
-	assert.Equal(t, 0, len(outputLogs))
+	assert.Empty(t, outputLogs)
 	// Ensure that expired events are removed from the cache
-	assert.Equal(t, 0, len(mockedDetectedEvents.detectedEventsOrdered))
-	assert.Equal(t, 0, len(mockedDetectedEvents.isPreviouslyDetected))
+	assert.Empty(t, mockedDetectedEvents.detectedEventsOrdered)
+	assert.Empty(t, mockedDetectedEvents.isPreviouslyDetected)
 }
 
 func TestLogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {

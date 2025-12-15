@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
@@ -13,7 +12,7 @@ import (
 // DynamicArtifactDirConfigFn returns a function that sets Seth's artifacts directory to a unique directory for the test
 func DynamicArtifactDirConfigFn(t *testing.T) func(*pkg_seth.Config) error {
 	return func(cfg *pkg_seth.Config) error {
-		cfg.ArtifactsDir = fmt.Sprintf("seth_artifacts/%s", t.Name())
+		cfg.ArtifactsDir = "seth_artifacts/" + t.Name()
 		return nil
 	}
 }

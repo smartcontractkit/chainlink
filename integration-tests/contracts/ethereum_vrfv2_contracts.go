@@ -3,6 +3,7 @@ package contracts
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -704,7 +705,7 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(filter Rando
 		case err := <-subscription.Err():
 			return nil, err
 		case <-time.After(filter.Timeout):
-			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
+			return nil, errors.New("timeout waiting for RandomWordsFulfilled event")
 		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
 			return &CoordinatorRandomWordsFulfilled{
 				RequestId:  randomWordsFulfilledEvent.RequestId,
@@ -730,7 +731,7 @@ func (v *EthereumVRFCoordinatorV2) WaitForConfigSetEvent(timeout time.Duration) 
 		case err := <-subscription.Err():
 			return nil, err
 		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for ConfigSet event")
+			return nil, errors.New("timeout waiting for ConfigSet event")
 		case event := <-eventsChannel:
 			return &CoordinatorConfigSet{
 				MinimumRequestConfirmations: event.MinimumRequestConfirmations,
@@ -1172,7 +1173,7 @@ func (v *EthereumVRFOwner) WaitForRandomWordsForcedEvent(requestIDs []*big.Int, 
 		case err := <-subscription.Err():
 			return nil, err
 		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for RandomWordsForced event")
+			return nil, errors.New("timeout waiting for RandomWordsForced event")
 		case event := <-eventsChannel:
 			return event, nil
 		}
