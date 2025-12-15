@@ -164,7 +164,19 @@ jobs:
     if: ${{ always() }}
     needs: [filter, golangci]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     steps:
+      - name: Check matrix results
+        uses: smartcontractkit/.github/actions/matrix-job-check@matrix-job-check/0.0.0
+        # allow this to fail if 'allow-lint-issues' label is present on the PR
+        continue-on-error: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
+        with:
+          job-name-prefix: "GolangCI Lint"
+          assert-jobs-exist: "true"
+          assert-no-failures: "true"
+          assert-no-cancels: "true"
+
       - name: Check Golangci-lint Matrix Results
         env:
           GOLANGCI_RESULT: ${{ needs.golangci.result }}
@@ -402,6 +414,24 @@ jobs:
           payload: |
             channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
             text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
+
+  # Fails if any Core Tests matrix jobs fails and silently succeeds otherwise
+  # Consolidates the matrix results under one required check
+  core-matrix:
+    name: Core Tests Matrix Validation
+    if: ${{ always() }}
+    needs: [core]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Check matrix results
+        uses: smartcontractkit/.github/actions/matrix-job-check@matrix-job-check/0.0.0
+        with:
+          job-name-prefix: "Core Tests"
+          assert-jobs-exist: "true"
+          assert-no-failures: "true"
+          assert-no-cancels: "true"
 
   core-scripts-tests:
     name: test-scripts
