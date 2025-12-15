@@ -1,6 +1,7 @@
 package aptos
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/mcms"
@@ -28,7 +29,7 @@ func (cs DynamicCS) VerifyPreconditions(env cldf.Environment, cfg config.Dynamic
 		return fmt.Errorf("precondition failed: cfg.Defs and cfg.Inputs must have matching lengths (got %d and %d)", len(cfg.Defs), len(cfg.Inputs))
 	}
 	if cfg.MCMSConfig == nil {
-		return fmt.Errorf("precondition failed: cfg.MCMSConfig must not be nil")
+		return errors.New("precondition failed: cfg.MCMSConfig must not be nil")
 	}
 	return nil
 }
