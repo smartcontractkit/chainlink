@@ -168,14 +168,11 @@ jobs:
       actions: read
     steps:
       - name: Check matrix results
-        uses: smartcontractkit/.github/actions/matrix-job-check@matrix-job-check/0.0.0
+        uses: smartcontractkit/.github/actions/matrix-job-check@fix/matrix-job-check-github-token
         # allow this to fail if 'allow-lint-issues' label is present on the PR
         continue-on-error: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
         with:
           job-name-prefix: "GolangCI Lint"
-          assert-jobs-exist: "true"
-          assert-no-failures: "true"
-          assert-no-cancels: "true"
 
       - name: Check Golangci-lint Matrix Results
         env:
@@ -426,12 +423,9 @@ jobs:
       actions: read
     steps:
       - name: Check matrix results
-        uses: smartcontractkit/.github/actions/matrix-job-check@matrix-job-check/0.0.0
+        uses: smartcontractkit/.github/actions/matrix-job-check@fix/matrix-job-check-github-token
         with:
           job-name-prefix: "Core Tests"
-          assert-jobs-exist: "true"
-          assert-no-failures: "true"
-          assert-no-cancels: "true"
 
   core-scripts-tests:
     name: test-scripts
