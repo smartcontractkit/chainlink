@@ -5,6 +5,33 @@ import (
 	"strings"
 )
 
+// NodeCredentials holds API credentials for Chainlink nodes
+type NodeCredentials struct {
+	User     string
+	Password string
+}
+
+// GetNodeCredentials returns the appropriate API credentials based on infrastructure configuration
+// Priority: TOML config > Defaults
+func GetNodeCredentials(p *Provider) NodeCredentials {
+	creds := NodeCredentials{
+		User:     "admin@chain.link", // default
+		Password: "password",         // default
+	}
+
+	// Kubernetes can override via TOML config
+	if p.IsKubernetes() && p.Kubernetes != nil {
+		if p.Kubernetes.NodeAPIUser != "" {
+			creds.User = p.Kubernetes.NodeAPIUser
+		}
+		if p.Kubernetes.NodeAPIPassword != "" {
+			creds.Password = p.Kubernetes.NodeAPIPassword
+		}
+	}
+
+	return creds
+}
+
 type Type = string
 type CribProvider = string
 
@@ -76,24 +103,6 @@ func (i *Provider) ExternalGatewayHost() string {
 	}
 
 	return "localhost"
-}
-
-// GetNodeCredentials returns the appropriate API credentials for the infrastructure type
-func (i *Provider) GetNodeCredentials() (apiUser, apiPassword string) {
-	if i.IsKubernetes() && i.Kubernetes.NodeAPIUser != "" {
-		apiUser = i.Kubernetes.NodeAPIUser
-	}
-	if i.IsKubernetes() && i.Kubernetes.NodeAPIPassword != "" {
-		apiPassword = i.Kubernetes.NodeAPIPassword
-	}
-	if apiUser == "" {
-		apiUser = "admin@chain.link" // Default for testing
-	}
-	if apiPassword == "" {
-		apiPassword = "password" // Default for testing
-	}
-
-	return apiUser, apiPassword
 }
 
 func (i *Provider) ExternalGatewayPort(dockerPort int) int {

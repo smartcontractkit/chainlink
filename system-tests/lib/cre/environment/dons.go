@@ -83,8 +83,8 @@ func StartDONs(
 				nodeMetadataRoles[i] = nodeMeta.HasRole(cre.BootstrapNode)
 			}
 
-			apiUser, apiPassword := infraInput.GetNodeCredentials()
-			nodeSet.Out = infra.GenerateKubernetesNodeSetOutput(&infraInput, nodeSet.Name, nodeSet.Nodes, nodeMetadataRoles, apiUser, apiPassword, lggr)
+			creds := infra.GetNodeCredentials(&infraInput)
+			nodeSet.Out = infra.GenerateKubernetesNodeSetOutput(&infraInput, nodeSet.Name, nodeSet.Nodes, nodeMetadataRoles, creds, lggr)
 		}
 	}
 

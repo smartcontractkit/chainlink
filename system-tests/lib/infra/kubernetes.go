@@ -123,19 +123,10 @@ func GenerateNodeInstanceNames(nodeSetName string, nodeMetadataRoles []bool) []s
 // It creates service URLs matching the Helm chart naming convention:
 // - Bootstrap nodes: {donName}-bt-{index}
 // - Plugin nodes: {donName}-{counter} (counter starts from 0, separate from bootstrap)
-func GenerateKubernetesNodeSetOutput(infraInput *Provider, nodeSetName string, nodeCount int, nodeMetadataRoles []bool, apiUser, apiPassword string, lggr zerolog.Logger) *ns.Output {
+func GenerateKubernetesNodeSetOutput(infraInput *Provider, nodeSetName string, nodeCount int, nodeMetadataRoles []bool, creds NodeCredentials, lggr zerolog.Logger) *ns.Output {
 	externalDomain := ""
-
 	if infraInput.Kubernetes != nil {
 		externalDomain = infraInput.Kubernetes.ExternalDomain
-
-		// Override with configured credentials if provided
-		if infraInput.Kubernetes.NodeAPIUser != "" {
-			apiUser = infraInput.Kubernetes.NodeAPIUser
-		}
-		if infraInput.Kubernetes.NodeAPIPassword != "" {
-			apiPassword = infraInput.Kubernetes.NodeAPIPassword
-		}
 	}
 
 	clNodes := make([]*clnode.Output, nodeCount)
@@ -167,8 +158,8 @@ func GenerateKubernetesNodeSetOutput(infraInput *Provider, nodeSetName string, n
 		clNodes[i] = &clnode.Output{
 			UseCache: true,
 			Node: &clnode.NodeOut{
-				APIAuthUser:     apiUser,
-				APIAuthPassword: apiPassword,
+				APIAuthUser:     creds.User,
+				APIAuthPassword: creds.Password,
 				ExternalURL:     externalURL,
 				InternalURL:     internalURL,
 				InternalP2PUrl:  internalP2PUrl,
