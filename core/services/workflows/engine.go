@@ -477,6 +477,22 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	return nil
 }
 
+func (e *Engine) ackTriggerEvent(ctx context.Context, te *capabilities.TriggerEvent) error {
+	triggerID := te.TriggerType
+	for _, trigger := range e.workflow.triggers {
+		info, err := trigger.trigger.Info(ctx)
+		if err != nil {
+			e.logger.Errorf("failed to get trigger info")
+			continue
+		}
+		if info.ID == triggerID {
+			// TODO: Don't need to pass the triggerID since AckEvent is called on a trigger object?
+			return trigger.trigger.AckEvent(ctx, triggerID, te.ID)
+		}
+	}
+	return fmt.Errorf("failed to find trigger %s", triggerID)
+}
+
 // stepUpdateLoop is a singleton goroutine per `Execution`, and it updates the `executionState` with the outcome of a `step`.
 //
 // Note: `executionState` is only mutated by this loop directly.
@@ -771,6 +787,10 @@ func (e *Engine) worker(ctx context.Context) {
 			} else {
 				e.logger.With(platform.KeyWorkflowExecutionID, executionID).Debug("execution started")
 				logCustMsg(ctx, cma, "execution started", e.logger)
+				ackErr := e.ackTriggerEvent(ctx, &te)
+				if ackErr != nil {
+					// TODO: handle
+				}
 			}
 		case <-ctx.Done():
 			return

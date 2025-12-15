@@ -245,6 +245,20 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
+	case types.MethodTriggerEventAck:
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		// TODO: Need to aggregate first
+		triggerMetadata := msg.GetTriggerEventMetadata() // TODO: Build actual message type
+		if triggerMetadata == nil {
+			// TODO handle
+		}
+		ctx, cancel := p.stopCh.NewCtx()
+		defer cancel()
+		err := cfg.underlying.AckEvent(ctx, msg.CapabilityId, triggerMetadata.GetTriggerEventId())
+		if err != nil {
+			// TODO
+		}
 	default:
 		p.lggr.Errorw("received message with unknown method",
 			"method", SanitizeLogString(msg.Method), "sender", sender)
