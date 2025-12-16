@@ -65,10 +65,6 @@ func TestDynamicCS_Apply(t *testing.T) {
 		chain_selectors.BINANCE_SMART_CHAIN_MAINNET.Selector,
 		chain_selectors.FamilyEVM,
 	)
-	// solanaSubject := globals.FamilyAwareSelectorToSubject(
-	// 	chain_selectors.SOLANA_MAINNET.Selector,
-	// 	chain_selectors.FamilySolana,
-	// )
 
 	// Define the inputs for each operation
 	inputs := []any{
@@ -89,6 +85,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 				chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID: big.NewInt(500000), // Mock gas price
 			},
 		},
+		// Input for CurseSubjectsOp
 		operation.CurseSubjectsInput{
 			Subjects: [][]byte{
 				arbSubject[:],
@@ -157,14 +154,6 @@ func TestDynamicCS_Apply(t *testing.T) {
 	isCursedU128, err := ccipBind.RMNRemote().IsCursedU128(nil, arbU128Selector)
 	require.NoError(t, err)
 	require.True(t, isCursedU128, "should be cursed")
-
-	// isCursedU128, err = ccipBind.RMNRemote().IsCursedU128(nil, solanaU128Selector)
-	// require.NoError(t, err)
-	// require.True(t, isCursedU128, "should be cursed")
-
-	// isCursed, err := ccipBind.RMNRemote().IsCursed(nil, arbSubject[:])
-	// require.NoError(t, err)
-	// require.True(t, isCursed, "should be cursed")
 
 	isCursed, err := ccipBind.RMNRemote().IsCursed(nil, bscSubject[:])
 	require.NoError(t, err)
