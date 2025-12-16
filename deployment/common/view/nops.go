@@ -20,14 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-type NopView struct {
-	Nodes []NopNodeInfo `json:"nodes"`
+type NopViewV2 struct {
+	Nodes []NopNodeInfoV2 `json:"nodes"`
 }
 
 type NopNodeInfo struct {
 	// NodeID is the unique identifier of the node
 	NodeID           string                `json:"nodeID"`
-	NodeName         string                `json:"nodeName"`
 	PeerID           string                `json:"peerID"`
 	IsBootstrap      bool                  `json:"isBootstrap"`
 	OCRKeys          map[string]OCRKeyView `json:"ocrKeys"`
@@ -40,8 +39,13 @@ type NopNodeInfo struct {
 	Labels           []LabelView           `json:"labels,omitempty"`
 	ApprovedJobspecs map[string]JobView    `json:"approvedJobspecs,omitempty"` // jobID => jobSpec
 	ProposedJobspecs map[string]JobView    `json:"proposedJobspecs,omitempty"` // jobID => jobSpec
-	Networks         []string              `json:"networks"`
-	Deployment       string                `json:"deployment"`
+}
+
+type NopNodeInfoV2 struct {
+	NopNodeInfo
+	NodeName   string   `json:"nodeName"`
+	Networks   []string `json:"networks"`
+	Deployment string   `json:"deployment"`
 }
 
 type JobView struct {
@@ -66,7 +70,87 @@ type OCRKeyView struct {
 }
 
 // GenerateNopsView generates a view of nodes with their details
-func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string) (map[string]NopView, error) {
+func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (map[string]NopNodeInfo, error) {
+	nv := make(map[string]NopNodeInfo)
+	nodes, err := deployment.NodeInfo(nodeIDs, oc)
+	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
+		lggr.Warnf("Missing node metadata: %s", err.Error())
+	} else if err != nil {
+		return nv, fmt.Errorf("failed to get node info: %w", err)
+	}
+	nodesResp, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
+		Filter: &nodev1.ListNodesRequest_Filter{
+			Ids: nodeIDs,
+		},
+	})
+	if err != nil {
+		return nv, fmt.Errorf("failed to list nodes from JD: %w", err)
+	}
+	details := func(nodeID string) *nodev1.Node {
+		// extract from the response
+		for _, node := range nodesResp.Nodes {
+			if node.Id == nodeID {
+				return node
+			}
+		}
+		return nil
+	}
+	jobspecs, proposedSpecs, err := approvedJobspecs(context.Background(), lggr, nodeIDs, oc)
+	if err != nil {
+		// best effort on job specs
+		lggr.Warnf("Failed to get approved jobspecs: %v", err)
+	}
+
+	for _, node := range nodes {
+		nodeName := node.Name
+		if nodeName == "" {
+			nodeName = node.NodeID
+		}
+
+		nodeDetails := details(node.NodeID)
+		if nodeDetails == nil {
+			return nv, fmt.Errorf("failed to get node details for node %s", node.NodeID)
+		}
+		var labels []LabelView
+		for _, l := range nodeDetails.Labels {
+			labels = append(labels, LabelView{
+				Key:   l.Key,
+				Value: l.Value,
+			})
+		}
+
+		fullNodeInfo := NopNodeInfo{
+			NodeID:           node.NodeID,
+			PeerID:           node.PeerID.String(),
+			IsBootstrap:      node.IsBootstrap,
+			OCRKeys:          make(map[string]OCRKeyView),
+			PayeeAddress:     node.AdminAddr,
+			CSAKey:           nodeDetails.PublicKey,
+			WorkflowKey:      nodeDetails.GetWorkflowKey(),
+			IsConnected:      nodeDetails.IsConnected,
+			IsEnabled:        nodeDetails.IsEnabled,
+			Version:          nodeDetails.Version,
+			Labels:           labels,
+			ApprovedJobspecs: jobspecs[node.NodeID],
+			ProposedJobspecs: proposedSpecs[node.NodeID],
+		}
+		for details, ocrConfig := range node.SelToOCRConfig {
+			fullNodeInfo.OCRKeys[details.ChainName] = OCRKeyView{
+				OffchainPublicKey:         hex.EncodeToString(ocrConfig.OffchainPublicKey[:]),
+				OnchainPublicKey:          fmt.Sprintf("%x", ocrConfig.OnchainPublicKey[:]),
+				PeerID:                    ocrConfig.PeerID.String(),
+				TransmitAccount:           string(ocrConfig.TransmitAccount),
+				ConfigEncryptionPublicKey: hex.EncodeToString(ocrConfig.ConfigEncryptionPublicKey[:]),
+				KeyBundleID:               ocrConfig.KeyBundleID,
+			}
+		}
+	}
+
+	return nv, nil
+}
+
+// GenerateNOPsViewV2 generates a view of nodes with their details in a new format
+func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string) (map[string]NopViewV2, error) {
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
 		lggr.Warnf("Missing node metadata: %s", err.Error())
@@ -96,7 +180,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 		lggr.Warnf("Failed to get approved jobspecs: %v", err)
 	}
 
-	groupedNops := make(map[string]NopView)
+	groupedNops := make(map[string]NopViewV2)
 	for _, node := range nodes {
 		nodeName := node.Name
 		if nodeName == "" {
@@ -136,23 +220,25 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			return groupedNops, fmt.Errorf("failed to get networks for node %s: %w", node.NodeID, networksErr)
 		}
 
-		fullNodeInfo := NopNodeInfo{
-			NodeID:           node.NodeID,
-			NodeName:         nodeName,
-			PeerID:           node.PeerID.String(),
-			IsBootstrap:      node.IsBootstrap,
-			OCRKeys:          make(map[string]OCRKeyView),
-			PayeeAddress:     node.AdminAddr,
-			CSAKey:           nodeDetails.PublicKey,
-			WorkflowKey:      nodeDetails.GetWorkflowKey(),
-			IsConnected:      nodeDetails.IsConnected,
-			IsEnabled:        nodeDetails.IsEnabled,
-			Version:          nodeDetails.Version,
-			Labels:           labels,
-			ApprovedJobspecs: jobspecs[node.NodeID],
-			ProposedJobspecs: proposedSpecs[node.NodeID],
-			Deployment:       deploymentKey,
-			Networks:         networks,
+		fullNodeInfo := NopNodeInfoV2{
+			NopNodeInfo: NopNodeInfo{
+				NodeID:           node.NodeID,
+				PeerID:           node.PeerID.String(),
+				IsBootstrap:      node.IsBootstrap,
+				OCRKeys:          make(map[string]OCRKeyView),
+				PayeeAddress:     node.AdminAddr,
+				CSAKey:           nodeDetails.PublicKey,
+				WorkflowKey:      nodeDetails.GetWorkflowKey(),
+				IsConnected:      nodeDetails.IsConnected,
+				IsEnabled:        nodeDetails.IsEnabled,
+				Version:          nodeDetails.Version,
+				Labels:           labels,
+				ApprovedJobspecs: jobspecs[node.NodeID],
+				ProposedJobspecs: proposedSpecs[node.NodeID],
+			},
+			NodeName:   nodeName,
+			Deployment: deploymentKey,
+			Networks:   networks,
 		}
 		for details, ocrConfig := range node.SelToOCRConfig {
 			fullNodeInfo.OCRKeys[details.ChainName] = OCRKeyView{
@@ -165,11 +251,11 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			}
 		}
 
-		var nop NopView
+		var nop NopViewV2
 		var ok bool
 		if nop, ok = groupedNops[nopName]; !ok {
-			nop = NopView{
-				Nodes: make([]NopNodeInfo, 0),
+			nop = NopViewV2{
+				Nodes: make([]NopNodeInfoV2, 0),
 			}
 		}
 

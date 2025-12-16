@@ -116,7 +116,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 func loadTestData(t *testing.T, path string) []deployment.Node {
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	var nopViews map[string]*view.NopView
+	var nopViews map[string]*view.NopViewV2
 	err = json.Unmarshal(data, &nopViews)
 	require.NoError(t, err)
 	require.Len(t, nopViews, 1)

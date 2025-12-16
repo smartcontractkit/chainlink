@@ -17,18 +17,16 @@ import (
 // It always runs in docker, it's not enabled to run in-memory as we are testing the actual job distributor
 func TestDeleteCCIPJobs(t *testing.T) {
 	e, _, tenv := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
-	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain, "test")
+	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
 	// gather all the jobIDs
 	jobIDs := make([]string, 0)
 	jobUUIDsByNode := make(map[string][]string)
-	for _, nopView := range nopsView {
-		for _, node := range nopView.Nodes {
-			jobIDs = append(jobIDs, maps.Keys(node.ApprovedJobspecs)...)
-			for _, job := range node.ApprovedJobspecs {
-				jobUUIDsByNode[node.NodeID] = append(jobUUIDsByNode[node.NodeID], job.UUID)
-			}
+	for _, nop := range nopsView {
+		jobIDs = append(jobIDs, maps.Keys(nop.ApprovedJobspecs)...)
+		for _, job := range nop.ApprovedJobspecs {
+			jobUUIDsByNode[nop.NodeID] = append(jobUUIDsByNode[nop.NodeID], job.UUID)
 		}
 	}
 	// run delete JobChangeset
@@ -43,12 +41,10 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	require.NoError(t, tenv.DeleteJobs(e.Env.GetContext(), jobUUIDsByNode))
 
 	// check if the jobs are deleted
-	nopsView, err = view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain, "test")
+	nopsView, err = view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	for _, nopView := range nopsView {
-		for _, node := range nopView.Nodes {
-			require.Empty(t, node.ApprovedJobspecs)
-		}
+	for _, nop := range nopsView {
+		require.Empty(t, nop.ApprovedJobspecs)
 	}
 }
 
@@ -57,18 +53,16 @@ func TestRevokeJobs(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-566")
 
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
-	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain, "test")
+	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
 	// gather all the jobIDs
 	jobIDs := make([]string, 0)
 	jobUUIDsByNode := make(map[string][]string)
-	for _, nopView := range nopsView {
-		for _, node := range nopView.Nodes {
-			jobIDs = append(jobIDs, maps.Keys(node.ApprovedJobspecs)...)
-			for _, job := range node.ApprovedJobspecs {
-				jobUUIDsByNode[node.NodeID] = append(jobUUIDsByNode[node.NodeID], job.UUID)
-			}
+	for _, nop := range nopsView {
+		jobIDs = append(jobIDs, maps.Keys(nop.ApprovedJobspecs)...)
+		for _, job := range nop.ApprovedJobspecs {
+			jobUUIDsByNode[nop.NodeID] = append(jobUUIDsByNode[nop.NodeID], job.UUID)
 		}
 	}
 	// run RevokeJobChangeset
