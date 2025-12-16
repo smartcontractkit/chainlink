@@ -1525,6 +1525,8 @@ Check [workflow-don.toml](configs/workflow-don.toml) for an example.
 
 This section explains how to deploy and connect to Chainlink nodes running in an existing Kubernetes cluster. Unlike Docker (which starts containers locally) or CRIB (which deploys nodes via devspace), Kubernetes mode assumes nodes are **already running** in the cluster and generates the appropriate service URLs to connect to them.
 
+The support for Kubernetes is designed to work with an internal platform for running and managing containerized applications. For more details on where to find domain names and how to configure a DON running on it, please check the internal docs.
+
 ### Prerequisites for Kubernetes
 
 1. **Kubernetes cluster with Chainlink nodes deployed** - Nodes must already be running in the cluster
