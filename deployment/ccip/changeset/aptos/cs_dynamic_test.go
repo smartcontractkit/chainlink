@@ -46,9 +46,6 @@ func TestDynamicCS_Apply(t *testing.T) {
 	// For this test, we'll use the CCIP address as a mock token address
 	mockTokenAddr := aptosState.CCIPAddress.StringLong()
 
-	registry := operations.NewOperationRegistry(operation.GetAptosOperations()...)
-	env.OperationsBundle.OperationRegistry = registry
-
 	// Define the operations to execute
 	defs := []operations.Definition{
 		operation.ApplyAllowedOfframpUpdatesOp.Def(),
@@ -111,6 +108,8 @@ func TestDynamicCS_Apply(t *testing.T) {
 		commonchangeset.Configure(aptoscs.DynamicCS{}, cfg),
 	})
 	require.NoError(t, err, "dynamic changeset should apply successfully")
+	// Re-register operations after ApplyChangesets (bundle may be rebuilt)
+	env.OperationsBundle.OperationRegistry = operations.NewOperationRegistry(operation.GetAptosOperations()...)
 
 	// Verify the operations were executed successfully by checking the state
 	// 1. Verify FeeQuoter prices were updated
@@ -193,6 +192,8 @@ func TestDynamicCS_Apply(t *testing.T) {
 		commonchangeset.Configure(aptoscs.DynamicCS{}, cfg),
 	})
 	require.NoError(t, err, "dynamic changeset should apply successfully")
+	// Re-register operations after ApplyChangesets (bundle may be rebuilt)
+	env.OperationsBundle.OperationRegistry = operations.NewOperationRegistry(operation.GetAptosOperations()...)
 
 	// Verify the operations were executed successfully by checking the state
 	isCursedU128, err = ccipBind.RMNRemote().IsCursedU128(nil, arbU128Selector)
