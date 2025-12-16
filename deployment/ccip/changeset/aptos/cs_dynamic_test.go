@@ -61,10 +61,14 @@ func TestDynamicCS_Apply(t *testing.T) {
 		chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 		chain_selectors.FamilyEVM,
 	)
-	solanaSubject := globals.FamilyAwareSelectorToSubject(
-		chain_selectors.SOLANA_MAINNET.Selector,
-		chain_selectors.FamilySolana,
+	bscSubject := globals.FamilyAwareSelectorToSubject(
+		chain_selectors.BINANCE_SMART_CHAIN_MAINNET.Selector,
+		chain_selectors.FamilyEVM,
 	)
+	// solanaSubject := globals.FamilyAwareSelectorToSubject(
+	// 	chain_selectors.SOLANA_MAINNET.Selector,
+	// 	chain_selectors.FamilySolana,
+	// )
 
 	// Define the inputs for each operation
 	inputs := []any{
@@ -88,7 +92,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 		operation.CurseSubjectsInput{
 			Subjects: [][]byte{
 				arbSubject[:],
-				solanaSubject[:],
+				bscSubject[:],
 			},
 		},
 	}
@@ -149,7 +153,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 
 	// 3. Verify subjects were cursed
 	arbU128Selector := new(big.Int).SetUint64(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector)
-	solanaU128Selector := new(big.Int).SetUint64(chain_selectors.SOLANA_MAINNET.Selector)
+	bscU128Selector := new(big.Int).SetUint64(chain_selectors.BINANCE_SMART_CHAIN_MAINNET.Selector)
 	isCursedU128, err := ccipBind.RMNRemote().IsCursedU128(nil, arbU128Selector)
 	require.NoError(t, err)
 	require.True(t, isCursedU128, "should be cursed")
@@ -162,7 +166,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 	// require.NoError(t, err)
 	// require.True(t, isCursed, "should be cursed")
 
-	isCursed, err := ccipBind.RMNRemote().IsCursed(nil, solanaSubject[:])
+	isCursed, err := ccipBind.RMNRemote().IsCursed(nil, bscSubject[:])
 	require.NoError(t, err)
 	require.True(t, isCursed, "should be cursed")
 
@@ -207,11 +211,11 @@ func TestDynamicCS_Apply(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, isCursed, "should not be cursed")
 
-	isCursedU128, err = ccipBind.RMNRemote().IsCursedU128(nil, solanaU128Selector)
+	isCursedU128, err = ccipBind.RMNRemote().IsCursedU128(nil, bscU128Selector)
 	require.NoError(t, err)
 	require.True(t, isCursedU128, "should be cursed")
 
-	isCursed, err = ccipBind.RMNRemote().IsCursed(nil, solanaSubject[:])
+	isCursed, err = ccipBind.RMNRemote().IsCursed(nil, bscSubject[:])
 	require.NoError(t, err)
 	require.True(t, isCursed, "should be cursed")
 
