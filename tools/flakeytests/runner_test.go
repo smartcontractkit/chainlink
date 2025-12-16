@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -350,6 +351,7 @@ func TestSkippedForTests_Success(t *testing.T) {
 }
 
 func TestIntegration_DealsWithSubtests(t *testing.T) {
+	quarantine.Flaky(t, "DX-2468")
 	if testing.Short() {
 		t.Skip()
 	}
