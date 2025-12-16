@@ -61,7 +61,7 @@ func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json
 		e.Logger.Error(err2)
 		viewErrs = errors.Join(viewErrs, err2)
 	}
-	return &KeystoneView{
+	return &KeystoneViewV2{
 		Chains: chainViews,
 		Nops:   nopsView,
 	}, viewErrs
