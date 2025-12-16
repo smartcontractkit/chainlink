@@ -237,7 +237,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		GlobalBurst:    1000,
 		PerSenderRPS:   100.0,
 		PerSenderBurst: 100,
-	}, limits.Factory{})
+	})
 	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
@@ -1097,7 +1097,7 @@ func TestEngine_RateLimit(t *testing.T) {
 				GlobalBurst:    1000,
 				PerSenderRPS:   1.0,
 				PerSenderBurst: 1,
-			}, limits.Factory{})
+			})
 			require.NoError(t, err)
 			c.RateLimiter = rl
 		}
@@ -1110,7 +1110,9 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as owner, so next execution gets blocked by per user limit
-		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: testWorkflowOwner, Workflow: testWorkflowID})))
+		senderAllow, globalAllow := eng.ratelimiter.Allow(testWorkflowOwner)
+		require.True(t, senderAllow)
+		require.True(t, globalAllow)
 		servicetest.Run(t, eng)
 
 		select {
@@ -1151,7 +1153,7 @@ func TestEngine_RateLimit(t *testing.T) {
 				GlobalBurst:    1,
 				PerSenderRPS:   100.0,
 				PerSenderBurst: 100,
-			}, limits.Factory{})
+			})
 			require.NoError(t, err)
 			c.RateLimiter = rl
 		}
@@ -1164,7 +1166,9 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as other owner, so next execution gets blocked by global limit
-		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "some other owner", Workflow: testWorkflowID})))
+		senderAllow, globalAllow := eng.ratelimiter.Allow("some other owner")
+		require.True(t, senderAllow)
+		require.True(t, globalAllow)
 		servicetest.Run(t, eng)
 
 		select {
