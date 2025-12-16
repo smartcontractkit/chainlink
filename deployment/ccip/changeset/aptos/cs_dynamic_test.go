@@ -46,6 +46,9 @@ func TestDynamicCS_Apply(t *testing.T) {
 	// For this test, we'll use the CCIP address as a mock token address
 	mockTokenAddr := aptosState.CCIPAddress.StringLong()
 
+	registry := operations.NewOperationRegistry(operation.GetAptosOperations()...)
+	env.OperationsBundle.OperationRegistry = registry
+
 	// Define the operations to execute
 	defs := []operations.Definition{
 		operation.ApplyAllowedOfframpUpdatesOp.Def(),
