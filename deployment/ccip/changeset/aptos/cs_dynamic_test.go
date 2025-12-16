@@ -57,9 +57,13 @@ func TestDynamicCS_Apply(t *testing.T) {
 		operation.CurseSubjectsOp.Def(),
 	}
 
-	subject := globals.FamilyAwareSelectorToSubject(
+	arbSubject := globals.FamilyAwareSelectorToSubject(
 		chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 		chain_selectors.FamilyEVM,
+	)
+	solanaSubject := globals.FamilyAwareSelectorToSubject(
+		chain_selectors.SOLANA_MAINNET.Selector,
+		chain_selectors.FamilySolana,
 	)
 
 	// Define the inputs for each operation
@@ -83,7 +87,8 @@ func TestDynamicCS_Apply(t *testing.T) {
 		},
 		operation.CurseSubjectsInput{
 			Subjects: [][]byte{
-				subject[:],
+				arbSubject[:],
+				solanaSubject[:],
 			},
 		},
 	}
@@ -141,12 +146,108 @@ func TestDynamicCS_Apply(t *testing.T) {
 	require.True(t, found, "CCIP owner should be in the allowlist after ApplyAllowedOfframpUpdatesOp")
 
 	// 3. Verify subjects were cursed
-	u128Selector := new(big.Int).SetUint64(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector)
-	IsCursedU128, err := ccipBind.RMNRemote().IsCursedU128(nil, u128Selector)
+	arbU128Selector := new(big.Int).SetUint64(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector)
+	solanaU128Selector := new(big.Int).SetUint64(chain_selectors.SOLANA_MAINNET.Selector)
+	isCursedU128, err := ccipBind.RMNRemote().IsCursedU128(nil, arbU128Selector)
 	require.NoError(t, err)
-	require.True(t, IsCursedU128, "should be cursed")
+	require.True(t, isCursedU128, "should be cursed")
 
-	IsCursed, err := ccipBind.RMNRemote().IsCursed(nil, subject[:])
+	isCursedU128, err = ccipBind.RMNRemote().IsCursedU128(nil, solanaU128Selector)
 	require.NoError(t, err)
-	require.True(t, IsCursed, "should be cursed")
+	require.True(t, isCursedU128, "should be cursed")
+
+	isCursed, err := ccipBind.RMNRemote().IsCursed(nil, arbSubject[:])
+	require.NoError(t, err)
+	require.True(t, isCursed, "should be cursed")
+
+	isCursed, err = ccipBind.RMNRemote().IsCursed(nil, solanaSubject[:])
+	require.NoError(t, err)
+	require.True(t, isCursed, "should be cursed")
+
+	// define the operations to execute
+	defs = []operations.Definition{
+		operation.UncurseSubjectsOp.Def(),
+	}
+
+	inputs = []any{
+		operation.UncurseSubjectsInput{
+			Subjects: [][]byte{
+				arbSubject[:],
+			},
+		},
+	}
+
+	cfg = aptosconfig.DynamicConfig{
+		Defs:          defs,
+		Inputs:        inputs,
+		ChainSelector: aptosChainSel,
+		Description:   "Test dynamic changeset with uncurse subjects operation",
+		MCMSConfig: &proposalutils.TimelockConfig{
+			MinDelay:     time.Duration(1) * time.Second,
+			MCMSAction:   mcmstypes.TimelockActionSchedule,
+			OverrideRoot: false,
+		},
+	}
+
+	env, _, err = commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(aptoscs.DynamicCS{}, cfg),
+	})
+	require.NoError(t, err, "dynamic changeset should apply successfully")
+
+	// Verify the operations were executed successfully by checking the state
+	isCursedU128, err = ccipBind.RMNRemote().IsCursedU128(nil, arbU128Selector)
+	require.NoError(t, err)
+	require.False(t, isCursedU128, "should not be cursed")
+
+	isCursed, err = ccipBind.RMNRemote().IsCursed(nil, arbSubject[:])
+	require.NoError(t, err)
+	require.False(t, isCursed, "should not be cursed")
+
+	isCursedU128, err = ccipBind.RMNRemote().IsCursedU128(nil, solanaU128Selector)
+	require.NoError(t, err)
+	require.True(t, isCursedU128, "should be cursed")
+
+	isCursed, err = ccipBind.RMNRemote().IsCursed(nil, solanaSubject[:])
+	require.NoError(t, err)
+	require.True(t, isCursed, "should be cursed")
+
+	// define the operations to execute
+	defs = []operations.Definition{
+		operation.GlobalCurseOp.Def(),
+	}
+
+	inputs = []any{
+		operation.GlobalCurseInput{},
+	}
+
+	cfg = aptosconfig.DynamicConfig{
+		Defs:          defs,
+		Inputs:        inputs,
+		ChainSelector: aptosChainSel,
+		Description:   "Test dynamic changeset with global curse operation",
+		MCMSConfig: &proposalutils.TimelockConfig{
+			MinDelay:     time.Duration(1) * time.Second,
+			MCMSAction:   mcmstypes.TimelockActionSchedule,
+			OverrideRoot: false,
+		},
+	}
+
+	env, _, err = commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(aptoscs.DynamicCS{}, cfg),
+	})
+	require.NoError(t, err, "dynamic changeset should apply successfully")
+
+	// Verify the operations were executed successfully by checking the state
+	isCursedGlobal, err := ccipBind.RMNRemote().IsCursedGlobal(nil)
+	require.NoError(t, err)
+	require.True(t, isCursedGlobal, "should be cursed globally")
+
+	optimismSubject := globals.FamilyAwareSelectorToSubject(
+		chain_selectors.ETHEREUM_MAINNET_OPTIMISM_1.Selector,
+		chain_selectors.FamilyEVM,
+	)
+
+	isCursed, err = ccipBind.RMNRemote().IsCursed(nil, optimismSubject[:])
+	require.NoError(t, err)
+	require.True(t, isCursed, "should be cursed")
 }
