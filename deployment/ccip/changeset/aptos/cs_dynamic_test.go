@@ -17,6 +17,7 @@ import (
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	aptosconfig "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -53,7 +54,13 @@ func TestDynamicCS_Apply(t *testing.T) {
 		operation.ApplyAllowedOfframpUpdatesOp.Def(),
 		operation.UpdateFeeQuoterDestsOp.Def(),
 		operation.UpdateFeeQuoterPricesOp.Def(),
+		operation.CurseSubjectsOp.Def(),
 	}
+
+	subject := globals.FamilyAwareSelectorToSubject(
+		chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
+		chain_selectors.FamilyEVM,
+	)
 
 	// Define the inputs for each operation
 	inputs := []any{
@@ -72,6 +79,11 @@ func TestDynamicCS_Apply(t *testing.T) {
 			},
 			GasPrices: map[uint64]*big.Int{
 				chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID: big.NewInt(500000), // Mock gas price
+			},
+		},
+		operation.CurseSubjectsInput{
+			Subjects: [][]byte{
+				subject[:],
 			},
 		},
 	}
@@ -127,4 +139,13 @@ func TestDynamicCS_Apply(t *testing.T) {
 		}
 	}
 	require.True(t, found, "CCIP owner should be in the allowlist after ApplyAllowedOfframpUpdatesOp")
+
+	// 3. Verify subjects were cursed
+	IsCursedU128, err := ccipBind.RMNRemote().IsCursedU128(nil, big.NewInt(int64(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector)))
+	require.NoError(t, err)
+	require.True(t, IsCursedU128, "should be cursed")
+
+	IsCursed, err := ccipBind.RMNRemote().IsCursed(nil, subject[:])
+	require.NoError(t, err)
+	require.True(t, IsCursed, "should be cursed")
 }
