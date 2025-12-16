@@ -16,7 +16,7 @@ var _ deployment.ViewStateV2 = ViewCRE
 var _ deployment.ViewStateV2 = ViewCREV2
 
 func ViewCRE(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
-	chainViews, viewErrs := generateCREChainView(e, previousView)
+	chainViews, viewErrs := generateCREChainsViews(e, previousView)
 	if viewErrs != nil {
 		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
 	}
@@ -33,7 +33,7 @@ func ViewCRE(e deployment.Environment, previousView json.Marshaler) (json.Marsha
 }
 
 func ViewCREV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
-	chainViews, viewErrs := generateCREChainView(e, previousView)
+	chainViews, viewErrs := generateCREChainsViews(e, previousView)
 	if viewErrs != nil {
 		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
 	}
@@ -49,7 +49,7 @@ func ViewCREV2(e deployment.Environment, previousView json.Marshaler) (json.Mars
 	}, viewErrs
 }
 
-func generateCREChainView(e deployment.Environment, previousView json.Marshaler) (map[string]CREChainView, error) {
+func generateCREChainsViews(e deployment.Environment, previousView json.Marshaler) (map[string]CREChainView, error) {
 	lggr := e.Logger
 	contractsMap, err := getContractsPerChain(e)
 	// This is an unrecoverable error
