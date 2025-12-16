@@ -141,7 +141,8 @@ func TestDynamicCS_Apply(t *testing.T) {
 	require.True(t, found, "CCIP owner should be in the allowlist after ApplyAllowedOfframpUpdatesOp")
 
 	// 3. Verify subjects were cursed
-	IsCursedU128, err := ccipBind.RMNRemote().IsCursedU128(nil, big.NewInt(int64(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector)))
+	u128Selector := new(big.Int).SetUint64(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector)
+	IsCursedU128, err := ccipBind.RMNRemote().IsCursedU128(nil, u128Selector)
 	require.NoError(t, err)
 	require.True(t, IsCursedU128, "should be cursed")
 
