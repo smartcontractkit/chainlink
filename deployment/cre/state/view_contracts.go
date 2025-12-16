@@ -85,8 +85,8 @@ func GenerateCREChainView(
 }
 
 type CREView struct {
-	Chains map[string]CREChainView     `json:"chains,omitempty"`
-	Nops   map[string]view.NopNodeInfo `json:"nops,omitempty"`
+	Chains map[string]CREChainView `json:"chains,omitempty"`
+	Nops   map[string]view.NopView `json:"nops,omitempty"`
 }
 
 func (v CREView) MarshalJSON() ([]byte, error) {

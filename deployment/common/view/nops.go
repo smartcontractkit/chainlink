@@ -24,7 +24,7 @@ type NopViewV2 struct {
 	Nodes []NopNodeInfoV2 `json:"nodes"`
 }
 
-type NopNodeInfo struct {
+type NopView struct {
 	// NodeID is the unique identifier of the node
 	NodeID           string                `json:"nodeID"`
 	PeerID           string                `json:"peerID"`
@@ -42,7 +42,7 @@ type NopNodeInfo struct {
 }
 
 type NopNodeInfoV2 struct {
-	NopNodeInfo
+	NopView
 	NodeName   string   `json:"nodeName"`
 	Networks   []string `json:"networks"`
 	Deployment string   `json:"deployment"`
@@ -70,8 +70,8 @@ type OCRKeyView struct {
 }
 
 // GenerateNopsView generates a view of nodes with their details
-func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (map[string]NopNodeInfo, error) {
-	nv := make(map[string]NopNodeInfo)
+func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (map[string]NopView, error) {
+	nv := make(map[string]NopView)
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
 		lggr.Warnf("Missing node metadata: %s", err.Error())
@@ -119,7 +119,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			})
 		}
 
-		fullNodeInfo := NopNodeInfo{
+		fullNodeInfo := NopView{
 			NodeID:           node.NodeID,
 			PeerID:           node.PeerID.String(),
 			IsBootstrap:      node.IsBootstrap,
@@ -221,7 +221,7 @@ func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.C
 		}
 
 		fullNodeInfo := NopNodeInfoV2{
-			NopNodeInfo: NopNodeInfo{
+			NopView: NopView{
 				NodeID:           node.NodeID,
 				PeerID:           node.PeerID.String(),
 				IsBootstrap:      node.IsBootstrap,
