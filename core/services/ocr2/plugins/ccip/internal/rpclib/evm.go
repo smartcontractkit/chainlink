@@ -131,9 +131,31 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 		}
 	}
 
+	c.lggr.Infow("batchCall: sending batch request",
+		"numCalls", len(calls),
+		"blockNumber", blockNumber,
+	)
+
 	err := c.batchSender.BatchCallContext(ctx, rpcBatchCalls)
 	if err != nil {
+		c.lggr.Errorw("batchCall: BatchCallContext failed",
+			"err", err,
+			"numCalls", len(calls),
+		)
 		return nil, fmt.Errorf("batch call context: %w", err)
+	}
+
+	// Log individual batch element results for debugging
+	for i, batchElem := range rpcBatchCalls {
+		if batchElem.Error != nil || packedOutputs[i] == "" {
+			c.lggr.Warnw("batchCall: batch element issue",
+				"index", i,
+				"method", batchElem.Method,
+				"error", batchElem.Error,
+				"result", packedOutputs[i],
+				"call", calls[i].String(),
+			)
+		}
 	}
 
 	results := make([]DataAndErr, len(calls))
@@ -173,6 +195,13 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context, blockNumber uint64, calls []EvmCall) ([]DataAndErr, error) {
 	// Limit the batch size to the number of calls
 	lim := min(uint(len(calls)), c.batchSizeLimit)
+
+	c.lggr.Infow("batchCallDynamicLimitRetries: starting",
+		"totalCalls", len(calls),
+		"initialBatchLimit", lim,
+		"batchSizeLimit", c.batchSizeLimit,
+	)
+
 	for {
 		results, err := c.batchCallLimit(ctx, blockNumber, calls, lim)
 		if err == nil {
@@ -180,6 +209,11 @@ func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context
 		}
 
 		if lim <= 1 {
+			c.lggr.Errorw("batchCallDynamicLimitRetries: exhausted retries",
+				"finalLimit", lim,
+				"err", err,
+				"calls", EVMCallsToString(calls),
+			)
 			return nil, errors.Wrapf(err, "calls %+v", EVMCallsToString(calls))
 		}
 

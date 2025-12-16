@@ -289,15 +289,38 @@ func (p *PriceRegistry) GetTokensDecimals(ctx context.Context, tokenAddresses []
 		}
 	}
 
+	p.lggr.Infow("GetTokensDecimals: starting batch call",
+		"numCalls", len(evmCalls),
+		"tokenAddresses", evmAddrs,
+		"cachedCount", len(found),
+	)
+
 	results, err := p.evmBatchCaller.BatchCall(ctx, 0, evmCalls)
 	if err != nil {
+		p.lggr.Errorw("GetTokensDecimals: batch call failed",
+			"err", err,
+			"numCalls", len(evmCalls),
+			"tokenAddresses", evmAddrs,
+		)
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}
+
+	p.lggr.Infow("GetTokensDecimals: batch call succeeded",
+		"numResults", len(results),
+	)
 
 	decimals, err := rpclib.ParseOutputs[uint8](results, func(d rpclib.DataAndErr) (uint8, error) {
 		return rpclib.ParseOutput[uint8](d, 0)
 	})
 	if err != nil {
+		// Log detailed info about each result to help debug
+		for i, res := range results {
+			p.lggr.Errorw("GetTokensDecimals: result detail",
+				"index", i,
+				"outputs", res.Outputs,
+				"err", res.Err,
+			)
+		}
 		return nil, fmt.Errorf("parse outputs: %w", err)
 	}
 
