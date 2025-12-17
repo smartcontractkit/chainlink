@@ -1,7 +1,9 @@
 package jobs_test
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -283,18 +285,23 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 
 	env.DataStore = ds.Seal()
 
+	const (
+		inputLookback  int64 = 123 // non-zero input-level default
+		overrideCustom int64 = 999 // per-node explicit override
+	)
+
 	input := jobs.ProposeEVMCapJobSpecInput{
-		Environment:          "test",
-		Zone:                 test.Zone,
-		Domain:               "cre",
-		DONName:              test.DONName,
-		ChainSelector:        selector,
-		OCRChainSelector:     selector,
-		BootstrapperOCR3Urls: []string{"12D3KooWabc@127.0.0.1:5001"},
-		OCRContractQualifier: testOCRQualifier,
-		ForwardersQualifier:  testForwarderQualifier,
+		Environment:             "test",
+		Zone:                    test.Zone,
+		Domain:                  "cre",
+		DONName:                 test.DONName,
+		ChainSelector:           selector,
+		OCRChainSelector:        selector,
+		BootstrapperOCR3Urls:    []string{"12D3KooWabc@127.0.0.1:5001"},
+		OCRContractQualifier:    testOCRQualifier,
+		ForwardersQualifier:     testForwarderQualifier,
+		ForwarderLookbackBlocks: inputLookback,
 		EVMCapabilityInputs: []jobs.EVMCapabilityInput{
-			// leave values zero to exercise defaults; Apply should fill them
 			minimalEVMCapInput("node_test-don-0"),
 			minimalEVMCapInput("node_test-don-1"),
 			minimalEVMCapInput("node_test-don-2"),
@@ -302,13 +309,23 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 		},
 	}
 
+	// Explicit per-node override on first node (should be preserved).
+	input.EVMCapabilityInputs[0].OverrideDefaultCfg.ForwarderLookbackBlocks = overrideCustom
+
 	// Verify should pass
 	require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(*env, input))
 
-	// Apply should succeed and return one report
 	out, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
+
+	// Validate exactly one override and three defaults
+	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
+	count999 := strings.Count(outputStr, `"forwarderLookbackBlocks":999`)
+	count123 := strings.Count(outputStr, `"forwarderLookbackBlocks":123`)
+	assert.Equal(t, 1, count999, "expected exactly one override lookbackBlocks=999")
+	assert.Equal(t, 3, count123, "expected exactly three defaulted lookbackBlocks=123")
+
 }
 
 func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {

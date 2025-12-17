@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/grafana/pyroscope-go"
 	"github.com/jonboulle/clockwork"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
@@ -50,11 +51,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -265,6 +268,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
 	}
+
+	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal cre settings TOML: %w", err)
+	}
+	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
 	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
 	limitsFactory := limits.Factory{
 		Meter:    beholder.GetMeter(),

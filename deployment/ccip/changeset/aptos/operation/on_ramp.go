@@ -13,6 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
 
+var OnRampOperations = []*operations.Operation[any, any, any]{
+	UpdateOnRampDestsOp.AsUntyped(),
+}
+
 // UpdateOnRampDestsInput contains configuration for updating OnRamp destinations
 type UpdateOnRampDestsInput struct {
 	Updates map[uint64]v1_6.OnRampDestinationUpdate

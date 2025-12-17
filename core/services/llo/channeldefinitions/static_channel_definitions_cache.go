@@ -44,7 +44,7 @@ func (s *staticCDC) Close() error {
 	})
 }
 
-func (s *staticCDC) Definitions() llotypes.ChannelDefinitions {
+func (s *staticCDC) Definitions(prev llotypes.ChannelDefinitions) llotypes.ChannelDefinitions {
 	return s.definitions
 }
 
