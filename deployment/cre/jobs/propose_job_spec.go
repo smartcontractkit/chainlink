@@ -88,6 +88,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
 		}
 
+		job.ExternalJobID = evmJobIDHashFunc(job.JobName, job.Command, uint64(job.ChainSelectorEVM)).String()
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
 			job_ops.ProposeStandardCapabilityJob,
