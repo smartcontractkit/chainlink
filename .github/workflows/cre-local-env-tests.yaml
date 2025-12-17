@@ -58,8 +58,7 @@ jobs:
   test-cli:
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    # set to 15 minutes after testing
-    timeout-minutes: 5
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
@@ -140,27 +139,26 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> $GITHUB_PATH
 
-      # - name: Setup the environment
-      #   shell: bash
-      #   working-directory: core/scripts/cre/environment
-      #   env:
-      #     DISABLE_DX_TRACKING: true
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     AWS_ECR: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.us-west-2.amazonaws.com
-      #   run: |
-      #     # Remove chip_ingress config sections since CI role lacks ECR permissions for the Atlas repo
-      #     awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
-      #     go run . env setup --no-prompt
+      - name: Setup the environment
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        env:
+          DISABLE_DX_TRACKING: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS_ECR: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.us-west-2.amazonaws.com
+        run: |
+          # Remove chip_ingress config sections since CI role lacks ECR permissions for the Atlas repo
+          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
+          go run . env setup --no-prompt
 
       - name: Start the environment
         id: start-cli
         shell: bash
         working-directory: core/scripts/cre/environment
         env:
+          CTF_CONFIGS: "configs/workflow-don.toml"
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}"
-          # Simplest/default topology has misconfigured gateway node and web-API-trigger based example fails
-          CTF_CONFIGS: "configs/workflow-gateway-don.toml"
           DISABLE_DX_TRACKING: "true"
           CI: "true"
         run: |
@@ -305,9 +303,7 @@ jobs:
 
   notify-test-failure:
     name: Notify about local env startup failure
-    # if: always() && github.event_name != 'pull_request' && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
-    # remove after testing
-    if: always() && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
+    if: always() && github.event_name != 'pull_request' && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
     needs: [test-cli]
     runs-on: ubuntu-latest
     steps:
@@ -331,14 +327,14 @@ jobs:
           echo "duration_minutes=$duration_minutes" >> $GITHUB_OUTPUT
           echo "conclusion=$conclusion" >> $GITHUB_OUTPUT
 
-          # Job timeout is 30 minutes - if cancelled and duration is >= 28 minutes, likely a timeout
+          # Job timeout is 15 minutes - if cancelled and duration is >= 14 minutes, likely a timeout
           # If failed, always notify
           should_notify="false"
           if [[ "$conclusion" == "failure" ]]; then
             should_notify="true"
             echo "reason=failure" >> $GITHUB_OUTPUT
           # TODO: change duration in comparison back to 28 minutes
-          elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 4 ]]; then
+          elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 14 ]]; then
             should_notify="true"
             echo "reason=timeout" >> $GITHUB_OUTPUT
           fi
