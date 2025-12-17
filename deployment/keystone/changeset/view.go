@@ -32,7 +32,7 @@ type viewContracts struct {
 }
 
 func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
-	chainViews, viewErrs := generateKeystoneChainView(e, previousView)
+	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
 	if viewErrs != nil {
 		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
 	}
@@ -50,7 +50,7 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 }
 
 func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
-	chainViews, viewErrs := generateKeystoneChainView(e, previousView)
+	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
 	if viewErrs != nil {
 		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
 	}
@@ -67,7 +67,7 @@ func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json
 	}, viewErrs
 }
 
-func generateKeystoneChainView(e deployment.Environment, previousView json.Marshaler) (map[string]KeystoneChainView, error) {
+func generateKeystoneChainsViews(e deployment.Environment, previousView json.Marshaler) (map[string]KeystoneChainView, error) {
 	lggr := e.Logger
 	contractsMap, err := getContractsPerChain(e)
 	// This is an unrecoverable error
