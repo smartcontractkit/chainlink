@@ -470,7 +470,8 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 				"blockNumber", log.BlockNumber, "eventSig", log.EventSig, "logHash", log.TxHash.Hex())
 			continue
 		}
-		c.lggr.Infow("Got new logs", "source", trigger.Source, "url", trigger.URL, "sha", hex.EncodeToString(trigger.SHA[:]), "blockNum", trigger.BlockNum)
+
+		c.lggr.Debugw("Got new logs", "source", trigger.Source, "url", trigger.URL, "sha", hex.EncodeToString(trigger.SHA[:]), "blockNum", trigger.BlockNum)
 		select {
 		case c.fetchTriggerCh <- trigger:
 		case <-c.chStop:
@@ -683,7 +684,13 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
 	if sourceDef, exists := c.definitions.Sources[trigger.Source]; exists {
-		if sourceDef.Trigger.BlockNum > trigger.BlockNum {
+		switch {
+		// don't process a trigger with an earlier block number
+		case trigger.BlockNum < sourceDef.Trigger.BlockNum:
+			return nil
+
+		// don't process a trigger with the same block number and an earlier log index
+		case trigger.BlockNum == sourceDef.Trigger.BlockNum && trigger.LogIndex <= sourceDef.Trigger.LogIndex:
 			return nil
 		}
 	}

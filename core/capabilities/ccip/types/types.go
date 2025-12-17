@@ -44,9 +44,3 @@ type OracleCreator interface {
 	// The only valid values are OracleTypePlugin and OracleTypeBootstrap.
 	Type() OracleType
 }
-
-// Versions of the Solana ChainWriter execute configs. Used to toggle between configs in the home chain config
-var (
-	SolanaChainWriterExecuteConfigVersionV1 = "v1"
-	SolanaChainWriterExecuteConfigVersionV2 = "v2"
-)
