@@ -28,7 +28,7 @@ func NewCurseSubjectAdapter() *CurseSubjectAdapter {
 }
 
 // Initialize performs any required setup. No-op for now.
-func (c *CurseAdapter) Initialize(cldf.Environment) error { return nil }
+func (c *CurseAdapter) Initialize(cldf.Environment, uint64) error { return nil }
 
 // IsSubjectCursedOnChain currently returns false; extend with real RMN checks if needed.
 func (c *CurseAdapter) IsSubjectCursedOnChain(cldf.Environment, uint64, fastcurse.Subject) (bool, error) {
@@ -46,8 +46,8 @@ func (c *CurseAdapter) IsCurseEnabledForChain(cldf.Environment, uint64) (bool, e
 }
 
 // SubjectToSelector converts a Subject to a selector using family-aware helper.
-func (c *CurseAdapter) SubjectToSelector(subject fastcurse.Subject) uint64 {
-	return globals.FamilyAwareSubjectToSelector(subject, chainsel.FamilyAptos)
+func (c *CurseAdapter) SubjectToSelector(subject fastcurse.Subject) (uint64, error) {
+	return globals.FamilyAwareSubjectToSelector(subject, chainsel.FamilyAptos), nil
 }
 
 // Curse returns nil for now; plug in a real sequence when available.
