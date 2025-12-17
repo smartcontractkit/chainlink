@@ -291,7 +291,7 @@ func TestLogger_Leak(t *testing.T) {
 	ac.register.cleanup()
 	runtime.GC()
 	endObjectsNum := heapObjects()
-	// Require that endObjectsNum does not grow (with l/10-delta left for garbage collection jitter)
+	// Require that endObjectsNum does not grow (with l/10 "delta" left for garbage collection jitter)
 	assert.Less(t, endObjectsNum, startObjectsNum+l/10)
 	bLggr.Sync()
 }
