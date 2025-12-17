@@ -11,70 +11,83 @@ import (
 
 // AtomicCore provides thread-safe core swapping using atomic operations.
 // It starts as a noop core and can be atomically swapped to include additional cores.
-var _ zapcore.Core = &AtomicCore{}
+var _ zapcore.Core = &CoreWrapper{}
 
 type AtomicCore struct {
-	mu           sync.RWMutex
-	rootCore     *VersionedValue[zapcore.Core]
-	localCore    zapcore.Core
-	localVersion int64
-	fields       []zapcore.Field
+	root     *CoreWrapper
+	register *Register[CoreWrapper]
 }
 
 func NewAtomicCore() *AtomicCore {
-	rootCore := &VersionedValue[zapcore.Core]{}
-	rootCore.Store(zapcore.NewNopCore())
-	return &AtomicCore{rootCore: rootCore}
+	register := &Register[CoreWrapper]{
+		stopCleanup: make(chan struct{}),
+	}
+	register.startPeriodicCleanup()
+	root := &CoreWrapper{register: register, core: zapcore.NewNopCore()}
+	return &AtomicCore{root, register}
 }
 
-func (a *AtomicCore) With(fields []zapcore.Field) zapcore.Core {
-	combined := make([]zapcore.Field, 0, len(a.fields)+len(fields))
-	combined = append(combined, a.fields...)
-	combined = append(combined, fields...)
-
-	return &AtomicCore{rootCore: a.rootCore, fields: combined}
+func (a *AtomicCore) Root() zapcore.Core {
+	return a.root
 }
 
 func (a *AtomicCore) Store(core zapcore.Core) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.localVersion = a.rootCore.Store(core)
-	a.localCore = core.With(a.fields)
+	a.register.Update(func(cw *CoreWrapper) {
+		cw.Store(core)
+	})
 }
 
-func (a *AtomicCore) load() zapcore.Core {
-	// Usual path: read localCore at the latest version with read lock only.
-	a.mu.RLock()
-	rootCore, version := a.rootCore.Load()
-	localCore := a.localCore
-	lastVerison := a.localVersion
-	a.mu.RUnlock()
-	if localCore != nil && lastVerison == version {
-		return localCore
-	}
-	// Update path: need to read the latest version from the rootCore first and then update localCore.
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	rootCore, version = a.rootCore.Load()
-	a.localCore = rootCore.With(a.fields)
-	a.localVersion = version
-	return a.localCore
+func (a *AtomicCore) Close() {
+	a.register.Close()
 }
 
-func (a *AtomicCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	return a.load().Check(ent, ce)
+type CoreWrapper struct {
+	mu       sync.RWMutex
+	core     zapcore.Core
+	fields   []zapcore.Field
+	register *Register[CoreWrapper]
 }
 
-func (a *AtomicCore) Enabled(lvl zapcore.Level) bool {
-	return a.load().Enabled(lvl)
+func (c *CoreWrapper) Store(core zapcore.Core) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.core = core.With(c.fields)
 }
 
-func (a *AtomicCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	return a.load().Write(ent, fields)
+func (c *CoreWrapper) With(fields []zapcore.Field) zapcore.Core {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	combined := make([]zapcore.Field, 0, len(c.fields)+len(fields))
+	combined = append(combined, c.fields...)
+	combined = append(combined, fields...)
+
+	cw := &CoreWrapper{register: c.register, fields: combined, core: c.core.With(fields)}
+	c.register.Add(cw)
+	return cw
 }
 
-func (a *AtomicCore) Sync() error {
-	return a.load().Sync()
+func (c *CoreWrapper) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.core.Check(ent, ce)
+}
+
+func (c *CoreWrapper) Enabled(lvl zapcore.Level) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.core.Enabled(lvl)
+}
+
+func (c *CoreWrapper) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.core.Write(ent, fields)
+}
+
+func (c *CoreWrapper) Sync() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.core.Sync()
 }
 
 var _ Logger = &zapLogger{}
