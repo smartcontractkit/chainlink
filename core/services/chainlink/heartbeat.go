@@ -3,6 +3,8 @@ package chainlink
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
@@ -32,6 +34,7 @@ type HeartbeatConfig struct {
 	P2P          string
 	AppID        string
 	CSAPublicKey string
+	EVMNodeURLs  map[string]string // Maps chainID_WSURL/chainID_HTTPURL to comma-separated domains
 }
 
 func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
@@ -47,12 +50,42 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 		cfg.Logger.Warn("no CSA key found for heartbeat")
 	}
 
+	evmNodeURLs := make(map[string]string)
+	if cfg.Config.EVMEnabled() {
+		for _, evmCfg := range cfg.Config.EVMConfigs() {
+			if evmCfg.ChainID == nil || !evmCfg.IsEnabled() {
+				continue
+			}
+			chainID := evmCfg.ChainID.String()
+			var wsDomains, httpDomains []string
+			for _, node := range evmCfg.Nodes {
+				if node.WSURL != nil {
+					if domain := ExtractDomainFromURLString(node.WSURL.String()); domain != "" {
+						wsDomains = append(wsDomains, domain)
+					}
+				}
+				if node.HTTPURL != nil {
+					if domain := ExtractDomainFromURLString(node.HTTPURL.String()); domain != "" {
+						httpDomains = append(httpDomains, domain)
+					}
+				}
+			}
+			if len(wsDomains) > 0 {
+				evmNodeURLs["WSURL_"+chainID] = strings.Join(wsDomains, ",")
+			}
+			if len(httpDomains) > 0 {
+				evmNodeURLs["HTTPURL_"+chainID] = strings.Join(httpDomains, ",")
+			}
+		}
+	}
+
 	return HeartbeatConfig{
 		Beat:         cfg.Config.Telemetry().HeartbeatInterval(),
 		Lggr:         cfg.Logger,
 		P2P:          cfg.Config.P2P().PeerID().String(),
 		AppID:        cfg.Config.AppID().String(),
 		CSAPublicKey: csaKey,
+		EVMNodeURLs:  evmNodeURLs,
 	}
 }
 
@@ -60,7 +93,12 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	// setup default emitter and meter
 	cme := custmsg.NewLabeler()
-	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
+	labels := map[string]string{
+		"system":      "Application",
+		"version":     static.Version,
+		"commit":      static.Sha,
+		"version_tag": static.VersionTag,
+	}
 	if cfg.P2P != "" {
 		labels["peer_id"] = cfg.P2P
 	}
@@ -69,6 +107,9 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	}
 	if cfg.CSAPublicKey != "" {
 		labels["csa_key"] = cfg.CSAPublicKey
+	}
+	for k, v := range cfg.EVMNodeURLs {
+		labels[k] = v
 	}
 
 	cme.WithMapLabels(labels)
@@ -140,4 +181,17 @@ func (h *Heartbeat) start(_ context.Context) error {
 
 func (h *Heartbeat) GetBeat() time.Duration {
 	return h.beat
+}
+
+// ExtractDomainFromURLString parses a URL string and returns only the host (domain).
+// This ensures sensitive information like API keys in URL paths are not exposed.
+func ExtractDomainFromURLString(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return u.Host
 }

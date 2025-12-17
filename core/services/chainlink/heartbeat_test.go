@@ -148,3 +148,128 @@ func (bc *byteCollector) String() string {
 	defer bc.mu.Unlock()
 	return bc.buffer.String()
 }
+
+func TestExtractDomainFromURLString(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		rawURL   string
+		expected string
+	}{
+		{
+			name:     "empty string",
+			rawURL:   "",
+			expected: "",
+		},
+		{
+			name:     "simple https URL",
+			rawURL:   "https://eth-mainnet.example.com",
+			expected: "eth-mainnet.example.com",
+		},
+		{
+			name:     "https URL with path",
+			rawURL:   "https://eth-mainnet.infura.io/v3/abc123secretkey",
+			expected: "eth-mainnet.infura.io",
+		},
+		{
+			name:     "https URL with port",
+			rawURL:   "https://localhost:8545",
+			expected: "localhost:8545",
+		},
+		{
+			name:     "wss URL",
+			rawURL:   "wss://eth-mainnet.example.com/ws",
+			expected: "eth-mainnet.example.com",
+		},
+		{
+			name:     "wss URL with API key in path",
+			rawURL:   "wss://mainnet.infura.io/ws/v3/abc123secretkey",
+			expected: "mainnet.infura.io",
+		},
+		{
+			name:     "URL with query params (should be stripped)",
+			rawURL:   "https://api.example.com/rpc?apikey=secret",
+			expected: "api.example.com",
+		},
+		{
+			name:     "URL with user info (should be stripped)",
+			rawURL:   "https://user:pass@api.example.com/rpc",
+			expected: "api.example.com",
+		},
+		{
+			name:     "invalid URL",
+			rawURL:   "://invalid",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := chainlink.ExtractDomainFromURLString(tt.rawURL)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNewHeartbeat_WithEVMNodeURLs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		evmNodeURLs map[string]string
+	}{
+		{
+			name:        "no EVM node URLs",
+			evmNodeURLs: nil,
+		},
+		{
+			name: "single chain with both URLs",
+			evmNodeURLs: map[string]string{
+				"WSURL_1":   "eth-mainnet.example.com",
+				"HTTPURL_1": "eth-mainnet.infura.io",
+			},
+		},
+		{
+			name: "multiple chains",
+			evmNodeURLs: map[string]string{
+				"WSURL_1":     "eth-mainnet.example.com",
+				"HTTPURL_1":   "eth-mainnet.infura.io",
+				"WSURL_137":   "polygon-mainnet.example.com",
+				"HTTPURL_137": "polygon-mainnet.infura.io",
+			},
+		},
+		{
+			name: "chain with multiple nodes (comma-separated domains)",
+			evmNodeURLs: map[string]string{
+				"WSURL_1":   "node1.example.com,node2.example.com",
+				"HTTPURL_1": "rpc1.infura.io,rpc2.alchemy.com",
+			},
+		},
+		{
+			name: "chain with only HTTPURL",
+			evmNodeURLs: map[string]string{
+				"HTTPURL_42161": "arb-mainnet.g.alchemy.com",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lggr := logger.TestLogger(t)
+
+			c := chainlink.HeartbeatConfig{
+				Beat:        1 * time.Second,
+				Lggr:        lggr,
+				P2P:         "peer-id",
+				AppID:       "app-id",
+				EVMNodeURLs: tt.evmNodeURLs,
+			}
+
+			heartbeat := chainlink.NewHeartbeat(c)
+
+			// Verify heartbeat was created successfully
+			assert.Equal(t, 1*time.Second, heartbeat.GetBeat())
+		})
+	}
+}
