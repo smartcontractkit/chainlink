@@ -34,7 +34,7 @@ type HeartbeatConfig struct {
 	P2P          string
 	AppID        string
 	CSAPublicKey string
-	EVMNodeURLs  map[string]string // Maps chainID_WSURL/chainID_HTTPURL to comma-separated domains
+	EVMNodeURLs  map[string]string // Maps WSURL_chainID/HTTPURL_chainID to comma-separated domains
 }
 
 func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
