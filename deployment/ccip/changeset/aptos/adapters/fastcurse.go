@@ -53,12 +53,26 @@ func (c *CurseAdapter) SubjectToSelector(subject fastcurse.Subject) (uint64, err
 
 // Curse returns nil for now; plug in a real sequence when available.
 func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequences.OnChainOutput, cldf_chain.BlockChains] {
-	return nil
+	return cldf_ops.NewSequence(
+		"aptos-curse-sequence",
+		semver.MustParse("1.6.0"),
+		"Curse sequence for Aptos",
+		func(b cldf_ops.Bundle, deps cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
+			return sequences.OnChainOutput{}, nil
+		},
+	)
 }
 
 // Uncurse returns nil for now; plug in a real sequence when available.
 func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequences.OnChainOutput, cldf_chain.BlockChains] {
-	return nil
+	return cldf_ops.NewSequence(
+		"aptos-uncurse-sequence",
+		semver.MustParse("1.6.0"),
+		"Uncurse sequence for Aptos",
+		func(b cldf_ops.Bundle, deps cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
+			return sequences.OnChainOutput{}, nil
+		},
+	)
 }
 
 func (c *CurseAdapter) ListConnectedChains(e cldf.Environment, selector uint64) ([]uint64, error) {
@@ -67,12 +81,11 @@ func (c *CurseAdapter) ListConnectedChains(e cldf.Environment, selector uint64) 
 
 // SelectorToSubject converts selector to Subject (family-aware).
 func (c *CurseSubjectAdapter) SelectorToSubject(selector uint64) fastcurse.Subject {
-	s := globals.FamilyAwareSelectorToSubject(selector, chainsel.FamilyAptos)
-	return s
+	return globals.FamilyAwareSelectorToSubject(selector, chainsel.FamilyAptos)
 }
 
 func (c *CurseSubjectAdapter) DeriveCurseAdapterVersion(e cldf.Environment, selector uint64) (*semver.Version, error) {
-	return semver.MustParse("1.0.0"), nil
+	return semver.MustParse("1.6.0"), nil
 }
 
 // Ensure interfaces are satisfied at compile time.
