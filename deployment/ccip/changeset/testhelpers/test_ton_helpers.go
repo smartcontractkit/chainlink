@@ -57,14 +57,15 @@ func setupLogPoller(
 	}
 
 	// Create logpoller with in-memory stores for testing
-	service := tonlogpoller.NewService(lggr, chainID, clientProvider, &tonlogpoller.ServiceOptions{
+	service, err := tonlogpoller.NewService(lggr, chainID, clientProvider, &tonlogpoller.ServiceOptions{
 		Config:      tonlogpoller.DefaultConfigSet,
 		FilterStore: tonlpstore.NewFilterStore(chainID, lggr),
 		TxLoader:    tonlploader.New(lggr, clientProvider),
 		LogStore:    tonlpstore.NewLogStore(chainID, lggr),
 	})
+	require.NoError(t, err)
 
-	_, err := service.RegisterFilter(ctx, tonlptypes.Filter{
+	_, err = service.RegisterFilter(ctx, tonlptypes.Filter{
 		Name:     fmt.Sprintf("%s-%s", contract.String(), eventName),
 		Address:  contract,
 		EventSig: hash.CRC32(eventName),

@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	tonRouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -390,7 +391,7 @@ func SendRequestV0_1_1(
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
 	case chainsel.FamilyTon:
-		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
+		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, cfg.Message.(tonRouter.CCIPSend))
 		if err != nil {
 			return nil, err
 		}
