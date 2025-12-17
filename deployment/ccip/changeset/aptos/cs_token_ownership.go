@@ -72,6 +72,7 @@ func (t TransferTokenOwnership) Apply(env cldf.Environment, cfg config.TransferT
 	}
 
 	deps := depspkg.AptosDeps{
+		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
 	}
@@ -150,6 +151,7 @@ func (t AcceptTokenOwnership) Apply(env cldf.Environment, cfg config.AcceptToken
 	}
 
 	deps := depspkg.AptosDeps{
+		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
 	}
@@ -230,6 +232,7 @@ func (t ExecuteOwnershipTransfer) Apply(env cldf.Environment, cfg config.Execute
 	}
 
 	deps := depspkg.AptosDeps{
+		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
 	}
@@ -311,6 +314,7 @@ func (t TransferTokenAdmin) Apply(env cldf.Environment, cfg config.TransferToken
 	}
 
 	deps := depspkg.AptosDeps{
+		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
 	}
@@ -389,6 +393,7 @@ func (t AcceptTokenAdmin) Apply(env cldf.Environment, cfg config.AcceptTokenAdmi
 	}
 
 	deps := depspkg.AptosDeps{
+		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
 	}

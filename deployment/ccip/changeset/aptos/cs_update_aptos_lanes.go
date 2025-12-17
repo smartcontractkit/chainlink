@@ -108,6 +108,7 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 	updateInputsByAptosChain := seq.ToAptosUpdateLanesConfig(state.AptosChains, cfg)
 	for aptosChainSel, sequenceInput := range updateInputsByAptosChain {
 		deps := depspkg.AptosDeps{
+			AB:               cldf.NewMemoryAddressBook(),
 			AptosChain:       env.BlockChains.AptosChains()[aptosChainSel],
 			CCIPOnChainState: state,
 		}

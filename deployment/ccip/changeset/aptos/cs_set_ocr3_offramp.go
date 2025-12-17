@@ -46,6 +46,7 @@ func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampC
 
 	for _, remoteSelector := range config.RemoteChainSels {
 		deps := deps.AptosDeps{
+			AB:               cldf.NewMemoryAddressBook(),
 			AptosChain:       env.BlockChains.AptosChains()[remoteSelector],
 			CCIPOnChainState: state,
 		}
