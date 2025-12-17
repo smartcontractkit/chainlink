@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -10,12 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/deployment/fastcurse"
 	"github.com/smartcontractkit/chainlink-ccip/deployment/utils/sequences"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 )
 
-// CurseAdapter implements fastcurse.CurseAdapter for Aptos.
-// These are minimal adapters that make the registry operational; they can be
-// enhanced later to perform real on-chain checks or invoke real sequences.
 type CurseAdapter struct{}
 
 type CurseSubjectAdapter struct{}
@@ -37,7 +37,7 @@ func (c *CurseAdapter) IsSubjectCursedOnChain(cldf.Environment, uint64, fastcurs
 }
 
 // IsChainConnectedToTargetChain returns true by default; tighten when connectivity checks are available.
-func (c *CurseAdapter) IsChainConnectedToTargetChain(cldf.Environment, uint64, uint64) (bool, error) {
+func (c *CurseAdapter) IsChainConnectedToTargetChain(e cldf.Environment, selector uint64, targetSelector uint64) (bool, error) {
 	return true, nil
 }
 
@@ -46,16 +46,15 @@ func (c *CurseAdapter) IsCurseEnabledForChain(cldf.Environment, uint64) (bool, e
 	return true, nil
 }
 
-// SubjectToSelector converts a Subject to a selector using family-aware helper.
 func (c *CurseAdapter) SubjectToSelector(subject fastcurse.Subject) (uint64, error) {
-	return globals.FamilyAwareSubjectToSelector(subject, chainsel.FamilyAptos), nil
+	return fastcurse.GenericSubjectToSelector(subject)
 }
 
 // Curse returns nil for now; plug in a real sequence when available.
 func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequences.OnChainOutput, cldf_chain.BlockChains] {
 	return cldf_ops.NewSequence(
 		"aptos-curse-sequence",
-		semver.MustParse("1.6.0"),
+		operation.Version1_0_0,
 		"Curse sequence for Aptos",
 		func(b cldf_ops.Bundle, deps cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
 			return sequences.OnChainOutput{}, nil
@@ -67,7 +66,7 @@ func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequence
 func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequences.OnChainOutput, cldf_chain.BlockChains] {
 	return cldf_ops.NewSequence(
 		"aptos-uncurse-sequence",
-		semver.MustParse("1.6.0"),
+		operation.Version1_0_0,
 		"Uncurse sequence for Aptos",
 		func(b cldf_ops.Bundle, deps cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
 			return sequences.OnChainOutput{}, nil
@@ -76,6 +75,11 @@ func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequen
 }
 
 func (c *CurseAdapter) ListConnectedChains(e cldf.Environment, selector uint64) ([]uint64, error) {
+	_, ok := e.BlockChains.AptosChains()[selector]
+	if !ok {
+		return nil, fmt.Errorf("chain %d not found", selector)
+	}
+
 	return []uint64{}, nil
 }
 
