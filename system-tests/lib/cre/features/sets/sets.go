@@ -14,6 +14,7 @@ import (
 	log_event_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/log_event_trigger"
 	mock_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/mock"
 	read_contract_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/read_contract"
+	ring_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/ring"
 	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	web_api_target_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/web_api_target"
@@ -38,5 +39,6 @@ func New() cre.Features {
 		&web_api_trigger_feature.WebAPITrigger{},
 		&vault_feature.Vault{},
 		&solana_feature.Solana{},
+		&ring_feature.Ring{},
 	)
 }

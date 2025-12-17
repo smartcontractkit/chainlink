@@ -22,6 +22,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
 			cre.WriteSolanaCapability,
+			cre.RingOCRCapability,
 		},
 		chainSpecificCapabilities: []cre.CapabilityFlag{
 			cre.EVMCapability,

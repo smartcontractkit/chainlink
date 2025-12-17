@@ -64,7 +64,7 @@
 
   # supported_evm_chains = [1337, 2337, 11155111] # uncomment to connect the node to Sepolia, even though there are no capabilities using it
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "ring"]
 
   # Enable capabilities per chain with optional per-chain overrides
   [nodesets.chain_capabilities]

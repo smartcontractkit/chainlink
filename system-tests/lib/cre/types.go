@@ -67,6 +67,7 @@ const (
 	VaultCapability           CapabilityFlag = "vault"
 	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
 	HTTPActionCapability      CapabilityFlag = "http-action"
+	RingOCRCapability         CapabilityFlag = "ring"
 	// Add more capabilities as needed
 )
 

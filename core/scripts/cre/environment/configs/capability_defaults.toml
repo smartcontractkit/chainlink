@@ -127,3 +127,8 @@
 
 [capability_configs.mock.config]
   Port = 7777  # Default port for mock service
+
+[capability_configs.ring]
+  binary_path = "./binaries/ring"
+
+[capability_configs.ring.config]
