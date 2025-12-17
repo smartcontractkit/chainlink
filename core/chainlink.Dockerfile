@@ -24,8 +24,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 ARG CL_INSTALL_PRIVATE_PLUGINS=true
 # Flag to control installation of testing plugins (default: false).
 ARG CL_INSTALL_TESTING_PLUGINS=false
-# Flag to control which definition of private plugins will be used (default: ./plugins/plugins.private.yaml)
-ARG CL_INSTALL_PRIVATE_PLUGINS_FILE=./plugins/plugins.private.yaml
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG VERSION_TAG
@@ -43,7 +41,7 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} CL_INSTALL_PRIVATE_PLUGINS_FILE=${CL_INSTALL_PRIVATE_PLUGINS_FILE} make install-plugins-private; \
+        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
     if [ "${CL_INSTALL_TESTING_PLUGINS}" = "true" ]; then \
         GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
