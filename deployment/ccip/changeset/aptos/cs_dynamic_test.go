@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -54,7 +55,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 		operation.ApplyAllowedOfframpUpdatesOp.Def(),
 		operation.UpdateFeeQuoterDestsOp.Def(),
 		operation.UpdateFeeQuoterPricesOp.Def(),
-		operation.CurseSubjectsOp.Def(),
+		aptos.CurseMultipleOp.Def(),
 	}
 
 	arbSubject := globals.FamilyAwareSelectorToSubject(
@@ -86,7 +87,8 @@ func TestDynamicCS_Apply(t *testing.T) {
 			},
 		},
 		// Input for CurseSubjectsOp
-		operation.CurseSubjectsInput{
+		aptos.CurseMultipleInput{
+			CCIPAddress: aptosState.CCIPAddress,
 			Subjects: [][]byte{
 				arbSubject[:],
 				bscSubject[:],
@@ -161,11 +163,12 @@ func TestDynamicCS_Apply(t *testing.T) {
 
 	// define the operations to execute
 	defs = []operations.Definition{
-		operation.UncurseSubjectsOp.Def(),
+		aptos.UncurseMultipleOp.Def(),
 	}
 
 	inputs = []any{
-		operation.UncurseSubjectsInput{
+		aptos.UncurseMultipleInput{
+			CCIPAddress: aptosState.CCIPAddress,
 			Subjects: [][]byte{
 				arbSubject[:],
 			},
@@ -210,11 +213,16 @@ func TestDynamicCS_Apply(t *testing.T) {
 
 	// define the operations to execute
 	defs = []operations.Definition{
-		operation.GlobalCurseOp.Def(),
+		aptos.CurseMultipleOp.Def(),
 	}
 
+	globalSubject := globals.GlobalCurseSubject()
+
 	inputs = []any{
-		operation.GlobalCurseInput{},
+		aptos.CurseMultipleInput{
+			CCIPAddress: aptosState.CCIPAddress,
+			Subjects:    [][]byte{globalSubject[:]},
+		},
 	}
 
 	cfg = aptosconfig.DynamicConfig{

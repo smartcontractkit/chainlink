@@ -24,7 +24,6 @@ func GetAptosOperations() []*cld_ops.Operation[any, any, any] {
 	operations = append(operations, TokenAdminRegistryOperations...)
 	operations = append(operations, TokenPoolOperations...)
 	operations = append(operations, TokenOperations...)
-	operations = append(operations, RMNRemoteOperations...)
 
 	return operations
 }
