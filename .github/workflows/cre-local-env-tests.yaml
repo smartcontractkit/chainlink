@@ -162,19 +162,6 @@ jobs:
           DISABLE_DX_TRACKING: "true"
           CI: "true"
         run: |
-          # hack to make sure we can start the env, those files are used for cli-tests only (not by system-tests)
-          # ensure that there is a line `touch ./binaries/<capability>` for all [nodesets.chain_capabilities] in config toml
-          # ------
-          # we could use the 'plugins' image here that has all the capabilities, but we want to test a different execution path
-          # from the one used in cre-system-tests.yaml, which uses the 'plugins' image
-          # caveat: since these aren't real capability binaries, all workflows that use them will fail
-          mkdir ./binaries
-          touch ./binaries/cron
-          touch ./binaries/readcontract
-          touch ./binaries/http_action
-          touch ./binaries/http_trigger
-          touch ./binaries/consensus
-          touch ./binaries/evm
           { time go run . env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
