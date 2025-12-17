@@ -223,13 +223,13 @@ jobs:
           if [[ "${TEST_NAME}" == *"Beholder_Suite" ]]; then
             echo "::group::Starting Observability Stack"
             echo "Test requires observability stack, starting..."
-            
+
             # Start observability stack
             ./bin/ctf obs up -f
-            
+
             echo "::endgroup::"
             echo "::group::Validating Observability Stack"
-            
+
             # Wait for Loki to be available
             echo "Waiting for Loki to be available at http://localhost:3030..."
             loki_ready=false
@@ -241,12 +241,12 @@ jobs:
               fi
               sleep 1
             done
-            
+
             if [[ "$loki_ready" == "false" ]]; then
               echo "❌ ERROR: Loki failed to become ready after 30 seconds"
               exit 1
             fi
-            
+
             # Validate OTel collector is running and accessible
             echo "Validating OTel collector on port 4317..."
             if docker ps --filter "name=otel-collector" --format "{{.Names}}" | grep -q "otel-collector"; then
@@ -319,7 +319,6 @@ jobs:
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
-          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
 

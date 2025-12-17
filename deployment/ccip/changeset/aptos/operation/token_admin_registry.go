@@ -11,6 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
+var TokenAdminRegistryOperations = []*operations.Operation[any, any, any]{
+	ProposeAdministratorOp.AsUntyped(),
+	AcceptAdminRoleOp.AsUntyped(),
+	SetPoolOp.AsUntyped(),
+}
+
 type ProposeAdministratorInput struct {
 	TokenAddress       aptos.AccountAddress
 	TokenAdministrator aptos.AccountAddress

@@ -16,6 +16,7 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -30,11 +31,11 @@ const (
 )
 
 type TimelockConfig struct {
-	MinDelay                  time.Duration        `json:"minDelay"` // delay for timelock worker to execute the transfers.
-	MCMSAction                types.TimelockAction `json:"mcmsAction"`
-	OverrideRoot              bool                 `json:"overrideRoot"`                        // if true, override the previous root with the new one.
-	TimelockQualifierPerChain map[uint64]string    `json:"timelockQualifierPerChain,omitempty"` // optional qualifier to fetch timelock address from datastore
-	ValidDuration             *time.Duration       `json:"validDuration" yaml:"validDuration"`
+	MinDelay                  time.Duration          `json:"minDelay"` // delay for timelock worker to execute the transfers.
+	MCMSAction                types.TimelockAction   `json:"mcmsAction"`
+	OverrideRoot              bool                   `json:"overrideRoot"`                        // if true, override the previous root with the new one.
+	TimelockQualifierPerChain map[uint64]string      `json:"timelockQualifierPerChain,omitempty"` // optional qualifier to fetch timelock address from datastore
+	ValidDuration             *commonconfig.Duration `json:"validDuration" yaml:"validDuration"`
 }
 
 func (tc *TimelockConfig) MCMBasedOnActionSolana(s state.MCMSWithTimelockStateSolana) (string, error) {
@@ -215,7 +216,7 @@ func BuildProposalFromBatchesV2(
 
 	proposalDuration := DefaultValidUntil
 	if mcmsCfg.ValidDuration != nil {
-		proposalDuration = *mcmsCfg.ValidDuration
+		proposalDuration = mcmsCfg.ValidDuration.Duration()
 	}
 	validUntil := time.Now().Add(proposalDuration).Unix()
 

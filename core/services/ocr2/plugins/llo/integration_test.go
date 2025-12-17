@@ -36,6 +36,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -51,7 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -72,7 +73,7 @@ var (
 	reportTimeout = time.Second * 60
 )
 
-func setupBlockchain(t *testing.T) (
+func setupBlockchain(t *testing.T, adders ...*bind.TransactOpts) (
 	*bind.TransactOpts,
 	evmtypes.Backend,
 	*configurator.Configurator,
@@ -90,6 +91,9 @@ func setupBlockchain(t *testing.T) (
 ) {
 	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	for _, adder := range adders {
+		genesisData[adder.From] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
+	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
@@ -756,11 +760,11 @@ lloConfigMode = "bluegreen"
 		const sampleTimestampsStockPriceChannelID = 7
 		const sampleTimestampedStreamValueChannelID = 8
 
-		dexBasedAssetFeedID := utils.NewHash()
-		rwaFeedID := utils.NewHash()
-		benchmarkPriceFeedID := utils.NewHash()
-		timestampedStreamValueFeedID := utils.NewHash()
-		fundingRateFeedID := utils.NewHash()
+		dexBasedAssetFeedID := evmutils.NewHash()
+		rwaFeedID := evmutils.NewHash()
+		benchmarkPriceFeedID := evmutils.NewHash()
+		timestampedStreamValueFeedID := evmutils.NewHash()
+		fundingRateFeedID := evmutils.NewHash()
 		simpleStreamlinedFeedID := pad32bytes(simpleStreamlinedChannelID)
 		complexStreamlinedFeedID := pad32bytes(complexStreamlinedChannelID)
 		sampleTimestampsStockPriceFeedID := pad32bytes(sampleTimestampsStockPriceChannelID)
@@ -2173,6 +2177,521 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
+func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
+	t.Parallel()
+
+	offchainConfig := datastreamsllo.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		EnableObservationCompression:        true,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+
+	const salt = 400
+
+	for i := range nNodes {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	// Create adder accounts before creating backend
+	adder1 := evmtestutils.MustNewSimTransactor(t)
+	adder2 := evmtestutils.MustNewSimTransactor(t)
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t, adder1, adder2)
+	fromBlock := 1
+
+	// Setup bootstrap
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
+		packetCh := make(chan *packet, 100000)
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+		serverPubKey := serverKey.PublicKey
+		srv := NewMercuryServer(t, serverKey, packetCh)
+
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+		donID := uint32(999888)
+		streams := []Stream{ethStream, linkStream}
+		streamMap := make(map[uint32]Stream)
+		for _, strm := range streams {
+			streamMap[strm.id] = strm
+		}
+
+		// Setup oracle nodes
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+		})
+
+		chainID := testutils.SimulatedChainID
+		relayType := "evm"
+		relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-channel-merge", relayType, relayConfig)
+
+		// Configure adders on the contract
+		// Adder IDs start from 1000
+		adder1ID := uint32(1001)
+		adder2ID := uint32(1002)
+
+		require.NoError(t, utils.JustError(configStore.SetChannelAdderAddress(steve, adder1ID, adder1.From)))
+		backend.Commit()
+		require.NoError(t, utils.JustError(configStore.SetChannelAdderAddress(steve, adder2ID, adder2.From)))
+		backend.Commit()
+
+		// Enable adders
+		require.NoError(t, utils.JustError(configStore.SetChannelAdder(steve, donID, adder1ID, true)))
+		backend.Commit()
+		require.NoError(t, utils.JustError(configStore.SetChannelAdder(steve, donID, adder2ID, true)))
+		backend.Commit()
+
+		pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+		// Add stream specs and LLO jobs to all nodes
+		for i, node := range nodes {
+			addMemoStreamSpecs(t, node, streams)
+			addLLOJob(
+				t,
+				node,
+				configuratorAddress,
+				bootstrapPeerID,
+				bootstrapNodePort,
+				clientPubKeys[i],
+				"channel-merge-test",
+				pluginConfig,
+				relayType,
+				relayConfig,
+			)
+		}
+
+		// Set initial OCR config
+		digest := setProductionConfig(
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+		)
+
+		// Track reports by channel ID
+		reportsByChannel := make(map[uint32][]datastreamsllo.Report)
+		lastReportTimeByChannel := make(map[uint32]time.Time)
+
+		// Helper function to wait for reports from specific channels
+		waitForReportsFromChannels := func(t *testing.T, expectedChannels map[uint32]bool, timeout time.Duration) {
+			seenChannels := make(map[uint32]bool)
+			deadline := time.Now().Add(timeout)
+			for time.Now().Before(deadline) && len(seenChannels) < len(expectedChannels) {
+				pckt, err := receiveWithTimeout(t, packetCh, 2*time.Second)
+				if err != nil {
+					// If we're getting timeouts and haven't seen any channels yet, continue waiting
+					if len(seenChannels) == 0 {
+						continue
+					}
+					// If we've seen some channels but not all, continue waiting
+					continue
+				}
+				req := pckt.req
+				if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+					continue
+				}
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				if err != nil {
+					continue
+				}
+
+				if expectedChannels[r.ChannelID] {
+					reportsByChannel[r.ChannelID] = append(reportsByChannel[r.ChannelID], r)
+					lastReportTimeByChannel[r.ChannelID] = time.Now()
+					seenChannels[r.ChannelID] = true
+				}
+			}
+			require.Len(t, seenChannels, len(expectedChannels), "expected reports from all channels: got %v, expected %v", seenChannels, expectedChannels)
+		}
+
+		// Scenario 1: Owner adds initial channels
+		t.Run("Owner adds initial channels", func(t *testing.T) {
+			channelDefinitions := llotypes.ChannelDefinitions{
+				1: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				3: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+			url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+			// Set channel definitions
+			_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for channel definitions to be processed (give time for log polling and fetching)
+			time.Sleep(3 * time.Second)
+
+			// Wait for reports from all owner channels
+			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true}
+			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
+
+			// Verify reports were generated
+			require.NotEmpty(t, reportsByChannel[1], "channel 1 should have reports")
+			require.NotEmpty(t, reportsByChannel[2], "channel 2 should have reports")
+			require.NotEmpty(t, reportsByChannel[3], "channel 3 should have reports")
+
+			// Verify report content
+			for channelID := range expectedChannels {
+				report := reportsByChannel[channelID][0]
+				assert.Equal(t, digest, report.ConfigDigest)
+				assert.False(t, report.Specimen)
+				if channelID == 3 {
+					assert.Equal(t, "13.25", report.Values[0].(*datastreamsllo.Decimal).String())
+				} else {
+					assert.Equal(t, "2976.39", report.Values[0].(*datastreamsllo.Decimal).String())
+				}
+			}
+		})
+
+		// Scenario 2: Adders add new channels
+		t.Run("Adders add new channels", func(t *testing.T) {
+			// Adder1 adds channels
+			adder1Definitions := llotypes.ChannelDefinitions{
+				10: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+					Source:    adder1ID,
+					Tombstone: false,
+				},
+				11: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+					Source:    adder1ID,
+					Tombstone: false,
+				},
+			}
+
+			adder1DefinitionsJSON, err := json.MarshalIndent(adder1Definitions, "", "  ")
+			require.NoError(t, err)
+			adder1DefinitionsSHA := sha3.Sum256(adder1DefinitionsJSON)
+
+			adder1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder1DefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(adder1Server.Close)
+
+			_, err = configStore.AddChannelDefinitions(adder1, donID, adder1ID, adder1Server.URL, adder1DefinitionsSHA)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Adder2 adds channels
+			adder2Definitions := llotypes.ChannelDefinitions{
+				20: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				21: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+
+			adder2DefinitionsJSON, err := json.MarshalIndent(adder2Definitions, "", "  ")
+			require.NoError(t, err)
+			adder2DefinitionsSHA := sha3.Sum256(adder2DefinitionsJSON)
+
+			adder2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder2DefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(adder2Server.Close)
+
+			_, err = configStore.AddChannelDefinitions(adder2, donID, adder2ID, adder2Server.URL, adder2DefinitionsSHA)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for channel definitions to be processed (give time for log polling and fetching)
+			time.Sleep(3 * time.Second)
+
+			// Wait for reports from all channels (owner + adders)
+			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true, 10: true, 11: true, 20: true, 21: true}
+			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
+
+			// Verify all channels have reports
+			for channelID := range expectedChannels {
+				require.NotEmpty(t, reportsByChannel[channelID], "channel %d should have reports", channelID)
+			}
+		})
+
+		// Scenario 3: Owner tombstone some channels
+		t.Run("Owner tombstone channels", func(t *testing.T) {
+			// Owner updates definitions, add tombstone to channel 2 and 21
+			channelDefinitions := llotypes.ChannelDefinitions{
+				1: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Tombstone:    true,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				3: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				21: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Tombstone:    true,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+			url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+			// Set channel definitions with tombstoned channels 2 and 21
+			_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Verify that channels 2 and 21 stop producing reports after tombstoning
+			// We wait for a period where we don't see reports from these channels
+			tombstonedChannels := map[uint32]bool{2: true, 21: true}
+			checkPeriod := 5 * time.Second
+
+			require.Eventually(t, func() bool {
+				// Collect reports for a period and verify tombstoned channels don't appear
+				startTime := time.Now()
+				seenTombstonedChannels := make(map[uint32]bool)
+
+				for time.Since(startTime) < checkPeriod {
+					pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
+					if err != nil {
+						// Timeout is okay, continue checking
+						continue
+					}
+					req := pckt.req
+					if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
+						_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+						if err == nil && tombstonedChannels[r.ChannelID] {
+							seenTombstonedChannels[r.ChannelID] = true
+						}
+					}
+				}
+
+				// Success if we didn't see any reports from tombstoned channels
+				return len(seenTombstonedChannels) == 0
+			}, 30*time.Second, 100*time.Millisecond, "channels 2 and 21 should stop producing reports after tombstoning")
+		})
+
+		// Scenario 4: Owner overwrites adder channel
+		t.Run("Owner overwrites adder channel", func(t *testing.T) {
+			// Owner sets a channel definition with same ID as adder1's channel 10
+			channelDefinitions := llotypes.ChannelDefinitions{
+				1: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				3: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				10: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID, // Changed from ethStreamID to linkStreamID
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+			url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+			// Set channel definitions
+			_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for channel definitions to be processed
+			time.Sleep(10 * time.Second)
+
+			// Wait for reports from channel 10 and verify it eventually uses owner's configuration (linkStreamID)
+			// The owner's definition should take precedence over the adder's definition
+			foundOwnerReport := false
+			deadline := time.Now().Add(reportTimeout)
+			for time.Now().Before(deadline) && !foundOwnerReport {
+				pckt, err := receiveWithTimeout(t, packetCh, 2*time.Second)
+				if err != nil {
+					continue
+				}
+				req := pckt.req
+				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
+					_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+					if err == nil && r.ChannelID == 10 {
+						// Check if it has linkStream value (13.25) - owner's configuration
+						// It might still have ethStream value (2976.39) initially, but should eventually switch
+						value := r.Values[0].(*datastreamsllo.Decimal).String()
+						if value == "13.25" {
+							foundOwnerReport = true
+						}
+					}
+				}
+			}
+			assert.True(t, foundOwnerReport, "should eventually receive report from channel 10 with owner's configuration (linkStream=13.25) after overwrite")
+		})
+
+		// Scenario 5: Verify adder cannot remove channels
+		t.Run("Adder cannot remove channels", func(t *testing.T) {
+			// Adder1 tries to set definitions that exclude channel 11 (which they previously added)
+			adder1NewDefinitions := llotypes.ChannelDefinitions{
+				10: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+					Source:    adder1ID,
+					Tombstone: false,
+				},
+				// Channel 11 is intentionally omitted
+			}
+
+			adder1NewDefinitionsJSON, err := json.MarshalIndent(adder1NewDefinitions, "", "  ")
+			require.NoError(t, err)
+			adder1NewDefinitionsSHA := sha3.Sum256(adder1NewDefinitionsJSON)
+
+			adder1NewServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder1NewDefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(adder1NewServer.Close)
+
+			_, err = configStore.AddChannelDefinitions(adder1, donID, adder1ID, adder1NewServer.URL, adder1NewDefinitionsSHA)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for processing
+			time.Sleep(3 * time.Second)
+
+			// Verify channel 11 still produces reports (adder cannot remove it)
+			foundChannel11Report := false
+			deadline := time.Now().Add(5 * time.Second)
+			for time.Now().Before(deadline) && !foundChannel11Report {
+				pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
+				if err != nil {
+					continue
+				}
+				req := pckt.req
+				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
+					_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+					if err == nil && r.ChannelID == 11 {
+						foundChannel11Report = true
+					}
+				}
+			}
+			assert.True(t, foundChannel11Report, "channel 11 should still produce reports (adder cannot remove)")
+		})
+	})
+}
+
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
@@ -2205,10 +2724,13 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 	channelDefinitionsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		_, errWrite := w.Write(channelDefinitionsJSON)
+		if errWrite != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, err := w.Write(channelDefinitionsJSON)
-		require.NoError(t, err)
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA
