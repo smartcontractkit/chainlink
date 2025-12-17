@@ -4,19 +4,17 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
 // CurseMultipleInput is the input for cursing multiple subjects
 type CurseMultipleInput struct {
-	CCIPAddress aptos.AccountAddress
-	Subjects    [][]byte
+	Subjects [][]byte
 }
 
 // OP: CurseMultipleOp generates MCMS transaction to curse multiple subjects
@@ -27,9 +25,10 @@ var CurseMultipleOp = operations.NewOperation(
 	curseMultiple,
 )
 
-func curseMultiple(b operations.Bundle, aptosChain cldf_aptos.Chain, in CurseMultipleInput) (mcmstypes.Transaction, error) {
+func curseMultiple(b operations.Bundle, deps deps.AptosDeps, in CurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
-	ccipBind := ccip.Bind(in.CCIPAddress, aptosChain.Client)
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Encode curse multiple operation
 	moduleInfo, function, _, args, err := ccipBind.RMNRemote().Encoder().CurseMultiple(in.Subjects)
@@ -38,7 +37,7 @@ func curseMultiple(b operations.Bundle, aptosChain cldf_aptos.Chain, in CurseMul
 	}
 
 	// Generate MCMS transaction
-	tx, err := utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to generate MCMS transaction: %w", err)
 	}
@@ -48,8 +47,7 @@ func curseMultiple(b operations.Bundle, aptosChain cldf_aptos.Chain, in CurseMul
 
 // UncurseMultipleInput is the input for uncursing multiple subjects
 type UncurseMultipleInput struct {
-	CCIPAddress aptos.AccountAddress
-	Subjects    [][]byte
+	Subjects [][]byte
 }
 
 // OP: UncurseMultipleOp generates MCMS transaction to uncurse multiple subjects
@@ -60,9 +58,10 @@ var UncurseMultipleOp = operations.NewOperation(
 	uncurseMultiple,
 )
 
-func uncurseMultiple(b operations.Bundle, aptosChain cldf_aptos.Chain, in UncurseMultipleInput) (mcmstypes.Transaction, error) {
+func uncurseMultiple(b operations.Bundle, deps deps.AptosDeps, in UncurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
-	ccipBind := ccip.Bind(in.CCIPAddress, aptosChain.Client)
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Encode uncurse multiple operation
 	moduleInfo, function, _, args, err := ccipBind.RMNRemote().Encoder().UncurseMultiple(in.Subjects)
@@ -71,7 +70,7 @@ func uncurseMultiple(b operations.Bundle, aptosChain cldf_aptos.Chain, in Uncurs
 	}
 
 	// Generate MCMS transaction
-	tx, err := utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to generate MCMS transaction: %w", err)
 	}

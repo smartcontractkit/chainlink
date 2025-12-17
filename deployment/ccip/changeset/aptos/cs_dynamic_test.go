@@ -88,7 +88,6 @@ func TestDynamicCS_Apply(t *testing.T) {
 		},
 		// Input for CurseSubjectsOp
 		aptos.CurseMultipleInput{
-			CCIPAddress: aptosState.CCIPAddress,
 			Subjects: [][]byte{
 				arbSubject[:],
 				bscSubject[:],
@@ -168,7 +167,6 @@ func TestDynamicCS_Apply(t *testing.T) {
 
 	inputs = []any{
 		aptos.UncurseMultipleInput{
-			CCIPAddress: aptosState.CCIPAddress,
 			Subjects: [][]byte{
 				arbSubject[:],
 			},
@@ -220,8 +218,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 
 	inputs = []any{
 		aptos.CurseMultipleInput{
-			CCIPAddress: aptosState.CCIPAddress,
-			Subjects:    [][]byte{globalSubject[:]},
+			Subjects: [][]byte{globalSubject[:]},
 		},
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
@@ -33,7 +34,7 @@ var UpdateFeeQuoterDestsOp = operations.NewOperation(
 	updateFeeQuoterDests,
 )
 
-func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterDestsInput) ([]mcmstypes.Transaction, error) {
+func updateFeeQuoterDests(b operations.Bundle, deps deps.AptosDeps, in UpdateFeeQuoterDestsInput) ([]mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
@@ -98,7 +99,7 @@ var UpdateFeeQuoterPricesOp = operations.NewOperation(
 	updateFeeQuoterPrices,
 )
 
-func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterPricesInput) ([]mcmstypes.Transaction, error) {
+func updateFeeQuoterPrices(b operations.Bundle, deps deps.AptosDeps, in UpdateFeeQuoterPricesInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Bind CCIP Package
@@ -172,11 +173,12 @@ var ApplyPremiumMultiplierOp = operations.NewOperation(
 	applyPremiumMultiplier,
 )
 
-func applyPremiumMultiplier(b operations.Bundle, deps AptosDeps, in ApplyPremiumMultiplierInput) ([]mcmstypes.Transaction, error) {
+func applyPremiumMultiplier(b operations.Bundle, deps deps.AptosDeps, in ApplyPremiumMultiplierInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Bind CCIP Package
-	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Convert token prices and gas prices to format expected by Aptos contract
 	var sourceTokens []aptos.AccountAddress
@@ -236,7 +238,7 @@ var ApplyTokenTransferFeeCfgOp = operations.NewOperation(
 	applyTokenTransferFeeCfg,
 )
 
-func applyTokenTransferFeeCfg(b operations.Bundle, deps AptosDeps, in ApplyTokenTransferFeeCfgInput) ([]mcmstypes.Transaction, error) {
+func applyTokenTransferFeeCfg(b operations.Bundle, deps deps.AptosDeps, in ApplyTokenTransferFeeCfgInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Bind CCIP Package
