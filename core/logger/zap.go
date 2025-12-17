@@ -2,10 +2,7 @@ package logger
 
 import (
 	"os"
-	"slices"
 	"sync"
-	"time"
-	"weak"
 
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -16,118 +13,68 @@ import (
 // It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &AtomicCore{}
 
-const cleanupInterval = time.Minute * 5
-
 type AtomicCore struct {
-	mu          sync.RWMutex
-	core        zapcore.Core
-	children    []weak.Pointer[withCore]
-	stopCleanup chan struct{}
-	cleanupWg   sync.WaitGroup
+	mu           sync.RWMutex
+	rootCore     *VersionedValue[zapcore.Core]
+	localCore    zapcore.Core
+	localVersion int64
+	fields       []zapcore.Field
 }
 
-// NewAtomicCore creates a new AtomicCore initialized with a noop core
 func NewAtomicCore() *AtomicCore {
-	ac := &AtomicCore{
-		core:        zapcore.NewNopCore(),
-		stopCleanup: make(chan struct{}),
+	rootCore := &VersionedValue[zapcore.Core]{}
+	rootCore.Store(zapcore.NewNopCore())
+	return &AtomicCore{rootCore: rootCore}
+}
+
+func (a *AtomicCore) With(fields []zapcore.Field) zapcore.Core {
+	combined := make([]zapcore.Field, 0, len(a.fields)+len(fields))
+	combined = append(combined, a.fields...)
+	combined = append(combined, fields...)
+
+	return &AtomicCore{rootCore: a.rootCore, fields: combined}
+}
+
+func (a *AtomicCore) Store(core zapcore.Core) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.localVersion = a.rootCore.Store(core)
+	a.localCore = core.With(a.fields)
+}
+
+func (a *AtomicCore) load() zapcore.Core {
+	// Usual path: read localCore at the latest version with read lock only.
+	a.mu.RLock()
+	rootCore, version := a.rootCore.Load()
+	localCore := a.localCore
+	lastVerison := a.localVersion
+	a.mu.RUnlock()
+	if localCore != nil && lastVerison == version {
+		return localCore
 	}
-	ac.startPeriodicCleanup()
-	return ac
+	// Update path: need to read the latest version from the rootCore first and then update localCore.
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	rootCore, version = a.rootCore.Load()
+	a.localCore = rootCore.With(a.fields)
+	a.localVersion = version
+	return a.localCore
 }
 
-func (d *AtomicCore) Store(core zapcore.Core) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.core = core
-	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
-		}
-		c.Store(d.core)
-		return false
-	})
+func (a *AtomicCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	return a.load().Check(ent, ce)
 }
 
-func (d *AtomicCore) load() zapcore.Core {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.core
+func (a *AtomicCore) Enabled(lvl zapcore.Level) bool {
+	return a.load().Enabled(lvl)
 }
 
-func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) }
-
-func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	coreWithFields := d.core.With(fs)
-	w := &withCore{fields: fs, AtomicCore: AtomicCore{core: coreWithFields}}
-	d.children = append(d.children, weak.Make(w))
-	return w
+func (a *AtomicCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	return a.load().Write(ent, fields)
 }
 
-func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	return d.load().Check(e, ce)
-}
-
-func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d.load().Write(e, fs) }
-
-func (d *AtomicCore) Sync() error { return d.load().Sync() }
-
-func (d *AtomicCore) Close() {
-	close(d.stopCleanup)
-	d.cleanupWg.Wait()
-}
-
-func (d *AtomicCore) cleanup() {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
-		}
-		wg.Go(c.cleanup)
-		return false
-	})
-}
-
-func (d *AtomicCore) startPeriodicCleanup() {
-	d.cleanupWg.Go(func() {
-		ticker := time.NewTicker(cleanupInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				d.cleanup()
-			case <-d.stopCleanup:
-				return
-			}
-		}
-	})
-}
-
-type withCore struct {
-	fields []zapcore.Field
-	AtomicCore
-}
-
-func (w *withCore) Store(core zapcore.Core) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.core = core.With(w.fields)
-	w.children = slices.DeleteFunc(w.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
-		}
-		c.Store(w.core)
-		return false
-	})
+func (a *AtomicCore) Sync() error {
+	return a.load().Sync()
 }
 
 var _ Logger = &zapLogger{}
