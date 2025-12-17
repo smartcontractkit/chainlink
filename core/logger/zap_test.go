@@ -274,28 +274,33 @@ func TestZapLogger_Name(t *testing.T) {
 }
 
 func TestLogger_Leak(t *testing.T) {
+	core, _ := observer.New(zapcore.InfoLevel)
+	ac := NewAtomicCore()
+	lggrCfg := Config{}
+	rootLggr, _ := lggrCfg.NewWithCores(ac.Root())
+	ac.Store(core)
 	startObjectsNum := heapObjects()
-	rootLggr := NewAtomicCore()
-	aLggr := rootLggr.With([]zapcore.Field{})
-	bLggr := aLggr.With([]zapcore.Field{})
-	var l uint64 = 10000000
+	aLggr := rootLggr.With("a", "a")
+	bLggr := aLggr.With("b", "b")
+	var l uint64 = 1000_000
 	for range l {
-		bLggr.With([]zapcore.Field{})
+		bLggr.With("c", "c")
 	}
 	aLggr = nil
 	runtime.GC()
-	bLggr.Sync()
+	ac.register.cleanup()
+	runtime.GC()
 	endObjectsNum := heapObjects()
 	// Require that endObjectsNum does not grow (with l/10-delta left for garbage collection jitter)
 	assert.Less(t, endObjectsNum, startObjectsNum+l/10)
+	bLggr.Sync()
 }
 
 func TestLogger_Output(t *testing.T) {
 	core, logs := observer.New(zapcore.InfoLevel)
-
 	ac := NewAtomicCore()
 	lggrCfg := Config{}
-	l, _ := lggrCfg.NewWithCores(ac)
+	l, _ := lggrCfg.NewWithCores(ac.Root())
 	l2 := l.With("a", "a")
 	l3 := l2.With("b", "b")
 	ac.Store(core)

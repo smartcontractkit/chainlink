@@ -93,8 +93,9 @@ func TestOtelCore(t *testing.T) {
 
 // TestAtomicCoreSwap tests the atomic core swap functionality after logger creation.
 func TestAtomicCoreSwap(t *testing.T) {
-	atomicCore := NewAtomicCore()
-	setOtelCore := atomicCore.Store
+	ac := NewAtomicCore()
+	defer ac.Close()
+	setOtelCore := ac.Store
 
 	lggrCfg := Config{
 		LogLevel:       zapcore.InfoLevel,
@@ -106,7 +107,7 @@ func TestAtomicCoreSwap(t *testing.T) {
 		SentryEnabled:  false,
 	}
 
-	lggr, closeFn := lggrCfg.NewWithCores(atomicCore)
+	lggr, closeFn := lggrCfg.NewWithCores(ac.root)
 	defer func() {
 		err := closeFn()
 		require.NoError(t, err)
