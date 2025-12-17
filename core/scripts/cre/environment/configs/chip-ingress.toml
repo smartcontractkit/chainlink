@@ -1,6 +1,7 @@
 # beholder
 [chip_ingress]
-  compose_file='https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/refs/tags/framework/components/dockercompose/v0.1.6/framework/components/dockercompose/chip_ingress_set/docker-compose.yml'
+  # TODO: update to tagged version
+  compose_file='https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/refs/heads/prodcre-1522-register-protos-chip-ingress/framework/components/dockercompose/chip_ingress_set/docker-compose.yml'
 
 [kafka]
   topics=['cre']
