@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/Masterminds/semver/v3"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -59,10 +60,18 @@ func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequen
 	return nil
 }
 
+func (c *CurseAdapter) ListConnectedChains(e cldf.Environment, selector uint64) ([]uint64, error) {
+	return []uint64{}, nil
+}
+
 // SelectorToSubject converts selector to Subject (family-aware).
 func (c *CurseSubjectAdapter) SelectorToSubject(selector uint64) fastcurse.Subject {
 	s := globals.FamilyAwareSelectorToSubject(selector, chainsel.FamilyAptos)
 	return fastcurse.Subject(s)
+}
+
+func (c *CurseSubjectAdapter) DeriveCurseAdapterVersion(e cldf.Environment, selector uint64) (*semver.Version, error) {
+	return semver.MustParse("1.0.0"), nil
 }
 
 // Ensure interfaces are satisfied at compile time.
