@@ -1,0 +1,316 @@
+package testhelpers
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/stretchr/testify/require"
+
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	svm "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	svm_stateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+)
+
+type SVMAdapter struct {
+	state svm_stateview.CCIPChainState
+	*svm.Chain
+}
+
+func NewSVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
+	c, ok := chain.(*svm.Chain)
+	if !ok {
+		panic("invalid chain type")
+	}
+	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
+	s := state.SolChains[c.ChainSelector()]
+	return &SVMAdapter{
+		state: s,
+		Chain: c,
+	}
+}
+
+func (a *SVMAdapter) BuildMessage(components MessageComponents) (any, error) {
+	feeToken := solana.PublicKey{}
+	if len(components.FeeToken) > 0 {
+		var err error
+		feeToken, err = solana.PublicKeyFromBase58(components.FeeToken)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ccip_router.SVM2AnyMessage{
+		Receiver:     components.Receiver,
+		TokenAmounts: nil,
+		Data:         components.Data,
+		FeeToken:     feeToken,
+		ExtraArgs:    components.ExtraArgs,
+	}, nil
+}
+
+func (a *SVMAdapter) NativeFeeToken() string {
+	return solana.SolMint.String()
+}
+
+func (a *SVMAdapter) GetExtraArgs(receiver []byte, sourceFamily string, opts ...ExtraArgOpt) ([]byte, error) {
+	return nil, nil
+}
+
+func (a *SVMAdapter) GetInboundNonce(ctx context.Context, sender []byte, srcSel uint64) (uint64, error) {
+	client := a.Chain.Client
+	// TODO: solcommon.FindNoncePDA expected the sender to be a solana pubkey
+	chainSelectorLE := solcommon.Uint64ToLE(a.Selector)
+	noncePDA, _, err := solana.FindProgramAddress([][]byte{[]byte("nonce"), chainSelectorLE, sender}, a.state.Router)
+	if err != nil {
+		return 0, err
+	}
+	var nonceCounterAccount ccip_router.Nonce
+	// we ignore the error because the account might not exist yet
+	_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
+	return nonceCounterAccount.Counter, nil
+}
+
+func (a *SVMAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBlock *uint64, seqNumRange ccipocr3.SeqNumRange) {
+	var startSlot uint64
+	if startBlock != nil {
+		startSlot = *startBlock
+	}
+	_, err := confirmCommitWithExpectedSeqNumRangeSol(
+		t,
+		sourceSelector,
+		*a.Chain,
+		a.state.OffRamp,
+		startSlot,
+		seqNumRange,
+		true,
+	)
+	require.NoError(t, err)
+}
+
+func (a *SVMAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBlock *uint64, seqNrs []uint64) (executionStates map[uint64]int) {
+	var startSlot uint64
+	if startBlock != nil {
+		startSlot = *startBlock
+	}
+	executionStates, err := confirmExecWithSeqNrsSol(
+		t,
+		sourceSelector,
+		*a.Chain,
+		a.state.OffRamp,
+		startSlot,
+		seqNrs,
+	)
+	require.NoError(t, err)
+	return executionStates
+}
+
+type EventWithTxn[T any] struct {
+	Event T
+	Txn   *solrpc.GetTransactionResult
+}
+
+// Scan for events referencing address
+func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker) (<-chan EventWithTxn[T], <-chan error) {
+	ch := make(chan EventWithTxn[T])
+	errorCh := make(chan error)
+	go func() {
+		defer ticker.Stop()
+		var until solana.Signature
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				// Scan for transactions referencing the address
+				txSigs, err := client.GetSignaturesForAddressWithOpts(
+					ctx,
+					address,
+					&solrpc.GetSignaturesForAddressOpts{
+						Commitment: solrpc.CommitmentConfirmed,
+						Until:      until,
+					},
+				)
+				if err != nil {
+					errorCh <- err
+					return
+				}
+
+				if len(txSigs) == 0 {
+					continue
+				}
+
+				// values are returned ordered newest to oldest, so we replay them backwards
+				for _, txSig := range slices.Backward(txSigs) {
+					if txSig.Err != nil {
+						// We're not interested in failed transactions.
+						continue
+					}
+					if txSig.Slot < startSlot {
+						// Skip any signatures that are before the starting slot
+						continue
+					}
+					v := uint64(0) // v0 = latest, supports address table lookups
+					tx, err := client.GetTransaction(
+						ctx,
+						txSig.Signature,
+						&solrpc.GetTransactionOpts{
+							Commitment:                     solrpc.CommitmentConfirmed,
+							Encoding:                       solana.EncodingBase64,
+							MaxSupportedTransactionVersion: &v,
+						},
+					)
+					if err != nil {
+						errorCh <- err
+						return
+					}
+
+					events, err := solcommon.ParseMultipleEvents[T](tx.Meta.LogMessages, eventType, solconfig.PrintEvents)
+					if err != nil && strings.Contains(err.Error(), "event not found") {
+						continue
+					}
+					if err != nil {
+						errorCh <- err
+						return
+					}
+
+					for _, event := range events {
+						select {
+						case ch <- EventWithTxn[T]{
+							Event: event,
+							Txn:   tx,
+						}:
+						case <-done:
+							return
+						}
+					}
+				}
+				// next scan should stop at the newest signature we've received
+				until = txSigs[0].Signature
+			}
+		}
+	}()
+
+	return ch, errorCh
+}
+
+func confirmCommitWithExpectedSeqNumRangeSol(
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_solana.Chain,
+	offrampAddress solana.PublicKey,
+	startSlot uint64,
+	expectedSeqNumRange ccipocr3.SeqNumRange,
+	enforceSingleCommit bool,
+) (bool, error) {
+	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+
+	done := make(chan any)
+	defer close(done)
+	sink, errCh := SolEventEmitter[solcommon.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case eventWithTxn := <-sink:
+			commitEvent := eventWithTxn.Event
+			// if merkle root is zero, it only contains price updates
+			if commitEvent.Report == nil {
+				t.Logf("Skipping CommitReportAccepted with only price updates")
+				continue
+			}
+			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
+
+			// TODO: this logic is duplicated with verifyCommitReport, share
+			mr := commitEvent.Report
+			seenMessages.visitCommitReport(mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
+			if mr.SourceChainSelector == srcSelector &&
+				uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+				uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+				t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+				return true, nil
+			}
+
+			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+				return true, nil
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-timeout.C:
+			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
+		}
+	}
+}
+
+func confirmExecWithSeqNrsSol(
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_solana.Chain,
+	offrampAddress solana.PublicKey,
+	startSlot uint64,
+	expectedSeqNrs []uint64,
+) (executionStates map[uint64]int, err error) {
+	// TODO: share with EVM
+	// some state to efficiently track the execution states
+	// of all the expected sequence numbers.
+	executionStates = make(map[uint64]int)
+	seqNrsToWatch := make(map[uint64]struct{})
+	for _, seqNr := range expectedSeqNrs {
+		seqNrsToWatch[seqNr] = struct{}{}
+	}
+
+	done := make(chan any)
+	defer close(done)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second))
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case eventWithTxn := <-sink:
+			execEvent := eventWithTxn.Event
+			// TODO: share with EVM
+			_, found := seqNrsToWatch[execEvent.SequenceNumber]
+			if found && execEvent.SourceChainSelector == srcSelector {
+				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					execEvent.State.String(), dest.Selector, offrampAddress.String(), srcSelector, execEvent.SequenceNumber)
+				if execEvent.State == ccip_offramp.InProgress_MessageExecutionState {
+					// skip the in progress state, executed event should follow
+					continue
+				}
+				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
+				delete(seqNrsToWatch, execEvent.SequenceNumber)
+				if len(seqNrsToWatch) == 0 {
+					return executionStates, nil
+				}
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-timeout.C:
+			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
+				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
+		}
+	}
+}

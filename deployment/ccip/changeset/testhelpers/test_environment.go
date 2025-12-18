@@ -408,6 +408,7 @@ type TestEnvironment interface {
 
 type DeployedEnv struct {
 	Env                    cldf.Environment
+	Adapters               map[uint64]Adapter
 	HomeChainSel           uint64
 	FeedChainSel           uint64
 	ReplayBlocks           map[uint64]uint64
@@ -442,6 +443,27 @@ func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
 }
 
 func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
+	state, err := stateview.LoadOnchainState(env.Env)
+	if err != nil {
+		panic(err)
+	}
+	// re-wrap adapters
+	adapters := make(map[uint64]Adapter)
+	for selector, chain := range env.Env.BlockChains.All() {
+		family, err := chain_selectors.GetSelectorFamily(selector)
+		if err != nil {
+			continue
+			// TODO:
+		}
+
+		adapterFactory, ok := Adapters[family]
+		if !ok {
+			// NOTE: skip any chains with no adapter, give them a dummy one?
+			continue
+		}
+		adapters[selector] = adapterFactory(chain, state)
+	}
+	env.Adapters = adapters
 	m.DeployedEnv = env
 }
 
