@@ -220,7 +220,8 @@ func TestDynamicCS_Apply(t *testing.T) {
 
 	inputs = []any{
 		aptos.CurseMultipleInput{
-			Subjects: [][]byte{globalSubject[:]},
+			CCIPAddress: aptosState.CCIPAddress,
+			Subjects:    [][]byte{globalSubject[:]},
 		},
 	}
 
