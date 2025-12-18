@@ -12,3 +12,10 @@ type DynamicConfig struct {
 	Description   string
 	MCMSConfig    *proposalutils.TimelockConfig
 }
+
+// RMNRemoteCurseInput config for cursing/uncursing multiple subjects on Aptos RMN Remote.
+type RMNRemoteCurseInput struct {
+	ChainSelector uint64
+	Subjects      [][]byte
+	MCMSConfig    *proposalutils.TimelockConfig
+}
