@@ -404,7 +404,7 @@ func (m *mapJobStore) list(filter *jobv1.ListJobsRequest_Filter) ([]*jobv1.Job, 
 			if !ok {
 				continue
 			}
-			idSet := make(map[string]struct{}, len(jobIDs)) // adjust type as needed
+			idSet := make(map[string]struct{}, len(jobIDs))
 			for _, id := range jobIDs {
 				idSet[id] = struct{}{}
 			}

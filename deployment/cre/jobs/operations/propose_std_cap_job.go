@@ -211,11 +211,11 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 		job.Config = customCfg
 	}
 
-	externalJobID, found, err := GetEVMExternalJobIDByName(ctx, lggr, job.JobName, nodeID, oc)
+	externalJobID, err := getEVMExternalJobIDByName(ctx, lggr, job.JobName, nodeID, oc)
 	if err != nil {
 		return "", err
 	}
-	if found {
+	if externalJobID != "" {
 		job.ExternalJobID = externalJobID
 	}
 
@@ -227,37 +227,39 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 	return spec, nil
 }
 
-func GetEVMExternalJobIDByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, bool, error) {
+// getEVMExternalJobIDByName returns an empty string if id is not found.
+func getEVMExternalJobIDByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, error) {
 	if !strings.Contains(jobName, "evm-capabilities-v2") {
-		return "", false, nil
+		return "", nil
 	}
 
 	nodesJobs, _, err := view.ApprovedJobspecs(ctx, lggr, []string{nodeID}, oc)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to fetch approved jobs for node %s: %w", nodeID, err)
+		return "", fmt.Errorf("failed to fetch approved jobs for node %s: %w", nodeID, err)
 	}
 
 	nodeJobs, ok := nodesJobs[nodeID]
-	if !ok {
-		return "", false, nil
+	if !ok || len(nodeJobs) == 0 {
+		return "", nil
 	}
 
+	specFormattedJobName := `name = "` + jobName + `"`
 	for _, j := range nodeJobs {
-		if !strings.Contains(j.Spec, `name = "`+jobName+`"`) {
+		if !strings.Contains(j.Spec, specFormattedJobName) {
 			continue
 		}
 
 		ji := make(job_types.JobSpecInput)
 		if err = toml.Unmarshal([]byte(j.Spec), &ji); err != nil {
-			return "", false, fmt.Errorf("failed to unmarshal job spec toml for job %s on node %s: %w", jobName, nodeID, err)
+			return "", fmt.Errorf("failed to unmarshal job spec toml for job %s on node %s: %w", jobName, nodeID, err)
 		}
 
-		if s, ok := ji["externalJobID"].(string); ok {
-			return s, true, nil
+		if s, _ := ji["externalJobID"].(string); s != "" {
+			return s, nil
 		}
 	}
 
-	return "", false, nil
+	return "", nil
 }
 
 func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, job pkg.StandardCapabilityJob) (*pkg.OracleFactory, error) {
