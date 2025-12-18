@@ -38,6 +38,11 @@ import (
 
 var executingWorkflows atomic.Int64
 
+type triggerMgr interface {
+	RegisterTrigger(ctx context.Context, trigger capabilities.TriggerCapability, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error)
+	UnregisterTrigger(ctx context.Context, trigger capabilities.TriggerCapability, request capabilities.TriggerRegistrationRequest) error
+}
+
 type Engine struct {
 	services.Service
 	srvcEng *services.Engine
@@ -63,8 +68,11 @@ type Engine struct {
 	triggersRegMu sync.Mutex
 
 	allTriggerEventsQueueCh limits.QueueLimiter[enqueuedTriggerEvent]
-	executionsSemaphore     limits.ResourcePoolLimiter[int]
-	capCallsSemaphore       limits.ResourcePoolLimiter[int]
+
+	triggerMgr triggerMgr
+
+	executionsSemaphore limits.ResourcePoolLimiter[int]
+	capCallsSemaphore   limits.ResourcePoolLimiter[int]
 
 	meterReports *metering.Reports
 
@@ -150,6 +158,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
+		triggerMgr:              &triggerManager{},
 	}
 
 	// Build labels using the helper method
@@ -399,7 +408,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		g.Go(func() error {
 			registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
 			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
-			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
+			triggerEventCh, regErr := e.triggerMgr.RegisterTrigger(gCtx, triggerCap, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
 				Metadata: capabilities.RequestMetadata{
 					WorkflowID:                    e.cfg.WorkflowID,
@@ -751,7 +760,7 @@ func (e *Engine) close() error {
 func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 	failCount := 0
 	for registrationID, trigger := range e.triggers {
-		err := trigger.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
+		err := e.triggerMgr.UnregisterTrigger(ctx, trigger, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
 				WorkflowID:    e.cfg.WorkflowID,
