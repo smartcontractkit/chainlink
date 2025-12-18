@@ -889,7 +889,7 @@ func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage stri
 	pullCmd.Stderr = os.Stderr
 	if err := pullCmd.Run(); err != nil {
 		// Check if AWS profile exists
-		configureCmd := exec.Command("aws", "configure", "list-profiles")
+		configureCmd := exec.CommandContext(ctx, "aws", "configure", "list-profiles")
 		output, configureCmdErr := configureCmd.Output()
 		if configureCmdErr != nil {
 			return "", errors.Wrap(configureCmdErr, "failed to list AWS profiles")
@@ -964,7 +964,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 	if isCommandAvailable("gh") {
 		logger.Info().Msg("✓ GitHub CLI is already installed")
 
-		ghVersionCmd := exec.Command("gh", "--version")
+		ghVersionCmd := exec.CommandContext(ctx, "gh", "--version")
 		output, outputErr := ghVersionCmd.Output()
 		if outputErr != nil {
 			logger.Warn().Msgf("failed to get GH CLI version: %s", outputErr.Error())
@@ -991,7 +991,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 		}
 
 		logger.Info().Msg("  ✗ GitHub CLI is outdated, upgrading to latest via Homebrew")
-		brewInfoCmd := exec.Command("brew", "info", "gh")
+		brewInfoCmd := exec.CommandContext(ctx, "brew", "info", "gh")
 		brewInfoOutput, brewInfoErr := brewInfoCmd.Output()
 		if brewInfoErr != nil {
 			fmt.Fprint(os.Stderr, string(brewInfoOutput))
@@ -999,7 +999,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 			return false, nil
 		}
 
-		brewUpgradeCmd := exec.Command("brew", "upgrade", "gh")
+		brewUpgradeCmd := exec.CommandContext(ctx, "brew", "upgrade", "gh")
 		brewUpdateOutput, brewUpdateErr := brewUpgradeCmd.Output()
 		if brewUpdateErr != nil {
 			fmt.Fprint(os.Stderr, string(brewUpdateOutput))
