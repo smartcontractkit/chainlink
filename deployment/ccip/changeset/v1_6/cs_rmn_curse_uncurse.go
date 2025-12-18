@@ -1026,7 +1026,6 @@ func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 		Subjects:    subjectBytes,
 	}
 	deps := dependency.AptosDeps{
-		AB:         cldf.NewMemoryAddressBook(),
 		AptosChain: chain,
 	}
 	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.CurseMultipleOp, deps, in)

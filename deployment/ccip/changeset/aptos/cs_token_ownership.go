@@ -72,7 +72,6 @@ func (t TransferTokenOwnership) Apply(env cldf.Environment, cfg config.TransferT
 	}
 
 	deps := dependency.AptosDeps{
-		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
 	}
