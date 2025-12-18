@@ -9,25 +9,25 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	evm_stateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	"github.com/stretchr/testify/require"
 )
 
 type EVMAdapter struct {
 	state evm_stateview.CCIPChainState
-	*evm.Chain
+	*cldf_evm.Chain
 }
 
 func NewEVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
-	c, ok := chain.(*evm.Chain)
+	c, ok := chain.(*cldf_evm.Chain)
 	if !ok {
 		panic("invalid chain type")
 	}

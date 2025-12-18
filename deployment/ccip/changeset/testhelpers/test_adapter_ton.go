@@ -10,7 +10,7 @@ import (
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tvm/cell"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
@@ -59,7 +59,6 @@ func (a *TonAdapter) BuildMessage(components MessageComponents) (any, error) {
 		ExtraArgs: c, // TODO handle ExtraArgs properly
 		FeeToken:  feeToken,
 	}, nil
-
 }
 
 func (a *TonAdapter) NativeFeeToken() string {

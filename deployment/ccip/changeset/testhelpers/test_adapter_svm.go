@@ -22,20 +22,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	svm "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	svm_stateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 )
 
 type SVMAdapter struct {
 	state svm_stateview.CCIPChainState
-	*svm.Chain
+	*cldf_solana.Chain
 }
 
 func NewSVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
-	c, ok := chain.(*svm.Chain)
+	c, ok := chain.(*cldf_solana.Chain)
 	if !ok {
 		panic("invalid chain type")
 	}

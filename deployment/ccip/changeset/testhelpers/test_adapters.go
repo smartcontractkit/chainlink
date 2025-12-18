@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"

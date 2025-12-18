@@ -14,7 +14,7 @@ import (
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
