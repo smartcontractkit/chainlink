@@ -123,14 +123,13 @@ var DeployRouterOp = operations.NewOperation(
 func deployRouter(b operations.Bundle, deps dependency.AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	// TODO: is there a way to check if module exists?
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
-	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	// Compile Package
-	payload, err := ccip_router.Compile(ccipAddress, mcmsContract.Address(), true)
+	payload, err := ccip_router.Compile(in.CCIPAddress, mcmsContract.Address(), true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile: %w", err)
 	}
 	// Create chunks and stage operations
-	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &ccipAddress)
+	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.CCIPAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
 	}
@@ -149,13 +148,12 @@ var DeployOffRampOp = operations.NewOperation(
 func deployOffRamp(b operations.Bundle, deps dependency.AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
-	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
-	payload, err := ccip_offramp.Compile(ccipAddress, mcmsContract.Address(), true)
+	payload, err := ccip_offramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile: %w", err)
 	}
 	// Create chunks and stage operations
-	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &ccipAddress)
+	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.CCIPAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
 	}
@@ -173,13 +171,12 @@ var DeployOnRampOp = operations.NewOperation(
 func deployOnRamp(b operations.Bundle, deps dependency.AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
-	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
-	payload, err := ccip_onramp.Compile(ccipAddress, mcmsContract.Address(), true)
+	payload, err := ccip_onramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile: %w", err)
 	}
 	// Create chunks and stage operations
-	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &ccipAddress)
+	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.CCIPAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
 	}

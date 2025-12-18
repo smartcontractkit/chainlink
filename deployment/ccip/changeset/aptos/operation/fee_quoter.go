@@ -177,8 +177,7 @@ func applyPremiumMultiplier(b operations.Bundle, deps dependency.AptosDeps, in A
 	var txs []mcmstypes.Transaction
 
 	// Bind CCIP Package
-	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
-	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
 
 	// Convert token prices and gas prices to format expected by Aptos contract
 	var sourceTokens []aptos.AccountAddress
