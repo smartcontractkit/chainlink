@@ -1022,16 +1022,12 @@ func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 		subjectBytes[i] = subject[:]
 	}
 	in := aptos_ops.CurseMultipleInput{
-		Subjects: subjectBytes,
-	}
-	state, err := stateview.LoadOnchainState(c.env)
-	if err != nil {
-		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
+		CCIPAddress: c.chain.CCIPAddress,
+		Subjects:    subjectBytes,
 	}
 	deps := dependency.AptosDeps{
-		AB:               cldf.NewMemoryAddressBook(),
-		AptosChain:       chain,
-		CCIPOnChainState: state,
+		AB:         cldf.NewMemoryAddressBook(),
+		AptosChain: chain,
 	}
 	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.CurseMultipleOp, deps, in)
 	if err != nil {
@@ -1057,16 +1053,12 @@ func (c *AptosCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 		subjectBytes[i] = subject[:]
 	}
 	in := aptos_ops.UncurseMultipleInput{
-		Subjects: subjectBytes,
-	}
-	state, err := stateview.LoadOnchainState(c.env)
-	if err != nil {
-		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
+		CCIPAddress: c.chain.CCIPAddress,
+		Subjects:    subjectBytes,
 	}
 	deps := dependency.AptosDeps{
-		AB:               cldf.NewMemoryAddressBook(),
-		AptosChain:       chain,
-		CCIPOnChainState: state,
+		AB:         cldf.NewMemoryAddressBook(),
+		AptosChain: chain,
 	}
 	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.UncurseMultipleOp, deps, in)
 	if err != nil {

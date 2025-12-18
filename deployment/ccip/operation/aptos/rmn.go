@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
@@ -14,7 +15,8 @@ import (
 
 // CurseMultipleInput is the input for cursing multiple subjects
 type CurseMultipleInput struct {
-	Subjects [][]byte
+	CCIPAddress aptos.AccountAddress
+	Subjects    [][]byte
 }
 
 // OP: CurseMultipleOp generates MCMS transaction to curse multiple subjects
@@ -27,7 +29,7 @@ var CurseMultipleOp = operations.NewOperation(
 
 func curseMultiple(b operations.Bundle, deps dependency.AptosDeps, in CurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipAddress := in.CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Encode curse multiple operation
@@ -47,7 +49,8 @@ func curseMultiple(b operations.Bundle, deps dependency.AptosDeps, in CurseMulti
 
 // UncurseMultipleInput is the input for uncursing multiple subjects
 type UncurseMultipleInput struct {
-	Subjects [][]byte
+	CCIPAddress aptos.AccountAddress
+	Subjects    [][]byte
 }
 
 // OP: UncurseMultipleOp generates MCMS transaction to uncurse multiple subjects
@@ -60,7 +63,7 @@ var UncurseMultipleOp = operations.NewOperation(
 
 func uncurseMultiple(b operations.Bundle, deps dependency.AptosDeps, in UncurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipAddress := in.CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Encode uncurse multiple operation
