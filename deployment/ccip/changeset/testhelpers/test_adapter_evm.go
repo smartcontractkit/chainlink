@@ -29,7 +29,7 @@ type EVMAdapter struct {
 func NewEVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
 	c, ok := chain.(*cldf_evm.Chain)
 	if !ok {
-		panic("invalid chain type")
+		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
 	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
 	s := state.Chains[c.ChainSelector()]

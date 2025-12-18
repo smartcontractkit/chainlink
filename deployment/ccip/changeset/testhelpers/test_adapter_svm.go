@@ -35,7 +35,7 @@ type SVMAdapter struct {
 func NewSVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
 	c, ok := chain.(*cldf_solana.Chain)
 	if !ok {
-		panic("invalid chain type")
+		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
 	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
 	s := state.SolChains[c.ChainSelector()]
