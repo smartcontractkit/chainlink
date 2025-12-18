@@ -23,11 +23,11 @@ import (
 
 type EVMAdapter struct {
 	state evm_stateview.CCIPChainState
-	*cldf_evm.Chain
+	cldf_evm.Chain
 }
 
 func NewEVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
-	c, ok := chain.(*cldf_evm.Chain)
+	c, ok := chain.(cldf_evm.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
@@ -71,7 +71,7 @@ func (a *EVMAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBl
 	_, err := ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRamp,
 		startBlock,
 		seqNumRange,
@@ -84,7 +84,7 @@ func (a *EVMAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 	executionStates, err := ConfirmExecWithSeqNrs(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRamp,
 		startBlock,
 		seqNrs,

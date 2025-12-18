@@ -29,11 +29,11 @@ import (
 
 type SuiAdapter struct {
 	state suistate.CCIPChainState
-	*cldf_sui.Chain
+	cldf_sui.Chain
 }
 
 func NewSuiAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
-	c, ok := chain.(*cldf_sui.Chain)
+	c, ok := chain.(cldf_sui.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
@@ -71,7 +71,7 @@ func (a *SuiAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBl
 	_, err := confirmCommitWithExpectedSeqNumRangeSui(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRampAddress,
 		startBlock,
 		seqNumRange,
@@ -84,7 +84,7 @@ func (a *SuiAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 	executionStates, err := confirmExecWithExpectedSeqNrsSui(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRampAddress,
 		startBlock,
 		seqNrs,

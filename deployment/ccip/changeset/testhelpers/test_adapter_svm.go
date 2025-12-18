@@ -29,11 +29,11 @@ import (
 
 type SVMAdapter struct {
 	state svm_stateview.CCIPChainState
-	*cldf_solana.Chain
+	cldf_solana.Chain
 }
 
 func NewSVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
-	c, ok := chain.(*cldf_solana.Chain)
+	c, ok := chain.(cldf_solana.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
@@ -94,7 +94,7 @@ func (a *SVMAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBl
 	_, err := confirmCommitWithExpectedSeqNumRangeSol(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRamp,
 		startSlot,
 		seqNumRange,
@@ -111,7 +111,7 @@ func (a *SVMAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 	executionStates, err := confirmExecWithSeqNrsSol(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRamp,
 		startSlot,
 		seqNrs,

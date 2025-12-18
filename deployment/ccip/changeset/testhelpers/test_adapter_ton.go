@@ -22,11 +22,11 @@ import (
 
 type TonAdapter struct {
 	state tonstate.CCIPChainState
-	*cldf_ton.Chain
+	cldf_ton.Chain
 }
 
 func NewTonAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
-	c, ok := chain.(*cldf_ton.Chain)
+	c, ok := chain.(cldf_ton.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
@@ -79,7 +79,7 @@ func (a *TonAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBl
 	_, err := confirmCommitWithExpectedSeqNumRangeTON(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRamp,
 		seqNumRange,
 	)
@@ -90,7 +90,7 @@ func (a *TonAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 	executionStates, err := confirmExecWithExpectedSeqNrsTON(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.OffRamp,
 		startBlock,
 		seqNrs,

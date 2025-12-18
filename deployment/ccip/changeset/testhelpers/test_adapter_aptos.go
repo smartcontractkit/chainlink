@@ -26,11 +26,11 @@ import (
 
 type AptosAdapter struct {
 	state aptos_stateview.CCIPChainState
-	*cldf_aptos.Chain
+	cldf_aptos.Chain
 }
 
 func NewAptosAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
-	c, ok := chain.(*cldf_aptos.Chain)
+	c, ok := chain.(cldf_aptos.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
@@ -75,7 +75,7 @@ func (a *AptosAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, start
 	_, err := confirmCommitWithExpectedSeqNumRangeAptos(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.CCIPAddress,
 		startBlock,
 		seqNumRange,
@@ -88,7 +88,7 @@ func (a *AptosAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBl
 	executionStates, err := confirmExecWithExpectedSeqNrsAptos(
 		t,
 		sourceSelector,
-		*a.Chain,
+		a.Chain,
 		a.state.CCIPAddress,
 		startBlock,
 		seqNrs,
