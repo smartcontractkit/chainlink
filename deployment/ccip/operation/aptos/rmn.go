@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
@@ -25,7 +25,7 @@ var CurseMultipleOp = operations.NewOperation(
 	curseMultiple,
 )
 
-func curseMultiple(b operations.Bundle, deps deps.AptosDeps, in CurseMultipleInput) (mcmstypes.Transaction, error) {
+func curseMultiple(b operations.Bundle, deps dependency.AptosDeps, in CurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
@@ -58,7 +58,7 @@ var UncurseMultipleOp = operations.NewOperation(
 	uncurseMultiple,
 )
 
-func uncurseMultiple(b operations.Bundle, deps deps.AptosDeps, in UncurseMultipleInput) (mcmstypes.Transaction, error) {
+func uncurseMultiple(b operations.Bundle, deps dependency.AptosDeps, in UncurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)

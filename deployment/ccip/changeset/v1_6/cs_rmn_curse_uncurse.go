@@ -25,7 +25,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	aptosUtils "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	aptos_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
@@ -1028,7 +1028,7 @@ func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 	if err != nil {
 		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
-	deps := deps.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       chain,
 		CCIPOnChainState: state,
@@ -1063,7 +1063,7 @@ func (c *AptosCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 	if err != nil {
 		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
-	deps := deps.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       chain,
 		CCIPOnChainState: state,
