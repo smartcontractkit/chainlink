@@ -34,6 +34,7 @@ type triggerPublisher struct {
 	cfg           atomic.Pointer[dynamicPublisherConfig]
 
 	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
 	mu            sync.RWMutex // protects messageCache and registrations
 	batchingQueue map[[32]byte]*batchedResponse
@@ -55,6 +56,11 @@ type dynamicPublisherConfig struct {
 type registrationKey struct {
 	callerDonID uint32
 	workflowID  string
+}
+
+type ackKey struct {
+	callerDonID    uint32
+	triggerEventID string
 }
 
 type pubRegState struct {
@@ -246,13 +252,48 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	case types.MethodTriggerEventAck:
+		// TODO: Need message protos to unmarshal
+		req, err := pb.UnmarshalTriggerResponse(msg.Payload)
+		if err != nil {
+			p.lggr.Errorw("failed to unmarshal trigger registration request", "err", err)
+			return
+		}
+
+		p.lggr.Debugw("received trigger event ack", "workflowId", req.Metadata.WorkflowID, "sender", sender)
+
+		key := ackKey{msg.CallerDonId, req.Metadata.WorkflowID} // TODO: Do we want the workflowID + TriggerEventID?
 		p.mu.Lock()
 		defer p.mu.Unlock()
-		// TODO: Need to aggregate first
-		triggerMetadata := msg.GetTriggerEventMetadata() // TODO: Build actual message type
+
+		triggerMetadata := msg.GetTriggerEventMetadata() // TODO Build message type
 		if triggerMetadata == nil {
 			// TODO handle
 		}
+
+		// TODO Validation
+
+		// TODO Using the same cache overwrite trigger registrations? FIX THIS.
+		nowMs := time.Now().UnixMilli()
+		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
+		_, exists := p.registrations[key]
+		if exists {
+			// TODO Should we cache by trigger event not workflow in this case?
+			p.lggr.Debugw("trigger event ACK already exists", "workflowId", req.Metadata.WorkflowID)
+			return
+		}
+		// TODO Need to aggregate 2F+1 ACKs first
+		minRequired := uint32(2*callerDon.F + 1)
+		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
+		if !ready {
+			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
+			return
+		}
+		aggregated, err := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
+		if err != nil {
+			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "err", err)
+			return
+		}
+
 		ctx, cancel := p.stopCh.NewCtx()
 		defer cancel()
 		err := cfg.underlying.AckEvent(ctx, msg.CapabilityId, triggerMetadata.GetTriggerEventId())

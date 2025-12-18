@@ -161,20 +161,6 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	return regState.callback, nil
 }
 
-// TODO: we want to implement this somewhere reusable?
-/*
- Keeps track of workflow registrations (similar to LLO streams trigger).
- Handles retransmits based on T_retransmit and T_max.
- Persists pending events in the DB to be resilient to node restarts.
-*/
-func (s *triggerSubscriber) deliverEvent(event *commoncap.TriggerEvent, workflowIDs []string) error {
-	/*
-	 Base Trigger Capability can interact with the Don2Don layer (in the remote capability setting)
-	 as well as directly with a consumer (in the local setting).
-	*/
-	return nil // only when the event is successfully persisted and ready to be reliably delivered
-}
-
 func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, eventId string) error {
 	// TODO
 	return nil
