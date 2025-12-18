@@ -211,12 +211,12 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 		job.Config = customCfg
 	}
 
-	uuid, found, err := GetEVMJobUIIDByName(ctx, lggr, job.JobName, nodeID, oc)
+	externalJobID, found, err := GetEVMExternalJobIDByName(ctx, lggr, job.JobName, nodeID, oc)
 	if err != nil {
 		return "", err
 	}
 	if found {
-		job.ExternalJobID = uuid
+		job.ExternalJobID = externalJobID
 	}
 
 	spec, err := job.Resolve()
@@ -227,7 +227,7 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 	return spec, nil
 }
 
-func GetEVMJobUIIDByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, bool, error) {
+func GetEVMExternalJobIDByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, bool, error) {
 	if !strings.Contains(jobName, "evm-capabilities-v2") {
 		return "", false, nil
 	}

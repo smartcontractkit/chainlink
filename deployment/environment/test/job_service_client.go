@@ -226,7 +226,7 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 			job.ProposalIds = append(job.ProposalIds, storeProposalID)
 		}
 
-		// the jobs with same id overwrite each-other but there is a nodeID mapping that is maintained
+		// Jobs are keyed by external job ID in this store. Multiple nodes can have jobs with the same external job ID; the NodeId field records which node this particular job instance belongs to
 		job.NodeId = in.NodeId
 		storeErr = j.jobStore.put(extractor.ExternalJobID, job)
 		if storeErr != nil {
@@ -404,13 +404,22 @@ func (m *mapJobStore) list(filter *jobv1.ListJobsRequest_Filter) ([]*jobv1.Job, 
 			if !ok {
 				continue
 			}
+			idSet := make(map[string]struct{}, len(jobIDs)) // adjust type as needed
+			for _, id := range jobIDs {
+				idSet[id] = struct{}{}
+			}
+
 			for _, j := range m.jobs {
-				for _, jobID := range jobIDs {
-					if j.Id == jobID && matchesSelectors(filter.Selectors, j) {
-						j.NodeId = nodeID
-						jobs = append(jobs, j)
-					}
+				if _, ok := idSet[j.Id]; !ok {
+					continue
 				}
+
+				if !matchesSelectors(filter.Selectors, j) {
+					continue
+				}
+
+				j.NodeId = nodeID
+				jobs = append(jobs, j)
 			}
 		}
 	case filter.Uuids != nil:
