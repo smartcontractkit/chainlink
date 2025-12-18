@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -52,7 +53,7 @@ func (a *AptosAdapter) BuildMessage(components MessageComponents) (any, error) {
 	}
 	return AptosSendRequest{
 		Data:         components.Data,
-		Receiver:     components.Receiver,
+		Receiver:     common.LeftPadBytes(components.Receiver, 32),
 		ExtraArgs:    components.ExtraArgs,
 		FeeToken:     feeToken,
 		TokenAmounts: nil,

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/block-vision/sui-go-sdk/models"
@@ -14,7 +15,7 @@ import (
 
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
 
@@ -48,7 +49,7 @@ func NewSuiAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adap
 func (a *SuiAdapter) BuildMessage(components MessageComponents) (any, error) {
 	return SuiSendRequest{
 		Data:      components.Data,
-		Receiver:  components.Receiver,
+		Receiver:  common.LeftPadBytes(components.Receiver, 32),
 		ExtraArgs: components.ExtraArgs,
 		FeeToken:  components.FeeToken,
 	}, nil
