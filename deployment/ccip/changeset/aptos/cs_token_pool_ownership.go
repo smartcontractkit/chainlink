@@ -11,7 +11,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	depspkg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -60,7 +60,7 @@ func (t TransferTokenPoolOwnership) Apply(env cldf.Environment, cfg config.Trans
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	deps := depspkg.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
@@ -137,7 +137,7 @@ func (a AcceptTokenPoolOwnership) Apply(env cldf.Environment, cfg config.AcceptT
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	deps := depspkg.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
@@ -216,7 +216,7 @@ func (e ExecuteTokenPoolOwnershipTransfer) Apply(env cldf.Environment, cfg confi
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	deps := depspkg.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               cldf.NewMemoryAddressBook(),
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,

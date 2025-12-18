@@ -16,6 +16,7 @@ import (
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -163,7 +164,7 @@ var ApplyChainUpdatesOp = operations.NewOperation(
 	applyChainUpdates,
 )
 
-func applyChainUpdates(b operations.Bundle, deps deps.AptosDeps, in ApplyChainUpdatesInput) (types.Transaction, error) {
+func applyChainUpdates(b operations.Bundle, deps dependency.AptosDeps, in ApplyChainUpdatesInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string

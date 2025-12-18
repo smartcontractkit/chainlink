@@ -11,7 +11,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	depspkg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -59,7 +59,7 @@ func (m MintToken) Apply(env cldf.Environment, cfg config.MintTokenInput) (cldf.
 	aptosChain := env.BlockChains.AptosChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
-	deps := depspkg.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               ab,
 		AptosChain:       aptosChain,
 		CCIPOnChainState: state,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
@@ -54,7 +55,7 @@ var AcceptAdminRoleOp = operations.NewOperation(
 	acceptAdminRole,
 )
 
-func acceptAdminRole(b operations.Bundle, deps deps.AptosDeps, tokenAddress aptos.AccountAddress) (types.Transaction, error) {
+func acceptAdminRole(b operations.Bundle, deps dependency.AptosDeps, tokenAddress aptos.AccountAddress) (types.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)

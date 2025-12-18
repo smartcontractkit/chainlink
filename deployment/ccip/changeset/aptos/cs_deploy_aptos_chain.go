@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -79,7 +79,7 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, cfg config.DeployAptosCha
 		var mcmsOperations []mcmstypes.BatchOperation
 		aptosChain := aptosChains[chainSel]
 
-		deps := deps.AptosDeps{
+		deps := dependency.AptosDeps{
 			AB:               ab,
 			AptosChain:       aptosChain,
 			CCIPOnChainState: state,

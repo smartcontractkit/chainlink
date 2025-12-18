@@ -10,7 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	depspkg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -43,7 +43,7 @@ func (cs DynamicCS) Apply(env cldf.Environment, cfg config.DynamicConfig) (cldf.
 	aptosChain := env.BlockChains.AptosChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
-	deps := depspkg.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               ab,
 		AptosChain:       aptosChain,
 		CCIPOnChainState: state,

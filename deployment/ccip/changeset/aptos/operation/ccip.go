@@ -13,6 +13,7 @@ import (
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
@@ -43,7 +44,7 @@ var DeployCCIPOp = operations.NewOperation(
 	deployCCIP,
 )
 
-func deployCCIP(b operations.Bundle, deps deps.AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
+func deployCCIP(b operations.Bundle, deps dependency.AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
 	onChainState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	// Validate there's no package deployed XOR is update
 	if (onChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
