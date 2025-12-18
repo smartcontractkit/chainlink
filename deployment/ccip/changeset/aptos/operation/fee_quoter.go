@@ -11,7 +11,6 @@ import (
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
-	deps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
@@ -174,7 +173,7 @@ var ApplyPremiumMultiplierOp = operations.NewOperation(
 	applyPremiumMultiplier,
 )
 
-func applyPremiumMultiplier(b operations.Bundle, deps deps.AptosDeps, in ApplyPremiumMultiplierInput) ([]mcmstypes.Transaction, error) {
+func applyPremiumMultiplier(b operations.Bundle, deps dependency.AptosDeps, in ApplyPremiumMultiplierInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Bind CCIP Package
@@ -239,7 +238,7 @@ var ApplyTokenTransferFeeCfgOp = operations.NewOperation(
 	applyTokenTransferFeeCfg,
 )
 
-func applyTokenTransferFeeCfg(b operations.Bundle, deps deps.AptosDeps, in ApplyTokenTransferFeeCfgInput) ([]mcmstypes.Transaction, error) {
+func applyTokenTransferFeeCfg(b operations.Bundle, deps dependency.AptosDeps, in ApplyTokenTransferFeeCfgInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Bind CCIP Package
