@@ -9,22 +9,19 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// AtomicCore provides thread-safe core swapping using atomic operations.
-// It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &CoreWrapper{}
 
+// AtomicCore provides thread-safe core swapping using atomic operations.
+// It starts as a noop core and can be atomically swapped to include additional cores.
 type AtomicCore struct {
 	root     *CoreWrapper
-	register *Register[CoreWrapper]
+	registry *WeakRegistry[CoreWrapper]
 }
 
 func NewAtomicCore() *AtomicCore {
-	register := &Register[CoreWrapper]{
-		stopCleanup: make(chan struct{}),
-	}
-	register.startPeriodicCleanup()
-	root := &CoreWrapper{register: register, core: zapcore.NewNopCore()}
-	return &AtomicCore{root, register}
+	registry := NewWeakRegistry[CoreWrapper]()
+	root := &CoreWrapper{registry: registry, core: zapcore.NewNopCore()}
+	return &AtomicCore{root, registry}
 }
 
 func (a *AtomicCore) Root() zapcore.Core {
@@ -32,20 +29,22 @@ func (a *AtomicCore) Root() zapcore.Core {
 }
 
 func (a *AtomicCore) Store(core zapcore.Core) {
-	a.register.Update(func(cw *CoreWrapper) {
+	a.registry.Update(func(cw *CoreWrapper) {
 		cw.Store(core)
 	})
 }
 
 func (a *AtomicCore) Close() {
-	a.register.Close()
+	a.registry.Close()
 }
 
+// CoreWrapper is a zapcore.Core wrapper that allows dynamic swapping of the underlying core.
+// It also adds all derived With(*) loggers to the given registry for updates.
 type CoreWrapper struct {
 	mu       sync.RWMutex
 	core     zapcore.Core
 	fields   []zapcore.Field
-	register *Register[CoreWrapper]
+	registry *WeakRegistry[CoreWrapper]
 }
 
 func (c *CoreWrapper) Store(core zapcore.Core) {
@@ -61,8 +60,8 @@ func (c *CoreWrapper) With(fields []zapcore.Field) zapcore.Core {
 	combined = append(combined, c.fields...)
 	combined = append(combined, fields...)
 
-	cw := &CoreWrapper{register: c.register, fields: combined, core: c.core.With(fields)}
-	c.register.Add(cw)
+	cw := &CoreWrapper{registry: c.registry, fields: combined, core: c.core.With(fields)}
+	c.registry.Add(cw)
 	return cw
 }
 
