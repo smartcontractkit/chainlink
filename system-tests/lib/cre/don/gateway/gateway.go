@@ -26,6 +26,10 @@ type WhitelistConfig struct {
 func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayConfigs []cre.GatewayConfig, whitelistConfig WhitelistConfig) error {
 	specs := make(map[string][]string)
 
+	if !dons.RequiresGateway() {
+		return nil
+	}
+
 	for _, config := range dons.GatewayConnectors.Configurations {
 		gatewayNode, ok := dons.NodeWithUUID(config.NodeUUID)
 		if !ok {

@@ -21,6 +21,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -82,6 +84,15 @@ var (
 	ChannelDefinitionAdded = (channel_config_store.ChannelConfigStoreChannelDefinitionAdded{}).Topic()
 	// NoLimitSortAsc is a query configuration that sorts results by sequence in ascending order with no limit.
 	NoLimitSortAsc = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
+
+	channelDefinitionCacheCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "llo",
+		Subsystem: "channeldefinitions",
+		Name:      "channel_definition_cache_count",
+		Help:      "Current count of channel definitions in the cache",
+	},
+		[]string{"source"},
+	)
 )
 
 func init() {
@@ -880,6 +891,9 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 	c.definitionsMu.RLock()
 	defer c.definitionsMu.RUnlock()
 
+	channelDefinitionCacheCount.
+		WithLabelValues("previous_outcome").Set(float64(len(prev)))
+
 	// nothing to merge
 	if len(c.definitions.Sources) == 0 {
 		return prev
@@ -905,6 +919,8 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 
 	feedIDToChannelID := buildFeedIDMap(merged)
 	for _, sourceDefinition := range src {
+		channelDefinitionCacheCount.
+			WithLabelValues(strconv.Itoa(int(sourceDefinition.Trigger.Source))).Set(float64(len(sourceDefinition.Definitions)))
 		c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
 	}
 
