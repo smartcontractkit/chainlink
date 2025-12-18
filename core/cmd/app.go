@@ -255,13 +255,13 @@ func NewApp(s *Shell) *cli.App {
 					}
 				}
 
-				// Swap out the logger, replacing the old one.
+				// Update the logger, replacing the old one.
 				err = s.CloseLogger()
 				if err != nil {
 					return err
 				}
 
-				// Configure a new logger with OTel atomic core support
+				// Configure a new logger with OTel updatable core support
 				lggrCfg := logger.Config{
 					LogLevel:    s.Config.Log().Level(),
 					Dir:         s.Config.Log().File().Dir(),
@@ -274,18 +274,18 @@ func NewApp(s *Shell) *cli.App {
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
 				}
 
-				// Noop atomic core that can be swapped out later for OTel support
-				atomicCore := logger.NewAtomicCore()
+				// Noop zap Core that can be swapped out later for OTel support
+				updatableCore := logger.NewUpdatableCore()
 
-				l, closeFn := lggrCfg.NewWithCores(atomicCore.Root())
+				l, closeFn := lggrCfg.NewWithCores(updatableCore.Root())
 
 				s.Logger = l
 				s.CloseLogger = func() error {
-					atomicCore.Close()
+					updatableCore.Close()
 					return closeFn()
 				}
 				// s.SetOtelCore is a hook that can be used to set the OTel core
-				s.SetOtelCore = atomicCore.Store
+				s.SetOtelCore = updatableCore.Update
 
 				return nil
 			},

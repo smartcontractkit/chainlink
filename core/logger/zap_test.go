@@ -274,7 +274,7 @@ func TestZapLogger_Name(t *testing.T) {
 }
 
 func TestLogger_Leak(t *testing.T) {
-	ac := NewAtomicCore()
+	ac := NewUpdatableCore()
 	defer ac.Close()
 	startObjectsNum := heapObjects()
 	aLggr := ac.root.With([]zapcore.Field{})
@@ -295,12 +295,12 @@ func TestLogger_Leak(t *testing.T) {
 
 func TestLogger_Output(t *testing.T) {
 	core, logs := observer.New(zapcore.InfoLevel)
-	ac := NewAtomicCore()
+	ac := NewUpdatableCore()
 	lggrCfg := Config{}
-	l, close := lggrCfg.NewWithCores(ac.Root())
+	l, closeL := lggrCfg.NewWithCores(ac.Root())
 	l2 := l.With("a", "a")
 	l3 := l2.With("b", "b")
-	ac.Store(core)
+	ac.Update(core)
 	l3.Info("test")
 	require.Equal(t, 1, logs.Len())
 	require.Equal(t, "test", logs.All()[0].Message)
@@ -308,7 +308,7 @@ func TestLogger_Output(t *testing.T) {
 	require.Equal(t, zapcore.Field{Key: "a", String: "a", Type: zapcore.StringType}, logs.All()[0].Context[1])
 	require.Equal(t, zapcore.Field{Key: "b", String: "b", Type: zapcore.StringType}, logs.All()[0].Context[2])
 	ac.Close()
-	close()
+	require.NoError(t, closeL())
 }
 
 func heapObjects() uint64 {
