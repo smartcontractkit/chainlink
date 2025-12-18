@@ -274,11 +274,10 @@ func TestZapLogger_Name(t *testing.T) {
 }
 
 func TestLogger_Leak(t *testing.T) {
-	core, _ := observer.New(zapcore.InfoLevel)
 	ac := NewAtomicCore()
+	defer ac.Close()
 	lggrCfg := Config{}
 	rootLggr, _ := lggrCfg.NewWithCores(ac.Root())
-	ac.Store(core)
 	startObjectsNum := heapObjects()
 	aLggr := rootLggr.With("a", "a")
 	bLggr := aLggr.With("b", "b")
@@ -293,23 +292,25 @@ func TestLogger_Leak(t *testing.T) {
 	endObjectsNum := heapObjects()
 	// Require that endObjectsNum does not grow (with l/10 "delta" left for garbage collection jitter)
 	assert.Less(t, endObjectsNum, startObjectsNum+l/10)
-	bLggr.Sync()
+	require.NoError(t, bLggr.Sync())
 }
 
 func TestLogger_Output(t *testing.T) {
 	core, logs := observer.New(zapcore.InfoLevel)
 	ac := NewAtomicCore()
 	lggrCfg := Config{}
-	l, _ := lggrCfg.NewWithCores(ac.Root())
+	l, close := lggrCfg.NewWithCores(ac.Root())
 	l2 := l.With("a", "a")
 	l3 := l2.With("b", "b")
 	ac.Store(core)
 	l3.Info("test")
 	require.Equal(t, 1, logs.Len())
 	require.Equal(t, "test", logs.All()[0].Message)
-	require.Equal(t, 3, len(logs.All()[0].Context))
+	require.Len(t, logs.All()[0].Context, 3)
 	require.Equal(t, zapcore.Field{Key: "a", String: "a", Type: zapcore.StringType}, logs.All()[0].Context[1])
 	require.Equal(t, zapcore.Field{Key: "b", String: "b", Type: zapcore.StringType}, logs.All()[0].Context[2])
+	ac.Close()
+	close()
 }
 
 func heapObjects() uint64 {
