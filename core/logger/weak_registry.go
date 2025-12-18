@@ -7,7 +7,7 @@ import (
 	"weak"
 )
 
-const registryCleanupInterval = time.Minute * 3
+const registryCleanupInterval = time.Minute * 1
 
 // WeakRegistry is a thread-safe storage of weak references allowing updates to all live entries.
 // It also periodically cleans up references that have been garbage collected.
