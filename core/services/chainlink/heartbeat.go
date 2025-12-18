@@ -183,8 +183,9 @@ func (h *Heartbeat) GetBeat() time.Duration {
 	return h.beat
 }
 
-// ExtractDomainFromURLString parses a URL string and returns only the host (domain).
+// ExtractDomainFromURLString parses a URL string and returns only the hostname (domain).
 // This ensures sensitive information like API keys in URL paths are not exposed.
+// The port is stripped to avoid formatting issues.
 func ExtractDomainFromURLString(rawURL string) string {
 	if rawURL == "" {
 		return ""
@@ -193,5 +194,5 @@ func ExtractDomainFromURLString(rawURL string) string {
 	if err != nil {
 		return ""
 	}
-	return u.Host
+	return u.Hostname()
 }

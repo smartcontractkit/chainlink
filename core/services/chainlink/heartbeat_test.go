@@ -175,7 +175,7 @@ func TestExtractDomainFromURLString(t *testing.T) {
 		{
 			name:     "https URL with port",
 			rawURL:   "https://localhost:8545",
-			expected: "localhost:8545",
+			expected: "localhost",
 		},
 		{
 			name:     "wss URL",
