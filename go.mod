@@ -2,7 +2,7 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.25.5
 
-replace github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-internal-solana v0.0.0-20251218180734-d9c3c16b0f05
+replace github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-internal-solana v0.0.0-20251218194439-0ab4ab1d011a
 
 require (
 	github.com/BurntSushi/toml v1.4.0
