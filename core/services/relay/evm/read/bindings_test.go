@@ -127,7 +127,7 @@ func TestBindingsRegistry(t *testing.T) {
 		mRdr0.EXPECT().Bind(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		mReg.EXPECT().HasFilter(mock.Anything).Return(false)
-		mReg.EXPECT().RegisterFilter(mock.Anything, mock.Anything).Return(nil).Times(4) //2 times per init + 1 time per bind(3) + 1 time per bind new address
+		mReg.EXPECT().RegisterFilter(mock.Anything, mock.Anything).Return(nil).Times(4) // 2 times per init + 1 time per bind(3) + 1 time per bind new address
 		// part of the init phase of chain reader
 		require.NoError(t, named.AddReader(contractName1, methodName1, mRdr0))
 		_ = named.SetFilter(contractName1, filterWithSigs)

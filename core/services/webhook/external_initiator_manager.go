@@ -76,7 +76,7 @@ func (m *externalInitiatorManager) Notify(ctx context.Context, webhookSpecID int
 		if err := resp.Body.Close(); err != nil {
 			return err
 		}
-		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return fmt.Errorf(" notify '%s' (%s) received bad response '%d: %s'", ei.Name, ei.URL, resp.StatusCode, resp.Status)
 		}
 	}
@@ -154,7 +154,7 @@ func (m *externalInitiatorManager) DeleteJob(ctx context.Context, webhookSpecID 
 		if err := resp.Body.Close(); err != nil {
 			return err
 		}
-		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return fmt.Errorf(" delete '%s' (%s) received bad response '%d: %s'", ei.Name, ei.URL, resp.StatusCode, resp.Status)
 		}
 	}

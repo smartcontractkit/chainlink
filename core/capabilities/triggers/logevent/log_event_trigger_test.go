@@ -141,7 +141,7 @@ func emitLogTxnAndWaitForLog(t *testing.T,
 		// Verify if valid cursor is returned
 		cursor, err := testutils.GetStrVal(output, "Cursor")
 		require.NoError(t, err)
-		require.True(t, len(cursor) > 60)
+		require.Greater(t, len(cursor), 60)
 
 		// Verify if Arg0 is correct
 		actualLogVal, err := testutils.GetBigIntValL2(output, "Data", "Arg0")

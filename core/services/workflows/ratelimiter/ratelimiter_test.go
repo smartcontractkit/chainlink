@@ -27,5 +27,4 @@ func TestRateLimiter(t *testing.T) {
 	require.True(t, rl.Allow(ctx1))
 	require.False(t, rl.Allow(ctx1))
 	require.False(t, rl.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user3", Workflow: "wf-3"})))
-
 }

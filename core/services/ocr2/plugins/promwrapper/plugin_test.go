@@ -186,7 +186,7 @@ func TestPlugin_GetLatencies(t *testing.T) {
 
 	// Create promPlugin with mocked prometheus backend.
 	var reportingPlugin = &fakeReportingPlugin{}
-	var promPlugin *promPlugin = New(
+	var promPlugin = New(
 		reportingPlugin,
 		"test-plugin",
 		"EVM",

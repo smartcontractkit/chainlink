@@ -73,7 +73,7 @@ func TestActiveUpkeepList(t *testing.T) {
 				require.False(t, al.IsActive(id))
 			}
 			logIds := al.View(types.LogTrigger)
-			require.Equal(t, len(tc.expectedLogIds), len(logIds))
+			require.Len(t, logIds, len(tc.expectedLogIds))
 			sort.Slice(logIds, func(i, j int) bool {
 				return logIds[i].Cmp(logIds[j]) < 0
 			})
@@ -81,7 +81,7 @@ func TestActiveUpkeepList(t *testing.T) {
 				require.Equal(t, tc.expectedLogIds[i], logIds[i])
 			}
 			conditionalIds := al.View(types.ConditionTrigger)
-			require.Equal(t, len(tc.expectedConditionalIds), len(conditionalIds))
+			require.Len(t, conditionalIds, len(tc.expectedConditionalIds))
 			sort.Slice(conditionalIds, func(i, j int) bool {
 				return conditionalIds[i].Cmp(conditionalIds[j]) < 0
 			})

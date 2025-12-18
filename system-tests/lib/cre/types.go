@@ -670,6 +670,16 @@ func (d *Dons) NodeWithUUID(uuid string) (*Node, bool) {
 	return nil, false
 }
 
+func (d *Dons) RequiresGateway() bool {
+	for _, don := range d.Dons {
+		if don.Metadata().RequiresGateway() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithCapabilityConfigs {
 	out := make([]NodeSetWithCapabilityConfigs, len(d.Dons))
 	for i, don := range d.Dons {

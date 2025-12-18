@@ -3,6 +3,7 @@ package actions
 import (
 	"crypto/ed25519"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -140,7 +141,7 @@ func GetOracleIdentitiesWithKeyIndex(
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
@@ -151,7 +152,7 @@ func GetOracleIdentitiesWithKeyIndex(
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
@@ -226,7 +227,7 @@ func CreateOCRv2Jobs(
 
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
-			Name:    fmt.Sprintf("ocr2-bootstrap-%s", ocrInstance.Address()),
+			Name:    "ocr2-bootstrap-" + ocrInstance.Address(),
 			JobType: "bootstrap",
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
@@ -269,7 +270,7 @@ func CreateOCRv2Jobs(
 			}
 
 			ocrSpec := &nodeclient.OCR2TaskJobSpec{
-				Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
+				Name:              "ocr2-" + uuid.NewString(),
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
@@ -347,7 +348,7 @@ func SetOCR2AdapterResponse(
 	if err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/%s", nodeContractPairID)
+	path := "/" + nodeContractPairID
 	err = mockserver.SetValuePath(path, response)
 	if err != nil {
 		return fmt.Errorf("setting mockserver value path failed: %w", err)
@@ -380,10 +381,10 @@ func SetOCR2AllAdapterResponsesToTheSameValue(
 // BuildOCR2NodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCRv2 contract
 func BuildOCR2NodeContractPairID(node *nodeclient.ChainlinkK8sClient, ocrInstance contracts.OffchainAggregatorV2) (string, error) {
 	if node == nil {
-		return "", fmt.Errorf("chainlink node is nil")
+		return "", errors.New("chainlink node is nil")
 	}
 	if ocrInstance == nil {
-		return "", fmt.Errorf("OCR Instance is nil")
+		return "", errors.New("OCR Instance is nil")
 	}
 	nodeAddress, err := node.PrimaryEthAddress()
 	if err != nil {

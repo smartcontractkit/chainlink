@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -115,16 +116,16 @@ func WaitForLog(lggr logger.Logger, logCh <-chan commoncaps.TriggerResponse, tim
 	*commoncaps.TriggerResponse, map[string]any, error) {
 	select {
 	case <-time.After(timeout):
-		return nil, nil, fmt.Errorf("timeout waiting for Log1 event from ContractReader")
+		return nil, nil, errors.New("timeout waiting for Log1 event from ContractReader")
 	case log := <-logCh:
 		lggr.Infow("Received log from ContractReader", "event", log.Event.ID)
 		if log.Err != nil {
-			return nil, nil, fmt.Errorf("error listening for Log1 event from ContractReader: %v", log.Err)
+			return nil, nil, fmt.Errorf("error listening for Log1 event from ContractReader: %w", log.Err)
 		}
 		v := make(map[string]any)
 		err := log.Event.Outputs.UnwrapTo(&v)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error unwrapping log to map: (log %v) %v", log.Event.Outputs, log.Err)
+			return nil, nil, fmt.Errorf("error unwrapping log to map: (log %v) %w", log.Event.Outputs, log.Err)
 		}
 		return &log, v, nil
 	}

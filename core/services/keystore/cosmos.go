@@ -103,7 +103,7 @@ func (ks *cosmos) Import(ctx context.Context, keyJSON []byte, password string) (
 	if _, found := ks.keyRing.Cosmos[key.ID()]; found {
 		return cosmoskey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *cosmos) Export(id string, password string) ([]byte, error) {

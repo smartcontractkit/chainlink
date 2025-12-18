@@ -130,7 +130,6 @@ func TestCBORParseTask(t *testing.T) {
 	}
 
 	for _, test := range tests {
-
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.CBORParseTask{
 				BaseTask: pipeline.NewBaseTask(0, "cbor", nil, nil, 0),

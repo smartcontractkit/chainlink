@@ -205,7 +205,7 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 	defer s.rwMutex.Unlock()
 	for i, subscription := range subscriptions {
 		subscriptionId := start + uint64(i)
-		subscription := subscription
+
 		updated := s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
 		if updated {
 			if err = s.orm.UpsertSubscription(ctx, StoredSubscription{

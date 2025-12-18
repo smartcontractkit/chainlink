@@ -107,7 +107,7 @@ func (ks *ton) Import(ctx context.Context, keyJSON []byte, password string) (ton
 	if _, found := ks.keyRing.TON[key.ID()]; found {
 		return tonkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *ton) Export(id string, password string) ([]byte, error) {

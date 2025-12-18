@@ -161,6 +161,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+SampleTelemetry = false
 KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
@@ -485,7 +486,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 50000
+ExternalRequestMaxResponseSize = 1000000
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -608,7 +609,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 50000
+ExternalRequestMaxResponseSize = 1000000
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -725,7 +726,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 50000
+ExternalRequestMaxResponseSize = 1000000
 
 [EVM.OCR]
 ContractConfirmations = 4

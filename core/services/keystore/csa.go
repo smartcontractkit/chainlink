@@ -34,7 +34,7 @@ type CSASigner struct {
 }
 
 func (c CSASigner) Accounts(ctx context.Context) (accounts []string, err error) {
-	keys, err := c.CSA.GetAll()
+	keys, err := c.GetAll()
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c CSASigner) Accounts(ctx context.Context) (accounts []string, err error) 
 }
 
 func (c CSASigner) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
-	k, err := c.CSA.Get(account)
+	k, err := c.Get(account)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (ks *csa) Import(ctx context.Context, keyJSON []byte, password string) (csa
 	if _, found := ks.keyRing.CSA[key.ID()]; found {
 		return csakey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *csa) Export(id string, password string) ([]byte, error) {

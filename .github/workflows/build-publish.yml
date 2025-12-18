@@ -93,6 +93,23 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
+  # Publish attestations on final release to: https://github.com/smartcontractkit/chainlink/attestations
+  docker-core-attestations:
+    needs: [checks, docker-core]
+    runs-on: ubuntu-latest
+    if: ${{ needs.checks.outputs.is-release == 'true' }}
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Publish attestation to GitHub
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: public.ecr.aws/chainlink/chainlink
+          subject-digest: ${{ needs.docker-core.outputs.docker-manifest-digest }}
+          push-to-registry: false
+
   docker-ccip:
     needs: [checks]
     if: needs.checks.outputs.git-tag-type == 'ccip'
@@ -127,6 +144,23 @@ jobs:
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_BUILD_PUBLISH_ARN }}
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  # Publish attestations on final release to: https://github.com/smartcontractkit/chainlink/attestations
+  docker-ccip-attestations:
+    needs: [checks, docker-ccip]
+    if: ${{ needs.checks.outputs.is-release == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Publish attestation to GitHub
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: public.ecr.aws/chainlink/ccip
+          subject-digest: ${{ needs.docker-ccip.outputs.docker-manifest-digest }}
+          push-to-registry: false
 
   # Notify Slack channel for new git tags.
   slack-notify:

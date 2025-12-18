@@ -241,6 +241,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, errors.New("DKG instance ID cannot be nil")
 	}
 
+	r.lggr.Debugw("fetching key material for instance id", "instanceID", *configProto.DKGInstanceID)
 	publicKey, privateKeyShare, err := r.getKeyMaterial(ctx, *configProto.DKGInstanceID)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not get key material from DB: %w", err)
@@ -390,7 +391,6 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
-
 	if secret == nil {
 		return nil, newUserError("key does not exist")
 	}
@@ -399,6 +399,12 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	err = ct.UnmarshalVerify(secret.EncryptedSecret, r.cfg.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
+	}
+
+	encryptedSecret := hex.EncodeToString(secret.EncryptedSecret)
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, encryptedSecret, secretRequest.Id.Owner)
+	if err != nil {
+		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
 	}
 
 	share, err := tdh2easy.Decrypt(ct, r.cfg.PrivateKeyShare)
@@ -440,7 +446,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		Id: id,
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
-				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
+				EncryptedValue:               encryptedSecret,
 				EncryptedDecryptionKeyShares: shares,
 			},
 		},
@@ -535,8 +541,12 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 	}
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: secretRequest.Id.Owner})
-	if r.cfg.MaxCiphertextLengthBytes.Check(ctx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte) != nil {
-		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %s bytes", maybeGetLimit(ctx, r.cfg.MaxCiphertextLengthBytes)))
+	if ierr := r.cfg.MaxCiphertextLengthBytes.Check(ctx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte); ierr != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(ierr, &errBoundLimited) {
+			return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit))
+		}
+		return id, newUserError("failed to check ciphertext size limit: " + ierr.Error())
 	}
 
 	ct := &tdh2easy.Ciphertext{}
@@ -789,15 +799,27 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: id.Owner})
 	if err := r.cfg.MaxIdentifierOwnerLengthBytes.Check(ctx, pkgconfig.Size(len(id.Owner))); err != nil {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %s bytes", maybeGetLimit(ctx, r.cfg.MaxIdentifierOwnerLengthBytes)))
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %s", errBoundLimited.Limit))
+		}
+		return nil, newUserError("failed to check owner length limit: " + err.Error())
 	}
 
-	if r.cfg.MaxIdentifierNamespaceLengthBytes.Check(ctx, pkgconfig.Size(len(id.Namespace))) != nil {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %s bytes", maybeGetLimit(ctx, r.cfg.MaxIdentifierNamespaceLengthBytes)))
+	if err := r.cfg.MaxIdentifierNamespaceLengthBytes.Check(ctx, pkgconfig.Size(len(id.Namespace))); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %s", errBoundLimited.Limit))
+		}
+		return nil, newUserError("failed to check namespace length limit: " + err.Error())
 	}
 
-	if r.cfg.MaxIdentifierKeyLengthBytes.Check(ctx, pkgconfig.Size(len(id.Key))) != nil {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %s bytes", maybeGetLimit(ctx, r.cfg.MaxIdentifierKeyLengthBytes)))
+	if err := r.cfg.MaxIdentifierKeyLengthBytes.Check(ctx, pkgconfig.Size(len(id.Key))); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %s", errBoundLimited.Limit))
+		}
+		return nil, newUserError("failed to check key length limit: " + err.Error())
 	}
 	return newID, nil
 }
@@ -1211,7 +1233,6 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", vaulttypes.KeyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
-
 	}
 
 	o.Response = &vaultcommon.Outcome_CreateSecretsResponse{
@@ -1246,8 +1267,12 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	}
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
-	if r.cfg.MaxSecretsPerOwner.Check(ctx, count+1) != nil {
-		return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%s)", req.Id.Owner, maybeGetLimit(ctx, r.cfg.MaxSecretsPerOwner)))
+	if ierr := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); ierr != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(ierr, &errBoundLimited) {
+			return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%d)", req.Id.Owner, errBoundLimited.Limit))
+		}
+		return nil, fmt.Errorf("failed to check max secrets per owner limit: %w", ierr)
 	}
 
 	err = store.WriteSecret(req.Id, &vaultcommon.StoredSecret{

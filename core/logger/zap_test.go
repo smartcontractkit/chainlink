@@ -261,7 +261,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 func TestZapLogger_Name(t *testing.T) {
 	cfg := Config{}
 	lggr := newTestLogger(t, cfg)
-	require.Equal(t, "", lggr.Name())
+	require.Empty(t, lggr.Name())
 	lggr1 := lggr.Named("Lggr1")
 	require.Equal(t, "Lggr1", lggr1.Name())
 	lggr2 := lggr1.Named("Lggr2")

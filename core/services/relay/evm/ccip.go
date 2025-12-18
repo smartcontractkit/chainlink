@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"time"
 
@@ -72,11 +72,11 @@ func (i *IncompleteSourceCommitStoreReader) ChangeConfig(ctx context.Context, on
 }
 
 func (i *IncompleteSourceCommitStoreReader) DecodeCommitReport(ctx context.Context, report []byte) (cciptypes.CommitStoreReport, error) {
-	return cciptypes.CommitStoreReport{}, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return cciptypes.CommitStoreReport{}, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) EncodeCommitReport(ctx context.Context, report cciptypes.CommitStoreReport) ([]byte, error) {
-	return []byte{}, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return []byte{}, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 // GasPriceEstimator returns an ExecGasPriceEstimator to satisfy the GasPriceEstimatorCommit interface,
@@ -87,35 +87,35 @@ func (i *IncompleteSourceCommitStoreReader) GasPriceEstimator(ctx context.Contex
 }
 
 func (i *IncompleteSourceCommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confirmations int) ([]cciptypes.CommitStoreReportWithTxMeta, error) {
-	return nil, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return nil, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confirmations int) ([]cciptypes.CommitStoreReportWithTxMeta, error) {
-	return nil, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return nil, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (cciptypes.CommitStoreStaticConfig, error) {
-	return cciptypes.CommitStoreStaticConfig{}, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return cciptypes.CommitStoreStaticConfig{}, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) GetExpectedNextSequenceNumber(ctx context.Context) (uint64, error) {
-	return 0, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return 0, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) GetLatestPriceEpochAndRound(ctx context.Context) (uint64, error) {
-	return 0, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return 0, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) IsBlessed(ctx context.Context, root [32]byte) (bool, error) {
-	return false, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return false, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) IsDestChainHealthy(ctx context.Context) (bool, error) {
-	return false, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return false, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) IsDown(ctx context.Context) (bool, error) {
-	return false, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return false, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) OffchainConfig(ctx context.Context) (cciptypes.CommitOffchainConfig, error) {
@@ -123,11 +123,11 @@ func (i *IncompleteSourceCommitStoreReader) OffchainConfig(ctx context.Context) 
 }
 
 func (i *IncompleteSourceCommitStoreReader) VerifyExecutionReport(ctx context.Context, report cciptypes.ExecReport) (bool, error) {
-	return false, fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return false, errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 func (i *IncompleteSourceCommitStoreReader) Close() error {
-	return fmt.Errorf("invalid usage of IncompleteSourceCommitStoreReader")
+	return errors.New("invalid usage of IncompleteSourceCommitStoreReader")
 }
 
 // IncompleteDestCommitStoreReader is an implementation of CommitStoreReader with all valid methods except
@@ -156,7 +156,7 @@ func NewIncompleteDestCommitStoreReader(
 }
 
 func (i *IncompleteDestCommitStoreReader) ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, error) {
-	return "", fmt.Errorf("invalid usage of IncompleteDestCommitStoreReader")
+	return "", errors.New("invalid usage of IncompleteDestCommitStoreReader")
 }
 
 func (i *IncompleteDestCommitStoreReader) DecodeCommitReport(ctx context.Context, report []byte) (cciptypes.CommitStoreReport, error) {
@@ -168,7 +168,7 @@ func (i *IncompleteDestCommitStoreReader) EncodeCommitReport(ctx context.Context
 }
 
 func (i *IncompleteDestCommitStoreReader) GasPriceEstimator(ctx context.Context) (cciptypes.GasPriceEstimatorCommit, error) {
-	return nil, fmt.Errorf("invalid usage of IncompleteDestCommitStoreReader")
+	return nil, errors.New("invalid usage of IncompleteDestCommitStoreReader")
 }
 
 func (i *IncompleteDestCommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confirmations int) ([]cciptypes.CommitStoreReportWithTxMeta, error) {
@@ -204,7 +204,7 @@ func (i *IncompleteDestCommitStoreReader) IsDown(ctx context.Context) (bool, err
 }
 
 func (i *IncompleteDestCommitStoreReader) OffchainConfig(ctx context.Context) (cciptypes.CommitOffchainConfig, error) {
-	return cciptypes.CommitOffchainConfig{}, fmt.Errorf("invalid usage of IncompleteDestCommitStoreReader")
+	return cciptypes.CommitOffchainConfig{}, errors.New("invalid usage of IncompleteDestCommitStoreReader")
 }
 
 func (i *IncompleteDestCommitStoreReader) VerifyExecutionReport(ctx context.Context, report cciptypes.ExecReport) (bool, error) {

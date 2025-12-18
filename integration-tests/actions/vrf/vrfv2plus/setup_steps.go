@@ -382,7 +382,7 @@ func SetupVRFV2PlusWrapperForNewEnv(
 	if err != nil {
 		return nil, nil, err
 	}
-	//fund sub
+	// fund sub
 	wrapperSubID, err := wrapperContracts.VRFV2PlusWrapper.GetSubID(ctx)
 	if err != nil {
 		return nil, nil, err

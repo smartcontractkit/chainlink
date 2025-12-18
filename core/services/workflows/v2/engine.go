@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
@@ -350,6 +351,20 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
 	for _, sub := range subs.Subscriptions {
+		_, labels, _ := capabilities.ParseID(sub.Id)
+		chainSelector, err2 := capabilities.ChainSelectorLabel(labels)
+		if err2 != nil {
+			return fmt.Errorf("invalid chain selector for ID %s: %w", sub.Id, err2)
+		}
+		if chainSelector != nil {
+			err2 := e.cfg.LocalLimiters.ChainAllowed.AllowErr(contexts.WithChainSelector(ctx, *chainSelector))
+			if err2 != nil {
+				if errors.Is(err2, limits.ErrorNotAllowed{}) {
+					return fmt.Errorf("unable to subscribe to capability %s: ChainSelector %d: %w", sub.Id, *chainSelector, err2)
+				}
+				return fmt.Errorf("failed to check access for ChainSelector %d: %w", *chainSelector, err2)
+			}
+		}
 		triggerCap, triggerErr := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
 		if triggerErr != nil {
 			return fmt.Errorf("trigger capability not found: %w", triggerErr)
@@ -357,53 +372,99 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggers = append(triggers, triggerCap)
 	}
 
-	// register to all triggers
+	// register to all triggers concurrently
 	regCtx, regCancel, err := e.cfg.LocalLimiters.TriggerRegistrationsTime.WithTimeout(ctx)
 	if err != nil {
 		return err
 	}
 	defer regCancel()
-	e.triggersRegMu.Lock()
-	defer e.triggersRegMu.Unlock()
-	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs.Subscriptions))
-	triggerCapIDs := make([]string, len(subs.Subscriptions))
+
+	// trigger registration results for use in concurrent trigger subscriptions
+	type triggerRegResult struct {
+		index          int
+		registrationID string
+		triggerCap     capabilities.TriggerCapability
+		eventCh        <-chan capabilities.TriggerResponse
+		payload        *anypb.Any
+		method         string
+		triggerCapID   string
+	}
+
+	resultsCh := make(chan triggerRegResult, len(subs.Subscriptions))
+	g, gCtx := errgroup.WithContext(regCtx)
+
+	// Launch concurrent trigger registrations
 	for i, sub := range subs.Subscriptions {
 		triggerCap := triggers[i]
-		registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
-		e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
-		triggerEventCh, err := triggerCap.RegisterTrigger(regCtx, capabilities.TriggerRegistrationRequest{
-			TriggerID: registrationID,
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID:                    e.cfg.WorkflowID,
-				WorkflowOwner:                 e.cfg.WorkflowOwner,
-				WorkflowName:                  e.cfg.WorkflowName.Hex(),
-				WorkflowTag:                   e.cfg.WorkflowTag,
-				DecodedWorkflowName:           e.cfg.WorkflowName.String(),
-				WorkflowDonID:                 e.localNode.Load().WorkflowDON.ID,
-				WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
-				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
-				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
-				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
-				EngineVersion:                 platform.ValueWorkflowVersionV2,
-				// no WorkflowExecutionID needed (or available at this stage)
-			},
-			Payload: sub.Payload,
-			Method:  sub.Method,
-			// no Config needed - NoDAG uses Payload
+		g.Go(func() error {
+			registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
+			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
+				TriggerID: registrationID,
+				Metadata: capabilities.RequestMetadata{
+					WorkflowID:                    e.cfg.WorkflowID,
+					WorkflowOwner:                 e.cfg.WorkflowOwner,
+					WorkflowName:                  e.cfg.WorkflowName.Hex(),
+					WorkflowTag:                   e.cfg.WorkflowTag,
+					DecodedWorkflowName:           e.cfg.WorkflowName.String(),
+					WorkflowDonID:                 e.localNode.Load().WorkflowDON.ID,
+					WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
+					ReferenceID:                   fmt.Sprintf("trigger_%d", i),
+					WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
+					WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
+					EngineVersion:                 platform.ValueWorkflowVersionV2,
+					// no WorkflowExecutionID needed (or available at this stage)
+				},
+				Payload: sub.Payload,
+				Method:  sub.Method,
+				// no Config needed - NoDAG uses Payload
+			})
+			if regErr != nil {
+				e.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
+				e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
+				return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
+			}
+			// Send successful result
+			resultsCh <- triggerRegResult{
+				index:          i,
+				registrationID: registrationID,
+				triggerCap:     triggerCap,
+				eventCh:        triggerEventCh,
+				payload:        sub.Payload,
+				method:         sub.Method,
+				triggerCapID:   sub.Id,
+			}
+			return nil
 		})
-		if err != nil {
-			e.logger().Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
-			e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(ctx)
-			e.unregisterAllTriggers(ctx)
-			return fmt.Errorf("failed to register trigger: %w", err)
+	}
+
+	// wait for all registrations to complete.
+	// returns first non-nil error.
+	registrationErr := g.Wait()
+	close(resultsCh)
+
+	// Collect results into e.triggers map
+	e.triggersRegMu.Lock()
+	defer e.triggersRegMu.Unlock()
+
+	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs.Subscriptions))
+	triggerCapIDs := make([]string, len(subs.Subscriptions))
+
+	for result := range resultsCh {
+		e.triggers[result.registrationID] = &triggerCapability{
+			TriggerCapability: result.triggerCap,
+			payload:           result.payload,
+			method:            result.method,
 		}
-		e.triggers[registrationID] = &triggerCapability{
-			TriggerCapability: triggerCap,
-			payload:           sub.Payload,
-			method:            sub.Method,
-		}
-		eventChans[i] = triggerEventCh
-		triggerCapIDs[i] = sub.Id
+		eventChans[result.index] = result.eventCh
+		triggerCapIDs[result.index] = result.triggerCapID
+	}
+
+	// If any registration failed, unregister successful ones and return error
+	if registrationErr != nil {
+		e.logger().Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
+		e.unregisterAllTriggers(ctx) // needs to be called under e.triggersRegMu lock
+		return registrationErr
 	}
 
 	// start listening for trigger events only if all registrations succeeded

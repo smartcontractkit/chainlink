@@ -70,7 +70,7 @@ var vrfv2CleanUpFn = func(
 					} else {
 						returnToAddress = **walletAddress
 					}
-					//cancel subs and return funds to sub owner
+					// cancel subs and return funds to sub owner
 					vrfv2.CancelSubsAndReturnFunds(testcontext.Get(*t), *vrfContracts, returnToAddress, *subIDsForCancellingAfterTest, logger)
 				}
 			} else {
@@ -169,7 +169,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, int(*configCopy.VRFv2.General.NumberOfWords), len(status.RandomWords))
+		require.Len(t, status.RandomWords, int(*configCopy.VRFv2.General.NumberOfWords))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -263,7 +263,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 		jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+		require.Len(t, jobRuns.Data, len(jobRunsBeforeTest.Data)+1)
 	})
 	t.Run("Direct Funding", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -324,7 +324,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
 
 		// Check random word count
-		require.Equal(t, int(*configCopy.VRFv2.General.NumberOfWords), len(consumerStatus.RandomWords))
+		require.Len(t, consumerStatus.RandomWords, int(*configCopy.VRFv2.General.NumberOfWords))
 		for _, w := range consumerStatus.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -465,7 +465,7 @@ func TestVRFv2Basic(t *testing.T) {
 		testWalletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), testWalletAddress.String())
 		require.NoError(t, err)
 
-		//Verify that sub was deleted from Coordinator
+		// Verify that sub was deleted from Coordinator
 		_, err = vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForCancelling)
 		require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
 
@@ -647,7 +647,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		txKeys, _, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
 
-		require.Equal(t, newEnvConfig.NumberOfTxKeysToCreate+1, len(txKeys.Data))
+		require.Len(t, txKeys.Data, newEnvConfig.NumberOfTxKeysToCreate+1)
 
 		var fulfillmentTxFromAddresses []string
 		for i := 0; i < newEnvConfig.NumberOfTxKeysToCreate+1; i++ {
@@ -672,7 +672,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			require.NoError(t, err, "error getting tx from address")
 			fulfillmentTxFromAddresses = append(fulfillmentTxFromAddresses, fulfillmentTxFromAddress)
 		}
-		require.Equal(t, newEnvConfig.NumberOfTxKeysToCreate+1, len(fulfillmentTxFromAddresses))
+		require.Len(t, fulfillmentTxFromAddresses, newEnvConfig.NumberOfTxKeysToCreate+1)
 		var txKeyAddresses []string
 		for _, txKey := range txKeys.Data {
 			txKeyAddresses = append(txKeyAddresses, txKey.Attributes.Address)
@@ -779,7 +779,7 @@ func TestVRFOwner(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, int(*configCopy.VRFv2.General.NumberOfWords), len(status.RandomWords))
+		require.Len(t, status.RandomWords, int(*configCopy.VRFv2.General.NumberOfWords))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -821,7 +821,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 	configPtr := &config
 
-	//decrease default span for checking blockhashes for unfulfilled requests
+	// decrease default span for checking blockhashes for unfulfilled requests
 	vrfv2Config.General.BHSJobWaitBlocks = ptr.Ptr(2)
 	vrfv2Config.General.BHSJobLookBackBlocks = ptr.Ptr(20)
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
@@ -843,9 +843,9 @@ func TestVRFV2WithBHS(t *testing.T) {
 		if os.Getenv("TEST_UNSKIP") != "true" {
 			t.Skip("Skipped due to long execution time. Should be run on-demand on live testnet with TEST_UNSKIP=\"true\".")
 		}
-		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
+		// BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
-		//Underfund Subscription
+		// Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		consumers, subIDsForBHS, err := vrfv2.SetupNewConsumersAndSubs(
 			sethClient,
@@ -882,7 +882,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
-		//Wait at least 256 blocks
+		// Wait at least 256 blocks
 		_, err = actions.WaitForBlockNumberToBe(
 			testcontext.Get(t),
 			randRequestBlockNumber+uint64(257),
@@ -913,9 +913,9 @@ func TestVRFV2WithBHS(t *testing.T) {
 	})
 
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
-		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
+		// BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
-		//Underfund Subscription
+		// Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 
 		consumers, subIDsForBHS, err := vrfv2.SetupNewConsumersAndSubs(
@@ -982,7 +982,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
-				g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
+				g.Expect(clNodeTxs.Data).Should(gomega.HaveLen(1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
 				txHash = clNodeTxs.Data[0].Attributes.Hash
 				l.Info().
 					Str("TX Hash", txHash).
@@ -1085,7 +1085,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		configCopy.VRFv2.General.MinimumConfirmations = ptr.Ptr[uint16](10)
 
-		//1. request randomness and wait for fulfillment for blockhash from Reorged Fork
+		// 1. request randomness and wait for fulfillment for blockhash from Reorged Fork
 		randomWordsRequestedEvent, randomWordsFulfilledEventOnReorgedFork, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 			l,
 			consumers[0],
@@ -1108,17 +1108,17 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		rpcUrl, err := vrfcommon.GetRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
-		//2. rewind chain by n number of blocks - basically, mimicking reorg scenario
+		// 2. rewind chain by n number of blocks - basically, mimicking reorg scenario
 		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlock, l)
-		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlock))
+		require.NoError(t, err, "error rewinding chain to block number %d", rewindChainToBlock)
 
-		//3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
+		// 3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
 		require.Greater(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
 
-		//3.2 ensure that chain is reorged and latest block number is less than the block number when fulfilment was performed
+		// 3.2 ensure that chain is reorged and latest block number is less than the block number when fulfilment was performed
 		require.Less(t, latestBlockNumberAfterReorg, randomWordsFulfilledEventOnReorgedFork.Raw.BlockNumber)
 
-		//4. wait for the fulfillment which VRF Node will generate for Canonical chain
+		// 4. wait for the fulfillment which VRF Node will generate for Canonical chain
 		_, err = vrfv2.WaitRandomWordsFulfilledEvent(
 			vrfContracts.CoordinatorV2,
 			randomWordsRequestedEvent.RequestId,
@@ -1132,10 +1132,10 @@ func TestVRFV2NodeReorg(t *testing.T) {
 
 	t.Run("Reorg on rand request", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-		//1. set minimum confirmations to higher value so that we can be sure that request won't be fulfilled before reorg
+		// 1. set minimum confirmations to higher value so that we can be sure that request won't be fulfilled before reorg
 		configCopy.VRFv2.General.MinimumConfirmations = ptr.Ptr[uint16](6)
 
-		//2. request randomness
+		// 2. request randomness
 		randomWordsRequestedEvent, err := vrfv2.RequestRandomness(
 			l,
 			consumers[0],
@@ -1157,17 +1157,17 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		rpcUrl, err := vrfcommon.GetRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
-		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
+		// 3. rewind chain by n number of blocks - basically, mimicking reorg scenario
 		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlockNumber, l)
-		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
+		require.NoError(t, err, "error rewinding chain to block number %d", rewindChainToBlockNumber)
 
-		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
+		// 4. ensure that chain is reorged and latest block number is less than the block number when request was made
 		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
 
-		//5. ensure that rand request is not fulfilled for the request which was made on reorged fork
+		// 5. ensure that rand request is not fulfilled for the request which was made on reorged fork
 		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
-		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
-		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
+		// then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
+		// Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
 		_, err = vrfv2.WaitRandomWordsFulfilledEvent(
 			vrfContracts.CoordinatorV2,
 			randomWordsRequestedEvent.RequestId,
@@ -1212,8 +1212,8 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2 universe")
 
-	//batchMaxGas := config.MaxGasLimit() (2.5 mill) + 400_000 = 2.9 mill
-	//callback gas limit set by consumer = 500k
+	// batchMaxGas := config.MaxGasLimit() (2.5 mill) + 400_000 = 2.9 mill
+	// callback gas limit set by consumer = 500k
 	// so 4 requests should be fulfilled inside 1 tx since 500k*4 < 2.9 mill
 
 	batchFulfilmentMaxGas := *config.VRFv2.General.MaxGasLimitCoordinatorConfig + 400_000
@@ -1228,7 +1228,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]
 		require.True(t, exists, "VRF Node does not exist")
 
-		//ensure that no job present on the node
+		// ensure that no job present on the node
 		err = actions.DeleteJobs([]*nodeclient.ChainlinkClient{vrfNode.CLNode.API})
 		require.NoError(t, err)
 
@@ -1239,7 +1239,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			CoordinatorAddress:            vrfContracts.CoordinatorV2.Address(),
 			BatchCoordinatorAddress:       vrfContracts.BatchCoordinatorV2.Address(),
 			FromAddresses:                 vrfNode.TXKeyAddressStrings,
-			EVMChainID:                    fmt.Sprint(chainID),
+			EVMChainID:                    strconv.FormatInt(chainID, 10),
 			MinIncomingConfirmations:      int(*configCopy.VRFv2.General.MinimumConfirmations),
 			PublicKey:                     vrfKey.PubKeyCompressed,
 			EstimateGasMultiplier:         *configCopy.VRFv2.General.VRFJobEstimateGasMultiplier,
@@ -1321,7 +1321,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			}
 		}
 		// verify that all fulfillments should be inside one tx
-		require.Equal(t, 1, len(batchFulfillmentTxs))
+		require.Len(t, batchFulfillmentTxs, 1)
 
 		fulfillmentTx, _, err := sethClient.Client.TransactionByHash(testcontext.Get(t), randomWordsFulfilledEvent.Raw.TxHash)
 		require.NoError(t, err, "error getting tx from hash")
@@ -1342,8 +1342,8 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			require.NoError(t, err)
 			randomWordsFulfilledLogs, err := contracts.ParseRandomWordsFulfilledLogs(vrfContracts.CoordinatorV2, fulfillmentTxReceipt.Logs)
 			require.NoError(t, err)
-			require.Equal(t, 1, len(batchFulfillmentTxs))
-			require.Equal(t, int(randRequestCount), len(randomWordsFulfilledLogs))
+			require.Len(t, batchFulfillmentTxs, 1)
+			require.Len(t, randomWordsFulfilledLogs, int(randRequestCount))
 		}
 	})
 	t.Run("Batch Fulfillment Disabled", func(t *testing.T) {
@@ -1351,19 +1351,19 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 
 		vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]
 		require.True(t, exists, "VRF Node does not exist")
-		//ensure that no job present on the node
+		// ensure that no job present on the node
 		err = actions.DeleteJobs([]*nodeclient.ChainlinkClient{vrfNode.CLNode.API})
 		require.NoError(t, err)
 
 		batchFullfillmentEnabled := false
 
-		//create job with batchFulfillmentEnabled = false
+		// create job with batchFulfillmentEnabled = false
 		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 			ForwardingAllowed:             *configCopy.VRFv2.General.VRFJobForwardingAllowed,
 			CoordinatorAddress:            vrfContracts.CoordinatorV2.Address(),
 			BatchCoordinatorAddress:       vrfContracts.BatchCoordinatorV2.Address(),
 			FromAddresses:                 vrfNode.TXKeyAddressStrings,
-			EVMChainID:                    fmt.Sprint(chainID),
+			EVMChainID:                    strconv.FormatInt(chainID, 10),
 			MinIncomingConfirmations:      int(*configCopy.VRFv2.General.MinimumConfirmations),
 			PublicKey:                     vrfKey.PubKeyCompressed,
 			EstimateGasMultiplier:         *configCopy.VRFv2.General.VRFJobEstimateGasMultiplier,
@@ -1405,7 +1405,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		if randRequestCount > math.MaxUint16 {
 			t.Fatalf("rand request count overflows uint16: %d", randRequestCount)
 		}
-		configCopy.VRFv2.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount)) //nolint:gosec // G115 false positive
+		configCopy.VRFv2.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
 
 		// test and assert
 		_, randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
@@ -1458,6 +1458,6 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 			}
 		}
 		// verify that all fulfillments should be in separate txs
-		require.Equal(t, int(randRequestCount), len(singleFulfillmentTxs))
+		require.Len(t, singleFulfillmentTxs, int(randRequestCount))
 	})
 }

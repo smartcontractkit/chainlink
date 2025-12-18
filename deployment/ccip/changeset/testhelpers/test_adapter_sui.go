@@ -102,15 +102,20 @@ func SuiEventEmitter[T any](
 	Event   T
 	Version string
 }, <-chan error) {
+	startTime := time.Now()
+	t.Logf("[DEBUG] SuiEventEmitter: Starting at %s - will capture ALL historical events plus new ones", startTime.Format(time.RFC3339))
 	ch := make(chan struct {
 		Event   T
 		Version string
 	}, 200)
 	errChan := make(chan error)
-	limit := uint64(50)
-	var lastSeenTxDigest string
+	limit := uint64(50)                 // Use uint64 directly to avoid conversion
+	seenEvents := make(map[string]bool) // Track all seen event IDs to prevent duplicates
 
 	go func() {
+		defer close(ch)
+		defer close(errChan)
+
 		ticker := time.NewTicker(time.Second * 2)
 		defer ticker.Stop()
 
@@ -119,9 +124,11 @@ func SuiEventEmitter[T any](
 				// As this can take a few iterations if there are many events, check for done before each request
 				select {
 				case <-done:
+					t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal")
 					return
 				default:
 				}
+
 				eventFilter := models.EventFilterByMoveEventType{
 					MoveEventType: fmt.Sprintf("%s::%s::%s", packageID, moduleName, event),
 				}
@@ -132,40 +139,84 @@ func SuiEventEmitter[T any](
 					DescendingOrder: false,
 				})
 				if err != nil {
-					errChan <- err
+					t.Logf("[DEBUG] SuiEventEmitter: Query error: %v", err)
+					select {
+					case errChan <- err:
+					case <-done:
+						return
+					}
 					return
 				}
 
 				if len(events.Data) == 0 {
 					// No new events found
+					t.Logf("[DEBUG] SuiEventEmitter: No new events found")
 					break
 				}
 
+				t.Logf("[DEBUG] SuiEventEmitter: Processing %d events", len(events.Data))
+				newEventsCount := 0
+
 				for _, ev := range events.Data {
-					if ev.Id.TxDigest == lastSeenTxDigest {
+					// Create unique event ID combining transaction digest and event sequence
+					eventID := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
+
+					if seenEvents[eventID] {
+						t.Logf("[DEBUG] SuiEventEmitter: Skipping duplicate event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
 						continue // skip duplicates
 					}
-					lastSeenTxDigest = ev.Id.TxDigest
+					seenEvents[eventID] = true
 
 					var out T
+					// TODO: Use proper SUI JSON decoder instead of Aptos decoder
 					if err := codec.DecodeAptosJsonValue(ev.ParsedJson, &out); err != nil {
-						errChan <- err
+						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s with type %s and transaction module %s at timestamp %s: %v", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err)
+						select {
+						case errChan <- fmt.Errorf("failed to decode event %s with type %s and transaction module %s at timestamp %s: %w", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err):
+						case <-done:
+							return
+						}
 						continue
 					}
 
-					ch <- struct {
+					newEventsCount++
+					eventData := struct {
 						Event   T
 						Version string
 					}{
 						Event:   out,
-						Version: ev.Id.EventSeq, // use the actual version
+						Version: ev.Id.EventSeq,
 					}
+
+					// Non-blocking send to prevent goroutine deadlock
+					select {
+					case ch <- eventData:
+						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
+					case <-done:
+						t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal during send")
+						return
+					default:
+						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
+						// Channel is full, log warning but continue processing
+						// This prevents blocking the entire event loop
+					}
+				}
+
+				t.Logf("[DEBUG] SuiEventEmitter: Processed %d new events out of %d total", newEventsCount, len(events.Data))
+
+				// For now, break after processing to avoid infinite loops
+				// TODO: Implement proper cursor-based pagination when SUI SDK supports it
+				if uint64(len(events.Data)) < limit {
+					// Received fewer events than limit, likely no more events available
+					break
 				}
 			}
 			select {
 			case <-done:
+				t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal in ticker loop")
 				return
 			case <-ticker.C:
+				t.Logf("[DEBUG] SuiEventEmitter: Ticker fired, checking for new events")
 				continue
 			}
 		}

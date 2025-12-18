@@ -221,7 +221,6 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
 			return params
 		}),
 	)
@@ -358,7 +357,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
 			return params
 		}),
 	)

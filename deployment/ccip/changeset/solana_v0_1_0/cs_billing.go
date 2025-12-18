@@ -6,6 +6,7 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -387,11 +388,11 @@ func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOut
 	)
 	for _, update := range cfg.TokenPriceUpdates {
 		billingTokenConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(update.SourceToken, feeQuoterID)
-		raw.AccountMetaSlice.Append(solana.Meta(billingTokenConfigPDA).WRITE())
+		raw.Append(solana.Meta(billingTokenConfigPDA).WRITE())
 	}
 	for _, update := range cfg.GasPriceUpdates {
 		fqDestPDA, _, _ := solState.FindFqDestChainPDA(update.DestChainSelector, feeQuoterID)
-		raw.AccountMetaSlice.Append(solana.Meta(fqDestPDA).WRITE())
+		raw.Append(solana.Meta(fqDestPDA).WRITE())
 	}
 	ix, err := raw.ValidateAndBuild()
 	if err != nil {

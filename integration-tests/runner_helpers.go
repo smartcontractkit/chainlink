@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,7 +48,7 @@ func waitForWorkflowRun(branch, ghUser string) (string, error) {
 			}
 			return workflowId, nil
 		case <-timeout:
-			return "", fmt.Errorf("timed out waiting for workflow run to start")
+			return "", errors.New("timed out waiting for workflow run to start")
 		}
 	}
 }
@@ -75,7 +76,7 @@ func checkWorkflowRun(startTime time.Time, branch, ghUser string) (string, error
 	if workflowRun.StartedAt.Before(startTime) { // Make sure the workflow run started after we started waiting
 		return "", nil
 	}
-	return fmt.Sprint(workflowRun.DatabaseId), nil
+	return strconv.Itoa(workflowRun.DatabaseId), nil
 }
 
 // getUser retrieves the current GitHub user's username

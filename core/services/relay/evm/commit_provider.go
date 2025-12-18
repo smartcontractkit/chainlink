@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -128,7 +128,7 @@ func (p *SrcCommitProvider) Close() error {
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(); err != nil {
-			multiErr = stderrors.Join(multiErr, err)
+			multiErr = errors.Join(multiErr, err)
 		}
 	}
 	return multiErr
@@ -193,7 +193,7 @@ func (p *DstCommitProvider) Close() error {
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(ctx); err != nil {
-			multiErr = stderrors.Join(multiErr, err)
+			multiErr = errors.Join(multiErr, err)
 		}
 	}
 
@@ -251,11 +251,11 @@ func (p *DstCommitProvider) Start(ctx context.Context) error {
 }
 
 func (p *SrcCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter cciptypes.PriceGetter, err error) {
-	return nil, fmt.Errorf("can't construct a price getter from one relayer")
+	return nil, errors.New("can't construct a price getter from one relayer")
 }
 
 func (p *DstCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter cciptypes.PriceGetter, err error) {
-	return nil, fmt.Errorf("can't construct a price getter from one relayer")
+	return nil, errors.New("can't construct a price getter from one relayer")
 }
 
 func (p *SrcCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
@@ -287,11 +287,11 @@ func (p *SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress c
 }
 
 func (p *DstCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {
-	return nil, fmt.Errorf("invalid: NewOnRampReader called for DstCommitProvider.NewOnRampReader should be called on SrcCommitProvider")
+	return nil, errors.New("invalid: NewOnRampReader called for DstCommitProvider.NewOnRampReader should be called on SrcCommitProvider")
 }
 
 func (p *SrcCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	return nil, fmt.Errorf("invalid: NewOffRampReader called for SrcCommitProvider. NewOffRampReader should be called on DstCommitProvider")
+	return nil, errors.New("invalid: NewOffRampReader called for SrcCommitProvider. NewOffRampReader should be called on DstCommitProvider")
 }
 
 func (p *DstCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
@@ -300,7 +300,7 @@ func (p *DstCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cc
 }
 
 func (p *SrcCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	return nil, fmt.Errorf("invalid: NewPriceRegistryReader called for SrcCommitProvider. NewOffRampReader should be called on DstCommitProvider")
+	return nil, errors.New("invalid: NewPriceRegistryReader called for SrcCommitProvider. NewOffRampReader should be called on DstCommitProvider")
 }
 
 func (p *DstCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
@@ -327,5 +327,5 @@ func (p *SrcCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterA
 }
 
 func (p *DstCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
-	return "", fmt.Errorf("invalid: SourceNativeToken called for DstCommitProvider. SourceNativeToken should be called on SrcCommitProvider")
+	return "", errors.New("invalid: SourceNativeToken called for DstCommitProvider. SourceNativeToken should be called on SrcCommitProvider")
 }

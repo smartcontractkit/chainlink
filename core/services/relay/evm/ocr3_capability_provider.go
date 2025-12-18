@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -65,7 +66,6 @@ func (d *ocr3CapabilityLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 	var signers []ocrtypes.OnchainPublicKey
 	allPubKeys := map[string]any{}
 	for _, pubKey := range unpacked.Signers {
-
 		// validate uniqueness of each individual key
 		pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(pubKey)
 		if err != nil {
@@ -134,10 +134,8 @@ func (d OCR3CapabilityOffchainConfigDigester) ConfigDigest(ctx context.Context, 
 	), nil
 }
 
-const ConfigDigestPrefixKeystoneOCR3Capability ocrtypes.ConfigDigestPrefix = 0x000e
-
 func (d OCR3CapabilityOffchainConfigDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
-	return ConfigDigestPrefixKeystoneOCR3Capability, nil
+	return ocrtypes.ConfigDigestPrefixKeystoneOCR3Capability, nil
 }
 
 func makeOCR3CapabilityConfigDigestArgs() abi.Arguments {
@@ -197,11 +195,6 @@ func ocr3CapabilityConfigDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	if ConfigDigestPrefixKeystoneOCR3Capability != 0x000e {
-		// assertion
-		panic("wrong ConfigDigestPrefix")
-	}
-	configDigest[0] = 0
-	configDigest[1] = 0x0e
+	binary.BigEndian.PutUint16(configDigest[:], uint16(ocrtypes.ConfigDigestPrefixKeystoneOCR3Capability))
 	return configDigest
 }

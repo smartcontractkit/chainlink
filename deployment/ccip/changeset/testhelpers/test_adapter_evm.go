@@ -93,7 +93,7 @@ func (a *EVMAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 	return executionStates
 }
 
-// ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
+// Co// ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
 func ConfirmCommitWithExpectedSeqNumRange(
@@ -117,66 +117,121 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
 
 	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
-		processRoots := func(roots []offramp.InternalMerkleRoot) bool {
-			for _, mr := range roots {
+		t.Logf("Verifying commit report: blessed roots=%d, unblessed roots=%d",
+			len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots))
+
+		processRoots := func(roots []offramp.InternalMerkleRoot, rootType string) bool {
+			t.Logf("Processing %d %s merkle roots", len(roots), rootType)
+			for i, mr := range roots {
 				t.Logf(
-					"Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
+					"[%s Root #%d] Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+					rootType, i+1, mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
 				)
 				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
 
-				if mr.SourceChainSelector == srcSelector &&
-					uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-					uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-					t.Logf(
-						"All sequence numbers committed in a single report [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
+				// Check source chain selector match
+				if mr.SourceChainSelector != srcSelector {
+					t.Logf("[%s Root #%d] Source chain mismatch: got %d, expected %d",
+						rootType, i+1, mr.SourceChainSelector, srcSelector)
+					continue
 				}
 
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-					t.Logf(
-						"All sequence numbers already committed from range [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
+				// Check sequence number range
+				expectedStart := uint64(expectedSeqNumRange.Start())
+				expectedEnd := uint64(expectedSeqNumRange.End())
+				if expectedStart < mr.MinSeqNr || expectedEnd > mr.MaxSeqNr {
+					t.Logf("[%s Root #%d] Sequence range mismatch: expected [%d, %d], got [%d, %d]",
+						rootType, i+1, expectedStart, expectedEnd, mr.MinSeqNr, mr.MaxSeqNr)
+					continue
 				}
+
+				t.Logf(
+					"[%s Root #%d] ✅ All sequence numbers committed in a single report [%d, %d]",
+					rootType, i+1, expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+				)
+				return true
 			}
+
+			// Check if all messages committed across multiple reports (if enforceSingleCommit is false)
+			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				t.Logf(
+					"✅ All sequence numbers already committed from range [%d, %d] across multiple reports",
+					expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+				)
+				return true
+			}
+
+			t.Logf("No matching %s roots found for expected criteria", rootType)
 			return false
 		}
 
-		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
+		blessedResult := processRoots(report.BlessedMerkleRoots, "Blessed")
+		if blessedResult {
+			return true
+		}
+
+		unblessedResult := processRoots(report.UnblessedMerkleRoots, "Unblessed")
+		return unblessedResult
 	}
 
 	defer subscription.Unsubscribe()
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeoutDuration := tests.WaitTimeout(t)
+	startTime := time.Now()
+	t.Logf("Starting commit report wait with timeout: %s", timeoutDuration)
+	timeout := time.NewTimer(timeoutDuration)
 	defer timeout.Stop()
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-t.Context().Done():
 			return nil, nil
 		case <-ticker.C:
-			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
+			elapsed := time.Since(startTime)
+			remaining := timeoutDuration - elapsed
+			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s (elapsed: %s, remaining: %s)",
+				dest.Selector, srcSelector, expectedSeqNumRange.String(), elapsed.Round(time.Second), remaining.Round(time.Second))
 
 			// Need to do this because the subscription sometimes fails to get the event.
+			t.Logf("Creating FilterCommitReportAccepted iterator for offramp %s", offRamp.Address().String())
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
 				Context: t.Context(),
 			})
 
 			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
-			if err != nil && !errors.Is(err, context.Canceled) {
-				require.NoError(t, err)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					t.Logf("FilterCommitReportAccepted context was canceled, continuing...")
+				} else {
+					t.Logf("FilterCommitReportAccepted failed with error: %v", err)
+					require.NoError(t, err)
+				}
+				continue // Skip to next ticker iteration if filter creation failed
 			}
+
+			eventCount := 0
+			t.Logf("Starting to iterate through FilterCommitReportAccepted events...")
 			for iter.Next() {
+				eventCount++
 				event := iter.Event
+				t.Logf("Processing commit report event #%d: blessed roots=%d, unblessed roots=%d",
+					eventCount, len(event.BlessedMerkleRoots), len(event.UnblessedMerkleRoots))
+
 				verified := verifyCommitReport(event)
 				if verified {
+					t.Logf("Commit report verified successfully after processing %d events", eventCount)
 					return event, nil
 				}
+				t.Logf("Commit report event #%d did not match expected criteria", eventCount)
+			}
+
+			// Check for iteration errors
+			if err := iter.Error(); err != nil {
+				t.Logf("Iterator error after processing %d events: %v", eventCount, err)
+			} else if eventCount == 0 {
+				t.Logf("No commit report events found in this iteration")
+			} else {
+				t.Logf("Processed %d commit report events, none matched expected criteria", eventCount)
 			}
 		case subErr := <-subscription.Err():
 			return nil, fmt.Errorf("subscription error: %w", subErr)
@@ -184,9 +239,14 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			return nil, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		case report := <-sink:
+			t.Logf("Received commit report via subscription: blessed roots=%d, unblessed roots=%d",
+				len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots))
 			verified := verifyCommitReport(report)
 			if verified {
+				t.Logf("Subscription commit report verified successfully")
 				return report, nil
+			} else {
+				t.Logf("Subscription commit report did not match expected criteria")
 			}
 		}
 	}
