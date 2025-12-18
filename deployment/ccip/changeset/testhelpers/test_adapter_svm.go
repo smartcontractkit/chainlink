@@ -73,7 +73,6 @@ func (a *SVMAdapter) GetExtraArgs(receiver []byte, sourceFamily string, opts ...
 }
 
 func (a *SVMAdapter) GetInboundNonce(ctx context.Context, sender []byte, srcSel uint64) (uint64, error) {
-	client := a.Chain.Client
 	// TODO: solcommon.FindNoncePDA expected the sender to be a solana pubkey
 	chainSelectorLE := solcommon.Uint64ToLE(a.Selector)
 	noncePDA, _, err := solana.FindProgramAddress([][]byte{[]byte("nonce"), chainSelectorLE, sender}, a.state.Router)
@@ -82,7 +81,7 @@ func (a *SVMAdapter) GetInboundNonce(ctx context.Context, sender []byte, srcSel 
 	}
 	var nonceCounterAccount ccip_router.Nonce
 	// we ignore the error because the account might not exist yet
-	_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
+	_ = solcommon.GetAccountDataBorshInto(ctx, a.Client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
 	return nonceCounterAccount.Counter, nil
 }
 

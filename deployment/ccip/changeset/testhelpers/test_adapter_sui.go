@@ -19,7 +19,6 @@ import (
 	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
 
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -231,7 +230,7 @@ func confirmCommitWithExpectedSeqNumRangeSui(
 	dest cldf_sui.Chain,
 	offRampAddress string,
 	startVersion *uint64,
-	expectedSeqNumRange ccipocr3common.SeqNumRange,
+	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
 ) (any, error) {
 	// Bound the offRamp
