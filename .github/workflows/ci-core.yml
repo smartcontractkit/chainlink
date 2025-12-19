@@ -1,5 +1,5 @@
 name: CI Core
-run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+run-name: CI Core
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
