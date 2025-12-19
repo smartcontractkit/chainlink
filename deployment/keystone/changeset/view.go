@@ -55,7 +55,7 @@ func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json
 		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
 	}
 
-	nopsView, err := commonview.GenerateNOPsViewV2(e.Logger, e.NodeIDs, e.Offchain, "keystone")
+	nopsView, err := commonview.GenerateNOPsViewV2(e.Logger, e.NodeIDs, e.Offchain, "keystone", nil)
 	if err != nil {
 		err2 := fmt.Errorf("failed to view nops: %w", err)
 		e.Logger.Error(err2)

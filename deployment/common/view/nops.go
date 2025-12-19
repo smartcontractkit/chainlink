@@ -111,12 +111,13 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 		if nodeDetails == nil {
 			return nv, fmt.Errorf("failed to get node details for node %s", node.NodeID)
 		}
-		var labels []LabelView
-		for _, l := range nodeDetails.Labels {
-			labels = append(labels, LabelView{
+
+		labels := make([]LabelView, 0, len(nodeDetails.Labels))
+		for i, l := range nodeDetails.Labels {
+			labels[i] = LabelView{
 				Key:   l.Key,
 				Value: l.Value,
-			})
+			}
 		}
 
 		fullNodeInfo := NopView{
@@ -149,8 +150,11 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 	return nv, nil
 }
 
-// GenerateNOPsViewV2 generates a view of nodes with their details in a new format
-func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string) (map[string]NopViewV2, error) {
+type NopNameRemapper func(nodeName string) string
+
+// GenerateNOPsViewV2 generates a view of nodes with their details in a new format.
+// `deploymentKey` refers to the deployment identifier (e.g., "keystone", "cre", "ccip", "data-feeds"), which usually refers to the CLD domain.
+func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string, nopNameRemapperFunc NopNameRemapper) (map[string]NopViewV2, error) {
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
 		lggr.Warnf("Missing node metadata: %s", err.Error())
@@ -187,20 +191,11 @@ func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.C
 			nodeName = node.NodeID
 		}
 
-		// Group by node name, by extracting the first word before any hyphen, unless the word is cll-<deployment>, cl-<deployment> or
-		// clp-<deployment>, if so, treat that as the first word.
-		// It assumes that <deployment> could be one of the following: cre, keystone, ccip, data-feeds, etc.
 		var nopName string
-		switch {
-		case strings.HasPrefix(nodeName, "cl-"+deploymentKey):
-			nopName = "cll-" + deploymentKey
-		case strings.HasPrefix(nodeName, "cll-"+deploymentKey):
-			nopName = "cll-" + deploymentKey
-		case strings.HasPrefix(nodeName, "clp-"+deploymentKey):
-			nopName = "clp-" + deploymentKey
-		default:
-			parts := strings.Split(nodeName, "-")
-			nopName = parts[0]
+		if nopNameRemapperFunc != nil {
+			nopName = nopNameRemapperFunc(nodeName)
+		} else {
+			nopName = defaultNopNameRemapper(nodeName, deploymentKey)
 		}
 
 		nodeDetails := details(node.NodeID)
@@ -271,6 +266,27 @@ func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.C
 	}
 
 	return groupedNops, nil
+}
+
+// defaultNopNameRemapper groups by node name, by extracting the first word before any hyphen,
+// unless the word is cll-<deployment>, cl-<deployment> or clp-<deployment>, if so, treat that as the first word.
+// It assumes that <deployment> could be one of the following: cre, keystone, ccip, data-feeds, etc. (CLD domain)
+func defaultNopNameRemapper(nodeName, deploymentKey string) string {
+	var nopName string
+
+	switch {
+	case strings.HasPrefix(nodeName, "cl-"+deploymentKey):
+		nopName = "cll-" + deploymentKey
+	case strings.HasPrefix(nodeName, "cll-"+deploymentKey):
+		nopName = "cll-" + deploymentKey
+	case strings.HasPrefix(nodeName, "clp-"+deploymentKey):
+		nopName = "clp-" + deploymentKey
+	default:
+		parts := strings.Split(nodeName, "-")
+		nopName = parts[0]
+	}
+
+	return nopName
 }
 
 func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView map[string]map[string]JobView, proposedJobsView map[string]map[string]JobView, verr error) {
