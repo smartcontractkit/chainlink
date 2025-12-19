@@ -113,11 +113,11 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 		}
 
 		labels := make([]LabelView, 0, len(nodeDetails.Labels))
-		for i, l := range nodeDetails.Labels {
-			labels[i] = LabelView{
+		for _, l := range nodeDetails.Labels {
+			labels = append(labels, LabelView{
 				Key:   l.Key,
 				Value: l.Value,
-			}
+			})
 		}
 
 		fullNodeInfo := NopView{
