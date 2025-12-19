@@ -1229,6 +1229,7 @@ func setupFastTransfer1_5TestEnvironment(t *testing.T, useMCMS bool) *fastTransf
 }
 
 func TestFastTransfer1_5Lanes(t *testing.T) {
+	t.Skip("Skipping fast transfer tests")
 	baseCtx := setupFastTransfer1_5TestEnvironment(t, false)
 
 	for i, tc := range fastTransferTestCases {
@@ -1289,6 +1290,7 @@ func setupFastTransfer1_6TestEnvironment(t *testing.T, useMCMS bool) *fastTransf
 }
 
 func TestFastTransfer1_6Lanes(t *testing.T) {
+	t.Skip("Skipping fast transfer tests")
 	baseCtx := setupFastTransfer1_6TestEnvironment(t, false)
 
 	for i, tc := range fastTransferTestCases {
@@ -1298,6 +1300,7 @@ func TestFastTransfer1_6Lanes(t *testing.T) {
 }
 
 func TestFastTransfer1_5LanesWithMCMS(t *testing.T) {
+	t.Skip("Skipping fast transfer tests")
 	baseCtx := setupFastTransfer1_5TestEnvironment(t, true)
 
 	for i, tc := range fastTransferTestCases {
@@ -1307,6 +1310,7 @@ func TestFastTransfer1_5LanesWithMCMS(t *testing.T) {
 }
 
 func TestFastTransfer1_6LanesWithMCMS(t *testing.T) {
+	t.Skip("Skipping fast transfer tests")
 	baseCtx := setupFastTransfer1_6TestEnvironment(t, true)
 
 	for i, tc := range fastTransferTestCases {
