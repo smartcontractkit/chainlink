@@ -212,7 +212,8 @@ func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.C
 
 		networks, networksErr := getNodeNetworks(node)
 		if networksErr != nil {
-			return groupedNops, fmt.Errorf("failed to get networks for node %s: %w", node.NodeID, networksErr)
+			// best effort on networks
+			lggr.Warnf("Failed to get networks: %v", networksErr)
 		}
 
 		fullNodeInfo := NopNodeInfoV2{
