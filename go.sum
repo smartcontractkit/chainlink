@@ -95,8 +95,6 @@ github.com/NethermindEth/starknet.go v0.8.0 h1:mGh7qDWrvuXJPcgGJP31DpifzP6+Ef2gt
 github.com/NethermindEth/starknet.go v0.8.0/go.mod h1:slNA8PxtxA/0LQv0FwHnL3lHFDNhVZfTK6U2gjVb7l8=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
-github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6 h1:1zYrtlhrZ6/b6SAjLSfKzWtdgqK0U+HtH/VcBWh1BaU=
-github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6/go.mod h1:ioLG6R+5bUSO1oeGSDxOV3FADARuMoytZCSX6MEMQkI=
 github.com/VictoriaMetrics/fastcache v1.13.0 h1:AW4mheMR5Vd9FkAPUv+NH6Nhw+fmbTMGMsNAoA/+4G0=
 github.com/VictoriaMetrics/fastcache v1.13.0/go.mod h1:hHXhl4DA2fTL2HTZDJFXWgW0LNjo6B+4aj2Wmng3TjU=
 github.com/VividCortex/gohistogram v1.0.0 h1:6+hBz+qvs0JOrrNhhmR7lFxo5sINxBCGXrdtl/UvroE=
@@ -372,8 +370,8 @@ github.com/ethereum/c-kzg-4844/v2 v2.1.5 h1:aVtoLK5xwJ6c5RiqO8g8ptJ5KU+2Hdquf6G3
 github.com/ethereum/c-kzg-4844/v2 v2.1.5/go.mod h1:u59hRTTah4Co6i9fDWtiCjTrblJv0UwsqZKCc0GfgUs=
 github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab h1:rvv6MJhy07IMfEKuARQ9TKojGqLVNxQajaXEp/BoqSk=
 github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab/go.mod h1:IuLm4IsPipXKF7CW5Lzf68PIbZ5yl7FFd74l/E0o9A8=
-github.com/ethereum/go-ethereum v1.16.7 h1:qeM4TvbrWK0UC0tgkZ7NiRsmBGwsjqc64BHo20U59UQ=
-github.com/ethereum/go-ethereum v1.16.7/go.mod h1:Fs6QebQbavneQTYcA39PEKv2+zIjX7rPUZ14DER46wk=
+github.com/ethereum/go-ethereum v1.16.5 h1:GZI995PZkzP7ySCxEFaOPzS8+bd8NldE//1qvQDQpe0=
+github.com/ethereum/go-ethereum v1.16.5/go.mod h1:kId9vOtlYg3PZk9VwKbGlQmSACB5ESPTBGT+M9zjmok=
 github.com/ethereum/go-verkle v0.2.2 h1:I2W0WjnrFUIzzVPwm8ykY+7pL2d4VhlsePn4j7cnFk8=
 github.com/ethereum/go-verkle v0.2.2/go.mod h1:M3b90YRnzqKyyzBEWJGqj8Qff4IDeXnzFw0P9bFw3uk=
 github.com/expr-lang/expr v1.17.5 h1:i1WrMvcdLF249nSNlpQZN1S6NXuW9WaOfF5tPi3aw3k=
@@ -1214,8 +1212,8 @@ github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251121223352-370eb61346d
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251121223352-370eb61346d6/go.mod h1:zX8dX6aXjJNkfbpr1AiTzCioma0sHh5CBPZKtqC7plY=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c h1:aNA7J31EuOf755BDgNuhxte5+Z6wucBx/ONGihw2OqA=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c/go.mod h1:zrtmeh3wHL+qXu/vaaR7lZ5TSh00I4JYbpOqqb9bXp0=
-github.com/smartcontractkit/chainlink-ton v0.0.0-20251211003007-f56790ae3631 h1:XTTJdeS6HyNgM8CbraJSnmj8Ub92iV8KsPe1as7ALpU=
-github.com/smartcontractkit/chainlink-ton v0.0.0-20251211003007-f56790ae3631/go.mod h1:z27AgU6fEXkkfmUAzcbEH9u3RKz2oaGy3isb7KK6Z2E=
+github.com/smartcontractkit/chainlink-ton v0.0.0-20251219221624-54a39a031e62 h1:/gnBkA9Ph6+EaWoBuR7FE8UIKfegY7eP3+QhxvVTYxw=
+github.com/smartcontractkit/chainlink-ton v0.0.0-20251219221624-54a39a031e62/go.mod h1:z27AgU6fEXkkfmUAzcbEH9u3RKz2oaGy3isb7KK6Z2E=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 h1:7Ut0g+Pdm+gcu2J/Xv8OpQOVf7uLGErMX8yhC4b4tIA=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9/go.mod h1:h9hMs6K4hT1+mjYnJD3/SW1o7yC/sKjNi0Qh8hLfiCE=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20251014124537-af6b1684fe15 h1:idp/RjsFznR48JWGfZICsrpcl9JTrnMzoUNVz8MhQMI=
