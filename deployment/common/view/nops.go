@@ -154,14 +154,14 @@ type NopNameRemapper func(nodeName string) string
 
 // GenerateNOPsViewV2 generates a view of nodes with their details in a new format.
 // `deploymentKey` refers to the deployment identifier (e.g., "keystone", "cre", "ccip", "data-feeds"), which usually refers to the CLD domain.
-func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string, nopNameRemapperFunc NopNameRemapper) (map[string]NopViewV2, error) {
+func GenerateNOPsViewV2(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string, nopNameRemapperFunc NopNameRemapper) (map[string]NopViewV2, error) {
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
 		lggr.Warnf("Missing node metadata: %s", err.Error())
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get node info: %w", err)
 	}
-	nodesResp, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
+	nodesResp, err := oc.ListNodes(ctx, &nodev1.ListNodesRequest{
 		Filter: &nodev1.ListNodesRequest_Filter{
 			Ids: nodeIDs,
 		},
@@ -178,7 +178,7 @@ func GenerateNOPsViewV2(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.C
 		}
 		return nil
 	}
-	jobspecs, proposedSpecs, err := ApprovedJobspecs(context.Background(), lggr, nodeIDs, oc)
+	jobspecs, proposedSpecs, err := ApprovedJobspecs(ctx, lggr, nodeIDs, oc)
 	if err != nil {
 		// best effort on job specs
 		lggr.Warnf("Failed to get approved jobspecs: %v", err)

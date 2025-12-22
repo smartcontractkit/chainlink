@@ -37,7 +37,7 @@ func ViewCREV2(e deployment.Environment, previousView json.Marshaler) (json.Mars
 	if viewErrs != nil {
 		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
 	}
-	nopsView, err := commonview.GenerateNOPsViewV2(e.Logger, e.NodeIDs, e.Offchain, "cre", nil)
+	nopsView, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "cre", nil)
 	if err != nil {
 		err2 := fmt.Errorf("failed to view nops: %w", err)
 		e.Logger.Error(err2)
