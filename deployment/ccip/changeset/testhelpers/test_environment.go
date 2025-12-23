@@ -423,6 +423,31 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
 }
 
+func (d *DeployedEnv) RefreshAdapters() {
+	state, err := stateview.LoadOnchainState(d.Env)
+	if err != nil {
+		panic(err)
+	}
+	if d.Adapters == nil {
+		d.Adapters = make(map[uint64]Adapter)
+	}
+	// re-wrap adapters
+	for selector, chain := range d.Env.BlockChains.All() {
+		family, err := chain_selectors.GetSelectorFamily(selector)
+		if err != nil {
+			continue
+			// TODO:
+		}
+
+		adapterFactory, ok := Adapters[family]
+		if !ok {
+			// NOTE: skip any chains with no adapter, give them a dummy one?
+			continue
+		}
+		d.Adapters[selector] = adapterFactory(chain, state)
+	}
+}
+
 type MemoryEnvironment struct {
 	DeployedEnv
 	nodes       map[string]nodetestutils.Node
@@ -443,25 +468,7 @@ func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
 }
 
 func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
-	state, err := stateview.LoadOnchainState(env.Env)
-	if err != nil {
-		panic(err)
-	}
-	// re-wrap adapters
-	for selector, chain := range env.Env.BlockChains.All() {
-		family, err := chain_selectors.GetSelectorFamily(selector)
-		if err != nil {
-			continue
-			// TODO:
-		}
-
-		adapterFactory, ok := Adapters[family]
-		if !ok {
-			// NOTE: skip any chains with no adapter, give them a dummy one?
-			continue
-		}
-		env.Adapters[selector] = adapterFactory(chain, state)
-	}
+	env.RefreshAdapters()
 	m.DeployedEnv = env
 }
 

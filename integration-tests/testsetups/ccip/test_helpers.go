@@ -74,25 +74,7 @@ func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.Deployed
 }
 
 func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env testhelpers.DeployedEnv) {
-	state, err := stateview.LoadOnchainState(env.Env)
-	if err != nil {
-		panic(err)
-	}
-	// re-wrap adapters
-	for selector, chain := range env.Env.BlockChains.All() {
-		family, err := chainsel.GetSelectorFamily(selector)
-		if err != nil {
-			continue
-			// TODO:
-		}
-
-		adapterFactory, ok := testhelpers.Adapters[family]
-		if !ok {
-			// NOTE: skip any chains with no adapter, give them a dummy one?
-			continue
-		}
-		env.Adapters[selector] = adapterFactory(chain, state)
-	}
+	env.RefreshAdapters()
 	l.DeployedEnv = env
 }
 
