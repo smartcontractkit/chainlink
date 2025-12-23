@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -143,7 +144,7 @@ type Engine struct {
 	maxWorkerLimit int
 
 	clock          clockwork.Clock
-	ratelimiter    limits.RateLimiter
+	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits limits.ResourceLimiter[int]
 	meterReports   *metering.Reports
 }
@@ -161,7 +162,7 @@ func (e *Engine) Start(ctx context.Context) error {
 				case settings.ScopeGlobal:
 					e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 				default:
-					e.logger.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
+					e.logger.Errorf("failed to start execution: unexpected limit for scope %s", errLimited.Scope)
 				}
 			}
 			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), fmt.Sprintf("failed to start workflow: %s", err), e.logger)
@@ -742,23 +743,19 @@ func (e *Engine) worker(ctx context.Context) {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
 			}
-			if err = e.ratelimiter.AllowErr(ctx); err != nil {
-				lggr := e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID, "err", err)
-				var errLimited limits.ErrorRateLimited
-				if errors.As(err, &errLimited) {
-					e.onRateLimit(executionID)
-					switch errLimited.Scope {
-					case settings.ScopeOwner:
-						lggr.Errorf("failed to start execution: per sender rate limit exceeded")
-						e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitPerUserCounter(ctx)
-					case settings.ScopeGlobal:
-						lggr.Errorf("failed to start execution: global rate limit exceeded")
-						e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitGlobalCounter(ctx)
-					default:
-						lggr.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
-					}
-				}
-				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), fmt.Sprintf("failed to start execution: %s", err), e.logger)
+			senderAllowed, globalAllowed := e.ratelimiter.Allow(e.workflow.owner)
+			if !senderAllowed {
+				e.onRateLimit(executionID)
+				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: per sender rate limit exceeded")
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: per sender rate limit exceeded", e.logger)
+				e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitPerUserCounter(ctx)
+				continue
+			}
+			if !globalAllowed {
+				e.onRateLimit(executionID)
+				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: global rate limit exceeded")
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: global rate limit exceeded", e.logger)
+				e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitGlobalCounter(ctx)
 				continue
 			}
 
@@ -1326,7 +1323,7 @@ type Config struct {
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
-	RateLimiter limits.RateLimiter
+	RateLimiter *ratelimiter.RateLimiter // v1 only
 
 	// WorkflowLimits specifies an upper limit on the count of workflows that can be
 	// running globally and per workflow owner.

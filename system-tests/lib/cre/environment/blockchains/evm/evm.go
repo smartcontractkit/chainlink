@@ -9,24 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_evm_client "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
-	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink/deployment"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -93,70 +87,54 @@ func (e *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 }
 
 func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
-	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(e.ChainID(), 10), e.ctfOutput.Family)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get selector from chain id %d: %w", e.ChainID(), err)
-	}
-
 	if len(e.CtfOutput().Nodes) == 0 {
 		return nil, fmt.Errorf("no nodes found for chain %s-%d", e.ChainFamily(), e.ChainID())
 	}
 
-	rpcs := []cldf_evm_client.RPC{}
-	for i, node := range e.CtfOutput().Nodes {
-		rpcs = append(rpcs, cldf_evm_client.RPC{
-			Name:    fmt.Sprintf("%s-%d", e.ctfOutput.Family, i),
-			WSURL:   node.ExternalWSUrl,
-			HTTPURL: node.ExternalHTTPUrl,
-		})
+	chainID := e.ctfOutput.ChainID
+	rpcWSURL := e.ctfOutput.Nodes[0].ExternalWSUrl
+	rpcHTTPURL := e.ctfOutput.Nodes[0].ExternalHTTPUrl
+
+	d, cErr := chainselectors.GetChainDetailsByChainIDAndFamily(chainID, chainselectors.FamilyEVM)
+	if cErr != nil {
+		return nil, fmt.Errorf("no chain with ID %s and family %s found: %w", chainID, chainselectors.FamilyEVM, cErr)
 	}
 
-	rpcConf := cldf_evm_client.RPCConfig{
-		ChainSelector: chainDetails.ChainSelector,
-		RPCs:          rpcs,
+	var confirmer cldf_evm_provider.ConfirmFunctor
+	switch e.ctfOutput.Type {
+	case "anvil":
+		confirmer = cldf_evm_provider.ConfirmFuncGeth(3*time.Minute, cldf_evm_provider.WithTickInterval(5*time.Millisecond))
+	default:
+		confirmer = cldf_evm_provider.ConfirmFuncGeth(3 * time.Minute)
 	}
 
-	ec, evmErr := cldf_evm_client.NewMultiClient(logger.Nop(), rpcConf)
-	if evmErr != nil {
-		return nil, fmt.Errorf("failed to create multi client: %w", evmErr)
+	if keyErr := setDefaultPrivateKeyIfEmpty(); keyErr != nil {
+		return nil, keyErr
 	}
 
-	chainInfo, infoErr := cldf_chain_utils.ChainInfo(chainDetails.ChainSelector)
-	if infoErr != nil {
-		return nil, fmt.Errorf("failed to get chain info for chain %s-%d: %w", e.ChainFamily(), e.ChainID(), infoErr)
+	provider, pErr := cldf_evm_provider.NewRPCChainProvider(
+		d.ChainSelector,
+		cldf_evm_provider.RPCChainProviderConfig{
+			DeployerTransactorGen: cldf_evm_provider.TransactorFromRaw(
+				os.Getenv("PRIVATE_KEY"),
+			),
+			RPCs: []rpcclient.RPC{
+				{
+					Name:               "default",
+					WSURL:              rpcWSURL,
+					HTTPURL:            rpcHTTPURL,
+					PreferredURLScheme: rpcclient.URLSchemePreferenceHTTP,
+				},
+			},
+			ConfirmFunctor: confirmer,
+		},
+	).Initialize(context.Background())
+
+	if pErr != nil {
+		return nil, fmt.Errorf("failed to create new chain provider: %w", pErr)
 	}
 
-	confirmFn := func(tx *types.Transaction) (uint64, error) {
-		var blockNumber uint64
-		if tx == nil {
-			return 0, fmt.Errorf("tx was nil, nothing to confirm chain %s", chainInfo.ChainName)
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		defer cancel()
-		receipt, rErr := bind.WaitMined(ctx, ec, tx)
-		if rErr != nil {
-			return blockNumber, fmt.Errorf("failed to get confirmed receipt for chain %s: %w", chainInfo.ChainName, rErr)
-		}
-		if receipt == nil {
-			return blockNumber, fmt.Errorf("receipt was nil for tx %s chain %s", tx.Hash().Hex(), chainInfo.ChainName)
-		}
-		blockNumber = receipt.BlockNumber.Uint64()
-		if receipt.Status == 0 {
-			errReason, rErr := deployment.GetErrorReasonFromTx(ec, e.SethClient.MustGetRootKeyAddress(), tx, receipt)
-			if rErr == nil && errReason != "" {
-				return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s chain %s", tx.Hash().Hex(), errReason, chainInfo.ChainName)
-			}
-			return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
-		}
-		return blockNumber, nil
-	}
-
-	return cldf_evm.Chain{
-		Selector:    chainDetails.ChainSelector,
-		Client:      ec,
-		DeployerKey: e.SethClient.NewTXOpts(seth.WithNonce(nil)), // ensure nonce fetched from chain at use time
-		Confirm:     confirmFn,
-	}, nil
+	return provider, nil
 }
 
 func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
