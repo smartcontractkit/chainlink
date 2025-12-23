@@ -374,8 +374,8 @@ github.com/ethereum/go-ethereum v1.16.5 h1:GZI995PZkzP7ySCxEFaOPzS8+bd8NldE//1qv
 github.com/ethereum/go-ethereum v1.16.5/go.mod h1:kId9vOtlYg3PZk9VwKbGlQmSACB5ESPTBGT+M9zjmok=
 github.com/ethereum/go-verkle v0.2.2 h1:I2W0WjnrFUIzzVPwm8ykY+7pL2d4VhlsePn4j7cnFk8=
 github.com/ethereum/go-verkle v0.2.2/go.mod h1:M3b90YRnzqKyyzBEWJGqj8Qff4IDeXnzFw0P9bFw3uk=
-github.com/expr-lang/expr v1.17.5 h1:i1WrMvcdLF249nSNlpQZN1S6NXuW9WaOfF5tPi3aw3k=
-github.com/expr-lang/expr v1.17.5/go.mod h1:8/vRC7+7HBzESEqt5kKpYXxrxkr31SaO8r40VO/1IT4=
+github.com/expr-lang/expr v1.17.7 h1:Q0xY/e/2aCIp8g9s/LGvMDCC5PxYlvHgDZRQ4y16JX8=
+github.com/expr-lang/expr v1.17.7/go.mod h1:8/vRC7+7HBzESEqt5kKpYXxrxkr31SaO8r40VO/1IT4=
 github.com/failsafe-go/failsafe-go v0.9.0 h1:w0g7iv48RpQvV3UH1VlgUnLx9frQfCwI7ljnJzqEhYg=
 github.com/failsafe-go/failsafe-go v0.9.0/go.mod h1:sX5TZ4HrMLYSzErWeckIHRZWgZj9PbKMAEKOVLFWtfM=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
