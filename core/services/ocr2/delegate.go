@@ -53,6 +53,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -146,6 +147,7 @@ type Delegate struct {
 	legacyChains                   legacyevm.LegacyChainContainer // legacy: use relayers instead
 	capabilitiesRegistry           core.CapabilitiesRegistry
 	dontimeStore                   *dontime.Store
+	ringStore                      *ring.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 	limitsFactory                  limits.Factory
@@ -258,6 +260,7 @@ type DelegateOpts struct {
 	MailMon                        *mailbox.Monitor
 	CapabilitiesRegistry           core.CapabilitiesRegistry
 	DonTimeStore                   *dontime.Store
+	RingStore                      *ring.Store
 	RetirementReportCache          retirement.RetirementReportCache
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowKs                     keystore.Workflow
@@ -294,6 +297,7 @@ func NewDelegate(
 		mailMon:                        opts.MailMon,
 		capabilitiesRegistry:           opts.CapabilitiesRegistry,
 		dontimeStore:                   opts.DonTimeStore,
+		ringStore:                      opts.RingStore,
 		retirementReportCache:          opts.RetirementReportCache,
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
 		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
@@ -590,6 +594,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+
+	case types.RingPlugin:
+		return d.newRingPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -965,6 +972,114 @@ func (d *Delegate) newDonTimePlugin(
 	if err != nil {
 		return nil, err
 	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+	return srvs, nil
+}
+
+func (d *Delegate) newRingPlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{PluginName: "ring", Err: err}
+	}
+
+	relayer, err := d.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ring"}
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.RingPlugin),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.RingPlugin),
+	)
+
+	transmitter := ring.NewTransmitter(lggr, d.ringStore, ocrtypes.Account(spec.TransmitterID.String))
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	onchainSigningStrategy := validate.OCR2OnchainSigningStrategy{}
+	err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
+	if err != nil {
+		return nil, err
+	}
+
+	var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
+	if onchainSigningStrategy.IsMultiChain() {
+		keyBundles := map[string]ocr2key.KeyBundle{}
+		for name := range onchainSigningStrategy.ConfigCopy() {
+			kbID, ostErr := onchainSigningStrategy.KeyBundleID(name)
+			if ostErr != nil {
+				return nil, ostErr
+			}
+			os, ostErr := d.ks.Get(kbID)
+			if ostErr != nil {
+				return nil, ostErr
+			}
+			keyBundles[name] = os
+		}
+		onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
+	}
+
+	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractTransmitter:          transmitter,
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               onchainKeyringAdapter,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(d.ringStore, lggr.Named("RingPluginFactory"), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+
 	srvs = append(srvs, job.NewServiceAdapter(oracle))
 	return srvs, nil
 }

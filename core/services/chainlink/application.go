@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -237,6 +238,7 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
 	DonTimeStore             *dontime.Store
+	RingStore                *ring.Store
 }
 
 // NewApplication initializes a new store if one is not already
@@ -267,6 +269,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
+	}
+
+	if opts.RingStore == nil {
+		opts.RingStore = ring.NewStore()
 	}
 
 	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
@@ -733,6 +739,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				MailMon:                        mailMon,
 				CapabilitiesRegistry:           opts.CapabilitiesRegistry,
 				DonTimeStore:                   opts.DonTimeStore,
+				RingStore:                      opts.RingStore,
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
