@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func (a *SVMAdapter) BuildMessage(components MessageComponents) (any, error) {
 	}
 
 	return ccip_router.SVM2AnyMessage{
-		Receiver:     components.Receiver,
+		Receiver:     common.LeftPadBytes(components.Receiver, 32),
 		TokenAmounts: nil,
 		Data:         components.Data,
 		FeeToken:     feeToken,
