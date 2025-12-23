@@ -27,6 +27,7 @@ Inside `core/scripts/cre/environment` directory
  6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`
 */
 func Test_CRE_V2_Consensus_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-2492")
 	// a template for Consensus negative tests names to avoid duplication
 	const consensusTestNameTemplate = "[v2] Consensus.%s fails with %s" // e.g. "[v2] Consensus.<Function> fails with <invalid input>"
 
