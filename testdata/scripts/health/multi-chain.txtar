@@ -87,7 +87,6 @@ ok Solana.Bar.Relayer
 ok TelemetryManager
 ok WorkflowEngineLimiters
 ok WorkflowExecutionLimiter
-ok WorkflowRateLimiter
 ok WorkflowStore
 
 -- out-unhealthy.txt --
@@ -381,15 +380,6 @@ ok WorkflowStore
       "id": "WorkflowExecutionLimiter",
       "attributes": {
         "name": "WorkflowExecutionLimiter",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowRateLimiter",
-      "attributes": {
-        "name": "WorkflowRateLimiter",
         "status": "passing",
         "output": ""
       }
