@@ -14,8 +14,13 @@ func HasFlag(values []string, flag string) bool {
 	return HasFlagForAnyChain(values, flag)
 }
 
-func HasOnlyOneFlag(values []string, flag string) bool {
-	return slices.Contains(values, flag) && len(values) == 1
+func HasNoOtherFlags(values []string, flags []string) bool {
+	for _, flag := range flags {
+		if !slices.Contains(values, flag) {
+			return false
+		}
+	}
+	return true
 }
 
 func HasFlagForChain(values []string, capability string, chainID uint64) bool {
