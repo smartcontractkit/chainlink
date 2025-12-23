@@ -79,7 +79,6 @@ func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env testhelpers.
 		panic(err)
 	}
 	// re-wrap adapters
-	adapters := make(map[uint64]testhelpers.Adapter)
 	for selector, chain := range env.Env.BlockChains.All() {
 		family, err := chainsel.GetSelectorFamily(selector)
 		if err != nil {
@@ -92,9 +91,8 @@ func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env testhelpers.
 			// NOTE: skip any chains with no adapter, give them a dummy one?
 			continue
 		}
-		adapters[selector] = adapterFactory(chain, state)
+		env.Adapters[selector] = adapterFactory(chain, state)
 	}
-	env.Adapters = adapters
 	l.DeployedEnv = env
 }
 

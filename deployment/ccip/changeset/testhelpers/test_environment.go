@@ -448,7 +448,6 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 		panic(err)
 	}
 	// re-wrap adapters
-	adapters := make(map[uint64]Adapter)
 	for selector, chain := range env.Env.BlockChains.All() {
 		family, err := chain_selectors.GetSelectorFamily(selector)
 		if err != nil {
@@ -461,9 +460,8 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 			// NOTE: skip any chains with no adapter, give them a dummy one?
 			continue
 		}
-		adapters[selector] = adapterFactory(chain, state)
+		env.Adapters[selector] = adapterFactory(chain, state)
 	}
-	env.Adapters = adapters
 	m.DeployedEnv = env
 }
 
