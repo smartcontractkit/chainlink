@@ -75,7 +75,12 @@ Slack: #topic-local-dev-environments
     - [How It Works](#how-it-works)
     - [Example Configuration](#example-configuration)
 13. [Connecting to external/public blockchains](#connecting-to-externalpublic-blockchains)
-14. [Troubleshooting](#troubleshooting)
+14. [Kubernetes Deployment](#kubernetes-deployment)
+    - [Prerequisites](#prerequisites-for-kubernetes)
+    - [Configuration](#kubernetes-configuration)
+    - [Config and Secrets Overrides](#config-and-secrets-overrides)
+    - [Example Configuration](#kubernetes-example-configuration)
+15. [Troubleshooting](#troubleshooting)
     - [Chainlink Node Migrations Fail](#chainlink-node-migrations-fail)
     - [Docker Image Not Found](#docker-image-not-found)
     - [Docker fails to download public images](#docker-fails-to-download-public-images)
@@ -1530,6 +1535,128 @@ Now, unless you enable a chain capability for that chain, it won't be added to n
 EVM keys will only be generated for a chain that either is referenced by any chain capabilities or which is present in the `supported_evm_chains` array.
 
 Check [workflow-don.toml](configs/workflow-don.toml) for an example.
+
+## Kubernetes Deployment
+
+This section explains how to deploy and connect to Chainlink nodes running in an existing Kubernetes cluster. Unlike Docker (which starts containers locally) or CRIB (which deploys nodes via devspace), Kubernetes mode assumes nodes are **already running** in the cluster and generates the appropriate service URLs to connect to them.
+
+The support for Kubernetes is designed to work with an internal platform for running and managing containerized applications. For more details on where to find domain names and how to configure a DON running on it, please check the internal docs.
+
+### Prerequisites for Kubernetes
+
+1. **Kubernetes cluster with Chainlink nodes deployed** - Nodes must already be running in the cluster
+2. **Helm charts with overlay support** - The cluster deployment must support config and secrets overrides via Kubernetes ConfigMaps and Secrets
+3. **External ingress configured** - For external access, ingress must be configured with a domain
+4. **kubectl configured** - Your local kubectl must be configured to access the cluster
+5. **Namespace** - All nodes should be deployed in a single namespace
+
+### Kubernetes Configuration
+
+Configure the Kubernetes infrastructure in your TOML file:
+
+```toml
+[infra]
+  type = "kubernetes"
+
+  [infra.kubernetes]
+    namespace = "my-namespace"                  # Kubernetes namespace where nodes are deployed
+    external_domain = "example.com"             # Domain for external access (ingress)
+    external_port = 80                          # External port for services
+    label_selector = "app=chainlink"            # Label selector to identify Chainlink pods
+    node_api_user = "admin@chain.link"          # API credentials for node authentication
+    node_api_password = "your-secure-password"  # API password (use secrets in production)
+```
+
+**Configuration Fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `namespace` | Yes | Kubernetes namespace where DON nodes are deployed |
+| `external_domain` | Yes | Domain for external ingress (e.g., `example.com`) |
+| `external_port` | No | External port for services (default: 80) |
+| `label_selector` | No | Label selector to identify Chainlink pods |
+| `node_api_user` | No | Node API username (defaults to `admin@chain.link`) |
+| `node_api_password` | No | Node API password (defaults to `password` for testing) |
+
+### Config and Secrets Overrides
+
+Kubernetes deployments support dynamic configuration overrides via ConfigMaps and Secrets. This allows you to modify node configurations without redeploying:
+
+**How it works:**
+
+1. The CLI generates node-specific TOML configuration based on your topology
+2. Configuration is pushed to the cluster as Kubernetes ConfigMaps (for config) and Secrets (for sensitive data)
+3. Nodes are configured via Helm chart overlays to mount these ConfigMaps/Secrets
+4. When configuration changes, the CLI updates the ConfigMaps/Secrets and nodes pick up the changes
+
+**Helm Chart Requirements:**
+
+Your Helm chart must support the overlay pattern.
+
+**What gets created:**
+
+- **ConfigMap** (`<node-name>-config-override`): Contains TOML configuration overrides
+- **Secret** (`<node-name>-secrets-override`): Contains sensitive configuration (database URLs, private keys, etc.)
+
+### Kubernetes Example Configuration
+
+Here's a complete example for connecting to a Kubernetes-deployed DON:
+
+```toml
+[[blockchains]]
+  chain_id = "1337"
+  type = "anvil"
+
+  # Use cached output to connect to existing blockchain
+  [blockchains.out]
+    use_cache = true
+    type = "anvil"
+    family = "evm"
+    chain_id = "1337"
+
+    [[blockchains.out.nodes]]
+      ws_url = "wss://anvil-service-rpc.example.com"
+      http_url = "https://anvil-service-rpc.example.com"
+      internal_ws_url = "ws://anvil-service:8545"
+      internal_http_url = "http://anvil-service:8545"
+
+[infra]
+  type = "kubernetes"
+
+  [infra.kubernetes]
+    namespace = "my-namespace"
+    external_domain = "example.com"
+    external_port = 80
+    label_selector = "app=chainlink"
+    node_api_user = "admin@chain.link"
+    node_api_password = "secure-password-here"
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
+  override_mode = "all"
+
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+```
+
+**Service URL Generation:**
+
+For Kubernetes deployments, service URLs are generated based on naming conventions (using namespace `my-namespace` as example):
+
+| Node Type | Internal URL | External URL |
+|-----------|--------------|--------------|
+| Bootstrap | `http://workflow-bt-0:6688` | `https://my-namespace-workflow-bt-0.example.com` |
+| Plugin | `http://workflow-0:6688` | `https://my-namespace-workflow-0.example.com` |
+| Gateway | `http://my-namespace-gateway.example.com:80` | Same |
+
+---
 
 ## Troubleshooting
 
