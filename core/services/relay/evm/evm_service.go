@@ -20,6 +20,7 @@ import (
 	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/retry"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -28,8 +29,9 @@ import (
 )
 
 type evmService struct {
-	chain  legacyevm.Chain
-	logger logger.Logger
+	addressChecker keys.AddressChecker
+	chain          legacyevm.Chain
+	logger         logger.Logger
 }
 
 // Direct RPC
@@ -200,11 +202,17 @@ func (e *evmService) GetTransactionStatus(ctx context.Context, transactionID com
 
 func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.SubmitTransactionRequest) (*evm.TransactionResult, error) {
 	config := e.chain.Config()
-
-	fromAddress := config.EVM().Workflow().FromAddress().Address()
 	var gasLimit uint64
 	if txRequest.GasConfig != nil && txRequest.GasConfig.GasLimit != nil {
 		gasLimit = *txRequest.GasConfig.GasLimit
+	}
+
+	if e.addressChecker == nil {
+		return nil, errors.New("address checker is not initialized")
+	}
+
+	if err := e.addressChecker.CheckEnabled(ctx, txRequest.From); err != nil {
+		return nil, fmt.Errorf("invalid from address: %w in txRequest", err)
 	}
 
 	id, err := uuid.NewUUID()
@@ -217,7 +225,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	// PLEX-1524 - Define how we should properly get the workflow execution ID into the meta without making the API CRE specific.
 	var txMeta *txmgrtypes.TxMeta[common.Address, common.Hash]
 	txmReq := evmtxmgr.TxRequest{
-		FromAddress:    fromAddress,
+		FromAddress:    txRequest.From,
 		ToAddress:      txRequest.To,
 		EncodedPayload: txRequest.Data,
 		FeeLimit:       gasLimit,

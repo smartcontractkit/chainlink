@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"errors"
 	"math"
 	"math/big"
@@ -23,11 +24,13 @@ import (
 	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
+	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
 const ExpectedTxHash = "0xabcd"
@@ -42,6 +45,7 @@ type Mocks struct {
 	Poller        *lpmocks.LogPoller
 	HeaderTracker *headstest.Tracker[*types.Head, common.Hash]
 	Relayer       *Relayer
+	KeyStoreMock  keyStoreMock
 }
 
 type returnedStatusAndReceipts struct {
@@ -59,6 +63,15 @@ func createMockReceipt(t *testing.T) *txmgr.ChainReceipt {
 	return &receipt
 }
 
+type keyStoreMock struct {
+	chainID *big.Int
+	*keystoremocks.Eth
+}
+
+func (_m keyStoreMock) CheckEnabled(ctx context.Context, address common.Address) error {
+	return _m.Eth.CheckEnabled(ctx, address, _m.chainID)
+}
+
 func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
@@ -68,7 +81,7 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	evmClient := clienttest.NewClient(t)
 	poller := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*types.Head](t)
-
+	ksMock := keyStoreMock{chainID: evmtestutils.FixtureChainID, Eth: keystoremocks.NewEth(t)}
 	chain.On("TxManager").Return(txManager).Maybe()
 	chain.On("LogPoller").Return(poller).Maybe()
 	chain.On("HeadTracker").Return(ht).Maybe()
@@ -76,12 +89,11 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	chain.EXPECT().Config().Return(mockConfig).Maybe()
 	mockConfig.EXPECT().EVM().Return(mockEVM).Maybe()
 	mockEVM.EXPECT().Workflow().Return(mockWorkflow).Maybe()
-
 	lggr, err := logger.New()
 	require.NoError(t, err)
 	relayer := &Relayer{
 		chain:      chain,
-		evmService: evmService{chain: chain, logger: lggr},
+		evmService: evmService{addressChecker: ksMock, chain: chain, logger: lggr},
 	}
 
 	return &Mocks{
@@ -93,6 +105,7 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 		EvmClient:     evmClient,
 		Poller:        poller,
 		HeaderTracker: ht,
+		KeyStoreMock:  ksMock,
 	}, relayer
 }
 
@@ -111,11 +124,12 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 		tc.SetupMocks(mocks, ctx)
 	}
 
-	setCommonSubmitTransactionMocks(mocks)
-
 	receiver := createToAddress()
+	mocks.KeyStoreMock.EXPECT().CheckEnabled(mock.Anything, createFromAddress().Address(), mock.Anything).Return(nil)
+	mocks.EVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second)
 	gasLimit := uint64(1000)
 	result, err := relayer.SubmitTransaction(ctx, evm.SubmitTransactionRequest{
+		From: createFromAddress().Address(),
 		To:   receiver,
 		Data: createPayload(),
 		GasConfig: &evm.GasConfig{
@@ -132,12 +146,6 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 		result.TxIdempotencyKey = ""
 		require.Equal(t, tc.ExpectedResult, result)
 	}
-}
-
-func setCommonSubmitTransactionMocks(m *Mocks) {
-	fromAddress := createFromAddress()
-	m.Workflow.EXPECT().FromAddress().Return(&fromAddress)
-	m.EVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second)
 }
 
 func createFromAddress() types.EIP55Address {
