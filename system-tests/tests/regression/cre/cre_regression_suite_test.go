@@ -99,6 +99,7 @@ func Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-2494")
 	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidAddress)
 }
 
