@@ -486,8 +486,7 @@ func (e *Engine) ackTriggerEvent(ctx context.Context, te *capabilities.TriggerEv
 			continue
 		}
 		if info.ID == triggerID {
-			// TODO: Don't need to pass the triggerID since AckEvent is called on a trigger object?
-			return trigger.trigger.AckEvent(ctx, triggerID, te.ID)
+			return trigger.trigger.AckEvent(ctx, te.ID)
 		}
 	}
 	return fmt.Errorf("failed to find trigger %s", triggerID)
@@ -787,9 +786,9 @@ func (e *Engine) worker(ctx context.Context) {
 			} else {
 				e.logger.With(platform.KeyWorkflowExecutionID, executionID).Debug("execution started")
 				logCustMsg(ctx, cma, "execution started", e.logger)
-				ackErr := e.ackTriggerEvent(ctx, &te)
-				if ackErr != nil {
-					// TODO: handle
+				err = e.ackTriggerEvent(ctx, &te)
+				if err != nil {
+					e.logger.With(platform.KeyTriggerID, te.ID).Errorf("failed to ACK trigger event: %v", err)
 				}
 			}
 		case <-ctx.Done():

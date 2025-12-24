@@ -34,8 +34,9 @@ type triggerPublisher struct {
 	cfg           atomic.Pointer[dynamicPublisherConfig]
 
 	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
-	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
+
+	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
 	mu            sync.RWMutex // protects messageCache and registrations
 	batchingQueue map[[32]byte]*batchedResponse
 	bqMu          sync.Mutex // protects batchingQueue
@@ -252,53 +253,41 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	case types.MethodTriggerEventAck:
-		// TODO: Need message protos to unmarshal
-		req, err := pb.UnmarshalTriggerResponse(msg.Payload)
-		if err != nil {
-			p.lggr.Errorw("failed to unmarshal trigger registration request", "err", err)
-			return
+		triggerMetadata := msg.GetTriggerEventMetadata()
+		if triggerMetadata == nil {
+			p.lggr.Errorw("recieved empty trigger event ack metadata", "sender", sender)
+			break
 		}
+		triggerEventID := triggerMetadata.TriggerEventId
+		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID)
 
-		p.lggr.Debugw("received trigger event ack", "workflowId", req.Metadata.WorkflowID, "sender", sender)
-
-		key := ackKey{msg.CallerDonId, req.Metadata.WorkflowID} // TODO: Do we want the workflowID + TriggerEventID?
 		p.mu.Lock()
 		defer p.mu.Unlock()
-
-		triggerMetadata := msg.GetTriggerEventMetadata() // TODO Build message type
-		if triggerMetadata == nil {
-			// TODO handle
+		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
+		if !ok {
+			p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
+			return
+		}
+		if !cfg.membersCache[msg.CallerDonId][sender] {
+			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
+			return
 		}
 
-		// TODO Validation
-
-		// TODO Using the same cache overwrite trigger registrations? FIX THIS.
+		key := ackKey{msg.CallerDonId, triggerEventID}
 		nowMs := time.Now().UnixMilli()
-		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
-		_, exists := p.registrations[key]
-		if exists {
-			// TODO Should we cache by trigger event not workflow in this case?
-			p.lggr.Debugw("trigger event ACK already exists", "workflowId", req.Metadata.WorkflowID)
-			return
-		}
-		// TODO Need to aggregate 2F+1 ACKs first
+		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
+		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.EventTimeout.Milliseconds(), false)
 		if !ready {
-			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
-			return
-		}
-		aggregated, err := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
-		if err != nil {
-			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "err", err)
+			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return
 		}
 
 		ctx, cancel := p.stopCh.NewCtx()
 		defer cancel()
-		err := cfg.underlying.AckEvent(ctx, msg.CapabilityId, triggerMetadata.GetTriggerEventId())
+		err = cfg.underlying.AckEvent(ctx, triggerEventID)
 		if err != nil {
-			// TODO
+			p.lggr.Errorw("failed to AckEvent on underlying trigger capability", "err", err)
 		}
 	default:
 		p.lggr.Errorw("received message with unknown method",

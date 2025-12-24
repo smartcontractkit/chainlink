@@ -129,6 +129,37 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return cfg.capInfo, nil
 }
 
+func (s *triggerSubscriber) AckEvent(ctx context.Context, eventId string) error {
+	response := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			TriggerType: s.capMethodName,
+			ID:          eventId,
+		}}
+	rawRequest, err := pb.MarshalTriggerResponse(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal trigger response: %w", err)
+	}
+
+	s.mu.RLock()
+	cfg := s.cfg.Load()
+	for _, peerID := range cfg.capDonInfo.Members {
+		m := &types.MessageBody{
+			CapabilityId:     cfg.capInfo.ID,
+			CapabilityDonId:  cfg.capDonInfo.ID,
+			CallerDonId:      cfg.localDonID,
+			Method:           types.MethodTriggerEventAck,
+			CapabilityMethod: s.capMethodName,
+			Payload:          rawRequest,
+		}
+		err := s.dispatcher.Send(peerID, m)
+		if err != nil {
+			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+		}
+	}
+	s.mu.RUnlock()
+	return nil
+}
+
 func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
 	rawRequest, err := pb.MarshalTriggerRegistrationRequest(request)
 	if err != nil {
@@ -159,11 +190,6 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	}
 
 	return regState.callback, nil
-}
-
-func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, eventId string) error {
-	// TODO
-	return nil
 }
 
 func (s *triggerSubscriber) registrationLoop() {
