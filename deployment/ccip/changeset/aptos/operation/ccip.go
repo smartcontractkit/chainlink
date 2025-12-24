@@ -16,6 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
+var CCIPOperations = []*operations.Operation[any, any, any]{
+	DeployRouterOp.AsUntyped(),
+	DeployOffRampOp.AsUntyped(),
+	DeployOnRampOp.AsUntyped(),
+	InitializeCCIPOp.AsUntyped(),
+	ApplyAllowedOfframpUpdatesOp.AsUntyped(),
+}
+
 // OP: DeployCCIPOp deploys the CCIP package on Aptos chain
 type DeployCCIPInput struct {
 	MCMSAddress aptos.AccountAddress

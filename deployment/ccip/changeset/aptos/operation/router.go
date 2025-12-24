@@ -11,6 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
+var RouterOperations = []*operations.Operation[any, any, any]{
+	UpdateRouterOp.AsUntyped(),
+}
+
 // UpdateRouterDestInput contains configuration for updating FeeQuoter destination configs
 type UpdateRouterDestInput struct {
 	Updates []aptos_router.OnRampSet

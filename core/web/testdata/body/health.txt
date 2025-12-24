@@ -31,5 +31,4 @@ ok Solana.Bar.Relayer
 ok TelemetryManager
 ok WorkflowEngineLimiters
 ok WorkflowExecutionLimiter
-ok WorkflowRateLimiter
 ok WorkflowStore

@@ -8,9 +8,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 )
 
 // ChainRWProvider is a struct that implements the ChainRWProvider interface for Solana chains.
@@ -26,7 +27,7 @@ func (g ChainRWProvider) GetChainWriter(ctx context.Context, pararms ccipcommon.
 	}
 
 	transmitter := pararms.Transmitters[types.NewRelayID(pararms.ChainFamily, pararms.ChainID)]
-	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0], pararms.SolanaChainWriterConfigVersion)
+	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 	}
@@ -48,12 +49,12 @@ func (g ChainRWProvider) GetChainReader(ctx context.Context, params ccipcommon.C
 	var err error
 	var cfg config.ContractReader
 	if params.ChainID == params.DestChainID && params.ChainFamily == params.DestChainFamily {
-		cfg, err = solanaconfig.DestContractReaderConfig()
+		cfg, err = ccipconfig.DestContractReaderConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Solana dest contract reader config: %w", err)
 		}
 	} else {
-		cfg, err = solanaconfig.SourceContractReaderConfig()
+		cfg, err = ccipconfig.SourceContractReaderConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Solana source contract reader config: %w", err)
 		}

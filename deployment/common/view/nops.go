@@ -81,7 +81,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 		}
 		return nil
 	}
-	jobspecs, proposedSpecs, err := approvedJobspecs(context.Background(), lggr, nodeIDs, oc)
+	jobspecs, proposedSpecs, err := ApprovedJobspecs(context.Background(), lggr, nodeIDs, oc)
 	if err != nil {
 		// best effort on job specs
 		lggr.Warnf("Failed to get approved jobspecs: %v", err)
@@ -133,7 +133,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 	return nv, nil
 }
 
-func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView map[string]map[string]JobView, proposedJobsView map[string]map[string]JobView, verr error) {
+func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView map[string]map[string]JobView, proposedJobsView map[string]map[string]JobView, verr error) {
 	nodeJobsView = make(map[string]map[string]JobView)
 	proposedJobsView = make(map[string]map[string]JobView)
 

@@ -2,6 +2,7 @@ package llo
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -68,9 +69,9 @@ func Test_Cleanup(t *testing.T) {
 	// add some channel definitions
 	cdcorm := NewChainScopedORM(ds, chainSelector)
 	{
-		err := cdcorm.StoreChannelDefinitions(ctx, addr1, donID1, 1, llotypes.ChannelDefinitions{}, 1)
+		err := cdcorm.StoreChannelDefinitions(ctx, addr1, donID1, 1, json.RawMessage(`{}`), 1, 1)
 		require.NoError(t, err)
-		err = cdcorm.StoreChannelDefinitions(ctx, addr2, donID2, 1, llotypes.ChannelDefinitions{}, 1)
+		err = cdcorm.StoreChannelDefinitions(ctx, addr2, donID2, 1, json.RawMessage(`{}`), 1, 1)
 		require.NoError(t, err)
 	}
 
@@ -134,10 +135,10 @@ func Test_StaleTransmissionReaper(t *testing.T) {
 	err := torm.Insert(testutils.Context(t), transmissions)
 	require.NoError(t, err)
 	pgtest.MustExec(t, ds, `
-UPDATE llo_mercury_transmit_queue 
+UPDATE llo_mercury_transmit_queue
 SET inserted_at = NOW() - INTERVAL '48 hours'
 WHERE transmission_hash IN (
-    SELECT transmission_hash FROM llo_mercury_transmit_queue 
+    SELECT transmission_hash FROM llo_mercury_transmit_queue
     LIMIT 5
 );
 `)
