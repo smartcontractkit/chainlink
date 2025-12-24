@@ -138,11 +138,12 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	}
 
 	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{
-		Receiver:     tc.Receiver,
-		Data:         tc.MsgData,
-		FeeToken:     tc.FeeToken,
-		ExtraArgs:    tc.ExtraArgs,
-		TokenAmounts: []testhelpers.TokenAmount{},
+		DestChainSelector: tc.DestChain,
+		Receiver:          tc.Receiver,
+		Data:              tc.MsgData,
+		FeeToken:          tc.FeeToken,
+		ExtraArgs:         tc.ExtraArgs,
+		TokenAmounts:      []testhelpers.TokenAmount{},
 	})
 	require.NoError(tc.T, err)
 

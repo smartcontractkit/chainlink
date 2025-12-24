@@ -17,6 +17,7 @@ import (
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
+	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -53,12 +54,14 @@ func (a *TonAdapter) BuildMessage(components MessageComponents) (any, error) {
 		return nil, err
 	}
 
-	return ops.TonSendRequest{
-		QueryID:   rand.Uint64(),
-		Data:      components.Data,
-		Receiver:  components.Receiver,
-		ExtraArgs: c, // TODO handle ExtraArgs properly
-		FeeToken:  feeToken,
+	// TODO: add TokenAmounts support for TON token transfers
+	return tonrouter.CCIPSend{
+		QueryID:           rand.Uint64(),
+		DestChainSelector: components.DestChainSelector,
+		Data:              components.Data,
+		Receiver:          components.Receiver,
+		ExtraArgs:         c, // TODO handle ExtraArgs properly
+		FeeToken:          feeToken,
 	}, nil
 }
 

@@ -24,6 +24,7 @@ type TokenAmount struct {
 // MessageComponents is a struct that contains the makeup for a general CCIP message
 // irrespective of the chain family it originates from.
 type MessageComponents struct {
+	DestChainSelector uint64
 	// Receiver is the receiver on the destination chain.
 	// Must be appropriately dest-chain-family encoded, so abi.encode for Ethereum,
 	// 32 bytes for Solana, etc.
