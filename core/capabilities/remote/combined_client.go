@@ -35,6 +35,11 @@ func (c *combinedClient) Info(ctx context.Context) (capabilities.CapabilityInfo,
 	return c.info, nil
 }
 
+func (c *combinedClient) AckEvent(ctx context.Context, eventId string) error {
+	// TODO: Do we need triggerID to match the triggerSubscriber? And then call AckEvent on that?
+	return nil
+}
+
 func (c *combinedClient) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	c.mu.RLock()
 	subscriber, ok := c.triggerSubscribers[request.Method]
