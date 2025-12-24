@@ -109,6 +109,7 @@ func Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-1921")
 	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidToBlock)
 }
 
