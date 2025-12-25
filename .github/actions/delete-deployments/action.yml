@@ -33,19 +33,17 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: "20"
         cache: "pnpm"
         cache-dependency-path: ".github/actions/delete-deployments/pnpm-lock.yaml"
-
-    - name: Enable pnpm via Corepack
-      shell: bash
-      run: |
-        corepack enable
-        corepack prepare pnpm@10 --activate
-        pnpm --version
 
     - name: Validate inputs
       shell: bash
