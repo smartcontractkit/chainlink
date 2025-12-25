@@ -30,6 +30,6 @@ jobs:
           else
             echo "upstream has develop at $COMMIT_HASH_UPSTREAM. origin has develop at $COMMIT_HASH_ORIGIN. Syncing..."
             git fetch upstream
-            git push origin upstream/develop:develop
+            git push origin upstream/develop:develop --force
           fi
         if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
