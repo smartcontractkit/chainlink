@@ -8,7 +8,21 @@ The `sync-develop-from-smartcontractkit-chainlink.yml` workflow automatically sy
 
 ## Required Setup
 
-To enable this workflow, you need to create a Personal Access Token (PAT) and add it as a repository secret.
+### Prerequisites: Create the develop branch
+
+Before the sync workflow can run, the `develop` branch must exist in your fork. Follow these steps to create it:
+
+1. Go to the Actions tab in your forked repository
+2. Select "Create develop branch (one-time setup)" workflow from the left sidebar
+3. Click "Run workflow" → "Run workflow" button
+4. Wait for the workflow to complete (it should take less than a minute)
+5. Verify the develop branch was created by checking the branches in your repository
+
+Once the develop branch exists, the sync workflow will be able to run automatically.
+
+### Setup Automatic Syncing
+
+To enable automatic syncing, you need to create a Personal Access Token (PAT) and add it as a repository secret.
 
 ### Step 1: Create a Personal Access Token
 

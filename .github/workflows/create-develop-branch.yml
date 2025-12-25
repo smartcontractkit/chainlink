@@ -1,0 +1,46 @@
+name: Create develop branch (one-time setup)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-develop:
+    name: Create develop branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup git config
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+      
+      - name: Add upstream remote and fetch develop
+        run: |
+          # Add upstream remote if it doesn't exist
+          if ! git remote | grep -q "^upstream$"; then
+            git remote add upstream https://github.com/smartcontractkit/chainlink.git
+          fi
+          git fetch upstream develop
+      
+      - name: Create and push develop branch
+        run: |
+          # Check if develop branch already exists on origin
+          if git ls-remote "https://github.com/${{ github.repository }}.git" develop | grep -q "refs/heads/develop$"; then
+            echo "develop branch already exists on origin. Skipping creation."
+            exit 0
+          fi
+          
+          # Create develop branch from upstream/develop
+          git checkout -b develop upstream/develop
+          
+          # Push to origin
+          git push origin develop
+          
+          echo "Successfully created develop branch from upstream/develop"
