@@ -182,6 +182,7 @@ func SetupTestEnvironment(
 	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
+		ctx,
 		topology,
 		creEnvironment,
 		input.NodeSets,
@@ -294,6 +295,7 @@ func SetupTestEnvironment(
 
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
+
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                        testLogger,
 		SingleFileLogger:              singleFileLogger,
@@ -350,9 +352,9 @@ func SetupTestEnvironment(
 	}
 
 	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
-		// we currently have no way of checking if filters were registered, when code runs in CRIB
+		// we currently have no way of checking if filters were registered, when code runs in CRIB or Kubernetes
 		// as we don't have a way to get its database connection string
-		if input.Provider.Type == infra.CRIB {
+		if !input.Provider.IsDocker() {
 			return nil
 		}
 
