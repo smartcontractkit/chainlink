@@ -6,6 +6,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 )
 
@@ -23,7 +24,7 @@ var DynamicSequence = operations.NewSequence(
 	dynamicSequence,
 )
 
-func dynamicSequence(b operations.Bundle, deps operation.AptosDeps, in DynamicSeqInput) (mcmstypes.BatchOperation, error) {
+func dynamicSequence(b operations.Bundle, deps dependency.AptosDeps, in DynamicSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, def := range in.Defs {

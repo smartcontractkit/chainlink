@@ -225,6 +225,9 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 		} else {
 			job.ProposalIds = append(job.ProposalIds, storeProposalID)
 		}
+
+		// Jobs are keyed by external job ID in this store. Multiple nodes can have jobs with the same external job ID; the NodeId field records which node this particular job instance belongs to
+		job.NodeId = in.NodeId
 		storeErr = j.jobStore.put(extractor.ExternalJobID, job)
 		if storeErr != nil {
 			return nil, fmt.Errorf("failed to save job: %w", storeErr)
@@ -332,10 +335,12 @@ func (m *mapJobStore) put(jobID string, job *jobv1.Job) error {
 		m.uuidToJobIDs = make(map[string][]string)
 	}
 	m.jobs[jobID] = job
-	if _, ok := m.nodesToJobIDs[job.NodeId]; !ok {
-		m.nodesToJobIDs[job.NodeId] = make([]string, 0)
+	if !slices.Contains(m.nodesToJobIDs[job.NodeId], jobID) {
+		if _, ok := m.nodesToJobIDs[job.NodeId]; !ok {
+			m.nodesToJobIDs[job.NodeId] = make([]string, 0)
+		}
+		m.nodesToJobIDs[job.NodeId] = append(m.nodesToJobIDs[job.NodeId], jobID)
 	}
-	m.nodesToJobIDs[job.NodeId] = append(m.nodesToJobIDs[job.NodeId], jobID)
 	if _, ok := m.uuidToJobIDs[job.Uuid]; !ok {
 		m.uuidToJobIDs[job.Uuid] = make([]string, 0)
 	}
@@ -399,8 +404,22 @@ func (m *mapJobStore) list(filter *jobv1.ListJobsRequest_Filter) ([]*jobv1.Job, 
 			if !ok {
 				continue
 			}
-			for _, jobID := range jobIDs {
-				wantedJobIDs[jobID] = struct{}{}
+			idSet := make(map[string]struct{}, len(jobIDs))
+			for _, id := range jobIDs {
+				idSet[id] = struct{}{}
+			}
+
+			for _, j := range m.jobs {
+				if _, ok := idSet[j.Id]; !ok {
+					continue
+				}
+
+				if !matchesSelectors(filter.Selectors, j) {
+					continue
+				}
+
+				j.NodeId = nodeID
+				jobs = append(jobs, j)
 			}
 		}
 	case filter.Uuids != nil:
@@ -586,4 +605,29 @@ func (m *mapProposalStore) delete(proposalID string) error {
 
 	delete(m.proposals, proposalID)
 	return nil
+}
+
+// MockJobApprover is a mock implementation of the JobApprover interface
+type MockJobApprover struct {
+	shouldFail bool
+}
+
+func (m *MockJobApprover) AutoApproveJob(ctx context.Context, p *feeds.ProposeJobArgs) error {
+	if m.shouldFail {
+		return errors.New("mock approval failure")
+	}
+	return nil
+}
+
+// MockJobApproverGetter is a mock implementation of the getter[JobApprover] interface
+type MockJobApproverGetter struct {
+	JobApprovers map[string]*MockJobApprover
+}
+
+func (m *MockJobApproverGetter) Get(id string) (JobApprover, error) {
+	approver, ok := m.JobApprovers[id]
+	if !ok {
+		return nil, errors.New("job approver not found")
+	}
+	return approver, nil
 }

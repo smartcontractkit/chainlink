@@ -13,6 +13,7 @@ import (
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
@@ -42,7 +43,7 @@ var DeployCCIPOp = operations.NewOperation(
 	deployCCIP,
 )
 
-func deployCCIP(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
+func deployCCIP(b operations.Bundle, deps dependency.AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
 	onChainState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	// Validate there's no package deployed XOR is update
 	if (onChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
@@ -119,7 +120,7 @@ var DeployRouterOp = operations.NewOperation(
 	deployRouter,
 )
 
-func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
+func deployRouter(b operations.Bundle, deps dependency.AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	// TODO: is there a way to check if module exists?
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
@@ -144,7 +145,7 @@ var DeployOffRampOp = operations.NewOperation(
 	deployOffRamp,
 )
 
-func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
+func deployOffRamp(b operations.Bundle, deps dependency.AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
 	payload, err := ccip_offramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
@@ -167,7 +168,7 @@ var DeployOnRampOp = operations.NewOperation(
 	deployOnRamp,
 )
 
-func deployOnRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
+func deployOnRamp(b operations.Bundle, deps dependency.AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
 	payload, err := ccip_onramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
@@ -197,7 +198,7 @@ var InitializeCCIPOp = operations.NewOperation(
 	initializeCCIP,
 )
 
-func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) ([]mcmstypes.Transaction, error) {
+func initializeCCIP(b operations.Bundle, deps dependency.AptosDeps, in InitializeCCIPInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Config OnRamp with empty lane configs. We're only able to get router address after deploying the router module
@@ -277,7 +278,7 @@ var ApplyAllowedOfframpUpdatesOp = operations.NewOperation(
 	applyAllowedOfframpUpdates,
 )
 
-func applyAllowedOfframpUpdates(b operations.Bundle, deps AptosDeps, _ operations.EmptyInput) (mcmstypes.Transaction, error) {
+func applyAllowedOfframpUpdates(b operations.Bundle, deps dependency.AptosDeps, _ operations.EmptyInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)

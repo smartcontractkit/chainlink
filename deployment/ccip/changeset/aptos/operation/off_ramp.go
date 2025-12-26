@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	aptosutils "github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -33,7 +34,7 @@ var UpdateOffRampSourcesOp = operations.NewOperation(
 	updateOffRampSources,
 )
 
-func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampSourcesInput) ([]mcmstypes.Transaction, error) {
+func updateOffRampSources(b operations.Bundle, deps dependency.AptosDeps, in UpdateOffRampSourcesInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Bind CCIP Package
@@ -96,7 +97,7 @@ var SetOcr3ConfigOp = operations.NewOperation(
 	setOcr3Config,
 )
 
-func setOcr3Config(b operations.Bundle, deps AptosDeps, in SetOcr3ConfigInput) (mcmstypes.Transaction, error) {
+func setOcr3Config(b operations.Bundle, deps dependency.AptosDeps, in SetOcr3ConfigInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
