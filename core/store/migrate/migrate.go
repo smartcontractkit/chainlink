@@ -28,7 +28,20 @@ var embedMigrations embed.FS
 const MIGRATIONS_DIR string = "migrations"
 
 func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
-	store, err := database.NewStore(goose.DialectPostgres, "goose_migrations")
+	// Set this to override how Goose resolves the schema for the `goose_migrations` table.
+	// See: https://github.com/pressly/goose/issues/1017
+	// From Goose 3.23.0 onwards, Goose made some changes to how it checks whether the `goose_migrations` table exists.
+	// It currently looks for "current_schema().goose_migrations" if a schema isn't explicitly provided.
+	// This can cause issues with some NOPs where current_schema() != "public", but the `goose_migrations` table
+	// is still created in "public".
+	// For those NOPs, we can set CL_MIGRATIONS_SCHEMA_OVERRIDE=public to ensure Goose correctly resolves the table.
+	schemaOverride := os.Getenv("CL_MIGRATIONS_SCHEMA_OVERRIDE")
+	tableName := "goose_migrations"
+	if schemaOverride != "" {
+		tableName = fmt.Sprintf("%s.%s", schemaOverride, tableName)
+	}
+
+	store, err := database.NewStore(goose.DialectPostgres, tableName)
 	if err != nil {
 		return nil, err
 	}
