@@ -11,7 +11,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -107,7 +107,8 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 
 	updateInputsByAptosChain := seq.ToAptosUpdateLanesConfig(state.AptosChains, cfg)
 	for aptosChainSel, sequenceInput := range updateInputsByAptosChain {
-		deps := operation.AptosDeps{
+		deps := dependency.AptosDeps{
+			AB:               cldf.NewMemoryAddressBook(),
 			AptosChain:       env.BlockChains.AptosChains()[aptosChainSel],
 			CCIPOnChainState: state,
 		}

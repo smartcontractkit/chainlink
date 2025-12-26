@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
@@ -28,7 +29,7 @@ var UpdateRouterOp = operations.NewOperation(
 	updateRouter,
 )
 
-func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput) (mcmstypes.Transaction, error) {
+func updateRouter(b operations.Bundle, deps dependency.AptosDeps, in UpdateRouterDestInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	routerBind := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)

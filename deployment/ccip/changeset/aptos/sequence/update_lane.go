@@ -12,6 +12,7 @@ import (
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -35,7 +36,7 @@ var UpdateAptosLanesSequence = operations.NewSequence(
 	updateAptosLanesSequence,
 )
 
-func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in UpdateAptosLanesSeqInput) (mcmstypes.BatchOperation, error) {
+func updateAptosLanesSequence(b operations.Bundle, deps dependency.AptosDeps, in UpdateAptosLanesSeqInput) (mcmstypes.BatchOperation, error) {
 	var mcmsTxs []mcmstypes.Transaction
 
 	// 1. Update FeeQuoters with destination configs
