@@ -384,7 +384,7 @@ func Test_SecretsWorker(t *testing.T) {
 			require.Equal(t, string(beforeSecretsPayload), contents)
 			limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 			require.NoError(t, err)
-			rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+			rl, err := ratelimiter.NewRateLimiter(rlConfig)
 			require.NoError(t, err)
 
 			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -573,7 +573,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -671,7 +671,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
