@@ -15,10 +15,10 @@ import (
 )
 
 var FeeQuoterOperations = []*operations.Operation[any, any, any]{
-	UpdateFeeQuoterDestsOp.AsUntyped(),
-	UpdateFeeQuoterPricesOp.AsUntyped(),
-	ApplyPremiumMultiplierOp.AsUntyped(),
-	ApplyTokenTransferFeeCfgOp.AsUntyped(),
+	UpdateFeeQuoterDestsOp.AsUntypedRelaxed(),
+	UpdateFeeQuoterPricesOp.AsUntypedRelaxed(),
+	ApplyPremiumMultiplierOp.AsUntypedRelaxed(),
+	ApplyTokenTransferFeeCfgOp.AsUntypedRelaxed(),
 }
 
 // UpdateFeeQuoterDestsInput contains configuration for updating FeeQuoter destination configs
