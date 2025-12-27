@@ -145,6 +145,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 				KeyBundleID:               ocrConfig.KeyBundleID,
 			}
 		}
+		nv[nodeName] = fullNodeInfo
 	}
 
 	return nv, nil
