@@ -435,6 +435,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		buildInfo := BuildInfoController{app}
 		authv2.GET("/build_info", buildInfo.Show)
 
+		// Chatbot Controller
+		chatbot := NewChatbotController(app)
+		authv2.POST("/chatbot", auth.RequiresRunRole(chatbot.Chat))
+
 		// Debug routes accessible via authentication
 		metricRoutes(authv2, app.GetConfig().InsecurePPROFHeap() || build.IsDev())
 	}

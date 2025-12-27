@@ -91,4 +91,6 @@ const (
 	EnvNoncriticalEnvDumped EventID = "ENV_NONCRITICAL_ENV_DUMPED"
 
 	UnauthedRunResumed EventID = "UNAUTHED_RUN_RESUMED"
+
+	ChatbotInteractionSuccess EventID = "CHATBOT_INTERACTION_SUCCESS"
 )
