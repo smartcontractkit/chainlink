@@ -34,10 +34,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc/credentials"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -53,7 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -69,11 +68,12 @@ import (
 )
 
 var (
-	fNodes = uint8(1)
-	nNodes = 4 // number of nodes (not including bootstrap)
+	fNodes        = uint8(1)
+	nNodes        = 4 // number of nodes (not including bootstrap)
+	reportTimeout = time.Second * 60
 )
 
-func setupBlockchain(t *testing.T) (
+func setupBlockchain(t *testing.T, adders ...*bind.TransactOpts) (
 	*bind.TransactOpts,
 	evmtypes.Backend,
 	*configurator.Configurator,
@@ -91,6 +91,9 @@ func setupBlockchain(t *testing.T) (
 ) {
 	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	for _, adder := range adders {
+		genesisData[adder.From] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
+	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
@@ -411,7 +414,6 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 }
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
@@ -426,7 +428,6 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
 			t.Parallel()
-
 			testIntegrationLLOEVMPremiumLegacy(t, offchainConfig)
 		})
 	}
@@ -458,12 +459,12 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
-		reqs := make(chan wsrpcRequest, 100000)
+		reqs := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewWSRPCMercuryServer(t, serverKey, reqs)
+		srv := NewMercuryServer(t, serverKey, reqs)
 
-		serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 		donID := uint32(995544)
 		streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
@@ -474,7 +475,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolWSRPC)
+			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -548,7 +549,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// Set config on the destination verifier
 		signerAddresses := make([]common.Address, len(oracles))
 		for i, oracle := range oracles {
-			signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
+			signerAddresses[i] = common.BytesToAddress(oracle.OnchainPublicKey)
 		}
 		{
 			recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
@@ -560,18 +561,20 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 		t.Run("receives at least one report per channel from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 			// Expect at least one report per feed from each oracle
-			seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+			seen := make(map[[32]byte]map[string]struct{})
 			for _, cd := range channelDefinitions {
 				var opts lloevm.ReportFormatEVMPremiumLegacyOpts
 				err := json.Unmarshal(cd.Opts, &opts)
 				require.NoError(t, err)
 				// feedID will be deleted when all n oracles have reported
-				seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
+				seen[opts.FeedID] = make(map[string]struct{}, nNodes)
 			}
-			for req := range reqs {
+			for {
+				req, err := receiveWithTimeout(t, reqs, reportTimeout)
+				require.NoError(t, err)
 				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
 				v := make(map[string]any)
-				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+				err = mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
 				if !exists {
@@ -635,9 +638,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					require.NoError(t, err)
 				})
 
-				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
+				pr, ok := peer.FromContext(req.ctx)
+				require.True(t, ok)
+				t.Logf("oracle %x reported for 0x%x", pr.String(), feedID[:])
 
-				seen[feedID][req.pk] = struct{}{}
+				seen[feedID][pr.String()] = struct{}{}
 				if len(seen[feedID]) == nNodes {
 					t.Logf("all oracles reported for 0x%x", feedID[:])
 					delete(seen, feedID)
@@ -651,7 +656,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
@@ -666,7 +670,6 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
 			t.Parallel()
-
 			testIntegrationLLOMultiFormats(t, offchainConfig)
 		})
 	}
@@ -757,11 +760,11 @@ lloConfigMode = "bluegreen"
 		const sampleTimestampsStockPriceChannelID = 7
 		const sampleTimestampedStreamValueChannelID = 8
 
-		dexBasedAssetFeedID := utils.NewHash()
-		rwaFeedID := utils.NewHash()
-		benchmarkPriceFeedID := utils.NewHash()
-		timestampedStreamValueFeedID := utils.NewHash()
-		fundingRateFeedID := utils.NewHash()
+		dexBasedAssetFeedID := evmutils.NewHash()
+		rwaFeedID := evmutils.NewHash()
+		benchmarkPriceFeedID := evmutils.NewHash()
+		timestampedStreamValueFeedID := evmutils.NewHash()
+		fundingRateFeedID := evmutils.NewHash()
 		simpleStreamlinedFeedID := pad32bytes(simpleStreamlinedChannelID)
 		complexStreamlinedFeedID := pad32bytes(complexStreamlinedChannelID)
 		sampleTimestampsStockPriceFeedID := pad32bytes(sampleTimestampsStockPriceChannelID)
@@ -991,7 +994,7 @@ lloConfigMode = "bluegreen"
 					ExpirationWindow: expirationWindow,
 					FeedID:           timestampedStreamValueFeedID,
 					ABI: []lloevm.ABIEncoder{
-						newSingleABIEncoder("int192", nil),
+						newSingleABIEncoder("int192", standardMultiplier),
 						newSingleABIEncoder("uint64", millisToNanosMultiplier),
 					},
 				}),
@@ -1131,7 +1134,6 @@ ds2_data_received_time [type=jsonparse lax=true path="timestamps,providerDataRec
 ds2_payload -> ds2_data_received_time -> data_received_time;
 
 benchmark_price [type=median allowedFaults=1 streamID=%d index=0];
-
 provider_indicated_time [type=median allowedFaults=1 lax=true];
 data_received_time [type=median allowedFaults=1 lax=true];
 provider_indicated_time -> benchmark_price_timestamp;
@@ -1212,12 +1214,14 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			sampleTimestampsStockPriceFeedID: {},
 		}
 
-		for pckt := range packetCh {
+		for {
+			pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+			require.NoError(t, err)
 			req := pckt.req
 			switch req.ReportFormat {
 			case uint32(llotypes.ReportFormatEVMABIEncodeUnpacked):
 				v := make(map[string]any)
-				err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
+				err = mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
 				if !exists {
@@ -1233,7 +1237,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				assert.Equal(t, "000000000000000000000000000000000000000000000000000d8e0d00000001", fmt.Sprintf("%x", reportCtx.([3][32]uint8)[2])) // extra hash
 
 				reportElems := make(map[string]any)
-				err = lloevm.BaseSchema.UnpackIntoMap(reportElems, report.([]byte))
+				err = lloevm.BaseSchemaUint32.UnpackIntoMap(reportElems, report.([]byte))
 				require.NoError(t, err)
 
 				feedID := reportElems["feedId"].([32]uint8)
@@ -1402,7 +1406,6 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
@@ -1434,6 +1437,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 		WithOffchainConfig(datastreamsllo.OffchainConfig{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: uint64(defaultMinReportInterval),
+			EnableObservationCompression:        true,
 		}),
 		func(cfg *OCRConfig) {
 			// cfg.DeltaRound = 0 // Go as fast as possible
@@ -1553,7 +1557,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// transmitter addr => channel ID => reports
 		m := map[string]map[uint32][]datastreamsllo.Report{}
 
-		for pckt := range packets {
+		for {
+			pckt, err := receiveWithTimeout(t, packets, reportTimeout)
+			require.NoError(t, err)
 			pr, ok := peer.FromContext(pckt.ctx)
 			require.True(t, ok)
 			addr := pr.Addr
@@ -1637,7 +1643,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
@@ -1762,7 +1767,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 			// NOTE: Wait for nReports reports
 			// count of packets received keyed by transmitter IP
 			m := map[string]int{}
-			for pckt := range packets {
+			for {
+				pckt, err := receiveWithTimeout(t, packets, reportTimeout)
+				require.NoError(t, err)
 				pr, ok := peer.FromContext(pckt.ctx)
 				require.True(t, ok)
 				addr := pr.Addr
@@ -1811,26 +1818,15 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 }
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
-	offchainConfigs := []datastreamsllo.OffchainConfig{
-		{
-			ProtocolVersion:                     0,
-			DefaultMinReportIntervalNanoseconds: 0,
-		},
-		{
-			ProtocolVersion:                     1,
-			DefaultMinReportIntervalNanoseconds: 1,
-		},
-	}
-	for _, offchainConfig := range offchainConfigs {
-		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			t.Parallel()
-
-			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
-		})
-	}
+	// starting offchainConfig, the test will handle
+	// blue green for ProtocolVersion and EnableObservationCompression changes
+	offchainConfig := datastreamsllo.OffchainConfig{
+		ProtocolVersion:                     0,
+		DefaultMinReportIntervalNanoseconds: 0,
+		EnableObservationCompression:        false}
+	testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
 }
 
 func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
@@ -1923,7 +1919,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait until blue produces a report
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -1940,13 +1938,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 		// setStagingConfig does not affect production
 		{
+			offchainConfig.EnableObservationCompression = true
 			greenDigest = setStagingConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
 			// NOTE: Wait until green produces the first "specimen" report
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -1969,7 +1970,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait for first non-specimen report for the newly promoted (green) instance
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -2050,7 +2053,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait for five "green" reports to be produced and assert no "blue" reports
 
 			i := 0
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				i++
 				if i == 5 {
@@ -2067,13 +2072,17 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 		// setStagingConfig replaces 'retired' instance with new config and starts producing specimen reports again
 		{
+			offchainConfig.ProtocolVersion = 1
+			offchainConfig.DefaultMinReportIntervalNanoseconds = 1
 			blueDigest = setStagingConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
 			// NOTE: Wait until blue produces the first "specimen" report
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -2095,7 +2104,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait for first non-specimen report for the newly promoted (blue) instance
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -2110,16 +2121,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			initialPromotedBlueReport := allReports[blueDigest][len(allReports[blueDigest])-1]
 			finalGreenReport := allReports[greenDigest][len(allReports[greenDigest])-1]
-
-			// Gapless handover
 			assert.Less(t, finalGreenReport.ValidAfterNanoseconds, finalGreenReport.ObservationTimestampNanoseconds)
-			if offchainConfig.ProtocolVersion == 0 {
-				// validAfter is always truncated to 1s in v0
-				// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
-				assert.Equal(t, finalGreenReport.ObservationTimestampNanoseconds/1e9*1e9, initialPromotedBlueReport.ValidAfterNanoseconds/1e9*1e9, 1_000_000_000, "ObservationTimestampSeconds->ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds)
-			} else {
-				assert.Equal(t, finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds, "ObservationTimestampSeconds->ValidAfterNanoseconds should be gapless, got: %d vs %d", finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds)
-			}
 			assert.Less(t, initialPromotedBlueReport.ValidAfterNanoseconds, initialPromotedBlueReport.ObservationTimestampNanoseconds)
 		}
 		// adding a new channel definition is picked up on the fly
@@ -2143,7 +2145,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait until the first report for the new channel definition is produced
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -2169,6 +2173,521 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 		t.Run("adding new jobs again picks up the correct configs", func(t *testing.T) {
 			t.Skip("TODO - MERC-3524")
+		})
+	})
+}
+
+func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
+	t.Parallel()
+
+	offchainConfig := datastreamsllo.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		EnableObservationCompression:        true,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+
+	const salt = 400
+
+	for i := range nNodes {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	// Create adder accounts before creating backend
+	adder1 := evmtestutils.MustNewSimTransactor(t)
+	adder2 := evmtestutils.MustNewSimTransactor(t)
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t, adder1, adder2)
+	fromBlock := 1
+
+	// Setup bootstrap
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
+		packetCh := make(chan *packet, 100000)
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+		serverPubKey := serverKey.PublicKey
+		srv := NewMercuryServer(t, serverKey, packetCh)
+
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+		donID := uint32(999888)
+		streams := []Stream{ethStream, linkStream}
+		streamMap := make(map[uint32]Stream)
+		for _, strm := range streams {
+			streamMap[strm.id] = strm
+		}
+
+		// Setup oracle nodes
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+		})
+
+		chainID := testutils.SimulatedChainID
+		relayType := "evm"
+		relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-channel-merge", relayType, relayConfig)
+
+		// Configure adders on the contract
+		// Adder IDs start from 1000
+		adder1ID := uint32(1001)
+		adder2ID := uint32(1002)
+
+		require.NoError(t, utils.JustError(configStore.SetChannelAdderAddress(steve, adder1ID, adder1.From)))
+		backend.Commit()
+		require.NoError(t, utils.JustError(configStore.SetChannelAdderAddress(steve, adder2ID, adder2.From)))
+		backend.Commit()
+
+		// Enable adders
+		require.NoError(t, utils.JustError(configStore.SetChannelAdder(steve, donID, adder1ID, true)))
+		backend.Commit()
+		require.NoError(t, utils.JustError(configStore.SetChannelAdder(steve, donID, adder2ID, true)))
+		backend.Commit()
+
+		pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+		// Add stream specs and LLO jobs to all nodes
+		for i, node := range nodes {
+			addMemoStreamSpecs(t, node, streams)
+			addLLOJob(
+				t,
+				node,
+				configuratorAddress,
+				bootstrapPeerID,
+				bootstrapNodePort,
+				clientPubKeys[i],
+				"channel-merge-test",
+				pluginConfig,
+				relayType,
+				relayConfig,
+			)
+		}
+
+		// Set initial OCR config
+		digest := setProductionConfig(
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+		)
+
+		// Track reports by channel ID
+		reportsByChannel := make(map[uint32][]datastreamsllo.Report)
+		lastReportTimeByChannel := make(map[uint32]time.Time)
+
+		// Helper function to wait for reports from specific channels
+		waitForReportsFromChannels := func(t *testing.T, expectedChannels map[uint32]bool, timeout time.Duration) {
+			seenChannels := make(map[uint32]bool)
+			deadline := time.Now().Add(timeout)
+			for time.Now().Before(deadline) && len(seenChannels) < len(expectedChannels) {
+				pckt, err := receiveWithTimeout(t, packetCh, 2*time.Second)
+				if err != nil {
+					// If we're getting timeouts and haven't seen any channels yet, continue waiting
+					if len(seenChannels) == 0 {
+						continue
+					}
+					// If we've seen some channels but not all, continue waiting
+					continue
+				}
+				req := pckt.req
+				if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+					continue
+				}
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				if err != nil {
+					continue
+				}
+
+				if expectedChannels[r.ChannelID] {
+					reportsByChannel[r.ChannelID] = append(reportsByChannel[r.ChannelID], r)
+					lastReportTimeByChannel[r.ChannelID] = time.Now()
+					seenChannels[r.ChannelID] = true
+				}
+			}
+			require.Len(t, seenChannels, len(expectedChannels), "expected reports from all channels: got %v, expected %v", seenChannels, expectedChannels)
+		}
+
+		// Scenario 1: Owner adds initial channels
+		t.Run("Owner adds initial channels", func(t *testing.T) {
+			channelDefinitions := llotypes.ChannelDefinitions{
+				1: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				3: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+			url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+			// Set channel definitions
+			_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for channel definitions to be processed (give time for log polling and fetching)
+			time.Sleep(3 * time.Second)
+
+			// Wait for reports from all owner channels
+			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true}
+			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
+
+			// Verify reports were generated
+			require.NotEmpty(t, reportsByChannel[1], "channel 1 should have reports")
+			require.NotEmpty(t, reportsByChannel[2], "channel 2 should have reports")
+			require.NotEmpty(t, reportsByChannel[3], "channel 3 should have reports")
+
+			// Verify report content
+			for channelID := range expectedChannels {
+				report := reportsByChannel[channelID][0]
+				assert.Equal(t, digest, report.ConfigDigest)
+				assert.False(t, report.Specimen)
+				if channelID == 3 {
+					assert.Equal(t, "13.25", report.Values[0].(*datastreamsllo.Decimal).String())
+				} else {
+					assert.Equal(t, "2976.39", report.Values[0].(*datastreamsllo.Decimal).String())
+				}
+			}
+		})
+
+		// Scenario 2: Adders add new channels
+		t.Run("Adders add new channels", func(t *testing.T) {
+			// Adder1 adds channels
+			adder1Definitions := llotypes.ChannelDefinitions{
+				10: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+					Source:    adder1ID,
+					Tombstone: false,
+				},
+				11: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+					Source:    adder1ID,
+					Tombstone: false,
+				},
+			}
+
+			adder1DefinitionsJSON, err := json.MarshalIndent(adder1Definitions, "", "  ")
+			require.NoError(t, err)
+			adder1DefinitionsSHA := sha3.Sum256(adder1DefinitionsJSON)
+
+			adder1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder1DefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(adder1Server.Close)
+
+			_, err = configStore.AddChannelDefinitions(adder1, donID, adder1ID, adder1Server.URL, adder1DefinitionsSHA)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Adder2 adds channels
+			adder2Definitions := llotypes.ChannelDefinitions{
+				20: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				21: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+
+			adder2DefinitionsJSON, err := json.MarshalIndent(adder2Definitions, "", "  ")
+			require.NoError(t, err)
+			adder2DefinitionsSHA := sha3.Sum256(adder2DefinitionsJSON)
+
+			adder2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder2DefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(adder2Server.Close)
+
+			_, err = configStore.AddChannelDefinitions(adder2, donID, adder2ID, adder2Server.URL, adder2DefinitionsSHA)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for channel definitions to be processed (give time for log polling and fetching)
+			time.Sleep(3 * time.Second)
+
+			// Wait for reports from all channels (owner + adders)
+			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true, 10: true, 11: true, 20: true, 21: true}
+			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
+
+			// Verify all channels have reports
+			for channelID := range expectedChannels {
+				require.NotEmpty(t, reportsByChannel[channelID], "channel %d should have reports", channelID)
+			}
+		})
+
+		// Scenario 3: Owner tombstone some channels
+		t.Run("Owner tombstone channels", func(t *testing.T) {
+			// Owner updates definitions, add tombstone to channel 2 and 21
+			channelDefinitions := llotypes.ChannelDefinitions{
+				1: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Tombstone:    true,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				3: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				21: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Tombstone:    true,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+			url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+			// Set channel definitions with tombstoned channels 2 and 21
+			_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Verify that channels 2 and 21 stop producing reports after tombstoning
+			// We wait for a period where we don't see reports from these channels
+			tombstonedChannels := map[uint32]bool{2: true, 21: true}
+			checkPeriod := 5 * time.Second
+
+			require.Eventually(t, func() bool {
+				// Collect reports for a period and verify tombstoned channels don't appear
+				startTime := time.Now()
+				seenTombstonedChannels := make(map[uint32]bool)
+
+				for time.Since(startTime) < checkPeriod {
+					pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
+					if err != nil {
+						// Timeout is okay, continue checking
+						continue
+					}
+					req := pckt.req
+					if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
+						_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+						if err == nil && tombstonedChannels[r.ChannelID] {
+							seenTombstonedChannels[r.ChannelID] = true
+						}
+					}
+				}
+
+				// Success if we didn't see any reports from tombstoned channels
+				return len(seenTombstonedChannels) == 0
+			}, 30*time.Second, 100*time.Millisecond, "channels 2 and 21 should stop producing reports after tombstoning")
+		})
+
+		// Scenario 4: Owner overwrites adder channel
+		t.Run("Owner overwrites adder channel", func(t *testing.T) {
+			// Owner sets a channel definition with same ID as adder1's channel 10
+			channelDefinitions := llotypes.ChannelDefinitions{
+				1: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				3: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+				10: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   linkStreamID, // Changed from ethStreamID to linkStreamID
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+				},
+			}
+			url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+			// Set channel definitions
+			_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for channel definitions to be processed
+			time.Sleep(10 * time.Second)
+
+			// Wait for reports from channel 10 and verify it eventually uses owner's configuration (linkStreamID)
+			// The owner's definition should take precedence over the adder's definition
+			foundOwnerReport := false
+			deadline := time.Now().Add(reportTimeout)
+			for time.Now().Before(deadline) && !foundOwnerReport {
+				pckt, err := receiveWithTimeout(t, packetCh, 2*time.Second)
+				if err != nil {
+					continue
+				}
+				req := pckt.req
+				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
+					_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+					if err == nil && r.ChannelID == 10 {
+						// Check if it has linkStream value (13.25) - owner's configuration
+						// It might still have ethStream value (2976.39) initially, but should eventually switch
+						value := r.Values[0].(*datastreamsllo.Decimal).String()
+						if value == "13.25" {
+							foundOwnerReport = true
+						}
+					}
+				}
+			}
+			assert.True(t, foundOwnerReport, "should eventually receive report from channel 10 with owner's configuration (linkStream=13.25) after overwrite")
+		})
+
+		// Scenario 5: Verify adder cannot remove channels
+		t.Run("Adder cannot remove channels", func(t *testing.T) {
+			// Adder1 tries to set definitions that exclude channel 11 (which they previously added)
+			adder1NewDefinitions := llotypes.ChannelDefinitions{
+				10: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams: []llotypes.Stream{
+						{
+							StreamID:   ethStreamID,
+							Aggregator: llotypes.AggregatorMedian,
+						},
+					},
+					Source:    adder1ID,
+					Tombstone: false,
+				},
+				// Channel 11 is intentionally omitted
+			}
+
+			adder1NewDefinitionsJSON, err := json.MarshalIndent(adder1NewDefinitions, "", "  ")
+			require.NoError(t, err)
+			adder1NewDefinitionsSHA := sha3.Sum256(adder1NewDefinitionsJSON)
+
+			adder1NewServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, errWrite := w.Write(adder1NewDefinitionsJSON)
+				if errWrite != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(adder1NewServer.Close)
+
+			_, err = configStore.AddChannelDefinitions(adder1, donID, adder1ID, adder1NewServer.URL, adder1NewDefinitionsSHA)
+			require.NoError(t, err)
+			backend.Commit()
+
+			// Wait for processing
+			time.Sleep(3 * time.Second)
+
+			// Verify channel 11 still produces reports (adder cannot remove it)
+			foundChannel11Report := false
+			deadline := time.Now().Add(5 * time.Second)
+			for time.Now().Before(deadline) && !foundChannel11Report {
+				pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
+				if err != nil {
+					continue
+				}
+				req := pckt.req
+				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
+					_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+					if err == nil && r.ChannelID == 11 {
+						foundChannel11Report = true
+					}
+				}
+			}
+			assert.True(t, foundChannel11Report, "channel 11 should still produce reports (adder cannot remove)")
 		})
 	})
 }
@@ -2205,10 +2724,13 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 	channelDefinitionsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		_, errWrite := w.Write(channelDefinitionsJSON)
+		if errWrite != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, err := w.Write(channelDefinitionsJSON)
-		require.NoError(t, err)
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA

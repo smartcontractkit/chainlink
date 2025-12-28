@@ -77,7 +77,7 @@ jobs:
               fi
           fi
           echo "should we enforce ctf version = $SHOULD_ENFORCE"
-          echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
+          echo "should-enforce=$SHOULD_ENFORCE" | tee -a "$GITHUB_OUTPUT"
       - name: Enforce CTF Version
         if: steps.condition-check.outputs.should-enforce == 'true'
         uses: smartcontractkit/.github/actions/ctf-check-mod-version@21b0189c5fdca0318617d259634b1a91e6d80262 # ctf-check-mod-version@0.0.0
@@ -298,60 +298,74 @@ jobs:
     permissions:
       contents: read
     outputs:
-      should-run: ${{ steps.form-inputs.outputs.should-run }}
-      with-regression: ${{ steps.form-inputs.outputs.with-regression }}
-      workflow-name: ${{ steps.form-inputs.outputs.workflow-name }}
+      should-run: ${{ steps.cre-e2e-tests.outputs.should-run }}
+      with-regression: ${{ steps.cre-regression-tests.outputs.with-regression }}
     steps:
-      - name: Form Inputs for Core CRE E2E Tests
-        id: form-inputs
+      - name: CRE E2E Tests
+        id: cre-e2e-tests
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
           CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found }}
-          SKIP_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.skip-e2e-regression-label-found }}
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Core CRE E2E tests on PRs if there are relevant changes
-            if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            elif [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
-              # Run if the PR has the label "run-e2e-tests"
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+          SHOULD_RUN="false"
+
+          # -- PULL REQUEST --
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            if [[ "$CONTAINS_CHANGES" == 'true' || "$RUN_E2E_TESTS_LABEL_FOUND" == 'true' ]]; then
+              SHOULD_RUN="true"
             fi
 
-            if [[ "${SKIP_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
-              # Opt-out of CRE regression tests if the label 'skip-e2e-regression' is found
-              echo "with-regression=false" | tee -a "$GITHUB_OUTPUT"
-            else
-              # Run CRE regression tests by default
-              echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-            # Run Core CRE E2E tests in the merge queue, if there are relevant changes
-            echo "workflow-name=Run Core CRE E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
-            echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-            # Always run Core CRE E2E tests on workflow dispatch
-            echo "workflow-name=Run Core CRE E2E Tests For Workflow Dispatch" | tee -a "$GITHUB_OUTPUT"
-            echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-            # Run Core CRE E2E tests on push events, only if there are relevant changes, or it's a tag push
-            echo "workflow-name=Run Core CRE E2E Tests For Push" | tee -a "$GITHUB_OUTPUT"
-            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+          # -- MERGE GROUP --
+          elif [[ "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
+            if [[ "$CONTAINS_CHANGES" == 'true' ]]; then
+              SHOULD_RUN="true"
             fi
 
-          else
-            echo "workflow-name=Run Core CRE E2E Tests For Unknown Event" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Unknown CRE E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
-            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
+          # -- PUSH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            if [[ "$CONTAINS_CHANGES" == 'true' || "$GITHUB_REF_TYPE" == 'tag' ]]; then
+              SHOULD_RUN="true"
+            fi
+
+          # -- WORKFLOW DISPATCH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            SHOULD_RUN="true"
           fi
 
+          echo "should-run=${SHOULD_RUN}" | tee -a "$GITHUB_OUTPUT"
+
+      - name: CRE E2E Regression Tests
+        id: cre-regression-tests
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          IS_DEFAULT_BRANCH: ${{ github.ref_name == 'develop' }}
+          SKIP_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.skip-e2e-regression-label-found }}
+        run: |
+          SHOULD_RUN_REGRESSION="false"
+
+          # -- PULL REQUEST --
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            if [[ "$SKIP_E2E_TESTS_REGRESSION_LABEL_FOUND" != 'true' ]]; then
+              SHOULD_RUN_REGRESSION="true"
+            fi
+
+          # -- PUSH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            if [[ "$IS_DEFAULT_BRANCH" == 'true' ]]; then
+              SHOULD_RUN_REGRESSION="true"
+            fi
+
+          # -- WORKFLOW DISPATCH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            SHOULD_RUN_REGRESSION="true"
+          fi
+
+          echo "with-regression=${SHOULD_RUN_REGRESSION}" | tee -a "$GITHUB_OUTPUT"
+
   run-core-cre-e2e-tests:
-    name: Run Core CRE E2E Tests For PR
+    name: Run Core CRE E2E Tests
     needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
@@ -368,7 +382,7 @@ jobs:
     secrets: inherit
 
   run-core-cre-e2e-regression-tests:
-    name: Run Core CRE E2E Regression Tests For PR
+    name: Run Core CRE E2E Regression Tests
     needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
@@ -606,7 +620,7 @@ jobs:
           echo "$results" | jq .
 
           node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
-          echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
+          echo "node_migration_tests_failed=$node_migration_tests_failed" | tee -a "$GITHUB_OUTPUT"
 
       - name: Check CCIP test results
         id: check_ccip_results
@@ -649,7 +663,7 @@ jobs:
             echo "::warning::Core CRE E2E tests were skipped."
           fi
 
-      - name: Fail the job if core CRE tests were not successful
+      - name: Fail the job if core CRE regression tests were not successful
         if: always()
         env:
           RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}

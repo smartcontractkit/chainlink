@@ -19,6 +19,7 @@ var (
 	ccipFeeQuoterIDL     = idl.FetchFeeQuoterIDL()
 	ccipRmnRemoteIDL     = idl.FetchRMNRemoteIDL()
 	ccipCCTPTokenPoolIDL = idl.FetchCctpTokenPoolIDL()
+	ccipRouterIDL        = idl.FetchCCIPRouterIDL()
 
 	// defaultCCIPLogsRetention defines the duration for which logs critical for Commit/Exec plugins processing are retained.
 	// Although Exec relies on permissionlessExecThreshold which is lower than 24hours for picking eligible CommitRoots,

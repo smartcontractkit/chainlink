@@ -4,6 +4,7 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
@@ -42,4 +43,5 @@ type OCR2Config interface {
 	DefaultTransactionQueueDepth() uint32
 	SimulateTransactions() bool
 	TraceLogging() bool
+	SampleTelemetry() bool
 }

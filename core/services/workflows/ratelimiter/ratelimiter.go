@@ -2,14 +2,18 @@ package ratelimiter
 
 import (
 	"errors"
-	"fmt"
+	"sync"
 
 	"golang.org/x/time/rate"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
+
+// Wrapper around Go's rate.Limiter that supports both global and a per-sender rate limiting.
+type RateLimiter struct {
+	global    *rate.Limiter
+	perSender map[string]*rate.Limiter
+	config    Config
+	mu        sync.Mutex
+}
 
 type Config struct {
 	GlobalRPS      float64 `json:"globalRPS"`
@@ -18,7 +22,7 @@ type Config struct {
 	PerSenderBurst int     `json:"perSenderBurst"`
 }
 
-func NewRateLimiter(cfg Config, f limits.Factory) (limits.RateLimiter, error) {
+func NewRateLimiter(cfg Config) (*RateLimiter, error) {
 	if cfg.GlobalRPS <= 0.0 || cfg.PerSenderRPS <= 0.0 {
 		return nil, errors.New("RPS values must be positive")
 	}
@@ -26,21 +30,23 @@ func NewRateLimiter(cfg Config, f limits.Factory) (limits.RateLimiter, error) {
 		return nil, errors.New("burst values must be positive")
 	}
 
-	globalLimit := cresettings.Default.WorkflowTriggerRateLimit // make a copy
-	globalLimit.DefaultValue = config.Rate{Limit: rate.Limit(cfg.GlobalRPS), Burst: cfg.GlobalBurst}
-	global, err := f.MakeRateLimiter(globalLimit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create global rate limiter: %w", err)
+	return &RateLimiter{
+		global:    rate.NewLimiter(rate.Limit(cfg.GlobalRPS), cfg.GlobalBurst),
+		perSender: make(map[string]*rate.Limiter),
+		config:    cfg,
+	}, nil
+}
+
+func (rl *RateLimiter) Allow(sender string) (senderAllow bool, globalAllow bool) {
+	rl.mu.Lock()
+	senderLimiter, ok := rl.perSender[sender]
+	if !ok {
+		senderLimiter = rate.NewLimiter(rate.Limit(rl.config.PerSenderRPS), rl.config.PerSenderBurst)
+		rl.perSender[sender] = senderLimiter
 	}
-	ownerLimit := cresettings.Default.PerOwner.WorkflowTriggerRateLimit // make a copy
-	ownerLimit.DefaultValue = config.Rate{Limit: rate.Limit(cfg.PerSenderRPS), Burst: cfg.PerSenderBurst}
-	owner, err := f.MakeRateLimiter(ownerLimit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create owner rate limiter: %w", err)
-	}
-	workflow, err := f.MakeRateLimiter(cresettings.Default.PerWorkflow.TriggerRateLimit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create workflow rate limiter: %w", err)
-	}
-	return limits.MultiRateLimiter{workflow, owner, global}, nil
+	rl.mu.Unlock()
+
+	senderAllow = senderLimiter.Allow()
+	globalAllow = rl.global.Allow()
+	return senderAllow, globalAllow
 }

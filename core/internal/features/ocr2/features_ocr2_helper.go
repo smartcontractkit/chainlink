@@ -77,6 +77,7 @@ func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, c
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
 	genesisData := types.GenesisAlloc{owner.From: {Balance: sb}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	t.Logf("Running with gas limit: %d", gasLimit)
 
 	httpPort := freeport.GetOne(t)
 	wsPort := freeport.GetOne(t)

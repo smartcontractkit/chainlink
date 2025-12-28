@@ -180,6 +180,13 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 ) (common.Address, bool) {
 	switch poolType {
 	case shared.BurnMintTokenPool:
+		if version == deployment.Version1_6_1 {
+			if tokenPools, ok := chainState.BurnMintTokenPoolsV1_6_1[symbol]; ok {
+				if tokenPool, ok := tokenPools[version]; ok {
+					return tokenPool.Address(), true
+				}
+			}
+		}
 		if tokenPools, ok := chainState.BurnMintTokenPools[symbol]; ok {
 			if tokenPool, ok := tokenPools[version]; ok {
 				return tokenPool.Address(), true
@@ -221,6 +228,13 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 			}
 		}
 	case shared.LockReleaseTokenPool:
+		if version == deployment.Version1_6_1 {
+			if tokenPools, ok := chainState.LockReleaseTokenPoolsV1_6_1[symbol]; ok {
+				if tokenPool, ok := tokenPools[version]; ok {
+					return tokenPool.Address(), true
+				}
+			}
+		}
 		if tokenPools, ok := chainState.LockReleaseTokenPools[symbol]; ok {
 			if tokenPool, ok := tokenPools[version]; ok {
 				return tokenPool.Address(), true

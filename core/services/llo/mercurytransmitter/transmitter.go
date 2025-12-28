@@ -29,9 +29,8 @@ import (
 
 const (
 	// Mercury server error codes
-	DuplicateReport  = 2
-	commitInterval   = time.Millisecond * 25
-	commitBufferSize = 1000
+	DuplicateReport = 2
+	commitInterval  = time.Millisecond * 25
 )
 
 var (

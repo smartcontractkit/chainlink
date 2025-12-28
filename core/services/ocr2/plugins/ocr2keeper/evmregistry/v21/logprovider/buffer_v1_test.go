@@ -26,7 +26,7 @@ func TestLogEventBufferV1(t *testing.T) {
 	results, remaining := buf.Dequeue(int64(1), 2, true)
 	require.Len(t, results, 2)
 	require.Equal(t, 2, remaining)
-	require.NotEqual(t, results[0].ID.Cmp(results[1].ID), 0)
+	require.NotEqual(t, 0, results[0].ID.Cmp(results[1].ID))
 	results, remaining = buf.Dequeue(int64(1), 2, true)
 	require.Empty(t, results)
 	require.Equal(t, 0, remaining)
@@ -218,7 +218,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 			start, _ := getBlockWindow(tc.args.block, tc.args.blockRate)
 
 			results, remaining := buf.Dequeue(start, tc.args.maxResults, true)
-			require.Equal(t, len(tc.results), len(results))
+			require.Len(t, results, len(tc.results))
 			require.Equal(t, tc.remaining, remaining)
 		})
 	}

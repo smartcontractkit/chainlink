@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -117,7 +118,7 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 	}
 	unwrappedMap, ok := unwrappedInput.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("expected unwrapped input to be a map")
+		return nil, errors.New("expected unwrapped input to be a map")
 	}
 	userPayload, err := c.codec.Encode(ctx, unwrappedMap, encoderName)
 	if err != nil {

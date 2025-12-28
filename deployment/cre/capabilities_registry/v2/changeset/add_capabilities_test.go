@@ -22,6 +22,7 @@ import (
 
 var (
 	newCapID       = "new-test-capability@1.0.0"
+	anotherCapID   = "another-test-capability@1.0.0"
 	newCapMetadata = map[string]any{"capabilityType": float64(0), "responseType": float64(0)}
 	newCapConfig   = map[string]any{
 		"restrictedConfig": map[string]any{
@@ -103,17 +104,14 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestAddCapabilities_Apply(t *testing.T) {
-	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
-	fixture := test.SetupEnvV2(t, false)
-
+func addNewCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
 		DonName:           test.DONName,
 		CapabilityConfigs: []contracts.CapabilityConfig{{
 			Capability: contracts.Capability{
-				CapabilityID:          newCapID,
+				CapabilityID:          capID,
 				ConfigurationContract: common.Address{},
 				Metadata:              newCapMetadata,
 			},
@@ -129,13 +127,37 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	// Apply
 	_, err = changeset.AddCapabilities{}.Apply(*fixture.Env, input)
 	require.NoError(t, err)
+}
 
+func requireCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 	// Validate on-chain state
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 		fixture.RegistryAddress,
 		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
 	)
 	require.NoError(t, err)
+
+	caps, err := pkg.GetCapabilities(nil, capReg)
+	require.NoError(t, err)
+	var found bool
+	for _, c := range caps {
+		if c.CapabilityId == capID {
+			// metadata check
+			var gotMeta map[string]any
+			require.NoError(t, json.Unmarshal(c.Metadata, &gotMeta))
+			assert.Equal(t, newCapMetadata, gotMeta)
+			found = true
+			break
+		}
+	}
+	require.True(t, found, "new capability %s should be registered", capID)
+
+	// Nodes should now include new capability id
+	nodes, err := pkg.GetNodes(nil, capReg)
+	require.NoError(t, err)
+	for _, n := range nodes {
+		assert.Contains(t, n.CapabilityIds, capID, "node should have new capability id appended")
+	}
 
 	// Here we check that the uptyped input of the changeset was correctly applied on-chain as proto and can be decoded back to the same config
 	// encoding to proto bytes is same as in the changeset and decoding to cap cfg is same as in the v2 registry syncer
@@ -147,34 +169,12 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	err = expectedConfig.UnmarshalProto(configProtoBytes)
 	require.NoError(t, err, "should be able to unmarshal new capability config from proto bytes")
 
-	caps, err := pkg.GetCapabilities(nil, capReg)
-	require.NoError(t, err)
-	var found bool
-	for _, c := range caps {
-		if c.CapabilityId == newCapID {
-			// metadata check
-			var gotMeta map[string]any
-			require.NoError(t, json.Unmarshal(c.Metadata, &gotMeta))
-			assert.Equal(t, newCapMetadata, gotMeta)
-			found = true
-			break
-		}
-	}
-	require.True(t, found, "new capability should be registered")
-
-	// Nodes should now include new capability id
-	nodes, err := pkg.GetNodes(nil, capReg)
-	require.NoError(t, err)
-	for _, n := range nodes {
-		assert.Contains(t, n.CapabilityIds, newCapID, "node should have new capability id appended")
-	}
-
 	// DON capability configurations should include new capability config
 	don, err := capReg.GetDONByName(nil, test.DONName)
 	require.NoError(t, err)
 	var cfgFound bool
 	for _, cfg := range don.CapabilityConfigurations {
-		if cfg.CapabilityId == newCapID {
+		if cfg.CapabilityId == capID {
 			got := new(pkg.CapabilityConfig)
 			require.NoError(t, got.UnmarshalProto(cfg.Config), "unmarshal capability config proto bytes should not error")
 			if diff := cmp.Diff(expectedConfig, got, protocmp.Transform()); diff != "" {
@@ -184,7 +184,20 @@ func TestAddCapabilities_Apply(t *testing.T) {
 			cfgFound = true
 		}
 	}
-	require.True(t, cfgFound, "don should have new capability configuration")
+	require.True(t, cfgFound, "expected don to have %s capability configuration", capID)
+}
+
+func TestAddCapabilities_Apply(t *testing.T) {
+	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
+	fixture := test.SetupEnvV2(t, false)
+
+	addNewCapability(t, fixture, newCapID)
+	requireCapability(t, fixture, newCapID)
+
+	// add another capability and ensure that both are present
+	addNewCapability(t, fixture, anotherCapID)
+	requireCapability(t, fixture, newCapID)
+	requireCapability(t, fixture, anotherCapID)
 }
 
 func TestAddCapabilities_Apply_MCMS(t *testing.T) {

@@ -120,11 +120,11 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return "123" == m.Body.MessageId &&
+			return m.Body.MessageId == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				"testDonId" == m.Body.DonId &&
-				200 == payload.StatusCode &&
-				0 == len(payload.Headers) &&
+				m.Body.DonId == "testDonId" &&
+				payload.StatusCode == 200 &&
+				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
 		})).Return(nil).Once()
@@ -159,12 +159,12 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return "123" == m.Body.MessageId &&
+			return m.Body.MessageId == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				"testDonId" == m.Body.DonId &&
-				404 == payload.StatusCode &&
+				m.Body.DonId == "testDonId" &&
+				payload.StatusCode == 404 &&
 				string(payload.Body) == "access denied" &&
-				0 == len(payload.Headers) &&
+				len(payload.Headers) == 0 &&
 				!payload.ExecutionError
 		})).Return(nil).Once()
 
@@ -195,11 +195,11 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return "123" == m.Body.MessageId &&
+			return m.Body.MessageId == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				"testDonId" == m.Body.DonId &&
+				m.Body.DonId == "testDonId" &&
 				payload.ExecutionError &&
-				"error while marshalling" == payload.ErrorMessage
+				payload.ErrorMessage == "error while marshalling"
 		})).Return(nil).Once()
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
@@ -407,11 +407,11 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return "123" == m.Body.MessageId &&
+			return m.Body.MessageId == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				"testDonId" == m.Body.DonId &&
-				200 == payload.StatusCode &&
-				0 == len(payload.Headers) &&
+				m.Body.DonId == "testDonId" &&
+				payload.StatusCode == 200 &&
+				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
 		})).Return(nil).Once()
@@ -447,12 +447,12 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return "123" == m.Body.MessageId &&
+			return m.Body.MessageId == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				"testDonId" == m.Body.DonId &&
-				404 == payload.StatusCode &&
+				m.Body.DonId == "testDonId" &&
+				payload.StatusCode == 404 &&
 				string(payload.Body) == "access denied" &&
-				0 == len(payload.Headers) &&
+				len(payload.Headers) == 0 &&
 				!payload.ExecutionError
 		})).Return(nil).Once()
 
@@ -483,11 +483,11 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return "123" == m.Body.MessageId &&
+			return m.Body.MessageId == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				"testDonId" == m.Body.DonId &&
+				m.Body.DonId == "testDonId" &&
 				payload.ExecutionError &&
-				"error while marshalling" == payload.ErrorMessage
+				payload.ErrorMessage == "error while marshalling"
 		})).Return(nil).Once()
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)

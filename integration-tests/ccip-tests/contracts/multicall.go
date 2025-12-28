@@ -58,7 +58,7 @@ func TransferTokenCallData(to common.Address, amount *big.Int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	inputs = append(transferToken.ID[:], inputs...)
+	inputs = append(transferToken.ID, inputs...)
 	return inputs, nil
 }
 
@@ -73,7 +73,7 @@ func ApproveTokenCallData(to common.Address, amount *big.Int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	inputs = append(approveToken.ID[:], inputs...)
+	inputs = append(approveToken.ID, inputs...)
 	return inputs, nil
 }
 
@@ -92,7 +92,7 @@ func CCIPSendCallData(msg CCIPMsgData) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	inputs = append(sendID[:], inputs...)
+	inputs = append(sendID, inputs...)
 	return inputs, nil
 }
 

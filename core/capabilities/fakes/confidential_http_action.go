@@ -10,6 +10,7 @@ import (
 	"time"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	confidentialhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -49,7 +50,7 @@ func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTP
 	return fc
 }
 
-func (fh *DirectConfidentialHTTPAction) SendRequests(ctx context.Context, metadata commonCap.RequestMetadata, input *confidentialhttp.EnclaveActionInput) (*commonCap.ResponseAndMetadata[*confidentialhttp.HTTPEnclaveResponseData], error) {
+func (fh *DirectConfidentialHTTPAction) SendRequests(ctx context.Context, metadata commonCap.RequestMetadata, input *confidentialhttp.EnclaveActionInput) (*commonCap.ResponseAndMetadata[*confidentialhttp.HTTPEnclaveResponseData], caperrors.Error) {
 	fh.eng.Infow("Confidential HTTP Action SendRequests Started", "input", input, "secretsCount", len(input.GetVaultDonSecrets()))
 
 	// Warn if secrets are provided - this fake does not handle secret resolution
@@ -58,12 +59,12 @@ func (fh *DirectConfidentialHTTPAction) SendRequests(ctx context.Context, metada
 	}
 
 	if input.GetInput() == nil {
-		return nil, errors.New("input cannot be nil")
+		return nil, caperrors.NewPublicUserError(errors.New("input cannot be nil"), caperrors.InvalidArgument)
 	}
 
 	requests := input.GetInput().GetRequests()
 	if len(requests) == 0 {
-		return nil, errors.New("no requests provided")
+		return nil, caperrors.NewPublicUserError(errors.New("no requests provided"), caperrors.InvalidArgument)
 	}
 
 	// Process each request
@@ -81,7 +82,7 @@ func (fh *DirectConfidentialHTTPAction) SendRequests(ctx context.Context, metada
 		// Validate HTTP method
 		method := strings.TrimSpace(req.GetMethod())
 		if method == "" {
-			return nil, errors.New("http method cannot be empty")
+			return nil, caperrors.NewPublicUserError(errors.New("http method cannot be empty"), caperrors.InvalidArgument)
 		}
 		method = strings.ToUpper(method)
 

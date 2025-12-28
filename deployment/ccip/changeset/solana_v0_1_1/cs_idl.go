@@ -17,7 +17,6 @@ import (
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -143,45 +142,45 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 
 	// set idl authority
 	if c.Router {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), solutils.ProgCCIPRouter, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), solutils.ProgFeeQuoter, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.OffRamp {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), solutils.ProgCCIPOfframp, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.RMNRemote {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), solutils.ProgRMNRemote, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), solutils.ProgBurnMintTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), solutils.ProgLockReleaseTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.CCTPTokenPool {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), solutils.ProgCCTPTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -197,13 +196,13 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	}
 
 	if c.AccessController {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), solutils.ProgAccessController, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.Timelock {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), solutils.ProgTimelock, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -550,28 +549,28 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastateview.CCIPChainState, chain cldfsolana.Chain) (map[solana.PublicKey]string, error) {
 	programs := make(map[solana.PublicKey]string)
 	if c.Router {
-		programs[chainState.Router] = deployment.RouterProgramName
+		programs[chainState.Router] = solutils.ProgCCIPRouter
 	}
 	if c.FeeQuoter {
-		programs[chainState.FeeQuoter] = deployment.FeeQuoterProgramName
+		programs[chainState.FeeQuoter] = solutils.ProgFeeQuoter
 	}
 	if c.OffRamp {
-		programs[chainState.OffRamp] = deployment.OffRampProgramName
+		programs[chainState.OffRamp] = solutils.ProgCCIPOfframp
 	}
 	if c.RMNRemote {
-		programs[chainState.RMNRemote] = deployment.RMNRemoteProgramName
+		programs[chainState.RMNRemote] = solutils.ProgRMNRemote
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		programs[tokenPool] = deployment.BurnMintTokenPoolProgramName
+		programs[tokenPool] = solutils.ProgBurnMintTokenPool
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		programs[tokenPool] = deployment.LockReleaseTokenPoolProgramName
+		programs[tokenPool] = solutils.ProgLockReleaseTokenPool
 	}
 	if c.CCTPTokenPool {
 		tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
-		programs[tokenPool] = deployment.CCTPTokenPoolProgramName
+		programs[tokenPool] = solutils.ProgCCTPTokenPool
 	}
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
@@ -582,13 +581,13 @@ func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastate
 		return nil, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	if c.AccessController {
-		programs[mcmState.AccessControllerProgram] = deployment.AccessControllerProgramName
+		programs[mcmState.AccessControllerProgram] = solutils.ProgAccessController
 	}
 	if c.Timelock {
-		programs[mcmState.TimelockProgram] = deployment.TimelockProgramName
+		programs[mcmState.TimelockProgram] = solutils.ProgTimelock
 	}
 	if c.MCM {
-		programs[mcmState.McmProgram] = deployment.McmProgramName
+		programs[mcmState.McmProgram] = solutils.ProgMCM
 	}
 	return programs, nil
 }

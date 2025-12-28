@@ -15,7 +15,7 @@ plugins:
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
-      gitRef: "v0.0.0-20251120142858-7c6061fd043d"
+      gitRef: "v0.0.0-20251205161630-88314452254c"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -40,17 +40,17 @@ plugins:
 
   starknet:
     - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
-      gitRef: "7e854bab99ef4a9cdbaa8dc2cac1fdf059238682" # 2025-05-15
+      gitRef: "0051d73c3d6142fb9f0630889f80c6d0a1e0d096" # 2025-12-03
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.6"
+      gitRef: "v0.1.9"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20251117043516-cfda0f691147"
+      gitRef: "v0.0.0-20251219221624-54a39a031e62"
       installPath: "./cmd/chainlink-ton"
 
   tron:

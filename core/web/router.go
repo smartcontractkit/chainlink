@@ -438,6 +438,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		// Chatbot Controller
 		chatbot := NewChatbotController(app)
 		authv2.POST("/chatbot", auth.RequiresRunRole(chatbot.Chat))
+		vault := VaultController{app}
+		authv2.POST("/vault/dkg_results/verify", auth.RequiresEditRole(vault.VerifyDKGResult))
+		authv2.POST("/vault/dkg_results/export", auth.RequiresEditRole(vault.ExportDKGResult))
 
 		// Debug routes accessible via authentication
 		metricRoutes(authv2, app.GetConfig().InsecurePPROFHeap() || build.IsDev())

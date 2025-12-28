@@ -480,7 +480,6 @@ type EthereumOperator struct {
 }
 
 func LoadEthereumOperator(logger zerolog.Logger, seth *seth.Client, contractAddress common.Address) (EthereumOperator, error) {
-
 	abi, err := operator.OperatorMetaData.GetAbi()
 	if err != nil {
 		return EthereumOperator{}, err
@@ -788,7 +787,6 @@ func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.In
 		From:    l.client.Addresses[0],
 		Context: ctx,
 	}, common.HexToAddress(addr))
-
 }
 
 // Name returns the name of the link token
@@ -1389,7 +1387,7 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 	}
 	e.l.Info().Interface("NewTopicsDecoded", topicsMap).Send()
 	if topicsMap["subscriptionId"] == 0 {
-		return 0, fmt.Errorf("failed to decode subscription ID after creation")
+		return 0, errors.New("failed to decode subscription ID after creation")
 	}
 	return topicsMap["subscriptionId"].(uint64), nil
 }
@@ -1545,7 +1543,6 @@ func (l *EthereumWETHToken) BalanceOf(ctx context.Context, addr string) (*big.In
 		From:    l.client.Addresses[0],
 		Context: ctx,
 	}, common.HexToAddress(addr))
-
 }
 
 // Name returns the name of the weth token

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/report"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -65,13 +66,13 @@ func (fc *fakeConsensusNoDAG) close() error {
 
 // NOTE: This fake capability currently bounces back the request payload, ignoring everything else.
 // When the real NoDAG consensus OCR plugin is ready, it should be used here, similarly to how the V1 fake works.
-func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.SimpleConsensusInputs) (*capabilities.ResponseAndMetadata[*valuespb.Value], error) {
+func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.SimpleConsensusInputs) (*capabilities.ResponseAndMetadata[*valuespb.Value], caperrors.Error) {
 	fc.eng.Infow("Executing Fake Consensus NoDAG: Simple()", "input", input, "metadata", metadata)
 
 	switch obs := input.Observation.(type) {
 	case *sdkpb.SimpleConsensusInputs_Value:
 		if obs.Value == nil {
-			return nil, errors.New("input value cannot be nil")
+			return nil, caperrors.NewPublicUserError(errors.New("input value cannot be nil"), caperrors.InvalidArgument)
 		}
 		responseAndMetadata := capabilities.ResponseAndMetadata[*valuespb.Value]{
 			Response:         obs.Value,
@@ -79,15 +80,15 @@ func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.
 		}
 		return &responseAndMetadata, nil
 	case *sdkpb.SimpleConsensusInputs_Error:
-		return nil, errors.New(obs.Error)
+		return nil, caperrors.NewPublicSystemError(errors.New(obs.Error), caperrors.Unknown)
 	case nil:
-		return nil, errors.New("input observation cannot be nil")
+		return nil, caperrors.NewPublicUserError(errors.New("input observation cannot be nil"), caperrors.InvalidArgument)
 	default:
-		return nil, errors.New("unknown observation type")
+		return nil, caperrors.NewPublicUserError(errors.New("unknown observation type"), caperrors.InvalidArgument)
 	}
 }
 
-func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.ReportRequest) (*capabilities.ResponseAndMetadata[*sdkpb.ReportResponse], error) {
+func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.ReportRequest) (*capabilities.ResponseAndMetadata[*sdkpb.ReportResponse], caperrors.Error) {
 	fc.eng.Infow("Executing Fake Consensus NoDAG: Report()", "input", input, "metadata", metadata)
 	// Prepare EVM metadata that will be prepended to all reports
 	meta := consensustypes.Metadata{
@@ -105,13 +106,13 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 	switch input.EncoderName {
 	case "evm", "EVM": // report-gen for EVM
 		if len(input.EncodedPayload) == 0 {
-			return nil, errors.New("input value for EVM encoder needs to be a byte array and cannot be empty or nil")
+			return nil, caperrors.NewPublicUserError(errors.New("input value for EVM encoder needs to be a byte array and cannot be empty or nil"), caperrors.InvalidArgument)
 		}
 
 		// Prepend EVM metadata
 		rawOutput, err := meta.Encode()
 		if err != nil {
-			return nil, fmt.Errorf("failed to prepend metadata fields: %w", err)
+			return nil, caperrors.NewPublicSystemError(fmt.Errorf("failed to prepend metadata fields: %w", err), caperrors.Internal)
 		}
 		rawOutput = append(rawOutput, input.EncodedPayload...)
 
@@ -121,7 +122,7 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 		for _, signer := range fc.signers {
 			sig, err := signer.Sign3(fc.configDigest, fc.seqNr, rawOutput)
 			if err != nil {
-				return nil, fmt.Errorf("failed to sign with signer %s: %w", signer.ID(), err)
+				return nil, caperrors.NewPublicSystemError(fmt.Errorf("failed to sign with signer %s: %w", signer.ID(), err), caperrors.Internal)
 			}
 			sigs = append(sigs, &sdkpb.AttributedSignature{
 				SignerId:  idx,
@@ -144,7 +145,7 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 		return &responseAndMetadata, nil
 
 	default:
-		return nil, fmt.Errorf("unsupported encoder name: %s", input.EncoderName)
+		return nil, caperrors.NewPublicUserError(fmt.Errorf("unsupported encoder name: %s", input.EncoderName), caperrors.InvalidArgument)
 	}
 }
 

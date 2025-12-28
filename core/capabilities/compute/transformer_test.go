@@ -69,7 +69,7 @@ func Test_popOptionalValue(t *testing.T) {
 		var gotValue string
 		gotValue, err = popOptionalValue[string](m, "foo")
 		require.NoError(t, err)
-		assert.Zero(t, gotValue)
+		assert.Empty(t, gotValue)
 	})
 
 	t.Run("some other error fails", func(t *testing.T) {

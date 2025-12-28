@@ -127,9 +127,10 @@ func NewLBTCTokenDataReader(
 		timeout = defaultAttestationTimeout
 	}
 
-	if requestInterval == APIIntervalRateLimitDisabled {
+	switch requestInterval {
+	case APIIntervalRateLimitDisabled:
 		requestInterval = 0
-	} else if requestInterval == APIIntervalRateLimitDefault {
+	case APIIntervalRateLimitDefault:
 		requestInterval = defaultRequestInterval
 	}
 

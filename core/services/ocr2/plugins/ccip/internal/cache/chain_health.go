@@ -131,7 +131,7 @@ func (c *chainHealthcheck) IsHealthy(ctx context.Context) (bool, error) {
 }
 
 func (c *chainHealthcheck) Start(context.Context) error {
-	return c.StateMachine.StartOnce("ChainHealthcheck", func() error {
+	return c.StartOnce("ChainHealthcheck", func() error {
 		c.lggr.Info("Starting ChainHealthcheck")
 		c.run()
 		return nil
@@ -139,7 +139,7 @@ func (c *chainHealthcheck) Start(context.Context) error {
 }
 
 func (c *chainHealthcheck) Close() error {
-	return c.StateMachine.StopOnce("ChainHealthcheck", func() error {
+	return c.StopOnce("ChainHealthcheck", func() error {
 		c.lggr.Info("Closing ChainHealthcheck")
 		close(c.stopChan)
 		c.wg.Wait()

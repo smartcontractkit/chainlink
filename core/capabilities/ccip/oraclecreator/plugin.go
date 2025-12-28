@@ -722,10 +722,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
 		}
 
-		var solanaChainWriterConfigVersion *string
-		if ofc.Execute != nil {
-			solanaChainWriterConfigVersion = ofc.Execute.SolanaChainWriterConfigVersion
-		}
 		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
 			ChainID:                        chainID,
 			Relayer:                        relayer,
@@ -733,7 +729,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			ExecBatchGasLimit:              execBatchGasLimit,
 			ChainFamily:                    relayChainFamily,
 			OfframpProgramAddress:          config.Config.OfframpAddress,
-			SolanaChainWriterConfigVersion: solanaChainWriterConfigVersion,
 		})
 		if err1 != nil {
 			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does

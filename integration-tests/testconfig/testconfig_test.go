@@ -84,7 +84,7 @@ func TestBase64ConfigRead(t *testing.T) {
 
 	require.NotNil(t, readConfig.Automation, "Automation config read from base64 is nil")
 	require.Equal(t, testConfig.Automation.General, readConfig.Automation.General, "General automation config does not match expected")
-	require.EqualValues(t, testConfig.Automation.Load, readConfig.Automation.Load, "Load automation config does not match expected")
+	require.Equal(t, testConfig.Automation.Load, readConfig.Automation.Load, "Load automation config does not match expected")
 	require.NotNil(t, readConfig.Network, "Network config read from base64 is nil")
 	require.Equal(t, testConfig.Network.SelectedNetworks, readConfig.Network.SelectedNetworks, "SelectedNetwork config entry read from base64 does not match expected")
 	require.Equal(t, []string{"http://localhost:8545"}, readConfig.Network.RpcHttpUrls["OPTIMISM_GOERLI"], "RpcHttpUrls config entry read from base64 does not match expected")

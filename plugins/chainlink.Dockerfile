@@ -3,7 +3,7 @@
 # XXX: Experimental -- not to be used to build images for production use.
 # See: ../core/chainlink.Dockerfile for the production Dockerfile.
 ##
-FROM golang:1.25.3-bookworm AS buildgo
+FROM golang:1.25.5-bookworm AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
@@ -34,10 +34,13 @@ ARG GO_GCFLAGS
 ARG COMMIT_SHA
 ARG VERSION_TAG
 
-ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
+ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
+    GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
+    set -e && \
+    trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
     mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \

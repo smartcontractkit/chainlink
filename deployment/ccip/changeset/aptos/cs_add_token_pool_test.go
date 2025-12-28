@@ -154,7 +154,6 @@ func TestAddTokenPool_Apply(t *testing.T) {
 		ttfcfgs2, err := ccipContract.FeeQuoter().GetTokenTransferFeeConfig(nil, emvSelector2, tokenAddress)
 		require.NoError(t, err)
 		require.Equal(t, testTokenTransferFeeConfig, ttfcfgs2)
-
 	}
 
 	// The output should include MCMS proposals

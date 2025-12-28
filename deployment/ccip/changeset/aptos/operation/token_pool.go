@@ -16,9 +16,20 @@ import (
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
+
+var TokenPoolOperations = []*operations.Operation[any, any, any]{
+	DeployTokenPoolModuleOp.AsUntyped(),
+	ApplyChainUpdatesOp.AsUntyped(),
+	SetChainRateLimiterConfigsOp.AsUntyped(),
+	AddRemotePoolsOp.AsUntyped(),
+	TransferTokenPoolOwnershipOp.AsUntyped(),
+	AcceptTokenPoolOwnershipOp.AsUntyped(),
+	ExecuteTokenPoolOwnershipTransferOp.AsUntyped(),
+}
 
 type DeployTokenPoolPackageOutput struct {
 	TokenPoolObjectAddress aptos.AccountAddress
@@ -33,7 +44,7 @@ var DeployTokenPoolPackageOp = operations.NewOperation(
 	deployTokenPoolPackage,
 )
 
-func deployTokenPoolPackage(b operations.Bundle, deps AptosDeps, poolSeed string) (DeployTokenPoolPackageOutput, error) {
+func deployTokenPoolPackage(b operations.Bundle, deps dependency.AptosDeps, poolSeed string) (DeployTokenPoolPackageOutput, error) {
 	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	mcmsContract := mcmsbind.Bind(aptosState.MCMSAddress, deps.AptosChain.Client)
 
@@ -73,7 +84,7 @@ var DeployTokenPoolModuleOp = operations.NewOperation(
 	deployTokenPoolModule,
 )
 
-func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPoolModuleInput) ([]types.Operation, error) {
+func deployTokenPoolModule(b operations.Bundle, deps dependency.AptosDeps, in DeployTokenPoolModuleInput) ([]types.Operation, error) {
 	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	mcmsContract := mcmsbind.Bind(aptosState.MCMSAddress, deps.AptosChain.Client)
 
@@ -152,7 +163,7 @@ var ApplyChainUpdatesOp = operations.NewOperation(
 	applyChainUpdates,
 )
 
-func applyChainUpdates(b operations.Bundle, deps AptosDeps, in ApplyChainUpdatesInput) (types.Transaction, error) {
+func applyChainUpdates(b operations.Bundle, deps dependency.AptosDeps, in ApplyChainUpdatesInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string
@@ -223,7 +234,7 @@ var SetChainRateLimiterConfigsOp = operations.NewOperation(
 	setChainRateLimiterConfigs,
 )
 
-func setChainRateLimiterConfigs(b operations.Bundle, deps AptosDeps, in SetChainRLConfigsInput) (types.Transaction, error) {
+func setChainRateLimiterConfigs(b operations.Bundle, deps dependency.AptosDeps, in SetChainRLConfigsInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string
@@ -300,7 +311,7 @@ var AddRemotePoolsOp = operations.NewOperation(
 	addRemotePools,
 )
 
-func addRemotePools(b operations.Bundle, deps AptosDeps, in AddRemotePoolsInput) ([]types.Transaction, error) {
+func addRemotePools(b operations.Bundle, deps dependency.AptosDeps, in AddRemotePoolsInput) ([]types.Transaction, error) {
 	txs := make([]types.Transaction, len(in.RemoteChainSelectors))
 
 	switch in.TokenPoolType {
@@ -380,7 +391,7 @@ var TransferTokenPoolOwnershipOp = operations.NewOperation(
 	transferTokenPoolOwnership,
 )
 
-func transferTokenPoolOwnership(b operations.Bundle, deps AptosDeps, in TransferTokenPoolOwnershipInput) (types.Transaction, error) {
+func transferTokenPoolOwnership(b operations.Bundle, deps dependency.AptosDeps, in TransferTokenPoolOwnershipInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string
@@ -419,7 +430,7 @@ var AcceptTokenPoolOwnershipOp = operations.NewOperation(
 	acceptTokenPoolOwnership,
 )
 
-func acceptTokenPoolOwnership(b operations.Bundle, deps AptosDeps, in AcceptTokenPoolOwnershipInput) (types.Transaction, error) {
+func acceptTokenPoolOwnership(b operations.Bundle, deps dependency.AptosDeps, in AcceptTokenPoolOwnershipInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string
@@ -459,7 +470,7 @@ var ExecuteTokenPoolOwnershipTransferOp = operations.NewOperation(
 	executeTokenPoolOwnershipTransfer,
 )
 
-func executeTokenPoolOwnershipTransfer(b operations.Bundle, deps AptosDeps, in ExecuteTokenPoolOwnershipTransferInput) (types.Transaction, error) {
+func executeTokenPoolOwnershipTransfer(b operations.Bundle, deps dependency.AptosDeps, in ExecuteTokenPoolOwnershipTransferInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string

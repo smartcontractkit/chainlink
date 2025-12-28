@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/burn_mint_with_external_minter_token_pool"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
 	"golang.org/x/sync/errgroup"
@@ -32,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
+	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
@@ -43,6 +46,8 @@ var _ cldf.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsC
 type DeployTokenPoolInput struct {
 	// Type is the type of token pool that must be deployed.
 	Type cldf.ContractType
+	// Version is the version of the token pool that must be deployed.
+	Version semver.Version
 	// TokenAddress is the address of the token for which we are deploying a pool.
 	TokenAddress common.Address
 	// TokenType is the type of token that is being deployed. This is used to determine if we should grant burn and mint
@@ -196,6 +201,9 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 	for chainSelector, poolConfig := range c.NewPools {
 		chainSelector, poolConfig := chainSelector, poolConfig
 		deployGrp.Go(func() error {
+			if poolConfig.Version.String() == "0.0.0" {
+				poolConfig.Version = shared.CurrentTokenPoolVersion
+			}
 			chain := env.BlockChains.EVMChains()[chainSelector]
 			chainState := state.Chains[chainSelector]
 			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
@@ -258,10 +266,18 @@ func deployTokenPool(
 			tokenPoolVersion := shared.CurrentTokenPoolVersion
 			switch poolConfig.Type {
 			case shared.BurnMintTokenPool:
-				tpAddr, tx, _, err = burn_mint_token_pool.DeployBurnMintTokenPool(
-					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
-					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
-				)
+				if poolConfig.Version == deployment.Version1_6_1 {
+					tokenPoolVersion = deployment.Version1_6_1
+					tpAddr, tx, _, err = burn_mint_token_pool_v1_6_1.DeployBurnMintTokenPool(
+						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
+						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+					)
+				} else {
+					tpAddr, tx, _, err = burn_mint_token_pool.DeployBurnMintTokenPool(
+						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
+						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+					)
+				}
 			case shared.BurnWithFromMintTokenPool:
 				tpAddr, tx, _, err = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
@@ -273,10 +289,18 @@ func deployTokenPool(
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 			case shared.LockReleaseTokenPool:
-				tpAddr, tx, _, err = lock_release_token_pool.DeployLockReleaseTokenPool(
-					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
-					poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
-				)
+				if poolConfig.Version == deployment.Version1_6_1 {
+					tokenPoolVersion = deployment.Version1_6_1
+					tpAddr, tx, _, err = lock_release_token_pool_v1_6_1.DeployLockReleaseTokenPool(
+						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
+						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+					)
+				} else {
+					tpAddr, tx, _, err = lock_release_token_pool.DeployLockReleaseTokenPool(
+						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
+						poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
+					)
+				}
 			case shared.BurnMintFastTransferTokenPool:
 				tokenPoolVersion = deployment.Version1_6_3Dev
 				tpAddr, tx, _, err = fast_transfer_token_pool.DeployBurnMintFastTransferTokenPool(

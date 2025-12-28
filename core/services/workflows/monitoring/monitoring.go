@@ -21,6 +21,7 @@ type EngineMetrics struct {
 	workflowsRunningGauge                    metric.Int64Gauge
 	capabilityInvocationCounter              metric.Int64Counter
 	capabilityFailureCounter                 metric.Int64Counter
+	capabilityUserErrorCounter               metric.Int64Counter
 	workflowRegisteredCounter                metric.Int64Counter
 	workflowUnregisteredCounter              metric.Int64Counter
 	workflowExecutionRateLimitGlobalCounter  metric.Int64Counter
@@ -99,6 +100,11 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.capabilityFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_failures")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register capability failure counter: %w", err)
+	}
+
+	em.capabilityUserErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_user_errors")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register capability user errors counter: %w", err)
 	}
 
 	em.workflowRegisteredCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_registered_count")
@@ -352,6 +358,11 @@ func (c WorkflowsMetricLabeler) EngineHeartbeatGauge(ctx context.Context, val in
 func (c WorkflowsMetricLabeler) IncrementCapabilityFailureCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.capabilityFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementCapabilityUserErrorCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.capabilityUserErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowRegisteredCounter(ctx context.Context) {

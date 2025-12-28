@@ -119,7 +119,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	upkeepNeeded := false
 
 	// run basic checks and check upkeep by trigger type
-	if triggerType == ConditionTrigger {
+	switch triggerType {
+	case ConditionTrigger:
 		message("upkeep identified as conditional trigger")
 
 		// validate inputs
@@ -155,7 +156,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
 		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, 0, rawCall, registryAddress))
-	} else if triggerType == LogTrigger {
+	case LogTrigger:
 		// validate inputs
 		message("upkeep identified as log trigger")
 		if len(args) != 3 {
@@ -260,7 +261,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		rawCall = core.ILogAutomationABI.Methods["checkLog"].ID
 		rawCall = append(rawCall, triggerData...)
 		addLink("checkLog (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
-	} else {
+	default:
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
 

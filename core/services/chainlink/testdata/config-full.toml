@@ -167,6 +167,7 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+SampleTelemetry = false
 KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]

@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"gopkg.in/yaml.v3"
+
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -256,7 +257,7 @@ func generateOverridesToml(
 	}
 
 	if capabilitiesBootstrapper != nil {
-		conf.Core.Capabilities.Peering.V2.DefaultBootstrappers = ptr([]ocrcommontypes.BootstrapperLocator{*capabilitiesBootstrapper})
+		conf.Capabilities.Peering.V2.DefaultBootstrappers = ptr([]ocrcommontypes.BootstrapperLocator{*capabilitiesBootstrapper})
 
 		if nodeSetName == WorkflowNodeSetName {
 			evmConfig.Workflow = evmcfg.Workflow{

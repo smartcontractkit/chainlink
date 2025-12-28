@@ -438,6 +438,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
+		SampleTelemetry:                    ptr(false),
 		KeyValueStoreRootDir:               ptr("~/.chainlink-data"),
 	}
 	full.OCR = toml.OCR{
@@ -1129,6 +1130,7 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+SampleTelemetry = false
 KeyValueStoreRootDir = '~/.chainlink-data'
 `},
 		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
@@ -1877,7 +1879,6 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 	if err := invalid.Validate(); assert.Error(t, err) {
 		got := err.Error()
 		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
-
 	}
 }
 

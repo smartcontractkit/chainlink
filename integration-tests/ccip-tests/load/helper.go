@@ -2,6 +2,7 @@ package load
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -78,8 +79,8 @@ func (l *LoadArgs) SetReportParams() {
 	}
 	// add one of the source and destination network to the grafana query params
 	if len(l.TestSetupArgs.Lanes) > 0 {
-		qParams = append(qParams, fmt.Sprintf("var-source_chain=%s", l.TestSetupArgs.Lanes[0].ForwardLane.SourceNetworkName))
-		qParams = append(qParams, fmt.Sprintf("var-dest_chain=%s", l.TestSetupArgs.Lanes[0].ForwardLane.DestNetworkName))
+		qParams = append(qParams, "var-source_chain="+l.TestSetupArgs.Lanes[0].ForwardLane.SourceNetworkName)
+		qParams = append(qParams, "var-dest_chain="+l.TestSetupArgs.Lanes[0].ForwardLane.DestNetworkName)
 	}
 	err := l.TestSetupArgs.Reporter.AddToGrafanaDashboardQueryParams(qParams...)
 	require.NoError(l.t, err, "failed to set grafana query params")
@@ -107,7 +108,7 @@ func (l *LoadArgs) Setup() {
 }
 
 func (l *LoadArgs) scheduleForDest(destNetworkName string) []*wasp.Segment {
-	require.Greater(l.t, len(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime), 0, "RequestPerUnitTime must be set")
+	require.NotEmpty(l.t, l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime, "RequestPerUnitTime must be set")
 	// try to locate if there is a frequency provided for the destination network
 	// to locate the frequency, we check if the destination network name contains the network name in the frequency map
 	// if found, use that frequency for the destination network
@@ -358,7 +359,7 @@ func (l *LoadArgs) AddToRunnerGroup(gen *wasp.Generator) {
 	l.RunnerWg.Go(func() error {
 		_, failed := gen.Wait()
 		if failed {
-			return fmt.Errorf("load run is failed")
+			return errors.New("load run is failed")
 		}
 		if len(gen.Errors()) > 0 {
 			return fmt.Errorf("error in load sequence call %v", gen.Errors())
@@ -443,7 +444,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 			lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 			loadRunner, err := wasp.NewGenerator(&wasp.Config{
 				T:                     l.TestCfg.Test,
-				GenName:               fmt.Sprintf("Source %s", source),
+				GenName:               "Source " + source,
 				Schedule:              wasp.Plain(1, l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration()), // hardcoded request per unit time to 1 as we are using multiCallGen
 				LoadType:              wasp.RPS,
 				RateLimitUnitDuration: l.TestCfg.TestGroupInput.LoadProfile.TimeUnit.Duration(),

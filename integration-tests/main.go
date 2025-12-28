@@ -77,12 +77,12 @@ func main() {
 		"workflow", "run", workflowFile,
 		"--repo", chainlinkRepo,
 		"--ref", branch,
-		"-f", fmt.Sprintf("directory=%s", dir),
-		"-f", fmt.Sprintf("test=Test%s", test),
-		"-f", fmt.Sprintf("network=%s", network),
-		"-f", fmt.Sprintf("wsURL=%s", wsURL),
-		"-f", fmt.Sprintf("httpURL=%s", httpURL),
-		"-f", fmt.Sprintf("fundingKey=%s", fundingKey),
+		"-f", "directory="+dir,
+		"-f", "test=Test"+test,
+		"-f", "network="+network,
+		"-f", "wsURL="+wsURL,
+		"-f", "httpURL="+httpURL,
+		"-f", "fundingKey="+fundingKey,
 	)
 	if err != nil {
 		fmt.Printf("Error running gh workflow run: %v\n", err)

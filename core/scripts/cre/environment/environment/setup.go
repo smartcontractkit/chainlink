@@ -70,12 +70,12 @@ func init() {
 }
 
 type config struct {
-	General        generalConfig        `toml:"general"`
-	JobDistributor jobDistributorConfig `toml:"job_distributor"`
-	ChipIngress    chipIngressConfig    `toml:"chip_ingress"`
-	BillingService billingServiceConfig `toml:"billing_platform_service"`
-	Capabilities   capabilitiesConfig   `toml:"capabilities"`
-	Observability  observabilityConfig  `toml:"observability"`
+	General        generalConfig         `toml:"general"`
+	JobDistributor jobDistributorConfig  `toml:"job_distributor"`
+	ChipIngress    *chipIngressConfig    `toml:"chip_ingress"`
+	BillingService *billingServiceConfig `toml:"billing_platform_service"`
+	Capabilities   capabilitiesConfig    `toml:"capabilities"`
+	Observability  observabilityConfig   `toml:"observability"`
 }
 
 type generalConfig struct {
@@ -487,19 +487,30 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
-	chipConfig := ImageConfig{
-		BuildConfig: cfg.ChipIngress.BuildConfig,
-		PullConfig:  cfg.ChipIngress.PullConfig,
-	}
+	var chipLocalImage string
+	if cfg.ChipIngress != nil {
+		chipConfig := ImageConfig{
+			BuildConfig: cfg.ChipIngress.BuildConfig,
+			PullConfig:  cfg.ChipIngress.PullConfig,
+		}
 
-	chipLocalImage, chipErr := chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
-	if chipErr != nil {
-		setupErr = errors.Wrap(chipErr, "failed to ensure Atlas Chip Ingress image")
-		return
+		var err error
+		chipLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Ingress setup, because configuration is not provided in the config file")
 	}
 
 	var billingLocalImage string
 	if withBilling {
+		if cfg.BillingService == nil {
+			setupErr = errors.New("billing service configuration is required when using --with-billing flag")
+			return
+		}
+
 		billingConfig := ImageConfig{
 			BuildConfig: cfg.BillingService.BuildConfig,
 			PullConfig:  cfg.BillingService.PullConfig,
@@ -511,6 +522,8 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 			setupErr = errors.Wrap(billingErr, "failed to ensure Billing Platform Service image")
 			return
 		}
+	} else {
+		logger.Warn().Msgf("Skipping Billing Platform Service setup, because the --with-billing flag was not provided")
 	}
 
 	observabilityRepoPath, _, err := setupRepo(ctx, logger, cfg.Observability.RepoURL, cfg.Observability.Branch,
@@ -534,9 +547,11 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("✅ Setup Summary:")
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
-	logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	if chipLocalImage != "" {
+		logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	}
 	logger.Info().Msgf("   ✓ Observability repo cloned to %s", observabilityRepoPath)
-	if withBilling {
+	if billingLocalImage != "" {
 		logger.Info().Msgf("   ✓ Billing Platform Service image %s is available", billingLocalImage)
 	}
 	if ghCli {

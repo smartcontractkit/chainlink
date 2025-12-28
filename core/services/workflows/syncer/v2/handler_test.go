@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -105,6 +104,15 @@ func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
 
+// mockEngineFactory returns a standard mock engine factory for tests.
+// It sends nil to initDone to signal successful initialization.
+func mockEngineFactory(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+	if initDone != nil {
+		initDone <- nil
+	}
+	return &mockEngine{}, nil
+}
+
 func Test_Handler(t *testing.T) {
 	t.Run("fails with unsupported event type", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -118,8 +126,6 @@ func Test_Handler(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		limiters, err := v2.NewLimiters(lf, nil)
-		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
@@ -143,7 +149,7 @@ func Test_Handler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, NewEngineRegistry(), emitter, limiters, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -213,9 +219,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
-				return &mockEngine{}, nil
-			},
+			engineFactoryFn:  mockEngineFactory,
 			GiveConfig:       config,
 			ConfigURLFactory: configURLFactory,
 			BinaryURLFactory: binaryURLFactory,
@@ -248,13 +252,16 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
 				want := hex.EncodeToString([]byte(pkgworkflows.HashTruncateName(name.String())))
 				if want != name.Hex() {
 					return nil, fmt.Errorf("invalid workflow name: doesn't match, got %s, want %s", name.Hex(), want)
+				}
+				if initDone != nil {
+					initDone <- nil
 				}
 				return &mockEngine{}, nil
 			},
@@ -289,7 +296,10 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+				if initDone != nil {
+					initDone <- nil
+				}
 				return &mockEngine{StartErr: assert.AnError}, nil
 			},
 			GiveConfig:       config,
@@ -382,6 +392,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
 				}
 			},
+			engineFactoryFn: mockEngineFactory,
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
 				me := &mockEngine{}
 				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
@@ -470,6 +481,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
 				}
 			},
+			engineFactoryFn: mockEngineFactory,
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
 			) {
@@ -519,6 +531,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedBinaryURL:                      {Body: encodedBinary, Err: nil},
 				})
 			},
+			engineFactoryFn: mockEngineFactory,
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
@@ -555,6 +568,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
+			engineFactoryFn: mockEngineFactory,
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
@@ -606,7 +620,7 @@ type testCase struct {
 	fetcherFactory   func(wfID []byte) *mockFetcher
 	Event            func(wfID []byte) WorkflowRegisteredEvent
 	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error)
+	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -646,8 +660,6 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
-		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
@@ -657,7 +669,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, opts...)
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, opts...)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
@@ -751,8 +763,6 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
-		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
@@ -761,7 +771,10 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(mockEngineFactory),
+		)
 		require.NoError(t, err)
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
 		err = h.workflowRegisteredEvent(ctx, active)
@@ -821,8 +834,6 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
-		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
@@ -830,7 +841,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
 		require.NoError(t, err)
 
 		deleteEvent := WorkflowDeletedEvent{
@@ -896,8 +907,6 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
-		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
@@ -908,7 +917,10 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(mockEngineFactory),
+		)
 		require.NoError(t, err)
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
 		err = h.workflowRegisteredEvent(ctx, active)
@@ -1009,8 +1021,6 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
-	require.NoError(t, err)
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 	require.NoError(t, err)
 
@@ -1035,11 +1045,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	require.NoError(t, err)
 	defer orgResolver.Close()
 
-	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitter, limiters, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 		WithEngineRegistry(er),
-		WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
-			return &mockEngine{}, nil
-		}),
+		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(orgResolver),
 	)
 	require.NoError(t, err)
@@ -1104,11 +1112,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitter, limiters, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey, &testDonNotifier{},
+		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitter, limiters, workflowLimits, deleteArtifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
-			WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
-				return &mockEngine{}, nil
-			}),
+			WithEngineFactoryFn(mockEngineFactory),
 			WithOrgResolver(orgResolver),
 		)
 		require.NoError(t, err)

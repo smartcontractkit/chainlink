@@ -214,11 +214,11 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			// decode using the contract
 			contractDecodedReport, err := contract.DecodeExecuteReport(&bind.CallOpts{Context: ctx}, bytes)
 			assert.NoError(t, err)
-			assert.Equal(t, len(report.ChainReports), len(contractDecodedReport))
+			assert.Len(t, contractDecodedReport, len(report.ChainReports))
 			for i, expReport := range report.ChainReports {
 				actReport := contractDecodedReport[i]
 				assert.Equal(t, expReport.OffchainTokenData, actReport.OffchainTokenData)
-				assert.Equal(t, len(expReport.Messages), len(actReport.Messages))
+				assert.Len(t, actReport.Messages, len(expReport.Messages))
 				assert.Equal(t, uint64(expReport.SourceChainSelector), actReport.SourceChainSelector)
 			}
 

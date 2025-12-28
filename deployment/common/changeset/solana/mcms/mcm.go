@@ -12,17 +12,16 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/mcm"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 func deployMCMProgram(
@@ -39,8 +38,8 @@ func deployMCMProgram(
 
 	if programID.IsZero() {
 		deployedProgramID, err := chain.DeployProgram(log, cldf_solana.ProgramInfo{
-			Name:  deployment.McmProgramName,
-			Bytes: deployment.SolanaProgramBytes[deployment.McmProgramName],
+			Name:  solutils.ProgMCM,
+			Bytes: solutils.GetProgramBufferBytes(solutils.ProgMCM),
 		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy mcm program: %w", err)

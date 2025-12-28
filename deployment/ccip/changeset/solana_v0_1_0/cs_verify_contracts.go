@@ -15,10 +15,10 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 const (
@@ -335,13 +335,13 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 		programLib string
 		enabled    bool
 	}{
-		{"Fee Quoter", chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, cfg.VerifyFeeQuoter},
-		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
-		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
-		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
-		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
-		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
-		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
+		{"Fee Quoter", chainState.FeeQuoter.String(), solutils.ProgFeeQuoter, cfg.VerifyFeeQuoter},
+		{"Router", chainState.Router.String(), solutils.ProgCCIPRouter, cfg.VerifyRouter},
+		{"OffRamp", chainState.OffRamp.String(), solutils.ProgCCIPOfframp, cfg.VerifyOffRamp},
+		{"RMN Remote", chainState.RMNRemote.String(), solutils.ProgRMNRemote, cfg.VerifyRMNRemote},
+		{"Access Controller", mcmState.AccessControllerProgram.String(), solutils.ProgAccessController, cfg.VerifyAccessController},
+		{"MCM", mcmState.McmProgram.String(), solutils.ProgMCM, cfg.VerifyMCM},
+		{"Timelock", mcmState.TimelockProgram.String(), solutils.ProgTimelock, cfg.VerifyTimelock},
 	}
 	for _, bnmMetadata := range cfg.BurnMintTokenPoolMetadata {
 		verifications = append(verifications, struct {
@@ -352,7 +352,7 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 		}{
 			name:       "Burn Mint Token Pool",
 			programID:  chainState.BurnMintTokenPools[bnmMetadata].String(),
-			programLib: deployment.BurnMintTokenPoolProgramName,
+			programLib: solutils.ProgBurnMintTokenPool,
 			enabled:    true,
 		})
 	}
@@ -366,7 +366,7 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 		}{
 			name:       "Lock Release Token Pool",
 			programID:  chainState.LockReleaseTokenPools[lnrMetadata].String(),
-			programLib: deployment.LockReleaseTokenPoolProgramName,
+			programLib: solutils.ProgLockReleaseTokenPool,
 			enabled:    true,
 		})
 	}

@@ -31,8 +31,8 @@ func Test_DecodeHardcodedType(t *testing.T) {
 		err = decodeHardcodedType(&out, log)
 		require.NoError(t, err)
 
-		require.Equal(t, true, bytes.Equal(fixtLog.BlessedMerkleRoots[0].MerkleRoot[:], out.BlessedMerkleRoots[0].MerkleRoot[:]))
-		require.Equal(t, true, bytes.Equal(fixtLog.UnblessedMerkleRoots[0].MerkleRoot[:], out.UnblessedMerkleRoots[0].MerkleRoot[:]))
+		require.True(t, bytes.Equal(fixtLog.BlessedMerkleRoots[0].MerkleRoot[:], out.BlessedMerkleRoots[0].MerkleRoot[:]))
+		require.True(t, bytes.Equal(fixtLog.UnblessedMerkleRoots[0].MerkleRoot[:], out.UnblessedMerkleRoots[0].MerkleRoot[:]))
 	})
 
 	t.Run("decode hardcoded type onramp SendRequested success", func(t *testing.T) {
@@ -46,9 +46,9 @@ func Test_DecodeHardcodedType(t *testing.T) {
 
 		require.Equal(t, ccipocr3.SeqNum(fixtLog.SequenceNumber), out.SequenceNumber)
 		require.Equal(t, ccipocr3.ChainSelector(fixtLog.DestChainSelector), out.DestChainSelector)
-		require.Equal(t, true, bytes.Equal(fixtLog.Message.Data, out.Message.Data))
-		require.Equal(t, true, bytes.Equal(fixtLog.Message.FeeToken.Bytes(), out.Message.FeeToken[:]))
-		require.Equal(t, len(fixtLog.Message.TokenAmounts), len(out.Message.TokenAmounts))
+		require.True(t, bytes.Equal(fixtLog.Message.Data, out.Message.Data))
+		require.True(t, bytes.Equal(fixtLog.Message.FeeToken.Bytes(), out.Message.FeeToken[:]))
+		require.Len(t, out.Message.TokenAmounts, len(fixtLog.Message.TokenAmounts))
 	})
 	t.Run("decode hardcoded tupe offramp ExecutionStateChange success", func(t *testing.T) {
 		fixtLog := getFixtureExecStateChangedLog()
@@ -61,8 +61,8 @@ func Test_DecodeHardcodedType(t *testing.T) {
 
 		assert.Equal(t, fixtLog.GasUsed, &out.GasUsed)
 		assert.Equal(t, ccipocr3.SeqNum(fixtLog.SequenceNumber), out.SequenceNumber)
-		assert.Equal(t, true, bytes.Equal(fixtLog.MessageHash[:], out.MessageHash[:]))
-		assert.Equal(t, true, bytes.Equal(fixtLog.ReturnData[:], out.ReturnData[:]))
+		assert.True(t, bytes.Equal(fixtLog.MessageHash[:], out.MessageHash[:]))
+		assert.True(t, bytes.Equal(fixtLog.ReturnData, out.ReturnData[:]))
 	})
 }
 func generateOffRampStateChangeLog(log offramp.OffRampExecutionStateChanged) (*logpoller.Log, error) {

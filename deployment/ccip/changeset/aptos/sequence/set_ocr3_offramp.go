@@ -6,6 +6,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -26,7 +27,7 @@ var SetOCR3OfframpSequence = operations.NewSequence(
 	setOCR3OfframpSequence,
 )
 
-func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in SetOCR3OfframpSeqInput) (mcmstypes.BatchOperation, error) {
+func setOCR3OfframpSequence(b operations.Bundle, deps dependency.AptosDeps, in SetOCR3OfframpSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	donID, err := internal.DonIDForChain(

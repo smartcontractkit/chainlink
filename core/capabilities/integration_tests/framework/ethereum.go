@@ -57,7 +57,7 @@ func (b *EthBlockchain) Start(ctx context.Context) error {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					b.Backend.Commit()
+					b.Commit()
 				}
 			}
 		}()

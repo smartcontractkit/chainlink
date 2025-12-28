@@ -384,7 +384,7 @@ func Test_SecretsWorker(t *testing.T) {
 			require.Equal(t, string(beforeSecretsPayload), contents)
 			limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 			require.NoError(t, err)
-			rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+			rl, err := ratelimiter.NewRateLimiter(rlConfig)
 			require.NoError(t, err)
 
 			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -573,7 +573,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -671,7 +671,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
@@ -1014,10 +1014,10 @@ type testSecretsWorkEventHandler struct {
 func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event Event) error {
-	switch {
-	case event.EventType == ForceUpdateSecretsEvent:
+	switch event.EventType {
+	case ForceUpdateSecretsEvent:
 		return m.wrappedHandler.Handle(ctx, event)
-	case event.EventType == WorkflowRegisteredEvent:
+	case WorkflowRegisteredEvent:
 		m.registeredCh <- event
 		return nil
 	default:

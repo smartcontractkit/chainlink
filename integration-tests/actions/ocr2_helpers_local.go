@@ -3,6 +3,7 @@ package actions
 import (
 	"crypto/ed25519"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -13,11 +14,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"golang.org/x/sync/errgroup"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -68,7 +70,7 @@ func CreateOCRv2JobsLocal(
 
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
-			Name:    fmt.Sprintf("ocr2_bootstrap-%s", uuid.NewString()),
+			Name:    "ocr2_bootstrap-" + uuid.NewString(),
 			JobType: "bootstrap",
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
@@ -101,7 +103,7 @@ func CreateOCRv2JobsLocal(
 				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath),
 			}
 			juelsBridge := &nodeclient.BridgeTypeAttributes{
-				Name: fmt.Sprintf("juels-%s", uuid.NewString()),
+				Name: "juels-" + uuid.NewString(),
 				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, juelsRoute.Path),
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
@@ -114,7 +116,7 @@ func CreateOCRv2JobsLocal(
 			}
 
 			ocrSpec := &nodeclient.OCR2TaskJobSpec{
-				Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
+				Name:              "ocr2-" + uuid.NewString(),
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
@@ -283,7 +285,7 @@ func GetOracleIdentitiesWithKeyIndexLocal(
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
@@ -294,7 +296,7 @@ func GetOracleIdentitiesWithKeyIndexLocal(
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
@@ -368,7 +370,6 @@ func DeleteBridges(nodes []*nodeclient.ChainlinkClient) error {
 				return err
 			}
 		}
-
 	}
 	return nil
 }

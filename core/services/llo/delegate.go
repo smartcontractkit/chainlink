@@ -72,6 +72,7 @@ type DelegateConfig struct {
 
 	// OCR3
 	TraceLogging                 bool
+	SampleTelemetry              bool
 	BinaryNetworkEndpointFactory ocr2types.BinaryNetworkEndpointFactory
 	V2Bootstrappers              []ocrcommontypes.BootstrapperLocator
 	// One Oracle will be started for each ContractConfigTracker
@@ -118,6 +119,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		CaptureObservationTelemetry: cfg.CaptureObservationTelemetry,
 		CaptureOutcomeTelemetry:     cfg.CaptureOutcomeTelemetry,
 		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
+		SampleTelemetry:             cfg.SampleTelemetry,
 	})
 
 	ds := observation.NewDataSource(
@@ -137,7 +139,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 func (d *delegate) Start(ctx context.Context) error {
 	return d.StartOnce("LLODelegate", func() error {
 		// create the oracle from config values
-		if !(len(d.cfg.ContractConfigTrackers) == 1 || len(d.cfg.ContractConfigTrackers) == 2) {
+		if len(d.cfg.ContractConfigTrackers) != 1 && len(d.cfg.ContractConfigTrackers) != 2 {
 			return fmt.Errorf("expected either 1 or 2 ContractConfigTrackers, got: %d", len(d.cfg.ContractConfigTrackers))
 		}
 

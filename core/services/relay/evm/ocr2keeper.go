@@ -34,7 +34,7 @@ import (
 var (
 	_                        OCR2KeeperRelayer  = (*ocr2keeperRelayer)(nil)
 	_                        OCR2KeeperProvider = (*ocr2keeperProvider)(nil)
-	ErrInitializationFailure                    = fmt.Errorf("failed to initialize registry")
+	ErrInitializationFailure                    = errors.New("failed to initialize registry")
 )
 
 // OCR2KeeperProviderOpts is the custom options to create a keeper provider

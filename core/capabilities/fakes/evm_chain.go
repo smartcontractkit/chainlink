@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -99,7 +100,7 @@ func (fc *FakeEVMChain) Initialise(ctx context.Context, dependencies core.Standa
 	return nil
 }
 
-func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.CallContractRequest) (*commonCap.ResponseAndMetadata[*evmcappb.CallContractReply], error) {
+func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.CallContractRequest) (*commonCap.ResponseAndMetadata[*evmcappb.CallContractReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain CallContract Started")
 	fc.eng.Debugw("EVM Chain CallContract Input", "input", input)
 
@@ -116,7 +117,7 @@ func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.Req
 	blockNumber := pb.NewIntFromBigInt(input.BlockNumber)
 	data, err := fc.gethClient.CallContract(ctx, msg, blockNumber)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	fc.eng.Debugw("EVM Chain CallContract Data Output", "data", new(big.Int).SetBytes(data).String())
@@ -137,19 +138,19 @@ func (fc *FakeEVMChain) WriteReport(
 	ctx context.Context,
 	metadata commonCap.RequestMetadata,
 	input *evmcappb.WriteReportRequest,
-) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], error) {
+) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
 	// Create authenticated transactor
 	chainID, err := fc.gethClient.ChainID(ctx)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	auth, err := bind.NewKeyedTransactorWithChainID(fc.privateKey, chainID)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	// Set gas limit if provided
@@ -164,7 +165,12 @@ func (fc *FakeEVMChain) WriteReport(
 
 	// If dryRunWrites is enabled, simulate the transaction without broadcasting it
 	if fc.dryRunWrites {
-		return fc.dryRunWriteReport(ctx, auth.From, input, signatures)
+		resp, dryRunErr := fc.dryRunWriteReport(ctx, auth.From, input, signatures)
+		if dryRunErr != nil {
+			return nil, caperrors.NewPublicSystemError(dryRunErr, caperrors.Unknown)
+		}
+
+		return resp, nil
 	}
 
 	reportTx, err := fc.mockKeystoneForwarder.Report(
@@ -175,13 +181,13 @@ func (fc *FakeEVMChain) WriteReport(
 		signatures,
 	)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	// TODO: should we wait for the transaction to be mined?
 	receipt, err := bind.WaitMined(ctx, fc.gethClient, reportTx)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	fc.eng.Debugw("EVM Chain WriteReport Receipt", "status", receipt.Status, "gasUsed", receipt.GasUsed, "txHash", receipt.TxHash.Hex())
@@ -256,7 +262,7 @@ func (fc *FakeEVMChain) createManualTriggerEvent(log *evmcappb.Log) commonCap.Tr
 	}
 }
 
-func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogsRequest) (*commonCap.ResponseAndMetadata[*evmcappb.FilterLogsReply], error) {
+func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogsRequest) (*commonCap.ResponseAndMetadata[*evmcappb.FilterLogsReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain FilterLogs Started", "input", input)
 
 	// Prepare filter query
@@ -274,7 +280,7 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 	// Filter logs
 	logs, err := fc.gethClient.FilterLogs(ctx, filterQuery)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	fc.eng.Infow("EVM Chain FilterLogs Finished", "logs", logs)
@@ -298,11 +304,11 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 	return &responseAndMetadata, nil
 }
 
-func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.BalanceAtRequest) (*commonCap.ResponseAndMetadata[*evmcappb.BalanceAtReply], error) {
+func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.BalanceAtRequest) (*commonCap.ResponseAndMetadata[*evmcappb.BalanceAtReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain BalanceAt Started", "input", input)
 
 	if input == nil {
-		return nil, errors.New("BalanceAtRequest is nil")
+		return nil, caperrors.NewPublicSystemError(errors.New("BalanceAtRequest is nil"), caperrors.Unknown)
 	}
 
 	// Prepare balance at request
@@ -314,7 +320,7 @@ func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata commonCap.Reques
 	// Get balance at block number
 	balance, err := fc.gethClient.BalanceAt(ctx, address, blockArg)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	// Convert balance to protobuf
@@ -328,7 +334,7 @@ func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata commonCap.Reques
 	return &responseAndMetadata, nil
 }
 
-func (fc *FakeEVMChain) EstimateGas(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.EstimateGasRequest) (*commonCap.ResponseAndMetadata[*evmcappb.EstimateGasReply], error) {
+func (fc *FakeEVMChain) EstimateGas(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.EstimateGasRequest) (*commonCap.ResponseAndMetadata[*evmcappb.EstimateGasReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain EstimateGas Started", "input", input)
 
 	// Prepare estimate gas request
@@ -342,7 +348,7 @@ func (fc *FakeEVMChain) EstimateGas(ctx context.Context, metadata commonCap.Requ
 	// Estimate gas
 	gas, err := fc.gethClient.EstimateGas(ctx, msg)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	// Convert gas to protobuf
@@ -357,7 +363,7 @@ func (fc *FakeEVMChain) EstimateGas(ctx context.Context, metadata commonCap.Requ
 	return &responseAndMetadata, nil
 }
 
-func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.GetTransactionByHashRequest) (*commonCap.ResponseAndMetadata[*evmcappb.GetTransactionByHashReply], error) {
+func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.GetTransactionByHashRequest) (*commonCap.ResponseAndMetadata[*evmcappb.GetTransactionByHashReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain GetTransactionByHash Started", "input", input)
 
 	// Prepare get transaction by hash request
@@ -366,7 +372,7 @@ func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata commo
 	// Get transaction by hash
 	transaction, pending, err := fc.gethClient.TransactionByHash(ctx, hash)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	fc.eng.Infow("EVM Chain GetTransactionByHash Finished", "transaction", transaction, "pending", pending)
@@ -390,7 +396,7 @@ func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata commo
 	return &responseAndMetadata, nil
 }
 
-func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.GetTransactionReceiptRequest) (*commonCap.ResponseAndMetadata[*evmcappb.GetTransactionReceiptReply], error) {
+func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.GetTransactionReceiptRequest) (*commonCap.ResponseAndMetadata[*evmcappb.GetTransactionReceiptReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain GetTransactionReceipt Started", "input", input)
 
 	// Prepare get transaction receipt request
@@ -399,7 +405,7 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 	// Get transaction receipt
 	receipt, err := fc.gethClient.TransactionReceipt(ctx, hash)
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 
 	fc.eng.Infow("EVM Chain GetTransactionReceipt Finished", "receipt", receipt)
@@ -431,7 +437,7 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 	return &responseAndMetadata, nil
 }
 
-func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*commonCap.ResponseAndMetadata[*evmcappb.HeaderByNumberReply], error) {
+func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*commonCap.ResponseAndMetadata[*evmcappb.HeaderByNumberReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain HeaderByNumber Started", "input", input)
 
 	var (
@@ -447,7 +453,7 @@ func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.R
 
 	// Enforce int64 constraint
 	if reqNum != nil && !reqNum.IsInt64() {
-		return nil, fmt.Errorf("block number %s is larger than int64: %w", reqNum.String(), ethereum.NotFound)
+		return nil, caperrors.NewPublicSystemError(fmt.Errorf("block number %s is larger than int64: %w", reqNum.String(), ethereum.NotFound), caperrors.Unknown)
 	}
 
 	switch {
@@ -469,14 +475,14 @@ func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.R
 
 	// any other negative is unexpected
 	default:
-		return nil, fmt.Errorf("unexpected block number %s: %w", reqNum.String(), ethereum.NotFound)
+		return nil, caperrors.NewPublicSystemError(fmt.Errorf("unexpected block number %s: %w", reqNum.String(), ethereum.NotFound), caperrors.Unknown)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
 	}
 	if header == nil {
-		return nil, ethereum.NotFound
+		return nil, caperrors.NewPublicSystemError(ethereum.NotFound, caperrors.Unknown)
 	}
 
 	// Convert header to protobuf

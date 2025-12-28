@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -15,7 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/protocol/common/hmac"
-	"github.com/smartcontractkit/chainlink-ccv/verifier"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/commit"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -35,14 +37,16 @@ type Delegate struct {
 	// TODO: EVM specific (!)
 	chainServices []commontypes.ChainService
 	ocrKs         keystore.OCR2
+	ds            sqlutil.DataSource
 
 	isNewlyCreatedJob bool
 }
 
-func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
+func NewDelegate(lggr logger.Logger, ds sqlutil.DataSource, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
 	return &Delegate{
 		delegateLogger: lggr.Named("CCVCommitteeVerifierDelegate"),
 		lggr:           lggr,
+		ds:             ds,
 		ccvConfig:      ccvConfig,
 		chainServices:  chainServices,
 		ocrKs:          ocrKs,
@@ -60,7 +64,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
 	d.delegateLogger.Infow("Creating services for CCV committee verifier job", "jobID", spec.ID)
 
-	var decodedCfg verifier.Config
+	var decodedCfg commit.Config
 	err = toml.Unmarshal([]byte(spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig), &decodedCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal committeeVerifierConfig into the verifier config struct: %w", err)
@@ -138,6 +142,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		common.HexToAddress(decodedCfg.SignerAddress).Bytes(),
 		newSignerAdapter(signingKey),
 		legacyChains,
+		d.ds,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create verification coordinator: %w", err)
@@ -149,12 +154,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 }
 
 func getAggregatorSecrets(ccvConfig config.CCV, verifierID string) (string, string, error) {
+	verifierIDs := make([]string, 0, len(ccvConfig.AggregatorSecrets()))
 	for _, secret := range ccvConfig.AggregatorSecrets() {
 		if secret.VerifierID() == verifierID {
 			return secret.APIKey(), secret.APISecret(), nil
 		}
+		verifierIDs = append(verifierIDs, secret.VerifierID())
 	}
-	return "", "", fmt.Errorf("no aggregator secrets found for verifier ID %s", verifierID)
+	return "", "", fmt.Errorf("no aggregator secrets found for verifier ID %s, found %s", verifierID, strings.Join(verifierIDs, ", "))
 }
 
 func (d *Delegate) AfterJobCreated(spec job.Job) {}

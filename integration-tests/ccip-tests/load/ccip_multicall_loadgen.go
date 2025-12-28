@@ -1,6 +1,7 @@
 package load
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -51,14 +52,14 @@ func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*acti
 	source := lanes[0].Source.Common.ChainClient.GetChainID()
 	multiCall := lanes[0].Source.Common.MulticallContract.Hex()
 	if multiCall == "" {
-		return nil, fmt.Errorf("multicall address cannot be empty")
+		return nil, errors.New("multicall address cannot be empty")
 	}
 	for i := 1; i < len(lanes); i++ {
 		if source.String() != lanes[i].Source.Common.ChainClient.GetChainID().String() {
 			return nil, fmt.Errorf("all lanes should be from same network; expected %s, got %s", source, lanes[i].Source.Common.ChainClient.GetChainID())
 		}
 		if lanes[i].Source.Common.MulticallContract.Hex() != multiCall {
-			return nil, fmt.Errorf("multicall address should be same for all lanes")
+			return nil, errors.New("multicall address should be same for all lanes")
 		}
 	}
 	client := lanes[0].Source.Common.ChainClient

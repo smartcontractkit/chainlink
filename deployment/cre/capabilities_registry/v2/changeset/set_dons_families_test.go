@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
@@ -110,6 +111,8 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 	t.Run("set families for existing DON - MCMS", func(t *testing.T) {
 		mcmsEnv := test.SetupEnvV2(t, true)
 
+		duration, testErr := commonconfig.NewDuration(1 * time.Second)
+		require.NoError(t, testErr)
 		csOut, testErr := cs.Apply(*mcmsEnv.Env, changeset.SetDONsFamiliesInput{
 			RegistrySelector:  chainSelector,
 			RegistryQualifier: test.RegistryQualifier,
@@ -124,13 +127,14 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 				TimelockQualifierPerChain: map[uint64]string{
 					chainSelector: "",
 				},
+				ValidDuration: &duration,
 			},
 		})
 		require.NoError(t, testErr)
 
 		// Verify the changeset output
-		require.NotNil(t, csOut.Reports, "reports should be present")
-		require.NotEmpty(t, csOut.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
+		assert.NotNil(t, csOut.Reports, "reports should be present")
+		assert.NotEmpty(t, csOut.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
 	})
 
 	t.Run("remove families for existing DON", func(t *testing.T) {

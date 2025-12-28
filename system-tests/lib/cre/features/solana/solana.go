@@ -33,7 +33,6 @@ import (
 
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -141,7 +140,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 		},
 		ks_sol_seq.DeployForwarderSeqInput{
 			ChainSel:     solChain.ChainSelector(),
-			ProgramName:  deployment.KeystoneForwarderProgramName,
+			ProgramName:  solutils.ProgKeystoneForwarder,
 			Qualifier:    ks_sol.DefaultForwarderQualifier,
 			ContractType: ks_sol.ForwarderContract,
 			Version:      version,

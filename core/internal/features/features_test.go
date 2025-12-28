@@ -1395,13 +1395,13 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
 	haveUsd, err := consumer.UsdInt(nil)
 	require.NoError(t, err)
-	assert.Equal(t, usd.Cmp(haveUsd), 0)
+	assert.Equal(t, 0, usd.Cmp(haveUsd))
 	haveEur, err := consumer.EurInt(nil)
 	require.NoError(t, err)
-	assert.Equal(t, eur.Cmp(haveEur), 0)
+	assert.Equal(t, 0, eur.Cmp(haveEur))
 	haveJpy, err := consumer.JpyInt(nil)
 	require.NoError(t, err)
-	assert.Equal(t, jpy.Cmp(haveJpy), 0)
+	assert.Equal(t, 0, jpy.Cmp(haveJpy))
 }
 
 func ptr[T any](v T) *T { return &v }

@@ -9,9 +9,9 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
-	solanashared "github.com/smartcontractkit/chainlink/deployment"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 type TokenView struct {
@@ -56,7 +56,7 @@ func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, t
 		view.FreezeAuthority = tokenMint.FreezeAuthority.String()
 	}
 	var tokenMetadata solTokenMetadata.Metadata
-	metadataPDA, err := solanashared.FindMplTokenMetadataPDA(tokenAddress)
+	metadataPDA, err := solutils.FindMplTokenMetadataPDA(tokenAddress)
 	if err != nil {
 		return view, fmt.Errorf("failed to find metadata PDA: %w", err)
 	}
