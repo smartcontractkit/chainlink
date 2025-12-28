@@ -127,7 +127,7 @@ func (cc *ChatbotController) Chat(c *gin.Context) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		cc.App.GetLogger().Errorw("Perplexity API error", "status", resp.StatusCode, "body", string(body))
-		jsonAPIError(c, resp.StatusCode, fmt.Errorf("Perplexity API error: %s", string(body)))
+		jsonAPIError(c, resp.StatusCode, fmt.Errorf("Perplexity API error (status %d)", resp.StatusCode))
 		return
 	}
 
