@@ -29,7 +29,7 @@ type ChatbotController struct {
 func NewChatbotController(app chainlink.Application) *ChatbotController {
 	return &ChatbotController{
 		App:        app,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{},
 	}
 }
 
