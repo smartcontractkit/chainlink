@@ -2,9 +2,7 @@ package utils
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -97,7 +95,7 @@ func NewStandaloneEngine(
 		GlobalBurst:    defaultBurst,
 		PerSenderRPS:   defaultRPS,
 		PerSenderBurst: defaultBurst,
-	}, lf)
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -208,16 +206,7 @@ func NewStandaloneEngine(
 	}
 	triggerSubscriptions := result.GetTriggerSubscriptions()
 
-	return &serviceWithClosers{engine, []io.Closer{limiters, workflowLimits, rl}}, triggerSubscriptions.GetSubscriptions(), nil
-}
-
-type serviceWithClosers struct {
-	services.Service
-	closers []io.Closer
-}
-
-func (s *serviceWithClosers) Close() error {
-	return errors.Join(s.Service.Close(), services.MultiCloser(s.closers).Close())
+	return engine, triggerSubscriptions.GetSubscriptions(), nil
 }
 
 // yamlConfig represents the structure of your secrets.yaml file.
