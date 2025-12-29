@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -12,28 +13,46 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/deployment/fastcurse"
 	"github.com/smartcontractkit/chainlink-ccip/deployment/utils/sequences"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	aptosops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
+	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 )
 
-type CurseAdapter struct{}
-
-type CurseSubjectAdapter struct{}
+type CurseAdapter struct {
+	CCIPAddress aptos.AccountAddress
+}
 
 func NewCurseAdapter() *CurseAdapter {
 	return &CurseAdapter{}
 }
 
-func NewCurseSubjectAdapter() *CurseSubjectAdapter {
-	return &CurseSubjectAdapter{}
+// Initialize performs any required setup. No-op for now.
+func (c *CurseAdapter) Initialize(e cldf.Environment, selector uint64) error {
+	stateMap, err := aptosstateview.LoadOnchainStateAptos(e)
+	if err != nil {
+		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
+	}
+
+	state, ok := stateMap[selector]
+	if !ok {
+		return fmt.Errorf("aptos chain %d not found in state", selector)
+	}
+	c.CCIPAddress = state.CCIPAddress
+	return nil
 }
 
-// Initialize performs any required setup. No-op for now.
-func (c *CurseAdapter) Initialize(cldf.Environment, uint64) error { return nil }
-
 // IsSubjectCursedOnChain currently returns false; extend with real RMN checks if needed.
-func (c *CurseAdapter) IsSubjectCursedOnChain(cldf.Environment, uint64, fastcurse.Subject) (bool, error) {
-	return false, nil
+func (c *CurseAdapter) IsSubjectCursedOnChain(e cldf.Environment, selector uint64, subject fastcurse.Subject) (bool, error) {
+	chain, ok := e.BlockChains.AptosChains()[selector]
+	if !ok {
+		return false, fmt.Errorf("aptos chain %d not found in environment", selector)
+	}
+	deps := dependency.AptosDeps{
+		AptosChain: chain,
+	}
+	return aptosops.IsSubjectCursed(deps, c.CCIPAddress, subject[:])
 }
 
 // IsChainConnectedToTargetChain returns true by default; tighten when connectivity checks are available.
@@ -84,16 +103,16 @@ func (c *CurseAdapter) ListConnectedChains(e cldf.Environment, selector uint64) 
 }
 
 // SelectorToSubject converts selector to Subject (family-aware).
-func (c *CurseSubjectAdapter) SelectorToSubject(selector uint64) fastcurse.Subject {
+func (c *CurseAdapter) SelectorToSubject(selector uint64) fastcurse.Subject {
 	return globals.FamilyAwareSelectorToSubject(selector, chainsel.FamilyAptos)
 }
 
-func (c *CurseSubjectAdapter) DeriveCurseAdapterVersion(e cldf.Environment, selector uint64) (*semver.Version, error) {
+func (c *CurseAdapter) DeriveCurseAdapterVersion(e cldf.Environment, selector uint64) (*semver.Version, error) {
 	return semver.MustParse("1.6.0"), nil
 }
 
 // Ensure interfaces are satisfied at compile time.
 var (
 	_ fastcurse.CurseAdapter        = (*CurseAdapter)(nil)
-	_ fastcurse.CurseSubjectAdapter = (*CurseSubjectAdapter)(nil)
+	_ fastcurse.CurseSubjectAdapter = (*CurseAdapter)(nil)
 )

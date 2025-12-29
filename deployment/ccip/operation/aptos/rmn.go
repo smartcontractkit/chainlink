@@ -7,6 +7,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
@@ -79,4 +80,15 @@ func uncurseMultiple(b operations.Bundle, deps dependency.AptosDeps, in UncurseM
 	}
 
 	return tx, nil
+}
+
+// IsSubjectCursed checks whether the given subject (or a global curse) exists on the RMN Remote.
+func IsSubjectCursed(deps dependency.AptosDeps, ccipAddress aptos.AccountAddress, subject []byte) (bool, error) {
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+	callOpts := &bind.CallOpts{}
+	cursed, err := ccipBind.RMNRemote().IsCursed(callOpts, subject)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subject is cursed: %w", err)
+	}
+	return cursed, nil
 }

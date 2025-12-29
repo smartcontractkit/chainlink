@@ -13,6 +13,6 @@ func init() {
 		CursingFamily:       chainsel.FamilyAptos,
 		CursingVersion:      semver.MustParse("1.6.0"),
 		CurseAdapter:        NewCurseAdapter(),
-		CurseSubjectAdapter: NewCurseSubjectAdapter(),
+		CurseSubjectAdapter: NewCurseAdapter(),
 	})
 }
