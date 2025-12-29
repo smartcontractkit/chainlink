@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
@@ -29,7 +30,7 @@ var DeployMCMSOp = operations.NewOperation(
 	deployMCMS,
 )
 
-func deployMCMS(b operations.Bundle, deps AptosDeps, _ operations.EmptyInput) (aptos.AccountAddress, error) {
+func deployMCMS(b operations.Bundle, deps dependency.AptosDeps, _ operations.EmptyInput) (aptos.AccountAddress, error) {
 	mcmsSeed := mcmsbind.DefaultSeed + time.Now().String()
 	mcmsAddress, mcmsDeployTx, _, err := mcmsbind.DeployToResourceAccount(deps.AptosChain.DeployerSigner, deps.AptosChain.Client, mcmsSeed)
 	if err != nil {
@@ -56,7 +57,7 @@ var ConfigureMCMSOp = operations.NewOperation(
 	configureMCMS,
 )
 
-func configureMCMS(b operations.Bundle, deps AptosDeps, in ConfigureMCMSInput) (any, error) {
+func configureMCMS(b operations.Bundle, deps dependency.AptosDeps, in ConfigureMCMSInput) (any, error) {
 	configurer := aptosmcms.NewConfigurer(deps.AptosChain.Client, deps.AptosChain.DeployerSigner, in.MCMSRole)
 	setCfgTx, err := configurer.SetConfig(context.Background(), in.MCMSAddress.StringLong(), &in.MCMSConfigs, false)
 	if err != nil {
@@ -76,7 +77,7 @@ var TransferOwnershipToSelfOp = operations.NewOperation(
 	transferOwnershipToSelf,
 )
 
-func transferOwnershipToSelf(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.AccountAddress) (any, error) {
+func transferOwnershipToSelf(b operations.Bundle, deps dependency.AptosDeps, mcmsAddress aptos.AccountAddress) (any, error) {
 	opts := &bind.TransactOpts{Signer: deps.AptosChain.DeployerSigner}
 	contractMCMS := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
 	tx, err := contractMCMS.MCMSAccount().TransferOwnershipToSelf(opts)
@@ -98,7 +99,7 @@ var AcceptOwnershipOp = operations.NewOperation(
 	acceptOwnership,
 )
 
-func acceptOwnership(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.AccountAddress) (mcmstypes.Transaction, error) {
+func acceptOwnership(b operations.Bundle, deps dependency.AptosDeps, mcmsAddress aptos.AccountAddress) (mcmstypes.Transaction, error) {
 	contractMCMS := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := contractMCMS.MCMSAccount().Encoder().AcceptOwnership()
 	if err != nil {
@@ -121,7 +122,7 @@ var SetMinDelayOP = operations.NewOperation(
 	setMinDelay,
 )
 
-func setMinDelay(b operations.Bundle, deps AptosDeps, in TimelockMinDelayInput) (mcmstypes.Transaction, error) {
+func setMinDelay(b operations.Bundle, deps dependency.AptosDeps, in TimelockMinDelayInput) (mcmstypes.Transaction, error) {
 	contractMCMS := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := contractMCMS.MCMS().Encoder().TimelockUpdateMinDelay(in.TimelockMinDelay)
 	if err != nil {
@@ -139,7 +140,7 @@ var CleanupStagingAreaOp = operations.NewOperation(
 	cleanupStagingArea,
 )
 
-func cleanupStagingArea(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.AccountAddress) (mcmstypes.BatchOperation, error) {
+func cleanupStagingArea(b operations.Bundle, deps dependency.AptosDeps, mcmsAddress aptos.AccountAddress) (mcmstypes.BatchOperation, error) {
 	// Check resources first to see if staging is clean
 	IsMCMSStagingAreaClean, err := utils.IsMCMSStagingAreaClean(deps.AptosChain.Client, mcmsAddress)
 	if err != nil {

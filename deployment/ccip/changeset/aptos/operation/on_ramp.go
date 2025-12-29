@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
@@ -30,7 +31,7 @@ var UpdateOnRampDestsOp = operations.NewOperation(
 	updateOnRampDests,
 )
 
-func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDestsInput) ([]mcmstypes.Transaction, error) {
+func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in UpdateOnRampDestsInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]

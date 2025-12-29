@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
@@ -56,7 +57,7 @@ var DeployTokenOp = operations.NewOperation(
 	deployToken,
 )
 
-func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (DeployTokenOutput, error) {
+func deployToken(b operations.Bundle, deps dependency.AptosDeps, in DeployTokenInput) (DeployTokenOutput, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	// Calculate token address
@@ -105,7 +106,7 @@ var DeployTokenMCMSRegistrarOp = operations.NewOperation(
 	deployTokenMCMSRegistrar,
 )
 
-func deployTokenMCMSRegistrar(b operations.Bundle, deps AptosDeps, in DeployTokenRegistrarInput) ([]types.Operation, error) {
+func deployTokenMCMSRegistrar(b operations.Bundle, deps dependency.AptosDeps, in DeployTokenRegistrarInput) ([]types.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	// Deploy MCMS Registrar
@@ -139,7 +140,7 @@ var InitializeTokenOp = operations.NewOperation(
 	initializeToken,
 )
 
-func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInput) (types.Transaction, error) {
+func initializeToken(b operations.Bundle, deps dependency.AptosDeps, in InitializeTokenInput) (types.Transaction, error) {
 	// Initialize managed token
 	var maxSupply **big.Int
 	if in.MaxSupply != nil {
@@ -179,7 +180,7 @@ var MintTokensOp = operations.NewOperation(
 	mintTokens,
 )
 
-func mintTokens(b operations.Bundle, deps AptosDeps, in MintTokensInput) (types.Transaction, error) {
+func mintTokens(b operations.Bundle, deps dependency.AptosDeps, in MintTokensInput) (types.Transaction, error) {
 	boundManagedToken := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := boundManagedToken.ManagedToken().Encoder().Mint(in.To, in.Amount)
 	if err != nil {
@@ -210,7 +211,7 @@ var ApplyAllowedMintersOp = operations.NewOperation(
 	applyAllowedMinters,
 )
 
-func applyAllowedMinters(b operations.Bundle, deps AptosDeps, in ApplyAllowedMintersInput) (types.Transaction, error) {
+func applyAllowedMinters(b operations.Bundle, deps dependency.AptosDeps, in ApplyAllowedMintersInput) (types.Transaction, error) {
 	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 
 	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedMinterUpdates(in.MintersToRemove, in.MintersToAdd)
@@ -236,7 +237,7 @@ var ApplyAllowedBurnersOp = operations.NewOperation(
 	applyAllowedBurners,
 )
 
-func applyAllowedBurners(b operations.Bundle, deps AptosDeps, in ApplyAllowedBurnersInput) (types.Transaction, error) {
+func applyAllowedBurners(b operations.Bundle, deps dependency.AptosDeps, in ApplyAllowedBurnersInput) (types.Transaction, error) {
 	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 
 	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedBurnerUpdates(in.BurnersToRemove, in.BurnersToAdd)
@@ -259,7 +260,7 @@ var DeployTokenFaucetOp = operations.NewOperation(
 	deployTokenFaucet,
 )
 
-func deployTokenFaucet(b operations.Bundle, deps AptosDeps, in DeployTokenFaucetInput) ([]types.Operation, error) {
+func deployTokenFaucet(b operations.Bundle, deps dependency.AptosDeps, in DeployTokenFaucetInput) ([]types.Operation, error) {
 	boundMcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	managedTokenFaucetPayload, err := managed_token_faucet.Compile(in.TokenCodeObjectAddress)
@@ -289,7 +290,7 @@ var GrantRoleOp = operations.NewOperation(
 	grantRole,
 )
 
-func grantRole(b operations.Bundle, deps AptosDeps, in GrantRoleInput) (types.Transaction, error) {
+func grantRole(b operations.Bundle, deps dependency.AptosDeps, in GrantRoleInput) (types.Transaction, error) {
 	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 
 	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().GrantRole(in.RoleNumber, in.Account)
@@ -313,7 +314,7 @@ var TransferTokenOwnershipOp = operations.NewOperation(
 	transferTokenOwnership,
 )
 
-func transferTokenOwnership(b operations.Bundle, deps AptosDeps, in TransferTokenOwnershipInput) (types.Transaction, error) {
+func transferTokenOwnership(b operations.Bundle, deps dependency.AptosDeps, in TransferTokenOwnershipInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string
@@ -349,7 +350,7 @@ var AcceptTokenOwnershipOp = operations.NewOperation(
 	acceptTokenOwnership,
 )
 
-func acceptTokenOwnership(b operations.Bundle, deps AptosDeps, in AcceptTokenOwnershipInput) (types.Transaction, error) {
+func acceptTokenOwnership(b operations.Bundle, deps dependency.AptosDeps, in AcceptTokenOwnershipInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string
@@ -386,7 +387,7 @@ var ExecuteTokenOwnershipTransferOp = operations.NewOperation(
 	executeTokenOwnershipTransfer,
 )
 
-func executeTokenOwnershipTransfer(b operations.Bundle, deps AptosDeps, in ExecuteTokenOwnershipTransferInput) (types.Transaction, error) {
+func executeTokenOwnershipTransfer(b operations.Bundle, deps dependency.AptosDeps, in ExecuteTokenOwnershipTransferInput) (types.Transaction, error) {
 	var (
 		moduleInfo bind.ModuleInformation
 		function   string
@@ -423,7 +424,7 @@ var TransferTokenAdminOp = operations.NewOperation(
 	transferAdmin,
 )
 
-func transferAdmin(b operations.Bundle, deps AptosDeps, in TransferTokenAdminInput) (types.Transaction, error) {
+func transferAdmin(b operations.Bundle, deps dependency.AptosDeps, in TransferTokenAdminInput) (types.Transaction, error) {
 	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().TransferAdmin(in.NewAdmin)
 	if err != nil {
@@ -445,7 +446,7 @@ var AcceptTokenAdminOp = operations.NewOperation(
 	acceptTokenAdmin,
 )
 
-func acceptTokenAdmin(b operations.Bundle, deps AptosDeps, in AcceptTokenAdminInput) (types.Transaction, error) {
+func acceptTokenAdmin(b operations.Bundle, deps dependency.AptosDeps, in AcceptTokenAdminInput) (types.Transaction, error) {
 	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().AcceptAdmin()
 	if err != nil {
