@@ -396,7 +396,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ### Advanced Usage:
 1. **Choose the Right Topology**
-   - For a single DON with all capabilities, but with a separate gateway and bootstrap nodes: `configs/workflow-gateway-don.toml` (default)
+   - For a single DON with all capabilities, but with a separate gateway and bootstrap node: `configs/workflow-gateway-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-gateway-capabilities-don.toml`
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
@@ -1048,7 +1048,7 @@ Each nodeset should use a different `http_port_range_start` to avoid port confli
 - Only **one** `workflow` DON and **one** `gateway` DON are allowed
 - Multiple `capabilities` DONs are supported
 - Chain-level capabilities must specify which chains they support
-- Bootstrap nodes are only needed for workflow DONs
+- Bootstrap nodes can be part of any DON or form a separate DON
 - Gateway nodes are only needed for gateway DONs
 
 ---
@@ -1252,7 +1252,7 @@ You can override default capability configurations by modifying the `capability_
 - **Chain IDs**: Chain-level capabilities must specify valid chain IDs that exist in your blockchain configuration
 - **Port conflicts**: Each nodeset should use different `http_port_range_start` values
 - **DON limitations**: Only one `workflow` DON and one `gateway` DON are allowed per environment
-- **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes (index 0)
+- **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes
 
 ### Troubleshooting Capability Issues
 

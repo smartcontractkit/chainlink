@@ -39,7 +39,7 @@
   nodes = 4
   name = "workflow"
   don_types = ["workflow"]
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10100
 
   # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
@@ -60,33 +60,6 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13000
-
- [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
- [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
- [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
 
  [[nodesets.node_specs]]
     roles = ["plugin"]
