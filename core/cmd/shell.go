@@ -30,6 +30,7 @@ import (
 	"github.com/urfave/cli"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
@@ -43,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -53,7 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	workflowsmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -66,6 +68,13 @@ var (
 	ginPrometheus   *ginprom.Prometheus
 	grpcOpts        loop.GRPCOpts
 )
+
+func MetricViews() []sdkmetric.View {
+	views := make([]sdkmetric.View, 0)
+	views = append(views, workflowsmonitoring.MetricViews()...)
+	views = append(views, ccvcommon.MetricViews()...)
+	return views
+}
 
 func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
@@ -120,10 +129,10 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
 				LogExportInterval:              cfgTelemetry.LogExportInterval(),
 				LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
+				// note: due to the OTEL specification, all histogram buckets
+				// must be defined when the beholder client is created
+				MetricViews: MetricViews(),
 			}
-			// note: due to the OTEL specification, all histogram buckets
-			// must be defined when the beholder client is created
-			clientCfg.MetricViews = append(clientCfg.MetricViews, monitoring.MetricViews()...)
 
 			if tracingCfg.Enabled {
 				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
