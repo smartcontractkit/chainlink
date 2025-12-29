@@ -128,11 +128,17 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 	if err != nil {
 		return OCR2OracleConfig{}, errors.New("failed to decode PrevConfigDigest: " + err.Error())
 	}
+	if len(prevConfigDigestBytes) != 32 {
+		return OCR2OracleConfig{}, errors.New("invalid PrevConfigDigest length: " + fmt.Sprint(len(prevConfigDigestBytes)))
+	}
 	prevConfigDigest = [32]byte(prevConfigDigestBytes)
 	var prevHistoryDigest types.HistoryDigest
 	prevHistoryDigestBytes, err := hex.DecodeString(cfg.PrevHistoryDigest)
 	if err != nil {
 		return OCR2OracleConfig{}, errors.New("failed to decode PrevHistoryDigest: " + err.Error())
+	}
+	if len(prevHistoryDigestBytes) != 32 {
+		return OCR2OracleConfig{}, errors.New("invalid prevHistoryDigestBytes length: " + fmt.Sprint(len(prevHistoryDigestBytes)))
 	}
 	prevHistoryDigest = [32]byte(prevHistoryDigestBytes)
 

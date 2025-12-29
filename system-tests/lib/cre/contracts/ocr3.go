@@ -98,6 +98,10 @@ func DefaultOCR3_1Config(numWorkers int) (*ocr3.V3_1OracleConfig, error) {
 		WarnDurationCommitted:                 1000,
 
 		MaxFaultyOracles: 1,
+
+		PrevConfigDigest:  "abC1230000000000000000000000000000000000000000000000000000000000", //random string
+		PrevSeqNr:         0,
+		PrevHistoryDigest: "abC1230000000000000000000000000000000000000000000000000000000000", //random string
 	}, nil
 }
 
