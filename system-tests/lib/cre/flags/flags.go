@@ -15,8 +15,8 @@ func HasFlag(values []string, flag string) bool {
 }
 
 func HasNoOtherFlags(values []string, flags []string) bool {
-	for _, flag := range flags {
-		if !slices.Contains(values, flag) {
+	for _, value := range values {
+		if !slices.Contains(flags, value) {
 			return false
 		}
 	}

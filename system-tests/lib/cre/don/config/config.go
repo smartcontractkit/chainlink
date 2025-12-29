@@ -464,12 +464,8 @@ func addGatewayNodeConfig(
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
-	existingConfig.P2P = coretoml.P2P{
-		V2: coretoml.P2PV2{
-			Enabled:         ptr.Ptr(true),
-			ListenAddresses: ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
-		},
-	}
+	existingConfig.P2P.V2.Enabled = ptr.Ptr(true)
+	existingConfig.P2P.V2.ListenAddresses = ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)})
 
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
