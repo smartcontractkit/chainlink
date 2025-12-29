@@ -60,18 +60,28 @@ func (l ConfigureVaultPlugin) VerifyPreconditions(_ cldf.Environment, input Conf
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
+	if input.OracleConfig.PrevConfigDigest != "" {
+		err := verify32BytesHexString(input.OracleConfig.PrevConfigDigest)
+		if err != nil {
+			return fmt.Errorf("invalid OracleConfig.PrevConfigDigest, should be hex encoded 32 bytes: %w", err)
+		}
+	}
+	if input.OracleConfig.PrevHistoryDigest != "" {
+		err := verify32BytesHexString(input.OracleConfig.PrevHistoryDigest)
+		if err != nil {
+			return fmt.Errorf("invalid OracleConfig.PrevHistoryDigest, should be hex encoded 32 bytes: %w", err)
+		}
+	}
+
 	if input.InstanceID.DKGContractQualifier == "" {
 		return errors.New("instanceID.dkgContractQualifier is required")
 	}
 	if input.InstanceID.ConfigDigest == "" {
 		return errors.New("instanceID.config_digest is required")
 	}
-	cd, err := hex.DecodeString(input.InstanceID.ConfigDigest)
+	err := verify32BytesHexString(input.InstanceID.ConfigDigest)
 	if err != nil {
-		return fmt.Errorf("failed to decode instanceID.configDigest: %w", err)
-	}
-	if len(cd) != 32 {
-		return fmt.Errorf("instanceID.configDigest must be 32 bytes, got %d", len(cd))
+		return fmt.Errorf("invalid instanceID.configDigest, should be hex encoded 32 bytes: %w", err)
 	}
 	return nil
 }
@@ -151,4 +161,15 @@ func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPlug
 		MCMSTimelockProposals: report.Output.MCMSTimelockProposals,
 		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
+}
+
+func verify32BytesHexString(s string) error {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return fmt.Errorf("failed to decode hex string: %w", err)
+	}
+	if len(b) != 32 {
+		return fmt.Errorf("hex string must be 32 bytes, got %d", len(b))
+	}
+	return nil
 }

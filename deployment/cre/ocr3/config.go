@@ -243,6 +243,19 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCR
 		return OCR2OracleConfig{}, errors.New("failed to get offchain config: reportingPluginConfigOverride is required for OCR3.1")
 	}
 
+	var prevConfigDigest types.ConfigDigest
+	prevConfigDigestBytes, err := hex.DecodeString(cfg.PrevConfigDigest)
+	if err != nil {
+		return OCR2OracleConfig{}, errors.New("failed to decode PrevConfigDigest: " + err.Error())
+	}
+	prevConfigDigest = [32]byte(prevConfigDigestBytes)
+	var prevHistoryDigest types.HistoryDigest
+	prevHistoryDigestBytes, err := hex.DecodeString(cfg.PrevHistoryDigest)
+	if err != nil {
+		return OCR2OracleConfig{}, errors.New("failed to decode PrevHistoryDigest: " + err.Error())
+	}
+	prevHistoryDigest = [32]byte(prevHistoryDigestBytes)
+
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3_1confighelper.ContractSetConfigArgsDeterministic(
 		ocr3_1confighelper.CheckPublicConfigLevelDefault,
 		secrets.EphemeralSk,
@@ -266,7 +279,11 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCR
 		time.Duration(cfg.WarnDurationCommitted)*time.Millisecond,
 		time.Duration(cfg.MaxDurationShouldAcceptAttestedReportMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationShouldTransmitAcceptedReportMillis)*time.Millisecond,
-		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{},
+		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{
+			PrevConfigDigest:  &prevConfigDigest,
+			PrevSeqNr:         &cfg.PrevSeqNr,
+			PrevHistoryDigest: &prevHistoryDigest,
+		},
 	)
 	if err != nil {
 		return OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)

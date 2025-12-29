@@ -64,6 +64,18 @@ func (l ConfigureVaultDKG) VerifyPreconditions(_ cldf.Environment, input Configu
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
+	if input.OracleConfig.PrevConfigDigest != "" {
+		err := verify32BytesHexString(input.OracleConfig.PrevConfigDigest)
+		if err != nil {
+			return fmt.Errorf("invalid OracleConfig.PrevConfigDigest, should be hex encoded 32 bytes: %w", err)
+		}
+	}
+	if input.OracleConfig.PrevHistoryDigest != "" {
+		err := verify32BytesHexString(input.OracleConfig.PrevHistoryDigest)
+		if err != nil {
+			return fmt.Errorf("invalid OracleConfig.PrevHistoryDigest, should be hex encoded 32 bytes: %w", err)
+		}
+	}
 	return nil
 }
 
