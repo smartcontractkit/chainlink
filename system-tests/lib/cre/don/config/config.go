@@ -735,7 +735,7 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 
 func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain) {
 	for _, existingSol := range *existingConfig {
-		if existingSol.ChainID == &solChain.ChainID {
+		if existingSol.ChainID != nil && *existingSol.ChainID == solChain.ChainID {
 			return
 		}
 	}

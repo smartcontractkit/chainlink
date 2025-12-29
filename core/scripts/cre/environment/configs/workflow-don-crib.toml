@@ -65,7 +65,7 @@
         port = 15000
 
         [[nodesets.node_specs]]
-        roles = ["gateway"]
+        roles = ["gateway", "bootstrap"]
         [nodesets.node_specs.node]
         image = "localhost:5001/chainlink-plugins:latest"
         user_config_overrides = ""
