@@ -395,11 +395,6 @@ func createJobs(
 			}
 		}
 
-		_, templateData, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
-		if rErr != nil {
-			return errors.Wrap(rErr, "failed to resolve capability config for chain")
-		}
-
 		for _, workerNode := range workerNodes {
 			evmKey, ok := workerNode.Keys.EVM[chainID]
 			if !ok {
@@ -419,6 +414,12 @@ func createJobs(
 			}
 
 			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
+
+			_, templateData, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
+			if rErr != nil {
+				return errors.Wrap(rErr, "failed to resolve capability config for chain")
+			}
+
 			var aErr error
 			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)
 			if aErr != nil {

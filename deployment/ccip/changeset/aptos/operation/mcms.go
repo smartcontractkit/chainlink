@@ -17,9 +17,9 @@ import (
 )
 
 var MCMSOperations = []*operations.Operation[any, any, any]{
-	AcceptOwnershipOp.AsUntyped(),
-	SetMinDelayOP.AsUntyped(),
-	CleanupStagingAreaOp.AsUntyped(),
+	AcceptOwnershipOp.AsUntypedRelaxed(),
+	SetMinDelayOP.AsUntypedRelaxed(),
+	CleanupStagingAreaOp.AsUntypedRelaxed(),
 }
 
 // OP: Deploy MCMS Contract

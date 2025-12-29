@@ -800,7 +800,7 @@ func PrintCRELogo() {
 
 func setDefaultCtfConfigs() error {
 	if os.Getenv("CTF_CONFIGS") == "" {
-		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml"); err != nil {
+		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml"); err != nil {
 			return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", err)
 		}
 

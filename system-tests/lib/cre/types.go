@@ -47,6 +47,7 @@ const (
 	WorkflowDON     CapabilityFlag = "workflow"
 	CapabilitiesDON CapabilityFlag = "capabilities"
 	GatewayDON      CapabilityFlag = "gateway"
+	BootstrapDON    CapabilityFlag = "bootstrap"
 )
 
 // Capabilities
@@ -801,15 +802,6 @@ func (m DonsMetadata) validate() error {
 
 	if m.BootstrapCount() == 0 {
 		return errors.New("at least one nodeSet must have a bootstrap node")
-	}
-
-	wfDon, err := m.WorkflowDON()
-	if err != nil {
-		return fmt.Errorf("failed to get workflow DON: %w", err)
-	}
-
-	if _, isBootstrap := wfDon.Bootstrap(); !isBootstrap {
-		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
 	}
 
 	if m.RequiresGateway() && !m.GatewayEnabled() {

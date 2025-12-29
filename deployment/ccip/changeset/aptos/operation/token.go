@@ -22,18 +22,18 @@ import (
 const managedTokenStateSeed = "managed_token::managed_token::token_state"
 
 var TokenOperations = []*operations.Operation[any, any, any]{
-	DeployTokenMCMSRegistrarOp.AsUntyped(),
-	InitializeTokenOp.AsUntyped(),
-	MintTokensOp.AsUntyped(),
-	ApplyAllowedMintersOp.AsUntyped(),
-	ApplyAllowedBurnersOp.AsUntyped(),
-	DeployTokenFaucetOp.AsUntyped(),
-	GrantRoleOp.AsUntyped(),
-	TransferTokenOwnershipOp.AsUntyped(),
-	AcceptTokenOwnershipOp.AsUntyped(),
-	ExecuteTokenOwnershipTransferOp.AsUntyped(),
-	TransferTokenAdminOp.AsUntyped(),
-	AcceptTokenAdminOp.AsUntyped(),
+	DeployTokenMCMSRegistrarOp.AsUntypedRelaxed(),
+	InitializeTokenOp.AsUntypedRelaxed(),
+	MintTokensOp.AsUntypedRelaxed(),
+	ApplyAllowedMintersOp.AsUntypedRelaxed(),
+	ApplyAllowedBurnersOp.AsUntypedRelaxed(),
+	DeployTokenFaucetOp.AsUntypedRelaxed(),
+	GrantRoleOp.AsUntypedRelaxed(),
+	TransferTokenOwnershipOp.AsUntypedRelaxed(),
+	AcceptTokenOwnershipOp.AsUntypedRelaxed(),
+	ExecuteTokenOwnershipTransferOp.AsUntypedRelaxed(),
+	TransferTokenAdminOp.AsUntypedRelaxed(),
+	AcceptTokenAdminOp.AsUntypedRelaxed(),
 }
 
 type DeployTokenInput struct {
