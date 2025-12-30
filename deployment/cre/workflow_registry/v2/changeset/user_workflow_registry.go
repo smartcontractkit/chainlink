@@ -31,10 +31,17 @@ func validateWorkflowIDHex(workflowID string) error {
 	if workflowID == "" {
 		return errors.New("workflow ID cannot be empty")
 	}
-	if _, err := hex.DecodeString(workflowID); err != nil || len(workflowID) != 32 {
-		return errors.New("workflow ID must be a valid hex string")
+	decoded, err := hex.DecodeString(workflowID)
+	if err != nil || len(decoded) != 32 {
+		return errors.New("workflow ID must be a valid 32-byte hex string")
 	}
 	return nil
+}
+
+type CommonWorkflowInput struct {
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 // UserWorkflowUpsert creates or updates a user workflow
@@ -50,10 +57,7 @@ type UserWorkflowUpsertInput struct {
 	Attributes     string `json:"attributes"`     // Attributes
 	KeepAlive      bool   `json:"keepAlive"`      // Keep Alive flag
 
-	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	MCMSQualifier             string                   `json:"mcmsQualifier"`
+	CommonWorkflowInput
 }
 
 func (u UserWorkflowUpsert) VerifyPreconditions(e cldf.Environment, config UserWorkflowUpsertInput) error {
@@ -77,7 +81,7 @@ func (u UserWorkflowUpsert) Apply(e cldf.Environment, config UserWorkflowUpsertI
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.MCMSQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -155,10 +159,7 @@ type UserWorkflowPause struct{}
 type UserWorkflowPauseInput struct {
 	WorkflowID string `json:"workflowID"` // Workflow ID
 
-	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	MCMSQualifier             string                   `json:"mcmsQualifier"`
+	CommonWorkflowInput
 }
 
 func (u UserWorkflowPause) VerifyPreconditions(e cldf.Environment, config UserWorkflowPauseInput) error {
@@ -170,7 +171,7 @@ func (u UserWorkflowPause) Apply(e cldf.Environment, config UserWorkflowPauseInp
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.MCMSQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -240,14 +241,15 @@ func (u UserWorkflowPause) Apply(e cldf.Environment, config UserWorkflowPauseInp
 type UserWorkflowActivate struct{}
 type UserWorkflowActivateInput struct {
 	WorkflowID string `json:"workflowID"` // Workflow ID
+	DonFamily  string `json:"donFamily"`  // DON Family
 
-	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	MCMSQualifier             string                   `json:"mcmsQualifier"`
+	CommonWorkflowInput
 }
 
 func (u UserWorkflowActivate) VerifyPreconditions(e cldf.Environment, config UserWorkflowActivateInput) error {
+	if config.DonFamily == "" {
+		return errors.New("DON family cannot be empty")
+	}
 	return validateWorkflowIDHex(config.WorkflowID)
 }
 
@@ -256,7 +258,7 @@ func (u UserWorkflowActivate) Apply(e cldf.Environment, config UserWorkflowActiv
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.MCMSQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -295,6 +297,7 @@ func (u UserWorkflowActivate) Apply(e cldf.Environment, config UserWorkflowActiv
 		e.OperationsBundle,
 		contracts.UserActivateWorkflowOp, deps, contracts.UserActivateWorkflowOpInput{
 			WorkflowID:    [32]byte(common.Hex2Bytes(config.WorkflowID)),
+			DonFamily:     config.DonFamily,
 			ChainSelector: config.ChainSelector,
 			MCMSConfig:    config.MCMSConfig,
 			Qualifier:     config.WorkflowRegistryQualifier,
@@ -326,10 +329,7 @@ type UserWorkflowDelete struct{}
 type UserWorkflowDeleteInput struct {
 	WorkflowID string `json:"workflowID"` // Workflow ID
 
-	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	MCMSQualifier             string                   `json:"mcmsQualifier"`
+	CommonWorkflowInput
 }
 
 func (u UserWorkflowDelete) VerifyPreconditions(e cldf.Environment, config UserWorkflowDeleteInput) error {
@@ -341,7 +341,7 @@ func (u UserWorkflowDelete) Apply(e cldf.Environment, config UserWorkflowDeleteI
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.MCMSQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -411,20 +411,17 @@ type UserLinkOwner struct{}
 
 type UserLinkOwnerInput struct {
 	ValidityTimestamp *big.Int `json:"validityTimestamp"`
-	Proof             [32]byte `json:"proof"`
+	Proof             string   `json:"proof"`
 	Signature         string   `json:"signature"`
 
-	ChainSelector             uint64                   `json:"chainSelector"`
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`
-	WorkflowRegistryQualifier string                   `json:"qualifier"`
-	MCMSQualifier             string                   `json:"mcmsQualifier"`
+	CommonWorkflowInput
 }
 
 func (u UserLinkOwner) VerifyPreconditions(e cldf.Environment, config UserLinkOwnerInput) error {
 	if config.ValidityTimestamp == nil || config.ValidityTimestamp.Cmp(big.NewInt(0)) == 0 {
 		return errors.New("validity timestamp cannot be nil or zero")
 	}
-	if config.Proof == [32]byte{} {
+	if len(config.Proof) == 0 {
 		return errors.New("proof cannot be empty")
 	}
 	if len(config.Signature) == 0 {
@@ -438,7 +435,7 @@ func (u UserLinkOwner) Apply(e cldf.Environment, config UserLinkOwnerInput) (cld
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.MCMSQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -477,7 +474,7 @@ func (u UserLinkOwner) Apply(e cldf.Environment, config UserLinkOwnerInput) (cld
 		e.OperationsBundle,
 		contracts.UserLinkOwnerOp, deps, contracts.UserLinkOwnerOpInput{
 			ValidityTimestamp: config.ValidityTimestamp,
-			Proof:             config.Proof,
+			Proof:             [32]byte(common.Hex2Bytes(config.Proof)),
 			Signature:         common.Hex2Bytes(config.Signature),
 			ChainSelector:     config.ChainSelector,
 			MCMSConfig:        config.MCMSConfig,
@@ -509,16 +506,17 @@ func (u UserLinkOwner) Apply(e cldf.Environment, config UserLinkOwnerInput) (cld
 type UserUnlinkOwner struct{}
 
 type UserUnlinkOwnerInput struct {
-	ValidityTimestamp *big.Int `json:"validityTimestamp"`
-	Signature         string   `json:"signature"`
+	Address           common.Address `json:"address"`
+	ValidityTimestamp *big.Int       `json:"validityTimestamp"`
+	Signature         string         `json:"signature"`
 
-	ChainSelector             uint64                   `json:"chainSelector"`
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`
-	WorkflowRegistryQualifier string                   `json:"qualifier"`
-	MCMSQualifier             string                   `json:"mcmsQualifier"`
+	CommonWorkflowInput
 }
 
 func (u UserUnlinkOwner) VerifyPreconditions(e cldf.Environment, config UserUnlinkOwnerInput) error {
+	if config.Address == (common.Address{}) {
+		return errors.New("address cannot be zero address")
+	}
 	if config.ValidityTimestamp == nil || config.ValidityTimestamp.Cmp(big.NewInt(0)) == 0 {
 		return errors.New("validity timestamp cannot be nil or zero")
 	}
@@ -533,7 +531,7 @@ func (u UserUnlinkOwner) Apply(e cldf.Environment, config UserUnlinkOwnerInput) 
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.MCMSQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -571,6 +569,7 @@ func (u UserUnlinkOwner) Apply(e cldf.Environment, config UserUnlinkOwnerInput) 
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
 		contracts.UserUnlinkOwnerOp, deps, contracts.UserUnlinkOwnerOpInput{
+			Address:           config.Address,
 			ValidityTimestamp: config.ValidityTimestamp,
 			Signature:         common.Hex2Bytes(config.Signature),
 			ChainSelector:     config.ChainSelector,
@@ -606,10 +605,7 @@ type UserAllowlistRequestInput struct {
 	ExpiryTimestamp uint32   `json:"expiryTimestamp"`
 	RequestDigest   [32]byte `json:"requestDigest"`
 
-	ChainSelector             uint64                   `json:"chainSelector"`
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`
-	WorkflowRegistryQualifier string                   `json:"qualifier"`
-	MCMSQualifier             string                   `json:"mcmsQualifier"`
+	CommonWorkflowInput
 }
 
 func (u UserAllowlistRequest) VerifyPreconditions(e cldf.Environment, config UserAllowlistRequestInput) error {
@@ -627,7 +623,7 @@ func (u UserAllowlistRequest) Apply(e cldf.Environment, config UserAllowlistRequ
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.MCMSQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
