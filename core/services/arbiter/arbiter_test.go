@@ -1,0 +1,234 @@
+package arbiter
+
+import (
+	"context"
+	"iter"
+	"math/big"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+// mockContractReader is a mock implementation of types.ContractReader for testing.
+type mockContractReader struct {
+	types.UnimplementedContractReader
+	desiredShardCount uint64
+	err               error
+}
+
+func (m *mockContractReader) Name() string {
+	return "mockContractReader"
+}
+
+func (m *mockContractReader) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockContractReader) Close() error {
+	return nil
+}
+
+func (m *mockContractReader) Ready() error {
+	return nil
+}
+
+func (m *mockContractReader) HealthReport() map[string]error {
+	return nil
+}
+
+func (m *mockContractReader) Bind(ctx context.Context, bindings []types.BoundContract) error {
+	return nil
+}
+
+func (m *mockContractReader) Unbind(ctx context.Context, bindings []types.BoundContract) error {
+	return nil
+}
+
+func (m *mockContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
+	if m.err != nil {
+		return m.err
+	}
+	// Set the result to our mock value
+	if ptr, ok := returnVal.(**big.Int); ok {
+		*ptr = big.NewInt(int64(m.desiredShardCount))
+	}
+	return nil
+}
+
+func (m *mockContractReader) GetLatestValueWithHeadData(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error) {
+	err = m.GetLatestValue(ctx, readIdentifier, confidenceLevel, params, returnVal)
+	return nil, err
+}
+
+func (m *mockContractReader) BatchGetLatestValues(ctx context.Context, request types.BatchGetLatestValuesRequest) (types.BatchGetLatestValuesResult, error) {
+	return nil, nil
+}
+
+func (m *mockContractReader) QueryKey(ctx context.Context, contract types.BoundContract, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]types.Sequence, error) {
+	return nil, nil
+}
+
+func (m *mockContractReader) QueryKeys(ctx context.Context, filters []types.ContractKeyFilter, limitAndSort query.LimitAndSort) (iter.Seq2[string, types.Sequence], error) {
+	return nil, nil
+}
+
+func TestArbiter_New(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+
+	require.NoError(t, err)
+	require.NotNil(t, arb)
+	assert.Equal(t, "Arbiter", arb.Name())
+}
+
+func TestArbiter_StartClose(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	require.NoError(t, err)
+
+	// Test start
+	err = arb.Start(context.Background())
+	require.NoError(t, err)
+
+	// Give gRPC server a moment to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Test health after start
+	healthReport := arb.HealthReport()
+	require.Contains(t, healthReport, arb.Name())
+	assert.NoError(t, healthReport[arb.Name()])
+
+	// Test close
+	err = arb.Close()
+	require.NoError(t, err)
+}
+
+func TestArbiter_ServiceTestRun(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	require.NoError(t, err)
+
+	// Use servicetest.Run to handle lifecycle
+	// This starts the service and registers cleanup to stop it
+	servicetest.Run(t, arb)
+
+	// Service should be running after servicetest.Run
+	err = arb.Ready()
+	require.NoError(t, err)
+}
+
+func TestArbiter_HealthReport(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	require.NoError(t, err)
+
+	t.Run("before start - not ready", func(t *testing.T) {
+		healthReport := arb.HealthReport()
+		require.Contains(t, healthReport, arb.Name())
+		// Before start, Ready() should return an error
+		assert.Error(t, healthReport[arb.Name()])
+	})
+
+	t.Run("after start - ready", func(t *testing.T) {
+		err := arb.Start(context.Background())
+		require.NoError(t, err)
+
+		healthReport := arb.HealthReport()
+		require.Contains(t, healthReport, arb.Name())
+		assert.NoError(t, healthReport[arb.Name()])
+
+		err = arb.Close()
+		require.NoError(t, err)
+	})
+}
+
+func TestArbiter_DoubleStart(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	require.NoError(t, err)
+
+	// First start should succeed
+	err = arb.Start(context.Background())
+	require.NoError(t, err)
+
+	// Second start should return error (StartOnce)
+	err = arb.Start(context.Background())
+	assert.Error(t, err)
+
+	err = arb.Close()
+	require.NoError(t, err)
+}
+
+func TestArbiter_DoubleClose(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	require.NoError(t, err)
+
+	err = arb.Start(context.Background())
+	require.NoError(t, err)
+
+	// First close should succeed
+	err = arb.Close()
+	require.NoError(t, err)
+
+	// Second close should return error (StopOnce)
+	err = arb.Close()
+	assert.Error(t, err)
+}
+
+func TestArbiter_Name(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	require.NoError(t, err)
+
+	assert.Equal(t, "Arbiter", arb.Name())
+}
+
+func TestArbiter_Ready(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+
+	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	require.NoError(t, err)
+
+	// Before start, Ready should return error
+	err = arb.Ready()
+	assert.Error(t, err)
+
+	// After start, Ready should return nil
+	err = arb.Start(context.Background())
+	require.NoError(t, err)
+
+	err = arb.Ready()
+	assert.NoError(t, err)
+
+	// After close, Ready should return error
+	err = arb.Close()
+	require.NoError(t, err)
+
+	err = arb.Ready()
+	assert.Error(t, err)
+}
