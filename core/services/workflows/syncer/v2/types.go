@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -125,4 +127,19 @@ type WorkflowPausedEvent struct {
 
 type WorkflowDeletedEvent struct {
 	WorkflowID types.WorkflowID
+}
+
+// WorkflowMetadataSource is an interface for fetching workflow metadata from various sources.
+// This abstraction allows the workflow registry syncer to aggregate workflows from multiple
+// sources (e.g., on-chain contract, file-based, API-based) while treating them uniformly.
+type WorkflowMetadataSource interface {
+	// ListWorkflowMetadata returns all workflow metadata for the given DON.
+	// The returned Head represents the state at which the metadata was read (may be synthetic for non-blockchain sources).
+	ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error)
+
+	// Name returns a human-readable name for this source (used for logging and debugging).
+	Name() string
+
+	// Ready returns nil if the source is ready to be queried, or an error describing why it's not ready.
+	Ready() error
 }

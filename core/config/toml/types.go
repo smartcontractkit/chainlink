@@ -2197,16 +2197,62 @@ func (s *WorkflowStorage) ValidateConfig() error {
 	return nil
 }
 
+// AlternativeWorkflowSource represents a single alternative workflow metadata source
+// configured via TOML. This allows workflows to be loaded from sources other than
+// the on-chain registry contract (e.g., a GRPC service).
+type AlternativeWorkflowSource struct {
+	URLField        *string `toml:"URL"`        // GRPC endpoint URL (e.g., "localhost:50051")
+	TLSEnabledField *bool   `toml:"TLSEnabled"` // Whether TLS is enabled (default: true)
+	NameField       *string `toml:"Name"`       // Human-readable name for logging
+}
+
+func (a *AlternativeWorkflowSource) setFrom(f *AlternativeWorkflowSource) {
+	if f.URLField != nil {
+		a.URLField = f.URLField
+	}
+	if f.TLSEnabledField != nil {
+		a.TLSEnabledField = f.TLSEnabledField
+	}
+	if f.NameField != nil {
+		a.NameField = f.NameField
+	}
+}
+
+// URL implements config.AlternativeWorkflowSource.
+func (a AlternativeWorkflowSource) URL() string {
+	if a.URLField == nil {
+		return ""
+	}
+	return *a.URLField
+}
+
+// TLSEnabled implements config.AlternativeWorkflowSource.
+func (a AlternativeWorkflowSource) TLSEnabled() bool {
+	if a.TLSEnabledField == nil {
+		return true // Default to enabled
+	}
+	return *a.TLSEnabledField
+}
+
+// Name implements config.AlternativeWorkflowSource.
+func (a AlternativeWorkflowSource) Name() string {
+	if a.NameField == nil {
+		return "GRPCWorkflowSource"
+	}
+	return *a.NameField
+}
+
 type WorkflowRegistry struct {
-	Address                 *string
-	NetworkID               *string
-	ChainID                 *string
-	ContractVersion         *string
-	MaxBinarySize           *utils.FileSize
-	MaxEncryptedSecretsSize *utils.FileSize
-	MaxConfigSize           *utils.FileSize
-	SyncStrategy            *string
-	WorkflowStorage         WorkflowStorage
+	Address                  *string
+	NetworkID                *string
+	ChainID                  *string
+	ContractVersion          *string
+	MaxBinarySize            *utils.FileSize
+	MaxEncryptedSecretsSize  *utils.FileSize
+	MaxConfigSize            *utils.FileSize
+	SyncStrategy             *string
+	WorkflowStorage          WorkflowStorage
+	AlternativeSourcesConfig []AlternativeWorkflowSource `toml:"AlternativeSources"`
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -2243,6 +2289,50 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
+
+	if len(f.AlternativeSourcesConfig) > 0 {
+		r.AlternativeSourcesConfig = make([]AlternativeWorkflowSource, len(f.AlternativeSourcesConfig))
+		for i := range f.AlternativeSourcesConfig {
+			r.AlternativeSourcesConfig[i].setFrom(&f.AlternativeSourcesConfig[i])
+		}
+	}
+}
+
+// MaxAlternativeSources is the maximum number of alternative workflow sources
+// currently supported. Set to 1 for MVP.
+const MaxAlternativeSources = 1
+
+func (r *WorkflowRegistry) ValidateConfig() error {
+	if err := r.WorkflowStorage.ValidateConfig(); err != nil {
+		return err
+	}
+
+	if len(r.AlternativeSourcesConfig) > MaxAlternativeSources {
+		return configutils.ErrInvalid{
+			Name:  "AlternativeSources",
+			Value: len(r.AlternativeSourcesConfig),
+			Msg:   fmt.Sprintf("maximum %d alternative sources supported", MaxAlternativeSources),
+		}
+	}
+
+	// Validate each source has a URL
+	for i, src := range r.AlternativeSourcesConfig {
+		if src.URLField == nil || *src.URLField == "" {
+			return configutils.ErrMissing{Name: fmt.Sprintf("AlternativeSources[%d].URL", i)}
+		}
+	}
+
+	return nil
+}
+
+// AlternativeSources returns the list of alternative workflow sources.
+// Implements config.CapabilitiesWorkflowRegistry.
+func (r WorkflowRegistry) AlternativeSources() []config.AlternativeWorkflowSource {
+	result := make([]config.AlternativeWorkflowSource, len(r.AlternativeSourcesConfig))
+	for i := range r.AlternativeSourcesConfig {
+		result[i] = r.AlternativeSourcesConfig[i]
+	}
+	return result
 }
 
 type Dispatcher struct {

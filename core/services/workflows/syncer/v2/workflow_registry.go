@@ -78,6 +78,10 @@ type workflowRegistry struct {
 	contractReaderFn versioning.ContractReaderFactory
 	contractReader   types.ContractReader
 
+	// workflowSources aggregates workflow metadata from multiple sources (contract + file for MVP).
+	// This allows workflows to be loaded from sources other than the on-chain registry.
+	workflowSources *MultiSourceWorkflowAggregator
+
 	config Config
 
 	handler evtHandler
@@ -122,6 +126,39 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	}
 }
 
+// AlternativeSourceConfig holds configuration for a GRPC workflow source.
+type AlternativeSourceConfig struct {
+	URL        string
+	Name       string
+	TLSEnabled bool
+}
+
+// WithAlternativeSources adds GRPC-based workflow sources to the registry.
+// These sources supplement the primary contract and file sources.
+func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		for _, src := range sources {
+			grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
+				URL:        src.URL,
+				TLSEnabled: src.TLSEnabled,
+				Name:       src.Name,
+			})
+			if err != nil {
+				wr.lggr.Errorw("Failed to create GRPC workflow source",
+					"name", src.Name,
+					"url", src.URL,
+					"error", err)
+				continue
+			}
+			wr.workflowSources.AddSource(grpcSource)
+			wr.lggr.Infow("Added GRPC workflow source",
+				"name", src.Name,
+				"url", src.URL,
+				"tls", src.TLSEnabled)
+		}
+	}
+}
+
 // NewWorkflowRegistry returns a new v2 workflowRegistry.
 func NewWorkflowRegistry(
 	lggr logger.Logger,
@@ -142,6 +179,21 @@ func NewWorkflowRegistry(
 		return nil, err
 	}
 
+	// Create the contract-based workflow source
+	contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr)
+
+	// Create the file-based workflow source (always enabled for MVP)
+	fileSource := NewFileWorkflowSource(lggr)
+
+	// Create the multi-source aggregator with both sources
+	// Contract source is first (primary), file source is second (supplementary)
+	workflowSources := NewMultiSourceWorkflowAggregator(lggr, contractSource, fileSource)
+
+	lggr.Infow("Initialized workflow registry with multi-source support",
+		"contractAddress", addr,
+		"fileSourcePath", DefaultFileWorkflowSourcePath,
+		"sourceCount", len(workflowSources.Sources()))
+
 	wr := &workflowRegistry{
 		lggr:                             lggr,
 		contractReaderFn:                 contractReaderFn,
@@ -159,6 +211,7 @@ func NewWorkflowRegistry(
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
 		},
+		workflowSources: workflowSources,
 	}
 
 	for _, opt := range opts {
@@ -490,6 +543,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
+// This function now uses a multi-source aggregator to fetch workflows from multiple sources (contract + file for MVP).
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(defaultTickInterval)
 	pendingEvents := map[string]*reconciliationEvent{}
@@ -505,10 +559,12 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				w.lggr.Errorw("failed to get get don from notifier", "err", err)
 				continue
 			}
-			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
-			allWorkflowsMetadata, head, err := w.getAllWorkflowsMetadata(ctx, don, w.contractReader)
+			w.lggr.Debugw("fetching workflow metadata from all sources", "don", don.Families)
+
+			// Use the multi-source aggregator to fetch workflows from all configured sources
+			allWorkflowsMetadata, head, err := w.workflowSources.ListWorkflowMetadata(ctx, don)
 			if err != nil {
-				w.lggr.Errorw("failed to get registry state", "err", err)
+				w.lggr.Errorw("failed to get workflow metadata from sources", "err", err)
 				continue
 			}
 			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))

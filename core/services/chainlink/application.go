@@ -1294,6 +1294,17 @@ func newCREServices(
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 					}
 
+					// Build alternative sources configuration from config
+					altSources := capCfg.WorkflowRegistry().AlternativeSources()
+					altSourceConfigs := make([]syncerV2.AlternativeSourceConfig, 0, len(altSources))
+					for _, src := range altSources {
+						altSourceConfigs = append(altSourceConfigs, syncerV2.AlternativeSourceConfig{
+							URL:        src.URL(),
+							Name:       src.Name(),
+							TLSEnabled: src.TLSEnabled(),
+						})
+					}
+
 					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
 						lggr,
 						crFactory,
@@ -1305,6 +1316,7 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
+						syncerV2.WithAlternativeSources(altSourceConfigs),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
