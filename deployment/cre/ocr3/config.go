@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -242,10 +243,10 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCR
 	if cfgBytes == nil {
 		return OCR2OracleConfig{}, errors.New("failed to get offchain config: reportingPluginConfigOverride is required for OCR3.1")
 	}
-	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0)) && (cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) {
+	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0))) || !((cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) {
 		return OCR2OracleConfig{}, errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
 	}
-	if (cfg.PrevConfigDigest != "") && (cfg.PrevSeqNr == uint64(0)) {
+	if cfg.PrevConfigDigest != "" && cfg.PrevSeqNr == uint64(0) {
 		return OCR2OracleConfig{}, errors.New("PrevSeqNr must be positive if PrevConfigDigest is set")
 	}
 	var prevConfigDigest *types.ConfigDigest
@@ -255,7 +256,7 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCR
 			return OCR2OracleConfig{}, errors.New("failed to decode PrevConfigDigest: " + err.Error())
 		}
 		if len(prevConfigDigestBytes) != 32 {
-			return OCR2OracleConfig{}, errors.New("PrevConfigDigest length should be 32, got " + fmt.Sprint(len(prevConfigDigestBytes)))
+			return OCR2OracleConfig{}, errors.New("PrevConfigDigest length should be 32, got " + strconv.Itoa(len(prevConfigDigestBytes)))
 		}
 		var prevConfigDigest32 types.ConfigDigest = [32]byte(prevConfigDigestBytes)
 		prevConfigDigest = &prevConfigDigest32
@@ -267,12 +268,12 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCR
 			return OCR2OracleConfig{}, errors.New("failed to decode PrevHistoryDigest: " + err.Error())
 		}
 		if len(prevHistoryDigestBytes) != 32 {
-			return OCR2OracleConfig{}, errors.New("PrevHistoryDigest length should be 32, got " + fmt.Sprint(len(prevHistoryDigestBytes)))
+			return OCR2OracleConfig{}, errors.New("PrevHistoryDigest length should be 32, got " + strconv.Itoa(len(prevHistoryDigestBytes)))
 		}
 		var prevHistoryDigest32 types.HistoryDigest = [32]byte(prevHistoryDigestBytes)
 		prevHistoryDigest = &prevHistoryDigest32
 	}
-	var prevSeqNr *uint64 = nil
+	var prevSeqNr *uint64
 	if cfg.PrevSeqNr != 0 {
 		prevSeqNr = &cfg.PrevSeqNr
 	}

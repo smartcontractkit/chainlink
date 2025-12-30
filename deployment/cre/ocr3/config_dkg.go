@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -123,7 +124,7 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
 	}
 
-	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0)) && (cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) {
+	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0))) || !((cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) {
 		return OCR2OracleConfig{}, errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
 	}
 	if (cfg.PrevConfigDigest != "") && (cfg.PrevSeqNr == uint64(0)) {
@@ -136,7 +137,7 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 			return OCR2OracleConfig{}, errors.New("failed to decode PrevConfigDigest: " + err.Error())
 		}
 		if len(prevConfigDigestBytes) != 32 {
-			return OCR2OracleConfig{}, errors.New("PrevConfigDigest length should be 32, got " + fmt.Sprint(len(prevConfigDigestBytes)))
+			return OCR2OracleConfig{}, errors.New("PrevConfigDigest length should be 32, got " + strconv.Itoa(len(prevConfigDigestBytes)))
 		}
 		var prevConfigDigest32 types.ConfigDigest = [32]byte(prevConfigDigestBytes)
 		prevConfigDigest = &prevConfigDigest32
@@ -148,12 +149,12 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 			return OCR2OracleConfig{}, errors.New("failed to decode PrevHistoryDigest: " + err.Error())
 		}
 		if len(prevHistoryDigestBytes) != 32 {
-			return OCR2OracleConfig{}, errors.New("PrevHistoryDigest length should be 32, got " + fmt.Sprint(len(prevHistoryDigestBytes)))
+			return OCR2OracleConfig{}, errors.New("PrevHistoryDigest length should be 32, got " + strconv.Itoa(len(prevHistoryDigestBytes)))
 		}
 		var prevHistoryDigest32 types.HistoryDigest = [32]byte(prevHistoryDigestBytes)
 		prevHistoryDigest = &prevHistoryDigest32
 	}
-	var prevSeqNr *uint64 = nil
+	var prevSeqNr *uint64
 	if cfg.PrevSeqNr != 0 {
 		prevSeqNr = &cfg.PrevSeqNr
 	}
