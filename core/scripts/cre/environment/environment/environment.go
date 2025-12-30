@@ -401,7 +401,7 @@ func startCmd() *cobra.Command {
 			}
 
 			if withDashboards {
-				err := setupDashboards(setupConfig)
+				err := setupDashboards(cmdContext, setupConfig)
 				if err != nil {
 					return errors.Wrap(err, "failed to setup dashboards")
 				}
@@ -500,7 +500,7 @@ func startCmd() *cobra.Command {
 	return cmd
 }
 
-func setupDashboards(setupCfg SetupConfig) error {
+func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	cfg, cfgErr := readConfig(setupCfg.ConfigPath)
 	if cfgErr != nil {
 		return errors.Wrap(cfgErr, "failed to read config")
@@ -551,7 +551,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 	fmt.Print(libformat.PurpleText("\nDeploying dashboards...") + "\n(watch for potential authorization requests!)\n")
 
-	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
+	deployDashboardsCmd := exec.CommandContext(ctx, "./deploy-cre-local.sh")
 	deployDashboardsCmd.Dir = targetPath
 	deployOutput, err := deployDashboardsCmd.CombinedOutput()
 	if err != nil {
