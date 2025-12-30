@@ -25,9 +25,9 @@ func TestGenerateNopsView(t *testing.T) {
 	nodeIDs := []string{"node_1", "node_2", "node_3"}
 
 	// Set up mock nodes with different configurations
-	p2pIDs := []string{}
-	csaKeys := []string{}
-	deploymentNodes := []deployment.Node{}
+	var p2pIDs []string
+	var csaKeys []string
+	var deploymentNodes []deployment.Node
 
 	for i, id := range nodeIDs {
 		// Create unique P2P IDs and CSA keys
@@ -39,17 +39,17 @@ func TestGenerateNopsView(t *testing.T) {
 		// Create a node
 		node := deployment.Node{
 			NodeID:      id,
-			Name:        "Node " + id,
+			Name:        "testnop-" + id,
 			PeerID:      p2pKey.PeerID(),
 			IsBootstrap: i == 0, // Make the first node a bootstrap node
 			AdminAddr:   "0x" + id,
 			CSAKey:      csaKey,
 			WorkflowKey: "workflow_" + id,
 			Labels: []*ptypes.Label{
-				&ptypes.Label{
+				{
 					Key:   "role",
 					Value: ptr("tester")},
-				&ptypes.Label{
+				{
 					Key:   "p2p",
 					Value: ptr(p2pIDs[i])},
 			},
@@ -62,17 +62,28 @@ func TestGenerateNopsView(t *testing.T) {
 
 	t.Run("successful view generation", func(t *testing.T) {
 		// Generate view
-		nopsView, err := GenerateNopsView(lggr, nodeIDs, jdService)
+		nopsView, err := GenerateNOPsViewV2(t.Context(), lggr, nodeIDs, jdService, "test", nil)
 		require.NoError(t, err)
 
+		nop := "testnop"
+		nopView, exists := nopsView[nop]
+		require.True(t, exists, "NOP %s should exist in the view", nop)
+
 		// Check that we have all 3 nodes in the view
-		require.Len(t, nopsView, 3)
+		require.Len(t, nopView.Nodes, 3)
 
 		// Check each node's properties
 		for i, id := range nodeIDs {
-			nodeName := "Node " + id
-			node, exists := nopsView[nodeName]
-			require.True(t, exists, "Node %s should exist in the view", nodeName)
+			nodeName := nop + "-" + id
+			var node *NopNodeInfoV2
+			for _, n := range nopView.Nodes {
+				if n.NodeName == nodeName {
+					// Found the node
+					node = &n
+					break
+				}
+			}
+			require.NotNil(t, node, "Node %s should exist in the view", nodeName)
 
 			assert.Equal(t, id, node.NodeID)
 
@@ -90,7 +101,7 @@ func TestGenerateNopsView(t *testing.T) {
 	})
 
 	t.Run("node not found in JD", func(t *testing.T) {
-		v, err := GenerateNopsView(lggr, []string{"node_uknown"}, jdService)
+		v, err := GenerateNOPsViewV2(t.Context(), lggr, []string{"node_uknown"}, jdService, "test", nil)
 		require.NoError(t, err)
 		assert.Empty(t, v)
 	})
@@ -102,7 +113,7 @@ func TestGenerateNopsView(t *testing.T) {
 			listNodesError:    errors.New("failed to list nodes from JD"),
 		}
 		// Should return the error from ListNodes
-		_, err := GenerateNopsView(lggr, nodeIDs, errorJDService)
+		_, err := GenerateNOPsViewV2(t.Context(), lggr, nodeIDs, errorJDService, "test", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list nodes from JD")
 	})

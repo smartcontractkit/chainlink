@@ -40,9 +40,9 @@
 #  provider = "kind"  # or "aws"
 
 [[nodesets]]
-  nodes = 5
+  nodes = 4
   name = "workflow"
-  don_types = ["workflow", "gateway"]
+  don_types = ["workflow"]
   override_mode = "each"
   http_port_range_start = 10100
 
@@ -65,17 +65,6 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13000
-
-  [[nodesets.node_specs]]
-    roles = ["bootstrap", "gateway"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      # 5002 is the web API capabilities port for incoming requests
-      # 15002 is the vault port for incoming requests
-      custom_ports = ["13401:7777","5002:5002","15002:15002"]
-      user_config_overrides = ""
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -111,4 +100,30 @@
       docker_file = "core/chainlink.Dockerfile"
       #image = "chainlink-tmp:latest"
       custom_ports = ["13405:7777"]   # External:internal port mapping
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "" }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["13401:7777","5002:5002","15002:15002"]
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""
