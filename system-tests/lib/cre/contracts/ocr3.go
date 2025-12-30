@@ -99,9 +99,9 @@ func DefaultOCR3_1Config(numWorkers int) (*ocr3.V3_1OracleConfig, error) {
 
 		MaxFaultyOracles: 1,
 
-		PrevConfigDigest:  "abC1230000000000000000000000000000000000000000000000000000000000", //random string
+		PrevConfigDigest:  "abC1230000000000000000000000000000000000000000000000000000000000", // random string
 		PrevSeqNr:         5,                                                                  // must be positive if PrevConfigDigest is set
-		PrevHistoryDigest: "abC1230000000000000000000000000000000000000000000000000000000000", //random string
+		PrevHistoryDigest: "abC1230000000000000000000000000000000000000000000000000000000000", // random string
 	}, nil
 }
 
