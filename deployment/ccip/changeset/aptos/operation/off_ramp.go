@@ -17,8 +17,8 @@ import (
 )
 
 var OffRampOperations = []*operations.Operation[any, any, any]{
-	UpdateOffRampSourcesOp.AsUntyped(),
-	SetOcr3ConfigOp.AsUntyped(),
+	UpdateOffRampSourcesOp.AsUntypedRelaxed(),
+	SetOcr3ConfigOp.AsUntypedRelaxed(),
 }
 
 // UpdateOffRampSourcesInput contains configuration for updating OffRamp sources

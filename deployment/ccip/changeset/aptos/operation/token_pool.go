@@ -22,13 +22,13 @@ import (
 )
 
 var TokenPoolOperations = []*operations.Operation[any, any, any]{
-	DeployTokenPoolModuleOp.AsUntyped(),
-	ApplyChainUpdatesOp.AsUntyped(),
-	SetChainRateLimiterConfigsOp.AsUntyped(),
-	AddRemotePoolsOp.AsUntyped(),
-	TransferTokenPoolOwnershipOp.AsUntyped(),
-	AcceptTokenPoolOwnershipOp.AsUntyped(),
-	ExecuteTokenPoolOwnershipTransferOp.AsUntyped(),
+	DeployTokenPoolModuleOp.AsUntypedRelaxed(),
+	ApplyChainUpdatesOp.AsUntypedRelaxed(),
+	SetChainRateLimiterConfigsOp.AsUntypedRelaxed(),
+	AddRemotePoolsOp.AsUntypedRelaxed(),
+	TransferTokenPoolOwnershipOp.AsUntypedRelaxed(),
+	AcceptTokenPoolOwnershipOp.AsUntypedRelaxed(),
+	ExecuteTokenPoolOwnershipTransferOp.AsUntypedRelaxed(),
 }
 
 type DeployTokenPoolPackageOutput struct {

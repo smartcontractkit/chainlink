@@ -279,7 +279,7 @@ GOOS=linux GOARCH=arm64 go build -gcflags "all=-N -l" -o <capability binary name
 ```
 Copy the capability binary to `core/scripts/cre/environment/binaries` folder.
 
-Add or update the `custom_ports` entry in the topology file (e.g., `core/scripts/cre/environment/configs/workflow-don.toml`) to include the port mapping for the Delve debugger. For example:
+Add or update the `custom_ports` entry in the topology file (e.g., `core/scripts/cre/environment/configs/workflow-gateway-don.toml`) to include the port mapping for the Delve debugger. For example:
 ```toml
 custom_ports = ["5002:5002", "15002:15002", "45000:45000"]
 ```
@@ -396,8 +396,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ### Advanced Usage:
 1. **Choose the Right Topology**
-   - For a single DON with all capabilities: `configs/workflow-don.toml` (default)
-   - For a single DON with all capabilities, but with a separate gateway node: `configs/workflow-gateway-don.toml`
+   - For a single DON with all capabilities, but with a separate gateway and bootstrap node: `configs/workflow-gateway-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-gateway-capabilities-don.toml`
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
@@ -430,7 +429,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
     - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
 
 Optional environment variables used by the CLI:
-- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/workflow-don.toml](./configs/workflow-don.toml)
+- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/workflow-gateway-don.toml](./configs/workflow-gateway-don.toml)
 - `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
 - `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
 
@@ -448,7 +447,7 @@ go run . env start --with-example -w 1m
 I recommend increasing your docker resources to near max memory, as this is going to slow your local
 machine down anyways, and it could mean the difference between a 5 minute and 2 minute iteration cycle.
 
-Add the following TOML config to `core/scripts/cre/environment/configs/workflow-don.toml`:
+Add the following TOML config to `core/scripts/cre/environment/configs/workflow-gateway-don.toml`:
 ```toml
 [Billing]
 URL = 'host.docker.internal:2223'
@@ -898,13 +897,13 @@ To actually use your capability in tests, you need to add it to the relevant env
 
 **For DON-level capabilities** (like random number generator):
 ```toml
-# In workflow-don.toml, workflow-gateway-don.toml, etc.
+# In workflow-gateway-don.toml, etc.
 capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "random-number-generator"]
 ```
 
 **For chain-level capabilities** (like gas estimator):
 ```toml
-# In workflow-don.toml, workflow-gateway-don.toml, etc.
+# In workflow-gateway-don.toml, etc.
 capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
 
 # Enable capabilities per chain
@@ -914,8 +913,7 @@ capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "
 ```
 
 Common configuration files:
-- `workflow-don.toml` - Basic workflow DON setup
-- `workflow-gateway-don.toml` - Workflow DON with gateway
+- `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node
 - `workflow-gateway-capabilities-don.toml` - Multiple DONs with different capabilities
 
 ### Configuration Templates
@@ -1050,7 +1048,7 @@ Each nodeset should use a different `http_port_range_start` to avoid port confli
 - Only **one** `workflow` DON and **one** `gateway` DON are allowed
 - Multiple `capabilities` DONs are supported
 - Chain-level capabilities must specify which chains they support
-- Bootstrap nodes are only needed for workflow DONs
+- Bootstrap nodes can be part of any DON or form a separate DON
 - Gateway nodes are only needed for gateway DONs
 
 ---
@@ -1062,9 +1060,7 @@ This section explains how to enable already implemented capabilities in existing
 ### Available Configuration Files
 
 The `configs/` directory contains several topology configurations:
-
-- `workflow-don.toml` - Single DON with all capabilities (default)
-- `workflow-gateway-don.toml` - Workflow DON with separate gateway node
+- `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node (default)
 - `workflow-gateway-capabilities-don.toml` - Full topology with multiple DONs
 - `workflow-don-crib.toml` - CRIB/Kubernetes deployment configuration
 - `capability_defaults.toml` - Default capability configurations and binary paths
@@ -1135,7 +1131,7 @@ Some capabilities require external binaries to be available. These are specified
 
 #### 1. Add DON-level Capabilities
 
-Edit your chosen topology file (e.g., `workflow-don.toml`) and add capabilities to the `capabilities` array:
+Edit your chosen topology file (e.g., `workflow-gateway-don.toml`) and add capabilities to the `capabilities` array:
 
 ```toml
 [[nodesets]]
@@ -1256,7 +1252,7 @@ You can override default capability configurations by modifying the `capability_
 - **Chain IDs**: Chain-level capabilities must specify valid chain IDs that exist in your blockchain configuration
 - **Port conflicts**: Each nodeset should use different `http_port_range_start` values
 - **DON limitations**: Only one `workflow` DON and one `gateway` DON are allowed per environment
-- **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes (index 0)
+- **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes
 
 ### Troubleshooting Capability Issues
 
@@ -1534,7 +1530,7 @@ Now, unless you enable a chain capability for that chain, it won't be added to n
 
 EVM keys will only be generated for a chain that either is referenced by any chain capabilities or which is present in the `supported_evm_chains` array.
 
-Check [workflow-don.toml](configs/workflow-don.toml) for an example.
+Check [workflow-gateway-don.toml](configs/workflow-gateway-don.toml) for an example.
 
 ## Kubernetes Deployment
 

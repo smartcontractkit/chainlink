@@ -290,15 +290,15 @@ func addBootstrapNodeConfig(
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
-	if ocrBErr != nil {
-		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
-	}
-
 	existingConfig.OCR2 = coretoml.OCR2{
 		Enabled:              ptr.Ptr(true),
 		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+	}
+
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
 
 	existingConfig.P2P = coretoml.P2P{
@@ -344,23 +344,16 @@ func addBootstrapNodeConfig(
 	}
 
 	if commonInputs.solanaChain != nil {
-		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			Enabled: ptr.Ptr(true),
-			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
-			Nodes: []*solcfg.Node{
-				{
-					Name: &commonInputs.solanaChain.Name,
-					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
-				},
-			},
-		})
+		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
-	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
+		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+		}
 	}
 
 	return existingConfig, nil
@@ -428,26 +421,19 @@ func addWorkerNodeConfig(
 	}
 
 	if commonInputs.solanaChain != nil {
-		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
-			Enabled: ptr.Ptr(true),
-			Nodes: solcfg.Nodes{
-				{
-					Name: ptr.Ptr(commonInputs.solanaChain.Name),
-					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
-				},
-			},
-		})
+		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
-	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
+		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+		}
 	}
 
-	if donMetadata.HasFlag(cre.WorkflowDON) {
+	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
 			NetworkID:       ptr.Ptr("evm"),
@@ -505,11 +491,9 @@ func addGatewayNodeConfig(
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
-	existingConfig.P2P = coretoml.P2P{
-		V2: coretoml.P2PV2{
-			Enabled:         ptr.Ptr(true),
-			ListenAddresses: ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
-		},
+	if existingConfig.P2P.V2.Enabled == nil {
+		existingConfig.P2P.V2.Enabled = ptr.Ptr(true)
+		existingConfig.P2P.V2.ListenAddresses = ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)})
 	}
 
 	existingConfig.Capabilities = coretoml.Capabilities{
@@ -526,36 +510,36 @@ func addGatewayNodeConfig(
 		},
 	}
 
-OUTER:
 	for _, evmChain := range commonInputs.evmChains {
-		// add only unconfigured chains, since other roles might have already added some chains
-		for _, existingEVM := range existingConfig.EVM {
-			if existingEVM.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID)))) == 0 {
-				continue OUTER
-			}
-		}
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
-	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
+		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+		}
 	}
 
-	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-		SyncStrategy:    ptr.Ptr("reconciliation"),
+	if existingConfig.Capabilities.WorkflowRegistry.Address == nil {
+		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:    ptr.Ptr("reconciliation"),
+		}
+	}
+
+	if existingConfig.Capabilities.WorkflowRegistry.WorkflowStorage.URL == nil {
 		// TODO remove WorkflowStorage once it is not required on a gateway node
-		WorkflowStorage: coretoml.WorkflowStorage{
+		existingConfig.Capabilities.WorkflowRegistry.WorkflowStorage = coretoml.WorkflowStorage{
 			URL:                 ptr.Ptr("localhost"),
 			TLSEnabled:          ptr.Ptr(false),
 			ArtifactStorageHost: ptr.Ptr("localhost"),
-		},
+		}
 	}
 
 	// TODO: remove once gateway connector is not required by workflow registry syncer
@@ -738,7 +722,34 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 	} else {
 		cfg = buildEVMConfig(evmChain)
 	}
+
+	// add only unconfigured chains, since other roles might have already added some chains
+	for _, existingEVM := range *existingConfig {
+		if existingEVM.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID)))) == 0 {
+			return
+		}
+	}
+
 	*existingConfig = append(*existingConfig, &cfg)
+}
+
+func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain) {
+	for _, existingSol := range *existingConfig {
+		if existingSol.ChainID != nil && *existingSol.ChainID == solChain.ChainID {
+			return
+		}
+	}
+
+	*existingConfig = append(*existingConfig, &solcfg.TOMLConfig{
+		Enabled: ptr.Ptr(true),
+		ChainID: ptr.Ptr(solChain.ChainID),
+		Nodes: []*solcfg.Node{
+			{
+				Name: &solChain.Name,
+				URL:  commonconfig.MustParseURL(solChain.NodeURL),
+			},
+		},
+	})
 }
 
 // generateInstanceNames creates Kubernetes-compatible instance names for nodes
