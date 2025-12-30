@@ -6,6 +6,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -15,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/deployment/utils/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	aptosops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -55,9 +58,18 @@ func (c *CurseAdapter) IsSubjectCursedOnChain(e cldf.Environment, selector uint6
 	return aptosops.IsSubjectCursed(deps, c.CCIPAddress, subject[:])
 }
 
-// IsChainConnectedToTargetChain returns true by default; tighten when connectivity checks are available.
 func (c *CurseAdapter) IsChainConnectedToTargetChain(e cldf.Environment, selector uint64, targetSelector uint64) (bool, error) {
-	return true, nil
+	chain, ok := e.BlockChains.AptosChains()[selector]
+	if !ok {
+		return false, fmt.Errorf("aptos chain %d not found in environment", selector)
+	}
+	routerBind := ccip_router.Bind(c.CCIPAddress, chain.Client)
+	callOpts := &bind.CallOpts{}
+	connected, err := routerBind.Router().IsChainSupported(callOpts, targetSelector)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if chain %d is connected to chain %d: %w", selector, targetSelector, err)
+	}
+	return connected, nil
 }
 
 // IsCurseEnabledForChain returns true by default; extend to verify RMN presence on-chain.
@@ -75,8 +87,21 @@ func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequence
 		"aptos-curse-sequence",
 		operation.Version1_0_0,
 		"Curse sequence for Aptos",
-		func(b cldf_ops.Bundle, deps cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
-			return sequences.OnChainOutput{}, nil
+		func(b cldf_ops.Bundle, chains cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
+			chain, ok := chains.AptosChains()[in.ChainSelector]
+			if !ok {
+				return sequences.OnChainOutput{}, fmt.Errorf("chain with selector %d not found in environment", in.ChainSelector)
+			}
+
+			curseInput := sequence.AptosCurseInput{
+				CurseInput:  in,
+				CCIPAddress: c.CCIPAddress,
+			}
+			seqOutput, err := cldf_ops.ExecuteSequence(b, sequence.SeqCurse, chain, curseInput)
+			if err != nil {
+				return sequences.OnChainOutput{}, fmt.Errorf("failed to curse subjects on chain %d: %w", chain.Selector, err)
+			}
+			return seqOutput.Output, nil
 		},
 	)
 }
@@ -87,8 +112,21 @@ func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequen
 		"aptos-uncurse-sequence",
 		operation.Version1_0_0,
 		"Uncurse sequence for Aptos",
-		func(b cldf_ops.Bundle, deps cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
-			return sequences.OnChainOutput{}, nil
+		func(b cldf_ops.Bundle, chains cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
+			chain, ok := chains.AptosChains()[in.ChainSelector]
+			if !ok {
+				return sequences.OnChainOutput{}, fmt.Errorf("chain with selector %d not found in environment", in.ChainSelector)
+			}
+
+			uncurseInput := sequence.AptosCurseInput{
+				CurseInput:  in,
+				CCIPAddress: c.CCIPAddress,
+			}
+			seqOutput, err := cldf_ops.ExecuteSequence(b, sequence.SeqUncurse, chain, uncurseInput)
+			if err != nil {
+				return sequences.OnChainOutput{}, fmt.Errorf("failed to uncurse subjects on chain %d: %w", chain.Selector, err)
+			}
+			return seqOutput.Output, nil
 		},
 	)
 }
