@@ -19,11 +19,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-const (
-	SignerAddress    = "0x0469abeD5aE5f30cb558eE7286b469B6fF35AB34"
-	SignerPrivateKey = "3888c3e07120e200d085e15f1bd4132695aa722427d692951af3b5c2c6b1ddf9"
-)
-
 type testFixture struct {
 	rt                        *runtime.Runtime
 	selector                  uint64
@@ -57,18 +52,19 @@ func setupTest(t *testing.T) *testFixture {
 	)[0].Address
 
 	// UpdateAllowedSigners to include the allowed owner key
+	allowedSigner := rt.Environment().BlockChains.EVMChains()[selector].DeployerKey.From
 	err = rt.Exec(
 		runtime.ChangesetTask(UpdateAllowedSigners{}, UpdateAllowedSignersInput{
 			ChainSelector:             selector,
 			WorkflowRegistryQualifier: qualifier,
 			Signers: []common.Address{
-				common.HexToAddress(SignerAddress),
+				allowedSigner,
 			},
 			Allowed: true,
 		}),
 	)
 	require.NoError(t, err, "failed to update allowed signers")
-	t.Logf("Upated allowed signers to include key %s", SignerAddress)
+	t.Logf("Upated allowed signers to include key %s", allowedSigner)
 
 	// SetDONLimit to allow workflows to be created
 	err = rt.Exec(
