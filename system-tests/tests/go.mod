@@ -746,6 +746,9 @@ require (
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20251014124537-af6b1684fe15
 
+// make the vulnerability scanner happy (https://github.com/advisories/GHSA-pwhc-rpq9-4c8w)
+replace github.com/containerd/containerd/v2 => github.com/containerd/containerd/v2 v2.1.5
+
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction => ./smoke/cre/httpaction
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative => ./regression/cre/httpaction-negative
