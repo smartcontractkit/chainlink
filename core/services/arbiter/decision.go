@@ -15,14 +15,14 @@ type DecisionEngine interface {
 
 type decisionEngine struct {
 	shardConfig ShardConfigReader
-	lggr        logger.Logger
+	lggr        logger.SugaredLogger
 }
 
 // NewDecisionEngine creates a new DecisionEngine.
-func NewDecisionEngine(shardConfig ShardConfigReader, lggr logger.Logger) DecisionEngine {
+func NewDecisionEngine(shardConfig ShardConfigReader, lggr logger.SugaredLogger) DecisionEngine {
 	return &decisionEngine{
 		shardConfig: shardConfig,
-		lggr:        lggr.Named("DecisionEngine"),
+		lggr:        lggr,
 	}
 }
 
@@ -31,22 +31,9 @@ func NewDecisionEngine(shardConfig ShardConfigReader, lggr logger.Logger) Decisi
 // with a minimum of 1 shard always.
 func (d *decisionEngine) ComputeApprovedCount(ctx context.Context, desiredCount int) (int, error) {
 	// Get on-chain limit from ShardConfig contract
-	maxAllowed, err := d.shardConfig.GetDesiredShardCount(ctx)
+	approved, err := d.shardConfig.GetDesiredShardCount(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get on-chain shard limit: %w", err)
-	}
-
-	// Apply constraint: approved = min(desired, max)
-	approved := desiredCount
-	maxAllowedInt := int(maxAllowed)
-
-	if approved > maxAllowedInt {
-		d.lggr.Infow("Capping desired count to on-chain limit",
-			"desired", desiredCount,
-			"maxAllowed", maxAllowedInt,
-			"approved", maxAllowedInt,
-		)
-		approved = maxAllowedInt
 	}
 
 	// Ensure minimum of 1 shard
@@ -60,9 +47,8 @@ func (d *decisionEngine) ComputeApprovedCount(ctx context.Context, desiredCount 
 
 	d.lggr.Debugw("Computed approved replica count",
 		"desired", desiredCount,
-		"maxAllowed", maxAllowedInt,
 		"approved", approved,
 	)
 
-	return approved, nil
+	return int(approved), nil
 }
