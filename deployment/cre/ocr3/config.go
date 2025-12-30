@@ -243,7 +243,7 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCR
 	if cfgBytes == nil {
 		return OCR2OracleConfig{}, errors.New("failed to get offchain config: reportingPluginConfigOverride is required for OCR3.1")
 	}
-	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0))) || !((cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) {
+	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0))) || !((cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) { //nolint:staticcheck // ignore
 		return OCR2OracleConfig{}, errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
 	}
 	if cfg.PrevConfigDigest != "" && cfg.PrevSeqNr == uint64(0) {

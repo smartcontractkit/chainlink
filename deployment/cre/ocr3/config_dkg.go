@@ -124,7 +124,7 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
 	}
 
-	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0))) || !((cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) {
+	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0))) || !((cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) { //nolint:staticcheck // ignore
 		return OCR2OracleConfig{}, errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
 	}
 	if (cfg.PrevConfigDigest != "") && (cfg.PrevSeqNr == uint64(0)) {
