@@ -2,6 +2,8 @@ package changeset
 
 import (
 	"crypto/rand"
+	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"testing"
@@ -66,7 +68,7 @@ func TestUserWorkflowOperations(t *testing.T) {
 				ChainSelector:             fixture.selector,
 				WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			},
-			ExpiryTimestamp: uint32(time.Now().Add(48 * time.Hour).Unix()),
+			ExpiryTimestamp: mustConvertInt64ToUint32(time.Now().Add(48 * time.Hour).Unix()),
 			RequestDigest:   generateRandom32BytesString(t),
 		}
 		allowlistChangeset := UserAllowlistRequest{}
@@ -377,7 +379,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 					},
 				},
 			},
-			ExpiryTimestamp: uint32(time.Now().Add(48 * time.Hour).Unix()),
+			ExpiryTimestamp: mustConvertInt64ToUint32(time.Now().Add(48 * time.Hour).Unix()),
 			RequestDigest:   generateRandom32BytesString(t),
 		}
 		allowlistChangeset := UserAllowlistRequest{}
@@ -388,7 +390,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 	})
 }
 
-// Generate ownersip proof based on test data and sign using private key of an allowed test signer.
+// Generate ownership proof based on test data and sign using private key of an allowed test signer.
 // Make this signature recoverable by the WorkflowRegistry contract.
 func generateAndSignOwnershipProof(
 	t *testing.T,
@@ -437,4 +439,11 @@ func generateRandom32BytesString(t *testing.T) string {
 	_, err := rand.Read(b[:])
 	require.NoError(t, err, "failed to generate random 32 bytes")
 	return common.Bytes2Hex(b[:])
+}
+
+func mustConvertInt64ToUint32(value int64) uint32 {
+	if value < 0 || value > math.MaxUint32 {
+		panic(fmt.Sprintf("value %d out of range for uint32", value))
+	}
+	return uint32(value)
 }

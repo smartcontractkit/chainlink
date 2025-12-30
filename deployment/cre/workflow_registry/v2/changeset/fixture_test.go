@@ -64,7 +64,7 @@ func setupTest(t *testing.T) *testFixture {
 		}),
 	)
 	require.NoError(t, err, "failed to update allowed signers")
-	t.Logf("Upated allowed signers to include key %s", allowedSigner)
+	t.Logf("Updated allowed signers to include key %s", allowedSigner)
 
 	// SetDONLimit to allow workflows to be created
 	err = rt.Exec(
