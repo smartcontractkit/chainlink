@@ -602,8 +602,8 @@ func (u UserUnlinkOwner) Apply(e cldf.Environment, config UserUnlinkOwnerInput) 
 type UserAllowlistRequest struct{}
 
 type UserAllowlistRequestInput struct {
-	ExpiryTimestamp uint32   `json:"expiryTimestamp"`
-	RequestDigest   [32]byte `json:"requestDigest"`
+	ExpiryTimestamp uint32 `json:"expiryTimestamp"`
+	RequestDigest   string `json:"requestDigest"`
 
 	CommonWorkflowInput
 }
@@ -612,7 +612,7 @@ func (u UserAllowlistRequest) VerifyPreconditions(e cldf.Environment, config Use
 	if config.ExpiryTimestamp == 0 {
 		return errors.New("expiry timestamp cannot be zero")
 	}
-	if config.RequestDigest == [32]byte{} {
+	if len(config.RequestDigest) == 0 {
 		return errors.New("request digest cannot be empty")
 	}
 	return nil
@@ -662,7 +662,7 @@ func (u UserAllowlistRequest) Apply(e cldf.Environment, config UserAllowlistRequ
 		e.OperationsBundle,
 		contracts.UserAllowlistRequestOp, deps, contracts.UserAllowlistRequestOpInput{
 			ExpiryTimestamp: config.ExpiryTimestamp,
-			RequestDigest:   config.RequestDigest,
+			RequestDigest:   [32]byte(common.Hex2Bytes(config.RequestDigest)),
 			ChainSelector:   config.ChainSelector,
 			MCMSConfig:      config.MCMSConfig,
 			Qualifier:       config.WorkflowRegistryQualifier,

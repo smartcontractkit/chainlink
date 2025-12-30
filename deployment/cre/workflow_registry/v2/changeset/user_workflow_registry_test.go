@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"crypto/rand"
 	"math/big"
 	"strconv"
 	"testing"
@@ -24,9 +25,9 @@ func TestUserWorkflowOperations(t *testing.T) {
 	testWorkflowID := "1234567891234567891234567891234567891234567891234567891234567891"
 	testWorkflowName := "Test Workflow"
 	testDONFamily := "zone-a"
-	testURL := "http://example.com"
+	testURL := "https://example.com"
 
-	t.Run("link-owner upsert pause activate delete unlink-owner", func(t *testing.T) {
+	t.Run("link-owner allowlist-request upsert pause activate delete unlink-owner", func(t *testing.T) {
 		fixture := setupTest(t)
 
 		chain := fixture.rt.Environment().BlockChains.EVMChains()[fixture.selector]
@@ -59,6 +60,21 @@ func TestUserWorkflowOperations(t *testing.T) {
 		_, err = linkOwnerChangeset.Apply(fixture.rt.Environment(), linkOwnerInput)
 		require.NoError(t, err, "link owner apply should pass")
 
+		t.Log("Testing allowlist request...")
+		allowlistInput := UserAllowlistRequestInput{
+			CommonWorkflowInput: CommonWorkflowInput{
+				ChainSelector:             fixture.selector,
+				WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			},
+			ExpiryTimestamp: uint32(time.Now().Add(48 * time.Hour).Unix()),
+			RequestDigest:   generateRandom32BytesString(t),
+		}
+		allowlistChangeset := UserAllowlistRequest{}
+		err = allowlistChangeset.VerifyPreconditions(fixture.rt.Environment(), allowlistInput)
+		require.NoError(t, err, "allowlist request preconditions should pass")
+		_, err = allowlistChangeset.Apply(fixture.rt.Environment(), allowlistInput)
+		require.NoError(t, err, "allowlist request apply should pass")
+
 		t.Log("Testing user workflow upsert...")
 		upsertInput := UserWorkflowUpsertInput{
 			CommonWorkflowInput: CommonWorkflowInput{
@@ -78,7 +94,6 @@ func TestUserWorkflowOperations(t *testing.T) {
 		changeset := UserWorkflowUpsert{}
 		err = changeset.VerifyPreconditions(fixture.rt.Environment(), upsertInput)
 		require.NoError(t, err, "preconditions should pass")
-		t.Log("User workflow upsert preconditions passed")
 
 		csOutput, err := changeset.Apply(fixture.rt.Environment(), upsertInput)
 		require.NoError(t, err, "user workflow upsert apply should pass")
@@ -97,7 +112,6 @@ func TestUserWorkflowOperations(t *testing.T) {
 		require.NoError(t, err, "user workflow pause preconditions should pass")
 		_, err = pauseChangeset.Apply(fixture.rt.Environment(), pauseInput)
 		require.NoError(t, err, "user workflow pause apply should pass")
-		t.Log("User workflow paused successfully")
 
 		t.Log("Testing user workflow activate...")
 		activateInput := UserWorkflowActivateInput{
@@ -113,7 +127,6 @@ func TestUserWorkflowOperations(t *testing.T) {
 		require.NoError(t, err, "user workflow activate preconditions should pass")
 		_, err = activateChangeset.Apply(fixture.rt.Environment(), activateInput)
 		require.NoError(t, err, "user workflow activate apply should pass")
-		t.Log("User workflow activated successfully")
 
 		t.Log("Testing user workflow delete...")
 		deleteInput := UserWorkflowDeleteInput{
@@ -128,7 +141,6 @@ func TestUserWorkflowOperations(t *testing.T) {
 		require.NoError(t, err, "user workflow delete preconditions should pass")
 		_, err = deleteChangeset.Apply(fixture.rt.Environment(), deleteInput)
 		require.NoError(t, err, "user workflow delete apply should pass")
-		t.Log("User workflow deleted successfully")
 
 		t.Log("Testing unlink owner...")
 		validity, _, signature = generateAndSignOwnershipProof(
@@ -209,8 +221,6 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("upsert workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
-
-		t.Log("Testing user workflow upsert with MCMS preconditions...")
 		upsertInput := UserWorkflowUpsertInput{
 			CommonWorkflowInput: CommonWorkflowInput{
 				ChainSelector:             fixture.selector,
@@ -235,7 +245,6 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 		changeset := UserWorkflowUpsert{}
 		err := changeset.VerifyPreconditions(fixture.rt.Environment(), upsertInput)
 		require.NoError(t, err, "MCMS preconditions should pass")
-		t.Log("User workflow upsert with MCMS preconditions passed")
 
 		csOutput, err := changeset.Apply(fixture.rt.Environment(), upsertInput)
 		require.NoError(t, err, "user workflow upsert apply should pass")
@@ -246,8 +255,6 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("pause workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
-
-		t.Log("Testing user workflow pause with MCMS...")
 		pauseInput := UserWorkflowPauseInput{
 			CommonWorkflowInput: CommonWorkflowInput{
 				ChainSelector:             fixture.selector,
@@ -268,13 +275,10 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 		require.NoError(t, err, "user workflow pause with MCMS apply should pass")
 		assert.NotNil(t, csOutput.Reports, "user workflow pause apply should have reports")
 		assert.Len(t, csOutput.Reports, 1, "expected one report from user workflow pause")
-		t.Log("User workflow paused with MCMS successfully")
 	})
 
 	t.Run("activate workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
-
-		t.Log("Testing user workflow activate with MCMS...")
 		activateInput := UserWorkflowActivateInput{
 			CommonWorkflowInput: CommonWorkflowInput{
 				ChainSelector:             fixture.selector,
@@ -296,13 +300,10 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 		require.NoError(t, err, "user workflow activate with MCMS apply should pass")
 		assert.NotNil(t, csOutput.Reports, "user workflow activate apply should have reports")
 		assert.Len(t, csOutput.Reports, 1, "expected one report from user workflow activate")
-		t.Log("User workflow activated with MCMS successfully")
 	})
 
 	t.Run("delete workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
-
-		t.Log("Testing user workflow delete with MCMS...")
 		deleteInput := UserWorkflowDeleteInput{
 			CommonWorkflowInput: CommonWorkflowInput{
 				ChainSelector:             fixture.selector,
@@ -323,16 +324,13 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 		require.NoError(t, err, "user workflow delete with MCMS apply should pass")
 		assert.NotNil(t, csOutput.Reports, "user workflow delete apply should have reports")
 		assert.Len(t, csOutput.Reports, 1, "expected one report from user workflow delete")
-		t.Log("User workflow deleted with MCMS successfully")
 	})
 
 	t.Run("unlink owner with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
-
 		chain := fixture.rt.Environment().BlockChains.EVMChains()[fixture.selector]
 		deployerKey := chain.DeployerKey
 
-		t.Log("Testing unlink owner with MCMS...")
 		validity, _, signature := generateAndSignOwnershipProof(
 			t,
 			common.HexToAddress(fixture.workflowRegistryAddress),
@@ -364,6 +362,29 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 		require.NoError(t, err, "unlink owner with MCMS preconditions should pass")
 		_, err = unlinkOwnerChangeset.Apply(fixture.rt.Environment(), unlinkOwnerInput)
 		require.NoError(t, err, "unlink owner with MCMS apply should pass")
+	})
+
+	t.Run("allowlist request with MCMS", func(t *testing.T) {
+		fixture := setupTestWithMCMS(t)
+		allowlistInput := UserAllowlistRequestInput{
+			CommonWorkflowInput: CommonWorkflowInput{
+				ChainSelector:             fixture.selector,
+				WorkflowRegistryQualifier: "test-workflow-registry-v2",
+				MCMSConfig: &contracts.MCMSConfig{
+					MinDelay: 1 * time.Second,
+					TimelockQualifierPerChain: map[uint64]string{
+						fixture.selector: "",
+					},
+				},
+			},
+			ExpiryTimestamp: uint32(time.Now().Add(48 * time.Hour).Unix()),
+			RequestDigest:   generateRandom32BytesString(t),
+		}
+		allowlistChangeset := UserAllowlistRequest{}
+		err := allowlistChangeset.VerifyPreconditions(fixture.rt.Environment(), allowlistInput)
+		require.NoError(t, err, "allowlist request with MCMS preconditions should pass")
+		_, err = allowlistChangeset.Apply(fixture.rt.Environment(), allowlistInput)
+		require.NoError(t, err, "allowlist request with MCMS apply should pass")
 	})
 }
 
@@ -409,4 +430,11 @@ func generateAndSignOwnershipProof(
 
 	validityTimestampBigInt := big.NewInt(validityTimestamp.Unix())
 	return validityTimestampBigInt, ownershipProofHashBytes, sig
+}
+
+func generateRandom32BytesString(t *testing.T) string {
+	var b [32]byte
+	_, err := rand.Read(b[:])
+	require.NoError(t, err, "failed to generate random 32 bytes")
+	return common.Bytes2Hex(b[:])
 }
