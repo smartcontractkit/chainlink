@@ -32,7 +32,7 @@ type moduleInfo struct {
 
 // getSchemaSetFromGoMod uses `go list` to extract the version/commit ref
 // from the github.com/smartcontractkit/chainlink-protos/workflows/go dependency.
-// It returns a ProtoSchemaSet with hardcoded values matching default.toml config.
+// It returns a SchemaSet with hardcoded values matching default.toml config.
 func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, error) {
 	const targetModule = "github.com/smartcontractkit/chainlink-protos/workflows/go"
 
@@ -71,15 +71,15 @@ func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, err
 
 	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", targetModule, commitRef, modInfo.Version)
 
-	// Return ProtoSchemaSet with hardcoded values from default.toml
-	protoSchemaSet := chipingressset.SchemaSet{
+	// Return SchemaSet with hardcoded values from default.toml
+	schemaSet := chipingressset.SchemaSet{
 		URI:        "https://github.com/smartcontractkit/chainlink-protos",
 		Ref:        commitRef,
 		SchemaDir:  "workflows",
-		ConfigFile: "chip-cre.json",
+		ConfigFile: "chip-cre.json", // file with mappings of protobufs to subjects, together with references
 	}
 
-	return []chipingressset.SchemaSet{protoSchemaSet}, nil
+	return []chipingressset.SchemaSet{schemaSet}, nil
 }
 
 // extractCommitRef extracts a commit reference from various version formats
