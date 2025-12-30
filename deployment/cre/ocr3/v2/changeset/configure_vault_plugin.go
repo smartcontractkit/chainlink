@@ -60,7 +60,7 @@ func (l ConfigureVaultPlugin) VerifyPreconditions(_ cldf.Environment, input Conf
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
-	if !((input.OracleConfig.PrevConfigDigest == "") == (input.OracleConfig.PrevSeqNr == uint64(0)) && (input.OracleConfig.PrevSeqNr == uint64(0)) == (input.OracleConfig.PrevHistoryDigest == "")) {
+	if !((input.OracleConfig.PrevConfigDigest == "") == (input.OracleConfig.PrevSeqNr == uint64(0)) && (input.OracleConfig.PrevSeqNr == uint64(0)) == (input.OracleConfig.PrevHistoryDigest == "")) { //nolint:staticcheck // ignore
 		return errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
 	}
 	if (input.OracleConfig.PrevConfigDigest != "") && (input.OracleConfig.PrevSeqNr == uint64(0)) {
