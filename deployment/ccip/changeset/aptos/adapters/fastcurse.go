@@ -132,12 +132,17 @@ func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequen
 }
 
 func (c *CurseAdapter) ListConnectedChains(e cldf.Environment, selector uint64) ([]uint64, error) {
-	_, ok := e.BlockChains.AptosChains()[selector]
+	chain, ok := e.BlockChains.AptosChains()[selector]
 	if !ok {
-		return nil, fmt.Errorf("chain %d not found", selector)
+		return nil, fmt.Errorf("aptos chain %d not found in environment", selector)
 	}
-
-	return []uint64{}, nil
+	routerBind := ccip_router.Bind(c.CCIPAddress, chain.Client)
+	callOpts := &bind.CallOpts{}
+	connectedChains, err := routerBind.Router().GetDestChains(callOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connected chains for chain %d: %w", selector, err)
+	}
+	return connectedChains, nil
 }
 
 // SelectorToSubject converts selector to Subject (family-aware).
