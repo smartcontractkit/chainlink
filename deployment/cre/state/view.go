@@ -13,8 +13,43 @@ import (
 )
 
 var _ deployment.ViewStateV2 = ViewCRE
+var _ deployment.ViewStateV2 = ViewCREV2
 
 func ViewCRE(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
+	chainViews, viewErrs := generateCREChainsViews(e, previousView)
+	if viewErrs != nil {
+		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
+	}
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+	return &CREView{
+		Chains: chainViews,
+		Nops:   nopsView,
+	}, viewErrs
+}
+
+func ViewCREV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
+	chainViews, viewErrs := generateCREChainsViews(e, previousView)
+	if viewErrs != nil {
+		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
+	}
+	nopsView, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "cre", nil)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+	return &CREViewV2{
+		Chains: chainViews,
+		Nops:   nopsView,
+	}, viewErrs
+}
+
+func generateCREChainsViews(e deployment.Environment, previousView json.Marshaler) (map[string]CREChainView, error) {
 	lggr := e.Logger
 	contractsMap, err := getContractsPerChain(e)
 	// This is an unrecoverable error
@@ -54,14 +89,6 @@ func ViewCRE(e deployment.Environment, previousView json.Marshaler) (json.Marsha
 		}
 		chainViews[chainName] = v
 	}
-	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
-	if err != nil {
-		err2 := fmt.Errorf("failed to view nops: %w", err)
-		lggr.Error(err2)
-		viewErrs = errors.Join(viewErrs, err2)
-	}
-	return &CREView{
-		Chains: chainViews,
-		Nops:   nopsView,
-	}, viewErrs
+
+	return chainViews, viewErrs
 }

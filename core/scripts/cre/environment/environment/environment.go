@@ -136,6 +136,7 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait 
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
+			"topology": os.Getenv("CTF_CONFIGS"),
 		})
 
 		if tracingErr != nil {
@@ -564,8 +565,9 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
 	metadata := map[string]any{
-		"success": success,
-		"infra":   infraType,
+		"success":  success,
+		"infra":    infraType,
+		"topology": os.Getenv("CTF_CONFIGS"),
 	}
 
 	if errorMessage != nil {
@@ -800,7 +802,7 @@ func PrintCRELogo() {
 
 func setDefaultCtfConfigs() error {
 	if os.Getenv("CTF_CONFIGS") == "" {
-		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml"); err != nil {
+		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml"); err != nil {
 			return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", err)
 		}
 

@@ -70,7 +70,6 @@ jobs:
           # - Otherwise tests are auto-discovered and run on all topologies.
           PER_TEST_MODE='replace'
           TOPOLOGIES_JSON='[
-            {"topology":"workflow","configs":"configs/workflow-don.toml"},
             {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
           ]'
