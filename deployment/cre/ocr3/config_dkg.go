@@ -123,24 +123,40 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
 	}
 
-	var prevConfigDigest types.ConfigDigest
-	prevConfigDigestBytes, err := hex.DecodeString(cfg.PrevConfigDigest)
-	if err != nil {
-		return OCR2OracleConfig{}, errors.New("failed to decode PrevConfigDigest: " + err.Error())
+	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0)) && (cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) {
+		return OCR2OracleConfig{}, errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
 	}
-	if len(prevConfigDigestBytes) != 32 {
-		return OCR2OracleConfig{}, errors.New("invalid PrevConfigDigest length: " + fmt.Sprint(len(prevConfigDigestBytes)))
+	if (cfg.PrevConfigDigest != "") && (cfg.PrevSeqNr == uint64(0)) {
+		return OCR2OracleConfig{}, errors.New("PrevSeqNr must be positive if PrevConfigDigest is set")
 	}
-	prevConfigDigest = [32]byte(prevConfigDigestBytes)
-	var prevHistoryDigest types.HistoryDigest
-	prevHistoryDigestBytes, err := hex.DecodeString(cfg.PrevHistoryDigest)
-	if err != nil {
-		return OCR2OracleConfig{}, errors.New("failed to decode PrevHistoryDigest: " + err.Error())
+	var prevConfigDigest *types.ConfigDigest
+	if cfg.PrevConfigDigest != "" {
+		prevConfigDigestBytes, err := hex.DecodeString(cfg.PrevConfigDigest)
+		if err != nil {
+			return OCR2OracleConfig{}, errors.New("failed to decode PrevConfigDigest: " + err.Error())
+		}
+		if len(prevConfigDigestBytes) != 32 {
+			return OCR2OracleConfig{}, errors.New("PrevConfigDigest length should be 32, got " + fmt.Sprint(len(prevConfigDigestBytes)))
+		}
+		var prevConfigDigest32 types.ConfigDigest = [32]byte(prevConfigDigestBytes)
+		prevConfigDigest = &prevConfigDigest32
 	}
-	if len(prevHistoryDigestBytes) != 32 {
-		return OCR2OracleConfig{}, errors.New("invalid prevHistoryDigestBytes length: " + fmt.Sprint(len(prevHistoryDigestBytes)))
+	var prevHistoryDigest *types.HistoryDigest
+	if cfg.PrevHistoryDigest != "" {
+		prevHistoryDigestBytes, err := hex.DecodeString(cfg.PrevHistoryDigest)
+		if err != nil {
+			return OCR2OracleConfig{}, errors.New("failed to decode PrevHistoryDigest: " + err.Error())
+		}
+		if len(prevHistoryDigestBytes) != 32 {
+			return OCR2OracleConfig{}, errors.New("PrevHistoryDigest length should be 32, got " + fmt.Sprint(len(prevHistoryDigestBytes)))
+		}
+		var prevHistoryDigest32 types.HistoryDigest = [32]byte(prevHistoryDigestBytes)
+		prevHistoryDigest = &prevHistoryDigest32
 	}
-	prevHistoryDigest = [32]byte(prevHistoryDigestBytes)
+	var prevSeqNr *uint64 = nil
+	if cfg.PrevSeqNr != 0 {
+		prevSeqNr = &cfg.PrevSeqNr
+	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3_1confighelper.ContractSetConfigArgsDeterministic(
 		ocr3_1confighelper.CheckPublicConfigLevelDefault,
@@ -166,9 +182,9 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 		time.Duration(cfg.MaxDurationShouldAcceptAttestedReportMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationShouldTransmitAcceptedReportMillis)*time.Millisecond,
 		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{
-			PrevConfigDigest:  &prevConfigDigest,
-			PrevSeqNr:         &cfg.PrevSeqNr,
-			PrevHistoryDigest: &prevHistoryDigest,
+			PrevConfigDigest:  prevConfigDigest,
+			PrevSeqNr:         prevSeqNr,
+			PrevHistoryDigest: prevHistoryDigest,
 		},
 	)
 	if err != nil {

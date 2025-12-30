@@ -64,6 +64,12 @@ func (l ConfigureVaultDKG) VerifyPreconditions(_ cldf.Environment, input Configu
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
+	if !((input.OracleConfig.PrevConfigDigest == "") == (input.OracleConfig.PrevSeqNr == uint64(0)) && (input.OracleConfig.PrevSeqNr == uint64(0)) == (input.OracleConfig.PrevHistoryDigest == "")) {
+		return errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
+	}
+	if (input.OracleConfig.PrevConfigDigest != "") && (input.OracleConfig.PrevSeqNr == uint64(0)) {
+		return errors.New("PrevSeqNr must be positive if PrevConfigDigest is set")
+	}
 	if input.OracleConfig.PrevConfigDigest != "" {
 		err := verify32BytesHexString(input.OracleConfig.PrevConfigDigest)
 		if err != nil {
