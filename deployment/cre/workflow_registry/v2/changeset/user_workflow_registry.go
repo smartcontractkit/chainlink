@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 )
 
-// ChangeSer interface implementations for user functions
+// ChangeSet interface implementations for user functions
 var _ cldf.ChangeSetV2[UserWorkflowUpsertInput] = UserWorkflowUpsert{}
 var _ cldf.ChangeSetV2[UserWorkflowPauseInput] = UserWorkflowPause{}
 var _ cldf.ChangeSetV2[UserWorkflowActivateInput] = UserWorkflowActivate{}
@@ -38,12 +38,6 @@ func validateWorkflowIDHex(workflowID string) error {
 	return nil
 }
 
-type CommonWorkflowInput struct {
-	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-}
-
 // UserWorkflowUpsert creates or updates a user workflow
 type UserWorkflowUpsert struct{}
 type UserWorkflowUpsertInput struct {
@@ -57,7 +51,9 @@ type UserWorkflowUpsertInput struct {
 	Attributes     string `json:"attributes"`     // Attributes
 	KeepAlive      bool   `json:"keepAlive"`      // Keep Alive flag
 
-	CommonWorkflowInput
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 func (u UserWorkflowUpsert) VerifyPreconditions(e cldf.Environment, config UserWorkflowUpsertInput) error {
@@ -159,7 +155,9 @@ type UserWorkflowPause struct{}
 type UserWorkflowPauseInput struct {
 	WorkflowID string `json:"workflowID"` // Workflow ID
 
-	CommonWorkflowInput
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 func (u UserWorkflowPause) VerifyPreconditions(e cldf.Environment, config UserWorkflowPauseInput) error {
@@ -243,7 +241,9 @@ type UserWorkflowActivateInput struct {
 	WorkflowID string `json:"workflowID"` // Workflow ID
 	DonFamily  string `json:"donFamily"`  // DON Family
 
-	CommonWorkflowInput
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 func (u UserWorkflowActivate) VerifyPreconditions(e cldf.Environment, config UserWorkflowActivateInput) error {
@@ -329,7 +329,9 @@ type UserWorkflowDelete struct{}
 type UserWorkflowDeleteInput struct {
 	WorkflowID string `json:"workflowID"` // Workflow ID
 
-	CommonWorkflowInput
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 func (u UserWorkflowDelete) VerifyPreconditions(e cldf.Environment, config UserWorkflowDeleteInput) error {
@@ -414,7 +416,9 @@ type UserLinkOwnerInput struct {
 	Proof             string   `json:"proof"`
 	Signature         string   `json:"signature"`
 
-	CommonWorkflowInput
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 func (u UserLinkOwner) VerifyPreconditions(e cldf.Environment, config UserLinkOwnerInput) error {
@@ -510,7 +514,9 @@ type UserUnlinkOwnerInput struct {
 	ValidityTimestamp *big.Int       `json:"validityTimestamp"`
 	Signature         string         `json:"signature"`
 
-	CommonWorkflowInput
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 func (u UserUnlinkOwner) VerifyPreconditions(e cldf.Environment, config UserUnlinkOwnerInput) error {
@@ -605,7 +611,9 @@ type UserAllowlistRequestInput struct {
 	ExpiryTimestamp uint32 `json:"expiryTimestamp"`
 	RequestDigest   string `json:"requestDigest"`
 
-	CommonWorkflowInput
+	ChainSelector             uint64                   `json:"chainSelector"`             // Chain Selector
+	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 }
 
 func (u UserAllowlistRequest) VerifyPreconditions(e cldf.Environment, config UserAllowlistRequestInput) error {

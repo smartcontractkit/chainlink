@@ -48,13 +48,11 @@ func TestUserWorkflowOperations(t *testing.T) {
 			0, // 0 for linking
 		)
 		linkOwnerInput := UserLinkOwnerInput{
-			ValidityTimestamp: validity,
-			Proof:             common.Bytes2Hex(proof.Bytes()),
-			Signature:         common.Bytes2Hex(signature),
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-			},
+			ValidityTimestamp:         validity,
+			Proof:                     common.Bytes2Hex(proof.Bytes()),
+			Signature:                 common.Bytes2Hex(signature),
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 		}
 		linkOwnerChangeset := UserLinkOwner{}
 		err := linkOwnerChangeset.VerifyPreconditions(fixture.rt.Environment(), linkOwnerInput)
@@ -64,12 +62,10 @@ func TestUserWorkflowOperations(t *testing.T) {
 
 		t.Log("Testing allowlist request...")
 		allowlistInput := UserAllowlistRequestInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-			},
-			ExpiryTimestamp: mustConvertInt64ToUint32(time.Now().Add(48 * time.Hour).Unix()),
-			RequestDigest:   generateRandom32BytesString(t),
+			ExpiryTimestamp:           mustConvertInt64ToUint32(time.Now().Add(48 * time.Hour).Unix()),
+			RequestDigest:             generateRandom32BytesString(t),
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 		}
 		allowlistChangeset := UserAllowlistRequest{}
 		err = allowlistChangeset.VerifyPreconditions(fixture.rt.Environment(), allowlistInput)
@@ -79,19 +75,17 @@ func TestUserWorkflowOperations(t *testing.T) {
 
 		t.Log("Testing user workflow upsert...")
 		upsertInput := UserWorkflowUpsertInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-			},
-			WorkflowID:     testWorkflowID,
-			WorkflowName:   testWorkflowName,
-			WorkflowTag:    testWorkflowName,
-			WorkflowStatus: 0,
-			DonFamily:      testDONFamily,
-			BinaryURL:      testURL,
-			ConfigURL:      testURL,
-			Attributes:     "",
-			KeepAlive:      false,
+			WorkflowID:                testWorkflowID,
+			WorkflowName:              testWorkflowName,
+			WorkflowTag:               testWorkflowName,
+			WorkflowStatus:            0,
+			DonFamily:                 testDONFamily,
+			BinaryURL:                 testURL,
+			ConfigURL:                 testURL,
+			Attributes:                "",
+			KeepAlive:                 false,
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 		}
 		changeset := UserWorkflowUpsert{}
 		err = changeset.VerifyPreconditions(fixture.rt.Environment(), upsertInput)
@@ -103,11 +97,9 @@ func TestUserWorkflowOperations(t *testing.T) {
 
 		t.Log("Testing user workflow pause...")
 		pauseInput := UserWorkflowPauseInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-			},
-			WorkflowID: testWorkflowID,
+			WorkflowID:                testWorkflowID,
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 		}
 		pauseChangeset := UserWorkflowPause{}
 		err = pauseChangeset.VerifyPreconditions(fixture.rt.Environment(), pauseInput)
@@ -117,12 +109,10 @@ func TestUserWorkflowOperations(t *testing.T) {
 
 		t.Log("Testing user workflow activate...")
 		activateInput := UserWorkflowActivateInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-			},
-			WorkflowID: testWorkflowID,
-			DonFamily:  testDONFamily,
+			WorkflowID:                testWorkflowID,
+			DonFamily:                 testDONFamily,
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 		}
 		activateChangeset := UserWorkflowActivate{}
 		err = activateChangeset.VerifyPreconditions(fixture.rt.Environment(), activateInput)
@@ -132,11 +122,9 @@ func TestUserWorkflowOperations(t *testing.T) {
 
 		t.Log("Testing user workflow delete...")
 		deleteInput := UserWorkflowDeleteInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-			},
-			WorkflowID: testWorkflowID,
+			WorkflowID:                testWorkflowID,
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 		}
 		deleteChangeset := UserWorkflowDelete{}
 		err = deleteChangeset.VerifyPreconditions(fixture.rt.Environment(), deleteInput)
@@ -157,13 +145,11 @@ func TestUserWorkflowOperations(t *testing.T) {
 			1, // 1 for unlinking
 		)
 		unlinkOwnerInput := UserUnlinkOwnerInput{
-			Address:           deployerKey.From,
-			ValidityTimestamp: validity,
-			Signature:         common.Bytes2Hex(signature),
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-			},
+			Address:                   deployerKey.From,
+			ValidityTimestamp:         validity,
+			Signature:                 common.Bytes2Hex(signature),
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 		}
 		unlinkOwnerChangeset := UserUnlinkOwner{}
 		err = unlinkOwnerChangeset.VerifyPreconditions(fixture.rt.Environment(), unlinkOwnerInput)
@@ -200,17 +186,15 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 			0, // 0 for linking
 		)
 		linkOwnerInput := UserLinkOwnerInput{
-			ValidityTimestamp: validity,
-			Proof:             common.Bytes2Hex(proof.Bytes()),
-			Signature:         common.Bytes2Hex(signature),
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-				MCMSConfig: &contracts.MCMSConfig{
-					MinDelay: 1 * time.Second,
-					TimelockQualifierPerChain: map[uint64]string{
-						fixture.selector: "",
-					},
+			ValidityTimestamp:         validity,
+			Proof:                     common.Bytes2Hex(proof.Bytes()),
+			Signature:                 common.Bytes2Hex(signature),
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
 				},
 			},
 		}
@@ -224,14 +208,12 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 	t.Run("upsert workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 		upsertInput := UserWorkflowUpsertInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-				MCMSConfig: &contracts.MCMSConfig{
-					MinDelay: 1 * time.Second,
-					TimelockQualifierPerChain: map[uint64]string{
-						fixture.selector: "",
-					},
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
 				},
 			},
 			WorkflowID:     testWorkflowID,
@@ -258,14 +240,12 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 	t.Run("pause workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 		pauseInput := UserWorkflowPauseInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-				MCMSConfig: &contracts.MCMSConfig{
-					MinDelay: 1 * time.Second,
-					TimelockQualifierPerChain: map[uint64]string{
-						fixture.selector: "",
-					},
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
 				},
 			},
 			WorkflowID: testWorkflowID,
@@ -282,18 +262,16 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 	t.Run("activate workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 		activateInput := UserWorkflowActivateInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-				MCMSConfig: &contracts.MCMSConfig{
-					MinDelay: 1 * time.Second,
-					TimelockQualifierPerChain: map[uint64]string{
-						fixture.selector: "",
-					},
+			WorkflowID:                testWorkflowID,
+			DonFamily:                 testDONFamily,
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
 				},
 			},
-			WorkflowID: testWorkflowID,
-			DonFamily:  testDONFamily,
 		}
 		activateChangeset := UserWorkflowActivate{}
 		err := activateChangeset.VerifyPreconditions(fixture.rt.Environment(), activateInput)
@@ -307,17 +285,15 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 	t.Run("delete workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 		deleteInput := UserWorkflowDeleteInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-				MCMSConfig: &contracts.MCMSConfig{
-					MinDelay: 1 * time.Second,
-					TimelockQualifierPerChain: map[uint64]string{
-						fixture.selector: "",
-					},
+			WorkflowID:                testWorkflowID,
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
 				},
 			},
-			WorkflowID: testWorkflowID,
 		}
 		deleteChangeset := UserWorkflowDelete{}
 		err := deleteChangeset.VerifyPreconditions(fixture.rt.Environment(), deleteInput)
@@ -345,17 +321,15 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 			1, // 1 for unlinking
 		)
 		unlinkOwnerInput := UserUnlinkOwnerInput{
-			Address:           deployerKey.From,
-			ValidityTimestamp: validity,
-			Signature:         common.Bytes2Hex(signature),
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-				MCMSConfig: &contracts.MCMSConfig{
-					MinDelay: 1 * time.Second,
-					TimelockQualifierPerChain: map[uint64]string{
-						fixture.selector: "",
-					},
+			Address:                   deployerKey.From,
+			ValidityTimestamp:         validity,
+			Signature:                 common.Bytes2Hex(signature),
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
 				},
 			},
 		}
@@ -369,14 +343,12 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 	t.Run("allowlist request with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 		allowlistInput := UserAllowlistRequestInput{
-			CommonWorkflowInput: CommonWorkflowInput{
-				ChainSelector:             fixture.selector,
-				WorkflowRegistryQualifier: "test-workflow-registry-v2",
-				MCMSConfig: &contracts.MCMSConfig{
-					MinDelay: 1 * time.Second,
-					TimelockQualifierPerChain: map[uint64]string{
-						fixture.selector: "",
-					},
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
 				},
 			},
 			ExpiryTimestamp: mustConvertInt64ToUint32(time.Now().Add(48 * time.Hour).Unix()),
