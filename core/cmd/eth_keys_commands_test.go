@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/quarantine"
+
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
@@ -87,6 +89,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_ListETHKeys(t *testing.T) {
+	quarantine.Flaky(t, "DX-2502")
 	t.Parallel()
 
 	ethClient := newEthMock(t)
