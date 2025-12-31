@@ -49,6 +49,8 @@ var (
 	nNodes = 4
 )
 
+// TODO(gg): restart node or txmgr so that the second EOA can also be used to send txs from (see also https://github.com/smartcontractkit/chainlink/pull/16967)
+
 // TODO(gg): redirect core node logs to separate file
 
 // TODO(gg): update bootstrap config to have lower finalityDepth

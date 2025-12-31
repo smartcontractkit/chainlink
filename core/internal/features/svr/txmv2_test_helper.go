@@ -62,30 +62,48 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 
 		sendingKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
-		require.Len(t, sendingKeys, 1)
-		transmitterAddress := sendingKeys[0].Address
-		err = fundAddress(transmitterAddress, transactOpts, backend)
+		require.Len(t, sendingKeys, 2)
+		primaryTransmitterAddr := sendingKeys[0].Address
+		err = fundAddress(primaryTransmitterAddr, transactOpts, backend)
 		require.NoError(t, err)
 		backend.Commit()
-		t.Logf("Funded primary transmitter for node %d: %s", i, transmitterAddress.String())
+		t.Logf("Funded primary transmitter for node %d: %s", i, primaryTransmitterAddr.String())
+
+		secondaryTransmitterAddr := sendingKeys[1].Address
+		err = fundAddress(secondaryTransmitterAddr, transactOpts, backend)
+		require.NoError(t, err)
+		backend.Commit()
+		t.Logf("Funded secondary transmitter for node %d: %s", i, secondaryTransmitterAddr.String())
 
 		// set up the secondary transmitter key
-		secondaryTransmitter, err := app.GetKeyStore().Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
-		require.NoErrorf(t, err, "could not create secondary transmitter key for node %d", i)
+		// secondaryTransmitter, err := app.GetKeyStore().Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
+		// require.NoErrorf(t, err, "could not create secondary transmitter key for node %d", i)
 
-		// Explicitly enable the secondary transmitter for the chain
-		err = app.GetKeyStore().Eth().Enable(testutils.Context(t), secondaryTransmitter.Address, testutils.SimulatedChainID)
-		require.NoErrorf(t, err, "could not enable secondary transmitter key for node %d", i)
+		// // Explicitly enable the secondary transmitter for the chain
+		// err = app.GetKeyStore().Eth().Enable(testutils.Context(t), secondaryTransmitter.Address, testutils.SimulatedChainID)
+		// require.NoErrorf(t, err, "could not enable secondary transmitter key for node %d", i)
+
+		// chainService, err := app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+		// require.NoError(t, err)
+		// chain, ok := chainService.(legacyevm.Chain)
+		// require.True(t, ok)
+
+		// txm := chain.TxManager()
+		// txm.GetForwarderForEOAOCR2Feeds(testutils.Context(t), secondaryTransmitter.Address, common.Address{})
+		// t.Logf("Closing txm for node %d", i)
+		// require.NoError(t, txm.Close())
+		// t.Logf("Starting txm for node %d", i)
+		// require.NoError(t, txm.Start(testutils.Context(t)))
 
 		// err = app.Stop()
 		// require.NoError(t, err)
 		// app.Start(testutils.Context(t))
 		// require.NoError(t, err)
 
-		err = fundAddress(secondaryTransmitter.Address, transactOpts, backend)
-		require.NoError(t, err, "Funding secondary transmitter shouldn't fail for node %d", i)
-		backend.Commit()
-		t.Logf("Funded secondary transmitter for node %d: %s", i, secondaryTransmitter.Address.String())
+		// err = fundAddress(secondaryTransmitter.Address, transactOpts, backend)
+		// require.NoError(t, err, "Funding secondary transmitter shouldn't fail for node %d", i)
+		// backend.Commit()
+		// t.Logf("Funded secondary transmitter for node %d: %s", i, secondaryTransmitter.Address.String())
 
 		addresses, err := app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
@@ -101,7 +119,7 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 		backend.Commit()
 
 		// set primary and secondary EOA as an authorized sender for the forwarder
-		_, err = authorizedForwarder.SetAuthorizedSenders(transactOpts, []common.Address{transmitterAddress, secondaryTransmitter.Address})
+		_, err = authorizedForwarder.SetAuthorizedSenders(transactOpts, []common.Address{primaryTransmitterAddr, secondaryTransmitterAddr})
 		require.NoError(t, err)
 		backend.Commit()
 
@@ -126,8 +144,8 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 			app:                  app,
 			keyBundle:            kb,
 			observedLogs:         observedLogs,
-			transmitter:          transmitterAddress,
-			secondaryTransmitter: secondaryTransmitter.Address,
+			transmitter:          primaryTransmitterAddr,
+			secondaryTransmitter: secondaryTransmitterAddr,
 			effectiveTransmitter: forwarderAddress,
 		})
 	}

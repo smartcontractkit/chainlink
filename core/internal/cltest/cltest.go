@@ -269,6 +269,10 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	if len(app.Keys) == 0 {
 		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), chainID)
 		app.Keys = []ethkey.KeyV2{k}
+		// TODO(gg): make setting up the secondary key configurable
+		t.Logf("Inserting secondary key for chain %s", chainID.String())
+		k2, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), chainID)
+		app.Keys = append(app.Keys, k2)
 	} else {
 		id, ks := chainID.ToInt(), app.KeyStore.Eth()
 		for _, k := range app.Keys {
