@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -246,7 +247,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		keys, err := node.app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
 		t.Logf("keys from node %d: %v", i, keys)
-		// require.Len(t, keys, 2)
+		require.Len(t, keys, 2)
 
 		// create the job
 		// TODO(gg): maybe use oevJobSpec() instead if possible?
@@ -292,6 +293,11 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	}
 	t.Logf("Created jobs for feed %s", dualAggAddress.String())
 
+	// Get the deployment block number for FilterLogs queries
+	deploymentBlock, err := backend.Client().BlockNumber(testutils.Context(t))
+	require.NoError(t, err, "Failed to get deployment block number")
+	t.Logf("Dual aggregator deployment block: %d", deploymentBlock)
+
 	// Start block ticker to continue committing blocks
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
@@ -308,7 +314,12 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	var primaryTxHash, secondaryTxHash string
 
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		// Commit a block to ensure any pending transactions are included
+		backend.Commit()
+
 		// Check logs from all oracle nodes
+		// Note: The "Created primary/secondary transaction" logs come from the EVM relayer logger,
+		// which may not be captured in node.observedLogs. We primarily rely on on-chain detection.
 		for i, node := range nodes {
 			if node.observedLogs == nil {
 				continue
@@ -327,55 +338,226 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			}
 		}
 
-		// Check on-chain for both transactions
-		// Get the latest block number to check for transactions
+		// Check on-chain for both transactions using FilterLogs to find NewTransmission events
+		// This is more efficient than checking every block
 		ctx := testutils.Context(t)
 		latestBlockNum, err := backend.Client().BlockNumber(ctx)
 		if err == nil && latestBlockNum > 0 {
-			// Check transactions in recent blocks (last 10 blocks)
-			startBlock := latestBlockNum
-			if startBlock > 10 {
-				startBlock = startBlock - 10
-			} else {
-				startBlock = 0
+			transmittedEventSig := common.HexToHash("0xc797025feeeaf2cd924c99e9205acb8ec04d5cad21c41ce637a38fb6dee6016a") // NewTransmission event
+
+			// Check blocks from deployment onwards for NewTransmission events
+			startBlock := big.NewInt(0)
+			endBlock := big.NewInt(int64(latestBlockNum))
+
+			query := ethereum.FilterQuery{
+				Addresses: []common.Address{dualAggAddress},
+				Topics:    [][]common.Hash{{transmittedEventSig}},
+				FromBlock: startBlock,
+				ToBlock:   endBlock,
 			}
 
-			for blockNum := startBlock; blockNum <= latestBlockNum; blockNum++ {
-				block, err := backend.Client().BlockByNumber(ctx, big.NewInt(int64(blockNum)))
-				if err != nil || block == nil {
-					continue
+			logs, err := backend.Client().FilterLogs(ctx, query)
+			if err != nil {
+				t.Logf("Failed to filter logs for NewTransmission event: %v", err)
+				// FilterLogs might not be fully supported by simulated backend, fall back to checking blocks
+				// This is expected and we'll rely on the block checking below
+			} else {
+				if len(logs) > 0 && (!primaryFound || !secondaryFound) {
+					t.Logf("Found %d NewTransmission event(s) from dual aggregator (blocks %d-%d), primaryFound: %v, secondaryFound: %v", len(logs), startBlock.Int64(), endBlock.Int64(), primaryFound, secondaryFound)
+				}
+				// Process all events to find both primary and secondary transmissions
+				// We need to check all events, not just stop at the first match
+				for _, log := range logs {
+					// Get the transaction that emitted this event
+					tx, _, err := backend.Client().TransactionByHash(ctx, log.TxHash)
+					if err != nil {
+						continue
+					}
+					txHash := tx.Hash().Hex()
+
+					// Check if it was submitted by Flashbots mock server (secondary)
+					if mockFlashbotsServer.WasSubmitted(txHash) {
+						if !secondaryFound {
+							secondaryFound = true
+							secondaryTxHash = txHash
+							t.Logf("Found secondary transmission via NewTransmission event (submitted by Flashbots mock server): %s", secondaryTxHash)
+						}
+						continue // Skip further checks for Flashbots-submitted transactions
+					}
+
+					// Check if transaction is from a primary or secondary transmitter address
+					// Get the sender address from the transaction using types.Sender
+					isSecondaryTransmitter := false
+					isPrimaryTransmitter := false
+					chainID := tx.ChainId()
+					senderStr := "unknown"
+					if chainID != nil {
+						signer := gethtypes.NewEIP155Signer(chainID)
+						sender, err := gethtypes.Sender(signer, tx)
+						if err == nil {
+							senderStr = sender.Hex()
+							// Check if sender matches any secondary transmitter address
+							for _, secondaryAddr := range allSecondaryTransmitterAddresses {
+								if sender == secondaryAddr {
+									isSecondaryTransmitter = true
+									break
+								}
+							}
+							// Check if sender matches any primary transmitter address
+							if !isSecondaryTransmitter {
+								for _, primaryAddr := range allPrimaryTransmitterAddresses {
+									if sender == primaryAddr {
+										isPrimaryTransmitter = true
+										break
+									}
+								}
+							}
+						}
+					}
+
+					// Also check if transaction is directly to dual aggregator with transmitSecondary method
+					data := tx.Data()
+					isSecondaryMethod := false
+					if tx.To() != nil && *tx.To() == dualAggAddress && len(data) >= 4 {
+						methodSig := hex.EncodeToString(data[:4])
+						if methodSig == "ba0cb29e" {
+							isSecondaryMethod = true
+						}
+					}
+
+					if isSecondaryTransmitter || isSecondaryMethod {
+						// Secondary transmission (from secondary transmitter or transmitSecondary method)
+						if !secondaryFound {
+							secondaryFound = true
+							secondaryTxHash = txHash
+							t.Logf("Found secondary transmission via NewTransmission event (from secondary transmitter: %v, method: %v, sender: %s): %s", isSecondaryTransmitter, isSecondaryMethod, senderStr, secondaryTxHash)
+						}
+					} else {
+						// Not a secondary transmission, so it must be a primary transmission
+						// (either from primary transmitter, or through forwarder which we can't distinguish)
+						// Mark as primary if we haven't found one yet
+						if !primaryFound {
+							primaryFound = true
+							primaryTxHash = txHash
+							txToStr := "nil"
+							if tx.To() != nil {
+								txToStr = tx.To().Hex()
+							}
+							t.Logf("Found primary transmission via NewTransmission event (from primary transmitter: %v, sender: %s, txTo: %s): %s", isPrimaryTransmitter, senderStr, txToStr, primaryTxHash)
+						}
+					}
+
+					// Early exit if we've found both
+					if primaryFound && secondaryFound {
+						break
+					}
+				}
+			}
+
+			// Fallback: Also check recent blocks directly for transactions to forwarders or dual aggregator
+			// This works even if FilterLogs doesn't work with simulated backend
+			if !primaryFound || !secondaryFound {
+				fallbackStartBlock := latestBlockNum
+				if fallbackStartBlock > 20 {
+					fallbackStartBlock = fallbackStartBlock - 20
+				} else {
+					fallbackStartBlock = 0
 				}
 
-				for _, tx := range block.Transactions() {
-					txHash := tx.Hash().Hex()
-					// Check if transaction is to the dual aggregator contract
-					if tx.To() != nil && *tx.To() == dualAggAddress {
-						// Check if it's a transmit or transmitSecondary call
-						data := tx.Data()
-						if len(data) >= 4 {
-							// Get method signature (first 4 bytes)
-							methodSig := hex.EncodeToString(data[:4])
+				for blockNum := fallbackStartBlock; blockNum <= latestBlockNum; blockNum++ {
+					block, err := backend.Client().BlockByNumber(ctx, big.NewInt(int64(blockNum)))
+					if err != nil || block == nil {
+						continue
+					}
 
-							// Check for transmit method (0xb1dc65a4) or transmitSecondary (0xba0cb29e)
-							if methodSig == "b1dc65a4" && !primaryFound {
-								// Primary transmission
-								primaryFound = true
-								primaryTxHash = txHash
-								t.Logf("Found primary transmission on-chain: %s", primaryTxHash)
-							} else if methodSig == "ba0cb29e" {
-								// Secondary transmission - check if it was submitted by mock server
-								if mockFlashbotsServer.WasSubmitted(txHash) {
-									// This transaction was sent to Flashbots and then submitted to chain
-									if !secondaryFound {
-										secondaryFound = true
-										secondaryTxHash = txHash
-										t.Logf("Found secondary transmission on-chain (submitted by Flashbots mock server): %s", secondaryTxHash)
+					for _, tx := range block.Transactions() {
+						txTo := tx.To()
+						if txTo == nil {
+							continue
+						}
+
+						// Check if transaction is to dual aggregator or a forwarder
+						isRelevant := *txTo == dualAggAddress
+						if !isRelevant {
+							for _, forwarderAddr := range allForwarderAddresses {
+								if *txTo == forwarderAddr {
+									isRelevant = true
+									break
+								}
+							}
+						}
+
+						if isRelevant {
+							receipt, err := backend.Client().TransactionReceipt(ctx, tx.Hash())
+							if err == nil && receipt != nil {
+								// NewTransmission event signature: 0xc797025feeeaf2cd924c99e9205acb8ec04d5cad21c41ce637a38fb6dee6016a
+								newTransmissionEventSig := common.HexToHash("0xc797025feeeaf2cd924c99e9205acb8ec04d5cad21c41ce637a38fb6dee6016a")
+								for _, log := range receipt.Logs {
+									if log.Address == dualAggAddress && len(log.Topics) > 0 && log.Topics[0] == newTransmissionEventSig {
+										txHash := tx.Hash().Hex()
+										if mockFlashbotsServer.WasSubmitted(txHash) {
+											if !secondaryFound {
+												secondaryFound = true
+												secondaryTxHash = txHash
+												t.Logf("Found secondary transmission via fallback block check (submitted by Flashbots): %s", secondaryTxHash)
+											}
+										} else {
+											// Check if transaction is from a primary or secondary transmitter address
+											// Get the sender address from the transaction using types.Sender
+											isSecondaryTransmitter := false
+											isPrimaryTransmitter := false
+											chainID := tx.ChainId()
+											if chainID != nil {
+												signer := gethtypes.NewEIP155Signer(chainID)
+												sender, err := gethtypes.Sender(signer, tx)
+												if err == nil {
+													// Check if sender matches any secondary transmitter address
+													for _, secondaryAddr := range allSecondaryTransmitterAddresses {
+														if sender == secondaryAddr {
+															isSecondaryTransmitter = true
+															break
+														}
+													}
+													// Check if sender matches any primary transmitter address
+													if !isSecondaryTransmitter {
+														for _, primaryAddr := range allPrimaryTransmitterAddresses {
+															if sender == primaryAddr {
+																isPrimaryTransmitter = true
+																break
+															}
+														}
+													}
+												}
+											}
+
+											// Also check if transaction is directly to dual aggregator with transmitSecondary method
+											data := tx.Data()
+											isSecondaryMethod := false
+											if *txTo == dualAggAddress && len(data) >= 4 {
+												methodSig := hex.EncodeToString(data[:4])
+												if methodSig == "ba0cb29e" {
+													isSecondaryMethod = true
+												}
+											}
+
+											if isSecondaryTransmitter || isSecondaryMethod {
+												// Secondary transmission (from secondary transmitter or transmitSecondary method)
+												if !secondaryFound {
+													secondaryFound = true
+													secondaryTxHash = txHash
+													t.Logf("Found secondary transmission via fallback block check (from secondary transmitter: %v, method: %v): %s", isSecondaryTransmitter, isSecondaryMethod, secondaryTxHash)
+												}
+											} else {
+												// Not a secondary transmission, so it must be a primary transmission
+												// (either from primary transmitter, or through forwarder which we can't distinguish)
+												if !primaryFound {
+													primaryFound = true
+													primaryTxHash = txHash
+													t.Logf("Found primary transmission via fallback block check (from primary transmitter: %v): %s", isPrimaryTransmitter, primaryTxHash)
+												}
+											}
+										}
 									}
-								} else if !secondaryFound {
-									// Secondary transmission that went directly to chain (not through Flashbots)
-									secondaryFound = true
-									secondaryTxHash = txHash
-									t.Logf("Found secondary transmission on-chain (direct, not via Flashbots): %s", secondaryTxHash)
 								}
 							}
 						}
