@@ -54,10 +54,10 @@ type node struct {
 	effectiveTransmitter common.Address // the node's forwarder address
 }
 
-func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []node) {
+func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2, mockFlashbotsServer *FlashbotsMockServer) (oracles []confighelper.OracleIdentityExtra, nodes []node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, _, _, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
+		app, peerID, _, _, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i], mockFlashbotsServer)
 		t.Logf("Node %d with peer id %s started on port %d", i, peerID, ports[i])
 
 		sendingKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
@@ -158,6 +158,7 @@ func setupNode(
 	nodeName string,
 	backend *simulated.Backend,
 	csaKey csakey.KeyV2,
+	mockFlashbotsServer *FlashbotsMockServer,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -217,13 +218,10 @@ func setupNode(
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(5 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
 
-		// [EVM.Transactions]
-		// ForwardersEnabled = true
-
 		// [EVM.Transactions.TransactionManagerV2]
 		c.EVM[0].Transactions.TransactionManagerV2.Enabled = ptr(true)
 		c.EVM[0].Transactions.TransactionManagerV2.BlockTime = commonconfig.MustNewDuration(11 * time.Second)
-		// c.EVM[0].Transactions.TransactionManagerV2.CustomURL = ptr(commonconfig.URL{Scheme: "https", Host: "rpc-sepolia.flashbots.net", Path: "/fast"}) // TODO(gg): use flashbots mock?
+		c.EVM[0].Transactions.TransactionManagerV2.CustomURL = commonconfig.MustParseURL(mockFlashbotsServer.URL())
 		c.EVM[0].Transactions.TransactionManagerV2.DualBroadcast = ptr(true)
 
 		// [EVM.Transactions.AutoPurge]
