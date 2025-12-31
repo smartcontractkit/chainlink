@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   cora:
+    if: ${{ github.repository_owner == 'smartcontractkit' }}
     uses: smartcontractkit/.github/.github/workflows/reusable-codeowners-review-analysis.yml@5166e93aa65a984743a1e1116e8b44db25fb2b9d # 2025-11-19
     permissions:
       actions: read # needed to pull actions run url
