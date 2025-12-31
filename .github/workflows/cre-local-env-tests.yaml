@@ -58,7 +58,7 @@ jobs:
   test-cli:
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
@@ -123,6 +123,34 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      # setup step installs Bun via Homebrew, but it is not available in the CI and we don't want to install it (too slow)
+      - name: Install Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+
+      - name: Setup the environment
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        env:
+          DISABLE_DX_TRACKING: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS_ECR: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.us-west-2.amazonaws.com
+        run: |
+          # Remove chip_ingress config sections since CI role lacks ECR permissions for the Atlas repo
+          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
+          go run . env setup --no-prompt
+
       - name: Start the environment
         id: start-cli
         shell: bash
@@ -134,19 +162,6 @@ jobs:
           DISABLE_DX_TRACKING: "true"
           CI: "true"
         run: |
-          # hack to make sure we can start the env, those files are used for cli-tests only (not by system-tests)
-          # ensure that there is a line `touch ./binaries/<capability>` for all [nodesets.chain_capabilities] in config toml
-          # ------
-          # we could use the 'plugins' image here that has all the capabilities, but we want to test a different execution path
-          # from the one used in cre-system-tests.yaml, which uses the 'plugins' image
-          # caveat: since these aren't real capability binaries, all workflows that use them will fail
-          mkdir ./binaries
-          touch ./binaries/cron
-          touch ./binaries/readcontract
-          touch ./binaries/http_action
-          touch ./binaries/http_trigger
-          touch ./binaries/consensus
-          touch ./binaries/evm
           { time go run . env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
@@ -172,13 +187,6 @@ jobs:
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          # Install Bun
-          curl -fsSL https://bun.sh/install | bash
-
-          # Add Bun to PATH
-          export BUN_INSTALL="$HOME/.bun"
-          export PATH="$BUN_INSTALL/bin:$PATH"
-
           # Create package.json
           cat > package.json << 'EOF'
           {
@@ -206,6 +214,18 @@ jobs:
 
           # Compile and deploy TS workflow
           go run . env workflow deploy --compile -n tsworkflow -w examples/workflows/ts/cron/index.ts -c examples/workflows/ts/cron/config.json
+
+      - name: Swap cron capability
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run . env swap capability -n cron -b ./binaries/cron
+
+      - name: Swap CL node image
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run . env swap nodes
 
       - name: Execute example PoR workflow
         shell: bash
@@ -270,12 +290,46 @@ jobs:
 
   notify-test-failure:
     name: Notify about local env startup failure
-    if: failure() && github.event_name != 'pull_request'
+    if: always() && github.event_name != 'pull_request' && (needs.test-cli.result == 'failure' || needs.test-cli.result == 'cancelled')
     needs: [test-cli]
     runs-on: ubuntu-latest
     steps:
-      - name: Send slack notification for failed local env startup
-        id: send-slack-notification
+      - name: Check if job timed out or failed (not manually cancelled)
+        id: check-timeout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get job details from GitHub API
+          job_data=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs --jq '.jobs[] | select(.name == "test-cli")')
+
+          started_at=$(echo "$job_data" | jq -r '.started_at')
+          completed_at=$(echo "$job_data" | jq -r '.completed_at')
+          conclusion=$(echo "$job_data" | jq -r '.conclusion')
+
+          # Calculate duration in minutes
+          start_epoch=$(date -d "$started_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s)
+          end_epoch=$(date -d "$completed_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$completed_at" +%s)
+          duration_minutes=$(( (end_epoch - start_epoch) / 60 ))
+
+          echo "duration_minutes=$duration_minutes" >> $GITHUB_OUTPUT
+          echo "conclusion=$conclusion" >> $GITHUB_OUTPUT
+
+          # Job timeout is 15 minutes - if cancelled and duration is >= 14 minutes, likely a timeout
+          # If failed, always notify
+          should_notify="false"
+          if [[ "$conclusion" == "failure" ]]; then
+            should_notify="true"
+            echo "reason=failure" >> $GITHUB_OUTPUT
+          # TODO: change duration in comparison back to 28 minutes
+          elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 14 ]]; then
+            should_notify="true"
+            echo "reason=timeout" >> $GITHUB_OUTPUT
+          fi
+
+          echo "should_notify=$should_notify" >> $GITHUB_OUTPUT
+
+      - name: Send slack notification
+        if: steps.check-timeout.outputs.should_notify == 'true'
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           errors: "true"
@@ -290,14 +344,14 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*:rotating_light: Local CRE test failed :rotating_light:*"
+                    "text": "*:rotating_light: Local CRE test ${{ steps.check-timeout.outputs.reason == 'timeout' && 'timed out' || 'failed' }} :rotating_light:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <@U060CGGPY8H> local CRE test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
+                    "text": "Alerting <@U060CGGPY8H> local CRE test ${{ steps.check-timeout.outputs.reason == 'timeout' && 'timed out' || 'failed' }} (duration: ${{ steps.check-timeout.outputs.duration_minutes }}min) for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
                   }
                 }
               ]
