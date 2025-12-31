@@ -1,4 +1,4 @@
-package changeset
+package contracts
 
 import (
 	"encoding/hex"
@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
@@ -18,7 +20,6 @@ import (
 	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
 
@@ -28,9 +29,9 @@ type ConfigureVaultDKGInput struct {
 	ContractChainSelector uint64 `json:"contractChainSelector" yaml:"contractChainSelector"`
 	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
-	DON          DKGDon                 `json:"don" yaml:"don"`
-	OracleConfig *ocr3.V3_1OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
-	DryRun       bool                   `json:"dryRun" yaml:"dryRun"`
+	DON          DKGDon                   `json:"don" yaml:"don"`
+	OracleConfig *ocr3_1.V3_1OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun       bool                     `json:"dryRun" yaml:"dryRun"`
 
 	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
@@ -64,23 +65,9 @@ func (l ConfigureVaultDKG) VerifyPreconditions(_ cldf.Environment, input Configu
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
-	if !((input.OracleConfig.PrevConfigDigest == "") == (input.OracleConfig.PrevSeqNr == uint64(0)) && (input.OracleConfig.PrevSeqNr == uint64(0)) == (input.OracleConfig.PrevHistoryDigest == "")) { //nolint:staticcheck // ignore
-		return errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
-	}
-	if (input.OracleConfig.PrevConfigDigest != "") && (input.OracleConfig.PrevSeqNr == uint64(0)) {
-		return errors.New("PrevSeqNr must be positive if PrevConfigDigest is set")
-	}
-	if input.OracleConfig.PrevConfigDigest != "" {
-		err := verify32BytesHexString(input.OracleConfig.PrevConfigDigest)
-		if err != nil {
-			return fmt.Errorf("invalid OracleConfig.PrevConfigDigest, should be hex encoded 32 bytes: %w", err)
-		}
-	}
-	if input.OracleConfig.PrevHistoryDigest != "" {
-		err := verify32BytesHexString(input.OracleConfig.PrevHistoryDigest)
-		if err != nil {
-			return fmt.Errorf("invalid OracleConfig.PrevHistoryDigest, should be hex encoded 32 bytes: %w", err)
-		}
+	_, _, err := ocr3_1.VerifyAndExtractOCR3_1Fields(input.OracleConfig.PrevConfigDigest, input.OracleConfig.PrevSeqNr, input.OracleConfig.PrevHistoryDigest)
+	if err != nil {
+		return errors.New("verifyAndExtractOCR3_1Fields failed verification: " + err.Error())
 	}
 	return nil
 }
@@ -115,7 +102,7 @@ func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInpu
 		input.MCMSConfig,
 		mcmsContracts,
 		common.HexToAddress(contractAddrRef.Address),
-		ConfigureOCR3Description,
+		changeset.ConfigureOCR3Description,
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
@@ -125,11 +112,11 @@ func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInpu
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create DKG reporting plugin config: %w", err)
 	}
-	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureDKG, contracts.ConfigureDKGDeps{
+	report, err := operations.ExecuteOperation(e.OperationsBundle, ConfigureDKG, ConfigureDKGDeps{
 		WriteGeneratedConfig: io.Discard,
 		Env:                  &e,
 		Strategy:             strategy,
-	}, contracts.ConfigureDKGInput{
+	}, ConfigureDKGInput{
 		ContractAddress:       &contractAddr,
 		ChainSelector:         input.ContractChainSelector,
 		DON:                   input.DON.DonNodeSet,

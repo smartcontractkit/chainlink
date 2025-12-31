@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -135,7 +133,7 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 }
 
 func GenerateOCR3ConfigFromNodes(cfg OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
-	nca := makeNodeKeysSlice(nodes, registryChainSel)
+	nca := MakeNodeKeysSlice(nodes, registryChainSel)
 	return GenerateOCR3Config(cfg, nca, secrets, reportingPluginConfigOverride)
 }
 
@@ -148,7 +146,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
 
-	identities, err := makeIdentities(nca)
+	identities, err := MakeIdentities(nca)
 	if err != nil {
 		return OCR2OracleConfig{}, fmt.Errorf("failed to make identities: %w", err)
 	}
@@ -192,120 +190,6 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 		time.Duration(cfg.MaxDurationShouldTransmitMillis)*time.Millisecond,
 		cfg.MaxFaultyOracles,
 		nil, // empty onChain config
-	)
-	if err != nil {
-		return OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
-	}
-
-	var configSigners [][]byte
-	for _, signer := range signers {
-		configSigners = append(configSigners, signer)
-	}
-
-	transmitterAddresses, err := evm.AccountToAddress(transmitters)
-	if err != nil {
-		return OCR2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
-	}
-
-	config := OCR2OracleConfig{
-		Signers:               configSigners,
-		Transmitters:          transmitterAddresses,
-		F:                     f,
-		OnchainConfig:         onchainConfig,
-		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        offchainConfig,
-	}
-
-	return config, nil
-}
-
-func GenerateOCR3_1ConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
-	nca := makeNodeKeysSlice(nodes, registryChainSel)
-	return GenerateOCR3_1Config(cfg, nca, secrets, reportingPluginConfigOverride)
-}
-
-func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
-	// the transmission schedule is very specific; arguably it should be not be a parameter
-	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
-		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
-	}
-
-	if secrets.IsEmpty() {
-		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
-	}
-
-	identities, err := makeIdentities(nca)
-	if err != nil {
-		return OCR2OracleConfig{}, fmt.Errorf("failed to make identities: %w", err)
-	}
-
-	cfgBytes := reportingPluginConfigOverride
-	if cfgBytes == nil {
-		return OCR2OracleConfig{}, errors.New("failed to get offchain config: reportingPluginConfigOverride is required for OCR3.1")
-	}
-	if !((cfg.PrevConfigDigest == "") == (cfg.PrevSeqNr == uint64(0))) || !((cfg.PrevSeqNr == uint64(0)) == (cfg.PrevHistoryDigest == "")) { //nolint:staticcheck // ignore
-		return OCR2OracleConfig{}, errors.New("PrevConfigDigest, PrevSeqNr, and PrevHistoryDigest must all be set or all be nil")
-	}
-	if cfg.PrevConfigDigest != "" && cfg.PrevSeqNr == uint64(0) {
-		return OCR2OracleConfig{}, errors.New("PrevSeqNr must be positive if PrevConfigDigest is set")
-	}
-	var prevConfigDigest *types.ConfigDigest
-	if cfg.PrevConfigDigest != "" {
-		prevConfigDigestBytes, err := hex.DecodeString(cfg.PrevConfigDigest)
-		if err != nil {
-			return OCR2OracleConfig{}, errors.New("failed to decode PrevConfigDigest: " + err.Error())
-		}
-		if len(prevConfigDigestBytes) != 32 {
-			return OCR2OracleConfig{}, errors.New("PrevConfigDigest length should be 32, got " + strconv.Itoa(len(prevConfigDigestBytes)))
-		}
-		var prevConfigDigest32 types.ConfigDigest = [32]byte(prevConfigDigestBytes)
-		prevConfigDigest = &prevConfigDigest32
-	}
-	var prevHistoryDigest *types.HistoryDigest
-	if cfg.PrevHistoryDigest != "" {
-		prevHistoryDigestBytes, err := hex.DecodeString(cfg.PrevHistoryDigest)
-		if err != nil {
-			return OCR2OracleConfig{}, errors.New("failed to decode PrevHistoryDigest: " + err.Error())
-		}
-		if len(prevHistoryDigestBytes) != 32 {
-			return OCR2OracleConfig{}, errors.New("PrevHistoryDigest length should be 32, got " + strconv.Itoa(len(prevHistoryDigestBytes)))
-		}
-		var prevHistoryDigest32 types.HistoryDigest = [32]byte(prevHistoryDigestBytes)
-		prevHistoryDigest = &prevHistoryDigest32
-	}
-	var prevSeqNr *uint64
-	if cfg.PrevSeqNr != 0 {
-		prevSeqNr = &cfg.PrevSeqNr
-	}
-
-	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3_1confighelper.ContractSetConfigArgsDeterministic(
-		ocr3_1confighelper.CheckPublicConfigLevelDefault,
-		secrets.EphemeralSk,
-		secrets.SharedSecret,
-		identities,
-		cfg.MaxFaultyOracles,
-		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
-		time.Duration(cfg.DeltaRoundMillis)*time.Millisecond,
-		time.Duration(cfg.DeltaGraceMillis)*time.Millisecond,
-		cfg.MaxRoundsPerEpoch,
-		time.Duration(cfg.DeltaStageMillis)*time.Millisecond,
-		cfg.TransmissionSchedule,
-		cfgBytes,
-		nil, // onchainConfig
-		time.Duration(cfg.MaxDurationInitializationMillis)*time.Millisecond,
-		time.Duration(cfg.WarnDurationQueryMillis)*time.Millisecond,
-		time.Duration(cfg.WarnDurationObservationMillis)*time.Millisecond,
-		time.Duration(cfg.WarnDurationValidateObservationMillis)*time.Millisecond,
-		time.Duration(cfg.WarnDurationObservationQuorumMillis)*time.Millisecond,
-		time.Duration(cfg.WarnDurationStateTransition)*time.Millisecond,
-		time.Duration(cfg.WarnDurationCommitted)*time.Millisecond,
-		time.Duration(cfg.MaxDurationShouldAcceptAttestedReportMillis)*time.Millisecond,
-		time.Duration(cfg.MaxDurationShouldTransmitAcceptedReportMillis)*time.Millisecond,
-		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{
-			PrevConfigDigest:  prevConfigDigest,
-			PrevSeqNr:         prevSeqNr,
-			PrevHistoryDigest: prevHistoryDigest,
-		},
 	)
 	if err != nil {
 		return OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
@@ -456,7 +340,7 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 	}, nil
 }
 
-func makeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {
+func MakeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {
 	var out []NodeKeys
 	for _, n := range nodes {
 		out = append(out, toNodeKeys(&n, registryChainSel))
@@ -516,7 +400,7 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 	}
 }
 
-func makeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) {
+func MakeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) {
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
 	for _, n := range nca {
