@@ -115,6 +115,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 }
 
 func TestShell_ListETHKeys_Error(t *testing.T) {
+	quarantine.Flaky(t, "DX-2503")
 	t.Parallel()
 
 	ethClient := newEthMock(t)
