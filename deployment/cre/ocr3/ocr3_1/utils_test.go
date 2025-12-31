@@ -74,7 +74,7 @@ func Test_verifyAndExtractOCR3_1Fields_invalidPrevConfigHex_error(t *testing.T) 
 	valid := strings.Repeat("aa", 32)
 	_, _, err := VerifyAndExtractOCR3_1Fields(invalid, 1, valid)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "invalid OracleConfig.PrevConfigDigest"))
+	require.Contains(t, err.Error(), "invalid OracleConfig.PrevConfigDigest")
 }
 
 func Test_verifyAndExtractOCR3_1Fields_invalidPrevHistoryHex_error(t *testing.T) {
@@ -82,5 +82,5 @@ func Test_verifyAndExtractOCR3_1Fields_invalidPrevHistoryHex_error(t *testing.T)
 	invalid := "zzzz"
 	_, _, err := VerifyAndExtractOCR3_1Fields(valid, 1, invalid)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "invalid OracleConfig.PrevHistoryDigest"))
+	require.Contains(t, err.Error(), "invalid OracleConfig.PrevHistoryDigest")
 }

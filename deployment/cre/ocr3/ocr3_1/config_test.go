@@ -11,7 +11,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
@@ -107,7 +106,7 @@ func Test_configureOCR3_1Request_generateOCR3_1Config(t *testing.T) {
 	})
 }
 
-var ocr3_1Cfg_NoPrevConfigDigest = `
+var ocr3_1CfgNoPrevConfigDigest = `
 {
   "DeltaProgressMillis":  5000,
   "DeltaRoundMillis":     200,
@@ -137,7 +136,7 @@ var ocr3_1Cfg_NoPrevConfigDigest = `
 func Test_configureOCR3_1_NoPrevConfigDigest(t *testing.T) {
 	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
 	var cfg V3_1OracleConfig
-	err := json.Unmarshal([]byte(ocr3_1Cfg), &cfg)
+	err := json.Unmarshal([]byte(ocr3_1CfgNoPrevConfigDigest), &cfg)
 	require.NoError(t, err)
 	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"))
 	require.NoError(t, err)
@@ -201,10 +200,10 @@ func loadTestData(t *testing.T, path string) []deployment.Node {
 				copy(opk[:], b)
 
 				b = common.Hex2Bytes(ocrKey.ConfigEncryptionPublicKey)
-				var cpk types3.ConfigEncryptionPublicKey
+				var cpk types.ConfigEncryptionPublicKey
 				copy(cpk[:], b)
 
-				var pubkey types3.OnchainPublicKey
+				var pubkey types.OnchainPublicKey
 				if strings.HasPrefix(chain, "ethereum") {
 					// convert from pubkey to address
 					pubkey = common.HexToAddress(ocrKey.OnchainPublicKey).Bytes()
