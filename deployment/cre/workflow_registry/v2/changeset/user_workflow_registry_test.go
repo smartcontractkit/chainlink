@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,6 +120,18 @@ func TestUserWorkflowOperations(t *testing.T) {
 		require.NoError(t, err, "user workflow activate preconditions should pass")
 		_, err = activateChangeset.Apply(fixture.rt.Environment(), activateInput)
 		require.NoError(t, err, "user workflow activate apply should pass")
+
+		t.Log("Testing user batch workflow pause...")
+		batchPauseInput := UserWorkflowBatchPauseInput{
+			WorkflowIDs:               testWorkflowID,
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+		}
+		batchPauseChangeset := UserWorkflowBatchPause{}
+		err = batchPauseChangeset.VerifyPreconditions(fixture.rt.Environment(), batchPauseInput)
+		require.NoError(t, err, "user workflow pause preconditions should pass")
+		_, err = batchPauseChangeset.Apply(fixture.rt.Environment(), batchPauseInput)
+		require.NoError(t, err, "user workflow pause apply should pass")
 
 		t.Log("Testing user workflow delete...")
 		deleteInput := UserWorkflowDeleteInput{
@@ -257,6 +270,69 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 		require.NoError(t, err, "user workflow pause with MCMS apply should pass")
 		assert.NotNil(t, csOutput.Reports, "user workflow pause apply should have reports")
 		assert.Len(t, csOutput.Reports, 1, "expected one report from user workflow pause")
+	})
+
+	t.Run("batch pause workflow with MCMS", func(t *testing.T) {
+		fixture := setupTestWithMCMS(t)
+		testWorkflowID2 := "1234567891234567891234567891234567891234567891234567891234567892"
+		pauseInput := UserWorkflowBatchPauseInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
+			},
+			WorkflowIDs: strings.Join([]string{testWorkflowID, testWorkflowID2}, ","),
+		}
+		pauseChangeset := UserWorkflowBatchPause{}
+		err := pauseChangeset.VerifyPreconditions(fixture.rt.Environment(), pauseInput)
+		require.NoError(t, err, "user workflow pause with MCMS preconditions should pass")
+		csOutput, err := pauseChangeset.Apply(fixture.rt.Environment(), pauseInput)
+		require.NoError(t, err, "user workflow pause with MCMS apply should pass")
+		assert.NotNil(t, csOutput.Reports, "user workflow pause apply should have reports")
+		assert.Len(t, csOutput.Reports, 1, "expected one report from user workflow pause")
+	})
+
+	t.Run("batch pause workflow with MCMS - duplicate workflowIDs", func(t *testing.T) {
+		fixture := setupTestWithMCMS(t)
+		testWorkflowID2 := "1234567891234567891234567891234567891234567891234567891234567891"
+		pauseInput := UserWorkflowBatchPauseInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
+			},
+			WorkflowIDs: strings.Join([]string{testWorkflowID, testWorkflowID2}, ","),
+		}
+		pauseChangeset := UserWorkflowBatchPause{}
+		err := pauseChangeset.VerifyPreconditions(fixture.rt.Environment(), pauseInput)
+		require.Errorf(t, err, "user workflow pause with MCMS preconditions should fail due to duplicate workflow IDs")
+		require.ErrorContains(t, err, "duplicate workflow ID detected", "error should mention duplicate workflow IDs")
+	})
+
+	t.Run("batch pause workflow with MCMS - invalid workflowIDs", func(t *testing.T) {
+		fixture := setupTestWithMCMS(t)
+		testWorkflowID2 := "123456789123456789123456789123456789123456789123456789123456789Z" // invalid hex character 'Z'
+		pauseInput := UserWorkflowBatchPauseInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
+			},
+			WorkflowIDs: strings.Join([]string{testWorkflowID, testWorkflowID2}, ","),
+		}
+		pauseChangeset := UserWorkflowBatchPause{}
+		err := pauseChangeset.VerifyPreconditions(fixture.rt.Environment(), pauseInput)
+		require.Errorf(t, err, "user workflow pause with MCMS preconditions should fail due to duplicate workflow IDs")
+		require.ErrorContains(t, err, "invalid workflow ID", "error should mention invalid workflow ID")
 	})
 
 	t.Run("activate workflow with MCMS", func(t *testing.T) {

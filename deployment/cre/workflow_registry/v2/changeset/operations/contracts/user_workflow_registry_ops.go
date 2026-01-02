@@ -16,13 +16,14 @@ import (
 )
 
 const (
-	UpsertWorkflowUserDescription   = "upsertWorkflow on workflow registry v2 as user"
-	PauseWorkflowUserDescription    = "pauseWorkflow on workflow registry v2 as user"
-	ActivateWorkflowUserDescription = "activateWorkflow on workflow registry v2 as user"
-	DeleteWorkflowUserDescription   = "deleteWorkflow on workflow registry v2 a user"
-	LinkOwnerUserDescription        = "linkOwner on workflow registry v2 as user"
-	UnlinkOwnerUserDescription      = "unlinkOwner on workflow registry v2 as user"
-	AllowlistRequest                = "allowlistRequest on workflow registry v2 as user"
+	UpsertWorkflowUserDescription     = "upsertWorkflow on workflow registry v2 as user"
+	PauseWorkflowUserDescription      = "pauseWorkflow on workflow registry v2 as user"
+	BatchPauseWorkflowUserDescription = "batchPauseWorkflow on workflow registry v2 as user"
+	ActivateWorkflowUserDescription   = "activateWorkflow on workflow registry v2 as user"
+	DeleteWorkflowUserDescription     = "deleteWorkflow on workflow registry v2 a user"
+	LinkOwnerUserDescription          = "linkOwner on workflow registry v2 as user"
+	UnlinkOwnerUserDescription        = "unlinkOwner on workflow registry v2 as user"
+	AllowlistRequest                  = "allowlistRequest on workflow registry v2 as user"
 )
 
 type UserUpsertWorkflowOpInput struct {
@@ -114,6 +115,49 @@ var UserPauseWorkflowOp = operations.NewOperation(
 			deps.Env.Logger.Infof("Successfully user paused workflow %x on chain %d", input.WorkflowID, input.ChainSelector)
 		}
 		return UserPauseWorkflowOpOutput{
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
+		}, nil
+	},
+)
+
+type UserBatchPauseWorkflowOpInput struct {
+	WorkflowIDs [][32]byte `json:"workflowID"`
+
+	ChainSelector uint64                `json:"chainSelector"`
+	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
+	Qualifier     string                `json:"qualifier"`
+}
+
+type UserBatchPauseWorkflowOpOutput struct {
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
+}
+
+var UserBatchPauseWorkflowOp = operations.NewOperation(
+	"user-batch-pause-workflow-op",
+	semver.MustParse("1.0.0"),
+	"User Batch Pause Workflow in WorkflowRegistry V2",
+	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input UserBatchPauseWorkflowOpInput) (UserBatchPauseWorkflowOpOutput, error) {
+		// Execute the transaction using the strategy
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			tx, err := deps.Registry.BatchPauseWorkflows(opts, input.WorkflowIDs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to call PauseWorkflow: %w", err)
+			}
+			return tx, nil
+		})
+		if err != nil {
+			return UserBatchPauseWorkflowOpOutput{}, fmt.Errorf("failed to execute PauseWorkflow: %w", err)
+		}
+		if operation != nil {
+			deps.Env.Logger.Infof("Created MCMS proposal for PauseWorkflow %x on chain %d", input.WorkflowIDs, input.ChainSelector)
+		} else {
+			deps.Env.Logger.Infof("Successfully user paused workflow %x on chain %d", input.WorkflowIDs, input.ChainSelector)
+		}
+		return UserBatchPauseWorkflowOpOutput{
 			Success:         true,
 			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
