@@ -99,6 +99,20 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
+func TestTriggerPublisher_RecieveTriggerEventAcks(t *testing.T) {
+	ctx := testutils.Context(t)
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
+	eventId := "123"
+	regEvent := newAckEventMessage(t, eventId, workflowDONID, peers[1])
+	publisher.Receive(ctx, regEvent)
+
+	require.True(t, underlyingTriggerCap.eventAckd)
+	require.NoError(t, publisher.Close())
+
+	// TODO: Increase event ACK test coverage
+}
+
 func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
@@ -266,10 +280,24 @@ func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes
 	}
 }
 
+func newAckEventMessage(t *testing.T, eventId string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+	return &remotetypes.MessageBody{
+		Sender:      sender[:],
+		Method:      remotetypes.MethodTriggerEventAck,
+		CallerDonId: callerDonID,
+		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+				TriggerEventId: eventId,
+			},
+		},
+	}
+}
+
 type testTrigger struct {
 	info            commoncap.CapabilityInfo
 	registrationsCh chan commoncap.TriggerRegistrationRequest
 	eventCh         chan commoncap.TriggerResponse
+	eventAckd       bool
 }
 
 func (tr *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
@@ -282,5 +310,10 @@ func (tr *testTrigger) RegisterTrigger(_ context.Context, request commoncap.Trig
 }
 
 func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (tr *testTrigger) AckEvent(_ context.Context, eventId string) error {
+	tr.eventAckd = true
 	return nil
 }

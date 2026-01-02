@@ -35,9 +35,9 @@ type triggerPublisher struct {
 
 	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
-
 	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
-	mu            sync.RWMutex // protects messageCache and registrations
+	mu            sync.RWMutex // protects messageCache, ackCache, and registrations
+
 	batchingQueue map[[32]byte]*batchedResponse
 	bqMu          sync.Mutex // protects batchingQueue
 	stopCh        services.StopChan
@@ -93,6 +93,7 @@ func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher t
 		capMethodName: capMethodName,
 		dispatcher:    dispatcher,
 		messageCache:  messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		ackCache:      messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
 		registrations: make(map[registrationKey]*pubRegState),
 		batchingQueue: make(map[[32]byte]*batchedResponse),
 		stopCh:        make(services.StopChan),
@@ -275,7 +276,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 
 		key := ackKey{msg.CallerDonId, triggerEventID}
 		nowMs := time.Now().UnixMilli()
-		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
+		p.ackCache.Insert(key, sender, nowMs, msg.Payload) // TODO: Payload is empty..
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.EventTimeout.Milliseconds(), false)
 		if !ready {

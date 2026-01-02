@@ -23,6 +23,53 @@ func (_m *TriggerExecutable) EXPECT() *TriggerExecutable_Expecter {
 	return &TriggerExecutable_Expecter{mock: &_m.Mock}
 }
 
+// AckEvent provides a mock function with given fields: ctx, eventId
+func (_m *TriggerExecutable) AckEvent(ctx context.Context, eventId string) error {
+	ret := _m.Called(ctx, eventId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AckEvent")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, eventId)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TriggerExecutable_AckEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AckEvent'
+type TriggerExecutable_AckEvent_Call struct {
+	*mock.Call
+}
+
+// AckEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - eventId string
+func (_e *TriggerExecutable_Expecter) AckEvent(ctx interface{}, eventId interface{}) *TriggerExecutable_AckEvent_Call {
+	return &TriggerExecutable_AckEvent_Call{Call: _e.mock.On("AckEvent", ctx, eventId)}
+}
+
+func (_c *TriggerExecutable_AckEvent_Call) Run(run func(ctx context.Context, eventId string)) *TriggerExecutable_AckEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *TriggerExecutable_AckEvent_Call) Return(_a0 error) *TriggerExecutable_AckEvent_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TriggerExecutable_AckEvent_Call) RunAndReturn(run func(context.Context, string) error) *TriggerExecutable_AckEvent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RegisterTrigger provides a mock function with given fields: ctx, request
 func (_m *TriggerExecutable) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	ret := _m.Called(ctx, request)

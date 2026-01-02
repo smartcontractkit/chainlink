@@ -130,16 +130,6 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 }
 
 func (s *triggerSubscriber) AckEvent(ctx context.Context, eventId string) error {
-	response := commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{
-			TriggerType: s.capMethodName,
-			ID:          eventId,
-		}}
-	rawRequest, err := pb.MarshalTriggerResponse(response)
-	if err != nil {
-		return fmt.Errorf("failed to marshal trigger response: %w", err)
-	}
-
 	s.mu.RLock()
 	cfg := s.cfg.Load()
 	for _, peerID := range cfg.capDonInfo.Members {
@@ -149,7 +139,11 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, eventId string) error 
 			CallerDonId:      cfg.localDonID,
 			Method:           types.MethodTriggerEventAck,
 			CapabilityMethod: s.capMethodName,
-			Payload:          rawRequest,
+			Metadata: &types.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &types.TriggerEventMetadata{
+					TriggerEventId: eventId,
+				},
+			},
 		}
 		err := s.dispatcher.Send(peerID, m)
 		if err != nil {
