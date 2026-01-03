@@ -1300,26 +1300,45 @@ func newCREServices(
 					altSourceConfigs := make([]syncerV2.AlternativeSourceConfig, 0, len(altSources))
 					for _, src := range altSources {
 						altSourceConfigs = append(altSourceConfigs, syncerV2.AlternativeSourceConfig{
-							URL:          src.URL(),
-							Name:         src.Name(),
-							TLSEnabled:   src.TLSEnabled(),
+							URL:          src.GetURL(),
+							Name:         src.GetName(),
+							TLSEnabled:   src.GetTLSEnabled(),
 							JWTGenerator: opts.JWTGenerator,
 						})
 					}
 
-					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
-						lggr,
-						crFactory,
-						capCfg.WorkflowRegistry().Address(),
-						syncerV2.Config{
-							QueryCount:   100,
-							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
-						},
-						eventHandler,
-						workflowDonNotifier,
-						engineRegistry,
-						syncerV2.WithAlternativeSources(altSourceConfigs),
-					)
+					// Create syncer with file source if configured
+					fileSourcePath := capCfg.WorkflowRegistry().FileSourcePath()
+					if fileSourcePath != "" {
+						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
+							lggr,
+							crFactory,
+							capCfg.WorkflowRegistry().Address(),
+							syncerV2.Config{
+								QueryCount:   100,
+								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+							},
+							eventHandler,
+							workflowDonNotifier,
+							engineRegistry,
+							syncerV2.WithAlternativeSources(altSourceConfigs),
+							syncerV2.WithFileSource(fileSourcePath),
+						)
+					} else {
+						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
+							lggr,
+							crFactory,
+							capCfg.WorkflowRegistry().Address(),
+							syncerV2.Config{
+								QueryCount:   100,
+								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+							},
+							eventHandler,
+							workflowDonNotifier,
+							engineRegistry,
+							syncerV2.WithAlternativeSources(altSourceConfigs),
+						)
+					}
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 					}

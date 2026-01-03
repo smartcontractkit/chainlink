@@ -535,13 +535,13 @@ func TestConfig_Marshal(t *testing.T) {
 				URL:                 ptr(""),
 				TLSEnabled:          ptr(true),
 			},
-			AlternativeSourcesConfig: []toml.AlternativeWorkflowSource{
-				{
-					URLField:        ptr("localhost:50051"),
-					TLSEnabledField: ptr(true),
-					NameField:       ptr("test-grpc-source"),
-				},
+		AlternativeSourcesConfig: []toml.AlternativeWorkflowSource{
+			{
+				URL:        ptr("localhost:50051"),
+				TLSEnabled: ptr(true),
+				Name:       ptr("test-grpc-source"),
 			},
+		},
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),

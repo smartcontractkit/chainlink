@@ -34,6 +34,9 @@ type CapabilitiesWorkflowRegistry interface {
 	SyncStrategy() string
 	WorkflowStorage() WorkflowStorage
 	AlternativeSources() []AlternativeWorkflowSource
+	// FileSourcePath returns the path to a JSON file containing workflow metadata.
+	// If empty, the file source is disabled.
+	FileSourcePath() string
 }
 
 type WorkflowStorage interface {
@@ -45,9 +48,9 @@ type WorkflowStorage interface {
 // AlternativeWorkflowSource represents a single alternative workflow metadata source
 // that can be configured to load workflows from sources other than the on-chain registry.
 type AlternativeWorkflowSource interface {
-	URL() string
-	TLSEnabled() bool
-	Name() string
+	GetURL() string
+	GetTLSEnabled() bool
+	GetName() string
 }
 
 type GatewayConnector interface {

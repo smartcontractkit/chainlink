@@ -54,8 +54,6 @@ func (m *mockWorkflowContractReader) GetLatestValueWithHeadData(
 		return nil, m.getLatestErr
 	}
 
-	// Use reflection to set the List field since the interface uses `any` and
-	// the production code passes an anonymous struct type
 	resultVal := reflect.ValueOf(result).Elem()
 	listField := resultVal.FieldByName("List")
 	if listField.IsValid() && listField.CanSet() {

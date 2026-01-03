@@ -240,6 +240,10 @@ func (c *capabilitiesWorkflowRegistry) AlternativeSources() []config.Alternative
 	return sources
 }
 
+func (c *capabilitiesWorkflowRegistry) FileSourcePath() string {
+	return c.c.GetFileSourcePath()
+}
+
 type workflowStorage struct {
 	c toml.WorkflowStorage
 }
@@ -260,25 +264,25 @@ type alternativeWorkflowSource struct {
 	c toml.AlternativeWorkflowSource
 }
 
-func (a *alternativeWorkflowSource) URL() string {
-	if a.c.URLField == nil {
+func (a *alternativeWorkflowSource) GetURL() string {
+	if a.c.URL == nil {
 		return ""
 	}
-	return *a.c.URLField
+	return *a.c.URL
 }
 
-func (a *alternativeWorkflowSource) TLSEnabled() bool {
-	if a.c.TLSEnabledField == nil {
+func (a *alternativeWorkflowSource) GetTLSEnabled() bool {
+	if a.c.TLSEnabled == nil {
 		return true // Default to true
 	}
-	return *a.c.TLSEnabledField
+	return *a.c.TLSEnabled
 }
 
-func (a *alternativeWorkflowSource) Name() string {
-	if a.c.NameField == nil {
+func (a *alternativeWorkflowSource) GetName() string {
+	if a.c.Name == nil {
 		return ""
 	}
-	return *a.c.NameField
+	return *a.c.Name
 }
 
 type gatewayConnector struct {

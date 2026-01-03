@@ -77,10 +77,16 @@ type workflowRegistry struct {
 	allowListedMu                    sync.RWMutex
 
 	contractReaderFn versioning.ContractReaderFactory
-	contractReader   types.ContractReader
 
-	// workflowSources aggregates workflow metadata from multiple sources (contract + file for MVP).
-	// This allows workflows to be loaded from sources other than the on-chain registry.
+	// contractReader is used exclusively for fetching allowlisted requests from the WorkflowRegistry
+	// contract. This data is consumed by Vault DON nodes to authorize incoming vault requests.
+	// Workflow metadata is fetched separately via workflowSources (see below).
+	contractReader types.ContractReader
+
+	// workflowSources aggregates workflow metadata from multiple sources (contract, file, gRPC).
+	// The contract source maintains its own contract reader for workflow metadata queries.
+	// This separation exists because allowlisted requests (Vault DON concern) and workflow
+	// metadata (engine deployment concern) serve different consumers.
 	workflowSources *MultiSourceWorkflowAggregator
 
 	config Config
@@ -136,7 +142,7 @@ type AlternativeSourceConfig struct {
 }
 
 // WithAlternativeSources adds GRPC-based workflow sources to the registry.
-// These sources supplement the primary contract and file sources.
+// These sources supplement the primary contract source.
 func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		for _, src := range sources {
@@ -159,6 +165,18 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 				"url", src.URL,
 				"tls", src.TLSEnabled)
 		}
+	}
+}
+
+// WithFileSource adds a file-based workflow source to the registry.
+// The file source reads workflow metadata from a JSON file at the specified path.
+// If not called, no file source will be used (file source is disabled by default).
+func WithFileSource(filePath string) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		fileSource := NewFileWorkflowSourceWithPath(wr.lggr, filePath)
+		wr.workflowSources.AddSource(fileSource)
+		wr.lggr.Infow("Added file workflow source",
+			"path", filePath)
 	}
 }
 
@@ -185,16 +203,12 @@ func NewWorkflowRegistry(
 	// Create the contract-based workflow source
 	contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr)
 
-	// Create the file-based workflow source (always enabled for MVP)
-	fileSource := NewFileWorkflowSource(lggr)
-
-	// Create the multi-source aggregator with both sources
-	// Contract source is first (primary), file source is second (supplementary)
-	workflowSources := NewMultiSourceWorkflowAggregator(lggr, contractSource, fileSource)
+	// Create the multi-source aggregator with the contract source as primary
+	// Additional sources (file, gRPC) can be added via WithFileSource and WithAlternativeSources options
+	workflowSources := NewMultiSourceWorkflowAggregator(lggr, contractSource)
 
 	lggr.Infow("Initialized workflow registry with multi-source support",
 		"contractAddress", addr,
-		"fileSourcePath", DefaultFileWorkflowSourcePath,
 		"sourceCount", len(workflowSources.Sources()))
 
 	wr := &workflowRegistry{
@@ -250,10 +264,9 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 					w.lggr.Debug("shutting down workflowregistry, %s", ctx.Err())
 					return
 				case <-ticker:
-					// Async initialization of contract reader because there is an on-chain
-					// call dependency.  Blocking on initialization results in a
-					// deadlock. Instead, wait until the contract reader is ready.
-					reader, err := w.newWorkflowRegistryContractReader(ctx)
+					// Async initialization of contract reader for allowlisted requests.
+					// Blocking on initialization results in a deadlock, so we poll until ready.
+					reader, err := w.newAllowlistedRequestsContractReader(ctx)
 					if err != nil {
 						w.lggr.Infow("contract reader unavailable", "error", err.Error())
 						break
@@ -637,35 +650,15 @@ func isEmptyWorkflowID(wfID [32]byte) bool {
 	return wfID == emptyID
 }
 
-// validateWorkflowMetadata logs warnings for incomplete workflow metadata from contract
-func validateWorkflowMetadata(wfMeta workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, lggr logger.Logger) {
-	if isEmptyWorkflowID(wfMeta.WorkflowId) {
-		lggr.Warnw("Workflow has empty WorkflowID from contract",
-			"workflowName", wfMeta.WorkflowName,
-			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),
-			"binaryURL", wfMeta.BinaryUrl,
-			"configURL", wfMeta.ConfigUrl)
-	}
-
-	if len(wfMeta.Owner.Bytes()) == 0 {
-		lggr.Warnw("Workflow has empty Owner from contract",
-			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
-			"workflowName", wfMeta.WorkflowName,
-			"binaryURL", wfMeta.BinaryUrl,
-			"configURL", wfMeta.ConfigUrl)
-	}
-
-	if wfMeta.BinaryUrl == "" || wfMeta.ConfigUrl == "" {
-		lggr.Warnw("Workflow has empty BinaryURL or ConfigURL from contract",
-			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
-			"workflowName", wfMeta.WorkflowName,
-			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),
-			"binaryURL", wfMeta.BinaryUrl,
-			"configURL", wfMeta.ConfigUrl)
-	}
-}
-
-func (w *workflowRegistry) newWorkflowRegistryContractReader(
+// newAllowlistedRequestsContractReader creates a contract reader specifically for fetching
+// allowlisted requests from the WorkflowRegistry contract. This is used by Vault DON nodes
+// to verify that incoming vault requests have been pre-authorized on-chain by workflow owners.
+//
+// Note: Workflow metadata is fetched separately via ContractWorkflowSource, which maintains
+// its own contract reader. The two concerns are separated because:
+//   - Allowlisted requests: Used by Vault DON for request authorization
+//   - Workflow metadata: Used by workflow engine for deployment/reconciliation
+func (w *workflowRegistry) newAllowlistedRequestsContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
 	contractReaderCfg := config.ChainReaderConfig{
@@ -673,10 +666,6 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 			WorkflowRegistryContractName: {
 				ContractABI: workflow_registry_wrapper_v2.WorkflowRegistryABI,
 				Configs: map[string]*config.ChainReaderDefinition{
-					GetWorkflowsByDONMethodName: {
-						ChainSpecificName: GetWorkflowsByDONMethodName,
-						ReadType:          config.Method,
-					},
 					GetActiveAllowlistedRequestsReverseMethodName: {
 						ChainSpecificName: GetActiveAllowlistedRequestsReverseMethodName,
 						ReadType:          config.Method,
@@ -715,75 +704,6 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	}
 
 	return reader, nil
-}
-
-// getAllWorkflowsMetadata uses contract reader to query the WorkflowRegistry contract using the method getWorkflowListByDON.
-// It gets metadata for all workflows assigned to any of current DON's families.
-func (w *workflowRegistry) getAllWorkflowsMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
-	if contractReader == nil {
-		return nil, nil, errors.New("cannot fetch workflow metadata: nil contract reader")
-	}
-	contractBinding := types.BoundContract{
-		Address: w.workflowRegistryAddress,
-		Name:    WorkflowRegistryContractName,
-	}
-
-	readIdentifier := contractBinding.ReadIdentifier(GetWorkflowsByDONMethodName)
-	var headAtLastRead *types.Head
-	var allWorkflows []WorkflowMetadataView
-
-	for _, family := range don.Families {
-		params := GetWorkflowListByDONParams{
-			DonFamily: family,
-			Start:     big.NewInt(0),
-			Limit:     big.NewInt(MaxResultsPerQuery),
-		}
-
-		for {
-			var err error
-			var workflows struct {
-				List []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
-			}
-
-			headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
-			if err != nil {
-				return []WorkflowMetadataView{}, &types.Head{Height: "0"}, fmt.Errorf("failed to get lastest value with head data %w", err)
-			}
-
-			for _, wfMeta := range workflows.List {
-				// Log warnings for incomplete metadata but don't skip processing
-				validateWorkflowMetadata(wfMeta, w.lggr)
-
-				// TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-1021 load balance across workflow nodes in DON Family
-				allWorkflows = append(allWorkflows, WorkflowMetadataView{
-					WorkflowID:   wfMeta.WorkflowId,
-					Owner:        wfMeta.Owner.Bytes(),
-					CreatedAt:    wfMeta.CreatedAt,
-					Status:       wfMeta.Status,
-					WorkflowName: wfMeta.WorkflowName,
-					BinaryURL:    wfMeta.BinaryUrl,
-					ConfigURL:    wfMeta.ConfigUrl,
-					Tag:          wfMeta.Tag,
-					Attributes:   wfMeta.Attributes,
-					DonFamily:    wfMeta.DonFamily,
-				})
-			}
-
-			// if less workflows than limit, then we have reached the end of the list
-			if int64(len(workflows.List)) < MaxResultsPerQuery {
-				break
-			}
-
-			// otherwise, increment the start parameter and continue to fetch more workflows
-			params.Start.Add(params.Start, big.NewInt(int64(len(workflows.List))))
-		}
-	}
-
-	if headAtLastRead == nil {
-		return allWorkflows, &types.Head{Height: "0"}, nil
-	}
-
-	return allWorkflows, headAtLastRead, nil
 }
 
 func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
