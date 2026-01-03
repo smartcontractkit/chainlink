@@ -15,6 +15,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -128,9 +129,10 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 
 // AlternativeSourceConfig holds configuration for a GRPC workflow source.
 type AlternativeSourceConfig struct {
-	URL        string
-	Name       string
-	TLSEnabled bool
+	URL          string
+	Name         string
+	TLSEnabled   bool
+	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
 // WithAlternativeSources adds GRPC-based workflow sources to the registry.
@@ -139,9 +141,10 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 	return func(wr *workflowRegistry) {
 		for _, src := range sources {
 			grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
-				URL:        src.URL,
-				TLSEnabled: src.TLSEnabled,
-				Name:       src.Name,
+				URL:          src.URL,
+				TLSEnabled:   src.TLSEnabled,
+				Name:         src.Name,
+				JWTGenerator: src.JWTGenerator,
 			})
 			if err != nil {
 				wr.lggr.Errorw("Failed to create GRPC workflow source",

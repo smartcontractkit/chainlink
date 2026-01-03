@@ -1,0 +1,82 @@
+# Configuration for gRPC source integration test
+# This is used by Test_CRE_GRPCSource_Lifecycle to start a CRE environment
+# with v2 registries for testing alternative workflow sources.
+
+# ----- BLOCKCHAIN CONFIGURATION -----
+# Note: Using port 8546 to avoid conflict with mock gRPC server's private registry port (8545)
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+# ----- JOB DISTRIBUTOR -----
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.22.1"
+
+# ----- INFRASTRUCTURE -----
+[infra]
+  type = "docker"
+
+# ----- WORKFLOW NODES -----
+# 4-node workflow DON - minimal capabilities for gRPC source testing
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+  env_vars = { CL_EVM_CMD = "" }
+  # Minimal capabilities - just what's needed for workflow execution
+  capabilities = []
+
+  [nodesets.chain_capabilities]
+    evm = ["1337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+[[nodesets.node_specs]]
+  roles = ["plugin"]
+  [nodesets.node_specs.node]
+    # Use locally built image (build with: docker build -f core/chainlink.Dockerfile -t chainlink-tmp:latest .)
+    image = "chainlink-tmp:latest"
+    user_config_overrides = """
+      [Feature]
+      LogPoller = true
+      FeedsManager = true
+      [OCR2]
+      Enabled = true
+      DatabaseTimeout = '1s'
+    """
+
+# ----- BOOTSTRAP + GATEWAY NODE -----
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+  env_vars = { CL_EVM_CMD = "" }
+  supported_evm_chains = [1337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      image = "chainlink-tmp:latest"
+      # 5002 is the web API capabilities port for incoming requests
+      custom_ports = ["5002:5002"]
+      user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """

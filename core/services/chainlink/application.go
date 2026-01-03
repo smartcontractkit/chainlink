@@ -1295,13 +1295,15 @@ func newCREServices(
 					}
 
 					// Build alternative sources configuration from config
+					// JWT auth is always enabled for gRPC sources
 					altSources := capCfg.WorkflowRegistry().AlternativeSources()
 					altSourceConfigs := make([]syncerV2.AlternativeSourceConfig, 0, len(altSources))
 					for _, src := range altSources {
 						altSourceConfigs = append(altSourceConfigs, syncerV2.AlternativeSourceConfig{
-							URL:        src.URL(),
-							Name:       src.Name(),
-							TLSEnabled: src.TLSEnabled(),
+							URL:          src.URL(),
+							Name:         src.Name(),
+							TLSEnabled:   src.TLSEnabled(),
+							JWTGenerator: opts.JWTGenerator,
 						})
 					}
 

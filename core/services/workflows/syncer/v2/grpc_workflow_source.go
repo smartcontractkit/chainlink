@@ -3,14 +3,20 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/grpcsource"
-	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources/v1"
+	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -19,16 +25,32 @@ import (
 const (
 	// GRPCWorkflowSourceName is the name used for logging and identification.
 	GRPCWorkflowSourceName = "GRPCWorkflowSource"
+
+	// Default configuration values
+	defaultPageSize       int64         = 1000
+	defaultMaxRetries     int           = 2
+	defaultRetryBaseDelay time.Duration = 100 * time.Millisecond
+	defaultRetryMaxDelay  time.Duration = 5 * time.Second
 )
+
+// grpcClient is an interface for the GRPC client to enable testing.
+type grpcClient interface {
+	ListWorkflowMetadata(ctx context.Context, families []string, start, limit int64) ([]*pb.WorkflowMetadata, *pb.Head, bool, error)
+	Close() error
+}
 
 // GRPCWorkflowSource implements WorkflowMetadataSource by fetching from a GRPC server.
 // This enables external systems to provide workflow metadata to the chainlink node.
 type GRPCWorkflowSource struct {
-	lggr   logger.Logger
-	client *grpcsource.Client
-	name   string
-	mu     sync.RWMutex
-	ready  bool
+	lggr           logger.Logger
+	client         grpcClient
+	name           string
+	pageSize       int64
+	maxRetries     int
+	retryBaseDelay time.Duration
+	retryMaxDelay  time.Duration
+	mu             sync.RWMutex
+	ready          bool
 }
 
 // GRPCWorkflowSourceConfig holds configuration for creating a GRPCWorkflowSource.
@@ -39,6 +61,16 @@ type GRPCWorkflowSourceConfig struct {
 	Name string
 	// TLSEnabled determines whether to use TLS for the connection
 	TLSEnabled bool
+	// JWTGenerator is the JWT generator for authentication (always enabled, matching billing/storage pattern)
+	JWTGenerator nodeauthjwt.JWTGenerator
+	// PageSize is the number of workflows to fetch per page (default: 1000)
+	PageSize int64
+	// MaxRetries is the maximum number of retry attempts for transient errors (default: 2)
+	MaxRetries int
+	// RetryBaseDelay is the base delay for exponential backoff (default: 100ms)
+	RetryBaseDelay time.Duration
+	// RetryMaxDelay is the maximum delay between retries (default: 5s)
+	RetryMaxDelay time.Duration
 }
 
 // NewGRPCWorkflowSource creates a new GRPC-based workflow source.
@@ -52,20 +84,69 @@ func NewGRPCWorkflowSource(lggr logger.Logger, cfg GRPCWorkflowSourceConfig) (*G
 		sourceName = GRPCWorkflowSourceName
 	}
 
-	client, err := grpcsource.NewClient(cfg.URL, sourceName, cfg.TLSEnabled)
+	// Build client options - JWT auth is always enabled (matching billing/storage pattern)
+	clientOpts := []grpcsource.ClientOption{
+		grpcsource.WithTLS(cfg.TLSEnabled),
+	}
+	if cfg.JWTGenerator != nil {
+		clientOpts = append(clientOpts, grpcsource.WithJWTGenerator(cfg.JWTGenerator))
+	}
+
+	client, err := grpcsource.NewClient(cfg.URL, sourceName, clientOpts...)
 	if err != nil {
 		return nil, err
 	}
 
+	return newGRPCWorkflowSourceWithClient(lggr, client, cfg)
+}
+
+// NewGRPCWorkflowSourceWithClient creates a new GRPC-based workflow source with an injected client.
+// This is useful for testing with mock clients.
+func NewGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg GRPCWorkflowSourceConfig) (*GRPCWorkflowSource, error) {
+	return newGRPCWorkflowSourceWithClient(lggr, client, cfg)
+}
+
+func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg GRPCWorkflowSourceConfig) (*GRPCWorkflowSource, error) {
+	sourceName := cfg.Name
+	if sourceName == "" {
+		sourceName = GRPCWorkflowSourceName
+	}
+
+	pageSize := cfg.PageSize
+	if pageSize <= 0 {
+		pageSize = defaultPageSize
+	}
+
+	maxRetries := cfg.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = defaultMaxRetries
+	}
+
+	retryBaseDelay := cfg.RetryBaseDelay
+	if retryBaseDelay <= 0 {
+		retryBaseDelay = defaultRetryBaseDelay
+	}
+
+	retryMaxDelay := cfg.RetryMaxDelay
+	if retryMaxDelay <= 0 {
+		retryMaxDelay = defaultRetryMaxDelay
+	}
+
 	return &GRPCWorkflowSource{
-		lggr:   lggr.Named(sourceName),
-		client: client,
-		name:   sourceName,
-		ready:  true,
+		lggr:           lggr.Named(sourceName),
+		client:         client,
+		name:           sourceName,
+		pageSize:       pageSize,
+		maxRetries:     maxRetries,
+		retryBaseDelay: retryBaseDelay,
+		retryMaxDelay:  retryMaxDelay,
+		ready:          true,
 	}, nil
 }
 
 // ListWorkflowMetadata fetches workflow metadata from the GRPC source.
+// Pagination is handled internally - this method fetches all pages and returns all workflows.
+// Transient errors (Unavailable, ResourceExhausted) are retried with exponential backoff.
 func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -74,30 +155,139 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		return nil, nil, errors.New("GRPC source not ready")
 	}
 
-	workflows, head, err := g.client.ListWorkflowMetadata(ctx, don.ID, don.Families)
-	if err != nil {
-		g.lggr.Errorw("Failed to fetch workflows from GRPC source", "error", err)
-		return nil, nil, err
-	}
+	var allViews []WorkflowMetadataView
+	var primaryHead *pb.Head
+	var start int64 = 0
 
-	var views []WorkflowMetadataView
-	for _, wf := range workflows {
-		view, err := g.toWorkflowMetadataView(wf)
+	// Fetch all pages
+	for {
+		workflows, head, hasMore, err := g.fetchPageWithRetry(ctx, don.Families, start)
 		if err != nil {
-			g.lggr.Warnw("Failed to parse workflow metadata, skipping",
-				"workflowName", wf.GetWorkflowName(),
-				"error", err)
-			continue
+			return nil, nil, err
 		}
-		views = append(views, view)
+
+		// Capture the head from the first page
+		if primaryHead == nil && head != nil {
+			primaryHead = head
+		}
+
+		// Convert workflows to views, skipping invalid ones
+		for _, wf := range workflows {
+			view, err := g.toWorkflowMetadataView(wf)
+			if err != nil {
+				g.lggr.Warnw("Failed to parse workflow metadata, skipping",
+					"workflowName", wf.GetWorkflowName(),
+					"error", err)
+				continue
+			}
+			allViews = append(allViews, view)
+		}
+
+		// Check if we've fetched all pages
+		if !hasMore {
+			break
+		}
+
+		// Move to next page
+		start += g.pageSize
 	}
 
 	g.lggr.Debugw("Loaded workflows from GRPC source",
-		"count", len(views),
+		"count", len(allViews),
 		"donID", don.ID,
 		"donFamilies", don.Families)
 
-	return views, g.toCommonHead(head), nil
+	return allViews, g.toCommonHead(primaryHead), nil
+}
+
+// fetchPageWithRetry fetches a single page with retry logic for transient errors.
+func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []string, start int64) ([]*pb.WorkflowMetadata, *pb.Head, bool, error) {
+	var lastErr error
+
+	for attempt := 0; attempt <= g.maxRetries; attempt++ {
+		// Check context before making request
+		if ctx.Err() != nil {
+			return nil, nil, false, ctx.Err()
+		}
+
+		workflows, head, hasMore, err := g.client.ListWorkflowMetadata(ctx, families, start, g.pageSize)
+		if err == nil {
+			return workflows, head, hasMore, nil
+		}
+
+		lastErr = err
+
+		// Check if this is a retryable error
+		if !g.isRetryableError(err) {
+			g.lggr.Errorw("Non-retryable error from GRPC source",
+				"error", err,
+				"start", start,
+				"pageSize", g.pageSize)
+			return nil, nil, false, err
+		}
+
+		// Log retry attempt
+		g.lggr.Warnw("Retryable error from GRPC source",
+			"error", err,
+			"attempt", attempt+1,
+			"maxRetries", g.maxRetries)
+
+		// If we've exhausted retries, return the error
+		if attempt >= g.maxRetries {
+			g.lggr.Errorw("Max retries exceeded for GRPC request",
+				"error", err,
+				"maxRetries", g.maxRetries)
+			return nil, nil, false, fmt.Errorf("max retries exceeded: %w", err)
+		}
+
+		// Calculate backoff with jitter
+		backoff := g.calculateBackoff(attempt + 1)
+
+		// Wait for backoff or context cancellation
+		select {
+		case <-ctx.Done():
+			return nil, nil, false, ctx.Err()
+		case <-time.After(backoff):
+			g.lggr.Debugw("Retrying GRPC request",
+				"attempt", attempt+1,
+				"delay", backoff,
+				"lastError", lastErr)
+		}
+	}
+
+	return nil, nil, false, lastErr
+}
+
+// isRetryableError determines if an error should be retried.
+func (g *GRPCWorkflowSource) isRetryableError(err error) bool {
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+
+	switch st.Code() {
+	case codes.Unavailable, codes.ResourceExhausted:
+		return true
+	default:
+		return false
+	}
+}
+
+// calculateBackoff calculates the backoff duration for a given attempt with jitter.
+func (g *GRPCWorkflowSource) calculateBackoff(attempt int) time.Duration {
+	// Exponential backoff: baseDelay * 2^(attempt-1)
+	backoff := g.retryBaseDelay * time.Duration(1<<(attempt-1))
+
+	// Apply jitter (0.5 to 1.5 multiplier)
+	jitter := 0.5 + rand.Float64() // 0.5 to 1.5
+	backoff = time.Duration(float64(backoff) * jitter)
+
+	// Cap at max delay
+	if backoff > g.retryMaxDelay {
+		backoff = g.retryMaxDelay
+	}
+
+	return backoff
 }
 
 // Name returns the name of this source.
