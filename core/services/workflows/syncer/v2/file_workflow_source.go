@@ -189,7 +189,7 @@ func (f *FileWorkflowSource) toWorkflowMetadataView(wf FileWorkflowMetadata) (Wo
 func (f *FileWorkflowSource) syntheticHead() *commontypes.Head {
 	now := time.Now().Unix()
 	var timestamp uint64
-	if now >= 0 { //satisfies overflow check on linter
+	if now >= 0 { // satisfies overflow check on linter
 		timestamp = uint64(now)
 	}
 	return &commontypes.Head{

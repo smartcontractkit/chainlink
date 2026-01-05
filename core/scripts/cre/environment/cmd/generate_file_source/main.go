@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
@@ -89,16 +90,17 @@ func main() {
 	var binary []byte
 	if strings.HasSuffix(binaryPath, ".br.b64") {
 		// Base64 decode
-		decoded, err := base64.StdEncoding.DecodeString(string(binaryRaw))
-		if err != nil {
-			fmt.Printf("Error base64 decoding binary: %v\n", err)
+		decoded, decodeErr := base64.StdEncoding.DecodeString(string(binaryRaw))
+		if decodeErr != nil {
+			fmt.Printf("Error base64 decoding binary: %v\n", decodeErr)
 			os.Exit(1)
 		}
 		// Brotli decompress
 		reader := brotli.NewReader(strings.NewReader(string(decoded)))
-		binary, err = io.ReadAll(reader)
-		if err != nil {
-			fmt.Printf("Error brotli decompressing binary: %v\n", err)
+		var decompressErr error
+		binary, decompressErr = io.ReadAll(reader)
+		if decompressErr != nil {
+			fmt.Printf("Error brotli decompressing binary: %v\n", decompressErr)
 			os.Exit(1)
 		}
 		fmt.Printf("Decompressed binary from %d bytes (compressed) to %d bytes (WASM)\n", len(binaryRaw), len(binary))
@@ -135,13 +137,22 @@ func main() {
 	configFilename := "file_source_config.json"
 
 	// Build the metadata
+	now := time.Now().Unix()
+	var createdAt uint64
+	if now >= 0 {
+		createdAt = uint64(now) // #nosec G115 -- time is always positive
+	}
+	var statusUint8 uint8
+	if status >= 0 && status <= 255 {
+		statusUint8 = uint8(status) // #nosec G115 -- status is validated in range
+	}
 	metadata := FileWorkflowSourceData{
 		Workflows: []FileWorkflowMetadata{
 			{
 				WorkflowID:   hex.EncodeToString(workflowID[:]),
 				Owner:        owner,
-				CreatedAt:    uint64(time.Now().Unix()),
-				Status:       uint8(status),
+				CreatedAt:    createdAt,
+				Status:       statusUint8,
 				WorkflowName: workflowName,
 				BinaryURL:    binaryURLPrefix + binaryFilename,
 				ConfigURL:    configURLPrefix + configFilename,
@@ -159,7 +170,7 @@ func main() {
 	}
 
 	// Write to output file
-	if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
+	if err := os.WriteFile(outputPath, jsonData, 0600); err != nil {
 		fmt.Printf("Error writing output file: %v\n", err)
 		os.Exit(1)
 	}

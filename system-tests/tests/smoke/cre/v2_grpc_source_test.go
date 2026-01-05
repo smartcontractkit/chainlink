@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/privateregistry"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"
+	grpcsourcemock "github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -54,7 +54,7 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 	// Step 1: Start mock gRPC server BEFORE environment (uses default port 8544)
 	// The TOML config has AlternativeSources hardcoded to host.docker.internal:8544
 	testLogger.Info().Msg("Starting mock gRPC source server...")
-	mockServer := grpc_source_mock.NewTestContainer(grpc_source_mock.TestContainerConfig{
+	mockServer := grpcsourcemock.NewTestContainer(grpcsourcemock.TestContainerConfig{
 		RejectAllAuth: false,
 	})
 
@@ -115,7 +115,7 @@ func Test_CRE_GRPCSource_AuthRejection(t *testing.T) {
 // 6. Resume gRPC workflow -> verify WorkflowActivated
 // 7. Delete gRPC workflow -> verify WorkflowDeleted
 // 8. (Optional) Final isolation check - contract workflow still running
-func ExecuteGRPCSourceLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironment, mockServer *grpc_source_mock.TestContainer, contractWorkflowName string) {
+func ExecuteGRPCSourceLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironment, mockServer *grpcsourcemock.TestContainer, contractWorkflowName string) {
 	t.Helper()
 	testLogger := framework.L
 	ctx := t.Context()
@@ -214,7 +214,7 @@ func ExecuteGRPCSourceAuthRejectionTest(t *testing.T, testEnv *ttypes.TestEnviro
 	ctx := t.Context()
 
 	// Start mock server that rejects all keys
-	mockServer := grpc_source_mock.NewTestContainer(grpc_source_mock.TestContainerConfig{
+	mockServer := grpcsourcemock.NewTestContainer(grpcsourcemock.TestContainerConfig{
 		RejectAllAuth: true,
 	})
 
@@ -483,7 +483,8 @@ func assertNodesHealthy(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 			// Check that the node reports healthy status
 			if healthResp != nil && healthResp.Data != nil {
-				for _, check := range healthResp.Data.Attributes.Checks {
+				for _, detail := range healthResp.Data {
+					check := detail.Attributes
 					// Only fail on FAILING status; PASSING and UNKNOWN are acceptable
 					if check.Status == "failing" {
 						testLogger.Error().

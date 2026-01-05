@@ -1,8 +1,9 @@
-package grpc_source_mock
+package grpcsourcemock
 
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -45,16 +46,17 @@ func NewTestContainer(config TestContainerConfig) *TestContainer {
 	var authProvider NodeAuthProvider
 	var mockAuthProvider *MockNodeAuthProvider
 
-	if config.RejectAllAuth {
+	switch {
+	case config.RejectAllAuth:
 		authProvider = &RejectAllAuthProvider{}
-	} else if len(config.TrustedKeys) > 0 {
+	case len(config.TrustedKeys) > 0:
 		// Use MockNodeAuthProvider with specific trusted keys
 		mockAuthProvider = NewMockNodeAuthProvider()
 		for _, key := range config.TrustedKeys {
 			mockAuthProvider.AddTrustedKey(key)
 		}
 		authProvider = mockAuthProvider
-	} else {
+	default:
 		// Accept all valid JWTs when no specific keys are provided
 		// This is useful for tests where we don't know node keys ahead of time
 		authProvider = &AcceptAllAuthProvider{}
@@ -78,7 +80,7 @@ func (tc *TestContainer) Start(ctx context.Context) error {
 	defer tc.mu.Unlock()
 
 	if tc.started {
-		return fmt.Errorf("test container already started")
+		return errors.New("test container already started")
 	}
 
 	if err := tc.server.Start(); err != nil {

@@ -1,8 +1,9 @@
-package grpc_source_mock
+package grpcsourcemock
 
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -93,12 +94,13 @@ func (s *Server) Start() error {
 	defer s.mu.Unlock()
 
 	if s.started {
-		return fmt.Errorf("server already started")
+		return errors.New("server already started")
 	}
 
 	// Start source server
 	sourceAddr := fmt.Sprintf(":%d", s.config.SourcePort)
-	sourceListener, err := net.Listen("tcp", sourceAddr)
+	lc := &net.ListenConfig{}
+	sourceListener, err := lc.Listen(context.Background(), "tcp", sourceAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on source port %d: %w", s.config.SourcePort, err)
 	}
@@ -106,7 +108,7 @@ func (s *Server) Start() error {
 
 	// Start private registry server
 	privateRegistryAddr := fmt.Sprintf(":%d", s.config.PrivateRegistryPort)
-	privateRegistryListener, err := net.Listen("tcp", privateRegistryAddr)
+	privateRegistryListener, err := lc.Listen(context.Background(), "tcp", privateRegistryAddr)
 	if err != nil {
 		sourceListener.Close()
 		return fmt.Errorf("failed to listen on private registry port %d: %w", s.config.PrivateRegistryPort, err)
@@ -115,16 +117,14 @@ func (s *Server) Start() error {
 
 	// Serve source requests
 	go func() {
-		if err := s.sourceServer.Serve(sourceListener); err != nil {
-			// Log error but don't panic - server might be stopped
-		}
+		_ = s.sourceServer.Serve(sourceListener)
+		// Error is expected when server is stopped gracefully
 	}()
 
 	// Serve private registry requests
 	go func() {
-		if err := s.privateRegistryServer.Serve(privateRegistryListener); err != nil {
-			// Log error but don't panic - server might be stopped
-		}
+		_ = s.privateRegistryServer.Serve(privateRegistryListener)
+		// Error is expected when server is stopped gracefully
 	}()
 
 	s.started = true

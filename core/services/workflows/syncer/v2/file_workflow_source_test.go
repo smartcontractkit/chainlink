@@ -322,6 +322,3 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, workflows)
 }
-
-
-

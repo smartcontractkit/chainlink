@@ -1,4 +1,4 @@
-package grpc_source_mock
+package grpcsourcemock
 
 import (
 	"context"
@@ -68,10 +68,14 @@ func (s *SourceService) ListWorkflowMetadata(ctx context.Context, req *sourcesv1
 	protoWorkflows := make([]*sourcesv1.WorkflowMetadata, 0, end-start)
 	for i := start; i < end; i++ {
 		wf := workflows[i]
+		var createdAt uint64
+		if wf.CreatedAt >= 0 {
+			createdAt = uint64(wf.CreatedAt) // #nosec G115 -- CreatedAt is always positive timestamp
+		}
 		protoWorkflows = append(protoWorkflows, &sourcesv1.WorkflowMetadata{
 			WorkflowId:   wf.Registration.WorkflowID[:],
 			Owner:        wf.Registration.Owner,
-			CreatedAt:    uint64(wf.CreatedAt), // Convert millisecond timestamp to uint64
+			CreatedAt:    createdAt,
 			Status:       uint32(wf.Status),
 			WorkflowName: wf.Registration.WorkflowName,
 			BinaryUrl:    wf.Registration.BinaryURL,
@@ -95,9 +99,15 @@ func (s *SourceService) createHead() *sourcesv1.Head {
 	height := strconv.FormatInt(now.UnixNano(), 10)
 	hash := sha256.Sum256([]byte(height))
 
+	var timestamp uint64
+	unix := now.Unix()
+	if unix >= 0 {
+		timestamp = uint64(unix) // #nosec G115 -- Unix timestamp is always positive
+	}
+
 	return &sourcesv1.Head{
 		Height:    height,
 		Hash:      hash[:],
-		Timestamp: uint64(now.Unix()),
+		Timestamp: timestamp,
 	}
 }

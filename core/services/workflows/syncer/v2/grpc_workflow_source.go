@@ -2,11 +2,9 @@ package v2
 
 import (
 	"context"
-	crand "crypto/rand"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"strconv"
 	"sync"
 	"time"
@@ -53,7 +51,6 @@ type GRPCWorkflowSource struct {
 	retryMaxDelay  time.Duration
 	mu             sync.RWMutex
 	ready          bool
-	rng            *rand.Rand // local random source for jitter calculation
 }
 
 // GRPCWorkflowSourceConfig holds configuration for creating a GRPCWorkflowSource.
@@ -135,15 +132,6 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 		retryMaxDelay = defaultRetryMaxDelay
 	}
 
-	// Create a cryptographically seeded random source for jitter
-	var seed int64
-	var seedBytes [8]byte
-	if _, err := crand.Read(seedBytes[:]); err != nil {
-		seed = time.Now().UnixNano()
-	} else {
-		seed = int64(binary.LittleEndian.Uint64(seedBytes[:]))
-	}
-
 	return &GRPCWorkflowSource{
 		lggr:           lggr.Named(sourceName),
 		client:         client,
@@ -153,7 +141,6 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 		retryBaseDelay: retryBaseDelay,
 		retryMaxDelay:  retryMaxDelay,
 		ready:          true,
-		rng:            rand.New(rand.NewSource(seed)),
 	}, nil
 }
 
@@ -291,8 +278,8 @@ func (g *GRPCWorkflowSource) calculateBackoff(attempt int) time.Duration {
 	// Exponential backoff: baseDelay * 2^(attempt-1)
 	backoff := g.retryBaseDelay * time.Duration(1<<(attempt-1))
 
-	// Apply jitter (0.5 to 1.5 multiplier) using local seeded random source
-	jitter := 0.5 + g.rng.Float64() // 0.5 to 1.5
+	// Apply jitter (0.5 to 1.5 multiplier) - math/rand/v2 is auto-seeded and concurrent-safe
+	jitter := 0.5 + rand.Float64() //nolint:gosec // G404: weak random is fine for retry jitter
 	backoff = time.Duration(float64(backoff) * jitter)
 
 	// Cap at max delay

@@ -156,22 +156,22 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 		for _, src := range sources {
 			// Detect source type by URL scheme
 			if strings.HasPrefix(src.URL, "file://") {
-			// File source - extract path from file:// URL
-			filePath := strings.TrimPrefix(src.URL, "file://")
-			fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, filePath)
-			if err != nil {
-				wr.lggr.Errorw("Failed to create file workflow source",
+				// File source - extract path from file:// URL
+				filePath := strings.TrimPrefix(src.URL, "file://")
+				fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, filePath)
+				if err != nil {
+					wr.lggr.Errorw("Failed to create file workflow source",
+						"name", src.Name,
+						"path", filePath,
+						"error", err)
+					failedSources = append(failedSources, src.Name)
+					continue
+				}
+				wr.workflowSources.AddSource(fileSource)
+				successCount++
+				wr.lggr.Infow("Added file workflow source",
 					"name", src.Name,
-					"path", filePath,
-					"error", err)
-				failedSources = append(failedSources, src.Name)
-				continue
-			}
-			wr.workflowSources.AddSource(fileSource)
-			successCount++
-			wr.lggr.Infow("Added file workflow source",
-				"name", src.Name,
-				"path", filePath)
+					"path", filePath)
 			} else {
 				// GRPC source (default)
 				grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{

@@ -1,4 +1,4 @@
-package grpc_source_mock
+package grpcsourcemock
 
 import (
 	"errors"
