@@ -308,7 +308,7 @@ type workflowEventMatcher struct {
 // It listens on messageChan for messages matching the specified matcher and workflowName.
 func assertWorkflowEvent(
 	t *testing.T,
-	ctx context.Context,
+	ctx context.Context, //nolint:revive // test helper conventionally has t first
 	messageChan <-chan proto.Message,
 	errChan <-chan error,
 	workflowName string,
@@ -379,23 +379,30 @@ var (
 )
 
 // assertWorkflowActivated waits for a WorkflowActivated event for the given workflow name.
+//
+//nolint:revive // test helper conventionally has t first
 func assertWorkflowActivated(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
 	t.Helper()
 	assertWorkflowEvent(t, ctx, messageChan, errChan, workflowName, timeout, workflowActivatedMatcher)
 }
 
 // assertWorkflowPaused waits for a WorkflowPaused event for the given workflow name.
+//
+//nolint:revive // test helper conventionally has t first
 func assertWorkflowPaused(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
 	t.Helper()
 	assertWorkflowEvent(t, ctx, messageChan, errChan, workflowName, timeout, workflowPausedMatcher)
 }
 
 // assertWorkflowDeleted waits for a WorkflowDeleted event for the given workflow name.
+//
+//nolint:revive // test helper conventionally has t first
 func assertWorkflowDeleted(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
 	t.Helper()
 	assertWorkflowEvent(t, ctx, messageChan, errChan, workflowName, timeout, workflowDeletedMatcher)
 }
 
+//nolint:revive // test helper conventionally has t first
 func assertNoWorkflowActivated(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
 	t.Helper()
 	testLogger := framework.L
@@ -510,11 +517,6 @@ func assertNodesHealthy(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		Msg("Health check: All nodes are healthy (no container crashes detected)")
 }
 
-// workflowIDToHex converts a workflow ID to a hex string for logging
-func workflowIDToHex(id [32]byte) string {
-	return hex.EncodeToString(id[:])
-}
-
 // workflowArtifacts holds compiled workflow information
 type workflowArtifacts struct {
 	BinaryURL  string
@@ -548,7 +550,7 @@ func compileAndCopyWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workf
 	require.NoError(t, err, "failed to marshal workflow config")
 
 	configFilePath := filepath.Join(filepath.Dir(compressedWasmPath), workflowName+"_config.yaml")
-	err = os.WriteFile(configFilePath, configData, 0644)
+	err = os.WriteFile(configFilePath, configData, 0600)
 	require.NoError(t, err, "failed to write config file")
 
 	t.Cleanup(func() {
