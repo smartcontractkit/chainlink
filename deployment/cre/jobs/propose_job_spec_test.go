@@ -1690,8 +1690,8 @@ PerSenderBurst = 100
 func TestProposeJobSpec_VerifyPreconditions_CRESettings(t *testing.T) {
 	allDefault, err := toml.Marshal(map[string]any{
 		"global":   cresettings.Default,
-		"org":      map[string]any{"org_foo": cresettings.Default},
-		"owner":    map[string]any{"0xabcd": cresettings.Default},
+		"org":      map[string]any{"foo": cresettings.Default},
+		"owner":    map[string]any{"abcd": cresettings.Default},
 		"workflow": map[string]any{"asdf": cresettings.Default},
 	})
 	require.NoError(t, err)
