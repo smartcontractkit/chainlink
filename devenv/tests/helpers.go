@@ -12,15 +12,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	de "github.com/smartcontractkit/chainlink/devenv"
+	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/require"
 
 	f "github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 var (
-	L          = de.Plog
+	L          = ocr2.Plog
 	BlockEvery = 1 * time.Second
 
 	TotalRoundsPerTestCount = int64(0)
@@ -53,7 +54,7 @@ type testcase struct {
 	roundTimeout       time.Duration
 	repeat             int
 	roundSettings      []*roundSettings
-	cfg                *de.OCRv2SetConfigOptions
+	cfg                *ocr2.OCRv2SetConfigOptions
 }
 
 // simulateGasSpike is changing next block gas base fee in 3 steps: ramp, hold and release simulating a gas spike

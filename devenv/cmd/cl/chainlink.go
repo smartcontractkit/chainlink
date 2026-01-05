@@ -6,12 +6,14 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	de "github.com/smartcontractkit/chainlink/devenv"
+	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
 const (
@@ -55,8 +57,9 @@ var restartCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to clean Docker resources: %w", err)
 		}
-		_, err = de.NewEnvironment()
-		return err
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		return de.NewEnvironment(ctx)
 	},
 }
 
@@ -75,11 +78,9 @@ var upCmd = &cobra.Command{
 		framework.L.Info().Str("Config", configFile).Msg("Creating development environment")
 		_ = os.Setenv("CTF_CONFIGS", configFile)
 		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		_, err := de.NewEnvironment()
-		if err != nil {
-			return err
-		}
-		return nil
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		return de.NewEnvironment(ctx)
 	},
 }
 
@@ -159,8 +160,8 @@ var obsUpCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("observability up failed: %w", err)
 		}
-		de.Plog.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
-		de.Plog.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
+		ocr2.Plog.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
+		ocr2.Plog.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
 		return nil
 	},
 }
@@ -192,8 +193,8 @@ var obsRestartCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("observability up failed: %w", err)
 		}
-		de.Plog.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
-		de.Plog.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
+		ocr2.Plog.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
+		ocr2.Plog.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
 		return nil
 	},
 }
@@ -286,7 +287,7 @@ func main() {
 		return
 	}
 	if err := rootCmd.Execute(); err != nil {
-		de.Plog.Err(err).Send()
+		ocr2.Plog.Err(err).Send()
 		os.Exit(1)
 	}
 }

@@ -1,6 +1,7 @@
 package devenv_tests
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -12,27 +13,28 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
+	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLoad(t *testing.T) {
+	ctx := context.Background()
 	in, err := de.LoadOutput[de.Cfg]("../env-out.toml")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_, err := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
 		require.NoError(t, err)
 	})
-	c, _, _, err := de.ETHClient(in)
+	c, _, _, err := ocr2.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, in.OCR2.GasSettings.FeeCapMultiplier, in.OCR2.GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
 	clNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 	require.NoError(t, err)
-	_ = clNodes
 
 	anvilClient := rpc.New(in.Blockchains[0].Out.Nodes[0].ExternalHTTPUrl, nil)
 
 	// this config must be as close to production as possible
-	productionCfg := &de.OCRv2SetConfigOptions{
+	productionCfg := &ocr2.OCRv2SetConfigOptions{
 		RMax:                                    3,
 		DeltaProgress:                           20 * time.Second,
 		DeltaResend:                             20 * time.Second,
@@ -122,7 +124,7 @@ func TestLoad(t *testing.T) {
 			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(in.OCR2.DeployedContracts.OCRv2AggregatorAddr), c)
 			require.NoError(t, err)
 			L.Info().Any("Config", tc.cfg).Msg("Applying new OCR2 configuration")
-			err = de.UpdateOCR2ConfigOffChainValues(in, o2, clNodes, tc.cfg)
+			err = ocr2.UpdateOCR2ConfigOffChainValues(context.Background(), in.OCR2, o2, clNodes, tc.cfg)
 			require.NoError(t, err)
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)
