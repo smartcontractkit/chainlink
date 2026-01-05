@@ -1,0 +1,13 @@
+run:
+    docker run --rm -it -v $(pwd):/app -p 9111:9111 ocr2-fakes:latest
+
+build:
+    docker build -f Dockerfile -t ocr2-fakes:latest .
+    docker tag ocr2-fakes:latest 795953128386.dkr.ecr.us-west-2.amazonaws.com/ocr2-fakes
+
+push:
+    aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 795953128386.dkr.ecr.us-west-2.amazonaws.com
+    docker push 795953128386.dkr.ecr.us-west-2.amazonaws.com/ocr2-fakes
+
+clean:
+    docker rmi ocr2-fakes:latest
