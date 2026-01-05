@@ -40,15 +40,17 @@ func NewMultiSourceWorkflowAggregatorWithMetrics(lggr logger.Logger, m *metrics,
 // It continues to query all sources even if some fail, logging errors for failed sources.
 //
 // Head handling: The contract source's head is preferred (real blockchain head). If no
-// contract source is present, the first successful source's head is used. All sources
-// guarantee a non-nil head (synthetic if not from blockchain).
+// contract source is available, the first successful source's head is used as fallback.
+// If no head is available from any source, a synthetic head is returned to ensure the
+// caller always receives a non-nil head.
 //
 // Graceful degradation: Even if all sources fail, we return an empty list and nil error
 // to allow retry on the next polling cycle. Errors are logged at appropriate levels
 // (WARN when all sources fail, ERROR for individual source failures).
 func (m *MultiSourceWorkflowAggregator) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
 	var allWorkflows []WorkflowMetadataView
-	var primaryHead *commontypes.Head
+	var contractHead *commontypes.Head
+	var fallbackHead *commontypes.Head
 	var sourceErrors []error
 	successfulSources := 0
 
@@ -96,13 +98,12 @@ func (m *MultiSourceWorkflowAggregator) ListWorkflowMetadata(ctx context.Context
 
 		allWorkflows = append(allWorkflows, workflows...)
 
-		// Prefer contract source head (real blockchain head), fall back to any source's head.
-		// All sources guarantee a non-nil head, so no synthetic fallback is needed.
+		// Track heads: prefer contract source, fallback to first available
 		if head != nil {
 			if sourceName == ContractWorkflowSourceName {
-				primaryHead = head // Always prefer contract head
-			} else if primaryHead == nil {
-				primaryHead = head // Use first non-contract head as fallback
+				contractHead = head
+			} else if fallbackHead == nil {
+				fallbackHead = head
 			}
 		}
 	}
@@ -123,7 +124,18 @@ func (m *MultiSourceWorkflowAggregator) ListWorkflowMetadata(ctx context.Context
 		"sourceCount", len(m.sources),
 		"successfulSources", successfulSources)
 
-	return allWorkflows, primaryHead, nil
+	// Use contract head if available, otherwise fallback head, otherwise synthetic
+	head := contractHead
+	if head == nil {
+		head = fallbackHead
+	}
+	if head == nil {
+		head = &commontypes.Head{
+			Hash: []byte("synthetic-multi-source"),
+		}
+	}
+
+	return allWorkflows, head, nil
 }
 
 // AddSource adds a new workflow metadata source to the aggregator.

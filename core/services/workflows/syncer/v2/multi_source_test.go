@@ -138,7 +138,7 @@ func TestMultiSourceWorkflowAggregator_SourceNotReady(t *testing.T) {
 		ready: errors.New("contract reader not initialized"),
 	}
 
-	// FileSource is ready but its head is ignored
+	// FileSource is ready and its head is used as fallback
 	source2 := &mockWorkflowSource{
 		name: FileWorkflowSourceName,
 		workflows: []WorkflowMetadataView{
@@ -148,7 +148,7 @@ func TestMultiSourceWorkflowAggregator_SourceNotReady(t *testing.T) {
 				Status:       WorkflowStatusActive,
 			},
 		},
-		head: &commontypes.Head{Height: "100"}, // Ignored since not ContractWorkflowSource
+		head: &commontypes.Head{Height: "100"},
 	}
 
 	aggregator := NewMultiSourceWorkflowAggregator(lggr, source1, source2)
@@ -159,14 +159,14 @@ func TestMultiSourceWorkflowAggregator_SourceNotReady(t *testing.T) {
 		Families: []string{"workflow"},
 	}
 
-	// Should still succeed with the ready source, but get synthetic head
+	// Should still succeed with the ready source, using fallback head
 	workflows, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Len(t, workflows, 1)
 	assert.Equal(t, "ready-workflow", workflows[0].WorkflowName)
-	// Since ContractWorkflowSource is not ready, we get synthetic head
+	// Since ContractWorkflowSource is not ready, we get fallback head from FileSource
 	assert.NotNil(t, head)
-	assert.Equal(t, []byte("synthetic-multi-source"), head.Hash)
+	assert.Equal(t, "100", head.Height)
 }
 
 func TestMultiSourceWorkflowAggregator_SourceError(t *testing.T) {
@@ -180,7 +180,7 @@ func TestMultiSourceWorkflowAggregator_SourceError(t *testing.T) {
 		err:  errors.New("failed to fetch"),
 	}
 
-	// Alternative source succeeds but its head is ignored
+	// Alternative source succeeds and its head is used as fallback
 	source2 := &mockWorkflowSource{
 		name: "GRPCSource",
 		workflows: []WorkflowMetadataView{
@@ -190,7 +190,7 @@ func TestMultiSourceWorkflowAggregator_SourceError(t *testing.T) {
 				Status:       WorkflowStatusActive,
 			},
 		},
-		head: &commontypes.Head{Height: "100"}, // Ignored since not ContractWorkflowSource
+		head: &commontypes.Head{Height: "100"},
 	}
 
 	aggregator := NewMultiSourceWorkflowAggregator(lggr, source1, source2)
@@ -202,13 +202,13 @@ func TestMultiSourceWorkflowAggregator_SourceError(t *testing.T) {
 	}
 
 	// Should still succeed with the good source (errors are logged, not propagated)
-	// but get synthetic head since ContractWorkflowSource failed
+	// and use fallback head from GRPCSource since ContractWorkflowSource failed
 	workflows, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Len(t, workflows, 1)
 	assert.Equal(t, "good-workflow", workflows[0].WorkflowName)
 	assert.NotNil(t, head)
-	assert.Equal(t, []byte("synthetic-multi-source"), head.Hash)
+	assert.Equal(t, "100", head.Height)
 }
 
 func TestMultiSourceWorkflowAggregator_AllSourcesFail(t *testing.T) {
@@ -304,20 +304,20 @@ func TestMultiSourceWorkflowAggregator_HeadPriority(t *testing.T) {
 	assert.Equal(t, "200", head.Height)
 }
 
-func TestMultiSourceWorkflowAggregator_SyntheticHeadForAlternativeOnly(t *testing.T) {
+func TestMultiSourceWorkflowAggregator_FallbackHeadForAlternativeOnly(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	// Only alternative sources (no ContractWorkflowSource)
 	source1 := &mockWorkflowSource{
 		name:      "GRPCSource",
 		workflows: []WorkflowMetadataView{},
-		head:      &commontypes.Head{Height: "100"}, // Ignored
+		head:      &commontypes.Head{Height: "100"}, // First source, used as fallback
 	}
 
 	source2 := &mockWorkflowSource{
 		name:      FileWorkflowSourceName,
 		workflows: []WorkflowMetadataView{},
-		head:      &commontypes.Head{Height: "50"}, // Ignored
+		head:      &commontypes.Head{Height: "50"},
 	}
 
 	aggregator := NewMultiSourceWorkflowAggregator(lggr, source1, source2)
@@ -330,7 +330,7 @@ func TestMultiSourceWorkflowAggregator_SyntheticHeadForAlternativeOnly(t *testin
 
 	_, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
-	// Should get synthetic head since no ContractWorkflowSource
+	// Should get fallback head from first source (GRPCSource) since no ContractWorkflowSource
 	assert.NotNil(t, head)
-	assert.Equal(t, []byte("synthetic-multi-source"), head.Hash)
+	assert.Equal(t, "100", head.Height)
 }
