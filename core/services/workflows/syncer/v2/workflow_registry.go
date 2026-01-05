@@ -84,11 +84,10 @@ type workflowRegistry struct {
 	// Workflow metadata is fetched separately via workflowSources (see below).
 	contractReader types.ContractReader
 
-	// workflowSources aggregates workflow metadata from multiple sources (contract, file, gRPC).
-	// The contract source maintains its own contract reader for workflow metadata queries.
-	// This separation exists because allowlisted requests (Vault DON concern) and workflow
-	// metadata (engine deployment concern) serve different consumers.
-	workflowSources *MultiSourceWorkflowAggregator
+	// workflowSources holds workflow metadata sources (contract, file, gRPC).
+	// Each source is processed independently in syncUsingReconciliationStrategy
+	// to ensure failure in one source doesn't affect workflows from other sources.
+	workflowSources []WorkflowMetadataSource
 
 	config Config
 
@@ -167,7 +166,7 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 					failedSources = append(failedSources, src.Name)
 					continue
 				}
-				wr.workflowSources.AddSource(fileSource)
+				wr.workflowSources = append(wr.workflowSources, fileSource)
 				successCount++
 				wr.lggr.Infow("Added file workflow source",
 					"name", src.Name,
@@ -188,7 +187,7 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 					failedSources = append(failedSources, src.Name)
 					continue
 				}
-				wr.workflowSources.AddSource(grpcSource)
+				wr.workflowSources = append(wr.workflowSources, grpcSource)
 				successCount++
 				wr.lggr.Infow("Added GRPC workflow source",
 					"name", src.Name,
@@ -229,14 +228,13 @@ func NewWorkflowRegistry(
 		return nil, err
 	}
 
-	// Create the multi-source aggregator (initially empty)
-	// Sources are added based on configuration
-	workflowSources := NewMultiSourceWorkflowAggregatorWithMetrics(lggr, m)
+	// Build workflow sources slice - sources are added based on configuration
+	var workflowSources []WorkflowMetadataSource
 
 	// Only add contract source if address is configured
 	if addr != "" {
 		contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr)
-		workflowSources.AddSource(contractSource)
+		workflowSources = append(workflowSources, contractSource)
 		lggr.Infow("Added contract workflow source",
 			"contractAddress", addr)
 	} else {
@@ -269,7 +267,7 @@ func NewWorkflowRegistry(
 
 	// Log final source count after all options have been applied
 	lggr.Infow("Initialized workflow registry with multi-source support",
-		"sourceCount", len(wr.workflowSources.Sources()),
+		"sourceCount", len(wr.workflowSources),
 		"hasContractSource", addr != "")
 
 	switch wr.config.SyncStrategy {
@@ -554,6 +552,170 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 	return events, nil
 }
 
+// generateReconciliationEventsForSource is like generateReconciliationEvents but only considers
+// engines from the specified source when determining deletions. This ensures that when a source
+// fails to fetch, we don't incorrectly delete engines from other sources.
+func (w *workflowRegistry) generateReconciliationEventsForSource(
+	_ context.Context,
+	pendingEvents map[string]*reconciliationEvent,
+	workflowMetadata []WorkflowMetadataView,
+	head *types.Head,
+	sourceName string,
+) ([]*reconciliationEvent, error) {
+	var events []*reconciliationEvent
+	localHead := toLocalHead(head)
+	// workflowMetadataMap is only used for lookups
+	workflowMetadataMap := make(map[string]WorkflowMetadataView)
+	for _, wfMeta := range workflowMetadata {
+		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
+	}
+
+	// Keep track of which workflows have been seen in this source's metadata
+	workflowsSeen := map[string]bool{}
+	for _, wfMeta := range workflowMetadata {
+		id := wfMeta.WorkflowID.Hex()
+		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
+
+		switch wfMeta.Status {
+		case WorkflowStatusActive:
+			switch engineFound {
+			case false:
+				signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, id, toSpecStatus(wfMeta.Status))
+
+				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
+					events = append(events, pendingEvents[id])
+					delete(pendingEvents, id)
+					continue
+				}
+
+				delete(pendingEvents, id)
+
+				toActivatedEvent := WorkflowActivatedEvent{
+					WorkflowID:    wfMeta.WorkflowID,
+					WorkflowOwner: wfMeta.Owner,
+					CreatedAt:     wfMeta.CreatedAt,
+					Status:        wfMeta.Status,
+					WorkflowName:  wfMeta.WorkflowName,
+					BinaryURL:     wfMeta.BinaryURL,
+					ConfigURL:     wfMeta.ConfigURL,
+					Tag:           wfMeta.Tag,
+					Attributes:    wfMeta.Attributes,
+					Source:        wfMeta.Source,
+				}
+				events = append(events, &reconciliationEvent{
+					Event: Event{
+						Data: toActivatedEvent,
+						Name: WorkflowActivated,
+						Head: localHead,
+						Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s, Source: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner), sourceName),
+					},
+					signature: signature,
+					id:        id,
+				})
+				workflowsSeen[id] = true
+			case true:
+				workflowsSeen[id] = true
+			}
+		case WorkflowStatusPaused:
+			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
+			switch engineFound {
+			case false:
+				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature != signature {
+					delete(pendingEvents, id)
+				}
+			case true:
+				workflowsSeen[id] = true
+
+				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
+					events = append(events, pendingEvents[id])
+					delete(pendingEvents, id)
+					continue
+				}
+
+				delete(pendingEvents, id)
+
+				toPausedEvent := WorkflowPausedEvent{
+					WorkflowID:    wfMeta.WorkflowID,
+					WorkflowOwner: wfMeta.Owner,
+					CreatedAt:     wfMeta.CreatedAt,
+					Status:        wfMeta.Status,
+					WorkflowName:  wfMeta.WorkflowName,
+					Source:        wfMeta.Source,
+				}
+				events = append(
+					[]*reconciliationEvent{
+						{
+							Event: Event{
+								Data: toPausedEvent,
+								Name: WorkflowPaused,
+								Head: localHead,
+								Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s, Source: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner), sourceName),
+							},
+							signature: signature,
+							id:        id,
+						},
+					},
+					events...,
+				)
+			}
+		default:
+			return nil, fmt.Errorf("invariant violation: unable to determine difference from workflow metadata (status=%d)", wfMeta.Status)
+		}
+	}
+
+	// KEY CHANGE: Only check engines from THIS source for deletion
+	sourceEngines := w.engineRegistry.GetBySource(sourceName)
+	for _, engine := range sourceEngines {
+		id := engine.WorkflowID.Hex()
+		if !workflowsSeen[id] {
+			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)
+
+			if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
+				events = append(events, pendingEvents[id])
+				delete(pendingEvents, id)
+				continue
+			}
+
+			delete(pendingEvents, id)
+
+			toDeletedEvent := WorkflowDeletedEvent{
+				WorkflowID: engine.WorkflowID,
+				Source:     sourceName,
+			}
+			events = append(
+				[]*reconciliationEvent{
+					{
+						Event: Event{
+							Data: toDeletedEvent,
+							Name: WorkflowDeleted,
+							Head: localHead,
+							Info: fmt.Sprintf("[ID: %s, Source: %s]", id, sourceName),
+						},
+						signature: signature,
+						id:        id,
+					},
+				},
+				events...,
+			)
+		}
+	}
+
+	// Clean up create events which no longer need to be attempted because
+	// the workflow no longer exists in this source's metadata
+	for id, event := range pendingEvents {
+		if event.Name == WorkflowActivated {
+			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
+				delete(pendingEvents, id)
+			}
+		}
+	}
+
+	// Note: Unlike the original generateReconciliationEvents, we don't error on remaining pending events
+	// because pending events from other sources may legitimately remain in the map.
+
+	return events, nil
+}
+
 func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 	ticker := w.getTicker(defaultTickIntervalForAllowlistedRequests)
 	w.lggr.Debug("starting syncAllowlistedRequests")
@@ -598,10 +760,11 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
-// This function uses a multi-source aggregator to fetch workflows from multiple metadata sources (contract + alternative sources).
+// This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(defaultTickInterval)
-	pendingEvents := map[string]*reconciliationEvent{}
+	// Per-source pending events tracking - each source has its own pending events map
+	pendingEventsBySource := make(map[string]map[string]*reconciliationEvent)
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
 		select {
@@ -616,54 +779,93 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			}
 			w.lggr.Debugw("fetching workflow metadata from all sources", "don", don.Families)
 
-			// Use the multi-source aggregator to fetch workflows from all configured sources
-			allWorkflowsMetadata, head, err := w.workflowSources.ListWorkflowMetadata(ctx, don)
-			if err != nil {
-				w.lggr.Errorw("failed to get workflow metadata from sources", "err", err)
-				continue
-			}
-			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(allWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
-			events, err := w.generateReconciliationEvents(ctx, pendingEvents, allWorkflowsMetadata, head)
-			if err != nil {
-				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
-				continue
-			}
-			w.lggr.Debugw("generated events to reconcile", "num", len(events), "events", events)
-
-			pendingEvents = map[string]*reconciliationEvent{}
-
-			// Send events generated from differences to the handler
+			// Process each source independently to isolate failures
+			totalWorkflowsFetched := 0
 			reconcileReport := newReconcileReport()
-			for _, event := range events {
-				select {
-				case <-ctx.Done():
-					w.lggr.Debug("readRegistryStateLoop stopped during processing")
-					return
-				default:
-					w.lggr.Debugw("processing event", "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
-					reconcileReport.NumEventsByType[string(event.Name)]++
 
-					if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-						err := w.handleWithMetrics(ctx, event.Event)
-						if err != nil {
-							event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+			for _, source := range w.workflowSources {
+				sourceName := source.Name()
 
-							pendingEvents[event.id] = event
+				// Initialize pending events for this source if needed
+				if pendingEventsBySource[sourceName] == nil {
+					pendingEventsBySource[sourceName] = make(map[string]*reconciliationEvent)
+				}
+				pendingEvents := pendingEventsBySource[sourceName]
+
+				// Check if source is ready
+				if err := source.Ready(); err != nil {
+					w.lggr.Debugw("Source not ready, skipping", "source", sourceName, "error", err)
+					// Record metrics for not-ready source
+					w.metrics.recordSourceFetch(ctx, sourceName, 0, 0, err)
+					continue
+				}
+
+				// Fetch workflows from this source
+				start := time.Now()
+				workflows, head, fetchErr := source.ListWorkflowMetadata(ctx, don)
+				duration := time.Since(start)
+
+				// Record metrics for this source fetch
+				w.metrics.recordSourceFetch(ctx, sourceName, len(workflows), duration, fetchErr)
+
+				if fetchErr != nil {
+					w.lggr.Errorw("Failed to fetch from source, skipping reconciliation for this source",
+						"source", sourceName, "error", fetchErr, "durationMs", duration.Milliseconds())
+					// KEY: Skip this source entirely - no events generated, no deletions
+					continue
+				}
+
+				totalWorkflowsFetched += len(workflows)
+				w.lggr.Debugw("Fetched workflows from source",
+					"source", sourceName,
+					"count", len(workflows),
+					"durationMs", duration.Milliseconds())
+
+				// Generate events only for this source's engines
+				events, genErr := w.generateReconciliationEventsForSource(ctx, pendingEvents, workflows, head, sourceName)
+				if genErr != nil {
+					w.lggr.Errorw("Failed to generate reconciliation events for source",
+						"source", sourceName, "error", genErr)
+					continue
+				}
+
+				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
+
+				// Clear pending events after successful reconciliation
+				pendingEventsBySource[sourceName] = make(map[string]*reconciliationEvent)
+
+				// Handle events (shared handler)
+				for _, event := range events {
+					select {
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped during processing")
+						return
+					default:
+						w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
+						reconcileReport.NumEventsByType[string(event.Name)]++
+
+						if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
+							handleErr := w.handleWithMetrics(ctx, event.Event)
+							if handleErr != nil {
+								event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+
+								pendingEventsBySource[sourceName][event.id] = event
+
+								reconcileReport.Backoffs[event.id] = event.nextRetryAt
+								w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
+							}
+						} else {
+							// It's not ready to execute yet, let's put it back on the pending queue.
+							pendingEventsBySource[sourceName][event.id] = event
 
 							reconcileReport.Backoffs[event.id] = event.nextRetryAt
-							w.lggr.Errorw("failed to handle event, backing off...", "err", err, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
+							w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 						}
-					} else {
-						// It's not ready to execute yet, let's put it back on the pending queue.
-						pendingEvents[event.id] = event
-
-						reconcileReport.Backoffs[event.id] = event.nextRetryAt
-						w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 					}
 				}
 			}
 
+			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)
 			w.lggr.Debugw("reconciled events", "report", reconcileReport)
 
 			runningWorkflows := w.engineRegistry.GetAll()

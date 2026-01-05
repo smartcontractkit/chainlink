@@ -579,7 +579,8 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 
 	// Fill in some placeholder engines that the actual event handler would have created
 	for _, event := range testEventHandler.GetEvents() {
-		err := engineRegistry.Add(event.Data.(WorkflowActivatedEvent).WorkflowID, &mockService{})
+		data := event.Data.(WorkflowActivatedEvent)
+		err := engineRegistry.Add(data.WorkflowID, data.Source, &mockService{})
 		require.NoError(t, err)
 	}
 

@@ -402,6 +402,9 @@ func addWorkerNodeConfig(
 		}
 	}
 
+	// Preserve existing WorkflowRegistry config (e.g., AlternativeSourcesConfig from user_config_overrides)
+	// before resetting Capabilities struct
+	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
@@ -414,6 +417,7 @@ func addWorkerNodeConfig(
 		Dispatcher: coretoml.Dispatcher{
 			SendToSharedPeer: ptr.Ptr(true),
 		},
+		WorkflowRegistry: existingWorkflowRegistry,
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
@@ -434,12 +438,15 @@ func addWorkerNodeConfig(
 	}
 
 	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
+		// Preserve existing AlternativeSourcesConfig when setting WorkflowRegistry fields
+		existingAltSources := existingConfig.Capabilities.WorkflowRegistry.AlternativeSourcesConfig
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
-			NetworkID:       ptr.Ptr("evm"),
-			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-			SyncStrategy:    ptr.Ptr("reconciliation"),
+			Address:                  ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:                ptr.Ptr("evm"),
+			ChainID:                  ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion:          ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:             ptr.Ptr("reconciliation"),
+			AlternativeSourcesConfig: existingAltSources,
 		}
 	}
 

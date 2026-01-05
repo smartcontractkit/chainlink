@@ -2297,7 +2297,7 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 }
 
 // MaxAlternativeSources is the maximum number of alternative workflow sources
-const MaxAlternativeSources = 1
+const MaxAlternativeSources = 5
 
 func (r *WorkflowRegistry) ValidateConfig() error {
 	if err := r.WorkflowStorage.ValidateConfig(); err != nil {

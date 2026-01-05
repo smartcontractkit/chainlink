@@ -398,7 +398,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("could not clean up old engine: %w", cleanupErr)
 	}
 
-	return h.tryEngineCreate(ctx, spec)
+	return h.tryEngineCreate(ctx, spec, payload.Source)
 }
 
 func toSpecStatus(s uint8) job.WorkflowSpecStatus {
@@ -620,7 +620,7 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
 // This function waits for the engine to complete initialization (including trigger subscriptions) before returning,
 // ensuring that the workflowActivated event accurately reflects the deployment status including trigger registration.
-func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec) error {
+func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string) error {
 	// Ensure the capabilities registry is ready before creating any Engine instances.
 	// This should be guaranteed by the Workflow Registry Syncer.
 	if err := h.ensureCapRegistryReady(ctx); err != nil {
@@ -705,8 +705,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		}
 	}
 
-	// Engine is fully initialized, add to registry
-	if err := h.engineRegistry.Add(wid, engine); err != nil {
+	// Engine is fully initialized, add to registry with source tracking
+	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
