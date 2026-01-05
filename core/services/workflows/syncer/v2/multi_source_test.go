@@ -262,7 +262,7 @@ func TestMultiSourceWorkflowAggregator_AddSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	aggregator := NewMultiSourceWorkflowAggregator(lggr)
-	assert.Len(t, aggregator.Sources(), 0)
+	assert.Empty(t, aggregator.Sources())
 
 	source := &mockWorkflowSource{
 		name: "AddedSource",

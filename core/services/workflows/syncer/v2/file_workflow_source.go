@@ -103,7 +103,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 	}
 
 	// Filter and convert workflows
-	var workflows []WorkflowMetadataView
+	workflows := make([]WorkflowMetadataView, 0, len(sourceData.Workflows))
 	for _, wf := range sourceData.Workflows {
 		// Filter by DON family
 		if !donFamilySet[wf.DonFamily] {
@@ -187,9 +187,14 @@ func (f *FileWorkflowSource) toWorkflowMetadataView(wf FileWorkflowMetadata) (Wo
 // syntheticHead creates a synthetic head for the file source.
 // Since file sources don't have blockchain blocks, we use the current timestamp.
 func (f *FileWorkflowSource) syntheticHead() *commontypes.Head {
+	now := time.Now().Unix()
+	var timestamp uint64
+	if now >= 0 { //satisfies overflow check on linter
+		timestamp = uint64(now)
+	}
 	return &commontypes.Head{
-		Height:    strconv.FormatInt(time.Now().Unix(), 10),
+		Height:    strconv.FormatInt(now, 10),
 		Hash:      []byte("file-source"),
-		Timestamp: uint64(time.Now().Unix()),
+		Timestamp: timestamp,
 	}
 }

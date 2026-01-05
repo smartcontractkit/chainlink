@@ -2,6 +2,8 @@ package v2
 
 import (
 	"context"
+	crand "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -133,6 +135,15 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 		retryMaxDelay = defaultRetryMaxDelay
 	}
 
+	// Create a cryptographically seeded random source for jitter
+	var seed int64
+	var seedBytes [8]byte
+	if _, err := crand.Read(seedBytes[:]); err != nil {
+		seed = time.Now().UnixNano()
+	} else {
+		seed = int64(binary.LittleEndian.Uint64(seedBytes[:]))
+	}
+
 	return &GRPCWorkflowSource{
 		lggr:           lggr.Named(sourceName),
 		client:         client,
@@ -142,7 +153,7 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 		retryBaseDelay: retryBaseDelay,
 		retryMaxDelay:  retryMaxDelay,
 		ready:          true,
-		rng:            rand.New(rand.NewSource(time.Now().UnixNano())),
+		rng:            rand.New(rand.NewSource(seed)),
 	}, nil
 }
 
@@ -159,7 +170,7 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 
 	var allViews []WorkflowMetadataView
 	var primaryHead *pb.Head
-	var start int64 = 0
+	var start int64
 
 	// Fetch all pages
 	for {
@@ -292,7 +303,6 @@ func (g *GRPCWorkflowSource) calculateBackoff(attempt int) time.Duration {
 	return backoff
 }
 
-
 func (g *GRPCWorkflowSource) Name() string {
 	return g.name
 }
@@ -336,11 +346,17 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	// Get attributes directly (already bytes in proto)
 	attributes := wf.GetAttributes()
 
+	// Safe conversion of status (uint32 to uint8)
+	statusVal := wf.GetStatus()
+	if statusVal > 255 {
+		return WorkflowMetadataView{}, fmt.Errorf("status value %d exceeds uint8 range", statusVal)
+	}
+
 	return WorkflowMetadataView{
 		WorkflowID:   workflowID,
 		Owner:        ownerBytes,
 		CreatedAt:    wf.GetCreatedAt(),
-		Status:       uint8(wf.GetStatus()),
+		Status:       uint8(statusVal),
 		WorkflowName: wf.GetWorkflowName(),
 		BinaryURL:    wf.GetBinaryUrl(),
 		ConfigURL:    wf.GetConfigUrl(),
@@ -355,15 +371,20 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 func (g *GRPCWorkflowSource) toCommonHead(head *pb.Head) *commontypes.Head {
 	if head == nil {
 		// Return a synthetic head if none provided
+		now := time.Now().Unix()
+		var timestamp uint64
+		if now >= 0 {
+			timestamp = uint64(now)
+		}
 		return &commontypes.Head{
-			Height:    strconv.FormatInt(time.Now().Unix(), 10),
+			Height:    strconv.FormatInt(now, 10),
 			Hash:      []byte("grpc-source"),
-			Timestamp: uint64(time.Now().Unix()),
+			Timestamp: timestamp,
 		}
 	}
 	return &commontypes.Head{
 		Height:    head.GetHeight(),
-		Hash:      []byte(head.GetHash()),
+		Hash:      head.GetHash(),
 		Timestamp: head.GetTimestamp(),
 	}
 }

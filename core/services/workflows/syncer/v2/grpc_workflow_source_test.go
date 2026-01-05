@@ -186,8 +186,8 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 
 	wfs, head, err := source.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
-	assert.Len(t, wfs, 3)                    // 2 from first page + 1 from second page
-	assert.Equal(t, "100", head.Height)      // First head is used
+	assert.Len(t, wfs, 3)                      // 2 from first page + 1 from second page
+	assert.Equal(t, "100", head.Height)        // First head is used
 	assert.Equal(t, 2, mockClient.CallCount()) // Two pages fetched
 }
 
@@ -482,7 +482,7 @@ func TestGRPCWorkflowSource_Close(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now not ready and client is closed
-	assert.Error(t, source.Ready())
+	require.Error(t, source.Ready())
 	assert.True(t, mockClient.closed)
 }
 

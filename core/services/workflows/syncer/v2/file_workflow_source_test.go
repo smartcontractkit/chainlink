@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestFileWorkflowSource_FileNotExists(t *testing.T) {
@@ -27,7 +28,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
 	// Create a temp file
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err := os.WriteFile(tmpFile, []byte(""), 0644)
+	err := os.WriteFile(tmpFile, []byte(""), 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
@@ -93,7 +94,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 	// Create a temp file
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err = os.WriteFile(tmpFile, data, 0644)
+	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
@@ -165,7 +166,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err = os.WriteFile(tmpFile, data, 0644)
+	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
@@ -210,7 +211,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err = os.WriteFile(tmpFile, data, 0644)
+	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
@@ -233,7 +234,7 @@ func TestFileWorkflowSource_Name(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err := os.WriteFile(tmpFile, []byte("{}"), 0644)
+	err := os.WriteFile(tmpFile, []byte("{}"), 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
@@ -246,7 +247,7 @@ func TestFileWorkflowSource_Ready(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err := os.WriteFile(tmpFile, []byte("{}"), 0644)
+	err := os.WriteFile(tmpFile, []byte("{}"), 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
@@ -264,7 +265,7 @@ func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err := os.WriteFile(tmpFile, []byte("invalid json"), 0644)
+	err := os.WriteFile(tmpFile, []byte("invalid json"), 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
@@ -304,7 +305,7 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "workflows.json")
-	err = os.WriteFile(tmpFile, data, 0644)
+	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
 	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)

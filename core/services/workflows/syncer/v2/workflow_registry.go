@@ -155,7 +155,7 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 
 		for _, src := range sources {
 			// Detect source type by URL scheme
-		if strings.HasPrefix(src.URL, "file://") {
+			if strings.HasPrefix(src.URL, "file://") {
 			// File source - extract path from file:// URL
 			filePath := strings.TrimPrefix(src.URL, "file://")
 			fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, filePath)

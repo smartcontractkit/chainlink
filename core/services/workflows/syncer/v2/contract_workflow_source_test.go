@@ -299,7 +299,7 @@ func TestContractWorkflowSource_TryInitialize_Success(t *testing.T) {
 	)
 
 	// Initially not ready
-	assert.Error(t, source.Ready())
+	require.Error(t, source.Ready())
 
 	// Try to initialize
 	result := source.TryInitialize(ctx)
