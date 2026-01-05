@@ -15,7 +15,7 @@ import (
 )
 
 var OnRampOperations = []*operations.Operation[any, any, any]{
-	UpdateOnRampDestsOp.AsUntyped(),
+	UpdateOnRampDestsOp.AsUntypedRelaxed(),
 }
 
 // UpdateOnRampDestsInput contains configuration for updating OnRamp destinations

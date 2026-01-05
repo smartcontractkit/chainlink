@@ -116,77 +116,82 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 func loadTestData(t *testing.T, path string) []deployment.Node {
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	var nodeViews map[string]*view.NopView
-	err = json.Unmarshal(data, &nodeViews)
+	var nopViews map[string]*view.NopViewV2
+	err = json.Unmarshal(data, &nopViews)
 	require.NoError(t, err)
-	require.Len(t, nodeViews, 10)
+	require.Len(t, nopViews, 1)
 
 	names := make([]string, 0)
-	for k := range nodeViews {
+	for k := range nopViews {
 		names = append(names, k)
 	}
 	sort.Strings(names)
 
 	// in general we can map from the view to the node, but we know the test data
 	var nodes []deployment.Node
-	// for _, nv := range nodeViews {
+	// for _, nv := range nopViews {
 	for _, name := range names {
-		nv := nodeViews[name]
-		node := deployment.Node{
-			NodeID:         nv.NodeID,
-			IsBootstrap:    nv.IsBootstrap,
-			SelToOCRConfig: make(map[chain_selectors.ChainDetails]deployment.OCRConfig),
-			AdminAddr:      nv.PayeeAddress,
-		}
-		for chain, ocrKey := range nv.OCRKeys {
-			// TODO: this decoding could be shared with NodeInfo
-			p, err := p2pkey.MakePeerID(ocrKey.PeerID)
-			require.NoError(t, err)
+		nv, ok := nopViews[name]
+		require.True(t, ok, "missing nop view for %s", name)
+		t.Logf("loading nop view for %s with %d nodes", name, len(nv.Nodes))
 
-			b := common.Hex2Bytes(ocrKey.OffchainPublicKey)
-			var opk types2.OffchainPublicKey
-			copy(opk[:], b)
-
-			b = common.Hex2Bytes(ocrKey.ConfigEncryptionPublicKey)
-			var cpk types3.ConfigEncryptionPublicKey
-			copy(cpk[:], b)
-
-			var pubkey types3.OnchainPublicKey
-			if strings.HasPrefix(chain, "ethereum") {
-				// convert from pubkey to address
-				pubkey = common.HexToAddress(ocrKey.OnchainPublicKey).Bytes()
-			} else {
-				pubkey = common.Hex2Bytes(ocrKey.OnchainPublicKey)
+		for _, n := range nv.Nodes {
+			node := deployment.Node{
+				NodeID:         n.NodeID,
+				IsBootstrap:    n.IsBootstrap,
+				SelToOCRConfig: make(map[chain_selectors.ChainDetails]deployment.OCRConfig),
+				AdminAddr:      n.PayeeAddress,
 			}
+			for chain, ocrKey := range n.OCRKeys {
+				// TODO: this decoding could be shared with NodeInfo
+				p, err := p2pkey.MakePeerID(ocrKey.PeerID)
+				require.NoError(t, err)
 
-			ocrCfg := deployment.OCRConfig{
-				KeyBundleID:               ocrKey.KeyBundleID,
-				OffchainPublicKey:         opk,
-				OnchainPublicKey:          pubkey,
-				PeerID:                    p,
-				TransmitAccount:           types.Account(ocrKey.TransmitAccount),
-				ConfigEncryptionPublicKey: cpk,
-			}
-			var k chain_selectors.ChainDetails
-			switch chain {
-			case "aptos-testnet":
-				k = chain_selectors.ChainDetails{
-					ChainSelector: chain_selectors.APTOS_TESTNET.Selector,
-					ChainName:     chain,
+				b := common.Hex2Bytes(ocrKey.OffchainPublicKey)
+				var opk types2.OffchainPublicKey
+				copy(opk[:], b)
+
+				b = common.Hex2Bytes(ocrKey.ConfigEncryptionPublicKey)
+				var cpk types3.ConfigEncryptionPublicKey
+				copy(cpk[:], b)
+
+				var pubkey types3.OnchainPublicKey
+				if strings.HasPrefix(chain, "ethereum") {
+					// convert from pubkey to address
+					pubkey = common.HexToAddress(ocrKey.OnchainPublicKey).Bytes()
+				} else {
+					pubkey = common.Hex2Bytes(ocrKey.OnchainPublicKey)
 				}
 
-			case "ethereum-testnet-sepolia":
-				k = chain_selectors.ChainDetails{
-					ChainSelector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
-					ChainName:     chain,
+				ocrCfg := deployment.OCRConfig{
+					KeyBundleID:               ocrKey.KeyBundleID,
+					OffchainPublicKey:         opk,
+					OnchainPublicKey:          pubkey,
+					PeerID:                    p,
+					TransmitAccount:           types.Account(ocrKey.TransmitAccount),
+					ConfigEncryptionPublicKey: cpk,
 				}
-			default:
-				t.Fatalf("unexpected chain %s", chain)
-			}
-			node.SelToOCRConfig[k] = ocrCfg
-		}
+				var k chain_selectors.ChainDetails
+				switch chain {
+				case "aptos-testnet":
+					k = chain_selectors.ChainDetails{
+						ChainSelector: chain_selectors.APTOS_TESTNET.Selector,
+						ChainName:     chain,
+					}
 
-		nodes = append(nodes, node)
+				case "ethereum-testnet-sepolia":
+					k = chain_selectors.ChainDetails{
+						ChainSelector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+						ChainName:     chain,
+					}
+				default:
+					t.Fatalf("unexpected chain %s", chain)
+				}
+				node.SelToOCRConfig[k] = ocrCfg
+			}
+
+			nodes = append(nodes, node)
+		}
 	}
 	require.Len(t, nodes, 10)
 	return nodes

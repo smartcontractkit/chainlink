@@ -18,11 +18,11 @@ import (
 )
 
 var CCIPOperations = []*operations.Operation[any, any, any]{
-	DeployRouterOp.AsUntyped(),
-	DeployOffRampOp.AsUntyped(),
-	DeployOnRampOp.AsUntyped(),
-	InitializeCCIPOp.AsUntyped(),
-	ApplyAllowedOfframpUpdatesOp.AsUntyped(),
+	DeployRouterOp.AsUntypedRelaxed(),
+	DeployOffRampOp.AsUntypedRelaxed(),
+	DeployOnRampOp.AsUntypedRelaxed(),
+	InitializeCCIPOp.AsUntypedRelaxed(),
+	ApplyAllowedOfframpUpdatesOp.AsUntypedRelaxed(),
 }
 
 // OP: DeployCCIPOp deploys the CCIP package on Aptos chain

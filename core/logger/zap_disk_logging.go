@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
