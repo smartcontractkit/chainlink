@@ -96,8 +96,9 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 				"Name": "rmn_remote",
 				"Functions": map[string]*chainreaderConfig.ChainReaderFunction{
 					consts.MethodNameGetARM: {
-						Name:          "get_arm",
-						SignerAddress: fromAddress,
+						Name:               "get_arm",
+						SignerAddress:      fromAddress,
+						ResponseFromInputs: []string{"package_id"},
 					},
 				},
 			},
