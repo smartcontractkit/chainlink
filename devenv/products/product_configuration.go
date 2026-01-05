@@ -600,9 +600,6 @@ func OCR2ProductConfiguration(in *Cfg, phase ConfigPhase) error {
 		for _, n := range in.NodeSets[0].Out.CLNodes[1:] {
 			Plog.Info().Str("Node", n.Node.ExternalURL).Send()
 		}
-		if err := verifyEnvironment(in, c, ocr2Addr); err != nil {
-			return err
-		}
 		in.OCR2.DeployedContracts = &DeployedContracts{OCRv2AggregatorAddr: ocr2Addr}
 	}
 	return nil
