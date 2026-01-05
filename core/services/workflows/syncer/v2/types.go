@@ -52,6 +52,9 @@ type WorkflowMetadataView struct {
 	Tag          string
 	Attributes   []byte
 	DonFamily    string
+	// Source identifies where this workflow metadata came from
+	// e.g., "ContractWorkflowSource", "GRPCWorkflowSource", "FileWorkflowSource"
+	Source string
 }
 
 type GetWorkflowListByDONParams struct {
@@ -97,6 +100,7 @@ type WorkflowRegisteredEvent struct {
 	ConfigURL     string
 	Tag           string
 	Attributes    []byte
+	Source        string // source that provided this workflow metadata
 }
 
 type WorkflowActivatedEvent struct {
@@ -110,6 +114,7 @@ type WorkflowActivatedEvent struct {
 	ConfigURL     string
 	Tag           string
 	Attributes    []byte
+	Source        string // source that provided this workflow metadata
 }
 
 type WorkflowPausedEvent struct {
@@ -123,10 +128,12 @@ type WorkflowPausedEvent struct {
 	ConfigURL     string
 	Tag           string
 	Attributes    []byte
+	Source        string // source that provided this workflow metadata
 }
 
 type WorkflowDeletedEvent struct {
 	WorkflowID types.WorkflowID
+	Source     string // source that provided this workflow metadata
 }
 
 // WorkflowMetadataSource is an interface for fetching workflow metadata from various sources.

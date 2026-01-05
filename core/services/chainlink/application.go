@@ -1307,38 +1307,21 @@ func newCREServices(
 						})
 					}
 
-					// Create syncer with file source if configured
-					fileSourcePath := capCfg.WorkflowRegistry().FileSourcePath()
-					if fileSourcePath != "" {
-						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
-							lggr,
-							crFactory,
-							capCfg.WorkflowRegistry().Address(),
-							syncerV2.Config{
-								QueryCount:   100,
-								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
-							},
-							eventHandler,
-							workflowDonNotifier,
-							engineRegistry,
-							syncerV2.WithAlternativeSources(altSourceConfigs),
-							syncerV2.WithFileSource(fileSourcePath),
-						)
-					} else {
-						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
-							lggr,
-							crFactory,
-							capCfg.WorkflowRegistry().Address(),
-							syncerV2.Config{
-								QueryCount:   100,
-								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
-							},
-							eventHandler,
-							workflowDonNotifier,
-							engineRegistry,
-							syncerV2.WithAlternativeSources(altSourceConfigs),
-						)
-					}
+					// Create syncer - contract address may be empty for pure alternative-source deployments
+					// File sources are detected by file:// URL prefix in WithAlternativeSources
+					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
+						lggr,
+						crFactory,
+						capCfg.WorkflowRegistry().Address(),
+						syncerV2.Config{
+							QueryCount:   100,
+							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+						},
+						eventHandler,
+						workflowDonNotifier,
+						engineRegistry,
+						syncerV2.WithAlternativeSources(altSourceConfigs),
+					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 					}

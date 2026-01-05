@@ -40,7 +40,7 @@ type grpcClient interface {
 }
 
 // GRPCWorkflowSource implements WorkflowMetadataSource by fetching from a GRPC server.
-// This enables external systems to provide workflow metadata to the chainlink node.
+// This enables external systems to provide workflows for deployment.
 type GRPCWorkflowSource struct {
 	lggr           logger.Logger
 	client         grpcClient
@@ -51,6 +51,7 @@ type GRPCWorkflowSource struct {
 	retryMaxDelay  time.Duration
 	mu             sync.RWMutex
 	ready          bool
+	rng            *rand.Rand // local random source for jitter calculation
 }
 
 // GRPCWorkflowSourceConfig holds configuration for creating a GRPCWorkflowSource.
@@ -84,7 +85,7 @@ func NewGRPCWorkflowSource(lggr logger.Logger, cfg GRPCWorkflowSourceConfig) (*G
 		sourceName = GRPCWorkflowSourceName
 	}
 
-	// Build client options - JWT auth is always enabled (matching billing/storage pattern)
+	// Build client options - JWT auth is always enabled
 	clientOpts := []grpcsource.ClientOption{
 		grpcsource.WithTLS(cfg.TLSEnabled),
 	}
@@ -141,6 +142,7 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 		retryBaseDelay: retryBaseDelay,
 		retryMaxDelay:  retryMaxDelay,
 		ready:          true,
+		rng:            rand.New(rand.NewSource(time.Now().UnixNano())),
 	}, nil
 }
 
@@ -278,8 +280,8 @@ func (g *GRPCWorkflowSource) calculateBackoff(attempt int) time.Duration {
 	// Exponential backoff: baseDelay * 2^(attempt-1)
 	backoff := g.retryBaseDelay * time.Duration(1<<(attempt-1))
 
-	// Apply jitter (0.5 to 1.5 multiplier)
-	jitter := 0.5 + rand.Float64() // 0.5 to 1.5
+	// Apply jitter (0.5 to 1.5 multiplier) using local seeded random source
+	jitter := 0.5 + g.rng.Float64() // 0.5 to 1.5
 	backoff = time.Duration(float64(backoff) * jitter)
 
 	// Cap at max delay
@@ -290,7 +292,7 @@ func (g *GRPCWorkflowSource) calculateBackoff(attempt int) time.Duration {
 	return backoff
 }
 
-// Name returns the name of this source.
+
 func (g *GRPCWorkflowSource) Name() string {
 	return g.name
 }
@@ -323,7 +325,7 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	// Validate workflow ID length
 	workflowIDBytes := wf.GetWorkflowId()
 	if len(workflowIDBytes) != 32 {
-		return WorkflowMetadataView{}, errors.New("workflow_id must be 32 bytes")
+		return WorkflowMetadataView{}, fmt.Errorf("workflow_id must be 32 bytes, got %d", len(workflowIDBytes))
 	}
 	var workflowID types.WorkflowID
 	copy(workflowID[:], workflowIDBytes)
@@ -345,6 +347,7 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 		Tag:          wf.GetTag(),
 		Attributes:   attributes,
 		DonFamily:    wf.GetDonFamily(),
+		Source:       g.name,
 	}, nil
 }
 

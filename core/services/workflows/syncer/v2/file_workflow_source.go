@@ -17,10 +17,6 @@ import (
 )
 
 const (
-	// DefaultFileWorkflowSourcePath is the hardcoded path for the MVP.
-	// In production, this would be configurable via TOML.
-	DefaultFileWorkflowSourcePath = "/tmp/workflows_metadata.json"
-
 	// FileWorkflowSourceName is the name used for logging and identification.
 	FileWorkflowSourceName = "FileWorkflowSource"
 )
@@ -57,29 +53,22 @@ type FileWorkflowSourceData struct {
 }
 
 // FileWorkflowSource implements WorkflowMetadataSource by reading from a JSON file.
-// This is intended for MVP testing and development purposes.
 type FileWorkflowSource struct {
 	lggr     logger.Logger
 	filePath string
 	mu       sync.RWMutex
 }
 
-// NewFileWorkflowSource creates a new file-based workflow source.
-// For MVP, the path is hardcoded to DefaultFileWorkflowSourcePath.
-func NewFileWorkflowSource(lggr logger.Logger) *FileWorkflowSource {
-	return &FileWorkflowSource{
-		lggr:     lggr.Named(FileWorkflowSourceName),
-		filePath: DefaultFileWorkflowSourcePath,
-	}
-}
-
 // NewFileWorkflowSourceWithPath creates a new file-based workflow source with a custom path.
-// This is primarily useful for testing.
-func NewFileWorkflowSourceWithPath(lggr logger.Logger, path string) *FileWorkflowSource {
+// Returns an error if the file does not exist - a configured file source must have a valid file.
+func NewFileWorkflowSourceWithPath(lggr logger.Logger, path string) (*FileWorkflowSource, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, errors.New("workflow metadata file does not exist: " + path)
+	}
 	return &FileWorkflowSource{
 		lggr:     lggr.Named(FileWorkflowSourceName),
 		filePath: path,
-	}
+	}, nil
 }
 
 // ListWorkflowMetadata reads the JSON file and returns workflow metadata filtered by DON families.
@@ -87,22 +76,17 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	// Check if file exists
-	if _, err := os.Stat(f.filePath); os.IsNotExist(err) {
-		// File doesn't exist - this is not an error, just return empty list
-		f.lggr.Debugw("Workflow metadata file does not exist, returning empty list", "path", f.filePath)
-		return []WorkflowMetadataView{}, f.syntheticHead(), nil
-	}
+	filePath := f.filePath
 
 	// Read file contents
-	data, err := os.ReadFile(f.filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Handle empty file
 	if len(data) == 0 {
-		f.lggr.Debugw("Workflow metadata file is empty, returning empty list", "path", f.filePath)
+		f.lggr.Debugw("Workflow metadata file is empty, returning empty list", "path", filePath)
 		return []WorkflowMetadataView{}, f.syntheticHead(), nil
 	}
 
@@ -130,6 +114,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		view, err := f.toWorkflowMetadataView(wf)
 		if err != nil {
 			f.lggr.Warnw("Failed to parse workflow metadata, skipping",
+				"source", FileWorkflowSourceName,
 				"workflowName", wf.WorkflowName,
 				"error", err)
 			continue
@@ -139,7 +124,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 	}
 
 	f.lggr.Debugw("Loaded workflows from file",
-		"path", f.filePath,
+		"path", filePath,
 		"totalInFile", len(sourceData.Workflows),
 		"matchingDON", len(workflows),
 		"donFamilies", don.Families)
@@ -147,14 +132,15 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 	return workflows, f.syntheticHead(), nil
 }
 
-// Name returns the name of this source.
 func (f *FileWorkflowSource) Name() string {
 	return FileWorkflowSourceName
 }
 
-// Ready returns nil - the file source is always considered ready.
-// Missing file is handled gracefully in ListWorkflowMetadata.
+// Ready returns nil if the file exists, or an error if it doesn't.
 func (f *FileWorkflowSource) Ready() error {
+	if _, err := os.Stat(f.filePath); os.IsNotExist(err) {
+		return errors.New("workflow metadata file does not exist: " + f.filePath)
+	}
 	return nil
 }
 
@@ -194,6 +180,7 @@ func (f *FileWorkflowSource) toWorkflowMetadataView(wf FileWorkflowMetadata) (Wo
 		Tag:          wf.Tag,
 		Attributes:   attributes,
 		DonFamily:    wf.DonFamily,
+		Source:       FileWorkflowSourceName,
 	}, nil
 }
 
@@ -206,6 +193,3 @@ func (f *FileWorkflowSource) syntheticHead() *commontypes.Head {
 		Timestamp: uint64(time.Now().Unix()),
 	}
 }
-
-
-

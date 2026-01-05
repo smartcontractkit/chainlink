@@ -240,10 +240,6 @@ func (c *capabilitiesWorkflowRegistry) AlternativeSources() []config.Alternative
 	return sources
 }
 
-func (c *capabilitiesWorkflowRegistry) FileSourcePath() string {
-	return c.c.GetFileSourcePath()
-}
-
 type workflowStorage struct {
 	c toml.WorkflowStorage
 }

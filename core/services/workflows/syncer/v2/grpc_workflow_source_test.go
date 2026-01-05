@@ -43,7 +43,7 @@ type mockGRPCClient struct {
 	err error
 	// errSequence allows returning different errors on successive calls (for retry testing)
 	errSequence []error
-	// callCount tracks how many times ListWorkflowMetadata was called (thread-safe)
+	// callCount tracks how many times ListWorkflowMetadata was called
 	callCount atomic.Int32
 	// closed tracks if Close was called
 	closed bool
@@ -84,7 +84,7 @@ func (m *mockGRPCClient) Close() error {
 	return m.closeErr
 }
 
-// CallCount returns the number of times ListWorkflowMetadata was called (thread-safe)
+// CallCount returns the number of times ListWorkflowMetadata was called
 func (m *mockGRPCClient) CallCount() int {
 	return int(m.callCount.Load())
 }

@@ -2201,9 +2201,9 @@ func (s *WorkflowStorage) ValidateConfig() error {
 // configured via TOML. This allows workflows to be loaded from sources other than
 // the on-chain registry contract (e.g., a GRPC service).
 type AlternativeWorkflowSource struct {
-	URL        *string `toml:"URL"`        // GRPC endpoint URL (e.g., "localhost:50051")
-	TLSEnabled *bool   `toml:"TLSEnabled"` // Whether TLS is enabled (default: true)
-	Name       *string `toml:"Name"`       // Human-readable name for logging
+	URL        *string `toml:"URL"`
+	TLSEnabled *bool   `toml:"TLSEnabled"`
+	Name       *string `toml:"Name"` // Human-readable name for logging
 }
 
 func (a *AlternativeWorkflowSource) setFrom(f *AlternativeWorkflowSource) {
@@ -2226,7 +2226,6 @@ func (a AlternativeWorkflowSource) GetURL() string {
 	return *a.URL
 }
 
-// GetTLSEnabled implements config.AlternativeWorkflowSource.
 func (a AlternativeWorkflowSource) GetTLSEnabled() bool {
 	if a.TLSEnabled == nil {
 		return true // Default to enabled
@@ -2234,21 +2233,11 @@ func (a AlternativeWorkflowSource) GetTLSEnabled() bool {
 	return *a.TLSEnabled
 }
 
-// GetName implements config.AlternativeWorkflowSource.
 func (a AlternativeWorkflowSource) GetName() string {
 	if a.Name == nil {
 		return "GRPCWorkflowSource"
 	}
 	return *a.Name
-}
-
-// GetFileSourcePath returns the file source path configuration.
-// Returns empty string if not configured.
-func (r WorkflowRegistry) GetFileSourcePath() string {
-	if r.FileSourcePath == nil {
-		return ""
-	}
-	return *r.FileSourcePath
 }
 
 type WorkflowRegistry struct {
@@ -2262,10 +2251,6 @@ type WorkflowRegistry struct {
 	SyncStrategy             *string
 	WorkflowStorage          WorkflowStorage
 	AlternativeSourcesConfig []AlternativeWorkflowSource `toml:"AlternativeSources"`
-	// FileSourcePath is the path to a JSON file containing workflow metadata.
-	// If set, workflows will be loaded from this file in addition to other sources.
-	// If not set, the file source is disabled.
-	FileSourcePath *string `toml:"FileSourcePath"`
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -2309,14 +2294,9 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 			r.AlternativeSourcesConfig[i].setFrom(&f.AlternativeSourcesConfig[i])
 		}
 	}
-
-	if f.FileSourcePath != nil {
-		r.FileSourcePath = f.FileSourcePath
-	}
 }
 
 // MaxAlternativeSources is the maximum number of alternative workflow sources
-// currently supported
 const MaxAlternativeSources = 1
 
 func (r *WorkflowRegistry) ValidateConfig() error {

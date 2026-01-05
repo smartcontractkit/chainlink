@@ -2,15 +2,17 @@ package v2
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // mockWorkflowSource is a mock implementation of WorkflowMetadataSource for testing
@@ -40,13 +42,11 @@ func (m *mockWorkflowSource) Ready() error {
 func TestMultiSourceWorkflowAggregator_SingleSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	workflowID := types.WorkflowID{}
-	for i := range workflowID {
-		workflowID[i] = byte(i)
-	}
+	workflowID := types.WorkflowID(sha256.Sum256([]byte("workflowID")))
 
+	// Use ContractWorkflowSource name to get real head
 	source := &mockWorkflowSource{
-		name: "MockSource",
+		name: ContractWorkflowSourceName,
 		workflows: []WorkflowMetadataView{
 			{
 				WorkflowID:   workflowID,
@@ -75,15 +75,12 @@ func TestMultiSourceWorkflowAggregator_SingleSource(t *testing.T) {
 func TestMultiSourceWorkflowAggregator_MultipleSources(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	workflowID1 := types.WorkflowID{}
-	workflowID2 := types.WorkflowID{}
-	for i := range workflowID1 {
-		workflowID1[i] = byte(i)
-		workflowID2[i] = byte(i + 50)
-	}
+	workflowID1 := types.WorkflowID(sha256.Sum256([]byte("workflowID1")))
+	workflowID2 := types.WorkflowID(sha256.Sum256([]byte("workflowID2")))
 
+	// ContractWorkflowSource provides the real blockchain head
 	source1 := &mockWorkflowSource{
-		name: "ContractSource",
+		name: ContractWorkflowSourceName,
 		workflows: []WorkflowMetadataView{
 			{
 				WorkflowID:   workflowID1,
@@ -94,8 +91,9 @@ func TestMultiSourceWorkflowAggregator_MultipleSources(t *testing.T) {
 		head: &commontypes.Head{Height: "100"},
 	}
 
+	// FileSource head is ignored (only ContractWorkflowSource head is used)
 	source2 := &mockWorkflowSource{
-		name: "FileSource",
+		name: FileWorkflowSourceName,
 		workflows: []WorkflowMetadataView{
 			{
 				WorkflowID:   workflowID2,
@@ -103,7 +101,7 @@ func TestMultiSourceWorkflowAggregator_MultipleSources(t *testing.T) {
 				Status:       WorkflowStatusActive,
 			},
 		},
-		head: &commontypes.Head{Height: "50"}, // Lower height, should be ignored
+		head: &commontypes.Head{Height: "50"}, // This is ignored
 	}
 
 	aggregator := NewMultiSourceWorkflowAggregator(lggr, source1, source2)
@@ -117,7 +115,7 @@ func TestMultiSourceWorkflowAggregator_MultipleSources(t *testing.T) {
 	workflows, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Len(t, workflows, 2)
-	// First source's head is used
+	// Only ContractWorkflowSource head is used
 	assert.Equal(t, "100", head.Height)
 
 	// Check both workflows are present
@@ -132,18 +130,17 @@ func TestMultiSourceWorkflowAggregator_MultipleSources(t *testing.T) {
 func TestMultiSourceWorkflowAggregator_SourceNotReady(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	workflowID := types.WorkflowID{}
-	for i := range workflowID {
-		workflowID[i] = byte(i)
-	}
+	workflowID := types.WorkflowID(sha256.Sum256([]byte("workflowID")))
 
+	// ContractWorkflowSource is not ready
 	source1 := &mockWorkflowSource{
-		name:  "NotReadySource",
+		name:  ContractWorkflowSourceName,
 		ready: errors.New("contract reader not initialized"),
 	}
 
+	// FileSource is ready but its head is ignored
 	source2 := &mockWorkflowSource{
-		name: "ReadySource",
+		name: FileWorkflowSourceName,
 		workflows: []WorkflowMetadataView{
 			{
 				WorkflowID:   workflowID,
@@ -151,7 +148,7 @@ func TestMultiSourceWorkflowAggregator_SourceNotReady(t *testing.T) {
 				Status:       WorkflowStatusActive,
 			},
 		},
-		head: &commontypes.Head{Height: "100"},
+		head: &commontypes.Head{Height: "100"}, // Ignored since not ContractWorkflowSource
 	}
 
 	aggregator := NewMultiSourceWorkflowAggregator(lggr, source1, source2)
@@ -162,29 +159,30 @@ func TestMultiSourceWorkflowAggregator_SourceNotReady(t *testing.T) {
 		Families: []string{"workflow"},
 	}
 
-	// Should still succeed with the ready source
+	// Should still succeed with the ready source, but get synthetic head
 	workflows, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Len(t, workflows, 1)
 	assert.Equal(t, "ready-workflow", workflows[0].WorkflowName)
-	assert.Equal(t, "100", head.Height)
+	// Since ContractWorkflowSource is not ready, we get synthetic head
+	assert.NotNil(t, head)
+	assert.Equal(t, []byte("synthetic-multi-source"), head.Hash)
 }
 
 func TestMultiSourceWorkflowAggregator_SourceError(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	workflowID := types.WorkflowID{}
-	for i := range workflowID {
-		workflowID[i] = byte(i)
-	}
+	workflowID := types.WorkflowID(sha256.Sum256([]byte("workflowID")))
 
+	// ContractWorkflowSource fails
 	source1 := &mockWorkflowSource{
-		name: "ErrorSource",
+		name: ContractWorkflowSourceName,
 		err:  errors.New("failed to fetch"),
 	}
 
+	// Alternative source succeeds but its head is ignored
 	source2 := &mockWorkflowSource{
-		name: "GoodSource",
+		name: "GRPCSource",
 		workflows: []WorkflowMetadataView{
 			{
 				WorkflowID:   workflowID,
@@ -192,7 +190,7 @@ func TestMultiSourceWorkflowAggregator_SourceError(t *testing.T) {
 				Status:       WorkflowStatusActive,
 			},
 		},
-		head: &commontypes.Head{Height: "100"},
+		head: &commontypes.Head{Height: "100"}, // Ignored since not ContractWorkflowSource
 	}
 
 	aggregator := NewMultiSourceWorkflowAggregator(lggr, source1, source2)
@@ -204,23 +202,25 @@ func TestMultiSourceWorkflowAggregator_SourceError(t *testing.T) {
 	}
 
 	// Should still succeed with the good source (errors are logged, not propagated)
+	// but get synthetic head since ContractWorkflowSource failed
 	workflows, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Len(t, workflows, 1)
 	assert.Equal(t, "good-workflow", workflows[0].WorkflowName)
-	assert.Equal(t, "100", head.Height)
+	assert.NotNil(t, head)
+	assert.Equal(t, []byte("synthetic-multi-source"), head.Hash)
 }
 
 func TestMultiSourceWorkflowAggregator_AllSourcesFail(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	source1 := &mockWorkflowSource{
-		name:  "NotReadySource",
+		name:  ContractWorkflowSourceName,
 		ready: errors.New("not ready"),
 	}
 
 	source2 := &mockWorkflowSource{
-		name: "ErrorSource",
+		name: "GRPCSource",
 		err:  errors.New("failed to fetch"),
 	}
 
@@ -233,11 +233,12 @@ func TestMultiSourceWorkflowAggregator_AllSourcesFail(t *testing.T) {
 	}
 
 	// Should return empty list, not error (graceful degradation)
+	// Gets synthetic head since all sources failed
 	workflows, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Empty(t, workflows)
 	assert.NotNil(t, head)
-	assert.Equal(t, "0", head.Height)
+	assert.Equal(t, []byte("synthetic-multi-source"), head.Hash)
 }
 
 func TestMultiSourceWorkflowAggregator_NoSources(t *testing.T) {
@@ -275,16 +276,16 @@ func TestMultiSourceWorkflowAggregator_AddSource(t *testing.T) {
 func TestMultiSourceWorkflowAggregator_HeadPriority(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	// First source has nil head
+	// Alternative source comes first with valid head (but ignored)
 	source1 := &mockWorkflowSource{
-		name:      "NilHeadSource",
+		name:      "GRPCSource",
 		workflows: []WorkflowMetadataView{},
-		head:      nil,
+		head:      &commontypes.Head{Height: "300"}, // Ignored
 	}
 
-	// Second source has valid head
+	// ContractWorkflowSource comes second but its head is used
 	source2 := &mockWorkflowSource{
-		name:      "ValidHeadSource",
+		name:      ContractWorkflowSourceName,
 		workflows: []WorkflowMetadataView{},
 		head:      &commontypes.Head{Height: "200"},
 	}
@@ -299,9 +300,37 @@ func TestMultiSourceWorkflowAggregator_HeadPriority(t *testing.T) {
 
 	_, head, err := aggregator.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
-	// Should use the first non-nil head
+	// Should use ContractWorkflowSource head, not the first source
 	assert.Equal(t, "200", head.Height)
 }
 
+func TestMultiSourceWorkflowAggregator_SyntheticHeadForAlternativeOnly(t *testing.T) {
+	lggr := logger.TestLogger(t)
 
+	// Only alternative sources (no ContractWorkflowSource)
+	source1 := &mockWorkflowSource{
+		name:      "GRPCSource",
+		workflows: []WorkflowMetadataView{},
+		head:      &commontypes.Head{Height: "100"}, // Ignored
+	}
 
+	source2 := &mockWorkflowSource{
+		name:      FileWorkflowSourceName,
+		workflows: []WorkflowMetadataView{},
+		head:      &commontypes.Head{Height: "50"}, // Ignored
+	}
+
+	aggregator := NewMultiSourceWorkflowAggregator(lggr, source1, source2)
+
+	ctx := context.Background()
+	don := capabilities.DON{
+		ID:       1,
+		Families: []string{"workflow"},
+	}
+
+	_, head, err := aggregator.ListWorkflowMetadata(ctx, don)
+	require.NoError(t, err)
+	// Should get synthetic head since no ContractWorkflowSource
+	assert.NotNil(t, head)
+	assert.Equal(t, []byte("synthetic-multi-source"), head.Hash)
+}

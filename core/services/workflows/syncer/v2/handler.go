@@ -209,6 +209,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var err error
@@ -248,6 +249,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var err error
@@ -299,6 +301,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var herr error

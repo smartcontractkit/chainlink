@@ -14,20 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFileWorkflowSource_ListWorkflowMetadata_FileNotExists(t *testing.T) {
+func TestFileWorkflowSource_FileNotExists(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	source := NewFileWorkflowSourceWithPath(lggr, "/nonexistent/path/workflows.json")
-
-	ctx := context.Background()
-	don := capabilities.DON{
-		ID:       1,
-		Families: []string{"workflow"},
-	}
-
-	workflows, head, err := source.ListWorkflowMetadata(ctx, don)
-	require.NoError(t, err)
-	assert.Empty(t, workflows)
-	assert.NotNil(t, head)
+	_, err := NewFileWorkflowSourceWithPath(lggr, "/nonexistent/path/workflows.json")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not exist")
 }
 
 func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
@@ -39,7 +30,8 @@ func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte(""), 0644)
 	require.NoError(t, err)
 
-	source := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	don := capabilities.DON{
@@ -104,7 +96,8 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 	err = os.WriteFile(tmpFile, data, 0644)
 	require.NoError(t, err)
 
-	source := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	don := capabilities.DON{
@@ -175,7 +168,8 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 	err = os.WriteFile(tmpFile, data, 0644)
 	require.NoError(t, err)
 
-	source := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	don := capabilities.DON{
@@ -219,7 +213,8 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 	err = os.WriteFile(tmpFile, data, 0644)
 	require.NoError(t, err)
 
-	source := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	don := capabilities.DON{
@@ -235,15 +230,33 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 
 func TestFileWorkflowSource_Name(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	source := NewFileWorkflowSource(lggr)
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "workflows.json")
+	err := os.WriteFile(tmpFile, []byte("{}"), 0644)
+	require.NoError(t, err)
+
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 	assert.Equal(t, FileWorkflowSourceName, source.Name())
 }
 
 func TestFileWorkflowSource_Ready(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	source := NewFileWorkflowSource(lggr)
-	// File source is always ready
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "workflows.json")
+	err := os.WriteFile(tmpFile, []byte("{}"), 0644)
+	require.NoError(t, err)
+
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 	assert.NoError(t, source.Ready())
+
+	// Delete the file and check Ready returns error
+	err = os.Remove(tmpFile)
+	require.NoError(t, err)
+	assert.Error(t, source.Ready())
 }
 
 func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
@@ -254,7 +267,8 @@ func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte("invalid json"), 0644)
 	require.NoError(t, err)
 
-	source := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	don := capabilities.DON{
@@ -293,7 +307,8 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 	err = os.WriteFile(tmpFile, data, 0644)
 	require.NoError(t, err)
 
-	source := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	don := capabilities.DON{

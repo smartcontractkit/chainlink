@@ -34,9 +34,6 @@ type CapabilitiesWorkflowRegistry interface {
 	SyncStrategy() string
 	WorkflowStorage() WorkflowStorage
 	AlternativeSources() []AlternativeWorkflowSource
-	// FileSourcePath returns the path to a JSON file containing workflow metadata.
-	// If empty, the file source is disabled.
-	FileSourcePath() string
 }
 
 type WorkflowStorage interface {

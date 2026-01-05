@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -32,8 +31,6 @@ type ContractWorkflowSource struct {
 	contractReaderFn        versioning.ContractReaderFactory
 	contractReader          commontypes.ContractReader
 	mu                      sync.RWMutex
-	initOnce                sync.Once
-	initErr                 error
 }
 
 // NewContractWorkflowSource creates a new contract-based workflow source.
@@ -52,7 +49,6 @@ func NewContractWorkflowSource(
 // ListWorkflowMetadata fetches workflow metadata from the on-chain contract.
 // It lazily initializes the contract reader on first call.
 func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
-	// Try to initialize if not ready (lazy initialization)
 	c.TryInitialize(ctx)
 
 	c.mu.RLock()
@@ -105,6 +101,7 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 					Tag:          wfMeta.Tag,
 					Attributes:   wfMeta.Attributes,
 					DonFamily:    wfMeta.DonFamily,
+					Source:       ContractWorkflowSourceName,
 				})
 			}
 
@@ -130,7 +127,6 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 	return allWorkflows, headAtLastRead, nil
 }
 
-// Name returns the name of this source.
 func (c *ContractWorkflowSource) Name() string {
 	return ContractWorkflowSourceName
 }
@@ -144,15 +140,6 @@ func (c *ContractWorkflowSource) Ready() error {
 		return errors.New("contract reader not initialized")
 	}
 	return nil
-}
-
-// Initialize initializes the contract reader. This is called lazily on first use.
-// It's safe to call multiple times - subsequent calls are no-ops.
-func (c *ContractWorkflowSource) Initialize(ctx context.Context) error {
-	c.initOnce.Do(func() {
-		c.initErr = c.initializeContractReader(ctx)
-	})
-	return c.initErr
 }
 
 // TryInitialize attempts to initialize the contract reader without blocking.
@@ -174,24 +161,6 @@ func (c *ContractWorkflowSource) TryInitialize(ctx context.Context) bool {
 	c.contractReader = reader
 	c.lggr.Debugw("Contract reader initialized successfully")
 	return true
-}
-
-// initializeContractReader creates and starts the contract reader.
-func (c *ContractWorkflowSource) initializeContractReader(ctx context.Context) error {
-	// Retry until successful or context is cancelled
-	ticker := time.NewTicker(defaultTickInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			if c.TryInitialize(ctx) {
-				return nil
-			}
-		}
-	}
 }
 
 // newWorkflowRegistryContractReader creates a new contract reader configured for the workflow registry.
@@ -241,6 +210,7 @@ func (c *ContractWorkflowSource) newWorkflowRegistryContractReader(ctx context.C
 func (c *ContractWorkflowSource) validateWorkflowMetadata(wfMeta workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView) {
 	if isEmptyWorkflowID(wfMeta.WorkflowId) {
 		c.lggr.Warnw("Workflow has empty WorkflowID from contract",
+			"source", ContractWorkflowSourceName,
 			"workflowName", wfMeta.WorkflowName,
 			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),
 			"binaryURL", wfMeta.BinaryUrl,
@@ -249,6 +219,7 @@ func (c *ContractWorkflowSource) validateWorkflowMetadata(wfMeta workflow_regist
 
 	if len(wfMeta.Owner.Bytes()) == 0 {
 		c.lggr.Warnw("Workflow has empty Owner from contract",
+			"source", ContractWorkflowSourceName,
 			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
 			"workflowName", wfMeta.WorkflowName,
 			"binaryURL", wfMeta.BinaryUrl,
@@ -257,6 +228,7 @@ func (c *ContractWorkflowSource) validateWorkflowMetadata(wfMeta workflow_regist
 
 	if wfMeta.BinaryUrl == "" || wfMeta.ConfigUrl == "" {
 		c.lggr.Warnw("Workflow has empty BinaryURL or ConfigURL from contract",
+			"source", ContractWorkflowSourceName,
 			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
 			"workflowName", wfMeta.WorkflowName,
 			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),

@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -141,46 +142,74 @@ type AlternativeSourceConfig struct {
 	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
-// WithAlternativeSources adds GRPC-based workflow sources to the registry.
-// These sources supplement the primary contract source.
+// WithAlternativeSources adds alternative workflow sources to the registry.
+// Sources are detected by URL scheme:
+//   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
+//   - Otherwise -> GRPCWorkflowSource (connects to GRPC server)
+//
+// These sources supplement or replace the primary contract source.
 func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
+		successCount := 0
+		failedSources := []string{}
+
 		for _, src := range sources {
-			grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
-				URL:          src.URL,
-				TLSEnabled:   src.TLSEnabled,
-				Name:         src.Name,
-				JWTGenerator: src.JWTGenerator,
-			})
+			// Detect source type by URL scheme
+		if strings.HasPrefix(src.URL, "file://") {
+			// File source - extract path from file:// URL
+			filePath := strings.TrimPrefix(src.URL, "file://")
+			fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, filePath)
 			if err != nil {
-				wr.lggr.Errorw("Failed to create GRPC workflow source",
+				wr.lggr.Errorw("Failed to create file workflow source",
 					"name", src.Name,
-					"url", src.URL,
+					"path", filePath,
 					"error", err)
+				failedSources = append(failedSources, src.Name)
 				continue
 			}
-			wr.workflowSources.AddSource(grpcSource)
-			wr.lggr.Infow("Added GRPC workflow source",
+			wr.workflowSources.AddSource(fileSource)
+			successCount++
+			wr.lggr.Infow("Added file workflow source",
 				"name", src.Name,
-				"url", src.URL,
-				"tls", src.TLSEnabled)
+				"path", filePath)
+			} else {
+				// GRPC source (default)
+				grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
+					URL:          src.URL,
+					TLSEnabled:   src.TLSEnabled,
+					Name:         src.Name,
+					JWTGenerator: src.JWTGenerator,
+				})
+				if err != nil {
+					wr.lggr.Errorw("Failed to create GRPC workflow source",
+						"name", src.Name,
+						"url", src.URL,
+						"error", err)
+					failedSources = append(failedSources, src.Name)
+					continue
+				}
+				wr.workflowSources.AddSource(grpcSource)
+				successCount++
+				wr.lggr.Infow("Added GRPC workflow source",
+					"name", src.Name,
+					"url", src.URL,
+					"tls", src.TLSEnabled)
+			}
+		}
+
+		// Log summary if any sources failed to initialize
+		if len(failedSources) > 0 {
+			wr.lggr.Warnw("Some alternative sources failed to initialize",
+				"expected", len(sources),
+				"active", successCount,
+				"failed", failedSources)
 		}
 	}
 }
 
-// WithFileSource adds a file-based workflow source to the registry.
-// The file source reads workflow metadata from a JSON file at the specified path.
-// If not called, no file source will be used (file source is disabled by default).
-func WithFileSource(filePath string) func(*workflowRegistry) {
-	return func(wr *workflowRegistry) {
-		fileSource := NewFileWorkflowSourceWithPath(wr.lggr, filePath)
-		wr.workflowSources.AddSource(fileSource)
-		wr.lggr.Infow("Added file workflow source",
-			"path", filePath)
-	}
-}
-
 // NewWorkflowRegistry returns a new v2 workflowRegistry.
+// The addr parameter is optional - if empty, no contract source will be created,
+// enabling pure GRPC-only or file-only workflow deployments.
 func NewWorkflowRegistry(
 	lggr logger.Logger,
 	contractReaderFn versioning.ContractReaderFactory,
@@ -200,16 +229,19 @@ func NewWorkflowRegistry(
 		return nil, err
 	}
 
-	// Create the contract-based workflow source
-	contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr)
+	// Create the multi-source aggregator (initially empty)
+	// Sources are added based on configuration
+	workflowSources := NewMultiSourceWorkflowAggregatorWithMetrics(lggr, m)
 
-	// Create the multi-source aggregator with the contract source as primary
-	// Additional sources (file, gRPC) can be added via WithFileSource and WithAlternativeSources options
-	workflowSources := NewMultiSourceWorkflowAggregator(lggr, contractSource)
-
-	lggr.Infow("Initialized workflow registry with multi-source support",
-		"contractAddress", addr,
-		"sourceCount", len(workflowSources.Sources()))
+	// Only add contract source if address is configured
+	if addr != "" {
+		contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr)
+		workflowSources.AddSource(contractSource)
+		lggr.Infow("Added contract workflow source",
+			"contractAddress", addr)
+	} else {
+		lggr.Infow("No contract address configured, skipping contract workflow source")
+	}
 
 	wr := &workflowRegistry{
 		lggr:                             lggr,
@@ -234,6 +266,11 @@ func NewWorkflowRegistry(
 	for _, opt := range opts {
 		opt(wr)
 	}
+
+	// Log final source count after all options have been applied
+	lggr.Infow("Initialized workflow registry with multi-source support",
+		"sourceCount", len(wr.workflowSources.Sources()),
+		"hasContractSource", addr != "")
 
 	switch wr.config.SyncStrategy {
 	case SyncStrategyReconciliation:
@@ -392,6 +429,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 					ConfigURL:     wfMeta.ConfigURL,
 					Tag:           wfMeta.Tag,
 					Attributes:    wfMeta.Attributes,
+					Source:        wfMeta.Source,
 				}
 				events = append(events, &reconciliationEvent{
 					Event: Event{
@@ -440,6 +478,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 					CreatedAt:     wfMeta.CreatedAt,
 					Status:        wfMeta.Status,
 					WorkflowName:  wfMeta.WorkflowName,
+					Source:        wfMeta.Source,
 				}
 				events = append(
 					[]*reconciliationEvent{
@@ -559,7 +598,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
-// This function now uses a multi-source aggregator to fetch workflows from multiple sources (contract + file for MVP).
+// This function uses a multi-source aggregator to fetch workflows from multiple metadata sources (contract + alternative sources).
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(defaultTickInterval)
 	pendingEvents := map[string]*reconciliationEvent{}
