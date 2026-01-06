@@ -7,11 +7,11 @@ default:
 clean:
     rm -rf compose/ blockscout/
 
-build-fakes:
-    just fakes/build
+build-fakes registry:
+    just fakes/build {{registry}}
 
-push-fakes:
-    just fakes/push
+push-fakes registry:
+    just fakes/push {{registry}}
 
 # Rebuild CLI
 cli:

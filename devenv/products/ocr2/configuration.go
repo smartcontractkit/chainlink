@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -149,12 +148,10 @@ func (m *OCR2Configurator) Load() error {
 		return fmt.Errorf("failed to load product config: %w", err)
 	}
 	m.OCR2 = cfg.OCR2
-	spew.Dump(m.OCR2)
 	return nil
 }
 
 func (m *OCR2Configurator) Store(path string) error {
-	spew.Dump(m.OCR2)
 	if err := products.Store(".", m); err != nil {
 		return fmt.Errorf("failed to store product config: %w", err)
 	}

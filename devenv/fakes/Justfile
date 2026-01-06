@@ -1,13 +1,15 @@
+IMAGE_NAME := "ocr2-fakes"
+
 run:
-    docker run --rm -it -v $(pwd):/app -p 9111:9111 ocr2-fakes:latest
+    docker run --rm -it -v $(pwd):/app -p 9111:9111 {{IMAGE_NAME}}:latest
 
-build:
-    docker build -f Dockerfile -t ocr2-fakes:latest .
-    docker tag ocr2-fakes:latest 795953128386.dkr.ecr.us-west-2.amazonaws.com/ocr2-fakes
+build registry:
+    docker build -f Dockerfile -t {{IMAGE_NAME}}:latest .
+    docker tag {{IMAGE_NAME}}:latest {{registry}}/{{IMAGE_NAME}}
 
-push:
-    aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 795953128386.dkr.ecr.us-west-2.amazonaws.com
-    docker push 795953128386.dkr.ecr.us-west-2.amazonaws.com/ocr2-fakes
+push registry:
+    aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin {{registry}}
+    docker push {{registry}}/{{IMAGE_NAME}}
 
 clean:
-    docker rmi ocr2-fakes:latest
+    docker rmi {{IMAGE_NAME}}:latest

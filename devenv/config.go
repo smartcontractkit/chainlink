@@ -55,13 +55,8 @@ func Load[T any]() (*T, error) {
 		}
 
 		decoder := toml.NewDecoder(strings.NewReader(string(data)))
-		// decoder.DisallowUnknownFields()
 
 		if err := decoder.Decode(&config); err != nil {
-			// var details *toml.StrictMissingError
-			// if errors.As(err, &details) {
-			// 	fmt.Println(details.String()) //nolint:forbidigo
-			// }
 			return nil, fmt.Errorf("failed to decode TOML config, strict mode: %s", err)
 		}
 	}
