@@ -11,7 +11,6 @@ LoadCache[T] is used if you need to write outputs the second time.
 */
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,13 +55,13 @@ func Load[T any]() (*T, error) {
 		}
 
 		decoder := toml.NewDecoder(strings.NewReader(string(data)))
-		decoder.DisallowUnknownFields()
+		// decoder.DisallowUnknownFields()
 
 		if err := decoder.Decode(&config); err != nil {
-			var details *toml.StrictMissingError
-			if errors.As(err, &details) {
-				fmt.Println(details.String()) //nolint:forbidigo
-			}
+			// var details *toml.StrictMissingError
+			// if errors.As(err, &details) {
+			// 	fmt.Println(details.String()) //nolint:forbidigo
+			// }
 			return nil, fmt.Errorf("failed to decode TOML config, strict mode: %s", err)
 		}
 	}
@@ -92,7 +91,7 @@ func Store[T any](cfg *T) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(DefaultConfigDir, outCacheName), d, 0o600)
+	return os.WriteFile(filepath.Join(DefaultConfigDir, outCacheName), d, 0o644)
 }
 
 // LoadOutput loads config output file from path.

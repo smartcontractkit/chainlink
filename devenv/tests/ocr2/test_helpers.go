@@ -1,4 +1,4 @@
-package devenv_tests
+package ocr2
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	L          = ocr2.Plog
+	L          = ocr2.L
 	BlockEvery = 1 * time.Second
 
 	TotalRoundsPerTestCount = int64(0)

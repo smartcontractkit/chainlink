@@ -1,4 +1,4 @@
-package devenv_tests
+package ocr2
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
+	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/require"
@@ -20,13 +21,17 @@ import (
 
 func TestLoad(t *testing.T) {
 	ctx := context.Background()
-	in, err := de.LoadOutput[de.Cfg]("../env-out.toml")
+	outputFile := "../../env-out.toml"
+	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
+	pdConfig, err := products.LoadOutput[ocr2.OCR2Configurator](outputFile)
+	require.NoError(t, err)
+	
 	t.Cleanup(func() {
 		_, err := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
 		require.NoError(t, err)
 	})
-	c, _, _, err := ocr2.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, in.OCR2.GasSettings.FeeCapMultiplier, in.OCR2.GasSettings.TipCapMultiplier)
+	c, _, _, err := ocr2.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.OCR2.GasSettings.FeeCapMultiplier, pdConfig.OCR2.GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
 	clNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 	require.NoError(t, err)
@@ -121,10 +126,10 @@ func TestLoad(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(in.OCR2.DeployedContracts.OCRv2AggregatorAddr), c)
+			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(pdConfig.OCR2.DeployedContracts.OCRv2AggregatorAddr), c)
 			require.NoError(t, err)
 			L.Info().Any("Config", tc.cfg).Msg("Applying new OCR2 configuration")
-			err = ocr2.UpdateOCR2ConfigOffChainValues(context.Background(), in.OCR2, o2, clNodes, tc.cfg)
+			err = ocr2.UpdateOCR2ConfigOffChainValues(context.Background(), in.Blockchains[0], pdConfig.OCR2, o2, clNodes, tc.cfg)
 			require.NoError(t, err)
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -20,12 +21,17 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
+	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
+
+	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
 
 const (
@@ -33,25 +39,22 @@ const (
 	ConfigureProductContractsJobs
 )
 
-var Plog = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel).With().Fields(map[string]any{"component": "ocr2"}).Logger()
+var L = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel).With().Fields(map[string]any{"component": "ocr2"}).Logger()
 
 type OCR2 struct {
-	OCR2                             *OCRv2OffChainOptions  `toml:"ocr2"`
-	OCR2SetConfig                    *OCRv2SetConfigOptions `toml:"ocr2_set_config"`
-	OCR2SetConfigOut                 *OCRv2Config           `toml:"ocr2_set_config_out"`
-	OCR2MedianOffchainConfig         *MedianOffchainConfig  `toml:"ocr2_median_offchain_config"`
-	EAFake                           *EAFake                `toml:"ea_fake"`
-	Jobs                             *Jobs                  `toml:"jobs"`
-	LinkContractAddress              string                 `toml:"link_contract_address"`
-	CLNodesFundingETH                float64                `toml:"cl_nodes_funding_eth"`
-	CLNodesFundingLink               float64                `toml:"cl_nodes_funding_link"`
-	ChainFinalityDepth               int64                  `toml:"chain_finality_depth"`
-	VerificationTimeoutSec           time.Duration          `toml:"verification_timeout_sec"`            //nolint:staticcheck
-	ContractsConfigurationTimeoutSec time.Duration          `toml:"contracts_configuration_timeout_sec"` //nolint:staticcheck
-	GasSettings                      *GasSettings           `toml:"gas_settings"`
-	Verify                           bool                   `toml:"verify"`
-	DeployedContracts                *DeployedContracts     `toml:"deployed_contracts"`
-	OCR2DynamicConfig                *OCR2DynamicConfig     `toml:"dynamic_config"`
+	OCR2                     *OCRv2OffChainOptions  `toml:"ocr2"`
+	OCR2SetConfig            *OCRv2SetConfigOptions `toml:"ocr2_set_config"`
+	OCR2SetConfigOut         *OCRv2Config           `toml:"ocr2_set_config_out"`
+	OCR2MedianOffchainConfig *MedianOffchainConfig  `toml:"ocr2_median_offchain_config"`
+	EAFake                   *EAFake                `toml:"ea_fake"`
+	Jobs                     *Jobs                  `toml:"jobs"`
+	LinkContractAddress      string                 `toml:"link_contract_address"`
+	CLNodesFundingETH        float64                `toml:"cl_nodes_funding_eth"`
+	CLNodesFundingLink       float64                `toml:"cl_nodes_funding_link"`
+	ChainFinalityDepth       int64                  `toml:"chain_finality_depth"`
+	VerificationTimeoutSec   time.Duration          `toml:"verification_timeout_sec"` //nolint:staticcheck
+	GasSettings              *GasSettings           `toml:"gas_settings"`
+	DeployedContracts        *DeployedContracts     `toml:"deployed_contracts"`
 }
 
 type OCR2DynamicConfig struct {
@@ -83,8 +86,7 @@ type MedianOffchainConfig struct {
 }
 
 type Jobs struct {
-	ConfigPollIntervalSeconds time.Duration `toml:"config_poll_interval_sec"`
-	MaxTaskDurationSec        time.Duration `toml:"max_task_duration_sec"`
+	MaxTaskDurationSec time.Duration `toml:"max_task_duration_sec"`
 }
 
 type EAFake struct {
@@ -133,15 +135,37 @@ type OCRv2Config struct {
 	F                     uint8
 }
 
-type OCR2Configurator struct{}
+type OCR2Configurator struct {
+	OCR2 *OCR2 `toml:"ocr2"`
+}
 
 func NewOCR2Configurator() *OCR2Configurator {
 	return &OCR2Configurator{}
 }
 
-func ConfigureCLNodes(ctx context.Context, o *OCR2) (string, error) {
-	Plog.Info().Msg("Applying default CL nodes configuration")
+func (m *OCR2Configurator) Load() error {
+	cfg, err := products.Load[OCR2Configurator]()
+	if err != nil {
+		return fmt.Errorf("failed to load product config: %w", err)
+	}
+	m.OCR2 = cfg.OCR2
+	spew.Dump(m.OCR2)
+	return nil
+}
+
+func (m *OCR2Configurator) Store(path string) error {
+	spew.Dump(m.OCR2)
+	if err := products.Store(".", m); err != nil {
+		return fmt.Errorf("failed to store product config: %w", err)
+	}
+	return nil
+}
+
+func (m *OCR2Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *blockchain.Input) (string, error) {
+	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
+	node := bc.Out.Nodes[0]
+	chainID := bc.Out.ChainID
 	netConfig := fmt.Sprintf(`
        [[EVM]]
        LogPollInterval = '1s'
@@ -190,73 +214,91 @@ func ConfigureCLNodes(ctx context.Context, o *OCR2) (string, error) {
    DefaultTimeout = '1m'
        [Log.File]
        MaxSize = '0b'
-`, o.LinkContractAddress,
-		o.OCR2DynamicConfig.ChainID,
-		o.ChainFinalityDepth,
-		o.OCR2DynamicConfig.BlockchainInternalWSURL,
-		o.OCR2DynamicConfig.BlockchainInternalHTTPURL,
+`, m.OCR2.LinkContractAddress,
+		chainID,
+		m.OCR2.ChainFinalityDepth,
+		node.InternalWSUrl,
+		node.InternalHTTPUrl,
 	)
-	Plog.Info().Msg("Nodes network configuration is finished")
+	L.Info().Msg("Nodes network configuration is finished")
 	return netConfig, nil
 }
 
-func ConfigureContractsAndJobs(
+func (m *OCR2Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
-	cl []*clclient.ChainlinkClient,
-	o *OCR2,
-	phase ConfigPhase,
-) (string, error) {
-	Plog.Info().Msg("Connecting to CL nodes")
+	fake *fake.Input,
+	bc *blockchain.Input,
+	ns *nodeset.Input,
+) error {
+	L.Info().Msg("Connecting to CL nodes")
+	cl, err := clclient.New(ns.Out.CLNodes)
+	if err != nil {
+		return err
+	}
+	pkey := getNetworkPrivateKey()
+	if pkey == "" {
+		return fmt.Errorf("PRIVATE_KEY environment variable not set")
+	}
+
 	transmitters := make([]common.Address, 0)
 	ethKeyAddresses := make([]string, 0)
 	for i, nc := range cl {
-		addr, err := nc.ReadPrimaryETHKey(o.OCR2DynamicConfig.ChainID)
+		addr, err := nc.ReadPrimaryETHKey(bc.Out.ChainID)
 		if err != nil {
-			return "", err
+			return err
 		}
 		ethKeyAddresses = append(ethKeyAddresses, addr.Attributes.Address)
 		transmitters = append(transmitters, common.HexToAddress(addr.Attributes.Address))
-		Plog.Info().
+		L.Info().
 			Int("Idx", i).
 			Str("ETH", addr.Attributes.Address).
 			Msg("Node info")
 	}
+	bcNode := bc.Out.Nodes[0]
 	c, auth, rootAddr, err := ETHClient(
 		ctx,
-		o.OCR2DynamicConfig.BlockchainExternalWSURL,
-		o.GasSettings.FeeCapMultiplier,
-		o.GasSettings.TipCapMultiplier,
+		bcNode.ExternalWSUrl,
+		m.OCR2.GasSettings.FeeCapMultiplier,
+		m.OCR2.GasSettings.TipCapMultiplier,
 	)
 	if err != nil {
-		return "", fmt.Errorf("could not create basic eth client: %w", err)
+		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
 	for _, addr := range ethKeyAddresses {
-		if err := FundNodeEIP1559(ctx, c, o.OCR2DynamicConfig.PKeyStr, addr, o.CLNodesFundingETH); err != nil {
-			return "", err
+		if err := FundNodeEIP1559(ctx, c, pkey, addr, m.OCR2.CLNodesFundingETH); err != nil {
+			return err
 		}
 	}
-	ocrv2Config, ocr2Addr, err := configureContracts(o, c, auth, cl, rootAddr, transmitters)
+	ocrv2Config, ocr2Addr, err := m.configureContracts(
+		ctx,
+		c,
+		auth,
+		cl,
+		rootAddr,
+		transmitters,
+		m.OCR2.CLNodesFundingLink,
+	)
 	if err != nil {
-		return "", err
+		return err
 	}
-	o.OCR2SetConfigOut = ocrv2Config
-	if err := configureJobs(o, cl, ocr2Addr); err != nil {
-		return "", err
+	m.OCR2.OCR2SetConfigOut = ocrv2Config
+	if err := m.configureJobs(ctx, fake, bc, ns, cl, ocr2Addr); err != nil {
+		return err
 	}
-	r := resty.New().SetBaseURL(o.OCR2DynamicConfig.FakeServerExternalHTTPURL)
+	r := resty.New().SetBaseURL(fake.Out.BaseURLHost)
 
 	_, err = r.R().Post(`/trigger_deviation?result=200`)
 	if err != nil {
-		return "", fmt.Errorf("could not set ea fake values: %w", err)
+		return fmt.Errorf("could not set ea fake values: %w", err)
 	}
-	Plog.Info().
+	L.Info().
 		Msg("Setting fake external adapter (data feed) values")
-	o.DeployedContracts = &DeployedContracts{OCRv2AggregatorAddr: ocr2Addr}
-	return "", nil
+	m.OCR2.DeployedContracts = &DeployedContracts{OCRv2AggregatorAddr: ocr2Addr}
+	return nil
 }
 
 // deployLinkAndMint is a universal action that deploys link token and mints required amount of LINK token for all the nodes.
-func deployLinkAndMint(ctx context.Context, o *OCR2, c *ethclient.Client, auth *bind.TransactOpts, rootAddr string, transmitters []common.Address) (*link_token.LinkToken, error) {
+func deployLinkAndMint(ctx context.Context, c *ethclient.Client, auth *bind.TransactOpts, rootAddr string, transmitters []common.Address, linkFunding float64) (*link_token.LinkToken, error) {
 	addr, tx, lt, err := link_token.DeployLinkToken(auth, c)
 	if err != nil {
 		return nil, fmt.Errorf("could not create link token contract: %w", err)
@@ -265,7 +307,7 @@ func deployLinkAndMint(ctx context.Context, o *OCR2, c *ethclient.Client, auth *
 	if err != nil {
 		return nil, err
 	}
-	Plog.Info().Str("Address", addr.Hex()).Msg("Deployed link token contract")
+	L.Info().Str("Address", addr.Hex()).Msg("Deployed link token contract")
 	tx, err = lt.GrantMintRole(auth, common.HexToAddress(rootAddr))
 	if err != nil {
 		return nil, fmt.Errorf("could not grant mint role: %w", err)
@@ -276,9 +318,9 @@ func deployLinkAndMint(ctx context.Context, o *OCR2, c *ethclient.Client, auth *
 	}
 	// mint for public keys of nodes directly instead of transferring
 	for _, transmitter := range transmitters {
-		amount := new(big.Float).Mul(big.NewFloat(o.CLNodesFundingLink), big.NewFloat(1e18))
+		amount := new(big.Float).Mul(big.NewFloat(linkFunding), big.NewFloat(1e18))
 		amountWei, _ := amount.Int(nil)
-		Plog.Info().Msgf("Minting LINK for transmitter address: %s", transmitter.Hex())
+		L.Info().Msgf("Minting LINK for transmitter address: %s", transmitter.Hex())
 		tx, err = lt.Mint(auth, transmitter, amountWei)
 		if err != nil {
 			return nil, fmt.Errorf("could not transfer link token contract: %w", err)
@@ -291,13 +333,13 @@ func deployLinkAndMint(ctx context.Context, o *OCR2, c *ethclient.Client, auth *
 	return lt, nil
 }
 
-func UpdateOCR2ConfigOffChainValues(ctx context.Context, o *OCR2, ocr2i *ocr2aggregator.OCR2Aggregator, cl []*clclient.ChainlinkClient, o2 *OCRv2SetConfigOptions) error {
+func UpdateOCR2ConfigOffChainValues(ctx context.Context, bc *blockchain.Input, o *OCR2, ocr2i *ocr2aggregator.OCR2Aggregator, cl []*clclient.ChainlinkClient, o2 *OCRv2SetConfigOptions) error {
 	if o2 == nil {
 		return nil
 	}
 	c, auth, _, err := ETHClient(
 		ctx,
-		o.OCR2DynamicConfig.BlockchainExternalWSURL,
+		bc.Out.Nodes[0].ExternalHTTPUrl,
 		o.GasSettings.FeeCapMultiplier,
 		o.GasSettings.TipCapMultiplier,
 	)
@@ -360,17 +402,17 @@ func UpdateOCR2ConfigOffChainValues(ctx context.Context, o *OCR2, ocr2i *ocr2agg
 	return nil
 }
 
-func configureContracts(o *OCR2, c *ethclient.Client, auth *bind.TransactOpts, cl []*clclient.ChainlinkClient, rootAddr string, transmitters []common.Address) (*OCRv2Config, string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), o.ContractsConfigurationTimeoutSec*time.Second)
+func (m *OCR2Configurator) configureContracts(ctx context.Context, c *ethclient.Client, auth *bind.TransactOpts, cl []*clclient.ChainlinkClient, rootAddr string, transmitters []common.Address, linkFunding float64) (*OCRv2Config, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	Plog.Info().Msg("Deploying LINK token contract")
-	lt, err := deployLinkAndMint(ctx, o, c, auth, rootAddr, transmitters)
+	L.Info().Msg("Deploying LINK token contract")
+	lt, err := deployLinkAndMint(ctx, c, auth, rootAddr, transmitters, linkFunding)
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create link token contract and mint: %w", err)
 	}
 	// OCRv2 Aggregator
-	Plog.Info().Msg("Deploying OCRv2 aggregator contract")
-	opts := o.OCR2
+	L.Info().Msg("Deploying OCRv2 aggregator contract")
+	opts := m.OCR2.OCR2
 	ocr2addr, tx, ocr2i, err := ocr2aggregator.DeployOCR2Aggregator(auth, c, lt.Address(), opts.MinimumAnswer, opts.MaximumAnswer, common.HexToAddress(""), common.HexToAddress(""), 18, "")
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create ocr2 aggregator contract: %w", err)
@@ -379,7 +421,7 @@ func configureContracts(o *OCR2, c *ethclient.Client, auth *bind.TransactOpts, c
 	if err != nil {
 		return nil, "", err
 	}
-	Plog.Info().Str("Address", ocr2addr.String()).Msg("Deployed OCRv2 Aggregator contract")
+	L.Info().Str("Address", ocr2addr.String()).Msg("Deployed OCRv2 Aggregator contract")
 	tx, err = ocr2i.SetPayees(auth, transmitters, []common.Address{
 		common.HexToAddress(rootAddr),
 		common.HexToAddress(rootAddr),
@@ -398,29 +440,29 @@ func configureContracts(o *OCR2, c *ethclient.Client, auth *bind.TransactOpts, c
 	if err != nil {
 		return nil, "", fmt.Errorf("could not get oracle identities: %w", err)
 	}
-	o2 := o.OCR2SetConfig
+	ocrSetConfig := m.OCR2.OCR2SetConfig
 	signerKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		o2.DeltaProgress*time.Second,
-		o2.DeltaResend*time.Second,
-		o2.DeltaRound*time.Second,
-		o2.DeltaGrace*time.Second,
-		o2.DeltaStage*time.Second,
-		o2.RMax,
+		ocrSetConfig.DeltaProgress*time.Second,
+		ocrSetConfig.DeltaResend*time.Second,
+		ocrSetConfig.DeltaRound*time.Second,
+		ocrSetConfig.DeltaGrace*time.Second,
+		ocrSetConfig.DeltaStage*time.Second,
+		ocrSetConfig.RMax,
 		s,
 		ids,
 		median.OffchainConfig{
-			AlphaAcceptInfinite: o.OCR2MedianOffchainConfig.AlphaAcceptInfinite,
-			AlphaReportInfinite: o.OCR2MedianOffchainConfig.AlphaReportInfinite,
-			AlphaReportPPB:      o.OCR2MedianOffchainConfig.AlphaReportPPB,
-			AlphaAcceptPPB:      o.OCR2MedianOffchainConfig.AlphaAcceptPPB,
-			DeltaC:              o.OCR2MedianOffchainConfig.DeltaCSec * time.Second,
+			AlphaAcceptInfinite: m.OCR2.OCR2MedianOffchainConfig.AlphaAcceptInfinite,
+			AlphaReportInfinite: m.OCR2.OCR2MedianOffchainConfig.AlphaReportInfinite,
+			AlphaReportPPB:      m.OCR2.OCR2MedianOffchainConfig.AlphaReportPPB,
+			AlphaAcceptPPB:      m.OCR2.OCR2MedianOffchainConfig.AlphaAcceptPPB,
+			DeltaC:              m.OCR2.OCR2MedianOffchainConfig.DeltaCSec * time.Second,
 		}.Encode(),
 		nil,
-		o2.MaxDurationQuery*time.Second,
-		o2.MaxDurationObservation*time.Second,
-		o2.MaxDurationReport*time.Second,
-		o2.MaxDurationShouldAcceptFinalizedReport*time.Second,
-		o2.MaxDurationShouldTransmitAcceptedReport*time.Second,
+		ocrSetConfig.MaxDurationQuery*time.Second,
+		ocrSetConfig.MaxDurationObservation*time.Second,
+		ocrSetConfig.MaxDurationReport*time.Second,
+		ocrSetConfig.MaxDurationShouldAcceptFinalizedReport*time.Second,
+		ocrSetConfig.MaxDurationShouldTransmitAcceptedReport*time.Second,
 		1,
 		nil, // The median reporting plugin has an empty onchain config
 	)
@@ -435,7 +477,7 @@ func configureContracts(o *OCR2, c *ethclient.Client, auth *bind.TransactOpts, c
 	for _, account := range transmitterAccounts {
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
-	onChainConfig, err := median.StandardOnchainConfigCodec{}.Encode(context.Background(), median.OnchainConfig{Min: o.OCR2.MinimumAnswer, Max: o.OCR2.MaximumAnswer})
+	onChainConfig, err := median.StandardOnchainConfigCodec{}.Encode(context.Background(), median.OnchainConfig{Min: m.OCR2.OCR2.MinimumAnswer, Max: m.OCR2.OCR2.MaximumAnswer})
 	if err != nil {
 		return nil, "", fmt.Errorf("could not encode onchain config: %w", err)
 	}
@@ -519,7 +561,7 @@ func getOracleIdentities(clClients []*clclient.ChainlinkClient) ([]int, []config
 				ConfigEncryptionPublicKey: configPkBytesFixed,
 			}
 			s[i] = 1
-			Plog.Trace().
+			L.Trace().
 				Interface("OnChainPK", onchainPkBytes).
 				Interface("OffChainPK", offchainPkBytesFixed).
 				Interface("ConfigPK", configPkBytesFixed).
@@ -532,14 +574,14 @@ func getOracleIdentities(clClients []*clclient.ChainlinkClient) ([]int, []config
 	return s, oracleIdentities, eg.Wait()
 }
 
-func configureJobs(o *OCR2, clNodes []*clclient.ChainlinkClient, ocr2Addr string) error {
+func (m *OCR2Configurator) configureJobs(ctx context.Context, fake *fake.Input, bc *blockchain.Input, ns *nodeset.Input, clNodes []*clclient.ChainlinkClient, ocr2Addr string) error {
 	bootstrapNode := clNodes[0]
 	workerNodes := clNodes[1:]
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	if err != nil {
 		return err
 	}
-	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, o.OCR2DynamicConfig.BootstrapContainerName, 6690)
+	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, ns.Out.CLNodes[0].Node.ContainerName, 6690)
 	// Set the value for the jobs to report on
 	bootstrapSpec := &OCR2TaskJobSpec{
 		Name:    fmt.Sprintf("ocr2_bootstrap-%s", uuid.NewString()),
@@ -548,9 +590,9 @@ func configureJobs(o *OCR2, clNodes []*clclient.ChainlinkClient, ocr2Addr string
 			ContractID: ocr2Addr,
 			Relay:      "evm",
 			RelayConfig: map[string]any{
-				"chainID": o.OCR2DynamicConfig.ChainID,
+				"chainID": bc.ChainID,
 			},
-			ContractConfigTrackerPollInterval: *NewInterval(o.Jobs.ConfigPollIntervalSeconds * time.Second),
+			ContractConfigTrackerPollInterval: *NewInterval(5 * time.Second),
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -569,7 +611,7 @@ func configureJobs(o *OCR2, clNodes []*clclient.ChainlinkClient, ocr2Addr string
 		}
 		nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
-		fakeServerURL := o.OCR2DynamicConfig.FakeServerInternalHTTPURL
+		fakeServerURL := fake.Out.BaseURLDocker
 
 		ea := &clclient.BridgeTypeAttributes{
 			Name: fmt.Sprintf("ea-%s", uuid.NewString()),
@@ -591,19 +633,19 @@ func configureJobs(o *OCR2, clNodes []*clclient.ChainlinkClient, ocr2Addr string
 		ocrSpec := &OCR2TaskJobSpec{
 			Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
 			JobType:           "offchainreporting2",
-			MaxTaskDuration:   (o.Jobs.MaxTaskDurationSec * time.Second).String(),
+			MaxTaskDuration:   (m.OCR2.Jobs.MaxTaskDurationSec * time.Second).String(),
 			ObservationSource: clclient.ObservationSourceSpecBridge(ea),
 			ForwardingAllowed: false,
 			OCR2OracleSpec: OCR2OracleSpec{
 				PluginType: "median",
 				Relay:      "evm",
 				RelayConfig: map[string]any{
-					"chainID": o.OCR2DynamicConfig.ChainID,
+					"chainID": bc.ChainID,
 				},
 				PluginConfig: map[string]any{
 					"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", clclient.ObservationSourceSpecBridge(juelsBridge)), //nolint:gocritic
 				},
-				ContractConfigTrackerPollInterval: *NewInterval(o.Jobs.ConfigPollIntervalSeconds * time.Second),
+				ContractConfigTrackerPollInterval: *NewInterval(5 * time.Second),
 				ContractID:                        ocr2Addr,                                // registryAddr
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyID),           // get node ocr2config.ID
 				TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr

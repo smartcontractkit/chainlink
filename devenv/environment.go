@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -15,11 +14,20 @@ import (
 )
 
 type Cfg struct {
-	OCR2        *ocr2.OCR2          `toml:"ocr2"`
+	ProductType string              `toml:"product_type"`
 	Blockchains []*blockchain.Input `toml:"blockchains" validate:"required"`
 	FakeServer  *fake.Input         `toml:"fake_server" validate:"required"`
 	NodeSets    []*ns.Input         `toml:"nodesets"    validate:"required"`
 	JD          *jd.Input           `toml:"jd"`
+}
+
+func newProduct(typ string) (Product, error) {
+	switch typ {
+	case "ocr2":
+		return ocr2.NewOCR2Configurator(), nil
+	default:
+		return nil, fmt.Errorf("unknown product type: %s", typ)
+	}
 }
 
 func NewEnvironment(ctx context.Context) error {
@@ -39,25 +47,15 @@ func NewEnvironment(ctx context.Context) error {
 		return fmt.Errorf("failed to create fake data provider: %w", err)
 	}
 
-	pkey := getNetworkPrivateKey()
-	if pkey == "" {
-		return fmt.Errorf("PRIVATE_KEY environment variable not set")
+	c, err := newProduct(in.ProductType)
+	if err != nil {
+		return err
 	}
-	bc := in.Blockchains[0].Out.Nodes[0]
-	in.OCR2.OCR2DynamicConfig = &ocr2.OCR2DynamicConfig{
-		PKeyStr:                   pkey,
-		ChainID:                   in.Blockchains[0].ChainID,
-		FakeServerExternalHTTPURL: in.FakeServer.Out.BaseURLHost,
-		FakeServerInternalHTTPURL: in.FakeServer.Out.BaseURLDocker,
-		BlockchainExternalWSURL:   bc.ExternalWSUrl,
-		BlockchainInternalWSURL:   bc.InternalWSUrl,
-		BlockchainInternalHTTPURL: bc.InternalHTTPUrl,
+	if err := c.Load(); err != nil {
+		return fmt.Errorf("failed to load product config: %s", err)
 	}
 
-	overrides, err := ocr2.ConfigureCLNodes(ctx, in.OCR2)
-	if err != nil {
-		return fmt.Errorf("failed to setup default CLDF orchestration: %w", err)
-	}
+	overrides, err := c.GenerateCLNodesBlockchainConfig(ctx, in.Blockchains[0])
 	for _, ns := range in.NodeSets[0].NodeSpecs {
 		ns.Node.TestConfigOverrides = overrides
 	}
@@ -65,17 +63,12 @@ func NewEnvironment(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create new shared db node set: %w", err)
 	}
-	in.OCR2.OCR2DynamicConfig.BootstrapContainerName = in.NodeSets[0].Out.CLNodes[0].Node.ContainerName
 
-	clClients, err := clclient.New(in.NodeSets[0].Out.CLNodes)
-	if err != nil {
-		return err
-	}
-	_, err = ocr2.ConfigureContractsAndJobs(
+	err = c.ConfigureJobsAndContracts(
 		ctx,
-		clClients,
-		in.OCR2,
-		ocr2.ConfigureProductContractsJobs,
+		in.FakeServer,
+		in.Blockchains[0],
+		in.NodeSets[0],
 	)
 	if err != nil {
 		return fmt.Errorf("failed to setup default CLDF orchestration: %w", err)
@@ -84,5 +77,8 @@ func NewEnvironment(ctx context.Context) error {
 	for _, n := range in.NodeSets[0].Out.CLNodes[1:] {
 		L.Info().Str("Node", n.Node.ExternalURL).Send()
 	}
-	return Store[Cfg](in)
+	if err := Store[Cfg](in); err != nil {
+		return fmt.Errorf("failed to write infra config: %w", err)
+	}
+	return c.Store("env-out.toml")
 }

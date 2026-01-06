@@ -19,8 +19,6 @@
   cl_nodes_funding_eth = 0.05
   cl_nodes_funding_link = 1
   link_contract_address = "<fill_in>"
-  verification_timeout_sec = 500
-  verify = true
 
   [data_feeds.gas_settings]
   fee_cap_multiplier = 3
@@ -31,7 +29,6 @@
     low_value = 3
 
   [data_feeds.jobs]
-    config_poll_interval_sec = 5
     max_task_duration_sec = 60
 
   [data_feeds.ocr2]

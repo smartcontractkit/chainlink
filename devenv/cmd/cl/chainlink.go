@@ -160,8 +160,8 @@ var obsUpCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("observability up failed: %w", err)
 		}
-		ocr2.Plog.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
-		ocr2.Plog.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
+		ocr2.L.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
+		ocr2.L.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
 		return nil
 	},
 }
@@ -193,8 +193,8 @@ var obsRestartCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("observability up failed: %w", err)
 		}
-		ocr2.Plog.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
-		ocr2.Plog.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
+		ocr2.L.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
+		ocr2.L.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
 		return nil
 	},
 }
@@ -219,7 +219,7 @@ var testCmd = &cobra.Command{
 			return fmt.Errorf("test suite %s is unknown, choose between smoke or load", args[0])
 		}
 
-		testCmd := exec.Command("go", "test", "-v", "-run", testPattern)
+		testCmd := exec.Command("go", "test", "-v", "-run", testPattern, "./...")
 		testCmd.Dir = "./tests"
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr
@@ -287,7 +287,7 @@ func main() {
 		return
 	}
 	if err := rootCmd.Execute(); err != nil {
-		ocr2.Plog.Err(err).Send()
+		ocr2.L.Err(err).Send()
 		os.Exit(1)
 	}
 }
