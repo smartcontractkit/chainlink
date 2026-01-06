@@ -5,14 +5,13 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	cldf_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/deployment/fastcurse"
@@ -104,7 +103,7 @@ func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequence
 			deps := dependency.AptosDeps{
 				AptosChain: chain,
 			}
-			report, err := operations.ExecuteOperation(b, aptosops.CurseMultipleOp, deps, curseInput)
+			report, err := cldf_ops.ExecuteOperation(b, aptosops.CurseMultipleOp, deps, curseInput)
 			if err != nil {
 				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", chain.Selector, err)
 			}
@@ -141,7 +140,7 @@ func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequen
 			deps := dependency.AptosDeps{
 				AptosChain: chain,
 			}
-			report, err := operations.ExecuteOperation(b, aptosops.UncurseMultipleOp, deps, uncurseInput)
+			report, err := cldf_ops.ExecuteOperation(b, aptosops.UncurseMultipleOp, deps, uncurseInput)
 			if err != nil {
 				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute uncurse operation on Aptos chain %d: %w", chain.Selector, err)
 			}
