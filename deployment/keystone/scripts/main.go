@@ -42,7 +42,7 @@ type Connection struct {
 // JobDistributorConfig defines a job distributor configuration
 type JobDistributorConfig struct {
 	Name      string `toml:"name"`
-	URI       string `toml:"uri"`
+	URI       string `toml:"uri"` // GG
 	PublicKey string `toml:"public_key"`
 }
 
