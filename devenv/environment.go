@@ -3,6 +3,7 @@ package devenv
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -42,6 +43,9 @@ func NewEnvironment(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create blockchain network 1337: %w", err)
 	}
+	if os.Getenv("FAKE_SERVER_IMAGE") != "" {
+		in.FakeServer.Image = os.Getenv("FAKE_SERVER_IMAGE")
+	}
 	_, err = fake.NewDockerFakeDataProvider(in.FakeServer)
 	if err != nil {
 		return fmt.Errorf("failed to create fake data provider: %w", err)
@@ -74,7 +78,7 @@ func NewEnvironment(ctx context.Context) error {
 		in.NodeSets[0],
 	)
 	if err != nil {
-		return fmt.Errorf("failed to setup default CLDF orchestration: %w", err)
+		return fmt.Errorf("failed to setup default product deployment: %w", err)
 	}
 	L.Info().Str("BootstrapNode", in.NodeSets[0].Out.CLNodes[0].Node.ExternalURL).Send()
 	for _, n := range in.NodeSets[0].Out.CLNodes[1:] {
