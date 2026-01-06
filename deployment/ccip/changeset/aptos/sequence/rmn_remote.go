@@ -3,11 +3,12 @@ package sequence
 import (
 	"fmt"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-ccip/deployment/fastcurse"
 	"github.com/smartcontractkit/chainlink-ccip/deployment/utils/sequences"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
