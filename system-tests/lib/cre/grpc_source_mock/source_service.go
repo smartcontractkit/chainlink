@@ -2,11 +2,8 @@ package grpcsourcemock
 
 import (
 	"context"
-	"crypto/sha256"
 	"log/slog"
 	"os"
-	"strconv"
-	"time"
 
 	sourcesv1 "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
 )
@@ -57,7 +54,6 @@ func (s *SourceService) ListWorkflowMetadata(ctx context.Context, req *sourcesv1
 		// No results for this page
 		return &sourcesv1.ListWorkflowMetadataResponse{
 			Workflows: []*sourcesv1.WorkflowMetadata{},
-			Head:      s.createHead(),
 			HasMore:   false,
 		}, nil
 	}
@@ -88,26 +84,6 @@ func (s *SourceService) ListWorkflowMetadata(ctx context.Context, req *sourcesv1
 
 	return &sourcesv1.ListWorkflowMetadataResponse{
 		Workflows: protoWorkflows,
-		Head:      s.createHead(),
 		HasMore:   end < totalCount,
 	}, nil
-}
-
-// createHead creates a synthetic head for the response
-func (s *SourceService) createHead() *sourcesv1.Head {
-	now := time.Now()
-	height := strconv.FormatInt(now.UnixNano(), 10)
-	hash := sha256.Sum256([]byte(height))
-
-	var timestamp uint64
-	unix := now.Unix()
-	if unix >= 0 {
-		timestamp = uint64(unix) // #nosec G115 -- Unix timestamp is always positive
-	}
-
-	return &sourcesv1.Head{
-		Height:    height,
-		Hash:      hash[:],
-		Timestamp: timestamp,
-	}
 }
