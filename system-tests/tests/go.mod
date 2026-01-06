@@ -46,7 +46,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.85
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260106135607-e801ad17315c
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260106151437-f3ee1f290960
 	github.com/smartcontractkit/chainlink-data-streams v0.1.10
 	github.com/smartcontractkit/chainlink-deployments-framework v0.70.0
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251211123524-f0c4fe7cfc0a
@@ -90,7 +90,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2 // indirect
 	github.com/pressly/goose/v3 v3.26.0 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251229170147-e243de8c69ad // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251230203526-829dc10f8956 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260106165728-3d896e87cc56 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
