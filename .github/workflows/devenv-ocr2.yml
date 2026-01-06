@@ -32,13 +32,11 @@ jobs:
         with:
           just-version: '1.40.0'
 
-      # TODO: we don't really need it if we can reference private image with a mutable tag here
-      # - name: Authenticate to AWS ECR
-      #   uses: ./.github/actions/aws-ecr-auth
-      #   with:
-      #     role-to-assume: ${{ secrets.CL_DEVENV_IAM_ROLE }}
-      #     aws-region: us-east-1
-      #     registry-type: public
+      - name: Authenticate to AWS ECR
+        uses: ./.github/actions/aws-ecr-auth
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
+          aws-region: us-west-2
 
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
