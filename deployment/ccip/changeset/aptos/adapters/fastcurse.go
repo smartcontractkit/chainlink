@@ -8,7 +8,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
-
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
