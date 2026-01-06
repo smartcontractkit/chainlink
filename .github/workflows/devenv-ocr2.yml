@@ -61,6 +61,8 @@ jobs:
       - name: Run Soak tests
         id: soak_test
         working-directory: devenv/tests/e2e
+        env:
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: go test -v -timeout 20m -run TestLoad
 
       - name: Upload Logs
