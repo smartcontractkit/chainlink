@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/trigger/registration"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -23,6 +24,7 @@ import (
 // Its responsibilities are:
 //  1. Periodically refresh all registrations for remote triggers.
 //  2. Collect trigger events from remote nodes and aggregate responses via a customizable aggregator.
+//  3. Track the registration status for each workflow.
 //
 // TriggerSubscriber communicates with corresponding TriggerReceivers on remote nodes.
 type triggerSubscriber struct {
@@ -37,11 +39,16 @@ type triggerSubscriber struct {
 	//   - Better logging and debugging.
 	//   - Easier migration.
 	// workflowID -> triggerID -> subRegState
-	registeredWorkflows map[string]map[string]*subRegState
+	registeredWorkflows map[string]map[string]*registration.SubscriberRegistration
 	mu                  sync.RWMutex // protects registeredWorkflows and messageCache
 	stopCh              services.StopChan
 	wg                  sync.WaitGroup
 	lggr                logger.Logger
+
+	// How long to wait for registration status updates after initial registration
+	registrationStatusUpdateWaitTime time.Duration
+	// This channel is used to send initial registration requests immediately rather than waiting for the registration refresh cycle
+	initialRegistrationRequestCh chan *registration.SubscriberRegistration
 }
 
 type dynamicConfig struct {
@@ -59,11 +66,6 @@ type triggerEventKey struct {
 	triggerID      string
 }
 
-type subRegState struct {
-	callback   chan commoncap.TriggerResponse
-	rawRequest []byte
-}
-
 type TriggerSubscriber interface {
 	commoncap.TriggerCapability
 	Receive(ctx context.Context, msg *types.MessageBody)
@@ -76,19 +78,21 @@ var _ services.Service = &triggerSubscriber{}
 
 const (
 	// Engine reads trigger events without blocking and applies its own limits
-	sendChannelBufferSize = 1000
 	maxBatchedWorkflowIDs = 1000
 )
 
-func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger,
+	registrationStatusUpdateTimeout time.Duration) *triggerSubscriber {
 	return &triggerSubscriber{
-		capabilityID:        capabilityID,
-		capMethodName:       capMethodName,
-		dispatcher:          dispatcher,
-		messageCache:        messagecache.NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
-		registeredWorkflows: make(map[string]map[string]*subRegState),
-		stopCh:              make(services.StopChan),
-		lggr:                logger.With(logger.Named(lggr, "TriggerSubscriber"), "capabilityID", capabilityID, "capMethodName", capMethodName),
+		capabilityID:                     capabilityID,
+		capMethodName:                    capMethodName,
+		dispatcher:                       dispatcher,
+		messageCache:                     messagecache.NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
+		registrationStatusUpdateWaitTime: registrationStatusUpdateTimeout,
+		registeredWorkflows:              make(map[string]map[string]*registration.SubscriberRegistration),
+		stopCh:                           make(services.StopChan),
+		lggr:                             logger.With(logger.Named(lggr, "TriggerSubscriber"), "capabilityID", capabilityID, "capMethodName", capMethodName),
+		initialRegistrationRequestCh:     make(chan *registration.SubscriberRegistration),
 	}
 }
 
@@ -150,26 +154,47 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.lggr.Infow("RegisterTrigger called", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	triggerMap, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 	if !ok {
-		triggerMap = make(map[string]*subRegState)
+		triggerMap = make(map[string]*registration.SubscriberRegistration)
 		s.registeredWorkflows[request.Metadata.WorkflowID] = triggerMap
 	}
-	regState, ok := triggerMap[request.TriggerID]
-	if !ok {
-		regState = &subRegState{
-			callback:   make(chan commoncap.TriggerResponse, sendChannelBufferSize),
-			rawRequest: rawRequest,
-		}
-		triggerMap[request.TriggerID] = regState
+	reg, existingRegistration := triggerMap[request.TriggerID]
+	if !existingRegistration {
+		reg = registration.NewSubscriberRegistration(s.lggr, rawRequest)
+		triggerMap[request.TriggerID] = reg
 	} else {
-		regState.rawRequest = rawRequest
+		reg.UpdateRegistrationRequest(rawRequest)
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	}
+	s.mu.Unlock()
 
-	return regState.callback, nil
+	if existingRegistration {
+		return reg.GetTriggerResponseChannel(), nil
+	} else {
+		// Send the first registration request immediately, do not wait for the registration refresh cycle
+		s.initialRegistrationRequestCh <- reg
+
+		// Await registration with timeout - it is not guaranteed that registration will complete
+		// as may be running against a legacy remote capability that does not support registration status updates.
+		regErr := reg.AwaitRegistration(ctx, s.registrationStatusUpdateWaitTime)
+
+		if errors.Is(regErr, registration.TerminatedBeforeRegistrationUpdate) {
+			// AwaitRegistration returned before registration completed, could be running against a legacy remote capability
+			// that does not support registration status updates.  Just return the response channel and nil error.
+			s.lggr.Warnw("no registration update received after wait, returning response channel anyway", "registrationStatusUpdateWaitTime", s.registrationStatusUpdateWaitTime, "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
+			return reg.GetTriggerResponseChannel(), nil
+		}
+
+		// Return the response channel even if the error is non nil, the caller
+		// can still read from the channel to get any events that may come in later if the registration eventually succeeds.
+		// The caller has the option to handle the error as they see fit.  (for example a user capability error may be reason
+		// to terminate the workflow as the trigger will never work, but a transient network error may be retried later, or
+		// it may just be that different errors stats are updated to better differentiate alerts).
+		return reg.GetTriggerResponseChannel(), regErr
+	}
+
 }
 
 func (s *triggerSubscriber) registrationLoop() {
@@ -182,6 +207,9 @@ func (s *triggerSubscriber) registrationLoop() {
 		select {
 		case <-s.stopCh:
 			return
+		case reg := <-s.initialRegistrationRequestCh:
+			cfg := s.cfg.Load()
+			s.sendRegistrationRequestToCapabilityDon(cfg, reg)
 		case <-ticker.C:
 			cfg := s.cfg.Load()
 			if cfg.remoteConfig.RegistrationRefresh != tickerDuration {
@@ -196,24 +224,28 @@ func (s *triggerSubscriber) registrationLoop() {
 			}
 
 			for _, regMap := range s.registeredWorkflows {
-				for _, registration := range regMap {
-					for _, peerID := range cfg.capDonInfo.Members {
-						m := &types.MessageBody{
-							CapabilityId:     cfg.capInfo.ID,
-							CapabilityDonId:  cfg.capDonInfo.ID,
-							CallerDonId:      cfg.localDonID,
-							Method:           types.MethodRegisterTrigger,
-							Payload:          registration.rawRequest, // triggerID is in the raw request
-							CapabilityMethod: s.capMethodName,
-						}
-						err := s.dispatcher.Send(peerID, m)
-						if err != nil {
-							s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
-						}
-					}
+				for _, reg := range regMap {
+					s.sendRegistrationRequestToCapabilityDon(cfg, reg)
 				}
 			}
 			s.mu.RUnlock()
+		}
+	}
+}
+
+func (s *triggerSubscriber) sendRegistrationRequestToCapabilityDon(cfg *dynamicConfig, reg *registration.SubscriberRegistration) {
+	for _, peerID := range cfg.capDonInfo.Members {
+		m := &types.MessageBody{
+			CapabilityId:     cfg.capInfo.ID,
+			CapabilityDonId:  cfg.capDonInfo.ID,
+			CallerDonId:      cfg.localDonID,
+			Method:           types.MethodRegisterTrigger,
+			Payload:          reg.GetRawRequest(),
+			CapabilityMethod: s.capMethodName,
+		}
+		err := s.dispatcher.Send(peerID, m)
+		if err != nil {
+			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
 		}
 	}
 }
@@ -226,9 +258,9 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 	if !ok {
 		return nil
 	}
-	state := triggerMap[request.TriggerID]
-	if state != nil && state.callback != nil {
-		close(state.callback)
+	reg := triggerMap[request.TriggerID]
+	if reg != nil {
+		reg.Close()
 	}
 	delete(triggerMap, request.TriggerID)
 	if len(triggerMap) == 0 {
@@ -272,7 +304,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			}
 			s.mu.RLock()
 			triggerMap, found := s.registeredWorkflows[workflowID]
-			var registration *subRegState
+			var registration *registration.SubscriberRegistration
 			if found {
 				if triggerID != "" {
 					// received a message from updated publisher, which provided a triggerID
@@ -301,7 +333,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			nowMs := time.Now().UnixMilli()
 			s.mu.Lock()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
+			ready, _, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
 			s.mu.Unlock()
 			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
 			if ready {
@@ -311,9 +343,32 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 					continue
 				}
 				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
-				registration.callback <- aggregatedResponse
+				registration.SendAggregatedEvent(aggregatedResponse)
 			}
 		}
+	} else if msg.Method == types.TriggerRegistrationStatus {
+		meta := msg.GetTriggerRegistrationMetadata()
+		if meta == nil {
+			s.lggr.Errorw("received trigger registration status message with nil trigger registration metadata", "sender", sender)
+			return
+		}
+		s.mu.RLock()
+
+		triggerMap, ok := s.registeredWorkflows[meta.WorkflowId]
+		if !ok {
+			triggerMap = make(map[string]*registration.SubscriberRegistration)
+			s.registeredWorkflows[meta.WorkflowId] = triggerMap
+		}
+		reg, found := triggerMap[meta.TriggerId]
+		s.mu.RUnlock()
+
+		if !found {
+			s.lggr.Warnw("received trigger registration status message for unregistered workflow", "workflowID", SanitizeLogString(meta.WorkflowId), "triggerID", SanitizeLogString(meta.TriggerId), "sender", sender)
+			return
+		}
+
+		reg.HandleTriggerRegistrationStatusUpdate(sender, msg, cfg.remoteConfig.MinResponsesToAggregate, cfg.remoteConfig.MessageExpiry,
+			len(cfg.capDonInfo.Members))
 	} else {
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
 	}
