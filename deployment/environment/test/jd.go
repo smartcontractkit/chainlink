@@ -28,13 +28,14 @@ var _ csav1.CSAServiceClient = (*JDNodeService)(nil)
 type JDNodeService struct {
 	mu    sync.RWMutex
 	store *store
-	*UnimplementedJobServiceClient
+	jobv1.JobServiceClient
 	*UnimplementedCSAServiceClient
 }
 
 func NewJDService(nodes []deployment.Node) *JDNodeService {
 	return &JDNodeService{
-		store: newStore(nodes),
+		store:            newStore(nodes),
+		JobServiceClient: &UnimplementedJobServiceClient{},
 	}
 }
 

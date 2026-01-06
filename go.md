@@ -40,7 +40,8 @@ flowchart LR
 	click chainlink-ccip/chains/solana/gobindings href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccv --> chainlink-ccip/ccv/chains/evm
 	chainlink-ccv --> chainlink-evm
-	chainlink-ccv --> chainlink-protos/chainlink-ccv/go
+	chainlink-ccv --> chainlink-protos/chainlink-ccv/committee-verifier
+	chainlink-ccv --> chainlink-protos/chainlink-ccv/message-discovery
 	click chainlink-ccv href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-common --> chain-selectors
 	chainlink-common --> chainlink-common/pkg/chipingress
@@ -83,8 +84,12 @@ flowchart LR
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-protos/billing/go --> chainlink-protos/workflows/go
 	click chainlink-protos/billing/go href "https://github.com/smartcontractkit/chainlink-protos"
-	chainlink-protos/chainlink-ccv/go
-	click chainlink-protos/chainlink-ccv/go href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/chainlink-ccv/committee-verifier --> chainlink-protos/chainlink-ccv/verifier
+	click chainlink-protos/chainlink-ccv/committee-verifier href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/chainlink-ccv/message-discovery --> chainlink-protos/chainlink-ccv/verifier
+	click chainlink-protos/chainlink-ccv/message-discovery href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/chainlink-ccv/verifier
+	click chainlink-protos/chainlink-ccv/verifier href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/cre/go
 	click chainlink-protos/cre/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/linking-service/go
@@ -109,6 +114,7 @@ flowchart LR
 	chainlink-sui --> chainlink-common/pkg/values
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-ton --> chainlink-ccip
+	chainlink-ton --> chainlink-framework/metrics
 	click chainlink-ton href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
@@ -186,7 +192,9 @@ flowchart LR
 
 	subgraph chainlink-protos-repo[chainlink-protos]
 		 chainlink-protos/billing/go
-		 chainlink-protos/chainlink-ccv/go
+		 chainlink-protos/chainlink-ccv/committee-verifier
+		 chainlink-protos/chainlink-ccv/message-discovery
+		 chainlink-protos/chainlink-ccv/verifier
 		 chainlink-protos/cre/go
 		 chainlink-protos/linking-service/go
 		 chainlink-protos/orchestrator
@@ -261,7 +269,8 @@ flowchart LR
 	click chainlink-ccip/deployment href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccv --> chainlink-ccip/ccv/chains/evm
 	chainlink-ccv --> chainlink-evm
-	chainlink-ccv --> chainlink-protos/chainlink-ccv/go
+	chainlink-ccv --> chainlink-protos/chainlink-ccv/committee-verifier
+	chainlink-ccv --> chainlink-protos/chainlink-ccv/message-discovery
 	click chainlink-ccv href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-common --> chain-selectors
 	chainlink-common --> chainlink-common/pkg/chipingress
@@ -312,8 +321,12 @@ flowchart LR
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-protos/billing/go --> chainlink-protos/workflows/go
 	click chainlink-protos/billing/go href "https://github.com/smartcontractkit/chainlink-protos"
-	chainlink-protos/chainlink-ccv/go
-	click chainlink-protos/chainlink-ccv/go href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/chainlink-ccv/committee-verifier --> chainlink-protos/chainlink-ccv/verifier
+	click chainlink-protos/chainlink-ccv/committee-verifier href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/chainlink-ccv/message-discovery --> chainlink-protos/chainlink-ccv/verifier
+	click chainlink-protos/chainlink-ccv/message-discovery href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/chainlink-ccv/verifier
+	click chainlink-protos/chainlink-ccv/verifier href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/cre/go
 	click chainlink-protos/cre/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/job-distributor
@@ -368,6 +381,7 @@ flowchart LR
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-ton --> chainlink-ccip
+	chainlink-ton --> chainlink-framework/metrics
 	click chainlink-ton href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-ton/deployment --> chainlink-ccip/deployment
 	chainlink-ton/deployment --> chainlink-ton
@@ -551,7 +565,9 @@ flowchart LR
 
 	subgraph chainlink-protos-repo[chainlink-protos]
 		 chainlink-protos/billing/go
-		 chainlink-protos/chainlink-ccv/go
+		 chainlink-protos/chainlink-ccv/committee-verifier
+		 chainlink-protos/chainlink-ccv/message-discovery
+		 chainlink-protos/chainlink-ccv/verifier
 		 chainlink-protos/cre/go
 		 chainlink-protos/job-distributor
 		 chainlink-protos/linking-service/go

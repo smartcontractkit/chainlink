@@ -894,7 +894,7 @@ type CREOpts struct {
 type CREServices struct {
 	// workflowRateLimiter is the rate limiter for workflows
 	// it is exposed because there are contingent services in the application
-	workflowRateLimiter limits.RateLimiter
+	workflowRateLimiter *ratelimiter.RateLimiter
 
 	// workflowLimits is the syncer limiter for workflows
 	// it will specify the amount of global and per owner workflows that can be registered
@@ -944,11 +944,10 @@ func newCREServices(
 		GlobalBurst:    capCfg.RateLimit().GlobalBurst(),
 		PerSenderRPS:   capCfg.RateLimit().PerSenderRPS(),
 		PerSenderBurst: capCfg.RateLimit().PerSenderBurst(),
-	}, lf)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
-	srvcs = append(srvcs, closerService{name: "WorkflowRateLimiter", Closer: workflowRateLimiter})
 
 	if len(wCfg.Limits().PerOwnerOverrides()) > 0 {
 		globalLogger.Debugw("loaded per owner overrides", "overrides", wCfg.Limits().PerOwnerOverrides())
@@ -1283,7 +1282,6 @@ func newCREServices(
 						engineRegistry,
 						custmsg.NewLabeler(),
 						engineLimiters,
-						workflowRateLimiter,
 						workflowLimits,
 						artifactsStore,
 						key,

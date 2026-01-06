@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
@@ -213,12 +214,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		c, err := cell.FromBOC(tc.ExtraArgs)
 		require.NoError(tc.T, err)
 
-		msg = ops.TonSendRequest{
-			QueryID:   rand.Uint64(),
-			Data:      tc.MsgData,
-			Receiver:  tc.Receiver,
-			ExtraArgs: c, // TODO handle ExtraArgs properly
-			FeeToken:  feeToken,
+		// TODO: add TokenAmounts support for TON token transfers
+		msg = tonrouter.CCIPSend{
+			QueryID:           rand.Uint64(),
+			DestChainSelector: tc.DestChain,
+			Data:              tc.MsgData,
+			Receiver:          tc.Receiver,
+			ExtraArgs:         c,
+			FeeToken:          feeToken,
 		}
 
 	default:

@@ -1,4 +1,4 @@
-package operation
+package dependency
 
 import (
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"

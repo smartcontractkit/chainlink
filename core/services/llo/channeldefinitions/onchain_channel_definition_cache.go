@@ -21,6 +21,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -82,6 +84,15 @@ var (
 	ChannelDefinitionAdded = (channel_config_store.ChannelConfigStoreChannelDefinitionAdded{}).Topic()
 	// NoLimitSortAsc is a query configuration that sorts results by sequence in ascending order with no limit.
 	NoLimitSortAsc = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
+
+	channelDefinitionCacheCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "llo",
+		Subsystem: "channeldefinitions",
+		Name:      "channel_definition_cache_count",
+		Help:      "Current count of channel definitions in the cache",
+	},
+		[]string{"source"},
+	)
 )
 
 func init() {
@@ -262,6 +273,8 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 			}
 		}
 
+		c.lggr.Infow("started channel definition cache", "definitions", c.definitions, "initialBlockNum", c.initialBlockNum, "persistedBlockNum", c.persistedBlockNum, "definitionsVersion", c.definitions.Version)
+
 		c.wg.Add(3)
 		// We have three concurrent loops
 		// 1. Poll chain for new logs
@@ -405,6 +418,7 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	c.lggr.Debugw("read adder logs", "fromBlock", fromBlock, "toBlock", toBlock, "logsCount", len(logs))
 	c.processLogs(logs)
 
 	exprs = buildFilterExprs(c.ownerFilterExprs, fromBlock, toBlock)
@@ -412,6 +426,7 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	c.lggr.Debugw("read owner logs", "fromBlock", fromBlock, "toBlock", toBlock, "logsCount", len(logs))
 	c.processLogs(logs)
 
 	return nil
@@ -470,7 +485,8 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 				"blockNumber", log.BlockNumber, "eventSig", log.EventSig, "logHash", log.TxHash.Hex())
 			continue
 		}
-		c.lggr.Infow("Got new logs", "source", trigger.Source, "url", trigger.URL, "sha", hex.EncodeToString(trigger.SHA[:]), "blockNum", trigger.BlockNum)
+
+		c.lggr.Debugw("Got new logs", "source", trigger.Source, "url", trigger.URL, "sha", hex.EncodeToString(trigger.SHA[:]), "blockNum", trigger.BlockNum)
 		select {
 		case c.fetchTriggerCh <- trigger:
 		case <-c.chStop:
@@ -570,14 +586,14 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 
 		case source > SourceOwner:
 			if def.Tombstone {
-				c.lggr.Warnw("invalid channel tombstone, cannot be added by source",
+				c.lggr.Debugw("invalid channel tombstone, cannot be added by source",
 					"channelID", channelID, "source", source)
 				continue
 			}
 
 			if existing, exists := currentDefinitions[channelID]; exists {
 				if existing.Source != def.Source {
-					c.lggr.Warnw("channel adder conflict, skipping definition",
+					c.lggr.Debugw("channel adder conflict, skipping definition",
 						"channelID", channelID, "existingSourceID", existing.Source, "newSourceID", def.Source)
 				}
 				// Adders do not overwrite existing definitions, they can only add new ones
@@ -879,6 +895,9 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 	c.definitionsMu.RLock()
 	defer c.definitionsMu.RUnlock()
 
+	channelDefinitionCacheCount.
+		WithLabelValues("previous_outcome").Set(float64(len(prev)))
+
 	// nothing to merge
 	if len(c.definitions.Sources) == 0 {
 		return prev
@@ -904,8 +923,12 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 
 	feedIDToChannelID := buildFeedIDMap(merged)
 	for _, sourceDefinition := range src {
+		channelDefinitionCacheCount.
+			WithLabelValues(strconv.Itoa(int(sourceDefinition.Trigger.Source))).Set(float64(len(sourceDefinition.Definitions)))
+		c.lggr.Debugw("merging definitions", "source", sourceDefinition.Trigger.Source)
 		c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
 	}
 
+	c.lggr.Debugw("returning merged definitions", "definitions", merged)
 	return merged
 }
