@@ -16,7 +16,6 @@ import (
 
 type JDConfig struct {
 	GRPC     string
-	WSRPC    string
 	Creds    credentials.TransportCredentials
 	Auth     oauth2.TokenSource
 	NodeInfo []NodeInfo
@@ -33,7 +32,6 @@ type JobDistributor struct {
 func NewJDClient(ctx context.Context, cfg JDConfig) (cldf_offchain.Client, error) {
 	jdConfig := jd.JDConfig{
 		GRPC:  cfg.GRPC,
-		WSRPC: cfg.WSRPC,
 		Creds: cfg.Creds,
 		Auth:  cfg.Auth,
 	}

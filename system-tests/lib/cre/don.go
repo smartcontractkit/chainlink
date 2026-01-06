@@ -660,7 +660,6 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd *jd.JobDistributor) 
 	}
 	return n.Clients.GQLClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
-		Uri:       jd.WSRPC,
 		PublicKey: csaKey,
 	})
 }

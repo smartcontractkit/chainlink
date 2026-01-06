@@ -69,7 +69,6 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 
 	jdConfig := jd.JDConfig{
 		GRPC:  envArtifact.JdConfig.ExternalGRPCUrl,
-		WSRPC: envArtifact.JdConfig.ExternalGRPCUrl,
 		Creds: insecure.NewCredentials(),
 	}
 

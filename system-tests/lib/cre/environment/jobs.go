@@ -104,7 +104,6 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 
 	jdConfig := cldf_jd.JDConfig{
 		GRPC:  jdOutput.ExternalGRPCUrl,
-		WSRPC: jdOutput.InternalWSRPCUrl,
 		Creds: creds,
 	}
 

@@ -457,18 +457,15 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 	chains := CreateChainConfigFromNetworks(t, env, privateEthereumNetworks, cfg.GetNetworkConfig())
 
 	jdConfig := devenv.JDConfig{
-		GRPC:  cfg.CCIP.JobDistributorConfig.GetJDGRPC(),
-		WSRPC: cfg.CCIP.JobDistributorConfig.GetJDWSRPC(),
+		GRPC: cfg.CCIP.JobDistributorConfig.GetJDGRPC(),
 	}
 	// TODO : move this as a part of test_env setup with an input in testconfig
 	// if JD is not provided, we will spin up a new JD
-	if jdConfig.GRPC == "" || jdConfig.WSRPC == "" {
+	if jdConfig.GRPC == "" {
 		jd := env.JobDistributor
 		require.NotNil(t, jd, "JD is not found in test environment")
 		jdConfig = devenv.JDConfig{
-			GRPC: jd.Grpc,
-			// we will use internal wsrpc for nodes on same docker network to connect to JD
-			WSRPC: jd.InternalWSRPC,
+			GRPC:  jd.Grpc,
 			Creds: insecure.NewCredentials(),
 		}
 	}
