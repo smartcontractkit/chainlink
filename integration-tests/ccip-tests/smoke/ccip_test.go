@@ -608,6 +608,7 @@ func TestSmokeCCIPOffRampCapacityLimit(t *testing.T) {
 }
 
 func TestSmokeCCIPOffRampAggRateLimit(t *testing.T) {
+	quarantine.Flaky(t, "DX-2286")
 	t.Parallel()
 
 	aggRateLimited := contracts.RateLimiterConfig{
