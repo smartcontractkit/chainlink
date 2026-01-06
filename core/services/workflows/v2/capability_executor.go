@@ -43,10 +43,19 @@ type ExecutionHelper struct {
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	c.chainAllowed = limiters.ChainAllowed
 	c.callLimiters = map[capCall]limits.BoundLimiter[int]{
-		{"consensus", "Simple"}:         limiters.ConsensusCalls,
-		{"consensus", "Report"}:         limiters.ConsensusCalls,
-		{"evm", "FilterLogs"}:           limiters.ChainReadCalls,
-		{"evm", "WriteReport"}:          limiters.ChainWriteTargets,
+		{"consensus", "Simple"}: limiters.ConsensusCalls,
+		{"consensus", "Report"}: limiters.ConsensusCalls,
+
+		{"evm", "CallContract"}:          limiters.ChainReadCalls,
+		{"evm", "FilterLogs"}:            limiters.ChainReadCalls,
+		{"evm", "BalanceAt"}:             limiters.ChainReadCalls,
+		{"evm", "EstimateGas"}:           limiters.ChainReadCalls,
+		{"evm", "GetTransactionByHash"}:  limiters.ChainReadCalls,
+		{"evm", "GetTransactionReceipt"}: limiters.ChainReadCalls,
+		{"evm", "HeaderByNumber"}:        limiters.ChainReadCalls,
+
+		{"evm", "WriteReport"}: limiters.ChainWriteTargets,
+
 		{"http-actions", "SendRequest"}: limiters.HTTPActionCalls,
 	}
 }
