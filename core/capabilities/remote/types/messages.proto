@@ -42,8 +42,18 @@ message MessageBody {
   string capability_method = 17; // method name defined by the capability (empty for legacy "v1" calls)
 }
 
+enum RegistrationStatus {
+  UNREGISTERED = 0;
+  REGISTERED = 1;
+  REGISTRATION_ERROR = 2;
+}
+
 message TriggerRegistrationMetadata {
   string last_received_event_id = 1;
+  string trigger_id =2;
+  string workflow_id = 3;
+  RegistrationStatus status = 4;
+  string registration_error = 5;
 }
 
 message TriggerEventMetadata {

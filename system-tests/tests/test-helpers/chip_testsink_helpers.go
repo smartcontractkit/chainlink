@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -607,6 +608,54 @@ func WaitForBaseMessage(
 				Str("expected_log", needle).
 				Str("found_message", strings.TrimSpace(msg.Msg)).
 				Msg("[soft assertion] Received BaseMessage message, but it does not match expected log")
+		}
+	}
+}
+
+func WaitForBaseMessageAndLabels(
+	ctx context.Context,
+	t *testing.T,
+	testLogger zerolog.Logger,
+	publishCh <-chan *commonevents.BaseMessage,
+	expectedMessage string,
+	labels []string,
+	needles []string,
+) (*commonevents.BaseMessage, error) {
+	require.Len(t, labels, len(needles))
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, context.Cause(ctx)
+		case msg := <-publishCh:
+
+			if strings.Contains(msg.Msg, "heartbeat") {
+				continue
+			}
+
+			if !strings.Contains(msg.Msg, expectedMessage) {
+				continue
+			}
+
+			allNeedlesPresent := true
+			for i, label := range labels {
+				if !strings.Contains(msg.Labels[label], needles[i]) {
+					allNeedlesPresent = false
+					break
+				}
+			}
+
+			if allNeedlesPresent {
+				return msg, nil
+			}
+
+			warnMsg := "[soft assertion] Received BaseMessage message without matching labels " + strings.Join(labels, ",")
+			testLogger.Warn().
+				Str("expected_labels", strings.Join(labels, ",")).
+				Str("expected_label_values", strings.Join(needles, ",")).
+				Str("found_labels", fmt.Sprintf("%v", msg.Labels)).
+				Str("found_message", strings.TrimSpace(msg.Msg)).
+				Msg(warnMsg)
 		}
 	}
 }

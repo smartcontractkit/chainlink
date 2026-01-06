@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"strings"
 
 	"slices"
@@ -374,6 +375,63 @@ func snapshotTriggerStats(ctx context.Context, db *sql.DB) (tableStats, error) {
 		  WHERE relname = 'trigger_pending_events'`,
 	).Scan(&s.inserts, &s.deletes)
 	return s, err
+}
+
+// ExecuteEVMLogTriggerUserErrorTest purposefully causes a user error in the log trigger workflow and checks that the
+// error is found in the beholder logs with the correct visibility, origin and code. This ensures that user errors from
+// remote and local log trigger workflows are correctly reported.
+func ExecuteEVMLogTriggerUserErrorTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	const workflowFileLocation = "./evm/logtrigger/main.go"
+	lggr := framework.L
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/evm_log_trigger_user_err.log"))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
+	chainsToTest := make(map[string]blockchains.Blockchain)
+
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
+		if _, ok := enabledChains[chainID]; !ok {
+			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM LogTrigger workflow test", chainID)
+			continue
+		}
+		chainsToTest[chainID] = bcOutput
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 4*time.Minute)
+	defer cancel()
+	for chainID, bcOutput := range chainsToTest {
+		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
+		workflowConfig, _ := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
+
+		// Passing in empty addresses should cause the workflow to fail with a user error
+		workflowConfig.Addresses = nil
+
+		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
+		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+		// Wait for a beholder message containing the user error "no valid addresses provided (at least one address is required)"
+		expectedBeholderLog := "no valid addresses provided (at least one address is required)"
+
+		_, err := t_helpers.WaitForBaseMessageAndLabels(ctx, t, lggr, baseMessageCh, "Trigger registration failed due to user error", []string{"userErr", "triggerID"},
+			[]string{expectedBeholderLog, strconv.FormatUint(bcOutput.ChainSelector(), 10)})
+		if err != nil {
+			lggr.Error().Msgf("failed to find expected user log error message: %v", err)
+		}
+		require.NoError(t, err, "failed to find expected base message")
+	}
+
+	lggr.Info().Msg("EVM Trigger user error test completed successfully, found expected error message in beholder logs")
 }
 
 func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {

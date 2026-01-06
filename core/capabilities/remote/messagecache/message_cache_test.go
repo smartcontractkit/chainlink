@@ -22,23 +22,26 @@ func TestMessageCache_InsertReady(t *testing.T) {
 	// not ready with one message
 	ts := cache.Insert(eventID1, peerID1, 100, []byte(payloadA))
 	require.Equal(t, int64(100), ts)
-	ready, _ := cache.Ready(eventID1, 2, 100, true)
+	ready, _, _ := cache.Ready(eventID1, 2, 100, true)
 	require.False(t, ready)
 
 	// not ready with two messages but only one fresh enough
 	ts = cache.Insert(eventID1, peerID2, 200, []byte(payloadA))
 	require.Equal(t, int64(100), ts)
-	ready, _ = cache.Ready(eventID1, 2, 150, true)
+	ready, _, _ = cache.Ready(eventID1, 2, 150, true)
 	require.False(t, ready)
 
 	// ready with two messages (once only)
-	ready, messages := cache.Ready(eventID1, 2, 100, true)
+	ready, peers, messages := cache.Ready(eventID1, 2, 100, true)
 	require.True(t, ready)
 	require.Equal(t, []byte(payloadA), messages[0])
 	require.Equal(t, []byte(payloadA), messages[1])
 
+	require.Contains(t, peers, peerID1)
+	require.Contains(t, peers, peerID2)
+
 	// not ready again for the same event ID
-	ready, _ = cache.Ready(eventID1, 2, 100, true)
+	ready, _, _ = cache.Ready(eventID1, 2, 100, true)
 	require.False(t, ready)
 }
 

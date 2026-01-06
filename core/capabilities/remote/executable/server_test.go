@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/e2etesting"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -325,7 +326,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := range numCapabilityPeers {
-		capabilityPeerID := NewP2PPeerID(t)
+		capabilityPeerID := e2etesting.NewP2PPeerID(t)
 		capabilityPeers[i] = capabilityPeerID
 	}
 
@@ -344,7 +345,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := range numWorkflowPeers {
-		workflowPeers[i] = NewP2PPeerID(t)
+		workflowPeers[i] = e2etesting.NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -354,7 +355,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	}
 
 	var srvcs []services.Service
-	broker := newTestAsyncMessageBroker(t, 1000)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 1000)
 	err := broker.Start(t.Context())
 	require.NoError(t, err)
 	srvcs = append(srvcs, broker)
@@ -445,10 +446,10 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 
 func Test_Server_SetConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	peerID := NewP2PPeerID(t)
+	peerID := e2etesting.NewP2PPeerID(t)
 
 	// Create broker and dispatcher
-	broker := newTestAsyncMessageBroker(t, 100)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
 	dispatcher := broker.NewDispatcherForNode(peerID)
 
 	// Create server instance
@@ -470,7 +471,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	workflowDONs := map[uint32]commoncap.DON{
 		2: {
 			ID:      2,
-			Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+			Members: []p2ptypes.PeerID{e2etesting.NewP2PPeerID(t)},
 			F:       0,
 		},
 	}
@@ -572,8 +573,8 @@ func Test_Server_SetConfig(t *testing.T) {
 
 func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	lggr := logger.Test(t)
-	peerID := NewP2PPeerID(t)
-	broker := newTestAsyncMessageBroker(t, 100)
+	peerID := e2etesting.NewP2PPeerID(t)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
 	dispatcher := broker.NewDispatcherForNode(peerID)
 	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 
@@ -592,7 +593,7 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	workflowDONs := map[uint32]commoncap.DON{
 		2: {
 			ID:      2,
-			Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+			Members: []p2ptypes.PeerID{e2etesting.NewP2PPeerID(t)},
 			F:       0,
 		},
 	}
@@ -632,8 +633,8 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 
 	t.Run("Start without SetConfig should fail", func(t *testing.T) {
 		lggr := logger.Test(t)
-		peerID := NewP2PPeerID(t)
-		broker := newTestAsyncMessageBroker(t, 100)
+		peerID := e2etesting.NewP2PPeerID(t)
+		broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
 		dispatcher := broker.NewDispatcherForNode(peerID)
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 
@@ -644,8 +645,8 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 
 	t.Run("Start with valid config should succeed", func(t *testing.T) {
 		lggr := logger.Test(t)
-		peerID := NewP2PPeerID(t)
-		broker := newTestAsyncMessageBroker(t, 100)
+		peerID := e2etesting.NewP2PPeerID(t)
+		broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
 		dispatcher := broker.NewDispatcherForNode(peerID)
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 
@@ -665,7 +666,7 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 		workflowDONs := map[uint32]commoncap.DON{
 			2: {
 				ID:      2,
-				Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+				Members: []p2ptypes.PeerID{e2etesting.NewP2PPeerID(t)},
 				F:       0,
 			},
 		}
@@ -691,8 +692,8 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
-	peerID := NewP2PPeerID(t)
-	broker := newTestAsyncMessageBroker(t, 100)
+	peerID := e2etesting.NewP2PPeerID(t)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
 	dispatcher := broker.NewDispatcherForNode(peerID)
 	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 
@@ -708,8 +709,8 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 		F:       0,
 	}
 
-	workflowPeer1 := NewP2PPeerID(t)
-	workflowPeer2 := NewP2PPeerID(t)
+	workflowPeer1 := e2etesting.NewP2PPeerID(t)
+	workflowPeer2 := e2etesting.NewP2PPeerID(t)
 	workflowDONs := map[uint32]commoncap.DON{
 		2: {
 			ID:      2,
@@ -779,8 +780,8 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
-	peerID := NewP2PPeerID(t)
-	broker := newTestAsyncMessageBroker(t, 100)
+	peerID := e2etesting.NewP2PPeerID(t)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
 	dispatcher := broker.NewDispatcherForNode(peerID)
 	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 
@@ -799,7 +800,7 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 	workflowDONs := map[uint32]commoncap.DON{
 		2: {
 			ID:      2,
-			Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+			Members: []p2ptypes.PeerID{e2etesting.NewP2PPeerID(t)},
 			F:       0,
 		},
 	}
@@ -846,7 +847,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	lggr := logger.Test(t)
 	numWorkflowPeers := 4
 
-	peerID := NewP2PPeerID(t)
+	peerID := e2etesting.NewP2PPeerID(t)
 	capabilityPeers := []p2ptypes.PeerID{peerID}
 
 	capDonInfo := commoncap.DON{
@@ -864,7 +865,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := range numWorkflowPeers {
-		workflowPeers[i] = NewP2PPeerID(t)
+		workflowPeers[i] = e2etesting.NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -873,7 +874,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 		F:       1,
 	}
 
-	broker := newTestAsyncMessageBroker(t, 1000)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 1000)
 	err := broker.Start(t.Context())
 	require.NoError(t, err)
 	defer broker.Close()
@@ -1005,8 +1006,8 @@ func Test_Server_DuplicateRequestRemainsDedupedPastRequestTimeout(t *testing.T) 
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 
-	serverPeerID := NewP2PPeerID(t)
-	senderPeerID := NewP2PPeerID(t)
+	serverPeerID := e2etesting.NewP2PPeerID(t)
+	senderPeerID := e2etesting.NewP2PPeerID(t)
 
 	dispatcher := &noopDispatcher{}
 	server := executable.NewServer("cap_id@1.0.0", "", serverPeerID, dispatcher, lggr)

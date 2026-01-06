@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -132,6 +133,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			limits.NewTimeLimiter(0),
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -181,6 +183,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			limits.NewTimeLimiter(0),
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -225,6 +228,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			limits.NewTimeLimiter(0),
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -248,6 +252,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			limits.NewTimeLimiter(0),
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -329,6 +334,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -372,7 +378,8 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		},
 	}
 	triggerEventCallbackCh, err := remoteTriggerSubscriber.RegisterTrigger(ctx, req)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, capabilities.ErrUnableToDetermineRegistrationStatus)
+
 	<-awaitRegistrationMessageCh
 
 	// Receive trigger event
@@ -425,6 +432,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -483,6 +491,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -544,6 +553,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -614,6 +624,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -677,6 +688,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -735,7 +747,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	tt := NewTestTopology(pid, 4, 4)
 	wfDONID, capDONID, mixedDONID := registrysyncer.DonID(7), registrysyncer.DonID(12), registrysyncer.DonID(33)
 	localRegistry := tt.MakeLocalRegistry(uint32(wfDONID), uint32(capDONID), uint32(mixedDONID), RandomUTF8BytesWord(), fullTriggerCapID)
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.NewTimeLimiter(0))
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Times(3)
@@ -817,7 +829,8 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	addDON(localRegistry, capDONZoneBID, uint32(0), uint8(1), true, false, capabilityDonNodesZoneB, []string{"zone-b"}, 1, [][32]byte{triggerCapID})
 	addCapabilityToDON(localRegistry, capDONZoneBID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{},
+		limits.NewTimeLimiter(0))
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -920,6 +933,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	launcher.p2pStreamConfig = customStreamConfig
@@ -1074,6 +1088,7 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -1190,6 +1205,7 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	launcher.SetLocalCapabilityManager(mockLCM)
@@ -1233,6 +1249,7 @@ func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
+		limits.NewTimeLimiter(0),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))

@@ -8,9 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -91,8 +96,13 @@ func TestStreamsTrigger(t *testing.T) {
 	config := &capabilities.RemoteTriggerConfig{
 		MinResponsesToAggregate: uint32(F + 1),
 	}
-	subscriber := remote.NewTriggerSubscriber(triggerID, "method", nil, lggr)
+	dispatcher := mocks.NewDispatcher(t)
+
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
+	subscriber := remote.NewTriggerSubscriber(triggerID, "method", dispatcher, lggr,
+		limits.NewTimeLimiter(0))
 	require.NoError(t, subscriber.SetConfig(config, capInfo, 1, capDonInfo, agg))
+	servicetest.Run(t, subscriber)
 
 	// register trigger
 	req := capabilities.TriggerRegistrationRequest{
@@ -101,7 +111,7 @@ func TestStreamsTrigger(t *testing.T) {
 		},
 	}
 	triggerEventCallbackCh, err := subscriber.RegisterTrigger(ctx, req)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, capabilities.ErrUnableToDetermineRegistrationStatus)
 
 	// send and process all trigger events
 	startTs := time.Now().UnixMilli()

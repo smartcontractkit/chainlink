@@ -43,31 +43,33 @@ func (c *MessageCache[EventID, PeerID]) Insert(eventID EventID, peerID PeerID, t
 // received more recently than <minTimestamp>.
 // Return all messages that satisfy the above condition.
 // Ready() will return true at most once per event if <once> is true.
-func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, minTimestamp int64, once bool) (bool, [][]byte) {
+func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, minTimestamp int64, once bool) (bool, []PeerID, [][]byte) {
 	ev, ok := c.events[eventID]
 	if !ok {
-		return false, nil
+		return false, nil, nil
 	}
 	if ev.wasReady && once {
-		return false, nil
+		return false, nil, nil
 	}
 	//nolint:gosec // G115
 	if uint32(len(ev.peerMsgs)) < minCount {
-		return false, nil
+		return false, nil, nil
 	}
 	countAboveMinTimestamp := uint32(0)
+	var peers []PeerID
 	accPayloads := [][]byte{}
-	for _, msg := range ev.peerMsgs {
+	for peer, msg := range ev.peerMsgs {
 		if msg.timestamp >= minTimestamp {
 			countAboveMinTimestamp++
 			accPayloads = append(accPayloads, msg.payload)
+			peers = append(peers, peer)
 		}
 	}
 	if countAboveMinTimestamp >= minCount {
 		ev.wasReady = true
-		return true, accPayloads
+		return true, peers, accPayloads
 	}
-	return false, nil
+	return false, nil, nil
 }
 
 func (c *MessageCache[EventID, PeerID]) Delete(eventID EventID) {

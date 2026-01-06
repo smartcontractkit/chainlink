@@ -79,6 +79,55 @@ func (Error) EnumDescriptor() ([]byte, []int) {
 	return file_core_capabilities_remote_types_messages_proto_rawDescGZIP(), []int{0}
 }
 
+type RegistrationStatus int32
+
+const (
+	RegistrationStatus_UNREGISTERED       RegistrationStatus = 0
+	RegistrationStatus_REGISTERED         RegistrationStatus = 1
+	RegistrationStatus_REGISTRATION_ERROR RegistrationStatus = 2
+)
+
+// Enum value maps for RegistrationStatus.
+var (
+	RegistrationStatus_name = map[int32]string{
+		0: "UNREGISTERED",
+		1: "REGISTERED",
+		2: "REGISTRATION_ERROR",
+	}
+	RegistrationStatus_value = map[string]int32{
+		"UNREGISTERED":       0,
+		"REGISTERED":         1,
+		"REGISTRATION_ERROR": 2,
+	}
+)
+
+func (x RegistrationStatus) Enum() *RegistrationStatus {
+	p := new(RegistrationStatus)
+	*p = x
+	return p
+}
+
+func (x RegistrationStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RegistrationStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_capabilities_remote_types_messages_proto_enumTypes[1].Descriptor()
+}
+
+func (RegistrationStatus) Type() protoreflect.EnumType {
+	return &file_core_capabilities_remote_types_messages_proto_enumTypes[1]
+}
+
+func (x RegistrationStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RegistrationStatus.Descriptor instead.
+func (RegistrationStatus) EnumDescriptor() ([]byte, []int) {
+	return file_core_capabilities_remote_types_messages_proto_rawDescGZIP(), []int{1}
+}
+
 type Message struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Signature     []byte                 `protobuf:"bytes,1,opt,name=signature,proto3" json:"signature,omitempty"`
@@ -321,6 +370,10 @@ func (*MessageBody_TriggerEventMetadata) isMessageBody_Metadata() {}
 type TriggerRegistrationMetadata struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	LastReceivedEventId string                 `protobuf:"bytes,1,opt,name=last_received_event_id,json=lastReceivedEventId,proto3" json:"last_received_event_id,omitempty"`
+	TriggerId           string                 `protobuf:"bytes,2,opt,name=trigger_id,json=triggerId,proto3" json:"trigger_id,omitempty"`
+	WorkflowId          string                 `protobuf:"bytes,3,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	Status              RegistrationStatus     `protobuf:"varint,4,opt,name=status,proto3,enum=remote.RegistrationStatus" json:"status,omitempty"`
+	RegistrationError   string                 `protobuf:"bytes,5,opt,name=registration_error,json=registrationError,proto3" json:"registration_error,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -358,6 +411,34 @@ func (*TriggerRegistrationMetadata) Descriptor() ([]byte, []int) {
 func (x *TriggerRegistrationMetadata) GetLastReceivedEventId() string {
 	if x != nil {
 		return x.LastReceivedEventId
+	}
+	return ""
+}
+
+func (x *TriggerRegistrationMetadata) GetTriggerId() string {
+	if x != nil {
+		return x.TriggerId
+	}
+	return ""
+}
+
+func (x *TriggerRegistrationMetadata) GetWorkflowId() string {
+	if x != nil {
+		return x.WorkflowId
+	}
+	return ""
+}
+
+func (x *TriggerRegistrationMetadata) GetStatus() RegistrationStatus {
+	if x != nil {
+		return x.Status
+	}
+	return RegistrationStatus_UNREGISTERED
+}
+
+func (x *TriggerRegistrationMetadata) GetRegistrationError() string {
+	if x != nil {
+		return x.RegistrationError
 	}
 	return ""
 }
@@ -449,9 +530,15 @@ const file_core_capabilities_remote_types_messages_proto_rawDesc = "" +
 	"\rcaller_don_id\x18\x10 \x01(\rR\vcallerDonId\x12+\n" +
 	"\x11capability_method\x18\x11 \x01(\tR\x10capabilityMethodB\n" +
 	"\n" +
-	"\bmetadataJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"R\n" +
+	"\bmetadataJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"\xf5\x01\n" +
 	"\x1bTriggerRegistrationMetadata\x123\n" +
-	"\x16last_received_event_id\x18\x01 \x01(\tR\x13lastReceivedEventId\"\x84\x01\n" +
+	"\x16last_received_event_id\x18\x01 \x01(\tR\x13lastReceivedEventId\x12\x1d\n" +
+	"\n" +
+	"trigger_id\x18\x02 \x01(\tR\ttriggerId\x12\x1f\n" +
+	"\vworkflow_id\x18\x03 \x01(\tR\n" +
+	"workflowId\x122\n" +
+	"\x06status\x18\x04 \x01(\x0e2\x1a.remote.RegistrationStatusR\x06status\x12-\n" +
+	"\x12registration_error\x18\x05 \x01(\tR\x11registrationError\"\x84\x01\n" +
 	"\x14TriggerEventMetadata\x12(\n" +
 	"\x10trigger_event_id\x18\x01 \x01(\tR\x0etriggerEventId\x12!\n" +
 	"\fworkflow_ids\x18\x02 \x03(\tR\vworkflowIds\x12\x1f\n" +
@@ -463,7 +550,12 @@ const file_core_capabilities_remote_types_messages_proto_rawDesc = "" +
 	"\x14CAPABILITY_NOT_FOUND\x10\x02\x12\x13\n" +
 	"\x0fINVALID_REQUEST\x10\x03\x12\v\n" +
 	"\aTIMEOUT\x10\x04\x12\x12\n" +
-	"\x0eINTERNAL_ERROR\x10\x05B Z\x1ecore/capabilities/remote/typesb\x06proto3"
+	"\x0eINTERNAL_ERROR\x10\x05*N\n" +
+	"\x12RegistrationStatus\x12\x10\n" +
+	"\fUNREGISTERED\x10\x00\x12\x0e\n" +
+	"\n" +
+	"REGISTERED\x10\x01\x12\x16\n" +
+	"\x12REGISTRATION_ERROR\x10\x02B Z\x1ecore/capabilities/remote/typesb\x06proto3"
 
 var (
 	file_core_capabilities_remote_types_messages_proto_rawDescOnce sync.Once
@@ -477,24 +569,26 @@ func file_core_capabilities_remote_types_messages_proto_rawDescGZIP() []byte {
 	return file_core_capabilities_remote_types_messages_proto_rawDescData
 }
 
-var file_core_capabilities_remote_types_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_capabilities_remote_types_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_core_capabilities_remote_types_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_capabilities_remote_types_messages_proto_goTypes = []any{
 	(Error)(0),                          // 0: remote.Error
-	(*Message)(nil),                     // 1: remote.Message
-	(*MessageBody)(nil),                 // 2: remote.MessageBody
-	(*TriggerRegistrationMetadata)(nil), // 3: remote.TriggerRegistrationMetadata
-	(*TriggerEventMetadata)(nil),        // 4: remote.TriggerEventMetadata
+	(RegistrationStatus)(0),             // 1: remote.RegistrationStatus
+	(*Message)(nil),                     // 2: remote.Message
+	(*MessageBody)(nil),                 // 3: remote.MessageBody
+	(*TriggerRegistrationMetadata)(nil), // 4: remote.TriggerRegistrationMetadata
+	(*TriggerEventMetadata)(nil),        // 5: remote.TriggerEventMetadata
 }
 var file_core_capabilities_remote_types_messages_proto_depIdxs = []int32{
 	0, // 0: remote.MessageBody.error:type_name -> remote.Error
-	3, // 1: remote.MessageBody.trigger_registration_metadata:type_name -> remote.TriggerRegistrationMetadata
-	4, // 2: remote.MessageBody.trigger_event_metadata:type_name -> remote.TriggerEventMetadata
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 1: remote.MessageBody.trigger_registration_metadata:type_name -> remote.TriggerRegistrationMetadata
+	5, // 2: remote.MessageBody.trigger_event_metadata:type_name -> remote.TriggerEventMetadata
+	1, // 3: remote.TriggerRegistrationMetadata.status:type_name -> remote.RegistrationStatus
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_capabilities_remote_types_messages_proto_init() }
@@ -511,7 +605,7 @@ func file_core_capabilities_remote_types_messages_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_capabilities_remote_types_messages_proto_rawDesc), len(file_core_capabilities_remote_types_messages_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -207,6 +208,7 @@ func (s *Services) newSubservices(
 		ds,
 		opts,
 		dispatcherWrapper,
+		opts.LimitsFactory,
 	)
 	if err != nil {
 		return nil, err
@@ -362,6 +364,7 @@ func (s *Services) newRegistrySyncer(
 	ds sqlutil.DataSource,
 	opts Opts,
 	dispatcherWrapper *dispatcherWrapper,
+	lf limits.Factory,
 ) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, error) {
 	var srvcs []commonsrv.Service
 
@@ -392,6 +395,12 @@ func (s *Services) newRegistrySyncer(
 		return nil, nil, err
 	}
 
+	registrationStatusUpdateTimeout := cresettings.Default.TriggerRegistrationStatusUpdateTimeout
+	triggerRegistrationStatusUpdateTimeOut, err := lf.MakeTimeLimiter(registrationStatusUpdateTimeout)
+	if err != nil {
+		return nil, nil, errors.New("could not create trigger registration status update timeout limiter: " + err.Error())
+	}
+
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
 		dispatcherWrapper.externalPeerWrapper,
@@ -400,6 +409,7 @@ func (s *Services) newRegistrySyncer(
 		dispatcherWrapper.dispatcher,
 		opts.CapabilitiesRegistry,
 		donNotifier,
+		triggerRegistrationStatusUpdateTimeOut,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)

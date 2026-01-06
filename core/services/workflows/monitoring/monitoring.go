@@ -16,23 +16,24 @@ import (
 // em AKA "engine metrics" is to locally scope these instruments to avoid
 // data races in testing
 type EngineMetrics struct {
-	registerTriggerFailureCounter            metric.Int64Counter
-	triggerWorkflowStarterErrorCounter       metric.Int64Counter
-	workflowsRunningGauge                    metric.Int64Gauge
-	capabilityInvocationCounter              metric.Int64Counter
-	capabilityFailureCounter                 metric.Int64Counter
-	capabilityUserErrorCounter               metric.Int64Counter
-	workflowRegisteredCounter                metric.Int64Counter
-	workflowUnregisteredCounter              metric.Int64Counter
-	workflowExecutionRateLimitGlobalCounter  metric.Int64Counter
-	workflowExecutionRateLimitPerUserCounter metric.Int64Counter
-	workflowLimitGlobalCounter               metric.Int64Counter
-	workflowLimitPerOwnerCounter             metric.Int64Counter
-	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
-	workflowStepErrorCounter                 metric.Int64Counter
-	workflowInitializationCounter            metric.Int64Counter
-	workflowTriggerEventErrorCounter         metric.Int64Counter
-	workflowTriggerEventQueueFullCounter     metric.Int64Counter
+	registerTriggerFailureCounter               metric.Int64Counter
+	registerTriggerFailureDueToUserErrorCounter metric.Int64Counter
+	triggerWorkflowStarterErrorCounter          metric.Int64Counter
+	workflowsRunningGauge                       metric.Int64Gauge
+	capabilityInvocationCounter                 metric.Int64Counter
+	capabilityFailureCounter                    metric.Int64Counter
+	capabilityUserErrorCounter                  metric.Int64Counter
+	workflowRegisteredCounter                   metric.Int64Counter
+	workflowUnregisteredCounter                 metric.Int64Counter
+	workflowExecutionRateLimitGlobalCounter     metric.Int64Counter
+	workflowExecutionRateLimitPerUserCounter    metric.Int64Counter
+	workflowLimitGlobalCounter                  metric.Int64Counter
+	workflowLimitPerOwnerCounter                metric.Int64Counter
+	workflowExecutionLatencyGauge               metric.Int64Gauge // ms
+	workflowStepErrorCounter                    metric.Int64Counter
+	workflowInitializationCounter               metric.Int64Counter
+	workflowTriggerEventErrorCounter            metric.Int64Counter
+	workflowTriggerEventQueueFullCounter        metric.Int64Counter
 
 	// Deprecated: use the gauge instead
 	engineHeartbeatCounter metric.Int64Counter
@@ -85,6 +86,11 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger failure counter: %w", err)
+	}
+
+	em.registerTriggerFailureDueToUserErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_user_error_failures")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger failure due to user error counter: %w", err)
 	}
 
 	em.triggerWorkflowStarterErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_triggerworkflow_starter_errors")
@@ -341,8 +347,13 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowLimitPerOwnerCounter(ctx contex
 }
 
 func (c WorkflowsMetricLabeler) IncrementRegisterTriggerFailureCounter(ctx context.Context) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementRegisterTriggerFailureDueToUserErrorCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.registerTriggerFailureDueToUserErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {

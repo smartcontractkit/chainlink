@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/trigger/registration"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -33,11 +33,9 @@ type triggerPublisher struct {
 	dispatcher    types.Dispatcher
 	cfg           atomic.Pointer[dynamicPublisherConfig]
 
-	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
-	registrations map[registrationKey]*pubRegState
+	registrations map[registration.ID]*registration.PublisherRegistration
 	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
 	mu            sync.RWMutex // protects messageCache, ackCache, and registrations
-
 	batchingQueue map[[32]byte]*batchedResponse
 	bqMu          sync.Mutex // protects batchingQueue
 	stopCh        services.StopChan
@@ -54,22 +52,10 @@ type dynamicPublisherConfig struct {
 	batchingEnabled bool
 }
 
-type registrationKey struct {
-	callerDonID uint32
-	workflowID  string
-	triggerID   string
-}
-
 type ackKey struct {
 	callerDonID    uint32
 	triggerEventID string
 	triggerID      string // triggerID contains the workflowID
-}
-
-type pubRegState struct {
-	callback <-chan commoncap.TriggerResponse
-	request  commoncap.TriggerRegistrationRequest
-	cancel   context.CancelFunc
 }
 
 type batchedResponse struct {
@@ -95,9 +81,8 @@ func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher t
 		capabilityID:  capabilityID,
 		capMethodName: capMethodName,
 		dispatcher:    dispatcher,
-		messageCache:  messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		ackCache:      messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
-		registrations: make(map[registrationKey]*pubRegState),
+		registrations: make(map[registration.ID]*registration.PublisherRegistration),
 		batchingQueue: make(map[[32]byte]*batchedResponse),
 		stopCh:        make(services.StopChan),
 		lggr:          logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
@@ -211,48 +196,23 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			return
 		}
 		p.lggr.Debugw("received trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "sender", sender)
-		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID, req.TriggerID}
-		nowMs := time.Now().UnixMilli()
+		regID := registration.NewID(msg.CallerDonId, req.Metadata.WorkflowID, req.TriggerID)
 		p.mu.Lock()
 		defer p.mu.Unlock()
-		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
-		_, exists := p.registrations[key]
-		if exists {
-			p.lggr.Debugw("trigger registration already exists", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
-			return
-		}
-		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
-		minRequired := uint32(2*callerDon.F + 1)
-		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
-		if !ready {
-			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "minRequired", minRequired)
-			return
-		}
-		aggregated, err := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
-		if err != nil {
-			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
-			return
-		}
-		unmarshaled, err := pb.UnmarshalTriggerRegistrationRequest(aggregated)
-		if err != nil {
-			p.lggr.Errorw("failed to unmarshal request", "err", err)
-			return
-		}
-		ctx, cancel := p.stopCh.NewCtx()
-		callbackCh, err := cfg.underlying.RegisterTrigger(ctx, unmarshaled)
-		if err == nil {
-			p.registrations[key] = &pubRegState{
-				callback: callbackCh,
-				request:  unmarshaled,
-				cancel:   cancel,
-			}
-			p.wg.Add(1)
-			go p.triggerEventLoop(callbackCh, key)
-			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
+		reg, exists := p.registrations[regID]
+		if !exists {
+			p.lggr.Debugw("creating new trigger registration", "registrationID", regID)
+			reg = registration.NewPublisherRegistration(p.lggr, regID, p.publishResponse,
+				cfg.underlying,
+				p.capabilityID, cfg.capDonInfo.ID, p.capMethodName, p.dispatcher)
+
+			p.registrations[regID] = reg
 		} else {
-			cancel()
-			p.lggr.Errorw("failed to register trigger", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
+			p.lggr.Debugw("using existing trigger registration already exists", "registrationID", regID)
 		}
+
+		ctx, _ := p.stopCh.NewCtx()
+		reg.AddRegistrationRequest(ctx, sender, msg.Payload, callerDon, cfg.remoteConfig.RegistrationExpiry)
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
@@ -287,7 +247,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
+		ready, _, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
 		if !ready {
 			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return
@@ -333,19 +293,16 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			now := time.Now().UnixMilli()
 
 			p.mu.Lock()
-			for key, req := range p.registrations {
-				callerDon := cfg.workflowDONs[key.callerDonID]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
-				if !ready {
-					p.lggr.Infow("trigger registration expired", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID)
+			for regID, reg := range p.registrations {
+				callerDon := cfg.workflowDONs[regID.CallerDonID()]
+				if !reg.IsLive(cfg.remoteConfig.RegistrationExpiry, callerDon) {
+					p.lggr.Infow("trigger registration expired", "ID", regID)
 					ctx, cancel := p.stopCh.NewCtx()
-					err := cfg.underlying.UnregisterTrigger(ctx, req.request)
+					err := reg.Close(ctx)
 					cancel()
-					p.registrations[key].cancel() // Cancel context on register trigger
-					p.lggr.Infow("unregistered trigger", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID, "err", err)
+					p.lggr.Infow("unregistered trigger", "ID", regID, "err", err)
 					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
-					delete(p.registrations, key)
-					p.messageCache.Delete(key)
+					delete(p.registrations, regID)
 				}
 			}
 
@@ -359,47 +316,34 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 	}
 }
 
-func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerResponse, key registrationKey) {
-	defer p.wg.Done()
-	for {
-		select {
-		case <-p.stopCh:
-			return
-		case response, ok := <-callbackCh:
-			if !ok {
-				p.lggr.Infow("triggerEventLoop channel closed", "workflowId", key.workflowID, "triggerID", key.triggerID)
-				return
-			}
+func (p *triggerPublisher) publishResponse(registrationID registration.ID, response commoncap.TriggerResponse) {
+	triggerEvent := response.Event
+	p.lggr.Debugw("received trigger event", "registrationID", registrationID, "triggerEventID", triggerEvent.ID)
+	marshaledResponse, err := pb.MarshalTriggerResponse(response)
+	if err != nil {
+		p.lggr.Debugw("can't marshal trigger event", "err", err)
+		return
+	}
 
-			triggerEvent := response.Event
-			p.lggr.Debugw("received trigger event", "workflowId", key.workflowID, "triggerID", key.triggerID, "triggerEventID", triggerEvent.ID)
-			marshaledResponse, err := pb.MarshalTriggerResponse(response)
-			if err != nil {
-				p.lggr.Debugw("can't marshal trigger event", "err", err)
-				break
-			}
-
-			cfg := p.cfg.Load()
-			if cfg.batchingEnabled {
-				p.enqueueForBatching(marshaledResponse, key, triggerEvent.ID)
-			} else {
-				// a single-element "batch"
-				p.sendBatch(&batchedResponse{
-					rawResponse:    marshaledResponse,
-					callerDonID:    key.callerDonID,
-					triggerEventID: triggerEvent.ID,
-					workflowIDs:    []string{key.workflowID},
-					triggerIDs:     []string{key.triggerID},
-				})
-			}
-		}
+	cfg := p.cfg.Load()
+	if cfg.batchingEnabled {
+		p.enqueueForBatching(marshaledResponse, registrationID, triggerEvent.ID)
+	} else {
+		// a single-element "batch"
+		p.sendBatch(&batchedResponse{
+			rawResponse:    marshaledResponse,
+			callerDonID:    registrationID.CallerDonID(),
+			triggerEventID: triggerEvent.ID,
+			workflowIDs:    []string{registrationID.WorkflowID()},
+			triggerIDs:     []string{registrationID.TriggerID()},
+		})
 	}
 }
 
-func (p *triggerPublisher) enqueueForBatching(rawResponse []byte, key registrationKey, triggerEventID string) {
+func (p *triggerPublisher) enqueueForBatching(rawResponse []byte, registrationID registration.ID, triggerEventID string) {
 	// put in batching queue, group by hash(callerDonId, triggerEventID, response)
 	combined := make([]byte, 4)
-	binary.LittleEndian.PutUint32(combined, key.callerDonID)
+	binary.LittleEndian.PutUint32(combined, registrationID.CallerDonID())
 	combined = append(combined, []byte(triggerEventID)...)
 	combined = append(combined, rawResponse...)
 	sha := sha256.Sum256(combined)
@@ -408,15 +352,15 @@ func (p *triggerPublisher) enqueueForBatching(rawResponse []byte, key registrati
 	if !exists {
 		elem = &batchedResponse{
 			rawResponse:    rawResponse,
-			callerDonID:    key.callerDonID,
+			callerDonID:    registrationID.CallerDonID(),
 			triggerEventID: triggerEventID,
-			workflowIDs:    []string{key.workflowID},
-			triggerIDs:     []string{key.triggerID},
+			workflowIDs:    []string{registrationID.WorkflowID()},
+			triggerIDs:     []string{registrationID.TriggerID()},
 		}
 		p.batchingQueue[sha] = elem
 	} else {
-		elem.workflowIDs = append(elem.workflowIDs, key.workflowID)
-		elem.triggerIDs = append(elem.triggerIDs, key.triggerID)
+		elem.workflowIDs = append(elem.workflowIDs, registrationID.WorkflowID())
+		elem.triggerIDs = append(elem.triggerIDs, registrationID.TriggerID())
 	}
 	p.bqMu.Unlock()
 }
@@ -548,6 +492,17 @@ func (p *triggerPublisher) batchingLoop() {
 func (p *triggerPublisher) Close() error {
 	close(p.stopCh)
 	p.wg.Wait()
+
+	// Close all registrations
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, reg := range p.registrations {
+		err := reg.Close(context.Background())
+		if err != nil {
+			p.lggr.Errorw("error closing registration", "err", err)
+		}
+	}
+
 	p.lggr.Info("TriggerPublisher closed")
 	return nil
 }

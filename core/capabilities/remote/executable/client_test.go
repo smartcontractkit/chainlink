@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/e2etesting"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -24,7 +25,6 @@ import (
 )
 
 const (
-	stepReferenceID1     = "step1"
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowID2          = "25c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
@@ -84,7 +84,6 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-104")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -202,7 +201,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := range numCapabilityPeers {
-		capabilityPeers[i] = NewP2PPeerID(t)
+		capabilityPeers[i] = e2etesting.NewP2PPeerID(t)
 	}
 
 	capDonInfo := commoncap.DON{
@@ -220,7 +219,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := range numWorkflowPeers {
-		workflowPeers[i] = NewP2PPeerID(t)
+		workflowPeers[i] = e2etesting.NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -228,7 +227,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 		ID:      2,
 	}
 
-	broker := newTestAsyncMessageBroker(t, 100)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := range numCapabilityPeers {
@@ -309,7 +308,7 @@ func (t *clientTestServer) Receive(ctx context.Context, msg *remotetypes.Message
 	t.mux.Lock()
 	defer t.mux.Unlock()
 
-	sender := toPeerID(msg.Sender)
+	sender := e2etesting.ToPeerID(msg.Sender)
 	messageID, err := executable.GetMessageID(msg)
 	if err != nil {
 		panic(err)
@@ -376,15 +375,15 @@ func TestClient_SetConfig(t *testing.T) {
 	capabilityID := "test_capability@1.0.0"
 
 	// Create broker and dispatcher like other tests
-	broker := newTestAsyncMessageBroker(t, 100)
-	peerID := NewP2PPeerID(t)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
+	peerID := e2etesting.NewP2PPeerID(t)
 	dispatcher := broker.NewDispatcherForNode(peerID)
 	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
 
 	// Create valid test data
 	validDonInfo := commoncap.DON{
 		ID:      1,
-		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+		Members: []p2ptypes.PeerID{e2etesting.NewP2PPeerID(t)},
 		F:       0,
 	}
 
@@ -446,7 +445,7 @@ func TestClient_SetConfig(t *testing.T) {
 		newTimeout := 60 * time.Second
 		newDonInfo := commoncap.DON{
 			ID:      2,
-			Members: []p2ptypes.PeerID{NewP2PPeerID(t), NewP2PPeerID(t)},
+			Members: []p2ptypes.PeerID{e2etesting.NewP2PPeerID(t), e2etesting.NewP2PPeerID(t)},
 			F:       1,
 		}
 
@@ -466,14 +465,14 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 	capabilityID := "test_capability@1.0.0"
 
 	// Create broker and dispatcher like other tests
-	broker := newTestAsyncMessageBroker(t, 100)
-	peerID := NewP2PPeerID(t)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 100)
+	peerID := e2etesting.NewP2PPeerID(t)
 	dispatcher := broker.NewDispatcherForNode(peerID)
 	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
 
 	validDonInfo := commoncap.DON{
 		ID:      1,
-		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+		Members: []p2ptypes.PeerID{e2etesting.NewP2PPeerID(t)},
 		F:       0,
 	}
 

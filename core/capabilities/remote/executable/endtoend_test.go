@@ -2,7 +2,6 @@ package executable_test
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -10,16 +9,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/e2etesting"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
@@ -250,12 +248,12 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := range numCapabilityPeers {
 		capabilityPeerID := p2ptypes.PeerID{}
-		require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
+		require.NoError(t, capabilityPeerID.UnmarshalText([]byte(e2etesting.NewPeerID())))
 		capabilityPeers[i] = capabilityPeerID
 	}
 
 	capabilityPeerID := p2ptypes.PeerID{}
-	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
+	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(e2etesting.NewPeerID())))
 
 	capDonInfo := commoncap.DON{
 		ID:      2,
@@ -273,7 +271,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := range numWorkflowPeers {
 		workflowPeerID := p2ptypes.PeerID{}
-		require.NoError(t, workflowPeerID.UnmarshalText([]byte(NewPeerID())))
+		require.NoError(t, workflowPeerID.UnmarshalText([]byte(e2etesting.NewPeerID())))
 		workflowPeers[i] = workflowPeerID
 	}
 
@@ -283,7 +281,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 		F:       workflowDonF,
 	}
 
-	broker := newTestAsyncMessageBroker(t, 1000)
+	broker := e2etesting.NewTestAsyncMessageBroker(t, 1000)
 
 	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
@@ -330,122 +328,6 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	if waitForExecuteCalls {
 		wg.Wait()
 	}
-}
-
-type testAsyncMessageBroker struct {
-	services.Service
-	eng *services.Engine
-	t   *testing.T
-
-	nodes map[p2ptypes.PeerID]remotetypes.Receiver
-
-	sendCh chan *remotetypes.MessageBody
-}
-
-func newTestAsyncMessageBroker(t *testing.T, sendChBufferSize int) *testAsyncMessageBroker {
-	b := &testAsyncMessageBroker{
-		t:      t,
-		nodes:  make(map[p2ptypes.PeerID]remotetypes.Receiver),
-		sendCh: make(chan *remotetypes.MessageBody, sendChBufferSize),
-	}
-	b.Service, b.eng = services.Config{
-		Name:  "testAsyncMessageBroker",
-		Start: b.start,
-	}.NewServiceEngine(logger.Test(t))
-	return b
-}
-
-func (a *testAsyncMessageBroker) start(ctx context.Context) error {
-	a.eng.Go(func(ctx context.Context) {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case msg := <-a.sendCh:
-				receiverID := toPeerID(msg.Receiver)
-
-				receiver, ok := a.nodes[receiverID]
-				if !ok {
-					panic("server not found for peer id")
-				}
-
-				receiver.Receive(a.t.Context(), msg)
-			}
-		}
-	})
-	return nil
-}
-
-func (a *testAsyncMessageBroker) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) remotetypes.Dispatcher {
-	return &nodeDispatcher{
-		callerPeerID: nodePeerID,
-		broker:       a,
-	}
-}
-
-func (a *testAsyncMessageBroker) RegisterReceiverNode(nodePeerID p2ptypes.PeerID, node remotetypes.Receiver) {
-	if _, ok := a.nodes[nodePeerID]; ok {
-		panic("node already registered")
-	}
-
-	a.nodes[nodePeerID] = node
-}
-
-func (a *testAsyncMessageBroker) Send(msg *remotetypes.MessageBody) {
-	a.sendCh <- msg
-}
-
-func toPeerID(id []byte) p2ptypes.PeerID {
-	return [32]byte(id)
-}
-
-type broker interface {
-	Send(msg *remotetypes.MessageBody)
-}
-
-type nodeDispatcher struct {
-	callerPeerID p2ptypes.PeerID
-	broker       broker
-}
-
-func (t *nodeDispatcher) Name() string {
-	return "nodeDispatcher"
-}
-
-func (t *nodeDispatcher) Start(ctx context.Context) error {
-	return nil
-}
-
-func (t *nodeDispatcher) Close() error {
-	return nil
-}
-
-func (t *nodeDispatcher) Ready() error {
-	return nil
-}
-
-func (t *nodeDispatcher) HealthReport() map[string]error {
-	return nil
-}
-
-func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
-	msgBody.Version = 1
-	msgBody.Sender = t.callerPeerID[:]
-	msgBody.Receiver = peerID[:]
-	msgBody.Timestamp = time.Now().UnixMilli()
-	t.broker.Send(msgBody)
-	return nil
-}
-
-func (t *nodeDispatcher) SetReceiver(capabilityID string, donID uint32, receiver remotetypes.Receiver) error {
-	return nil
-}
-func (t *nodeDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
-
-func (t *nodeDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, methodName string, receiver remotetypes.Receiver) error {
-	return nil
-}
-func (t *nodeDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, methodName string) {
 }
 
 type abstractTestCapability struct {
@@ -537,28 +419,6 @@ func (t TestRandomErrorCapability) RegisterToWorkflow(ctx context.Context, reque
 
 func (t TestRandomErrorCapability) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
 	return errors.New(uuid.New().String())
-}
-
-func NewP2PPeerID(t *testing.T) p2ptypes.PeerID {
-	id := p2ptypes.PeerID{}
-	require.NoError(t, id.UnmarshalText([]byte(NewPeerID())))
-	return id
-}
-
-func NewPeerID() string {
-	var privKey [32]byte
-	_, err := rand.Read(privKey[:])
-	if err != nil {
-		panic(err)
-	}
-
-	peerID := append(libp2pMagic(), privKey[:]...)
-
-	return base58.Encode(peerID)
-}
-
-func libp2pMagic() []byte {
-	return []byte{0x00, 0x24, 0x08, 0x01, 0x12, 0x20}
 }
 
 func executeCapability(ctx context.Context, t *testing.T, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map, responseTest func(t *testing.T, response commoncap.CapabilityResponse, responseError error),

@@ -209,6 +209,11 @@ func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 		ExecuteEVMLogTriggerTest(t, testEnv)
 	})
+
+	t.Run("[v2] EVM LogTrigger User Error - "+topology, func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+		ExecuteEVMLogTriggerUserErrorTest(t, testEnv)
+	})
 }
 
 func Test_CRE_V2_EVM_Read_HeavyCalls(t *testing.T) {

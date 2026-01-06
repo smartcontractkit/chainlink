@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -33,7 +34,6 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -473,9 +473,32 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				// no Config needed - NoDAG uses Payload
 			})
 			if regErr != nil {
-				e.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
-				e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
-				return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
+				// This error type is required during migration of all DONS to support trigger registration status messages https://smartcontract-it.atlassian.net/browse/CAPPL-1370
+				if !errors.Is(regErr, capabilities.ErrUnableToDetermineRegistrationStatus) {
+					// TODO This error type is temporarily required during migration of all DONS to support trigger registration status messages.
+					// TODO Jira to remove once migration completed https://smartcontract-it.atlassian.net/browse/CAPPL-1370
+					var capErr caperrors.Error
+					if errors.As(regErr, &capErr) {
+						if capErr.Origin() == caperrors.OriginUser {
+							e.logger().Errorw("Trigger registration failed due to user error", "triggerID", sub.Id, "userErr", regErr)
+							e.metrics.With(platform.KeyTriggerID, sub.Id, platform.KeyCapabilityErrorCode, capErr.Code().String()).IncrementRegisterTriggerFailureDueToUserErrorCounter(gCtx)
+						} else {
+							e.logger().Errorw("Trigger registration failed due to system error", "triggerID", sub.Id, "systemErr", regErr)
+							e.metrics.With(platform.KeyTriggerID, sub.Id, platform.KeyCapabilityErrorCode, capErr.Code().String()).IncrementRegisterTriggerFailureCounter(gCtx)
+						}
+					} else {
+						e.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
+						e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
+					}
+
+					return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
+				}
+
+				// It's an ErrUnableToDetermineRegistrationStatus error, this could be due to the remote capability not
+				// supporting registration status messages, log a warning and ignore it for now whilst nodes are migrated
+				// to support registration update messages, once node migration is complete this error should be treated
+				// in the same way as any other registration error.
+				e.logger().Warnw("unable to determine trigger registration status for trigger registration request", "triggerID", sub.Id)
 			}
 			// Send successful result
 			resultsCh <- triggerRegResult{
