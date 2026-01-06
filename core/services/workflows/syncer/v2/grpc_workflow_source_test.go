@@ -517,5 +517,5 @@ func TestGRPCWorkflowSource_syntheticHead(t *testing.T) {
 	// Should return synthetic head with current timestamp
 	assert.NotEmpty(t, head.Height)
 	assert.Equal(t, []byte("grpc-source"), head.Hash)
-	assert.Greater(t, head.Timestamp, uint64(0))
+	assert.Positive(t, head.Timestamp)
 }

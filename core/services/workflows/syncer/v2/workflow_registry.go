@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/big"
 	"strings"
 	"sync"
@@ -84,8 +85,6 @@ type workflowRegistry struct {
 	contractReader types.ContractReader
 
 	// workflowSources holds workflow metadata sources (contract, file, gRPC).
-	// Each source is processed independently in syncUsingReconciliationStrategy
-	// to ensure failure in one source doesn't affect workflows from other sources.
 	workflowSources []WorkflowMetadataSource
 
 	config Config
@@ -227,7 +226,6 @@ func NewWorkflowRegistry(
 		return nil, err
 	}
 
-	// Build workflow sources slice - sources are added based on configuration
 	var workflowSources []WorkflowMetadataSource
 
 	// Only add contract source if address is configured
@@ -264,7 +262,6 @@ func NewWorkflowRegistry(
 		opt(wr)
 	}
 
-	// Log final source count after all options have been applied
 	lggr.Infow("Initialized workflow registry with multi-source support",
 		"sourceCount", len(wr.workflowSources),
 		"hasContractSource", addr != "")
@@ -401,7 +398,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
 	}
 
-	// Keep track of which workflows have been seen in this source's metadata
+	// Keep track of which of the engines in the engineRegistry have been touched
 	workflowsSeen := map[string]bool{}
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
@@ -494,7 +491,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 		}
 	}
 
-	// KEY CHANGE: Only check engines from THIS source for deletion
+	// Shut down engines that are no longer in the contract's latest workflow metadata state
 	sourceEngines := w.engineRegistry.GetBySource(sourceName)
 	for _, engine := range sourceEngines {
 		id := engine.WorkflowID.Hex()
@@ -541,8 +538,9 @@ func (w *workflowRegistry) generateReconciliationEvents(
 		}
 	}
 
-	// Note: We don't error on remaining pending events because pending events from other sources
-	// may legitimately remain in the map when processing a single source.
+	if len(pendingEvents) != 0 {
+		return nil, fmt.Errorf("invariant violation: some pending events were not handled in the reconcile loop: keys=%+v, len=%d", maps.Keys(pendingEvents), len(pendingEvents))
+	}
 
 	return events, nil
 }
@@ -594,7 +592,6 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 // This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(defaultTickInterval)
-	// Per-source pending events tracking - each source has its own pending events map
 	pendingEventsBySource := make(map[string]map[string]*reconciliationEvent)
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
