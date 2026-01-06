@@ -2,13 +2,13 @@ package arbiter
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	// TODO: Update this import path once proto is generated
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/arbiter/proto"
@@ -45,9 +45,11 @@ type arbiter struct {
 var _ Arbiter = (*arbiter)(nil)
 
 // New creates a new Arbiter service.
+// contractReaderFactory is used to create the contract reader for querying the ShardConfig contract.
+// This follows the same pattern as the workflow registry syncer and capability registry syncer.
 func New(
 	lggr logger.Logger,
-	contractReader types.ContractReader,
+	contractReaderFactory ContractReaderFactory,
 	shardConfigAddr string,
 ) (Arbiter, error) {
 	lggr = lggr.Named("Arbiter")
@@ -55,11 +57,11 @@ func New(
 	// Create state
 	state := NewState()
 
-	// Create ShardConfig reader
-	shardConfig := NewShardConfigReader(contractReader, shardConfigAddr, lggr)
+	// Create ShardConfig syncer (implements services.Service)
+	shardConfig := NewShardConfigSyncer(contractReaderFactory, shardConfigAddr, lggr)
 
-	// Create decision engine
-	decision := NewDecisionEngine(shardConfig, lggr)
+	// Create decision engine with sugared logger
+	decision := NewDecisionEngine(shardConfig, logger.Sugared(lggr))
 
 	// Create gRPC handler
 	grpcHandler := NewGRPCServer(state, decision, lggr)
@@ -84,6 +86,11 @@ func New(
 func (a *arbiter) Start(ctx context.Context) error {
 	return a.StartOnce("Arbiter", func() error {
 		a.lggr.Info("Starting Arbiter service")
+
+		// Start ShardConfig syncer first
+		if err := a.shardConfig.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start shard config syncer: %w", err)
+		}
 
 		// Start gRPC server in a goroutine
 		a.wg.Add(1)
@@ -141,8 +148,13 @@ func (a *arbiter) Close() error {
 		a.grpcServer.GracefulStop()
 		a.lggr.Debug("gRPC server stopped gracefully")
 
-		// Wait for goroutines
+		// Wait for gRPC goroutine
 		a.wg.Wait()
+
+		// Close ShardConfig syncer
+		if err := a.shardConfig.Close(); err != nil {
+			a.lggr.Errorw("Failed to close shard config syncer", "error", err)
+		}
 
 		a.lggr.Info("Arbiter service stopped")
 

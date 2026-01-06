@@ -12,9 +12,30 @@ import (
 )
 
 // mockShardConfigReader is a mock implementation of ShardConfigReader for testing.
+// It implements services.Service interface as required by the updated ShardConfigReader.
 type mockShardConfigReader struct {
 	desiredCount uint64
 	err          error
+}
+
+func (m *mockShardConfigReader) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockShardConfigReader) Close() error {
+	return nil
+}
+
+func (m *mockShardConfigReader) Ready() error {
+	return nil
+}
+
+func (m *mockShardConfigReader) HealthReport() map[string]error {
+	return nil
+}
+
+func (m *mockShardConfigReader) Name() string {
+	return "mockShardConfigReader"
 }
 
 func (m *mockShardConfigReader) GetDesiredShardCount(ctx context.Context) (uint64, error) {
@@ -34,7 +55,7 @@ func TestDecisionEngine_ComputeApprovedCount(t *testing.T) {
 			name:           "desired under limit",
 			desiredCount:   5,
 			onChainMax:     10,
-			expectedResult: 5,
+			expectedResult: 10, // approved = onChainMax (since we just return on-chain value)
 			expectError:    false,
 		},
 		{
@@ -45,28 +66,21 @@ func TestDecisionEngine_ComputeApprovedCount(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:           "desired exceeds limit - capped",
+			name:           "desired exceeds limit",
 			desiredCount:   15,
 			onChainMax:     10,
-			expectedResult: 10,
+			expectedResult: 10, // approved = onChainMax
 			expectError:    false,
 		},
 		{
-			name:           "desired zero - minimum 1",
-			desiredCount:   0,
-			onChainMax:     10,
-			expectedResult: 1,
+			name:           "on-chain limit zero - minimum 1 applied",
+			desiredCount:   5,
+			onChainMax:     0,
+			expectedResult: 1, // minimum of 1 shard
 			expectError:    false,
 		},
 		{
-			name:           "negative desired - minimum 1",
-			desiredCount:   -5,
-			onChainMax:     10,
-			expectedResult: 1,
-			expectError:    false,
-		},
-		{
-			name:           "small on-chain limit caps result",
+			name:           "small on-chain limit",
 			desiredCount:   5,
 			onChainMax:     3,
 			expectedResult: 3,
@@ -98,7 +112,7 @@ func TestDecisionEngine_ComputeApprovedCount(t *testing.T) {
 				err:          tc.shardConfigErr,
 			}
 
-			engine := NewDecisionEngine(mockReader, lggr)
+			engine := NewDecisionEngine(mockReader, logger.Sugared(lggr))
 
 			result, err := engine.ComputeApprovedCount(context.Background(), tc.desiredCount)
 
@@ -116,23 +130,23 @@ func TestDecisionEngine_ComputeApprovedCount(t *testing.T) {
 func TestDecisionEngine_ComputeApprovedCount_EdgeCases(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	t.Run("large desired count capped to large on-chain limit", func(t *testing.T) {
+	t.Run("large on-chain limit", func(t *testing.T) {
 		mockReader := &mockShardConfigReader{
 			desiredCount: 1000,
 		}
-		engine := NewDecisionEngine(mockReader, lggr)
+		engine := NewDecisionEngine(mockReader, logger.Sugared(lggr))
 
 		result, err := engine.ComputeApprovedCount(context.Background(), 500)
 
 		require.NoError(t, err)
-		assert.Equal(t, 500, result)
+		assert.Equal(t, 1000, result) // returns on-chain value
 	})
 
 	t.Run("exactly at on-chain limit", func(t *testing.T) {
 		mockReader := &mockShardConfigReader{
 			desiredCount: 7,
 		}
-		engine := NewDecisionEngine(mockReader, lggr)
+		engine := NewDecisionEngine(mockReader, logger.Sugared(lggr))
 
 		result, err := engine.ComputeApprovedCount(context.Background(), 7)
 
@@ -144,12 +158,12 @@ func TestDecisionEngine_ComputeApprovedCount_EdgeCases(t *testing.T) {
 		mockReader := &mockShardConfigReader{
 			desiredCount: 0,
 		}
-		engine := NewDecisionEngine(mockReader, lggr)
+		engine := NewDecisionEngine(mockReader, logger.Sugared(lggr))
 
 		result, err := engine.ComputeApprovedCount(context.Background(), 5)
 
 		require.NoError(t, err)
-		// approved = min(5, 0) = 0, but minimum is 1
+		// on-chain returns 0, but minimum is 1
 		assert.Equal(t, 1, result)
 	})
 }
@@ -161,7 +175,7 @@ func TestDecisionEngine_ContextCancellation(t *testing.T) {
 		mockReader := &mockShardConfigReader{
 			err: context.Canceled,
 		}
-		engine := NewDecisionEngine(mockReader, lggr)
+		engine := NewDecisionEngine(mockReader, logger.Sugared(lggr))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()

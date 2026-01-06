@@ -81,11 +81,19 @@ func (m *mockContractReader) QueryKeys(ctx context.Context, filters []types.Cont
 	return nil, nil
 }
 
+// mockContractReaderFactory creates a ContractReaderFactory that returns the mock reader.
+func mockContractReaderFactory(mockReader *mockContractReader) ContractReaderFactory {
+	return func(ctx context.Context, cfg []byte) (types.ContractReader, error) {
+		return mockReader, nil
+	}
+}
+
 func TestArbiter_New(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 
 	require.NoError(t, err)
 	require.NotNil(t, arb)
@@ -95,16 +103,17 @@ func TestArbiter_New(t *testing.T) {
 func TestArbiter_StartClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 	require.NoError(t, err)
 
 	// Test start
 	err = arb.Start(context.Background())
 	require.NoError(t, err)
 
-	// Give gRPC server a moment to start
-	time.Sleep(50 * time.Millisecond)
+	// Give gRPC server and syncer a moment to start
+	time.Sleep(100 * time.Millisecond)
 
 	// Test health after start
 	healthReport := arb.HealthReport()
@@ -119,8 +128,9 @@ func TestArbiter_StartClose(t *testing.T) {
 func TestArbiter_ServiceTestRun(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 	require.NoError(t, err)
 
 	// Use servicetest.Run to handle lifecycle
@@ -135,8 +145,9 @@ func TestArbiter_ServiceTestRun(t *testing.T) {
 func TestArbiter_HealthReport(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 	require.NoError(t, err)
 
 	t.Run("before start - not ready", func(t *testing.T) {
@@ -162,8 +173,9 @@ func TestArbiter_HealthReport(t *testing.T) {
 func TestArbiter_DoubleStart(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 	require.NoError(t, err)
 
 	// First start should succeed
@@ -181,8 +193,9 @@ func TestArbiter_DoubleStart(t *testing.T) {
 func TestArbiter_DoubleClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 	require.NoError(t, err)
 
 	err = arb.Start(context.Background())
@@ -200,8 +213,9 @@ func TestArbiter_DoubleClose(t *testing.T) {
 func TestArbiter_Name(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 	require.NoError(t, err)
 
 	assert.Equal(t, "Arbiter", arb.Name())
@@ -210,8 +224,9 @@ func TestArbiter_Name(t *testing.T) {
 func TestArbiter_Ready(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, mockReader, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, "0x1234567890abcdef")
 	require.NoError(t, err)
 
 	// Before start, Ready should return error
