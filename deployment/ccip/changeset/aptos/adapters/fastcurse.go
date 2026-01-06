@@ -6,7 +6,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/deployment/fastcurse"
