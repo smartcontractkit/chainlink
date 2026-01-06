@@ -49,7 +49,7 @@ func NewContractWorkflowSource(
 // ListWorkflowMetadata fetches workflow metadata from the on-chain contract.
 // It lazily initializes the contract reader on first call.
 func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
-	c.TryInitialize(ctx)
+	c.tryInitialize(ctx)
 
 	c.mu.RLock()
 	reader := c.contractReader
@@ -142,8 +142,8 @@ func (c *ContractWorkflowSource) Ready() error {
 	return nil
 }
 
-// TryInitialize attempts to initialize the contract reader. Returns true if ready.
-func (c *ContractWorkflowSource) TryInitialize(ctx context.Context) bool {
+// tryInitialize attempts to initialize the contract reader. Returns true if ready.
+func (c *ContractWorkflowSource) tryInitialize(ctx context.Context) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

@@ -149,7 +149,7 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 // Transient errors (Unavailable, ResourceExhausted) are retried with exponential backoff.
 // Returns a synthetic head since GRPC sources don't have blockchain state.
 func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
-	g.TryInitialize(ctx)
+	g.tryInitialize(ctx)
 
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -302,8 +302,8 @@ func (g *GRPCWorkflowSource) Ready() error {
 	return nil
 }
 
-// TryInitialize returns the current ready state (GRPC client initialized in constructor).
-func (g *GRPCWorkflowSource) TryInitialize(_ context.Context) bool {
+// tryInitialize returns the current ready state (GRPC client initialized in constructor).
+func (g *GRPCWorkflowSource) tryInitialize(_ context.Context) bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.ready

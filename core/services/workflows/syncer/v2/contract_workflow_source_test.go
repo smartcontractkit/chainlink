@@ -284,7 +284,7 @@ func TestContractWorkflowSource_Ready_Initialized(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestContractWorkflowSource_TryInitialize_Success(t *testing.T) {
+func TestContractWorkflowSource_tryInitialize_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 
@@ -302,14 +302,14 @@ func TestContractWorkflowSource_TryInitialize_Success(t *testing.T) {
 	require.Error(t, source.Ready())
 
 	// Try to initialize
-	result := source.TryInitialize(ctx)
+	result := source.tryInitialize(ctx)
 	assert.True(t, result)
 
 	// Now should be ready
 	assert.NoError(t, source.Ready())
 }
 
-func TestContractWorkflowSource_TryInitialize_AlreadyInitialized(t *testing.T) {
+func TestContractWorkflowSource_tryInitialize_AlreadyInitialized(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 
@@ -326,17 +326,17 @@ func TestContractWorkflowSource_TryInitialize_AlreadyInitialized(t *testing.T) {
 	)
 
 	// First initialization
-	result := source.TryInitialize(ctx)
+	result := source.tryInitialize(ctx)
 	assert.True(t, result)
 	assert.Equal(t, 1, callCount)
 
 	// Second call should return true without calling factory again
-	result = source.TryInitialize(ctx)
+	result = source.tryInitialize(ctx)
 	assert.True(t, result)
 	assert.Equal(t, 1, callCount) // Still 1, factory not called again
 }
 
-func TestContractWorkflowSource_TryInitialize_FactoryError(t *testing.T) {
+func TestContractWorkflowSource_tryInitialize_FactoryError(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 
@@ -348,7 +348,7 @@ func TestContractWorkflowSource_TryInitialize_FactoryError(t *testing.T) {
 		testOwnerAddress,
 	)
 
-	result := source.TryInitialize(ctx)
+	result := source.tryInitialize(ctx)
 	assert.False(t, result)
 	assert.Error(t, source.Ready())
 }

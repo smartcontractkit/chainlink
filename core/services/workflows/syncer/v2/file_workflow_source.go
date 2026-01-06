@@ -73,7 +73,7 @@ func NewFileWorkflowSourceWithPath(lggr logger.Logger, path string) (*FileWorkfl
 
 // ListWorkflowMetadata reads the JSON file and returns workflow metadata filtered by DON families.
 func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
-	f.TryInitialize(ctx)
+	f.tryInitialize(ctx)
 
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -146,8 +146,8 @@ func (f *FileWorkflowSource) Ready() error {
 	return nil
 }
 
-// TryInitialize always returns true (file validated in constructor).
-func (f *FileWorkflowSource) TryInitialize(_ context.Context) bool {
+// tryInitialize always returns true (file validated in constructor).
+func (f *FileWorkflowSource) tryInitialize(_ context.Context) bool {
 	return true
 }
 

@@ -148,7 +148,4 @@ type WorkflowMetadataSource interface {
 
 	// Ready returns nil if the source is ready to be queried.
 	Ready() error
-
-	// TryInitialize attempts lazy initialization. Returns true if ready.
-	TryInitialize(ctx context.Context) bool
 }

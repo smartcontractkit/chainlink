@@ -620,7 +620,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				}
 				pendingEvents := pendingEventsBySource[sourceName]
 
-				// Fetch workflows from this source (each source handles lazy initialization via TryInitialize)
+				// Fetch workflows from this source (each source handles lazy initialization internally)
 				start := time.Now()
 				workflows, head, fetchErr := source.ListWorkflowMetadata(ctx, don)
 				duration := time.Since(start)
