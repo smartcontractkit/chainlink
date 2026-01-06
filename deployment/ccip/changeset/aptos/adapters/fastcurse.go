@@ -9,15 +9,17 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	cldf_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/deployment/fastcurse"
 	"github.com/smartcontractkit/chainlink-ccip/deployment/utils/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	aptosops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -92,16 +94,28 @@ func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequence
 			if !ok {
 				return sequences.OnChainOutput{}, fmt.Errorf("chain with selector %d not found in environment", in.ChainSelector)
 			}
-
-			curseInput := sequence.AptosCurseInput{
-				CurseInput:  in,
+			subjectBytes := make([][]byte, len(in.Subjects))
+			for i, subject := range in.Subjects {
+				subjectBytes[i] = subject[:]
+			}
+			curseInput := aptosops.CurseMultipleInput{
 				CCIPAddress: c.CCIPAddress,
+				Subjects:    subjectBytes,
 			}
-			seqOutput, err := cldf_ops.ExecuteSequence(b, sequence.SeqCurse, chain, curseInput)
+			deps := dependency.AptosDeps{
+				AptosChain: chain,
+			}
+			report, err := operations.ExecuteOperation(b, aptosops.CurseMultipleOp, deps, curseInput)
 			if err != nil {
-				return sequences.OnChainOutput{}, fmt.Errorf("failed to curse subjects on chain %d: %w", chain.Selector, err)
+				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", chain.Selector, err)
 			}
-			return seqOutput.Output, nil
+			batchOperation := mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(chain.Selector),
+				Transactions:  []mcmstypes.Transaction{report.Output},
+			}
+			return sequences.OnChainOutput{
+				BatchOps: []mcmstypes.BatchOperation{batchOperation},
+			}, nil
 		},
 	)
 }
@@ -117,16 +131,28 @@ func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequen
 			if !ok {
 				return sequences.OnChainOutput{}, fmt.Errorf("chain with selector %d not found in environment", in.ChainSelector)
 			}
-
-			uncurseInput := sequence.AptosCurseInput{
-				CurseInput:  in,
+			subjectBytes := make([][]byte, len(in.Subjects))
+			for i, subject := range in.Subjects {
+				subjectBytes[i] = subject[:]
+			}
+			uncurseInput := aptosops.UncurseMultipleInput{
 				CCIPAddress: c.CCIPAddress,
+				Subjects:    subjectBytes,
 			}
-			seqOutput, err := cldf_ops.ExecuteSequence(b, sequence.SeqUncurse, chain, uncurseInput)
+			deps := dependency.AptosDeps{
+				AptosChain: chain,
+			}
+			report, err := operations.ExecuteOperation(b, aptosops.UncurseMultipleOp, deps, uncurseInput)
 			if err != nil {
-				return sequences.OnChainOutput{}, fmt.Errorf("failed to uncurse subjects on chain %d: %w", chain.Selector, err)
+				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute uncurse operation on Aptos chain %d: %w", chain.Selector, err)
 			}
-			return seqOutput.Output, nil
+			batchOperation := mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(chain.Selector),
+				Transactions:  []mcmstypes.Transaction{report.Output},
+			}
+			return sequences.OnChainOutput{
+				BatchOps: []mcmstypes.BatchOperation{batchOperation},
+			}, nil
 		},
 	)
 }
