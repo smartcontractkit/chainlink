@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 )
 
@@ -22,6 +23,9 @@ var result = "200"
 // a very simple mock that allow us to control EA answers in tests
 func main() {
 	_, err := fake.NewFakeDataProvider(&fake.Input{Port: fake.DefaultFakeServicePort})
+	if err != nil {
+		panic(err)
+	}
 	err = fake.Func("POST", "/juelsPerFeeCoinSource", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
 			"data": map[string]any{
@@ -40,6 +44,10 @@ func main() {
 			"result": "ok",
 		})
 	})
+
+	if err != nil {
+		panic(err)
+	}
 
 	err = fake.Func("POST", "/ea", func(ctx *gin.Context) {
 		L.Info().Str("Result", result).Msg("Returning feed value result")
