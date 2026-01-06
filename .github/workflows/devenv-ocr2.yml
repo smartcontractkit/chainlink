@@ -17,7 +17,7 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-    runs-on: buntu24.04-16cores-64GB
+    runs-on: ubuntu24.04-16cores-64GB
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
