@@ -181,6 +181,19 @@ func PrepareNodeTOMLs(
 		}
 	}
 
+	// Transform UserConfigOverrides to use platform-specific Docker host addresses.
+	// This handles differences between macOS (host.docker.internal) and Linux (172.17.0.1)
+	// for URLs in user-provided config overrides (e.g., AlternativeSources).
+	for i := range localNodeSets {
+		for j := range localNodeSets[i].NodeSpecs {
+			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
+				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
+					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
+				)
+			}
+		}
+	}
+
 	return localNodeSets, nil
 }
 
@@ -784,6 +797,24 @@ func transformAlternativeSourceURLs(sources []coretoml.AlternativeWorkflowSource
 	}
 
 	return transformed
+}
+
+// transformUserConfigOverrides transforms URLs in a user config overrides string to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+// This is necessary because UserConfigOverrides is passed directly to containers as a
+// separate config file, bypassing the structured config transformation.
+func transformUserConfigOverrides(userConfig string) string {
+	if userConfig == "" {
+		return userConfig
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	// Replace all occurrences of "host.docker.internal" with the platform-specific host
+	return strings.ReplaceAll(userConfig, "host.docker.internal", dockerHost)
 }
 
 // generateInstanceNames creates Kubernetes-compatible instance names for nodes
