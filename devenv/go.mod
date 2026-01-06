@@ -234,14 +234,3 @@ replace github.com/ebitengine/purego v0.8.2 => github.com/ebitengine/purego v0.8
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df
 
 replace github.com/consensys/gnark-crypto => github.com/consensys/gnark-crypto v0.19.0 // https://github.com/advisories/GHSA-fj2x-735w-74vq
-
-replace (
-	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/prometheus/common => github.com/prometheus/common v0.62.0
-	github.com/smartcontractkit/chainlink-testing-framework/lib => github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
-	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.35.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace => go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0
-	go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v1.35.0
-	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.34.0
-	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.35.0
-)
