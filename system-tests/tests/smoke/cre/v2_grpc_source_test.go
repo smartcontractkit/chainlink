@@ -52,6 +52,30 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 	testLogger := framework.L
 	ctx := t.Context()
 
+	// This test requires a specific config with AlternativeSources.
+	// Delete any existing state file to ensure the environment is recreated
+	// with the correct config (prevents interference from other tests that
+	// might use different configs and share the same state file).
+	testConfig := t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-grpc-source.toml")
+	stateFilePath := testConfig.EnvironmentStateFile
+
+	testLogger.Info().
+		Str("configPath", testConfig.EnvironmentConfigPath).
+		Str("stateFilePath", stateFilePath).
+		Str("relativePathToRepoRoot", testConfig.RelativePathToRepoRoot).
+		Msg("[DEBUG] Test configuration paths")
+
+	if _, err := os.Stat(stateFilePath); err == nil {
+		testLogger.Info().Str("stateFile", stateFilePath).Msg("[DEBUG] Removing existing state file to ensure fresh environment with AlternativeSources config")
+		if rmErr := os.Remove(stateFilePath); rmErr != nil {
+			testLogger.Warn().Err(rmErr).Msg("[DEBUG] Failed to remove state file")
+		} else {
+			testLogger.Info().Msg("[DEBUG] State file removed successfully")
+		}
+	} else {
+		testLogger.Info().Str("stateFile", stateFilePath).Msg("[DEBUG] State file does not exist, will create fresh environment")
+	}
+
 	// Step 1: Start mock gRPC server BEFORE environment (uses default port 8544)
 	testLogger.Info().Msg("Starting mock gRPC source server...")
 	mockServer := grpcsourcemock.NewTestContainer(grpcsourcemock.TestContainerConfig{
@@ -72,11 +96,24 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 
 	// Step 2: Use standard pattern - config has AlternativeSources with host.docker.internal
 	// The config generation code transforms this to the platform-specific Docker host
+	testLogger.Info().Msg("[DEBUG] About to call SetupTestEnvironmentWithConfig...")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
-		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-grpc-source.toml"),
+		testConfig,
 		"--with-contracts-version", "v2",
 	)
+	testLogger.Info().
+		Int("donCount", len(testEnv.Dons.List())).
+		Msg("[DEBUG] Environment setup complete")
+
+	// Log info about each DON
+	for i, don := range testEnv.Dons.List() {
+		testLogger.Info().
+			Int("donIndex", i).
+			Str("donName", don.Name).
+			Int("nodeCount", len(don.Nodes)).
+			Msg("[DEBUG] DON info")
+	}
 
 	// Step 3: Run lifecycle test
 	// Pass empty string for contractWorkflowName to skip contract isolation checks

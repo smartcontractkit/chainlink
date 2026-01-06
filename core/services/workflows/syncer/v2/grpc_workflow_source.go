@@ -75,6 +75,12 @@ type GRPCWorkflowSourceConfig struct {
 
 // NewGRPCWorkflowSource creates a new GRPC-based workflow source.
 func NewGRPCWorkflowSource(lggr logger.Logger, cfg GRPCWorkflowSourceConfig) (*GRPCWorkflowSource, error) {
+	lggr.Infow("[DEBUG] NewGRPCWorkflowSource called",
+		"url", cfg.URL,
+		"name", cfg.Name,
+		"tlsEnabled", cfg.TLSEnabled,
+		"hasJWTGenerator", cfg.JWTGenerator != nil)
+
 	if cfg.URL == "" {
 		return nil, errors.New("GRPC URL is required")
 	}
@@ -92,10 +98,13 @@ func NewGRPCWorkflowSource(lggr logger.Logger, cfg GRPCWorkflowSourceConfig) (*G
 		clientOpts = append(clientOpts, grpcsource.WithJWTGenerator(cfg.JWTGenerator))
 	}
 
+	lggr.Infow("[DEBUG] Creating GRPC client", "url", cfg.URL, "sourceName", sourceName)
 	client, err := grpcsource.NewClient(cfg.URL, sourceName, clientOpts...)
 	if err != nil {
+		lggr.Errorw("[DEBUG] Failed to create GRPC client", "url", cfg.URL, "error", err)
 		return nil, err
 	}
+	lggr.Infow("[DEBUG] GRPC client created successfully", "url", cfg.URL)
 
 	return newGRPCWorkflowSourceWithClient(lggr, client, cfg)
 }
@@ -149,14 +158,21 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 // Transient errors (Unavailable, ResourceExhausted) are retried with exponential backoff.
 // Returns a synthetic head since GRPC sources don't have blockchain state.
 func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
+	g.lggr.Infow("[DEBUG] ListWorkflowMetadata called",
+		"donID", don.ID,
+		"donFamilies", don.Families,
+		"sourceName", g.name)
+
 	g.tryInitialize(ctx)
 
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
 	if !g.ready {
+		g.lggr.Warnw("[DEBUG] GRPC source not ready", "sourceName", g.name)
 		return nil, nil, errors.New("GRPC source not ready")
 	}
+	g.lggr.Infow("[DEBUG] GRPC source is ready, proceeding to fetch", "sourceName", g.name)
 
 	var allViews []WorkflowMetadataView
 	var start int64

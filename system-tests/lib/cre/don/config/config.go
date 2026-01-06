@@ -184,15 +184,30 @@ func PrepareNodeTOMLs(
 	// Transform UserConfigOverrides to use platform-specific Docker host addresses.
 	// This handles differences between macOS (host.docker.internal) and Linux (172.17.0.1)
 	// for URLs in user-provided config overrides (e.g., AlternativeSources).
+	framework.L.Info().
+		Int("nodeSetCount", len(localNodeSets)).
+		Str("hostDockerInternal", framework.HostDockerInternal()).
+		Msg("[DEBUG] PrepareNodeTOMLs: Starting UserConfigOverrides transformation")
+
 	for i := range localNodeSets {
 		for j := range localNodeSets[i].NodeSpecs {
-			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
-				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
-					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
-				)
+			userConfig := localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides
+			if userConfig != "" {
+				framework.L.Info().
+					Int("nodeSetIdx", i).
+					Int("nodeSpecIdx", j).
+					Str("nodeSetName", localNodeSets[i].Name).
+					Bool("hasUserConfigOverrides", true).
+					Bool("containsAlternativeSources", strings.Contains(userConfig, "AlternativeSources")).
+					Bool("containsHostDockerInternal", strings.Contains(userConfig, "host.docker.internal")).
+					Msg("[DEBUG] PrepareNodeTOMLs: Processing node spec")
+
+				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(userConfig)
 			}
 		}
 	}
+
+	framework.L.Info().Msg("[DEBUG] PrepareNodeTOMLs: Completed UserConfigOverrides transformation")
 
 	return localNodeSets, nil
 }
@@ -813,8 +828,38 @@ func transformUserConfigOverrides(userConfig string) string {
 	// "http://172.17.0.1" on Linux)
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
+	// DEBUG: Log transformation details
+	containsHostDocker := strings.Contains(userConfig, "host.docker.internal")
+	framework.L.Info().
+		Str("dockerHost", dockerHost).
+		Bool("containsHostDockerInternal", containsHostDocker).
+		Int("userConfigLen", len(userConfig)).
+		Msg("[DEBUG] transformUserConfigOverrides called")
+
+	if containsHostDocker {
+		framework.L.Info().
+			Str("before_snippet", truncateForLog(userConfig, 500)).
+			Msg("[DEBUG] UserConfigOverrides BEFORE transformation")
+	}
+
 	// Replace all occurrences of "host.docker.internal" with the platform-specific host
-	return strings.ReplaceAll(userConfig, "host.docker.internal", dockerHost)
+	result := strings.ReplaceAll(userConfig, "host.docker.internal", dockerHost)
+
+	if containsHostDocker {
+		framework.L.Info().
+			Str("after_snippet", truncateForLog(result, 500)).
+			Msg("[DEBUG] UserConfigOverrides AFTER transformation")
+	}
+
+	return result
+}
+
+// truncateForLog truncates a string for logging purposes
+func truncateForLog(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "...[truncated]"
 }
 
 // generateInstanceNames creates Kubernetes-compatible instance names for nodes

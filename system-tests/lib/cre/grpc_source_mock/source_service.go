@@ -27,6 +27,11 @@ func NewSourceService(store *WorkflowStore) *SourceService {
 
 // ListWorkflowMetadata returns all workflow metadata for the given DON
 func (s *SourceService) ListWorkflowMetadata(ctx context.Context, req *sourcesv1.ListWorkflowMetadataRequest) (*sourcesv1.ListWorkflowMetadataResponse, error) {
+	sourceLogger.Info("===> [DEBUG] ListWorkflowMetadata CALLED - REQUEST RECEIVED FROM NODE <===",
+		"donFamilies", req.GetDonFamilies(),
+		"start", req.GetStart(),
+		"limit", req.GetLimit(),
+	)
 	sourceLogger.Debug("ListWorkflowMetadata called",
 		"donFamilies", req.GetDonFamilies(),
 		"start", req.GetStart(),
