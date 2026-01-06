@@ -9,14 +9,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/stretchr/testify/require"
 )
 
 func TestLoad(t *testing.T) {
@@ -24,12 +25,12 @@ func TestLoad(t *testing.T) {
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
-	pdConfig, err := products.LoadOutput[ocr2.OCR2Configurator](outputFile)
+	pdConfig, err := products.LoadOutput[ocr2.Configurator](outputFile)
 	require.NoError(t, err)
-	
+
 	t.Cleanup(func() {
-		_, err := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, err)
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 	c, _, _, err := ocr2.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.OCR2.GasSettings.FeeCapMultiplier, pdConfig.OCR2.GasSettings.TipCapMultiplier)
 	require.NoError(t, err)

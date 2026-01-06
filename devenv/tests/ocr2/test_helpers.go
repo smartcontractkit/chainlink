@@ -10,12 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/go-resty/resty/v2"
 
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/stretchr/testify/require"
 
 	f "github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
@@ -90,7 +91,7 @@ func verifyRounds(t *testing.T, in *de.Cfg, o2 *ocr2aggregator.OCR2Aggregator, t
 	defer roundTicker.Stop()
 
 	rounds := make([]struct {
-		RoundId         *big.Int
+		RoundId         *big.Int //nolint:revive // we can't change this field in generated binding
 		Answer          *big.Int
 		StartedAt       *big.Int
 		UpdatedAt       *big.Int
@@ -166,10 +167,10 @@ func checkResourceConsumption(t *testing.T, in *de.Cfg, start, end time.Time, ma
 	cpu := f.ToLabelsMap(cpuResp)
 	for i := 0; i < in.NodeSets[0].Nodes; i++ {
 		nodeLabel := fmt.Sprintf("name:don-node%d", i)
-		nodeCpu, err := strconv.ParseFloat(cpu[nodeLabel][0].(string), 64)
-		L.Info().Int("Node", i).Float64("CPU", nodeCpu).Msg("CPU usage percentage")
-		require.NoError(t, err)
-		require.LessOrEqual(t, nodeCpu, maxCPUTotalPercentage)
+		nodeCPU, cpuErr := strconv.ParseFloat(cpu[nodeLabel][0].(string), 64)
+		L.Info().Int("Node", i).Float64("CPU", nodeCPU).Msg("CPU usage percentage")
+		require.NoError(t, cpuErr)
+		require.LessOrEqual(t, nodeCPU, maxCPUTotalPercentage)
 	}
 	memoryResp, err := pc.Query("sum(container_memory_rss{name=~\".*don.*\"}) by (name)", end)
 	require.NoError(t, err)

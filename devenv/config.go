@@ -42,7 +42,7 @@ func Load[T any]() (*T, error) {
 	paths := strings.Split(os.Getenv(EnvVarTestConfigs), ",")
 	for _, path := range paths {
 		L.Info().Str("Path", path).Msg("Loading configuration input")
-		data, err := os.ReadFile(filepath.Join(DefaultConfigDir, path)) //nolint:gosec
+		data, err := os.ReadFile(filepath.Join(DefaultConfigDir, path))
 		if err != nil {
 			if path == DefaultOverridesFilePath {
 				L.Info().Str("Path", path).Msg("Overrides file not found or empty")
@@ -51,18 +51,18 @@ func Load[T any]() (*T, error) {
 			return nil, fmt.Errorf("error reading config file %s: %w", path, err)
 		}
 		if L.GetLevel() == zerolog.TraceLevel {
-			fmt.Println(string(data)) //nolint:forbidigo
+			fmt.Println(string(data))
 		}
 
 		decoder := toml.NewDecoder(strings.NewReader(string(data)))
 
 		if err := decoder.Decode(&config); err != nil {
-			return nil, fmt.Errorf("failed to decode TOML config, strict mode: %s", err)
+			return nil, fmt.Errorf("failed to decode TOML config, strict mode: %w", err)
 		}
 	}
 	if L.GetLevel() == zerolog.TraceLevel {
 		L.Trace().Msg("Merged inputs")
-		spew.Dump(config) //nolint:forbidigo
+		spew.Dump(config)
 	}
 	return &config, nil
 }
@@ -79,14 +79,14 @@ func Store[T any](cfg *T) error {
 		L.Info().Str("Cache", baseConfigPath).Msg("Cache file already exists, overriding")
 		outCacheName = baseConfigPath
 	} else {
-		outCacheName = fmt.Sprintf("%s-out.toml", strings.ReplaceAll(baseConfigPath, ".toml", ""))
+		outCacheName = strings.ReplaceAll(baseConfigPath, ".toml", "") + "-out.toml"
 	}
 	L.Info().Str("OutputFile", outCacheName).Msg("Storing configuration output")
 	d, err := toml.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(DefaultConfigDir, outCacheName), d, 0o644)
+	return os.WriteFile(filepath.Join(DefaultConfigDir, outCacheName), d, 0600)
 }
 
 // LoadOutput loads config output file from path.
@@ -103,13 +103,4 @@ func BaseConfigPath() (string, error) {
 	}
 	L.Debug().Str("Configs", configs).Msg("Getting base config path")
 	return strings.Split(configs, ",")[0], nil
-}
-
-func getNetworkPrivateKey() string {
-	pk := os.Getenv("PRIVATE_KEY")
-	if pk == "" {
-		// that's the first Anvil and Geth private key, serves as a fallback for local testing if not overridden
-		return DefaultAnvilKey
-	}
-	return pk
 }

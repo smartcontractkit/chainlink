@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -95,18 +96,16 @@ func completer(in prompt.Document) []prompt.Suggest {
 	case len(words) == 1:
 		if lastCharIsSpace {
 			return getSubCommands(words[0])
-		} else {
-			return prompt.FilterHasPrefix(getCommands(), words[0], true)
 		}
+		return prompt.FilterHasPrefix(getCommands(), words[0], true)
 
 	case len(words) >= 2:
 		if lastCharIsSpace {
 			return []prompt.Suggest{}
-		} else {
-			parent := words[0]
-			currentWord := words[len(words)-1]
-			return prompt.FilterHasPrefix(getSubCommands(parent), currentWord, true)
 		}
+		parent := words[0]
+		currentWord := words[len(words)-1]
+		return prompt.FilterHasPrefix(getSubCommands(parent), currentWord, true)
 	default:
 		return []prompt.Suggest{}
 	}
@@ -114,11 +113,11 @@ func completer(in prompt.Document) []prompt.Suggest {
 
 // resetTerm resets terminal settings to Unix defaults.
 func resetTerm() {
-	cmd := exec.Command("stty", "sane")
+	cmd := exec.CommandContext(context.Background(), "stty", "sane")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	_ = cmd.Run()
 }
 
 func StartShell() {

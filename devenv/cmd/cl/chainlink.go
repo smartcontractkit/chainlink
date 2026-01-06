@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -205,7 +206,7 @@ var testCmd = &cobra.Command{
 	Short:   "Run the tests",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return fmt.Errorf("specify the test suite: smoke or load")
+			return errors.New("specify the test suite: smoke or load")
 		}
 		var testPattern string
 		switch args[0] {
@@ -226,7 +227,8 @@ var testCmd = &cobra.Command{
 		testCmd.Stdin = os.Stdin
 
 		if err := testCmd.Run(); err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
+			exitError := &exec.ExitError{}
+			if errors.As(err, &exitError) {
 				if status, ok := exitError.Sys().(syscall.WaitStatus); ok {
 					os.Exit(status.ExitStatus())
 				}
@@ -270,7 +272,6 @@ func checkDockerIsRunning() {
 		fmt.Println("Can't create Docker client, please check if Docker daemon is running!")
 		os.Exit(1)
 	}
-	defer cli.Close()
 	_, err = cli.Ping(context.Background())
 	if err != nil {
 		fmt.Println("Docker is not running, please start Docker daemon first!")

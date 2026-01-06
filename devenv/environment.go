@@ -51,11 +51,14 @@ func NewEnvironment(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := c.Load(); err != nil {
-		return fmt.Errorf("failed to load product config: %s", err)
+	if err = c.Load(); err != nil {
+		return fmt.Errorf("failed to load product config: %w", err)
 	}
 
 	overrides, err := c.GenerateCLNodesBlockchainConfig(ctx, in.Blockchains[0])
+	if err != nil {
+		return fmt.Errorf("failed to generate CL nodes config: %w", err)
+	}
 	for _, ns := range in.NodeSets[0].NodeSpecs {
 		ns.Node.TestConfigOverrides = overrides
 	}

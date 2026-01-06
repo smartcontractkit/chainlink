@@ -18,14 +18,15 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-// OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
+// TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers.
-type OCR2TaskJobSpec struct {
-	OCR2OracleSpec    OCR2OracleSpec
+type TaskJobSpec struct {
+	OCR2OracleSpec    OracleSpec
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
 	MaxTaskDuration   string `toml:"maxTaskDuration"`
@@ -33,9 +34,9 @@ type OCR2TaskJobSpec struct {
 	ForwardingAllowed bool   `toml:"forwardingAllowed"`
 }
 
-// OCR2OracleSpec defines the job spec for OCR2 jobs.
+// OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
-type OCR2OracleSpec struct {
+type OracleSpec struct {
 	UpdatedAt                         time.Time            `toml:"-"`
 	CreatedAt                         time.Time            `toml:"-"`
 	OnchainSigningStrategy            JSONConfig           `toml:"onchainSigningStrategy"`
@@ -72,10 +73,10 @@ type ocr2Config interface {
 }
 
 // Type returns the type of the job.
-func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
+func (o *TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job.
-func (o *OCR2TaskJobSpec) String() (string, error) {
+func (o *TaskJobSpec) String() (string, error) {
 	var feedID string
 	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()

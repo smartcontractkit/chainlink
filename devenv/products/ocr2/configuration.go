@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -18,17 +19,18 @@ import (
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
-	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
+	"github.com/smartcontractkit/chainlink/devenv/products"
 
 	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
@@ -51,20 +53,9 @@ type OCR2 struct {
 	CLNodesFundingETH        float64                `toml:"cl_nodes_funding_eth"`
 	CLNodesFundingLink       float64                `toml:"cl_nodes_funding_link"`
 	ChainFinalityDepth       int64                  `toml:"chain_finality_depth"`
-	VerificationTimeoutSec   time.Duration          `toml:"verification_timeout_sec"` //nolint:staticcheck
+	VerificationTimeoutSec   int64                  `toml:"verification_timeout_sec"`
 	GasSettings              *GasSettings           `toml:"gas_settings"`
 	DeployedContracts        *DeployedContracts     `toml:"deployed_contracts"`
-}
-
-type OCR2DynamicConfig struct {
-	PKeyStr                   string `toml:"pkey_str"`
-	ChainID                   string `toml:"chain_id"`
-	BootstrapContainerName    string `toml:"boostrap_container_name"`
-	FakeServerExternalHTTPURL string `toml:"fake_server_external_http_url"`
-	FakeServerInternalHTTPURL string `toml:"fake_server_internal_http_url"`
-	BlockchainExternalWSURL   string `toml:"blockchain_external_ws_url"`
-	BlockchainInternalWSURL   string `toml:"blockchain_internal_ws_url"`
-	BlockchainInternalHTTPURL string `toml:"blockchain_internal_http_url"`
 }
 
 type DeployedContracts struct {
@@ -77,15 +68,15 @@ type GasSettings struct {
 }
 
 type MedianOffchainConfig struct {
-	AlphaReportPPB      uint64        `toml:"alpha_report_ppb"`
-	AlphaAcceptPPB      uint64        `toml:"alpha_accept_ppb"`
-	DeltaCSec           time.Duration `toml:"delta_sec"`
-	AlphaReportInfinite bool          `toml:"alpha_report_infinite"`
-	AlphaAcceptInfinite bool          `toml:"alpha_accept_infinite"`
+	AlphaReportPPB      uint64 `toml:"alpha_report_ppb"`
+	AlphaAcceptPPB      uint64 `toml:"alpha_accept_ppb"`
+	DeltaCSec           int64  `toml:"delta_sec"`
+	AlphaReportInfinite bool   `toml:"alpha_report_infinite"`
+	AlphaAcceptInfinite bool   `toml:"alpha_accept_infinite"`
 }
 
 type Jobs struct {
-	MaxTaskDurationSec time.Duration `toml:"max_task_duration_sec"`
+	MaxTaskDurationSec int64 `toml:"max_task_duration_sec"`
 }
 
 type EAFake struct {
@@ -134,16 +125,16 @@ type OCRv2Config struct {
 	F                     uint8
 }
 
-type OCR2Configurator struct {
+type Configurator struct {
 	OCR2 *OCR2 `toml:"ocr2"`
 }
 
-func NewOCR2Configurator() *OCR2Configurator {
-	return &OCR2Configurator{}
+func NewOCR2Configurator() *Configurator {
+	return &Configurator{}
 }
 
-func (m *OCR2Configurator) Load() error {
-	cfg, err := products.Load[OCR2Configurator]()
+func (m *Configurator) Load() error {
+	cfg, err := products.Load[Configurator]()
 	if err != nil {
 		return fmt.Errorf("failed to load product config: %w", err)
 	}
@@ -151,14 +142,14 @@ func (m *OCR2Configurator) Load() error {
 	return nil
 }
 
-func (m *OCR2Configurator) Store(path string) error {
+func (m *Configurator) Store(path string) error {
 	if err := products.Store(".", m); err != nil {
 		return fmt.Errorf("failed to store product config: %w", err)
 	}
 	return nil
 }
 
-func (m *OCR2Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *blockchain.Input) (string, error) {
+func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *blockchain.Input) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
 	node := bc.Out.Nodes[0]
@@ -221,7 +212,7 @@ func (m *OCR2Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, 
 	return netConfig, nil
 }
 
-func (m *OCR2Configurator) ConfigureJobsAndContracts(
+func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
 	fake *fake.Input,
 	bc *blockchain.Input,
@@ -234,15 +225,15 @@ func (m *OCR2Configurator) ConfigureJobsAndContracts(
 	}
 	pkey := getNetworkPrivateKey()
 	if pkey == "" {
-		return fmt.Errorf("PRIVATE_KEY environment variable not set")
+		return errors.New("PRIVATE_KEY environment variable not set")
 	}
 
 	transmitters := make([]common.Address, 0)
 	ethKeyAddresses := make([]string, 0)
 	for i, nc := range cl {
-		addr, err := nc.ReadPrimaryETHKey(bc.Out.ChainID)
-		if err != nil {
-			return err
+		addr, cErr := nc.ReadPrimaryETHKey(bc.Out.ChainID)
+		if cErr != nil {
+			return cErr
 		}
 		ethKeyAddresses = append(ethKeyAddresses, addr.Attributes.Address)
 		transmitters = append(transmitters, common.HexToAddress(addr.Attributes.Address))
@@ -262,8 +253,8 @@ func (m *OCR2Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
 	for _, addr := range ethKeyAddresses {
-		if err := FundNodeEIP1559(ctx, c, pkey, addr, m.OCR2.CLNodesFundingETH); err != nil {
-			return err
+		if cErr := FundNodeEIP1559(ctx, c, pkey, addr, m.OCR2.CLNodesFundingETH); cErr != nil {
+			return cErr
 		}
 	}
 	ocrv2Config, ocr2Addr, err := m.configureContracts(
@@ -279,8 +270,8 @@ func (m *OCR2Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 	m.OCR2.OCR2SetConfigOut = ocrv2Config
-	if err := m.configureJobs(ctx, fake, bc, ns, cl, ocr2Addr); err != nil {
-		return err
+	if cErr := m.configureJobs(ctx, fake, bc, ns, cl, ocr2Addr); cErr != nil {
+		return cErr
 	}
 	r := resty.New().SetBaseURL(fake.Out.BaseURLHost)
 
@@ -362,7 +353,7 @@ func UpdateOCR2ConfigOffChainValues(ctx context.Context, bc *blockchain.Input, o
 			AlphaReportInfinite: o.OCR2MedianOffchainConfig.AlphaReportInfinite,
 			AlphaReportPPB:      o.OCR2MedianOffchainConfig.AlphaReportPPB,
 			AlphaAcceptPPB:      o.OCR2MedianOffchainConfig.AlphaAcceptPPB,
-			DeltaC:              o.OCR2MedianOffchainConfig.DeltaCSec * time.Second,
+			DeltaC:              time.Duration(o.OCR2MedianOffchainConfig.DeltaCSec) * time.Second,
 		}.Encode(),
 		nil,
 		o2.MaxDurationQuery,
@@ -399,7 +390,7 @@ func UpdateOCR2ConfigOffChainValues(ctx context.Context, bc *blockchain.Input, o
 	return nil
 }
 
-func (m *OCR2Configurator) configureContracts(ctx context.Context, c *ethclient.Client, auth *bind.TransactOpts, cl []*clclient.ChainlinkClient, rootAddr string, transmitters []common.Address, linkFunding float64) (*OCRv2Config, string, error) {
+func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Client, auth *bind.TransactOpts, cl []*clclient.ChainlinkClient, rootAddr string, transmitters []common.Address, linkFunding float64) (*OCRv2Config, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 	L.Info().Msg("Deploying LINK token contract")
@@ -452,7 +443,7 @@ func (m *OCR2Configurator) configureContracts(ctx context.Context, c *ethclient.
 			AlphaReportInfinite: m.OCR2.OCR2MedianOffchainConfig.AlphaReportInfinite,
 			AlphaReportPPB:      m.OCR2.OCR2MedianOffchainConfig.AlphaReportPPB,
 			AlphaAcceptPPB:      m.OCR2.OCR2MedianOffchainConfig.AlphaAcceptPPB,
-			DeltaC:              m.OCR2.OCR2MedianOffchainConfig.DeltaCSec * time.Second,
+			DeltaC:              time.Duration(m.OCR2.OCR2MedianOffchainConfig.DeltaCSec) * time.Second,
 		}.Encode(),
 		nil,
 		ocrSetConfig.MaxDurationQuery*time.Second,
@@ -496,7 +487,7 @@ func (m *OCR2Configurator) configureContracts(ctx context.Context, c *ethclient.
 	}, ocr2addr.String(), err
 }
 
-func getOracleIdentities(clClients []*clclient.ChainlinkClient) ([]int, []confighelper.OracleIdentityExtra, error) { //nolint:gocritic
+func getOracleIdentities(clClients []*clclient.ChainlinkClient) ([]int, []confighelper.OracleIdentityExtra, error) {
 	s := make([]int, len(clClients))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(clClients))
 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(clClients))
@@ -532,7 +523,7 @@ func getOracleIdentities(clClients []*clclient.ChainlinkClient) ([]int, []config
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
 			if err != nil {
@@ -541,7 +532,7 @@ func getOracleIdentities(clClients []*clclient.ChainlinkClient) ([]int, []config
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
 			if err != nil {
@@ -571,7 +562,7 @@ func getOracleIdentities(clClients []*clclient.ChainlinkClient) ([]int, []config
 	return s, oracleIdentities, eg.Wait()
 }
 
-func (m *OCR2Configurator) configureJobs(ctx context.Context, fake *fake.Input, bc *blockchain.Input, ns *nodeset.Input, clNodes []*clclient.ChainlinkClient, ocr2Addr string) error {
+func (m *Configurator) configureJobs(ctx context.Context, fake *fake.Input, bc *blockchain.Input, ns *nodeset.Input, clNodes []*clclient.ChainlinkClient, ocr2Addr string) error {
 	bootstrapNode := clNodes[0]
 	workerNodes := clNodes[1:]
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -580,10 +571,10 @@ func (m *OCR2Configurator) configureJobs(ctx context.Context, fake *fake.Input, 
 	}
 	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, ns.Out.CLNodes[0].Node.ContainerName, 6690)
 	// Set the value for the jobs to report on
-	bootstrapSpec := &OCR2TaskJobSpec{
-		Name:    fmt.Sprintf("ocr2_bootstrap-%s", uuid.NewString()),
+	bootstrapSpec := &TaskJobSpec{
+		Name:    "ocr2_bootstrap-" + uuid.NewString(),
 		JobType: "bootstrap",
-		OCR2OracleSpec: OCR2OracleSpec{
+		OCR2OracleSpec: OracleSpec{
 			ContractID: ocr2Addr,
 			Relay:      "evm",
 			RelayConfig: map[string]any{
@@ -611,11 +602,11 @@ func (m *OCR2Configurator) configureJobs(ctx context.Context, fake *fake.Input, 
 		fakeServerURL := fake.Out.BaseURLDocker
 
 		ea := &clclient.BridgeTypeAttributes{
-			Name: fmt.Sprintf("ea-%s", uuid.NewString()),
+			Name: "ea-" + uuid.NewString(),
 			URL:  fmt.Sprintf("%s/%s", fakeServerURL, "ea"),
 		}
 		juelsBridge := &clclient.BridgeTypeAttributes{
-			Name: fmt.Sprintf("juels-%s", uuid.NewString()),
+			Name: "juels-" + uuid.NewString(),
 			URL:  fmt.Sprintf("%s/%s", fakeServerURL, "juelsPerFeeCoinSource"),
 		}
 		err = chainlinkNode.MustCreateBridge(ea)
@@ -627,20 +618,20 @@ func (m *OCR2Configurator) configureJobs(ctx context.Context, fake *fake.Input, 
 			return fmt.Errorf("creating bridge to %s CL node failed: %w", juelsBridge.URL, err)
 		}
 
-		ocrSpec := &OCR2TaskJobSpec{
-			Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
+		ocrSpec := &TaskJobSpec{
+			Name:              "ocr2-" + uuid.NewString(),
 			JobType:           "offchainreporting2",
-			MaxTaskDuration:   (m.OCR2.Jobs.MaxTaskDurationSec * time.Second).String(),
+			MaxTaskDuration:   (time.Duration(m.OCR2.Jobs.MaxTaskDurationSec) * time.Second).String(),
 			ObservationSource: clclient.ObservationSourceSpecBridge(ea),
 			ForwardingAllowed: false,
-			OCR2OracleSpec: OCR2OracleSpec{
+			OCR2OracleSpec: OracleSpec{
 				PluginType: "median",
 				Relay:      "evm",
 				RelayConfig: map[string]any{
 					"chainID": bc.ChainID,
 				},
 				PluginConfig: map[string]any{
-					"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", clclient.ObservationSourceSpecBridge(juelsBridge)), //nolint:gocritic
+					"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", clclient.ObservationSourceSpecBridge(juelsBridge)),
 				},
 				ContractConfigTrackerPollInterval: *NewInterval(5 * time.Second),
 				ContractID:                        ocr2Addr,                                // registryAddr

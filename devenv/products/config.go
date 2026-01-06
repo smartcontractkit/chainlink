@@ -30,7 +30,7 @@ func Load[T any]() (*T, error) {
 		decoder := toml.NewDecoder(strings.NewReader(string(data)))
 
 		if err := decoder.Decode(&config); err != nil {
-			return nil, fmt.Errorf("failed to decode TOML config, strict mode: %s", err)
+			return nil, fmt.Errorf("failed to decode TOML config, strict mode: %w", err)
 		}
 	}
 	return &config, nil
@@ -48,7 +48,7 @@ func Store[T any](path string, cfg *T) error {
 		L.Info().Str("Cache", baseConfigPath).Msg("Cache file already exists, overriding")
 		outCacheName = baseConfigPath
 	} else {
-		outCacheName = fmt.Sprintf("%s-out.toml", strings.ReplaceAll(baseConfigPath, ".toml", ""))
+		outCacheName = strings.ReplaceAll(baseConfigPath, ".toml", "") + "-out.toml"
 	}
 	L.Info().Str("OutputFile", outCacheName).Msg("Storing configuration output")
 	d, err := toml.Marshal(cfg)
