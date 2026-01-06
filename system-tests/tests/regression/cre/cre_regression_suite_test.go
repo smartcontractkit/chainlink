@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/quarantine"
+
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -81,6 +83,7 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 }
 
 func Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-2518")
 	runEVMNegativeTestSuite(t, evmNegativeTestsBalanceAtInvalidAddress)
 }
 
