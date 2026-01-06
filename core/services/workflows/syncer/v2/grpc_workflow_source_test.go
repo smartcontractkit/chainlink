@@ -37,8 +37,6 @@ var (
 type mockGRPCClient struct {
 	// allWorkflows contains all workflows to be returned (used for stateless pagination)
 	allWorkflows []*pb.WorkflowMetadata
-	// head is the head to return
-	head *pb.Head
 	// err is the error to return (if set, takes precedence)
 	err error
 	// errSequence allows returning different errors on successive calls (for retry testing)
@@ -51,23 +49,23 @@ type mockGRPCClient struct {
 	closeErr error
 }
 
-func (m *mockGRPCClient) ListWorkflowMetadata(_ context.Context, _ []string, offset, limit int64) ([]*pb.WorkflowMetadata, *pb.Head, bool, error) {
+func (m *mockGRPCClient) ListWorkflowMetadata(_ context.Context, _ []string, offset, limit int64) ([]*pb.WorkflowMetadata, bool, error) {
 	callNum := int(m.callCount.Add(1)) - 1 // 0-indexed call number
 
 	// Check if there's a specific error for this call number
 	if callNum < len(m.errSequence) && m.errSequence[callNum] != nil {
-		return nil, nil, false, m.errSequence[callNum]
+		return nil, false, m.errSequence[callNum]
 	}
 
 	// Check for general error
 	if m.err != nil {
-		return nil, nil, false, m.err
+		return nil, false, m.err
 	}
 
 	// Stateless pagination based on offset/limit
 	start := int(offset)
 	if start >= len(m.allWorkflows) {
-		return []*pb.WorkflowMetadata{}, m.head, false, nil
+		return []*pb.WorkflowMetadata{}, false, nil
 	}
 
 	end := start + int(limit)
@@ -76,7 +74,7 @@ func (m *mockGRPCClient) ListWorkflowMetadata(_ context.Context, _ []string, off
 	}
 
 	hasMore := end < len(m.allWorkflows)
-	return m.allWorkflows[start:end], m.head, hasMore, nil
+	return m.allWorkflows[start:end], hasMore, nil
 }
 
 func (m *mockGRPCClient) Close() error {
@@ -137,7 +135,6 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 			createTestProtoWorkflow("workflow-1", "family-a"),
 			createTestProtoWorkflow("workflow-2", "family-a"),
 		},
-		head: &pb.Head{Height: "100", Hash: []byte("abc"), Timestamp: 1234567890},
 	}
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
@@ -153,7 +150,9 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 	wfs, head, err := source.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Len(t, wfs, 2)
-	assert.Equal(t, "100", head.Height)
+	require.NotNil(t, head)
+	assert.NotEmpty(t, head.Height)
+	assert.Equal(t, []byte("grpc-source"), head.Hash)
 	assert.Equal(t, "workflow-1", wfs[0].WorkflowName)
 	assert.Equal(t, "workflow-2", wfs[1].WorkflowName)
 	assert.Equal(t, 1, mockClient.CallCount())
@@ -170,7 +169,6 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 			createTestProtoWorkflow("workflow-2", "family-a"),
 			createTestProtoWorkflow("workflow-3", "family-a"),
 		},
-		head: &pb.Head{Height: "100"},
 	}
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
@@ -186,8 +184,9 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 
 	wfs, head, err := source.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
-	assert.Len(t, wfs, 3)                      // 2 from first page + 1 from second page
-	assert.Equal(t, "100", head.Height)        // First head is used
+	assert.Len(t, wfs, 3) // 2 from first page + 1 from second page
+	require.NotNil(t, head)
+	assert.NotEmpty(t, head.Height)
 	assert.Equal(t, 2, mockClient.CallCount()) // Two pages fetched
 }
 
@@ -206,7 +205,6 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 			createTestProtoWorkflow("valid-workflow", "family-a"),
 			invalidWorkflow,
 		},
-		head: &pb.Head{Height: "100"},
 	}
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
@@ -223,7 +221,8 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, wfs, 1) // Only valid workflow is returned
 	assert.Equal(t, "valid-workflow", wfs[0].WorkflowName)
-	assert.Equal(t, "100", head.Height)
+	require.NotNil(t, head)
+	assert.NotEmpty(t, head.Height)
 }
 
 func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
@@ -235,7 +234,6 @@ func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 		allWorkflows: []*pb.WorkflowMetadata{
 			createTestProtoWorkflow("workflow-1", "family-a"),
 		},
-		head: &pb.Head{Height: "100"},
 		errSequence: []error{
 			status.Error(codes.Unavailable, "server unavailable"),
 			status.Error(codes.Unavailable, "server unavailable"),
@@ -259,7 +257,8 @@ func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 	wfs, head, err := source.ListWorkflowMetadata(ctx, don)
 	require.NoError(t, err)
 	assert.Len(t, wfs, 1)
-	assert.Equal(t, "100", head.Height)
+	require.NotNil(t, head)
+	assert.NotEmpty(t, head.Height)
 	assert.Equal(t, 3, mockClient.CallCount()) // 2 failures + 1 success
 }
 
@@ -271,7 +270,6 @@ func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
 		allWorkflows: []*pb.WorkflowMetadata{
 			createTestProtoWorkflow("workflow-1", "family-a"),
 		},
-		head: &pb.Head{Height: "100"},
 		errSequence: []error{
 			status.Error(codes.ResourceExhausted, "rate limited"),
 			nil, // Second call succeeds
@@ -506,7 +504,7 @@ func TestGRPCWorkflowSource_Name_Default(t *testing.T) {
 	assert.Equal(t, GRPCWorkflowSourceName, source.Name())
 }
 
-func TestGRPCWorkflowSource_toCommonHead_NilHead(t *testing.T) {
+func TestGRPCWorkflowSource_syntheticHead(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
@@ -514,30 +512,10 @@ func TestGRPCWorkflowSource_toCommonHead_NilHead(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	head := source.toCommonHead(nil)
+	head := source.syntheticHead()
 	require.NotNil(t, head)
 	// Should return synthetic head with current timestamp
 	assert.NotEmpty(t, head.Height)
 	assert.Equal(t, []byte("grpc-source"), head.Hash)
-}
-
-func TestGRPCWorkflowSource_toCommonHead_ValidHead(t *testing.T) {
-	lggr := logger.TestLogger(t)
-
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
-	require.NoError(t, err)
-
-	protoHead := &pb.Head{
-		Height:    "12345",
-		Hash:      []byte("abcdef"),
-		Timestamp: 1234567890,
-	}
-
-	head := source.toCommonHead(protoHead)
-	require.NotNil(t, head)
-	assert.Equal(t, "12345", head.Height)
-	assert.Equal(t, []byte("abcdef"), head.Hash)
-	assert.Equal(t, uint64(1234567890), head.Timestamp)
+	assert.Greater(t, head.Timestamp, uint64(0))
 }

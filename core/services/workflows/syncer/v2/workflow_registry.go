@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"math/big"
 	"strings"
 	"sync"
@@ -384,178 +383,10 @@ func toLocalHead(head *types.Head) Head {
 	}
 }
 
-// generateReconciliationEvents compares the workflow registry workflow metadata state against the engine registry's state.
-// Differences are handled by the event handler by creating events that are sent to the events channel for handling.
-func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendingEvents map[string]*reconciliationEvent, workflowMetadata []WorkflowMetadataView, head *types.Head) ([]*reconciliationEvent, error) {
-	var events []*reconciliationEvent
-	localHead := toLocalHead(head)
-	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
-	workflowMetadataMap := make(map[string]WorkflowMetadataView)
-	for _, wfMeta := range workflowMetadata {
-		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
-	}
-
-	// Keep track of which of the engines in the engineRegistry have been touched
-	workflowsSeen := map[string]bool{}
-	for _, wfMeta := range workflowMetadata {
-		id := wfMeta.WorkflowID.Hex()
-		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
-
-		switch wfMeta.Status {
-		case WorkflowStatusActive:
-			switch engineFound {
-			// we can't tell the difference between an activation and registration without holding
-			// state in the db; so we handle as an activation event.
-			case false:
-				signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, id, toSpecStatus(wfMeta.Status))
-
-				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
-					events = append(events, pendingEvents[id])
-					delete(pendingEvents, id)
-					continue
-				}
-
-				delete(pendingEvents, id)
-
-				toActivatedEvent := WorkflowActivatedEvent{
-					WorkflowID:    wfMeta.WorkflowID,
-					WorkflowOwner: wfMeta.Owner,
-					CreatedAt:     wfMeta.CreatedAt,
-					Status:        wfMeta.Status,
-					WorkflowName:  wfMeta.WorkflowName,
-					BinaryURL:     wfMeta.BinaryURL,
-					ConfigURL:     wfMeta.ConfigURL,
-					Tag:           wfMeta.Tag,
-					Attributes:    wfMeta.Attributes,
-					Source:        wfMeta.Source,
-				}
-				events = append(events, &reconciliationEvent{
-					Event: Event{
-						Data: toActivatedEvent,
-						Name: WorkflowActivated,
-						Head: localHead,
-						Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner)),
-					},
-					signature: signature,
-					id:        id,
-				})
-				workflowsSeen[id] = true
-			// if the workflow is active, the workflow engine is in the engine registry, and the metadata has not changed
-			// then we don't need to action the event further. Mark as seen and continue.
-			case true:
-				workflowsSeen[id] = true
-			}
-		case WorkflowStatusPaused:
-			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
-			switch engineFound {
-			case false:
-				// Account for a state change from active to paused, by checking
-				// whether an existing pendingEvent exists.
-				// We do this regardless of whether we have an event to handle or not, since this ensures
-				// we correctly handle the state of pending events in the following situation:
-				// - we registered an active workflow, but it failed to process successfully
-				// - we then paused the workflow; this should clear the pending event
-				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature != signature {
-					delete(pendingEvents, id)
-				}
-			case true:
-				// Will be handled in the event handler as a deleted event and will clear the DB workflow spec.
-				workflowsSeen[id] = true
-
-				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
-					events = append(events, pendingEvents[id])
-					delete(pendingEvents, id)
-					continue
-				}
-
-				delete(pendingEvents, id)
-
-				toPausedEvent := WorkflowPausedEvent{
-					WorkflowID:    wfMeta.WorkflowID,
-					WorkflowOwner: wfMeta.Owner,
-					CreatedAt:     wfMeta.CreatedAt,
-					Status:        wfMeta.Status,
-					WorkflowName:  wfMeta.WorkflowName,
-					Source:        wfMeta.Source,
-				}
-				events = append(
-					[]*reconciliationEvent{
-						{
-							Event: Event{
-								Data: toPausedEvent,
-								Name: WorkflowPaused,
-								Head: localHead,
-								Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner)),
-							},
-							signature: signature,
-							id:        id,
-						},
-					},
-					events...,
-				)
-			}
-		default:
-			return nil, fmt.Errorf("invariant violation: unable to determine difference from workflow metadata (status=%d)", wfMeta.Status)
-		}
-	}
-
-	// Shut down engines that are no longer in the contract's latest workflow metadata state
-	allEngines := w.engineRegistry.GetAll()
-	for _, engine := range allEngines {
-		id := engine.WorkflowID.Hex()
-		if !workflowsSeen[id] {
-			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)
-
-			if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
-				events = append(events, pendingEvents[id])
-				delete(pendingEvents, id)
-				continue
-			}
-
-			delete(pendingEvents, id)
-
-			toDeletedEvent := WorkflowDeletedEvent{
-				WorkflowID: engine.WorkflowID,
-			}
-			events = append(
-				[]*reconciliationEvent{
-					{
-						Event: Event{
-							Data: toDeletedEvent,
-							Name: WorkflowDeleted,
-							Head: localHead,
-							Info: fmt.Sprintf("[ID: %s]", id),
-						},
-						signature: signature,
-						id:        id,
-					},
-				},
-				events...,
-			)
-		}
-	}
-
-	// Clean up create events which no longer need to be attempted because
-	// the workflow no longer exists in the workflow registry contract
-	for id, event := range pendingEvents {
-		if event.Name == WorkflowActivated {
-			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
-				delete(pendingEvents, id)
-			}
-		}
-	}
-
-	if len(pendingEvents) != 0 {
-		return nil, fmt.Errorf("invariant violation: some pending events were not handled in the reconcile loop: keys=%+v, len=%d", maps.Keys(pendingEvents), len(pendingEvents))
-	}
-
-	return events, nil
-}
-
-// generateReconciliationEventsForSource is like generateReconciliationEvents but only considers
-// engines from the specified source when determining deletions. This ensures that when a source
+// generateReconciliationEvents compares workflow metadata from a specific source against the engine registry's state.
+// It only considers engines from the specified source when determining deletions. This ensures that when a source
 // fails to fetch, we don't incorrectly delete engines from other sources.
-func (w *workflowRegistry) generateReconciliationEventsForSource(
+func (w *workflowRegistry) generateReconciliationEvents(
 	_ context.Context,
 	pendingEvents map[string]*reconciliationEvent,
 	workflowMetadata []WorkflowMetadataView,
@@ -710,8 +541,8 @@ func (w *workflowRegistry) generateReconciliationEventsForSource(
 		}
 	}
 
-	// Note: Unlike the original generateReconciliationEvents, we don't error on remaining pending events
-	// because pending events from other sources may legitimately remain in the map.
+	// Note: We don't error on remaining pending events because pending events from other sources
+	// may legitimately remain in the map when processing a single source.
 
 	return events, nil
 }
@@ -792,15 +623,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				}
 				pendingEvents := pendingEventsBySource[sourceName]
 
-				// Check if source is ready
-				if err := source.Ready(); err != nil {
-					w.lggr.Debugw("Source not ready, skipping", "source", sourceName, "error", err)
-					// Record metrics for not-ready source
-					w.metrics.recordSourceFetch(ctx, sourceName, 0, 0, err)
-					continue
-				}
-
-				// Fetch workflows from this source
+				// Fetch workflows from this source (each source handles lazy initialization via TryInitialize)
 				start := time.Now()
 				workflows, head, fetchErr := source.ListWorkflowMetadata(ctx, don)
 				duration := time.Since(start)
@@ -822,7 +645,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					"durationMs", duration.Milliseconds())
 
 				// Generate events only for this source's engines
-				events, genErr := w.generateReconciliationEventsForSource(ctx, pendingEvents, workflows, head, sourceName)
+				events, genErr := w.generateReconciliationEvents(ctx, pendingEvents, workflows, head, sourceName)
 				if genErr != nil {
 					w.lggr.Errorw("Failed to generate reconciliation events for source",
 						"source", sourceName, "error", genErr)

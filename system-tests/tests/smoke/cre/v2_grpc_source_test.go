@@ -41,8 +41,9 @@ const (
 // Test_CRE_GRPCSource_Lifecycle tests the complete lifecycle of workflows via the gRPC
 // alternative source: deploy, pause, resume, delete.
 //
-// This test uses the standard smoke test pattern with a pre-configured TOML that includes
-// AlternativeSources pointing to host.docker.internal:8544.
+// This test uses a pre-configured TOML with AlternativeSources pointing to host.docker.internal:8544.
+// The config generation code automatically transforms host.docker.internal to the platform-specific
+// Docker host address (e.g., 172.17.0.1 on Linux).
 //
 // To run locally:
 //  1. Start the test (it will start the environment automatically):
@@ -52,7 +53,6 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 	ctx := t.Context()
 
 	// Step 1: Start mock gRPC server BEFORE environment (uses default port 8544)
-	// The TOML config has AlternativeSources hardcoded to host.docker.internal:8544
 	testLogger.Info().Msg("Starting mock gRPC source server...")
 	mockServer := grpcsourcemock.NewTestContainer(grpcsourcemock.TestContainerConfig{
 		RejectAllAuth: false,
@@ -70,7 +70,8 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 		Str("privateRegistryURL", mockServer.PrivateRegistryURL()).
 		Msg("Mock gRPC source server started")
 
-	// Step 2: Use standard pattern - config has AlternativeSources pre-configured
+	// Step 2: Use standard pattern - config has AlternativeSources with host.docker.internal
+	// The config generation code transforms this to the platform-specific Docker host
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-grpc-source.toml"),

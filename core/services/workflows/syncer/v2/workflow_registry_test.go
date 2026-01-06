@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 func Test_generateReconciliationEventsV2(t *testing.T) {
@@ -73,7 +74,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		// The only event is WorkflowActivatedEvent
@@ -102,7 +103,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfID := [32]byte{1}
 		owner := []byte{1}
 		wfName := "wf name 1"
-		err := er.Add(wfID, ContractWorkflowSourceName, &mockService{})
+		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
@@ -145,13 +146,14 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		require.Len(t, events, 2)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
 		expectedDeletedEvent := WorkflowDeletedEvent{
 			WorkflowID: wfID,
+			Source:     "TestSource",
 		}
 		require.Equal(t, expectedDeletedEvent, events[0].Data)
 		require.Equal(t, WorkflowActivated, events[1].Name)
@@ -176,7 +178,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
-		err := er.Add(wfID, ContractWorkflowSourceName, &mockService{})
+		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
@@ -198,7 +200,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		metadata := []WorkflowMetadataView{}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		// The only event is WorkflowDeletedEvent
@@ -206,6 +208,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, WorkflowDeleted, events[0].Name)
 		expectedDeletedEvent := WorkflowDeletedEvent{
 			WorkflowID: wfID,
+			Source:     "TestSource",
 		}
 		require.Equal(t, expectedDeletedEvent, events[0].Data)
 	})
@@ -258,7 +261,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		// The only event is WorkflowActivatedEvent
@@ -282,7 +285,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.NoError(t, err)
 
 		// Repeated ticks do not make any new events
-		events, err = wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err = wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 		require.Empty(t, events)
 	})
@@ -335,7 +338,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 		// No events
 		require.Empty(t, events)
@@ -392,7 +395,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		// The only event is WorkflowPausedEvent
@@ -479,7 +482,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				nextRetryAt: nextRetryAt,
 			},
 		}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		// The only event is WorkflowActivatedEvent
@@ -569,7 +572,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				nextRetryAt: nextRetryAt,
 			},
 		}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		require.Empty(t, pendingEvents)
@@ -585,7 +588,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfID := [32]byte{1}
 		owner := []byte{1}
 		wfName := "wf name 1"
-		err := er.Add(wfID, ContractWorkflowSourceName, &mockService{})
+		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
@@ -629,7 +632,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 
 		// Delete event happens before activate event
@@ -644,7 +647,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
-		err := er.Add(wfID, ContractWorkflowSourceName, &mockService{})
+		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
@@ -667,6 +670,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// A workflow is to be removed, but hits a failure, causing it to stay pending
 		event := WorkflowDeletedEvent{
 			WorkflowID: wfID,
+			Source:     "TestSource",
 		}
 		pendingEvents := map[string]*reconciliationEvent{
 			hex.EncodeToString(wfID[:]): {
@@ -675,7 +679,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 					Name: WorkflowDeleted,
 				},
 				id:          hex.EncodeToString(wfID[:]),
-				signature:   fmt.Sprintf("%s-%s-%s", WorkflowDeleted, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
+				signature:   fmt.Sprintf("%s-%s", WorkflowDeleted, hex.EncodeToString(wfID[:])),
 				nextRetryAt: time.Now(),
 				retryCount:  5,
 			},
@@ -684,7 +688,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// No workflows in metadata
 		metadata := []WorkflowMetadataView{}
 
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
@@ -750,7 +754,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// The workflow then gets removed
 		metadata := []WorkflowMetadataView{}
 
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 		require.Empty(t, events)
 		require.Empty(t, pendingEvents)
@@ -877,7 +881,7 @@ func (m *mockContractReader) Start(
 	return m.startErr
 }
 
-func Test_generateReconciliationEventsForSource(t *testing.T) {
+func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 	t.Run("only deletes engines from specified source", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
@@ -909,14 +913,14 @@ func Test_generateReconciliationEventsForSource(t *testing.T) {
 		// Reconcile ContractWorkflowSource with empty metadata
 		// Should only delete contract engine, not GRPC engine
 		pendingEvents := make(map[string]*reconciliationEvent)
-		events, err := wr.generateReconciliationEventsForSource(
+		events, err := wr.generateReconciliationEvents(
 			ctx, pendingEvents, []WorkflowMetadataView{}, &types.Head{Height: "123"}, ContractWorkflowSourceName)
 
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
 		deletedEvent := events[0].Data.(WorkflowDeletedEvent)
-		require.Equal(t, wfIDContract, deletedEvent.WorkflowID)
+		require.Equal(t, wfTypes.WorkflowID(wfIDContract), deletedEvent.WorkflowID)
 		require.Equal(t, ContractWorkflowSourceName, deletedEvent.Source)
 	})
 
@@ -955,14 +959,14 @@ func Test_generateReconciliationEventsForSource(t *testing.T) {
 		}}
 
 		pendingEvents := make(map[string]*reconciliationEvent)
-		events, err := wr.generateReconciliationEventsForSource(
+		events, err := wr.generateReconciliationEvents(
 			ctx, pendingEvents, metadata, &types.Head{Height: "123"}, GRPCWorkflowSourceName)
 
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowActivated, events[0].Name)
 		activatedEvent := events[0].Data.(WorkflowActivatedEvent)
-		require.Equal(t, wfID, activatedEvent.WorkflowID)
+		require.Equal(t, wfTypes.WorkflowID(wfID), activatedEvent.WorkflowID)
 		require.Equal(t, GRPCWorkflowSourceName, activatedEvent.Source)
 	})
 
@@ -997,13 +1001,13 @@ func Test_generateReconciliationEventsForSource(t *testing.T) {
 		// Reconcile GRPCWorkflowSource with empty metadata
 		// Should only generate delete event for GRPC engine, not contract engine
 		pendingEvents := make(map[string]*reconciliationEvent)
-		events, err := wr.generateReconciliationEventsForSource(
+		events, err := wr.generateReconciliationEvents(
 			ctx, pendingEvents, []WorkflowMetadataView{}, &types.Head{Height: "123"}, GRPCWorkflowSourceName)
 
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		deletedEvent := events[0].Data.(WorkflowDeletedEvent)
-		require.Equal(t, wfIDGrpc, deletedEvent.WorkflowID)
+		require.Equal(t, wfTypes.WorkflowID(wfIDGrpc), deletedEvent.WorkflowID)
 
 		// Contract engine should still be in registry (we're just checking the event, not actually processing)
 		_, ok := er.Get(wfIDContract)
@@ -1046,14 +1050,14 @@ func Test_generateReconciliationEventsForSource(t *testing.T) {
 		}}
 
 		pendingEvents := make(map[string]*reconciliationEvent)
-		events, err := wr.generateReconciliationEventsForSource(
+		events, err := wr.generateReconciliationEvents(
 			ctx, pendingEvents, metadata, &types.Head{Height: "123"}, ContractWorkflowSourceName)
 
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowPaused, events[0].Name)
 		pausedEvent := events[0].Data.(WorkflowPausedEvent)
-		require.Equal(t, wfID, pausedEvent.WorkflowID)
+		require.Equal(t, wfTypes.WorkflowID(wfID), pausedEvent.WorkflowID)
 		require.Equal(t, ContractWorkflowSourceName, pausedEvent.Source)
 	})
 
@@ -1086,7 +1090,7 @@ func Test_generateReconciliationEventsForSource(t *testing.T) {
 		// Reconcile GRPCWorkflowSource with empty metadata
 		// Should generate no events since GRPC has no engines
 		pendingEvents := make(map[string]*reconciliationEvent)
-		events, err := wr.generateReconciliationEventsForSource(
+		events, err := wr.generateReconciliationEvents(
 			ctx, pendingEvents, []WorkflowMetadataView{}, &types.Head{Height: "123"}, GRPCWorkflowSourceName)
 
 		require.NoError(t, err)
@@ -1136,13 +1140,13 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			BinaryURL:    "http://binary.url",
 			ConfigURL:    "http://config.url",
 		}}
-		contractEvents, err := wr.generateReconciliationEventsForSource(
+		contractEvents, err := wr.generateReconciliationEvents(
 			ctx, contractPendingEvents, contractMetadata, &types.Head{Height: "123"}, ContractWorkflowSourceName)
 		require.NoError(t, err)
 		require.Empty(t, contractEvents, "No events expected since engine already exists")
 
 		// Simulate: GRPC source FAILS (returns error, so we skip reconciliation)
-		// In the actual sync loop, we would NOT call generateReconciliationEventsForSource
+		// In the actual sync loop, we would NOT call generateReconciliationEvents
 		// when the source fetch fails. This test validates that by NOT calling the method
 		// for the failed source, the GRPC engine is preserved.
 
@@ -1183,7 +1187,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.NoError(t, err)
 
 		// Tick 1: GRPC source fails (skip reconciliation - both engines preserved)
-		// ... (simulated by not calling generateReconciliationEventsForSource)
+		// ... (simulated by not calling generateReconciliationEvents)
 
 		// Tick 2: GRPC source recovers with only wfIDGrpc1
 		grpcPendingEvents := make(map[string]*reconciliationEvent)
@@ -1196,7 +1200,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			BinaryURL:    "http://binary.url",
 			ConfigURL:    "http://config.url",
 		}}
-		events, err := wr.generateReconciliationEventsForSource(
+		events, err := wr.generateReconciliationEvents(
 			ctx, grpcPendingEvents, grpcMetadata, &types.Head{Height: "124"}, GRPCWorkflowSourceName)
 		require.NoError(t, err)
 
@@ -1204,7 +1208,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
 		deletedEvent := events[0].Data.(WorkflowDeletedEvent)
-		require.Equal(t, wfIDGrpc2, deletedEvent.WorkflowID)
+		require.Equal(t, wfTypes.WorkflowID(wfIDGrpc2), deletedEvent.WorkflowID)
 		require.Equal(t, GRPCWorkflowSourceName, deletedEvent.Source)
 	})
 
@@ -1236,7 +1240,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		// Both sources fail - we don't call generateReconciliationEventsForSource for either
+		// Both sources fail - we don't call generateReconciliationEvents for either
 		// This is simulated by simply not calling the method
 
 		// Both engines should still exist
@@ -1286,14 +1290,14 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			BinaryURL:    "http://binary.url",
 			ConfigURL:    "http://config.url",
 		}}
-		contractEvents, err := wr.generateReconciliationEventsForSource(
+		contractEvents, err := wr.generateReconciliationEvents(
 			ctx, contractPending, contractMeta, &types.Head{Height: "123"}, ContractWorkflowSourceName)
 		require.NoError(t, err)
 
 		// Should delete wfIDContract1
 		require.Len(t, contractEvents, 1)
 		require.Equal(t, WorkflowDeleted, contractEvents[0].Name)
-		require.Equal(t, wfIDContract1, contractEvents[0].Data.(WorkflowDeletedEvent).WorkflowID)
+		require.Equal(t, wfTypes.WorkflowID(wfIDContract1), contractEvents[0].Data.(WorkflowDeletedEvent).WorkflowID)
 
 		// GRPC source: wfIDGrpc2 removed (only wfIDGrpc1 remains)
 		grpcPending := make(map[string]*reconciliationEvent)
@@ -1305,13 +1309,13 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			BinaryURL:    "http://binary.url",
 			ConfigURL:    "http://config.url",
 		}}
-		grpcEvents, err := wr.generateReconciliationEventsForSource(
+		grpcEvents, err := wr.generateReconciliationEvents(
 			ctx, grpcPending, grpcMeta, &types.Head{Height: "123"}, GRPCWorkflowSourceName)
 		require.NoError(t, err)
 
 		// Should delete wfIDGrpc2, but NOT any contract workflows
 		require.Len(t, grpcEvents, 1)
 		require.Equal(t, WorkflowDeleted, grpcEvents[0].Name)
-		require.Equal(t, wfIDGrpc2, grpcEvents[0].Data.(WorkflowDeletedEvent).WorkflowID)
+		require.Equal(t, wfTypes.WorkflowID(wfIDGrpc2), grpcEvents[0].Data.(WorkflowDeletedEvent).WorkflowID)
 	})
 }

@@ -439,7 +439,8 @@ func addWorkerNodeConfig(
 
 	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
 		// Preserve existing AlternativeSourcesConfig when setting WorkflowRegistry fields
-		existingAltSources := existingConfig.Capabilities.WorkflowRegistry.AlternativeSourcesConfig
+		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
+		existingAltSources := transformAlternativeSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AlternativeSourcesConfig)
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:                  ptr.Ptr(commonInputs.workflowRegistry.address),
 			NetworkID:                ptr.Ptr("evm"),
@@ -757,6 +758,32 @@ func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain
 			},
 		},
 	})
+}
+
+// transformAlternativeSourceURLs transforms URLs in AlternativeSourcesConfig to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+func transformAlternativeSourceURLs(sources []coretoml.AlternativeWorkflowSource) []coretoml.AlternativeWorkflowSource {
+	if len(sources) == 0 {
+		return sources
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	transformed := make([]coretoml.AlternativeWorkflowSource, len(sources))
+	for i, src := range sources {
+		transformed[i] = src
+		if src.URL != nil {
+			// Replace "host.docker.internal" with the platform-specific host
+			url := *src.URL
+			url = strings.Replace(url, "host.docker.internal", dockerHost, 1)
+			transformed[i].URL = &url
+		}
+	}
+
+	return transformed
 }
 
 // generateInstanceNames creates Kubernetes-compatible instance names for nodes

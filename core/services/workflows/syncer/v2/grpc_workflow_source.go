@@ -35,7 +35,7 @@ const (
 
 // grpcClient is an interface for the GRPC client to enable testing.
 type grpcClient interface {
-	ListWorkflowMetadata(ctx context.Context, families []string, start, limit int64) ([]*pb.WorkflowMetadata, *pb.Head, bool, error)
+	ListWorkflowMetadata(ctx context.Context, families []string, start, limit int64) ([]*pb.WorkflowMetadata, bool, error)
 	Close() error
 }
 
@@ -147,7 +147,10 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 // ListWorkflowMetadata fetches workflow metadata from the GRPC source.
 // Pagination is handled internally - this method fetches all pages and returns all workflows.
 // Transient errors (Unavailable, ResourceExhausted) are retried with exponential backoff.
+// Returns a synthetic head since GRPC sources don't have blockchain state.
 func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
+	g.TryInitialize(ctx)
+
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -156,19 +159,13 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 	}
 
 	var allViews []WorkflowMetadataView
-	var primaryHead *pb.Head
 	var start int64
 
 	// Fetch all pages
 	for {
-		workflows, head, hasMore, err := g.fetchPageWithRetry(ctx, don.Families, start)
+		workflows, hasMore, err := g.fetchPageWithRetry(ctx, don.Families, start)
 		if err != nil {
 			return nil, nil, err
-		}
-
-		// Capture the head from the first page
-		if primaryHead == nil && head != nil {
-			primaryHead = head
 		}
 
 		// Convert workflows to views, skipping invalid ones
@@ -197,22 +194,22 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		"donID", don.ID,
 		"donFamilies", don.Families)
 
-	return allViews, g.toCommonHead(primaryHead), nil
+	return allViews, g.syntheticHead(), nil
 }
 
 // fetchPageWithRetry fetches a single page with retry logic for transient errors.
-func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []string, start int64) ([]*pb.WorkflowMetadata, *pb.Head, bool, error) {
+func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []string, start int64) ([]*pb.WorkflowMetadata, bool, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= g.maxRetries; attempt++ {
 		// Check context before making request
 		if ctx.Err() != nil {
-			return nil, nil, false, ctx.Err()
+			return nil, false, ctx.Err()
 		}
 
-		workflows, head, hasMore, err := g.client.ListWorkflowMetadata(ctx, families, start, g.pageSize)
+		workflows, hasMore, err := g.client.ListWorkflowMetadata(ctx, families, start, g.pageSize)
 		if err == nil {
-			return workflows, head, hasMore, nil
+			return workflows, hasMore, nil
 		}
 
 		lastErr = err
@@ -223,7 +220,7 @@ func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []
 				"error", err,
 				"start", start,
 				"pageSize", g.pageSize)
-			return nil, nil, false, err
+			return nil, false, err
 		}
 
 		// Log retry attempt
@@ -237,7 +234,7 @@ func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []
 			g.lggr.Errorw("Max retries exceeded for GRPC request",
 				"error", err,
 				"maxRetries", g.maxRetries)
-			return nil, nil, false, fmt.Errorf("max retries exceeded: %w", err)
+			return nil, false, fmt.Errorf("max retries exceeded: %w", err)
 		}
 
 		// Calculate backoff with jitter
@@ -246,7 +243,7 @@ func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []
 		// Wait for backoff or context cancellation
 		select {
 		case <-ctx.Done():
-			return nil, nil, false, ctx.Err()
+			return nil, false, ctx.Err()
 		case <-time.After(backoff):
 			g.lggr.Debugw("Retrying GRPC request",
 				"attempt", attempt+1,
@@ -255,7 +252,7 @@ func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []
 		}
 	}
 
-	return nil, nil, false, lastErr
+	return nil, false, lastErr
 }
 
 // isRetryableError determines if an error should be retried.
@@ -303,6 +300,13 @@ func (g *GRPCWorkflowSource) Ready() error {
 		return errors.New("GRPC source not ready")
 	}
 	return nil
+}
+
+// TryInitialize returns the current ready state (GRPC client initialized in constructor).
+func (g *GRPCWorkflowSource) TryInitialize(_ context.Context) bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.ready
 }
 
 // Close closes the underlying GRPC connection.
@@ -354,24 +358,18 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	}, nil
 }
 
-// toCommonHead converts a protobuf Head to a common.Head.
-func (g *GRPCWorkflowSource) toCommonHead(head *pb.Head) *commontypes.Head {
-	if head == nil {
-		// Return a synthetic head if none provided
-		now := time.Now().Unix()
-		var timestamp uint64
-		if now >= 0 {
-			timestamp = uint64(now)
-		}
-		return &commontypes.Head{
-			Height:    strconv.FormatInt(now, 10),
-			Hash:      []byte("grpc-source"),
-			Timestamp: timestamp,
-		}
+// syntheticHead returns a synthetic head for GRPC sources.
+// GRPC sources don't have blockchain state, so we generate a synthetic head
+// with the current timestamp for consistency with the WorkflowMetadataSource interface.
+func (g *GRPCWorkflowSource) syntheticHead() *commontypes.Head {
+	now := time.Now().Unix()
+	var timestamp uint64
+	if now >= 0 {
+		timestamp = uint64(now)
 	}
 	return &commontypes.Head{
-		Height:    head.GetHeight(),
-		Hash:      head.GetHash(),
-		Timestamp: head.GetTimestamp(),
+		Height:    strconv.FormatInt(now, 10),
+		Hash:      []byte("grpc-source"),
+		Timestamp: timestamp,
 	}
 }

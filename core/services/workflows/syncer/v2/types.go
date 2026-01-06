@@ -128,12 +128,12 @@ type WorkflowPausedEvent struct {
 	ConfigURL     string
 	Tag           string
 	Attributes    []byte
-	Source        string // source that provided this workflow metadata
+	Source        string
 }
 
 type WorkflowDeletedEvent struct {
 	WorkflowID types.WorkflowID
-	Source     string // source that provided this workflow metadata
+	Source     string
 }
 
 // WorkflowMetadataSource is an interface for fetching workflow metadata from various sources.
@@ -141,12 +141,14 @@ type WorkflowDeletedEvent struct {
 // sources (e.g., on-chain contract, file-based, API-based) while treating them uniformly.
 type WorkflowMetadataSource interface {
 	// ListWorkflowMetadata returns all workflow metadata for the given DON.
-	// The returned Head represents the state at which the metadata was read (may be synthetic for non-blockchain sources).
 	ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error)
 
-	// Name returns a human-readable name for this source (used for logging and debugging).
+	// Name returns a human-readable name for this source.
 	Name() string
 
-	// Ready returns nil if the source is ready to be queried, or an error describing why it's not ready.
+	// Ready returns nil if the source is ready to be queried.
 	Ready() error
+
+	// TryInitialize attempts lazy initialization. Returns true if ready.
+	TryInitialize(ctx context.Context) bool
 }
