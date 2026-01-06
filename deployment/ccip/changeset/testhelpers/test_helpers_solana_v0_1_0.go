@@ -33,6 +33,7 @@ import (
 
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
+	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
@@ -525,7 +526,8 @@ func SendRequest(
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
 	case chainsel.FamilyTon:
-		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
+		tonMsg := cfg.Message.(tonrouter.CCIPSend)
+		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, tonMsg)
 		if err != nil {
 			return nil, err
 		}
