@@ -1127,5 +1127,7 @@ func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
 		stages++
 	}
 
+	// TODO: increment counter if sharding is enabled
+
 	return stagegen.NewStageGen(stages, "STAGE")
 }

@@ -37,23 +37,18 @@
 
 [[nodesets]]
   nodes = 4
-  name = "workflow"
-  don_types = ["workflow"]
+  name = "shard0"
+  don_types = ["workflow", "shard"]
   override_mode = "all"
   http_port_range_start = 10100
 
-  # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
-  # because bootstrap job for capability DON will be created on the boostrap node from this DON
-  supported_evm_chains = [1337, 2337]
-
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-trigger", "consensus", "don-time"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
-  [nodesets.chain_capabilities]
-    # we want to write only to the home chain, so that we can test whether remote capabilities of the 'capabilities DON' are used
-    write-evm = ["1337"]
-    read-contract = ["1337"]
-    evm = ["1337"]
+   [nodesets.chain_capabilities]
+    write-evm = ["1337", "2337"]
+    read-contract = ["1337", "2337"]
+    evm = ["1337", "2337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -61,7 +56,7 @@
     image = "postgres:12.0"
     port = 13000
 
- [[nodesets.node_specs]]
+[[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
@@ -72,29 +67,28 @@
 
 [[nodesets]]
   nodes = 4
-  name = "capabilities"
-  don_types = ["capabilities"]
-  exposes_remote_capabilities = true
+  name = "shard1"
+  don_types = ["workflow", "shard"]
+  shard_index = 1
   override_mode = "all"
-  http_port_range_start = 10200
-
-  # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
-  # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
-  supported_evm_chains = [1337, 2337]
+  http_port_range_start = 10400
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["web-api-target", "vault"]
+  # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
+  capabilities = ["ocr3", "custom-compute",  "web-api-target", "web-api-trigger", "cron", "consensus", "don-time"]
 
-  [nodesets.chain_capabilities]
-  write-evm = ["2337"]
-  read-contract = ["2337"]
-  evm = ["2337"]
+   [nodesets.chain_capabilities]
+    write-evm = ["1337", "2337"]
+    read-contract = ["1337", "2337"]
+    evm = ["1337", "2337"]
+
+  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
     image = "postgres:12.0"
-    port = 13100
+    port = 13400
 
-  [[nodesets.node_specs]]
+[[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."

@@ -48,6 +48,7 @@ const (
 	CapabilitiesDON CapabilityFlag = "capabilities"
 	GatewayDON      CapabilityFlag = "gateway"
 	BootstrapDON    CapabilityFlag = "bootstrap"
+	ShardDON        CapabilityFlag = "shard"
 )
 
 // Capabilities
@@ -457,10 +458,12 @@ func (g *GenerateConfigsInput) Validate() error {
 }
 
 type DonMetadata struct {
-	NodesMetadata []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
-	Flags         []string        `toml:"flags" json:"flags"`
-	ID            uint64          `toml:"id" json:"id"`
-	Name          string          `toml:"name" json:"name"`
+	NodesMetadata             []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
+	Flags                     []string        `toml:"flags" json:"flags"`
+	ID                        uint64          `toml:"id" json:"id"`
+	Name                      string          `toml:"name" json:"name"`
+	ExposesRemoteCapabilities bool            `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
+	ShardIndex                uint            `toml:"shard_index" json:"shard_index"`
 
 	ns NodeSet // computed field, not serialized
 }
@@ -487,11 +490,13 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadat
 		return nil, fmt.Errorf("failed to create nodes metadata: %w", err)
 	}
 	out := &DonMetadata{
-		ID:            id,
-		Flags:         c.Flags(),
-		NodesMetadata: nodes,
-		Name:          c.Name,
-		ns:            *c,
+		ID:                        id,
+		Flags:                     c.Flags(),
+		NodesMetadata:             nodes,
+		Name:                      c.Name,
+		ns:                        *c,
+		ExposesRemoteCapabilities: c.ExposesRemoteCapabilities,
+		ShardIndex:                c.ShardIndex,
 	}
 
 	return out, nil
@@ -577,6 +582,23 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 	}
 
 	return slices.Contains(m.Flags, WorkflowDON)
+}
+
+func (m *DonMetadata) IsShardDON() bool {
+	// is there a case where flags are not set yet?
+	if len(m.Flags) == 0 && len(m.ns.DONTypes) != 0 {
+		return slices.Contains(m.ns.DONTypes, ShardDON)
+	}
+
+	return slices.Contains(m.Flags, ShardDON)
+}
+
+func (m *DonMetadata) IsShardLeader() bool {
+	return m.ShardIndex == 0
+}
+
+func (m *DonMetadata) HasOnlyLocalCapabilities() bool {
+	return m.ExposesRemoteCapabilities == false
 }
 
 // ConfigureForGatewayAccess adds gateway connector configuration to each node;s TOML config. It only adds connectors, if they are not already present.
@@ -808,6 +830,18 @@ func (m DonsMetadata) validate() error {
 		return errors.New("at least one DON requires gateway due to its capabilities, but no DON had a node with role 'gateway'")
 	}
 
+	if m.ShardingEnabled() {
+		leadersFound := 0
+		for _, don := range m.dons {
+			if don.IsShardDON() && don.IsShardLeader() {
+				leadersFound++
+			}
+			if leadersFound > 1 {
+				return errors.New("only one shard leader DON is allowed. Please update your TOML config and make sure there is only one DON with 'shard_index' equal to 0")
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -845,6 +879,41 @@ func (m DonsMetadata) WorkflowDONs() ([]*DonMetadata, error) {
 	}
 
 	return dons, nil
+}
+
+func (m DonsMetadata) ShardingDONs() ([]*DonMetadata, error) {
+	// don't use flag b/c may not be set
+	var dons []*DonMetadata
+	for _, don := range m.dons {
+		if don.IsShardDON() {
+			dons = append(dons, don)
+		}
+	}
+
+	if len(dons) == 0 {
+		return nil, fmt.Errorf("no dons with flag %s found", ShardDON)
+	}
+
+	return dons, nil
+}
+
+func (m DonsMetadata) ShardLeaderDON() (*DonMetadata, error) {
+	for _, don := range m.dons {
+		if don.IsShardDON() && don.IsShardLeader() {
+			return don, nil
+		}
+	}
+
+	return nil, errors.New("no shard leader DON found")
+}
+
+func (m DonsMetadata) ShardingEnabled() bool {
+	for _, don := range m.dons {
+		if don.IsShardDON() {
+			return true
+		}
+	}
+	return false
 }
 
 func (m DonsMetadata) GatewayEnabled() bool {
@@ -961,6 +1030,9 @@ type NodeSet struct {
 	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
 	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
 	ComputedCapabilities []string `toml:"computed_capabilities"`
+
+	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
+	ShardIndex                uint `toml:"shard_index"`
 }
 
 func (c *NodeSet) Flags() []string {

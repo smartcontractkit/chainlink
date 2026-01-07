@@ -82,6 +82,8 @@ func DeployKeystoneContracts(
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
 
+	// TODO: deploy shard contract if sharding is enabled
+
 	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], registryChainSelector, wfRegAddr)
 
@@ -377,6 +379,13 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 	}
 
 	return dons, nil
+}
+
+type ConfigureShardContractInput struct{}
+
+func ConfigureShardContract(input ConfigureShardContractInput) error {
+	// TODO: configure contract if sharding is enable
+	return nil
 }
 
 func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (CapabilitiesRegistry, error) {

@@ -66,37 +66,6 @@
       user_config_overrides = ""
 
 [[nodesets]]
-  nodes = 4
-  name = "shard1"
-  #is_shard = true # do not add to workflow registry?
-  don_types = ["workflow"]
-  override_mode = "all"
-  http_port_range_start = 10400
-
-  env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "cron", "consensus", "don-time"]
-
-   [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337", "2337"]
-    evm = ["1337", "2337"]
-
-  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
-
-  [nodesets.db]
-    image = "postgres:12.0"
-    port = 13400
-
-[[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
-[[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
   don_types = ["bootstrap", "gateway"]

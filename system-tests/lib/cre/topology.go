@@ -47,7 +47,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider) (*Topology, error)
 	}
 
 	topology := &Topology{
-		WorkflowDONIDs: make([]uint64, len(wfDONs)),
+		WorkflowDONIDs: []uint64{},
 		DonsMetadata:   donsMetadata,
 	}
 
@@ -56,6 +56,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider) (*Topology, error)
 			Name:     wfDON.Name,
 			Handlers: []string{pkg.GatewayHandlerTypeWebAPICapabilities},
 		})
+		topology.WorkflowDONIDs = append(topology.WorkflowDONIDs, wfDON.ID)
 	}
 
 	if donsMetadata.RequiresGateway() {

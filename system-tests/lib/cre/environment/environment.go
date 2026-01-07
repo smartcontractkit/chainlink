@@ -401,6 +401,16 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	if topology.DonsMetadata.ShardingEnabled() {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Shard contract")))
+		err := crecontracts.ConfigureShardContract(crecontracts.ConfigureShardContractInput{})
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to configure Shard contract")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Shard contract configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	}
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 
 	for _, feature := range input.Features.List() {

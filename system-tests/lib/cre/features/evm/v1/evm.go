@@ -113,7 +113,9 @@ func (o *EVM) PreEnvStartup(
 				CapabilityType: 3, // TARGET
 				ResponseType:   1, // OBSERVATION_IDENTICAL
 			},
-			Config: &capabilitiespb.CapabilityConfig{},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		})
 	}
 

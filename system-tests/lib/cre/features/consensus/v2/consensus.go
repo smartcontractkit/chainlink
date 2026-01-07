@@ -52,7 +52,9 @@ func (c *Consensus) PreEnvStartup(
 			CapabilityType: 2, // CONSENSUS
 			ResponseType:   0, // REPORT
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{

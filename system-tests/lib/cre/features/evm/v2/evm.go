@@ -125,6 +125,7 @@ func (o *EVM) PreEnvStartup(
 			},
 			Config: &capabilitiespb.CapabilityConfig{
 				MethodConfigs: evmMethodConfigs,
+				LocalOnly:     don.HasOnlyLocalCapabilities(),
 			},
 		})
 	}
