@@ -830,16 +830,21 @@ func (m DonsMetadata) Bootstrap() (*NodeMetadata, bool) {
 	return nil, false
 }
 
-// WorkflowDON returns the DON with the WorkflowDON flag. Returns an error if
-// there is not exactly one such DON. Currently, the WorkflowDON flag is required on exactly one DON.
-func (m DonsMetadata) WorkflowDON() (*DonMetadata, error) {
+// WorkflowDONs returns the DONs with the WorkflowDON flag
+func (m DonsMetadata) WorkflowDONs() ([]*DonMetadata, error) {
 	// don't use flag b/c may not be set
+	var dons []*DonMetadata
 	for _, don := range m.dons {
 		if don.IsWorkflowDON() {
-			return don, nil
+			dons = append(dons, don)
 		}
 	}
-	return nil, fmt.Errorf("no dons with flag %s found", WorkflowDON)
+
+	if len(dons) == 0 {
+		return nil, fmt.Errorf("no dons with flag %s found", WorkflowDON)
+	}
+
+	return dons, nil
 }
 
 func (m DonsMetadata) GatewayEnabled() bool {

@@ -362,7 +362,7 @@ func createJobs(
 			Domain:      offchain.ProductLabel,
 			Environment: cre.EnvironmentName,
 			DONName:     bootstrap.DON.Name,
-			JobName:     fmt.Sprintf("evm-v2-bootstrap-%d", chainID),
+			JobName:     fmt.Sprintf("evm-v2-bootstrap-%d-%s", chainID, don.Name),
 			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},

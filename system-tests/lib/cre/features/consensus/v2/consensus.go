@@ -177,7 +177,7 @@ func createJobs(
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
 		DONName:     bootstrap.DON.Name,
-		JobName:     "consensus-v2-bootstrap",
+		JobName:     "consensus-v2-bootstrap-" + don.Name,
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
