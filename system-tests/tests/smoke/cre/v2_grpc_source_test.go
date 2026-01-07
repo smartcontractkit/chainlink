@@ -49,6 +49,8 @@ const (
 //  1. Start the test (it will start the environment automatically):
 //     go test -timeout 20m -run "^Test_CRE_GRPCSource_Lifecycle$" ./smoke/cre/...
 func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
+	t.Skip("Skipping: gRPC source tests require V2 workflow registry syncer - needs investigation for CI environment differences")
+
 	testLogger := framework.L
 	ctx := t.Context()
 
