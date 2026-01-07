@@ -16,11 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 	ccipconsts "github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
@@ -813,11 +812,11 @@ const executionStateChangedEvent = ccipconsts.EventNameExecutionStateChanged
 
 func isTypeHardcoded(t any) bool {
 	switch t.(type) {
-	case *chainaccessor.CommitReportAcceptedEvent:
+	case *ccipocr3.CommitReportAcceptedEvent:
 		return true
-	case *chainaccessor.SendRequestedEvent:
+	case *ccipocr3.SendRequestedEvent:
 		return true
-	case *chainaccessor.ExecutionStateChangedEvent:
+	case *ccipocr3.ExecutionStateChangedEvent:
 		return true
 	}
 
@@ -826,7 +825,7 @@ func isTypeHardcoded(t any) bool {
 
 func decodeHardcodedType(out any, log *logpoller.Log) error {
 	switch out := out.(type) {
-	case *chainaccessor.CommitReportAcceptedEvent:
+	case *ccipocr3.CommitReportAcceptedEvent:
 		var internalEvent offramp.OffRampCommitReportAccepted
 		err := unpackLog(&internalEvent, commitReportAcceptedEvent, log, offrampABI)
 		if err != nil {
@@ -836,7 +835,7 @@ func decodeHardcodedType(out any, log *logpoller.Log) error {
 		populateCommitReportAcceptFromEvent(out, internalEvent)
 
 		return nil
-	case *chainaccessor.SendRequestedEvent:
+	case *ccipocr3.SendRequestedEvent:
 		var internalEvent onramp.OnRampCCIPMessageSent
 		err := unpackLog(&internalEvent, ccipMessageSentEvent, log, onrampABI)
 		if err != nil {
@@ -846,7 +845,7 @@ func decodeHardcodedType(out any, log *logpoller.Log) error {
 		populateSendRequestFromEvent(out, internalEvent)
 
 		return nil
-	case *chainaccessor.ExecutionStateChangedEvent:
+	case *ccipocr3.ExecutionStateChangedEvent:
 		var internalEvent offramp.OffRampExecutionStateChanged
 		err := unpackLog(&internalEvent, executionStateChangedEvent, log, offrampABI)
 		if err != nil {
@@ -894,7 +893,7 @@ func unpackLog(out any, event string, log *logpoller.Log, hcabi abi.ABI) error {
 	return abi.ParseTopics(out, indexed, log.GetTopics()[1:])
 }
 
-func populateExecutionStateChangedFromEvent(out *chainaccessor.ExecutionStateChangedEvent, internalEvent offramp.OffRampExecutionStateChanged) {
+func populateExecutionStateChangedFromEvent(out *ccipocr3.ExecutionStateChangedEvent, internalEvent offramp.OffRampExecutionStateChanged) {
 	out.SourceChainSelector = ccipocr3.ChainSelector(internalEvent.SourceChainSelector)
 	out.SequenceNumber = ccipocr3.SeqNum(internalEvent.SequenceNumber)
 	out.MessageID = internalEvent.MessageId
@@ -904,7 +903,7 @@ func populateExecutionStateChangedFromEvent(out *chainaccessor.ExecutionStateCha
 	out.GasUsed = *internalEvent.GasUsed
 }
 
-func populateSendRequestFromEvent(out *chainaccessor.SendRequestedEvent, internalEvent onramp.OnRampCCIPMessageSent) {
+func populateSendRequestFromEvent(out *ccipocr3.SendRequestedEvent, internalEvent onramp.OnRampCCIPMessageSent) {
 	out.DestChainSelector = ccipocr3.ChainSelector(internalEvent.DestChainSelector)
 	out.SequenceNumber = ccipocr3.SeqNum(internalEvent.SequenceNumber)
 
@@ -943,13 +942,13 @@ func convertOnRampCCIPMessage(m onramp.InternalEVM2AnyRampMessage) ccipocr3.Mess
 	return out
 }
 
-func populateCommitReportAcceptFromEvent(out *chainaccessor.CommitReportAcceptedEvent, internalEvent offramp.OffRampCommitReportAccepted) {
+func populateCommitReportAcceptFromEvent(out *ccipocr3.CommitReportAcceptedEvent, internalEvent offramp.OffRampCommitReportAccepted) {
 	out.BlessedMerkleRoots = convertRoots(internalEvent.BlessedMerkleRoots)
 	out.UnblessedMerkleRoots = convertRoots(internalEvent.UnblessedMerkleRoots)
 
 	for _, update := range internalEvent.PriceUpdates.TokenPriceUpdates {
 		out.PriceUpdates.TokenPriceUpdates = append(out.PriceUpdates.TokenPriceUpdates,
-			chainaccessor.TokenPriceUpdate{
+			ccipocr3.TokenPriceUpdate{
 				SourceToken: update.SourceToken.Bytes(),
 				UsdPerToken: update.UsdPerToken,
 			},
@@ -958,13 +957,13 @@ func populateCommitReportAcceptFromEvent(out *chainaccessor.CommitReportAccepted
 
 	for _, update := range internalEvent.PriceUpdates.GasPriceUpdates {
 		out.PriceUpdates.GasPriceUpdates = append(out.PriceUpdates.GasPriceUpdates,
-			chainaccessor.GasPriceUpdate(update),
+			ccipocr3.GasPriceUpdate(update),
 		)
 	}
 }
 
-func convertRoots(r []offramp.InternalMerkleRoot) []chainaccessor.MerkleRoot {
-	res := make([]chainaccessor.MerkleRoot, 0, len(r))
+func convertRoots(r []offramp.InternalMerkleRoot) []ccipocr3.MerkleRoot {
+	res := make([]ccipocr3.MerkleRoot, 0, len(r))
 	for _, root := range r {
 		res = append(res, convertRoot(root))
 	}
@@ -972,8 +971,8 @@ func convertRoots(r []offramp.InternalMerkleRoot) []chainaccessor.MerkleRoot {
 	return res
 }
 
-func convertRoot(r offramp.InternalMerkleRoot) chainaccessor.MerkleRoot {
-	return chainaccessor.MerkleRoot{
+func convertRoot(r offramp.InternalMerkleRoot) ccipocr3.MerkleRoot {
+	return ccipocr3.MerkleRoot{
 		SourceChainSelector: r.SourceChainSelector,
 		OnRampAddress:       r.OnRampAddress,
 		MinSeqNr:            r.MinSeqNr,
