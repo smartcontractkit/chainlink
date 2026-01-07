@@ -8,6 +8,8 @@ import (
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	zkbindings "github.com/smartcontractkit/mcms/sdk/zksync/bindings"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -31,7 +33,7 @@ var OpEVMDeployTimelock = opsutils.NewEVMDeployOperation(
 	&opsutils.ContractOpts{
 		Version:     &deployment.Version1_0_0,
 		EVMBytecode: common.FromHex(bindings.RBACTimelockBin),
-		// ZkSyncVMBytecode not supported
+		ZkSyncVMBytecode: zkbindings.RBACTimelockZkBytecode,
 	},
 	func(input OpEVMDeployTimelockInput) []any {
 		return []any{
