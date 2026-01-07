@@ -64,6 +64,7 @@ type Core struct {
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
+	Sharding             Sharding             `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -109,6 +110,8 @@ func (c *Core) SetFrom(f *Core) {
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
+
+	c.Sharding.setFrom(&f.Sharding)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -2750,5 +2753,25 @@ type JobDistributor struct {
 func (jd *JobDistributor) setFrom(f *JobDistributor) {
 	if f.DisplayName != nil {
 		jd.DisplayName = f.DisplayName
+	}
+}
+
+type Sharding struct {
+	ArbiterPort          *uint16
+	ArbiterPollInterval  *commonconfig.Duration
+	ArbiterRetryInterval *commonconfig.Duration
+}
+
+func (s *Sharding) setFrom(f *Sharding) {
+	if f.ArbiterPort != nil {
+		s.ArbiterPort = f.ArbiterPort
+	}
+
+	if f.ArbiterPollInterval != nil {
+		s.ArbiterPollInterval = f.ArbiterPollInterval
+	}
+
+	if f.ArbiterRetryInterval != nil {
+		s.ArbiterRetryInterval = f.ArbiterRetryInterval
 	}
 }
