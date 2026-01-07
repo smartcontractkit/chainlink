@@ -408,12 +408,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	ar := h.getActiveRequest(resp.ID)
 	if ar == nil {
 		// Request is not found, so we don't need to send a response to the user
-		// This might happen if the response is stale
-		l.Errorw("no pending request found for ID")
-		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
-			attribute.String("error", api.StaleNodeResponseError.String()),
-		))
+		// This can happen if a slow node responds after the request has already been completed
+		l.Debugw("no pending request found for ID")
 		return nil
 	}
 

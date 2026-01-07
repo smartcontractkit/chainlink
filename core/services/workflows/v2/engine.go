@@ -493,13 +493,16 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					if !isOpen {
 						return
 					}
+					triggerID := subs.Subscriptions[idx].Id
+					eventID := event.Event.ID
+					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
 					if event.Err != nil {
-						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", subs.Subscriptions[idx].Id, "err", event.Err)
-						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
+						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
 					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
-						triggerCapID: subs.Subscriptions[idx].Id,
+						triggerCapID: triggerID,
 						triggerIndex: idx,
 						timestamp:    e.cfg.Clock.Now(),
 						event:        event,
@@ -507,13 +510,14 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						var errFull limits.ErrorQueueFull
 						if errors.As(err, &errFull) {
 							// queue full, drop the event
-							e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
-							e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventQueueFullCounter(ctx)
+							e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+							e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventQueueFullCounter(ctx)
 						}
-						e.logger().Errorw("Failed to enqueue trigger event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
-						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
+						e.logger().Errorw("Failed to enqueue trigger event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
+					e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
 				}
 			}
 		})
@@ -531,13 +535,15 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			return
 		}
 		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
+		eventID := queueHead.event.Event.ID
+		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
 			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
 			continue
 		}
 		if eventAge > triggerEventMaxAge {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", queueHead.event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
+			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 			continue
 		}
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
@@ -545,6 +551,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
+		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
 			e.startExecution(ctx, queueHead)
