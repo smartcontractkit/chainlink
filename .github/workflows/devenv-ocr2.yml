@@ -64,7 +64,7 @@ jobs:
 
       - name: Run Soak tests
         id: soak_test
-        working-directory: devenv/tests/e2e
+        working-directory: devenv/tests/ocr2
         run: go test -v -timeout 20m -run TestLoad
 
       - name: Upload Logs
