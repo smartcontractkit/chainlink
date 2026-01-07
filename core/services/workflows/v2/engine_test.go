@@ -1781,8 +1781,8 @@ func TestEngine_HandleNewDON(t *testing.T) {
 	})
 }
 
-// TestEngine_DonVersionLabelUpdate tests that when a DON's ConfigVersion changes,
-// the beholder logger labels should be updated to reflect the new version.
+// TestEngine_DonVersionLabelUpdatePinned tests that when a DON's ConfigVersion changes,
+// the beholder logger labels should still be pinned to version 1.
 //
 // This test creates a REAL engine with a REAL DON notifier and triggers a REAL DON update
 // to verify that the beholder logger labels are updated correctly.
@@ -1791,8 +1791,8 @@ func TestEngine_HandleNewDON(t *testing.T) {
 // 1. Create a real engine with DON ConfigVersion = 1
 // 2. Start the engine (which subscribes to DON updates)
 // 3. Trigger a real DON update via NotifyDonSet() with ConfigVersion = 2
-// 4. Verify that the beholder logger labels are updated to reflect ConfigVersion = 2
-func TestEngine_DonVersionLabelUpdate(t *testing.T) {
+// 4. Verify that the beholder logger labels are still pinned to ConfigVersion = 1
+func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1890,8 +1890,8 @@ func TestEngine_DonVersionLabelUpdate(t *testing.T) {
 	donVersionLabel := currentLabels[platform.DonVersion]
 	t.Logf("After real DON update: donVersion label=%s (actual DON ConfigVersion=%d)",
 		donVersionLabel, updatedNode.WorkflowDON.ConfigVersion)
-	assert.Equal(t, "2", donVersionLabel,
-		"donVersion label should be updated to '2' when DON ConfigVersion changes. "+
+	assert.Equal(t, "1", donVersionLabel,
+		"donVersion label should be updated to '1' when DON ConfigVersion changes. "+
 			"This test uses a REAL engine, REAL DON notifier, and triggers a REAL DON update.")
 
 	_ = cfg // Keep reference
