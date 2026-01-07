@@ -2,8 +2,10 @@ package arbiter
 
 import (
 	"context"
+	"fmt"
 	"iter"
 	"math/big"
+	"net"
 	"testing"
 	"time"
 
@@ -254,4 +256,31 @@ func TestArbiter_Ready(t *testing.T) {
 
 	err = arb.Ready()
 	assert.Error(t, err)
+}
+
+func TestArbiter_GRPCServerListening(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	mockReader := &mockContractReader{desiredShardCount: 10}
+	factory := mockContractReaderFactory(mockReader)
+
+	port := freeport.GetOne(t)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(port), testPollInterval, testRetryInterval)
+	require.NoError(t, err)
+
+	// Start the arbiter
+	err = arb.Start(context.Background())
+	require.NoError(t, err)
+
+	// Give gRPC server a moment to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify gRPC server is actually listening by attempting to connect
+	addr := fmt.Sprintf("localhost:%d", port)
+	conn, err := net.DialTimeout("tcp", addr, 1*time.Second)
+	require.NoError(t, err, "gRPC server should be listening on port %d", port)
+	conn.Close()
+
+	// Cleanup
+	err = arb.Close()
+	require.NoError(t, err)
 }

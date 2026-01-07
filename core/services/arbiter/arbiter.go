@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
@@ -77,7 +76,7 @@ func New(
 		decision:    decision,
 		shardConfig: shardConfig,
 		lggr:        lggr,
-		grpcAddr:    strconv.Itoa(int(port)),
+		grpcAddr:    fmt.Sprintf(":%d", port),
 		stopCh:      make(services.StopChan),
 	}, nil
 }
