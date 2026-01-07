@@ -96,6 +96,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 }
 
 func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
+	execLogger := c.logger().With("workflowExecutionID", c.WorkflowExecutionID, "capabilityID", request.Id, "callbackID", request.CallbackId, "method", request.Method)
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
 	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	if err != nil {
@@ -125,12 +126,12 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	if err != nil {
 		// not explicitly an error case and more relevant (helpful) logging occurs in the metering package
 		// debug level should be sufficient here
-		c.logger().Debugf("capability config not found: %s", err)
+		execLogger.Debugw("capability config not found", "err", err)
 	}
 
 	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
-		c.logger().Errorf("no metering report found for %v", c.WorkflowExecutionID)
+		execLogger.Error("no metering report found")
 	}
 
 	meteringRef := strconv.Itoa(int(request.CallbackId))
@@ -179,7 +180,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Config: values.EmptyMap(),
 	}
 
-	c.logger().Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
+	execLogger.Debug("Executing capability ...")
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
 	loggerLabels := *c.loggerLabels.Load()
 	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
@@ -198,32 +199,32 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		var capabilityError caperrors.Error
 		if errors.As(err, &capabilityError) {
 			if capabilityError.Origin() == caperrors.OriginUser {
-				c.logger().Debugw("Capability execution failed with user error", "capID", request.Id, "capReqCallbackID", request.CallbackId, "userErr", err)
+				execLogger.Debugw("Capability execution failed with user error", "userErr", err)
 				_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, err)
 				c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityUserErrorCounter(ctx)
 				return nil, fmt.Errorf("capability execution failed with user error: %w", err)
 			}
 
-			c.logger().Debugw("Capability execution failed with system error", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+			execLogger.Debugw("Capability execution failed with system error", "err", err)
 			_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
 			c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityFailureCounter(ctx)
 			c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 			return nil, fmt.Errorf("failed to execute capability: %w", err)
 		}
 
-		c.logger().Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		execLogger.Debugw("Capability execution failed", "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
 		c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, caperrors.Unknown.String()).IncrementCapabilityFailureCounter(ctx)
 		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
-	c.logger().Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
+	execLogger.Debug("Capability execution succeeded")
 	_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
 
 	if meterReport != nil {
 		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {
-			c.logger().Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+			execLogger.Errorw("failed to set metering for capability request", "err", err)
 		}
 	}
 

@@ -3,11 +3,12 @@ package changeset
 import (
 	"testing"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -29,7 +30,7 @@ type testFixture struct {
 func setupTest(t *testing.T) *testFixture {
 	var (
 		qualifier = "test-workflow-registry-v2"
-		selector  = chainselectors.TEST_90000001.Selector
+		selector  = chainselectors.GETH_TESTNET.Selector
 	)
 
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -49,6 +50,35 @@ func setupTest(t *testing.T) *testFixture {
 	workflowRegistryAddress := rt.State().DataStore.Addresses().Filter(
 		datastore.AddressRefByQualifier("test-workflow-registry-v2"),
 	)[0].Address
+
+	// UpdateAllowedSigners to include the allowed owner key
+	allowedSigner := rt.Environment().BlockChains.EVMChains()[selector].DeployerKey.From
+	err = rt.Exec(
+		runtime.ChangesetTask(UpdateAllowedSigners{}, UpdateAllowedSignersInput{
+			ChainSelector:             selector,
+			WorkflowRegistryQualifier: qualifier,
+			Signers: []common.Address{
+				allowedSigner,
+			},
+			Allowed: true,
+		}),
+	)
+	require.NoError(t, err, "failed to update allowed signers")
+	t.Logf("Updated allowed signers to include key %s", allowedSigner)
+
+	// SetDONLimit to allow workflows to be created
+	err = rt.Exec(
+		runtime.ChangesetTask(SetDONLimit{}, SetDONLimitInput{
+			ChainSelector:             selector,
+			WorkflowRegistryQualifier: qualifier,
+			DONFamily:                 "zone-a",
+			DONLimit:                  100,
+			UserDefaultLimit:          100,
+			MCMSConfig:                nil,
+		},
+		),
+	)
+	require.NoError(t, err, "failed to set DON limit")
 
 	return &testFixture{
 		rt:                        rt,
