@@ -105,8 +105,8 @@ func verifyRounds(t *testing.T, in *de.Cfg, o2 *ocr2aggregator.OCR2Aggregator, t
 			L.Warn().Msgf("timeout reached, goal of %d rounds is not complete!", len(tc.roundSettings))
 			return
 		case <-roundTicker.C:
-			L.Debug().
-				Msg("Checking for new rounds")
+			L.Trace().
+				Msg("checking for new rounds")
 			currentRoundSettings := tc.roundSettings[TotalRoundsPerTestCount]
 
 			rd, err := o2.LatestRoundData(&bind.CallOpts{})
