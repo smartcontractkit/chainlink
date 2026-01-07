@@ -6,7 +6,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
+	aptosseq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	aptosops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -31,7 +31,6 @@ func NewCurseAdapter() *CurseAdapter {
 	return &CurseAdapter{}
 }
 
-// Initialize performs any required setup. No-op for now.
 func (c *CurseAdapter) Initialize(e cldf.Environment, selector uint64) error {
 	stateMap, err := aptosstateview.LoadOnchainStateAptos(e)
 	if err != nil {
@@ -46,7 +45,7 @@ func (c *CurseAdapter) Initialize(e cldf.Environment, selector uint64) error {
 	return nil
 }
 
-// IsSubjectCursedOnChain currently returns false; extend with real RMN checks if needed.
+// IsSubjectCursedOnChain checks if the subject is cursed on Aptos chain
 func (c *CurseAdapter) IsSubjectCursedOnChain(e cldf.Environment, selector uint64, subject fastcurse.Subject) (bool, error) {
 	chain, ok := e.BlockChains.AptosChains()[selector]
 	if !ok {
@@ -58,6 +57,7 @@ func (c *CurseAdapter) IsSubjectCursedOnChain(e cldf.Environment, selector uint6
 	return aptosops.IsSubjectCursed(deps, c.CCIPAddress, subject[:])
 }
 
+// IsChainConnectedToTargetChain checks if the target chain is supported on Aptos chain
 func (c *CurseAdapter) IsChainConnectedToTargetChain(e cldf.Environment, selector uint64, targetSelector uint64) (bool, error) {
 	chain, ok := e.BlockChains.AptosChains()[selector]
 	if !ok {
@@ -72,85 +72,54 @@ func (c *CurseAdapter) IsChainConnectedToTargetChain(e cldf.Environment, selecto
 	return connected, nil
 }
 
-// IsCurseEnabledForChain returns true by default; extend to verify RMN presence on-chain.
+// IsCurseEnabledForChain returns true because Aptos is live on CCIP 1.6
 func (c *CurseAdapter) IsCurseEnabledForChain(cldf.Environment, uint64) (bool, error) {
 	return true, nil
 }
 
+// SubjectToSelector converts subject to chainselector
 func (c *CurseAdapter) SubjectToSelector(subject fastcurse.Subject) (uint64, error) {
 	return fastcurse.GenericSubjectToSelector(subject)
 }
 
-// Curse returns nil for now; plug in a real sequence when available.
+// Curse returns the sequence to curse multiple subjects on Aptos chain
 func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequences.OnChainOutput, cldf_chain.BlockChains] {
 	return cldf_ops.NewSequence(
-		"aptos-curse-sequence",
+		aptosseq.AptosCurseSequence.ID(),
 		operation.Version1_0_0,
-		"Curse sequence for Aptos",
+		aptosseq.AptosCurseSequence.Description(),
 		func(b cldf_ops.Bundle, chains cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
-			chain, ok := chains.AptosChains()[in.ChainSelector]
-			if !ok {
-				return sequences.OnChainOutput{}, fmt.Errorf("chain with selector %d not found in environment", in.ChainSelector)
+			aptosInput := aptosseq.AptosCurseUncurseInput{
+				CCIPAddress:   c.CCIPAddress,
+				ChainSelector: in.ChainSelector,
+				Subjects:      in.Subjects,
 			}
-			subjectBytes := make([][]byte, len(in.Subjects))
-			for i, subject := range in.Subjects {
-				subjectBytes[i] = subject[:]
-			}
-			curseInput := aptosops.CurseMultipleInput{
-				CCIPAddress: c.CCIPAddress,
-				Subjects:    subjectBytes,
-			}
-			deps := dependency.AptosDeps{
-				AptosChain: chain,
-			}
-			report, err := cldf_ops.ExecuteOperation(b, aptosops.CurseMultipleOp, deps, curseInput)
+			seqReport, err := cldf_ops.ExecuteSequence(b, aptosseq.AptosCurseSequence, chains, aptosInput)
 			if err != nil {
-				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", chain.Selector, err)
+				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute curse sequence on Aptos chain %d: %w", in.ChainSelector, err)
 			}
-			batchOperation := mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(chain.Selector),
-				Transactions:  []mcmstypes.Transaction{report.Output},
-			}
-			return sequences.OnChainOutput{
-				BatchOps: []mcmstypes.BatchOperation{batchOperation},
-			}, nil
+			return seqReport.Output, nil
 		},
 	)
 }
 
-// Uncurse returns nil for now; plug in a real sequence when available.
+// Uncurse returns the sequence to uncurse multiple subjects on Aptos chain
 func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequences.OnChainOutput, cldf_chain.BlockChains] {
 	return cldf_ops.NewSequence(
-		"aptos-uncurse-sequence",
+		aptosseq.AptosUncurseSequence.ID(),
 		operation.Version1_0_0,
-		"Uncurse sequence for Aptos",
+		aptosseq.AptosUncurseSequence.Description(),
 		func(b cldf_ops.Bundle, chains cldf_chain.BlockChains, in fastcurse.CurseInput) (output sequences.OnChainOutput, err error) {
-			chain, ok := chains.AptosChains()[in.ChainSelector]
-			if !ok {
-				return sequences.OnChainOutput{}, fmt.Errorf("chain with selector %d not found in environment", in.ChainSelector)
+			aptosInput := aptosseq.AptosCurseUncurseInput{
+				CCIPAddress:   c.CCIPAddress,
+				ChainSelector: in.ChainSelector,
+				Subjects:      in.Subjects,
 			}
-			subjectBytes := make([][]byte, len(in.Subjects))
-			for i, subject := range in.Subjects {
-				subjectBytes[i] = subject[:]
-			}
-			uncurseInput := aptosops.UncurseMultipleInput{
-				CCIPAddress: c.CCIPAddress,
-				Subjects:    subjectBytes,
-			}
-			deps := dependency.AptosDeps{
-				AptosChain: chain,
-			}
-			report, err := cldf_ops.ExecuteOperation(b, aptosops.UncurseMultipleOp, deps, uncurseInput)
+			seqReport, err := cldf_ops.ExecuteSequence(b, aptosseq.AptosUncurseSequence, chains, aptosInput)
 			if err != nil {
-				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute uncurse operation on Aptos chain %d: %w", chain.Selector, err)
+				return sequences.OnChainOutput{}, fmt.Errorf("failed to execute uncurse sequence on Aptos chain %d: %w", in.ChainSelector, err)
 			}
-			batchOperation := mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(chain.Selector),
-				Transactions:  []mcmstypes.Transaction{report.Output},
-			}
-			return sequences.OnChainOutput{
-				BatchOps: []mcmstypes.BatchOperation{batchOperation},
-			}, nil
+			return seqReport.Output, nil
 		},
 	)
 }
@@ -169,7 +138,7 @@ func (c *CurseAdapter) ListConnectedChains(e cldf.Environment, selector uint64) 
 	return connectedChains, nil
 }
 
-// SelectorToSubject converts selector to Subject (family-aware).
+// SelectorToSubject converts selector to Subject.
 func (c *CurseAdapter) SelectorToSubject(selector uint64) fastcurse.Subject {
 	return globals.FamilyAwareSelectorToSubject(selector, chainsel.FamilyAptos)
 }
@@ -178,7 +147,6 @@ func (c *CurseAdapter) DeriveCurseAdapterVersion(e cldf.Environment, selector ui
 	return semver.MustParse("1.6.0"), nil
 }
 
-// Ensure interfaces are satisfied at compile time.
 var (
 	_ fastcurse.CurseAdapter        = (*CurseAdapter)(nil)
 	_ fastcurse.CurseSubjectAdapter = (*CurseAdapter)(nil)
