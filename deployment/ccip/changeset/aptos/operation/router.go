@@ -13,7 +13,7 @@ import (
 )
 
 var RouterOperations = []*operations.Operation[any, any, any]{
-	UpdateRouterOp.AsUntyped(),
+	UpdateRouterOp.AsUntypedRelaxed(),
 }
 
 // UpdateRouterDestInput contains configuration for updating FeeQuoter destination configs

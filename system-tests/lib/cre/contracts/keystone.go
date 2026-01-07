@@ -308,9 +308,9 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 	}
 
 	for donIdx, donMetadata := range input.Topology.DonsMetadata.List() {
-		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
+		// if it's only a gateway or bootstrapDON, we don't want to register it with the Capabilities Registry
 		// since it doesn't have any capabilities
-		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
+		if flags.HasNoOtherFlags(donMetadata.Flags, []string{cre.GatewayDON, cre.BootstrapDON}) {
 			continue
 		}
 

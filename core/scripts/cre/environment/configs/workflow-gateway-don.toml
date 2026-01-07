@@ -36,10 +36,10 @@
 #  provider = "kind"  # or "aws"
 
 [[nodesets]]
-  nodes = 5
+  nodes = 4
   name = "workflow"
   don_types = ["workflow"]
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "" }
@@ -56,42 +56,6 @@
     image = "postgres:12.0"
     port = 13000
 
-  [[nodesets.node_specs]]
-    roles = ["bootstrap"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
-[[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
-[[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
-[[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
 [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
@@ -103,29 +67,26 @@
 
 [[nodesets]]
   nodes = 1
-  name = "gateway"
-  don_types = ["gateway"]
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
 
   env_vars = { CL_EVM_CMD = "" }
-
-  # required so that EVM keys are generated and we can add gateway connecter
-  # remove once connector is not required by Workflow Registry Syncer
-  supported_evm_chains = [1337]
+  supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
     image = "postgres:12.0"
     port = 13200
 
   [[nodesets.node_specs]]
-    roles = ["gateway"]
+    roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""

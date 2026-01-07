@@ -13,9 +13,9 @@ import (
 )
 
 var TokenAdminRegistryOperations = []*operations.Operation[any, any, any]{
-	ProposeAdministratorOp.AsUntyped(),
-	AcceptAdminRoleOp.AsUntyped(),
-	SetPoolOp.AsUntyped(),
+	ProposeAdministratorOp.AsUntypedRelaxed(),
+	AcceptAdminRoleOp.AsUntypedRelaxed(),
+	SetPoolOp.AsUntypedRelaxed(),
 }
 
 type ProposeAdministratorInput struct {
