@@ -60,7 +60,7 @@ jobs:
           CHAINLINK_IMAGE: ${{ secrets.CHAINLINK_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          cl u env.toml && cl obs up
+          cl u env.toml && cl obs up -f
 
       - name: Run Soak tests
         id: soak_test
