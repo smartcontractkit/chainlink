@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -88,12 +89,19 @@ func mockContractReaderFactory(mockReader *mockContractReader) ContractReaderFac
 	}
 }
 
+// Test configuration defaults
+const (
+	testPollInterval    time.Duration = 12 * time.Second
+	testRetryInterval   time.Duration = 12 * time.Second
+	testShardConfigAddr               = "0x1234567890abcdef"
+)
+
 func TestArbiter_New(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 
 	require.NoError(t, err)
 	require.NotNil(t, arb)
@@ -105,7 +113,7 @@ func TestArbiter_StartClose(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 	require.NoError(t, err)
 
 	// Test start
@@ -130,7 +138,7 @@ func TestArbiter_ServiceTestRun(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 	require.NoError(t, err)
 
 	// Use servicetest.Run to handle lifecycle
@@ -147,7 +155,7 @@ func TestArbiter_HealthReport(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 	require.NoError(t, err)
 
 	t.Run("before start - not ready", func(t *testing.T) {
@@ -175,7 +183,7 @@ func TestArbiter_DoubleStart(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 	require.NoError(t, err)
 
 	// First start should succeed
@@ -195,7 +203,7 @@ func TestArbiter_DoubleClose(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 	require.NoError(t, err)
 
 	err = arb.Start(context.Background())
@@ -215,7 +223,7 @@ func TestArbiter_Name(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Arbiter", arb.Name())
@@ -226,7 +234,7 @@ func TestArbiter_Ready(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, "0x1234567890abcdef")
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
 	require.NoError(t, err)
 
 	// Before start, Ready should return error

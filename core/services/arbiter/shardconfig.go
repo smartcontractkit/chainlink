@@ -22,10 +22,6 @@ const (
 
 	// GetDesiredShardCountMethod is the method name for reading the desired shard count.
 	GetDesiredShardCountMethod = "getDesiredShardCount"
-
-	// Polling intervals (matching workflow registry syncer pattern)
-	defaultPollInterval  = 12 * time.Second
-	defaultRetryInterval = 12 * time.Second
 )
 
 // ShardConfigABI is the ABI for the ShardConfig contract.
@@ -70,6 +66,7 @@ type shardConfigSyncer struct {
 
 	// Polling configuration
 	pollInterval time.Duration
+	retryTimeout time.Duration
 }
 
 var _ ShardConfigReader = (*shardConfigSyncer)(nil)
@@ -78,13 +75,16 @@ var _ ShardConfigReader = (*shardConfigSyncer)(nil)
 func NewShardConfigSyncer(
 	contractReaderFactory ContractReaderFactory,
 	shardConfigAddress string,
+	pollInterval time.Duration,
+	retryTimeout time.Duration,
 	lggr logger.Logger,
 ) ShardConfigReader {
 	return &shardConfigSyncer{
 		lggr:                  lggr.Named("ShardConfigSyncer"),
 		shardConfigAddress:    shardConfigAddress,
 		contractReaderFactory: contractReaderFactory,
-		pollInterval:          defaultPollInterval,
+		pollInterval:          pollInterval,
+		retryTimeout:          retryTimeout,
 		stopCh:                make(services.StopChan),
 	}
 }
@@ -167,7 +167,7 @@ func (s *shardConfigSyncer) run(ctx context.Context) {
 // initContractReader initializes the contract reader with retry logic.
 // This follows the lazy initialization pattern used by workflow registry syncer.
 func (s *shardConfigSyncer) initContractReader(ctx context.Context) error {
-	ticker := time.NewTicker(defaultRetryInterval)
+	ticker := time.NewTicker(s.retryTimeout)
 	defer ticker.Stop()
 
 	// Try immediately first

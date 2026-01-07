@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -14,11 +16,6 @@ import (
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/arbiter/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-)
-
-const (
-	// DefaultGRPCPort is the default port for the gRPC server.
-	DefaultGRPCPort = ":9090"
 )
 
 // Arbiter is the main service interface.
@@ -51,6 +48,9 @@ func New(
 	lggr logger.Logger,
 	contractReaderFactory ContractReaderFactory,
 	shardConfigAddr string,
+	port uint16,
+	pollInterval time.Duration,
+	retryInterval time.Duration,
 ) (Arbiter, error) {
 	lggr = lggr.Named("Arbiter")
 
@@ -58,7 +58,7 @@ func New(
 	state := NewState()
 
 	// Create ShardConfig syncer (implements services.Service)
-	shardConfig := NewShardConfigSyncer(contractReaderFactory, shardConfigAddr, lggr)
+	shardConfig := NewShardConfigSyncer(contractReaderFactory, shardConfigAddr, pollInterval, retryInterval, lggr)
 
 	// Create decision engine with sugared logger
 	decision := NewDecisionEngine(shardConfig, logger.Sugared(lggr))
@@ -77,7 +77,7 @@ func New(
 		decision:    decision,
 		shardConfig: shardConfig,
 		lggr:        lggr,
-		grpcAddr:    DefaultGRPCPort,
+		grpcAddr:    strconv.Itoa(int(port)),
 		stopCh:      make(services.StopChan),
 	}, nil
 }
