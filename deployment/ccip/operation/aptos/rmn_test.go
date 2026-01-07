@@ -21,8 +21,9 @@ import (
 	cldf_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 )
 
 func TestCurseMultipleOp(t *testing.T) {

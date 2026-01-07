@@ -12,11 +12,12 @@ import (
 	cldf_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/pkg/logger"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-ccip/deployment/fastcurse"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	aptosops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 func TestAptosCurseSequence_Success(t *testing.T) {
