@@ -93,9 +93,9 @@ func mockContractReaderFactory(mockReader *mockContractReader) ContractReaderFac
 
 // Test configuration defaults
 const (
-	testPollInterval    time.Duration = 12 * time.Second
-	testRetryInterval   time.Duration = 12 * time.Second
-	testShardConfigAddr               = "0x1234567890abcdef"
+	testPollInterval    = 12 * time.Second
+	testRetryInterval   = 12 * time.Second
+	testShardConfigAddr = "0x1234567890abcdef"
 )
 
 func TestArbiter_New(t *testing.T) {
