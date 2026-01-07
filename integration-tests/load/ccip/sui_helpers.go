@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	sui_common "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 
@@ -748,45 +749,459 @@ func GetEVMExtraArgsV2SUI(receiverStateObjectId string) ([]byte, error) {
 
 }
 
-// SuiTokenPool manages a pool of Sui token objects for load testing
-// It cycles through available token objects in a thread-safe manner
-type SuiTokenPool struct {
-	mu             sync.Mutex
-	tokenObjectIds []string
-	currentIndex   int
-	lggr           logger.Logger
+// SuiCoinObject represents a Sui coin/object with its versioning info
+type SuiCoinObject struct {
+	ObjectID string
+	Version  string
+	Digest   string
 }
 
-// NewSuiTokenPool creates a new token pool
-func NewSuiTokenPool(lggr logger.Logger, tokenObjectIds []string) *SuiTokenPool {
-	return &SuiTokenPool{
-		tokenObjectIds: tokenObjectIds,
-		currentIndex:   0,
-		lggr:           lggr,
+// ConsolidatedCoin represents the result of consolidating multiple coins into one
+type ConsolidatedCoin struct {
+	ObjectID string
+	Version  string
+	Digest   string
+	Balance  uint64
+}
+
+// consolidateSuiCoins fetches all coins of a given type owned by an address and merges them into one.
+// This prevents accumulation of small coin objects from previous test runs.
+// Returns the consolidated coin info, or nil if no coins exist.
+func consolidateSuiCoins(
+	ctx context.Context,
+	lggr logger.Logger,
+	suiClient sui.ISuiAPI,
+	deployerAddr string,
+	coinType string,
+	privateKeyHex string,
+	chainSelector uint64,
+) (*ConsolidatedCoin, error) {
+	lggr.Infow("Starting coin consolidation",
+		"chainSelector", chainSelector,
+		"coinType", coinType,
+		"deployerAddr", deployerAddr)
+
+	// Fetch all coins of this type with pagination
+	allCoins := make([]models.CoinData, 0)
+	var cursor interface{}
+	for {
+		coinsResp, err := suiClient.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+			Owner:    deployerAddr,
+			CoinType: coinType,
+			Cursor:   cursor,
+			Limit:    50, // Max limit per page
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query coins: %w", err)
+		}
+
+		allCoins = append(allCoins, coinsResp.Data...)
+
+		if !coinsResp.HasNextPage || coinsResp.NextCursor == "" {
+			break
+		}
+		cursor = coinsResp.NextCursor
+	}
+
+	lggr.Infow("Found coins to consolidate",
+		"chainSelector", chainSelector,
+		"coinType", coinType,
+		"count", len(allCoins))
+
+	// If 0 or 1 coin, nothing to consolidate
+	if len(allCoins) == 0 {
+		return nil, nil
+	}
+	if len(allCoins) == 1 {
+		bal, _ := strconv.ParseUint(allCoins[0].Balance, 10, 64)
+		return &ConsolidatedCoin{
+			ObjectID: allCoins[0].CoinObjectId,
+			Version:  allCoins[0].Version,
+			Digest:   allCoins[0].Digest,
+			Balance:  bal,
+		}, nil
+	}
+
+	// Find the largest coin to use as merge destination
+	var destCoin models.CoinData
+	var destBalance uint64
+	destIdx := 0
+	for i, coin := range allCoins {
+		bal, _ := strconv.ParseUint(coin.Balance, 10, 64)
+		if bal > destBalance {
+			destBalance = bal
+			destCoin = coin
+			destIdx = i
+		}
+	}
+
+	// Collect source coins (all except destination)
+	sourceCoins := make([]models.CoinData, 0, len(allCoins)-1)
+	for i, coin := range allCoins {
+		if i != destIdx {
+			sourceCoins = append(sourceCoins, coin)
+		}
+	}
+
+	lggr.Infow("Merging coins into destination",
+		"chainSelector", chainSelector,
+		"destCoinID", destCoin.CoinObjectId,
+		"destBalance", destBalance,
+		"sourceCount", len(sourceCoins))
+
+	// Create SDK signer
+	seedBytes, err := hex.DecodeString(privateKeyHex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode private key hex: %w", err)
+	}
+	if len(seedBytes) != 32 {
+		return nil, fmt.Errorf("invalid seed length: expected 32 bytes, got %d", len(seedBytes))
+	}
+	suiSDKSigner := signer.NewSigner(seedBytes)
+
+	// Track destination coin's current version/digest
+	currentDestVersion := destCoin.Version
+	currentDestDigest := destCoin.Digest
+	totalBalance := destBalance
+
+	// Merge in batches to avoid gas limits
+	batchSize := 20
+	for batch := 0; batch < len(sourceCoins); batch += batchSize {
+		endIdx := batch + batchSize
+		if endIdx > len(sourceCoins) {
+			endIdx = len(sourceCoins)
+		}
+		batchCoins := sourceCoins[batch:endIdx]
+
+		// Build transaction
+		tx := suitx.NewTransaction()
+		tx.SetSigner(suiSDKSigner)
+		tx.SetSuiClient(suiClient.(*sui.Client))
+		tx.SetSender(models.SuiAddress(deployerAddr))
+
+		// Create destination coin reference
+		destCoinRef, err := suitx.NewSuiObjectRef(
+			models.SuiAddress(destCoin.CoinObjectId),
+			currentDestVersion,
+			models.ObjectDigest(currentDestDigest),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create dest coin ref: %w", err)
+		}
+
+		// For SUI coins, we need to use a separate gas coin or the dest coin as gas
+		// Set gas payment to use the destination coin (it will be both gas and merge target)
+		tx.SetGasPayment([]suitx.SuiObjectRef{*destCoinRef})
+		tx.SetGasBudget(50_000_000) // 0.05 SUI gas budget per batch
+
+		// Use tx.Gas() to reference the gas/destination coin for SUI merges
+		// For non-SUI coins, we need to reference the destination coin as an object
+		var destArg suitx.Argument
+		if coinType == "0x2::sui::SUI" {
+			destArg = tx.Gas()
+		} else {
+			// For non-SUI coins, we need a separate gas coin
+			// First, get a SUI gas coin
+			gasCoins, err := suiClient.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+				Owner:    deployerAddr,
+				CoinType: "0x2::sui::SUI",
+				Limit:    1,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to query gas coins: %w", err)
+			}
+			if len(gasCoins.Data) == 0 {
+				return nil, fmt.Errorf("no SUI gas coins available")
+			}
+
+			gasCoinRef, err := suitx.NewSuiObjectRef(
+				models.SuiAddress(gasCoins.Data[0].CoinObjectId),
+				gasCoins.Data[0].Version,
+				models.ObjectDigest(gasCoins.Data[0].Digest),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create gas coin ref: %w", err)
+			}
+			tx.SetGasPayment([]suitx.SuiObjectRef{*gasCoinRef})
+
+			// Reference dest coin as owned object
+			destCallArg := suitx.CallArg{
+				Object: &suitx.ObjectArg{
+					ImmOrOwnedObject: destCoinRef,
+				},
+			}
+			destArg = tx.Object(destCallArg)
+		}
+
+		// Create source coin arguments
+		sourceArgs := make([]suitx.Argument, 0, len(batchCoins))
+		for _, coin := range batchCoins {
+			coinRef, err := suitx.NewSuiObjectRef(
+				models.SuiAddress(coin.CoinObjectId),
+				coin.Version,
+				models.ObjectDigest(coin.Digest),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create source coin ref: %w", err)
+			}
+			coinCallArg := suitx.CallArg{
+				Object: &suitx.ObjectArg{
+					ImmOrOwnedObject: coinRef,
+				},
+			}
+			sourceArgs = append(sourceArgs, tx.Object(coinCallArg))
+
+			// Add to total balance
+			bal, _ := strconv.ParseUint(coin.Balance, 10, 64)
+			totalBalance += bal
+		}
+
+		// Merge coins
+		tx.MergeCoins(destArg, sourceArgs)
+
+		// Execute the transaction
+		resp, err := tx.Execute(ctx, models.SuiTransactionBlockOptions{
+			ShowEffects:       true,
+			ShowObjectChanges: true,
+		}, "WaitForLocalExecution")
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute merge transaction batch %d: %w", batch/batchSize, err)
+		}
+
+		// Update destination coin version for next batch
+		for _, change := range resp.ObjectChanges {
+			if change.Type == "mutated" && change.ObjectId == destCoin.CoinObjectId {
+				currentDestVersion = change.Version
+				currentDestDigest = change.Digest
+				lggr.Debugw("Updated destination coin reference after merge",
+					"newVersion", change.Version,
+					"newDigest", change.Digest)
+			}
+		}
+
+		lggr.Infow("Completed merge batch",
+			"batch", batch/batchSize,
+			"coinsInBatch", len(batchCoins),
+			"totalMergedSoFar", batch+len(batchCoins))
+	}
+
+	lggr.Infow("Successfully consolidated coins",
+		"chainSelector", chainSelector,
+		"coinType", coinType,
+		"finalCoinID", destCoin.CoinObjectId,
+		"totalBalance", totalBalance,
+		"coinsConsolidated", len(allCoins))
+
+	return &ConsolidatedCoin{
+		ObjectID: destCoin.CoinObjectId,
+		Version:  currentDestVersion,
+		Digest:   currentDestDigest,
+		Balance:  totalBalance,
+	}, nil
+}
+
+// consolidateSuiGasCoins consolidates all SUI gas coins owned by the deployer into one.
+// This should be called before splitting gas coins to clean up leftover coins from previous runs.
+func consolidateSuiGasCoins(
+	ctx context.Context,
+	lggr logger.Logger,
+	suiChain cldf_sui.Chain,
+	chainSelector uint64,
+	privateKeyHex string,
+) (*ConsolidatedCoin, error) {
+	// Get deployer address from signer
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployer address: %w", err)
+	}
+	// Add 0x prefix if not present
+	if !strings.HasPrefix(deployerAddr, "0x") {
+		deployerAddr = "0x" + deployerAddr
+	}
+
+	suiClient := sui.NewSuiClient(suiChain.URL)
+
+	return consolidateSuiCoins(
+		ctx,
+		lggr,
+		suiClient,
+		deployerAddr,
+		"0x2::sui::SUI",
+		privateKeyHex,
+		chainSelector,
+	)
+}
+
+// consolidateSuiLinkTokens consolidates all Link tokens owned by the deployer into one.
+// This should be called before splitting Link tokens to clean up leftover tokens from previous runs.
+func consolidateSuiLinkTokens(
+	ctx context.Context,
+	lggr logger.Logger,
+	suiChain cldf_sui.Chain,
+	chainSelector uint64,
+	privateKeyHex string,
+	linkTokenPkgID string,
+) (*ConsolidatedCoin, error) {
+	// Get deployer address from signer
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployer address: %w", err)
+	}
+	// Add 0x prefix if not present
+	if !strings.HasPrefix(deployerAddr, "0x") {
+		deployerAddr = "0x" + deployerAddr
+	}
+
+	suiClient := sui.NewSuiClient(suiChain.URL)
+
+	coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
+
+	return consolidateSuiCoins(
+		ctx,
+		lggr,
+		suiClient,
+		deployerAddr,
+		coinType,
+		privateKeyHex,
+		chainSelector,
+	)
+}
+
+// SuiGasCoinPool manages pre-split SUI gas coins for parallel transaction execution.
+// Uses a buffered channel as a FIFO queue to distribute unique gas coins to concurrent workers.
+// Each transaction pops a unique coin, preventing object version conflicts.
+type SuiGasCoinPool struct {
+	coins    chan SuiCoinObject // Buffered channel acts as FIFO queue
+	lggr     logger.Logger
+	chainSel uint64
+	capacity int // Original capacity for logging
+}
+
+// NewSuiGasCoinPool creates a new gas coin pool with the given coins
+func NewSuiGasCoinPool(lggr logger.Logger, chainSel uint64, coins []SuiCoinObject) *SuiGasCoinPool {
+	ch := make(chan SuiCoinObject, len(coins))
+	for _, coin := range coins {
+		ch <- coin
+	}
+	return &SuiGasCoinPool{
+		coins:    ch,
+		lggr:     lggr,
+		chainSel: chainSel,
+		capacity: len(coins),
 	}
 }
 
-// GetNextToken returns the next token object ID from the pool
-// It cycles through the available tokens in a round-robin fashion
-func (p *SuiTokenPool) GetNextToken() (string, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+// Pop retrieves a gas coin from the pool, blocking if empty until context is cancelled.
+// Returns error if context is cancelled before a coin becomes available.
+func (p *SuiGasCoinPool) Pop(ctx context.Context) (SuiCoinObject, error) {
+	select {
+	case coin := <-p.coins:
+		remaining := len(p.coins)
+		if remaining < p.capacity/4 {
+			p.lggr.Warnw("Gas coin pool running low",
+				"chainSelector", p.chainSel,
+				"remaining", remaining,
+				"capacity", p.capacity)
+		}
+		return coin, nil
+	case <-ctx.Done():
+		return SuiCoinObject{}, fmt.Errorf("context cancelled while waiting for gas coin: %w", ctx.Err())
+	}
+}
 
-	if len(p.tokenObjectIds) == 0 {
+// TryPop attempts to retrieve a gas coin without blocking.
+// Returns the coin and true if available, or empty coin and false if pool is empty.
+func (p *SuiGasCoinPool) TryPop() (SuiCoinObject, bool) {
+	select {
+	case coin := <-p.coins:
+		return coin, true
+	default:
+		return SuiCoinObject{}, false
+	}
+}
+
+// Return puts a gas coin back into the pool for reuse.
+// This should be called after a transaction completes (success or failure)
+// since the gas coin object still exists with updated version.
+func (p *SuiGasCoinPool) Return(coin SuiCoinObject) {
+	select {
+	case p.coins <- coin:
+		// Successfully returned
+	default:
+		p.lggr.Warnw("Gas coin pool is full, discarding coin",
+			"chainSelector", p.chainSel,
+			"objectID", coin.ObjectID)
+	}
+}
+
+// Size returns the number of available gas coins in the pool
+func (p *SuiGasCoinPool) Size() int {
+	return len(p.coins)
+}
+
+// SuiTokenPool manages a pool of Sui token objects for load testing.
+// Uses a buffered channel as a FIFO queue - tokens are consumed (popped) and not reused
+// since they are burned/locked during token transfers.
+type SuiTokenPool struct {
+	tokens   chan string // Buffered channel acts as FIFO queue
+	lggr     logger.Logger
+	capacity int // Original capacity for logging
+}
+
+// NewSuiTokenPool creates a new token pool with the given token object IDs
+func NewSuiTokenPool(lggr logger.Logger, tokenObjectIds []string) *SuiTokenPool {
+	ch := make(chan string, len(tokenObjectIds))
+	for _, id := range tokenObjectIds {
+		ch <- id
+	}
+	return &SuiTokenPool{
+		tokens:   ch,
+		lggr:     lggr,
+		capacity: len(tokenObjectIds),
+	}
+}
+
+// Pop retrieves a token object ID from the pool, blocking if empty until context is cancelled.
+// Tokens are consumed (not returned) since they are burned/locked during transfers.
+func (p *SuiTokenPool) Pop(ctx context.Context) (string, error) {
+	select {
+	case token := <-p.tokens:
+		remaining := len(p.tokens)
+		if remaining < p.capacity/4 {
+			p.lggr.Warnw("Token pool running low",
+				"remaining", remaining,
+				"capacity", p.capacity)
+		}
+		return token, nil
+	case <-ctx.Done():
+		return "", fmt.Errorf("context cancelled while waiting for token: %w", ctx.Err())
+	}
+}
+
+// TryPop attempts to retrieve a token without blocking.
+// Returns the token and true if available, or empty string and false if pool is empty.
+func (p *SuiTokenPool) TryPop() (string, bool) {
+	select {
+	case token := <-p.tokens:
+		return token, true
+	default:
+		return "", false
+	}
+}
+
+// GetNextToken retrieves a token from the pool (non-blocking).
+// This is a convenience method that wraps TryPop for backward compatibility.
+func (p *SuiTokenPool) GetNextToken() (string, error) {
+	token, ok := p.TryPop()
+	if !ok {
 		return "", fmt.Errorf("token pool is empty")
 	}
-
-	token := p.tokenObjectIds[p.currentIndex]
-	p.currentIndex = (p.currentIndex + 1) % len(p.tokenObjectIds)
-
 	return token, nil
 }
 
-// Size returns the number of tokens in the pool
+// Size returns the number of available tokens in the pool
 func (p *SuiTokenPool) Size() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return len(p.tokenObjectIds)
+	return len(p.tokens)
 }
 
 // splitSuiTokens splits existing Link tokens owned by the deployer into multiple small objects
@@ -811,6 +1226,16 @@ func splitSuiTokens(
 		return nil, fmt.Errorf("link token not configured for chain %d", chainSelector)
 	}
 
+	// First, consolidate any existing Link token objects from previous runs
+	lggr.Infow("Consolidating existing Link tokens before split",
+		"chainSelector", chainSelector,
+		"linkTokenPkg", linkTokenPkgID)
+
+	consolidatedCoin, err := consolidateSuiLinkTokens(ctx, lggr, suiChain, chainSelector, privateKeyHex, linkTokenPkgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to consolidate Link tokens: %w", err)
+	}
+
 	// Get deployer address from signer
 	deployerAddr, err := suiChain.Signer.GetAddress()
 	if err != nil {
@@ -831,32 +1256,71 @@ func splitSuiTokens(
 	// Create Sui client
 	client := sui.NewSuiClient(suiChain.URL)
 
-	// Query for owned Link token objects
-	coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
-	ownedCoins, err := client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
-		Owner:    deployerAddr,
-		CoinType: coinType,
-		Limit:    10,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to query owned Link tokens: %w", err)
-	}
+	// Use consolidated coin if available, otherwise query for coins
+	var sourceCoinID string
+	var sourceBalance *big.Int
+	var ownedCoins models.PaginatedCoinsResponse
 
-	if len(ownedCoins.Data) == 0 {
-		return nil, fmt.Errorf("deployer account has no Link tokens to split")
-	}
+	if consolidatedCoin != nil {
+		// Use the consolidated coin
+		sourceCoinID = consolidatedCoin.ObjectID
+		sourceBalance = new(big.Int).SetUint64(consolidatedCoin.Balance)
 
-	lggr.Infow("Found Link token objects owned by deployer",
-		"count", len(ownedCoins.Data),
-		"firstCoinID", ownedCoins.Data[0].CoinObjectId,
-		"firstCoinBalance", ownedCoins.Data[0].Balance)
+		// Query for the updated coin info (we need the full CoinData for version/digest)
+		coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
+		ownedCoins, err = client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+			Owner:    deployerAddr,
+			CoinType: coinType,
+			Limit:    10,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query owned Link tokens after consolidation: %w", err)
+		}
 
-	// Use the first coin object to split from
-	sourceCoinID := ownedCoins.Data[0].CoinObjectId
-	sourceBalanceStr := ownedCoins.Data[0].Balance
-	sourceBalance, ok := new(big.Int).SetString(sourceBalanceStr, 10)
-	if !ok {
-		return nil, fmt.Errorf("failed to parse source coin balance: %s", sourceBalanceStr)
+		// Find the consolidated coin in the list (it should be the only one or the one matching our ID)
+		found := false
+		for i, coin := range ownedCoins.Data {
+			if coin.CoinObjectId == sourceCoinID {
+				ownedCoins.Data[0] = coin // Move to front for later use
+				if i != 0 {
+					ownedCoins.Data[i] = ownedCoins.Data[0]
+				}
+				found = true
+				break
+			}
+		}
+		if !found && len(ownedCoins.Data) > 0 {
+			// Use the first available coin if our consolidated coin ID wasn't found
+			sourceCoinID = ownedCoins.Data[0].CoinObjectId
+			sourceBalance, _ = new(big.Int).SetString(ownedCoins.Data[0].Balance, 10)
+		}
+
+		lggr.Infow("Using consolidated Link token for splitting",
+			"sourceCoinID", sourceCoinID,
+			"sourceBalance", sourceBalance.String())
+	} else {
+		// No consolidation happened (0 or 1 coin), query normally
+		coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
+		ownedCoins, err = client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+			Owner:    deployerAddr,
+			CoinType: coinType,
+			Limit:    10,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query owned Link tokens: %w", err)
+		}
+
+		if len(ownedCoins.Data) == 0 {
+			return nil, fmt.Errorf("deployer account has no Link tokens to split")
+		}
+
+		sourceCoinID = ownedCoins.Data[0].CoinObjectId
+		sourceBalance, _ = new(big.Int).SetString(ownedCoins.Data[0].Balance, 10)
+
+		lggr.Infow("Found Link token objects owned by deployer",
+			"count", len(ownedCoins.Data),
+			"firstCoinID", ownedCoins.Data[0].CoinObjectId,
+			"firstCoinBalance", ownedCoins.Data[0].Balance)
 	}
 
 	// Calculate total amount needed
@@ -1020,6 +1484,251 @@ func splitSuiTokens(
 		"amountPerObject", amountPerObject)
 
 	return tokenObjectIds, nil
+}
+
+// splitSuiGasCoins splits SUI gas coins owned by the deployer into multiple small objects
+// for parallel transaction execution. Returns a SuiGasCoinPool that can be used to
+// distribute unique gas coins to concurrent transaction workers.
+func splitSuiGasCoins(
+	ctx context.Context,
+	lggr logger.Logger,
+	suiChain cldf_sui.Chain,
+	chainSelector uint64,
+	numCoins int,
+	amountPerCoin uint64, // amount in MIST (1 SUI = 1e9 MIST), e.g., 500_000_000 for 0.5 SUI
+	privateKeyHex string, // Sui private key in hex format (without 0x prefix)
+) (*SuiGasCoinPool, error) {
+	// First, consolidate any existing SUI gas coin objects from previous runs
+	lggr.Infow("Consolidating existing SUI gas coins before split",
+		"chainSelector", chainSelector)
+
+	consolidatedCoin, err := consolidateSuiGasCoins(ctx, lggr, suiChain, chainSelector, privateKeyHex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to consolidate SUI gas coins: %w", err)
+	}
+
+	// Get deployer address from signer
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployer address: %w", err)
+	}
+	// Add 0x prefix if not present
+	if !strings.HasPrefix(deployerAddr, "0x") {
+		deployerAddr = "0x" + deployerAddr
+	}
+
+	lggr.Infow("Splitting SUI gas coins for parallel load test",
+		"chainSelector", chainSelector,
+		"deployerAddr", deployerAddr,
+		"numCoins", numCoins,
+		"amountPerCoin", amountPerCoin)
+
+	// Create Sui client
+	suiClient := sui.NewSuiClient(suiChain.URL)
+
+	// Use consolidated coin if available
+	var sourceCoin models.CoinData
+	var largestBalance uint64
+
+	if consolidatedCoin != nil {
+		// Query for the updated coin info after consolidation
+		gasCoinType := "0x2::sui::SUI"
+		ownedCoins, err := suiClient.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+			Owner:    deployerAddr,
+			CoinType: gasCoinType,
+			Limit:    50,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query owned SUI coins after consolidation: %w", err)
+		}
+
+		if len(ownedCoins.Data) == 0 {
+			return nil, fmt.Errorf("deployer account has no SUI coins after consolidation")
+		}
+
+		// Find the consolidated coin (should be the only one or the largest)
+		for _, coin := range ownedCoins.Data {
+			if coin.CoinObjectId == consolidatedCoin.ObjectID {
+				sourceCoin = coin
+				largestBalance = consolidatedCoin.Balance
+				break
+			}
+		}
+
+		// If we couldn't find it by ID, use the largest available
+		if sourceCoin.CoinObjectId == "" {
+			for _, coin := range ownedCoins.Data {
+				bal, _ := strconv.ParseUint(coin.Balance, 10, 64)
+				if bal > largestBalance {
+					largestBalance = bal
+					sourceCoin = coin
+				}
+			}
+		}
+
+		lggr.Infow("Using consolidated SUI coin for splitting",
+			"sourceCoinID", sourceCoin.CoinObjectId,
+			"sourceBalance", largestBalance)
+	} else {
+		// No consolidation happened, query for coins
+		gasCoinType := "0x2::sui::SUI"
+		ownedCoins, err := suiClient.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+			Owner:    deployerAddr,
+			CoinType: gasCoinType,
+			Limit:    50, // Get more coins to find one large enough
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query owned SUI coins: %w", err)
+		}
+
+		if len(ownedCoins.Data) == 0 {
+			return nil, fmt.Errorf("deployer account has no SUI coins")
+		}
+
+		// Find the largest coin to split from
+		for _, coin := range ownedCoins.Data {
+			bal, _ := strconv.ParseUint(coin.Balance, 10, 64)
+			if bal > largestBalance {
+				largestBalance = bal
+				sourceCoin = coin
+			}
+		}
+
+		lggr.Infow("Found SUI coins owned by deployer",
+			"count", len(ownedCoins.Data),
+			"largestCoinID", sourceCoin.CoinObjectId,
+			"largestBalance", sourceCoin.Balance)
+	}
+
+	// Calculate total amount needed (plus gas for the split transactions)
+	totalNeeded := uint64(numCoins) * amountPerCoin
+	gasBuffer := uint64(100_000_000) // 0.1 SUI for gas during splits
+	if largestBalance < totalNeeded+gasBuffer {
+		return nil, fmt.Errorf("insufficient SUI balance: have %d, need %d (including gas buffer)", largestBalance, totalNeeded+gasBuffer)
+	}
+
+	lggr.Infow("Splitting source SUI coin into smaller objects",
+		"sourceCoinID", sourceCoin.CoinObjectId,
+		"sourceBalance", sourceCoin.Balance,
+		"totalNeeded", totalNeeded)
+
+	// Create SDK signer using the provided private key (32-byte seed in hex format)
+	seedBytes, err := hex.DecodeString(privateKeyHex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode private key hex: %w", err)
+	}
+	if len(seedBytes) != 32 {
+		return nil, fmt.Errorf("invalid seed length: expected 32 bytes, got %d", len(seedBytes))
+	}
+
+	suiSDKSigner := signer.NewSigner(seedBytes)
+
+	// Collect split gas coin objects
+	gasCoinObjects := make([]SuiCoinObject, 0, numCoins)
+
+	// Track the source coin's current version/digest (it changes after each transaction)
+	currentSourceVersion := sourceCoin.Version
+	currentSourceDigest := sourceCoin.Digest
+
+	// Split in batches to avoid gas limits
+	batchSize := 20 // Larger batch for SUI splits since they're simpler
+	for batch := 0; batch < numCoins; batch += batchSize {
+		remaining := numCoins - batch
+		if remaining > batchSize {
+			remaining = batchSize
+		}
+
+		// Build transaction
+		tx := suitx.NewTransaction()
+		tx.SetSigner(suiSDKSigner)
+		tx.SetSuiClient(suiClient.(*sui.Client))
+		tx.SetSender(models.SuiAddress(deployerAddr))
+
+		// Create object reference for source coin with current version
+		sourceCoinRef, err := suitx.NewSuiObjectRef(
+			models.SuiAddress(sourceCoin.CoinObjectId),
+			currentSourceVersion,
+			models.ObjectDigest(currentSourceDigest),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create source coin ref: %w", err)
+		}
+
+		// Set gas payment to use the source coin
+		tx.SetGasPayment([]suitx.SuiObjectRef{*sourceCoinRef})
+		tx.SetGasBudget(50_000_000) // 0.05 SUI gas budget per batch
+
+		// Use tx.Gas() to reference the gas coin - this avoids the "mutable object appears twice" error
+		// When splitting SUI coins, we split from the gas coin itself
+		gasArg := tx.Gas()
+
+		// Split coins one at a time from the gas coin
+		splitCoins := make([]suitx.Argument, 0, remaining)
+		for i := 0; i < remaining; i++ {
+			splitCoin := tx.SplitCoins(gasArg, []suitx.Argument{tx.Pure(amountPerCoin)})
+			splitCoins = append(splitCoins, splitCoin)
+		}
+
+		// Transfer all split coins to the deployer
+		if len(splitCoins) > 0 {
+			tx.TransferObjects(splitCoins, tx.Pure(deployerAddr))
+		}
+
+		// Execute the transaction
+		resp, err := tx.Execute(ctx, models.SuiTransactionBlockOptions{
+			ShowEffects:       true,
+			ShowObjectChanges: true,
+		}, "WaitForLocalExecution")
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute gas split transaction batch %d: %w", batch, err)
+		}
+
+		// Update source coin version for next batch and collect created coins
+		for _, change := range resp.ObjectChanges {
+			if change.Type == "mutated" && change.ObjectId == sourceCoin.CoinObjectId {
+				currentSourceVersion = change.Version
+				currentSourceDigest = change.Digest
+				lggr.Debugw("Updated source coin reference",
+					"newVersion", change.Version,
+					"newDigest", change.Digest)
+			}
+			if change.Type == "created" && change.ObjectType == "0x2::coin::Coin<0x2::sui::SUI>" {
+				gasCoinObjects = append(gasCoinObjects, SuiCoinObject{
+					ObjectID: change.ObjectId,
+					Version:  change.Version,
+					Digest:   change.Digest,
+				})
+				lggr.Debugw("Split gas coin created",
+					"objectId", change.ObjectId,
+					"batch", batch)
+			}
+		}
+
+		lggr.Infow("Completed gas coin split batch",
+			"batch", batch,
+			"totalCreated", len(gasCoinObjects))
+	}
+
+	lggr.Infow("Successfully split SUI gas coins for parallel load test",
+		"chainSelector", chainSelector,
+		"numCoins", len(gasCoinObjects),
+		"amountPerCoin", amountPerCoin)
+
+	return NewSuiGasCoinPool(lggr, chainSelector, gasCoinObjects), nil
+}
+
+// CalculateRequiredGasCoins calculates the number of gas coins needed for a load test
+func CalculateRequiredGasCoins(loadDurationSec int, requestFreqSec int, numDestinations int) int {
+	if requestFreqSec <= 0 {
+		requestFreqSec = 1
+	}
+	txPerDest := loadDurationSec / requestFreqSec
+	// Total = txPerDest * numDestinations * 2 (need 2 coins per tx: one for gas, one for fee token) * 1.2 (20% buffer)
+	total := int(float64(txPerDest*numDestinations*2) * 1.2)
+	if total < 20 {
+		total = 20 // Minimum 20 coins (10 transactions worth)
+	}
+	return total
 }
 
 // cleanupSuiDatabase cleans up Sui events and transactions tables before test runs

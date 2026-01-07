@@ -1,0 +1,7 @@
+# Funded accounts export files (contain private keys)
+logs/*.json
+
+# Test output logs
+*.log
+full_output.log
+

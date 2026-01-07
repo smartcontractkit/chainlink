@@ -56,6 +56,14 @@ type SuiSendRequest struct {
 	FeeTokenStore    string
 	TokenAmounts     []SuiTokenAmount
 	TokenReceiverATA []byte
+	GasCoin          *SuiGasCoin // Optional: pre-split gas coin for parallel execution
+}
+
+// SuiGasCoin represents a Sui coin to use for transaction gas payment
+type SuiGasCoin struct {
+	ObjectID string
+	Version  string
+	Digest   string
 }
 
 type SuiTokenAmount struct {
@@ -102,10 +110,6 @@ type TokenPoolRateLimiterConfig struct {
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	ctx := e.GetContext()
 	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return &ccipclient.AnyMsgSentEvent{}, err
-	}
-
 	if err != nil {
 		return &ccipclient.AnyMsgSentEvent{}, err
 	}
@@ -252,6 +256,20 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		client := sui.NewSuiClient(suiChain.URL)
 		ptb := suitx.NewTransaction()
 		ptb.SetSuiClient(client.(*sui.Client))
+
+		// Set explicit gas payment if a pre-split gas coin is provided (for parallel execution)
+		// NOTE: GasCoin and FeeToken MUST be different coins to avoid "mutable object appears twice" error
+		if msg.GasCoin != nil {
+			gasCoinRef, err := suitx.NewSuiObjectRef(
+				models.SuiAddress(msg.GasCoin.ObjectID),
+				msg.GasCoin.Version,
+				models.ObjectDigest(msg.GasCoin.Digest),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create gas coin ref: %w", err)
+			}
+			ptb.SetGasPayment([]suitx.SuiObjectRef{*gasCoinRef})
+		}
 
 		// Bind contracts
 		ccipStateHelperContract, err := suiBind.NewBoundContract(
@@ -484,6 +502,20 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	client := sui.NewSuiClient(suiChain.URL)
 	ptb := suitx.NewTransaction()
 	ptb.SetSuiClient(client.(*sui.Client))
+
+	// Set explicit gas payment if a pre-split gas coin is provided (for parallel execution)
+	// NOTE: GasCoin and FeeToken MUST be different coins to avoid "mutable object appears twice" error
+	if msg.GasCoin != nil {
+		gasCoinRef, err := suitx.NewSuiObjectRef(
+			models.SuiAddress(msg.GasCoin.ObjectID),
+			msg.GasCoin.Version,
+			models.ObjectDigest(msg.GasCoin.Digest),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gas coin ref: %w", err)
+		}
+		ptb.SetGasPayment([]suitx.SuiObjectRef{*gasCoinRef})
+	}
 
 	// ptb1
 	ccipStateHelperContract, err := suiBind.NewBoundContract(

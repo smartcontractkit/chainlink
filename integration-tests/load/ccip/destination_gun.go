@@ -8,7 +8,6 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -46,10 +45,6 @@ type SeqNumRange struct {
 	End   *atomic.Uint64
 }
 
-// Global mutex to prevent concurrent Sui transactions across all DestinationGun instances
-// Sui uses an object-based model where gas coins can only be used by one transaction at a time
-var globalSuiMutex sync.Mutex
-
 type DestinationGun struct {
 	l                logger.Logger
 	env              cldf.Environment
@@ -62,8 +57,9 @@ type DestinationGun struct {
 	solanaSourceKeys map[uint64]*solana.PrivateKey
 	suiSourceKeys    map[uint64]cldf_sui.Chain
 	metricPipe       chan messageData
-	availableSources []uint64                 // Cache of available source chains for this destination
-	suiTokenPools    map[uint64]*SuiTokenPool // Token pools for Sui source chains (chainSelector -> pool)
+	availableSources []uint64                   // Cache of available source chains for this destination
+	suiTokenPools    map[uint64]*SuiTokenPool   // Token pools for Sui source chains (chainSelector -> pool)
+	suiGasPools      map[uint64]*SuiGasCoinPool // Gas coin pools for Sui source chains (chainSelector -> pool)
 }
 
 func NewDestinationGun(
@@ -79,6 +75,7 @@ func NewDestinationGun(
 	metricPipe chan messageData,
 	availableSources []uint64,
 	suiTokenPools map[uint64]*SuiTokenPool,
+	suiGasPools map[uint64]*SuiGasCoinPool,
 ) (*DestinationGun, error) {
 	if len(availableSources) == 0 {
 		return nil, fmt.Errorf("no source chains available for destination %d", chainSelector)
@@ -103,6 +100,7 @@ func NewDestinationGun(
 		metricPipe:       metricPipe,
 		availableSources: availableSources,
 		suiTokenPools:    suiTokenPools,
+		suiGasPools:      suiGasPools,
 	}
 
 	return &dg, nil
@@ -630,11 +628,8 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 		return fmt.Errorf("no Sui source key available for chain %d", src)
 	}
 
-	// Lock entire Sui operation to prevent object version conflicts
-	globalSuiMutex.Lock()
-	defer globalSuiMutex.Unlock()
-
-	msg, err := m.getSuiMessage()
+	// No mutex needed - each transaction uses unique gas coins from the pool
+	msg, err := m.getSuiMessage(src)
 	if err != nil {
 		return fmt.Errorf("failed to get Sui message: %w", err)
 	}
@@ -664,7 +659,7 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 	return nil
 }
 
-func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
+func (m *DestinationGun) getSuiMessage(srcChainSelector uint64) (testhelpers.SuiSendRequest, error) {
 	// Select a message type based on ratio
 	randomValue := mathrand.Intn(100)
 	accumulatedRatio := 0
@@ -684,24 +679,39 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
 
-	// Get fee token object ID
-	// TMP Comment out due to Prod testnet setup
-	// feeTokenObjectId := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x")
-
-	//TODO: Derive fee token from split
+	// Get TWO coins from the pool: one for gas payment, one for CCIP fee token
+	// They MUST be different coins - using the same coin for both causes "mutable object appears twice" error
+	gasPool, exists := m.suiGasPools[srcChainSelector]
+	if !exists || gasPool == nil {
+		return testhelpers.SuiSendRequest{}, fmt.Errorf("no gas pool available for Sui source chain %d - gas pools must be initialized before load test", srcChainSelector)
+	}
 
 	ctx := context.Background()
-	feeTokenNew, err := SplitCoin(ctx, m.env)
+	gasCoin, err := gasPool.Pop(ctx)
 	if err != nil {
-		return testhelpers.SuiSendRequest{}, err
+		return testhelpers.SuiSendRequest{}, fmt.Errorf("failed to get gas coin from pool for chain %d: %w", srcChainSelector, err)
 	}
+	feeTokenCoin, err := gasPool.Pop(ctx)
+	if err != nil {
+		// Return the gas coin we already popped
+		gasPool.Return(gasCoin)
+		return testhelpers.SuiSendRequest{}, fmt.Errorf("failed to get fee token coin from pool for chain %d: %w", srcChainSelector, err)
+	}
+	m.l.Debugw("Using pre-split coins from pool",
+		"srcChain", srcChainSelector,
+		"gasCoinObjectId", gasCoin.ObjectID,
+		"feeTokenObjectId", feeTokenCoin.ObjectID,
+		"poolRemaining", gasPool.Size())
 
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{24, 29, 207, 16, 64, 13, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-		// TMP Comment out due to Prod testnet setup
-		// FeeToken:  feeTokenObjectId,
-		FeeToken: feeTokenNew,
+		FeeToken:  feeTokenCoin.ObjectID, // Fee token for CCIP payment (input to ccip_send)
+		GasCoin: &testhelpers.SuiGasCoin{ // Gas coin for Sui transaction gas (SetGasPayment)
+			ObjectID: gasCoin.ObjectID,
+			Version:  gasCoin.Version,
+			Digest:   gasCoin.Digest,
+		},
 	}
 
 	switch {
@@ -715,11 +725,6 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 
 	case selectedMsgDetails.IsTokenTransfer():
 		// Get token object from pool - NEVER fall back to fee token as that would drain gas
-		srcChainSelector, err := m.mustSourceChain()
-		if err != nil {
-			return testhelpers.SuiSendRequest{}, fmt.Errorf("failed to determine source chain for token transfer: %w", err)
-		}
-
 		pool, exists := m.suiTokenPools[srcChainSelector]
 		if !exists || pool == nil {
 			return testhelpers.SuiSendRequest{}, fmt.Errorf("no token pool available for Sui source chain %d - token transfers require pre-minted tokens", srcChainSelector)
@@ -759,6 +764,10 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 		message.Data = []byte{}
 	}
 
-	fmt.Println("ABOUT TO SEND THIS MSG: ", message)
+	m.l.Debugw("Prepared Sui message",
+		"srcChain", srcChainSelector,
+		"destChain", m.chainSelector,
+		"gasCoin", gasCoin.ObjectID,
+		"hasTokens", len(message.TokenAmounts) > 0)
 	return message, nil
 }

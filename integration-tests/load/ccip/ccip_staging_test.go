@@ -107,8 +107,33 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 
 	// initialize additional accounts on EVM, we need more accounts to avoid nonce issues
 	// Solana doesn't have a nonce concept so we just use a single account for all chains
-	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains, *config.CCIP.Load.TestnetConfig.FundingAmountEth)
+	evmSenders, evmAccountsWithKeys, err := fundAdditionalKeysWithExport(lggr, *env, destinationChains, *config.CCIP.Load.TestnetConfig.FundingAmountEth)
 	require.NoError(t, err)
+
+	// Export funded accounts for recovery
+	testLabel := "ccip-staging-test"
+	if userOverrides.TestLabel != nil && *userOverrides.TestLabel != "" {
+		testLabel = *userOverrides.TestLabel
+	}
+
+	// Collect Sui accounts from config
+	suiAccountsExport := make(map[uint64]SuiAccountExport)
+	for _, cs := range suiChains {
+		suiAccountsExport[cs] = SuiAccountExport{PrivateKey: suiTestKey}
+	}
+
+	// Collect Solana accounts from environment
+	solanaAccountsExport := make(map[uint64]SolanaAccountExport)
+	for cs := range env.BlockChains.SolanaChains() {
+		if key := env.BlockChains.SolanaChains()[cs].DeployerKey; key != nil {
+			solanaAccountsExport[cs] = SolanaAccountExport{PrivateKey: key.String()}
+		}
+	}
+
+	// Export all funded accounts for fund recovery
+	if err := ExportFundedAccounts(lggr, testLabel, evmAccountsWithKeys, nil, suiAccountsExport, solanaAccountsExport); err != nil {
+		lggr.Warnw("Failed to export funded accounts for recovery", "error", err)
+	}
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
@@ -363,6 +388,50 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 		}
 	}
 
+	// Prepare Sui gas coin pools for parallel transaction execution
+	// This is REQUIRED for Sui source chains - without pre-split gas coins, parallel execution fails
+	suiGasPools := make(map[uint64]*SuiGasCoinPool)
+	if len(suiChains) > 0 {
+		for _, suiChain := range suiChains {
+			// Calculate number of gas coins needed for parallel execution
+			loadDuration := userOverrides.GetLoadDuration()
+			requestFreq, _ := time.ParseDuration(*userOverrides.RequestFrequency)
+
+			// Count destinations that Sui actually sends to (exclude itself)
+			numDestinations := 0
+			for _, dc := range destinationChains {
+				if dc != suiChain {
+					numDestinations++
+				}
+			}
+
+			// Calculate: (loadDuration / requestFreq) * numDestinations * buffer
+			numCoins := CalculateRequiredGasCoins(int(loadDuration.Seconds()), int(requestFreq.Seconds()), numDestinations)
+
+			lggr.Infow("Splitting SUI gas coins for parallel load test",
+				"chainSelector", suiChain,
+				"numCoins", numCoins,
+				"amountPerCoin", "0.5 SUI",
+				"numDestinations", numDestinations)
+
+			gasPool, err := splitSuiGasCoins(
+				ctx,
+				lggr,
+				env.BlockChains.SuiChains()[suiChain],
+				suiChain,
+				numCoins,
+				500_000_000, // 0.5 SUI per gas coin (CCIP transactions need ~0.4 SUI)
+				suiTestKey,
+			)
+			require.NoError(t, err, "Failed to split SUI gas coins for chain %d - this is required for Sui load tests", suiChain)
+
+			suiGasPools[suiChain] = gasPool
+			lggr.Infow("Created Sui gas coin pool for parallel execution",
+				"chainSelector", suiChain,
+				"poolSize", gasPool.Size())
+		}
+	}
+
 	// confirmed dest chains need a subscription
 	for _, cs := range destinationChains {
 		srcChains := laneConfig.GetSourceChainsForDestination(cs)
@@ -423,6 +492,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				mm.InputChan,
 				srcChains,
 				suiTokenPools,
+				suiGasPools,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -479,6 +549,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				mm.InputChan,
 				srcChains,
 				suiTokenPools,
+				suiGasPools,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -528,6 +599,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				mm.InputChan,
 				srcChains,
 				suiTokenPools,
+				suiGasPools,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)

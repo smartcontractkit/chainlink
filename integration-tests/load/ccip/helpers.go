@@ -2,10 +2,12 @@ package ccip
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"math"
 	"math/big"
+	"os"
 	"slices"
 	"sync"
 	"time"
@@ -488,32 +490,45 @@ func subscribeSkippedIncorrectNonce(
 
 // fundAdditionalKeys will create len(targetChains) new addresses, and send funds to them on every targetChain
 func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64, fundingAmount uint64) (map[uint64][]*bind.TransactOpts, error) {
+	result, _, err := fundAdditionalKeysWithExport(lggr, e, destChains, fundingAmount)
+	return result, err
+}
+
+// fundAdditionalKeysWithExport creates and funds accounts, returning both TransactOpts and private keys for export
+func fundAdditionalKeysWithExport(lggr logger.Logger, e cldf.Environment, destChains []uint64, fundingAmount uint64) (map[uint64][]*bind.TransactOpts, map[uint64][]EVMAccountWithKey, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
+	accountsWithKeys := make(map[uint64][]EVMAccountWithKey)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
 	for chain := range e.BlockChains.EVMChains() {
 		deployerMap[chain] = make([]*bind.TransactOpts, 0, numAccounts)
+		accountsWithKeys[chain] = make([]EVMAccountWithKey, 0, numAccounts)
 		addressMap[chain] = make([]common.Address, 0, numAccounts)
 		for range numAccounts {
 			addr, pk, err := seth.NewAddress()
 			if err != nil {
-				return nil, fmt.Errorf("failed to create new address: %w", err)
+				return nil, nil, fmt.Errorf("failed to create new address: %w", err)
 			}
 			lggr.Infow("created account for load testing", "private key", pk, "selector", chain, "address", addr)
 			pvtKey, err := crypto.HexToECDSA(pk)
 			if err != nil {
-				return nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)
+				return nil, nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 			}
 			chainID, err := chainselectors.ChainIdFromSelector(chain)
 			if err != nil {
-				return nil, fmt.Errorf("could not get chain id from selector: %w", err)
+				return nil, nil, fmt.Errorf("could not get chain id from selector: %w", err)
 			}
 			deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(chainID))
 			if err != nil {
-				return nil, fmt.Errorf("failed to create transactor: %w", err)
+				return nil, nil, fmt.Errorf("failed to create transactor: %w", err)
 			}
 
 			deployerMap[chain] = append(deployerMap[chain], deployer)
+			accountsWithKeys[chain] = append(accountsWithKeys[chain], EVMAccountWithKey{
+				TransactOpts: deployer,
+				PrivateKey:   pk,
+				ChainID:      chainID,
+			})
 			addressMap[chain] = append(addressMap[chain], common.HexToAddress(addr))
 		}
 	}
@@ -532,9 +547,9 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return deployerMap, nil
+	return deployerMap, accountsWithKeys, nil
 }
 func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[uint64][]*bind.TransactOpts, returnAddress common.Address) error {
 	removeFundsFromAccounts := func(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, addresses []*bind.TransactOpts, returnAddress common.Address, sel uint64) error {
@@ -738,4 +753,144 @@ func fundLoadAccountsWithBnM(
 		"totalTransferred", new(big.Int).Mul(transferAmount, big.NewInt(int64(len(loadAccounts)))))
 
 	return nil
+}
+
+// ============================================================================
+// Fund Recovery Export Types and Functions
+// ============================================================================
+
+// EVMAccountExport represents an EVM account for JSON export
+type EVMAccountExport struct {
+	Address    string `json:"address"`
+	PrivateKey string `json:"privateKey"`
+	ChainID    uint64 `json:"chainId"`
+}
+
+// AptosAccountExport represents an Aptos account for JSON export
+type AptosAccountExport struct {
+	Address    string `json:"address"`
+	PrivateKey string `json:"privateKey"`
+}
+
+// SuiAccountExport represents a Sui account for JSON export
+type SuiAccountExport struct {
+	PrivateKey string `json:"privateKey"`
+}
+
+// SolanaAccountExport represents a Solana account for JSON export
+type SolanaAccountExport struct {
+	PrivateKey string `json:"privateKey"`
+}
+
+// FundedAccountsExport is the top-level structure for exporting funded accounts to JSON
+type FundedAccountsExport struct {
+	Timestamp string                          `json:"timestamp"`
+	TestLabel string                          `json:"testLabel"`
+	EVM       map[string][]EVMAccountExport   `json:"evm,omitempty"`
+	Aptos     map[string][]AptosAccountExport `json:"aptos,omitempty"`
+	Sui       map[string]SuiAccountExport     `json:"sui,omitempty"`
+	Solana    map[string]SolanaAccountExport  `json:"solana,omitempty"`
+}
+
+// EVMAccountWithKey extends bind.TransactOpts with the private key for export
+type EVMAccountWithKey struct {
+	TransactOpts *bind.TransactOpts
+	PrivateKey   string
+	ChainID      uint64
+}
+
+// ExportFundedAccounts writes funded account data to a JSON file in the logs directory
+func ExportFundedAccounts(
+	lggr logger.Logger,
+	testLabel string,
+	evmAccounts map[uint64][]EVMAccountWithKey,
+	aptosAccounts map[uint64][]AptosAccountExport,
+	suiAccounts map[uint64]SuiAccountExport,
+	solanaAccounts map[uint64]SolanaAccountExport,
+) error {
+	timestamp := time.Now().UTC()
+
+	export := FundedAccountsExport{
+		Timestamp: timestamp.Format(time.RFC3339),
+		TestLabel: testLabel,
+		EVM:       make(map[string][]EVMAccountExport),
+		Aptos:     make(map[string][]AptosAccountExport),
+		Sui:       make(map[string]SuiAccountExport),
+		Solana:    make(map[string]SolanaAccountExport),
+	}
+
+	// Convert EVM accounts
+	for chainSel, accounts := range evmAccounts {
+		selStr := fmt.Sprintf("%d", chainSel)
+		export.EVM[selStr] = make([]EVMAccountExport, 0, len(accounts))
+		for _, acc := range accounts {
+			export.EVM[selStr] = append(export.EVM[selStr], EVMAccountExport{
+				Address:    acc.TransactOpts.From.Hex(),
+				PrivateKey: acc.PrivateKey,
+				ChainID:    acc.ChainID,
+			})
+		}
+	}
+
+	// Copy Aptos accounts
+	for chainSel, accounts := range aptosAccounts {
+		selStr := fmt.Sprintf("%d", chainSel)
+		export.Aptos[selStr] = accounts
+	}
+
+	// Copy Sui accounts
+	for chainSel, acc := range suiAccounts {
+		selStr := fmt.Sprintf("%d", chainSel)
+		export.Sui[selStr] = acc
+	}
+
+	// Copy Solana accounts
+	for chainSel, acc := range solanaAccounts {
+		selStr := fmt.Sprintf("%d", chainSel)
+		export.Solana[selStr] = acc
+	}
+
+	// Create logs directory if it doesn't exist
+	logsDir := "logs"
+	if err := createLogsDir(logsDir); err != nil {
+		return fmt.Errorf("failed to create logs directory: %w", err)
+	}
+
+	// Generate filename with timestamp (replace colons for filesystem compatibility)
+	filename := fmt.Sprintf("%s/funded_accounts_%s.json", logsDir, timestamp.Format("2006-01-02T15-04-05"))
+
+	// Marshal to JSON
+	data, err := marshalJSON(export)
+	if err != nil {
+		return fmt.Errorf("failed to marshal funded accounts to JSON: %w", err)
+	}
+
+	// Write to file
+	if err := writeFile(filename, data); err != nil {
+		return fmt.Errorf("failed to write funded accounts to file: %w", err)
+	}
+
+	lggr.Infow("Exported funded accounts for recovery",
+		"file", filename,
+		"evmChains", len(export.EVM),
+		"aptosChains", len(export.Aptos),
+		"suiChains", len(export.Sui),
+		"solanaChains", len(export.Solana))
+
+	return nil
+}
+
+// createLogsDir creates the logs directory if it doesn't exist
+func createLogsDir(dir string) error {
+	return os.MkdirAll(dir, 0755)
+}
+
+// marshalJSON marshals the export to indented JSON
+func marshalJSON(v interface{}) ([]byte, error) {
+	return json.MarshalIndent(v, "", "  ")
+}
+
+// writeFile writes data to a file
+func writeFile(filename string, data []byte) error {
+	return os.WriteFile(filename, data, 0644)
 }

@@ -126,3 +126,6 @@ core/scripts/cre/environment/logs/
 core/scripts/cre/environment/cron
 core/scripts/cre/environment/binaries/*
 *.br.b64
+
+#tmp files Damjan
+chainlink-sui

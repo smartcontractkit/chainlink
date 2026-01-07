@@ -318,6 +318,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				mm.InputChan,
 				srcChains,
 				nil, // No Sui token pools for local tests
+				nil, // No Sui gas pools for local tests
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -374,6 +375,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				mm.InputChan,
 				srcChains,
 				nil, // No Sui token pools for local tests
+				nil, // No Sui gas pools for local tests
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
