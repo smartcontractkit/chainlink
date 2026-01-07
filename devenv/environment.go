@@ -65,7 +65,11 @@ func NewEnvironment(ctx context.Context) error {
 	}
 	for _, ns := range in.NodeSets[0].NodeSpecs {
 		ns.Node.TestConfigOverrides = overrides
+		if os.Getenv("CHAINLINK_IMAGE") != "" {
+			ns.Node.Image = os.Getenv("CHAINLINK_IMAGE")
+		}
 	}
+	
 	_, err = ns.NewSharedDBNodeSet(in.NodeSets[0], nil)
 	if err != nil {
 		return fmt.Errorf("failed to create new shared db node set: %w", err)

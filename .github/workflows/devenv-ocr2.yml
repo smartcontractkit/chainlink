@@ -57,6 +57,7 @@ jobs:
       - name: Run OCR2 environment
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+          CHAINLINK_IMAGE: ${{ secrets.CHAINLINK_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
           cl u env.toml && cl obs up
