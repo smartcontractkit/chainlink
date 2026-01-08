@@ -831,13 +831,31 @@ func (m DonsMetadata) validate() error {
 	}
 
 	if m.ShardingEnabled() {
-		leadersFound := 0
+		var shardIndexes []uint
 		for _, don := range m.dons {
-			if don.IsShardDON() && don.IsShardLeader() {
-				leadersFound++
+			if don.IsShardDON() {
+				shardIndexes = append(shardIndexes, don.ShardIndex)
 			}
-			if leadersFound > 1 {
-				return errors.New("only one shard leader DON is allowed. Please update your TOML config and make sure there is only one DON with 'shard_index' equal to 0")
+		}
+
+		if len(shardIndexes) == 0 {
+			return errors.New("sharding is enabled but no shard DONs found")
+		}
+
+		slices.Sort(shardIndexes)
+
+		// Validate in a single pass: must start at 0, be sequential, and have no duplicates
+		for i, shardIdx := range shardIndexes {
+			expectedIdx := uint(i)
+
+			if shardIdx != expectedIdx {
+				if i > 0 && shardIdx == shardIndexes[i-1] {
+					return fmt.Errorf("found duplicate shard index %d. Each shard index must be unique", shardIdx)
+				}
+				if expectedIdx == 0 {
+					return errors.New("no shard leader DON found. Please update your TOML config and make sure there is one DON with 'shard_index' equal to 0")
+				}
+				return fmt.Errorf("shard indexes must be sequential starting from 0, but found index %d at position %d", shardIdx, i)
 			}
 		}
 	}
@@ -895,6 +913,11 @@ func (m DonsMetadata) ShardingDONs() ([]*DonMetadata, error) {
 	}
 
 	return dons, nil
+}
+
+func (m DonsMetadata) ShardCount() uint {
+	dons, _ := m.ShardingDONs()
+	return uint(len(dons))
 }
 
 func (m DonsMetadata) ShardLeaderDON() (*DonMetadata, error) {

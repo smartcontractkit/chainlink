@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -1127,7 +1128,12 @@ func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
 		stages++
 	}
 
-	// TODO: increment counter if sharding is enabled
+	for _, ns := range in.NodeSets {
+		if slices.Contains(ns.DONTypes, cre.ShardDON) {
+			stages++
+			break
+		}
+	}
 
 	return stagegen.NewStageGen(stages, "STAGE")
 }
