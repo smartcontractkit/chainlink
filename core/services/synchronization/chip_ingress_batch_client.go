@@ -13,25 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 )
 
-// NoopChipIngressBatchClient is a no-op interface for ChipIngressBatchClient
-type NoopChipIngressBatchClient struct{}
-
-// Start is a no-op
-func (NoopChipIngressBatchClient) Start(context.Context) error { return nil }
-
-// Close is a no-op
-func (NoopChipIngressBatchClient) Close() error { return nil }
-
-// Send is a no-op
-func (NoopChipIngressBatchClient) Send(context.Context, []byte, string, TelemetryType, uint64, string, string, string) {
-}
-
-func (NoopChipIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
-func (NoopChipIngressBatchClient) Name() string                   { return "NoopChipIngressBatchClient" }
-
-// Ready is a no-op
-func (NoopChipIngressBatchClient) Ready() error { return nil }
-
 type chipIngressBatchClient struct {
 	services.Service
 	eng *services.Engine
