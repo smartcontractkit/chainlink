@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/executionlog";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "sdk/v1alpha/sdk.proto";
+import "values/v1/values.proto";
+
+package executionlog;
+
+message CapabilityEvent {
+  sdk.v1alpha.CapabilityRequest request = 1;
+  sdk.v1alpha.CapabilityResponse response = 2;
+  string error = 3;
+}
+
+message SecretsEvent {
+  sdk.v1alpha.GetSecretsRequest request = 1;
+  sdk.v1alpha.SecretResponse response = 2;
+  string error = 3;
+}
+
+message NodeTimeEvent {
+  google.protobuf.Timestamp response = 1;
+}
+
+message DonTimeEvent {
+  google.protobuf.Timestamp response = 1;
+}
+
+message EmitLogEvent {
+  string log = 1;
+  string error = 2;
+}
+
+
+message ExecutionEvent {
+  oneof event {
+    CapabilityEvent capability_event = 1;
+    SecretsEvent secrets_event = 2;
+    string workflow_id_event = 3;
+    NodeTimeEvent node_time_event = 4;
+    DonTimeEvent don_time_event = 5;
+    EmitLogEvent emit_log_event = 6;
+  }
+}
+
+message ReturnValue {
+  oneof response {
+    values.v1.Value value = 1;
+    string error = 2;
+    google.protobuf.Empty panic = 3;
+  }
+}
+
+message ExecutionDump {
+  repeated ExecutionEvent events = 1;
+  ReturnValue return_value = 2;
+}

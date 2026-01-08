@@ -6,6 +6,8 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/executionlog"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -237,6 +239,7 @@ type LifecycleHooks struct {
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 	OnNodeSynced           func(node commoncap.Node, err error)
+	OnExecutionEvent       func(event *executionlog.ExecutionEvent)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -318,5 +321,8 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnNodeSynced == nil {
 		h.OnNodeSynced = func(_ commoncap.Node, _ error) {}
+	}
+	if h.OnExecutionEvent == nil {
+		h.OnExecutionEvent = func(event *executionlog.ExecutionEvent) {}
 	}
 }
