@@ -93,8 +93,8 @@ func mockContractReaderFactory(mockReader *mockContractReader) ContractReaderFac
 
 // Test configuration defaults
 const (
-	testPollInterval    = 12 * time.Second
-	testRetryInterval   = 12 * time.Second
+	testPollInterval    = 100 * time.Millisecond
+	testRetryInterval   = 100 * time.Millisecond
 	testShardConfigAddr = "0x1234567890abcdef"
 )
 
@@ -121,6 +121,7 @@ func TestArbiter_StartClose(t *testing.T) {
 	// Test start
 	err = arb.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { arb.Close() })
 
 	// Give gRPC server and syncer a moment to start
 	time.Sleep(100 * time.Millisecond)
@@ -129,10 +130,6 @@ func TestArbiter_StartClose(t *testing.T) {
 	healthReport := arb.HealthReport()
 	require.Contains(t, healthReport, arb.Name())
 	require.NoError(t, healthReport[arb.Name()])
-
-	// Test close
-	err = arb.Close()
-	require.NoError(t, err)
 }
 
 func TestArbiter_ServiceTestRun(t *testing.T) {
@@ -170,13 +167,11 @@ func TestArbiter_HealthReport(t *testing.T) {
 	t.Run("after start - ready", func(t *testing.T) {
 		err := arb.Start(context.Background())
 		require.NoError(t, err)
+		t.Cleanup(func() { arb.Close() })
 
 		healthReport := arb.HealthReport()
 		require.Contains(t, healthReport, arb.Name())
 		require.NoError(t, healthReport[arb.Name()])
-
-		err = arb.Close()
-		require.NoError(t, err)
 	})
 }
 
@@ -191,13 +186,11 @@ func TestArbiter_DoubleStart(t *testing.T) {
 	// First start should succeed
 	err = arb.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { arb.Close() })
 
 	// Second start should return error (StartOnce)
 	err = arb.Start(context.Background())
 	require.Error(t, err)
-
-	err = arb.Close()
-	require.NoError(t, err)
 }
 
 func TestArbiter_DoubleClose(t *testing.T) {
@@ -270,6 +263,7 @@ func TestArbiter_GRPCServerListening(t *testing.T) {
 	// Start the arbiter
 	err = arb.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { arb.Close() })
 
 	// Give gRPC server a moment to start
 	time.Sleep(100 * time.Millisecond)
@@ -280,8 +274,4 @@ func TestArbiter_GRPCServerListening(t *testing.T) {
 	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	require.NoError(t, err, "gRPC server should be listening on port %d", port)
 	conn.Close()
-
-	// Cleanup
-	err = arb.Close()
-	require.NoError(t, err)
 }

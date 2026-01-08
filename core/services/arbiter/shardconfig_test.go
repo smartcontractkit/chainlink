@@ -95,7 +95,7 @@ func TestShardConfigSyncer_New(t *testing.T) {
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
 
-	syncer := NewShardConfigSyncer(factory, "0x1234", 12*time.Second, 12*time.Second, lggr)
+	syncer := NewShardConfigSyncer(factory, "0x1234", 100*time.Millisecond, 100*time.Millisecond, lggr)
 
 	require.NotNil(t, syncer)
 	assert.Contains(t, syncer.Name(), "ShardConfigSyncer")
@@ -106,7 +106,7 @@ func TestShardConfigSyncer_GetDesiredShardCount_BeforeFetch(t *testing.T) {
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
 
-	syncer := NewShardConfigSyncer(factory, "0x1234", 12*time.Second, 12*time.Second, lggr)
+	syncer := NewShardConfigSyncer(factory, "0x1234", 100*time.Millisecond, 100*time.Millisecond, lggr)
 
 	// Before start, GetDesiredShardCount should return error
 	count, err := syncer.GetDesiredShardCount(context.Background())
@@ -125,6 +125,7 @@ func TestShardConfigSyncer_GetDesiredShardCount_AfterFetch(t *testing.T) {
 	// Start the syncer
 	err := syncer.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { syncer.Close() })
 
 	// Wait for initial fetch (contract reader init + first poll)
 	time.Sleep(200 * time.Millisecond)
@@ -133,10 +134,6 @@ func TestShardConfigSyncer_GetDesiredShardCount_AfterFetch(t *testing.T) {
 	count, err := syncer.GetDesiredShardCount(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(42), count)
-
-	// Cleanup
-	err = syncer.Close()
-	require.NoError(t, err)
 }
 
 func TestShardConfigSyncer_StartClose(t *testing.T) {
@@ -144,18 +141,15 @@ func TestShardConfigSyncer_StartClose(t *testing.T) {
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
 
-	syncer := NewShardConfigSyncer(factory, "0x1234", 12*time.Second, 12*time.Second, lggr)
+	syncer := NewShardConfigSyncer(factory, "0x1234", 100*time.Millisecond, 100*time.Millisecond, lggr)
 
 	// Start
 	err := syncer.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { syncer.Close() })
 
 	// Give it time to initialize
 	time.Sleep(100 * time.Millisecond)
-
-	// Close
-	err = syncer.Close()
-	require.NoError(t, err)
 }
 
 func TestShardConfigSyncer_HealthReport(t *testing.T) {
@@ -163,7 +157,7 @@ func TestShardConfigSyncer_HealthReport(t *testing.T) {
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
 
-	syncer := NewShardConfigSyncer(factory, "0x1234", 12*time.Second, 12*time.Second, lggr)
+	syncer := NewShardConfigSyncer(factory, "0x1234", 100*time.Millisecond, 100*time.Millisecond, lggr)
 
 	// Before start
 	healthReport := syncer.HealthReport()
@@ -174,15 +168,12 @@ func TestShardConfigSyncer_HealthReport(t *testing.T) {
 	// Start
 	err := syncer.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { syncer.Close() })
 
 	// After start
 	healthReport = syncer.HealthReport()
 	require.Contains(t, healthReport, syncer.Name())
 	require.NoError(t, healthReport[syncer.Name()])
-
-	// Cleanup
-	err = syncer.Close()
-	require.NoError(t, err)
 }
 
 func TestShardConfigSyncer_DoubleStart(t *testing.T) {
@@ -190,18 +181,16 @@ func TestShardConfigSyncer_DoubleStart(t *testing.T) {
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
 
-	syncer := NewShardConfigSyncer(factory, "0x1234", 12*time.Second, 12*time.Second, lggr)
+	syncer := NewShardConfigSyncer(factory, "0x1234", 100*time.Millisecond, 100*time.Millisecond, lggr)
 
 	// First start should succeed
 	err := syncer.Start(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { syncer.Close() })
 
 	// Second start should return error (StartOnce)
 	err = syncer.Start(context.Background())
 	require.Error(t, err)
-
-	err = syncer.Close()
-	require.NoError(t, err)
 }
 
 func TestShardConfigSyncer_DoubleClose(t *testing.T) {
@@ -209,7 +198,7 @@ func TestShardConfigSyncer_DoubleClose(t *testing.T) {
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
 
-	syncer := NewShardConfigSyncer(factory, "0x1234", 12*time.Second, 12*time.Second, lggr)
+	syncer := NewShardConfigSyncer(factory, "0x1234", 100*time.Millisecond, 100*time.Millisecond, lggr)
 
 	err := syncer.Start(context.Background())
 	require.NoError(t, err)
