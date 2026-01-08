@@ -24,8 +24,8 @@ var OpEVMDeployCallProxy = opsutils.NewEVMDeployOperation(
 	commontypes.CallProxy,
 	bindings.CallProxyMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.CallProxyBin),
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.CallProxyBin),
 		ZkSyncVMBytecode: zkbindings.CallProxyZkBytecode,
 	},
 	func(input OpEVMDeployCallProxyInput) []any {
