@@ -916,3 +916,18 @@ IgnoreJoblessBridges = false # Default
 UseLocalTimeProvider = true # Default
 # EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
 EnableDKGRecipient = false # Default
+
+# Sharding holds settings for node sharding configuration.
+[Sharding]
+# ArbiterPort is the port the Arbiter gRPC server listens on.
+ArbiterPort = 9876 # Default
+# ArbiterPollInterval is how often to poll the ShardConfig contract.
+ArbiterPollInterval = '12s' # Default
+# ArbiterRetryInterval is the retry interval when contract reader is unavailable.
+ArbiterRetryInterval = '12s' # Default
+# ShardIndex is the index of this shard (0-based).
+ShardIndex = 0 # Default
+# ShardOrchestratorPort is the port for connecting to the shard orchestrator.
+ShardOrchestratorPort = 50051 # Default
+# ShardOrchestratorAddress is the URL of the shard orchestrator service.
+ShardOrchestratorAddress = '' # Default

@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -10,6 +11,8 @@ import (
 const defaultArbiterPort = 9876
 const defaultArbiterPollInterval = time.Second * 12
 const defaultArbiterRetryInterval = time.Second * 12
+const defaultShardIndex = 0
+const defaultShardOrchestratorPort = 50051
 
 var _ config.Sharding = (*shardingConfig)(nil)
 
@@ -36,4 +39,25 @@ func (s *shardingConfig) ArbiterRetryInterval() time.Duration {
 		return defaultArbiterRetryInterval
 	}
 	return s.s.ArbiterRetryInterval.Duration()
+}
+
+func (s *shardingConfig) ShardIndex() uint16 {
+	if s.s.ShardIndex == nil {
+		return defaultShardIndex
+	}
+	return *s.s.ShardIndex
+}
+
+func (s *shardingConfig) ShardOrchestratorPort() uint16 {
+	if s.s.ShardOrchestratorPort == nil {
+		return defaultShardOrchestratorPort
+	}
+	return *s.s.ShardOrchestratorPort
+}
+
+func (s *shardingConfig) ShardOrchestratorAddress() *url.URL {
+	if s.s.ShardOrchestratorAddress == nil {
+		return nil
+	}
+	return s.s.ShardOrchestratorAddress.URL()
 }

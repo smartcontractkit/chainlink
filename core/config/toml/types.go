@@ -2757,9 +2757,12 @@ func (jd *JobDistributor) setFrom(f *JobDistributor) {
 }
 
 type Sharding struct {
-	ArbiterPort          *uint16
-	ArbiterPollInterval  *commonconfig.Duration
-	ArbiterRetryInterval *commonconfig.Duration
+	ArbiterPort              *uint16
+	ArbiterPollInterval      *commonconfig.Duration
+	ArbiterRetryInterval     *commonconfig.Duration
+	ShardIndex               *uint16
+	ShardOrchestratorPort    *uint16
+	ShardOrchestratorAddress *commonconfig.URL
 }
 
 func (s *Sharding) setFrom(f *Sharding) {
@@ -2773,5 +2776,17 @@ func (s *Sharding) setFrom(f *Sharding) {
 
 	if f.ArbiterRetryInterval != nil {
 		s.ArbiterRetryInterval = f.ArbiterRetryInterval
+	}
+
+	if f.ShardIndex != nil {
+		s.ShardIndex = f.ShardIndex
+	}
+
+	if f.ShardOrchestratorPort != nil {
+		s.ShardOrchestratorPort = f.ShardOrchestratorPort
+	}
+
+	if f.ShardOrchestratorAddress != nil {
+		s.ShardOrchestratorAddress = f.ShardOrchestratorAddress
 	}
 }
