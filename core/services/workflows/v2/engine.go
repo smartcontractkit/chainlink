@@ -186,7 +186,22 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // org added later
+
+	// Fetch organization ID for this owner
+	organizationID := ""
+	if e.cfg.OrgResolver != nil {
+		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
+		if gerr != nil {
+			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
+		} else {
+			organizationID = orgID
+		}
+	}
+	loggerLabels := maps.Clone(*e.loggerLabels.Load())
+	loggerLabels[platform.KeyOrganizationID] = organizationID
+	e.loggerLabels.Store(&loggerLabels)
+
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: organizationID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
 	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
@@ -478,13 +493,16 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					if !isOpen {
 						return
 					}
+					triggerID := subs.Subscriptions[idx].Id
+					eventID := event.Event.ID
+					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
 					if event.Err != nil {
-						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", subs.Subscriptions[idx].Id, "err", event.Err)
-						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
+						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
 					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
-						triggerCapID: subs.Subscriptions[idx].Id,
+						triggerCapID: triggerID,
 						triggerIndex: idx,
 						timestamp:    e.cfg.Clock.Now(),
 						event:        event,
@@ -492,13 +510,14 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						var errFull limits.ErrorQueueFull
 						if errors.As(err, &errFull) {
 							// queue full, drop the event
-							e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
-							e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventQueueFullCounter(ctx)
+							e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+							e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventQueueFullCounter(ctx)
 						}
-						e.logger().Errorw("Failed to enqueue trigger event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
-						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
+						e.logger().Errorw("Failed to enqueue trigger event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
+					e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
 				}
 			}
 		})
@@ -516,13 +535,15 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			return
 		}
 		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
+		eventID := queueHead.event.Event.ID
+		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
 			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
 			continue
 		}
 		if eventAge > triggerEventMaxAge {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", queueHead.event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
+			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 			continue
 		}
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
@@ -530,6 +551,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
+		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
 			e.startExecution(ctx, queueHead)
@@ -547,22 +569,23 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	// Fetch organization ID for this execution
-	organizationID := ""
+	organizationID := contexts.CREValue(ctx).Org
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
 			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
 		} else {
 			organizationID = orgID
+
+			creCtx := contexts.CREValue(ctx)
+			creCtx.Org = organizationID
+			ctx = contexts.WithCRE(ctx, creCtx)
 		}
 	}
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
 	loggerLabels[platform.KeyOrganizationID] = organizationID
 	e.loggerLabels.Store(&loggerLabels)
-	e.logger().With(platform.KeyOrganizationID, organizationID)
-	creCtx := contexts.CREValue(ctx)
-	creCtx.Org = organizationID
-	ctx = contexts.WithCRE(ctx, creCtx)
+	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
@@ -571,14 +594,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
 	if meteringErr != nil {
-		e.logger().Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
+		lggr.Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
 	}
 
 	isMetering := meteringErr == nil
 	if isMetering {
 		mrErr := meteringReport.Reserve(ctx)
 		if mrErr != nil {
-			e.logger().Errorw("could not reserve metering", "err", mrErr)
+			lggr.Errorw("could not reserve metering", "err", mrErr)
 			return
 		}
 
@@ -587,15 +610,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	execCtx, execCancel, err := e.cfg.LocalLimiters.ExecutionTime.WithTimeout(ctx)
 	if err != nil {
-		e.logger().Errorw("Failed to get execution time limit", "err", err)
+		lggr.Errorw("Failed to get execution time limit", "err", err)
 		return
 	}
 	defer execCancel()
-	executionLogger := logger.With(e.logger(), "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
-		e.logger().Errorw("Failed to get log event limit", "err", err)
+		lggr.Errorw("Failed to get log event limit", "err", err)
 		return
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
@@ -618,16 +641,16 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.logger())
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, lggr)
 	}
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
-		e.logger().Errorw("Failed to get execution response size limit", "err", err)
+		lggr.Errorw("Failed to get execution response size limit", "err", err)
 		return
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
-		e.logger().Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		return
 	}
 	execHelper := &ExecutionHelper{
@@ -662,11 +685,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			},
 		)
 		if mrErr != nil {
-			e.logger().Errorw("could not set metering for compute", "err", mrErr)
+			lggr.Errorw("could not set metering for compute", "err", mrErr)
 		}
 		mrErr = e.meterReports.End(ctx, executionID)
 		if mrErr != nil {
-			e.logger().Errorw("could not end metering report", "err", mrErr)
+			lggr.Errorw("could not end metering report", "err", mrErr)
 		}
 	}
 
@@ -680,14 +703,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(execErr.Error())
 		return
 	}
 
 	if e.cfg.DebugMode {
-		e.logger().Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
+		lggr.Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
 	}
 
 	if len(result.GetError()) > 0 {
@@ -695,7 +718,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(result.GetError())
 		return
@@ -703,7 +726,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
+	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)

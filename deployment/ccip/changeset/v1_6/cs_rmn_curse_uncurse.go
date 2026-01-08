@@ -25,6 +25,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	aptosUtils "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	aptos_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
@@ -1021,10 +1022,13 @@ func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 		subjectBytes[i] = subject[:]
 	}
 	in := aptos_ops.CurseMultipleInput{
-		Subjects:    subjectBytes,
 		CCIPAddress: c.chain.CCIPAddress,
+		Subjects:    subjectBytes,
 	}
-	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.CurseMultipleOp, chain, in)
+	deps := dependency.AptosDeps{
+		AptosChain: chain,
+	}
+	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.CurseMultipleOp, deps, in)
 	if err != nil {
 		return fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", c.selector, err)
 	}
@@ -1048,10 +1052,14 @@ func (c *AptosCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 		subjectBytes[i] = subject[:]
 	}
 	in := aptos_ops.UncurseMultipleInput{
-		Subjects:    subjectBytes,
 		CCIPAddress: c.chain.CCIPAddress,
+		Subjects:    subjectBytes,
 	}
-	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.UncurseMultipleOp, chain, in)
+	deps := dependency.AptosDeps{
+		AB:         cldf.NewMemoryAddressBook(),
+		AptosChain: chain,
+	}
+	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.UncurseMultipleOp, deps, in)
 	if err != nil {
 		return fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", c.selector, err)
 	}

@@ -249,7 +249,7 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest) func() gateway_common.OutboundHTTPResponse {
 	return func() gateway_common.OutboundHTTPResponse {
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
-		l.Debug("Sending request to client")
+		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", len(httpReq.Headers))
 		start := time.Now()
 		resp, err := h.httpClient.Send(ctx, httpReq)
 		externalEndpointLatency := time.Since(start)
@@ -280,6 +280,7 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
+		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", len(resp.Headers))
 		h.metrics.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
 		h.metrics.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{

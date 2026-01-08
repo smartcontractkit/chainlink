@@ -18,6 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -44,7 +45,7 @@ var DeployAptosTokenPoolSequence = operations.NewSequence(
 	deployAptosTokenPoolSequence,
 )
 
-func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenPoolSeqInput) (DeployTokenPoolSeqOutput, error) {
+func deployAptosTokenPoolSequence(b operations.Bundle, deps dependency.AptosDeps, in DeployTokenPoolSeqInput) (DeployTokenPoolSeqOutput, error) {
 	var mcmsOperations []mcmstypes.BatchOperation
 	var txs []mcmstypes.Transaction
 	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
@@ -185,7 +186,7 @@ var ConnectTokenPoolSequence = operations.NewSequence(
 	connectTokenPoolSequence,
 )
 
-func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in ConnectTokenPoolSeqInput) (mcmstypes.BatchOperation, error) {
+func connectTokenPoolSequence(b operations.Bundle, deps dependency.AptosDeps, in ConnectTokenPoolSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	// Chain updates
@@ -349,7 +350,7 @@ var TransferTokenPoolOwnershipsSequence = operations.NewSequence(
 	transferTokenPoolOwnershipSequence,
 )
 
-func transferTokenPoolOwnershipSequence(b operations.Bundle, deps operation.AptosDeps, in TransferTokenPoolOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+func transferTokenPoolOwnershipSequence(b operations.Bundle, deps dependency.AptosDeps, in TransferTokenPoolOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, transfer := range in.Transfers {
@@ -391,7 +392,7 @@ var AcceptTokenPoolOwnershipsSequence = operations.NewSequence(
 	acceptTokenPoolOwnershipsSequence,
 )
 
-func acceptTokenPoolOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps, in AcceptTokenPoolOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+func acceptTokenPoolOwnershipsSequence(b operations.Bundle, deps dependency.AptosDeps, in AcceptTokenPoolOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, accept := range in.Accepts {
@@ -427,7 +428,7 @@ var ExecuteTokenPoolOwnershipTransfersSequence = operations.NewSequence(
 	executeTokenPoolOwnershipTransfersSequence,
 )
 
-func executeTokenPoolOwnershipTransfersSequence(b operations.Bundle, deps operation.AptosDeps, in ExecuteTokenPoolOwnershipTransfersSeqInput) (mcmstypes.BatchOperation, error) {
+func executeTokenPoolOwnershipTransfersSequence(b operations.Bundle, deps dependency.AptosDeps, in ExecuteTokenPoolOwnershipTransfersSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, transfer := range in.Transfers {

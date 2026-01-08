@@ -175,7 +175,6 @@ ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronRelayer
 ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm
 ok WorkflowEngineLimiters
 ok WorkflowExecutionLimiter
-ok WorkflowRateLimiter
 ok WorkflowStore
 
 -- out-unhealthy.txt --
@@ -813,15 +812,6 @@ ok WorkflowStore
       "id": "WorkflowExecutionLimiter",
       "attributes": {
         "name": "WorkflowExecutionLimiter",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowRateLimiter",
-      "attributes": {
-        "name": "WorkflowRateLimiter",
         "status": "passing",
         "output": ""
       }

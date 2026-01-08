@@ -39,7 +39,6 @@ concurrency:
 
 jobs:
   # Build Test Dependencies
-
   check-dependency-bump:
     name: Check for go-ethereum dependency bump
     if: github.event_name == 'pull_request' || github.event_name == 'merge_queue'
@@ -344,7 +343,7 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
-        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
+        uses: smartcontractkit/.github/actions/ctf-build-image@b7be49d6f54ce0990354931ee1e4c8624f3f406e # v1.4.0 (not released yet)
         with:
           image-tag: ${{ inputs.chainlinkVersion || needs.select-versions.outputs.chainlink_image_version || github.sha }}
           dockerfile: core/chainlink.Dockerfile
@@ -438,7 +437,6 @@ jobs:
           fi
 
   # End Build Test Dependencies
-
   prepare-compatibility-matrix:
     name: Prepare Compatibility Matrix
     if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')

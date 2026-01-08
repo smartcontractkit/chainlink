@@ -94,3 +94,14 @@ func (v CREView) MarshalJSON() ([]byte, error) {
 	type Alias CREView
 	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
 }
+
+type CREViewV2 struct {
+	Chains map[string]CREChainView   `json:"chains,omitempty"`
+	Nops   map[string]view.NopViewV2 `json:"nops,omitempty"`
+}
+
+func (v CREViewV2) MarshalJSON() ([]byte, error) {
+	// Alias to avoid recursive calls
+	type Alias CREViewV2
+	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
+}

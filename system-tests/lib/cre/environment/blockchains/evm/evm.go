@@ -141,7 +141,8 @@ func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 	var bcOut *blockchain.Output
 	var err error
 
-	if e.provider.IsCRIB() {
+	switch {
+	case e.provider.IsCRIB():
 		deployCribBlockchainInput := &crib.DeployCribBlockchainInput{
 			Blockchain:     input,
 			CribConfigsDir: e.cribConfigsDir,
@@ -157,7 +158,22 @@ func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 		}
-	} else {
+	case e.provider.IsKubernetes():
+		// For Kubernetes, use the blockchain output from config (no deployment)
+		if err = blockchains.ValidateKubernetesBlockchainOutput(input); err != nil {
+			return nil, err
+		}
+
+		e.testLogger.Info().Msgf("Using configured Kubernetes blockchain URLs for %s (chain_id: %s)", input.Type, input.ChainID)
+		bcOut = input.Out
+
+		// Wait for RPC endpoint to be available
+		err = infra.WaitForRPCEndpoint(e.testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
+		}
+	default:
+		// Docker deployment
 		bcOut, err = blockchain.NewWithContext(ctx, input)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)

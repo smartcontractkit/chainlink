@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -37,7 +38,7 @@ type Delegate struct {
 	secretsFetcher SecretsFor
 	logger         logger.Logger
 	store          store.Store
-	ratelimiter    limits.RateLimiter
+	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits limits.ResourceLimiter[int]
 	billingClient  metering.BillingClient
 	dontimeStore   *dontime.Store
@@ -113,7 +114,7 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	dontimeStore *dontime.Store,
 	store store.Store,
-	ratelimiter limits.RateLimiter,
+	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	opts ...func(*Delegate),
 ) *Delegate {

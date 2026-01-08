@@ -322,3 +322,14 @@ func (v KeystoneView) MarshalJSON() ([]byte, error) {
 	type Alias KeystoneView
 	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
 }
+
+type KeystoneViewV2 struct {
+	Chains map[string]KeystoneChainView `json:"chains,omitempty"`
+	Nops   map[string]view.NopViewV2    `json:"nops,omitempty"`
+}
+
+func (v KeystoneViewV2) MarshalJSON() ([]byte, error) {
+	// Alias to avoid recursive calls
+	type Alias KeystoneViewV2
+	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
+}

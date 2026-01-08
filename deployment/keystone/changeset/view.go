@@ -20,6 +20,7 @@ import (
 )
 
 var _ deployment.ViewStateV2 = ViewKeystone
+var _ deployment.ViewStateV2 = ViewKeystoneV2
 
 type contractsPerChain map[uint64]viewContracts
 
@@ -31,6 +32,42 @@ type viewContracts struct {
 }
 
 func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
+	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
+	if viewErrs != nil {
+		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+	}
+
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+	return &KeystoneView{
+		Chains: chainViews,
+		Nops:   nopsView,
+	}, viewErrs
+}
+
+func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
+	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
+	if viewErrs != nil {
+		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+	}
+
+	nopsView, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "keystone", nil)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+	return &KeystoneViewV2{
+		Chains: chainViews,
+		Nops:   nopsView,
+	}, viewErrs
+}
+
+func generateKeystoneChainsViews(e deployment.Environment, previousView json.Marshaler) (map[string]KeystoneChainView, error) {
 	lggr := e.Logger
 	contractsMap, err := getContractsPerChain(e)
 	// This is an unrecoverable error
@@ -77,16 +114,8 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 		}
 		chainViews[chainName] = v
 	}
-	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
-	if err != nil {
-		err2 := fmt.Errorf("failed to view nops: %w", err)
-		lggr.Error(err2)
-		viewErrs = errors.Join(viewErrs, err2)
-	}
-	return &KeystoneView{
-		Chains: chainViews,
-		Nops:   nopsView,
-	}, viewErrs
+
+	return chainViews, viewErrs
 }
 
 func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {

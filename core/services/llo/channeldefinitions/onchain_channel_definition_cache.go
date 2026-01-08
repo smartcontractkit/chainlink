@@ -273,6 +273,8 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 			}
 		}
 
+		c.lggr.Infow("started channel definition cache", "definitions", c.definitions, "initialBlockNum", c.initialBlockNum, "persistedBlockNum", c.persistedBlockNum, "definitionsVersion", c.definitions.Version)
+
 		c.wg.Add(3)
 		// We have three concurrent loops
 		// 1. Poll chain for new logs
@@ -416,6 +418,7 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	c.lggr.Debugw("read adder logs", "fromBlock", fromBlock, "toBlock", toBlock, "logsCount", len(logs))
 	c.processLogs(logs)
 
 	exprs = buildFilterExprs(c.ownerFilterExprs, fromBlock, toBlock)
@@ -423,6 +426,7 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	c.lggr.Debugw("read owner logs", "fromBlock", fromBlock, "toBlock", toBlock, "logsCount", len(logs))
 	c.processLogs(logs)
 
 	return nil
@@ -582,14 +586,14 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 
 		case source > SourceOwner:
 			if def.Tombstone {
-				c.lggr.Warnw("invalid channel tombstone, cannot be added by source",
+				c.lggr.Debugw("invalid channel tombstone, cannot be added by source",
 					"channelID", channelID, "source", source)
 				continue
 			}
 
 			if existing, exists := currentDefinitions[channelID]; exists {
 				if existing.Source != def.Source {
-					c.lggr.Warnw("channel adder conflict, skipping definition",
+					c.lggr.Debugw("channel adder conflict, skipping definition",
 						"channelID", channelID, "existingSourceID", existing.Source, "newSourceID", def.Source)
 				}
 				// Adders do not overwrite existing definitions, they can only add new ones
@@ -921,8 +925,10 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 	for _, sourceDefinition := range src {
 		channelDefinitionCacheCount.
 			WithLabelValues(strconv.Itoa(int(sourceDefinition.Trigger.Source))).Set(float64(len(sourceDefinition.Definitions)))
+		c.lggr.Debugw("merging definitions", "source", sourceDefinition.Trigger.Source)
 		c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
 	}
 
+	c.lggr.Debugw("returning merged definitions", "definitions", merged)
 	return merged
 }

@@ -67,7 +67,9 @@ func (o *HTTPAction) PreEnvStartup(
 			Version:        "1.0.0-alpha",
 			CapabilityType: 1, // ACTION
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{

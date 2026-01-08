@@ -28,6 +28,7 @@ import (
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
@@ -40,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -128,7 +128,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
@@ -663,7 +663,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
@@ -768,7 +768,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
@@ -841,7 +841,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
@@ -916,7 +916,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
@@ -1032,7 +1032,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 	require.NoError(t, err)

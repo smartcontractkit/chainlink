@@ -62,7 +62,9 @@ func (o *WebAPITrigger) PreEnvStartup(
 			Version:        "1.0.0",
 			CapabilityType: 0, // TRIGGER
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
