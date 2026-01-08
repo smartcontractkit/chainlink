@@ -2790,3 +2790,17 @@ func (s *Sharding) setFrom(f *Sharding) {
 		s.ShardOrchestratorAddress = f.ShardOrchestratorAddress
 	}
 }
+
+func (s *Sharding) ValidateConfig() (err error) {
+	// If ShardIndex > 0, ShardOrchestratorAddress must be specified
+	if s.ShardIndex != nil && *s.ShardIndex > 0 {
+		if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
+			err = errors.Join(err, configutils.ErrInvalid{
+				Name:  "ShardOrchestratorAddress",
+				Value: s.ShardOrchestratorAddress,
+				Msg:   "must be specified when ShardIndex > 0",
+			})
+		}
+	}
+	return err
+}
