@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	// TODO: Update this import path once proto is generated
+	// TODO: Update this import path once proto is moved
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/arbiter/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	// TODO: Update this import path once proto is generated
+	// TODO: Update this import path once proto is moved
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/arbiter/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
