@@ -102,7 +102,19 @@ func (s *Solana) PostEnvStartup(
 	}
 
 	// 3. Configure Forwarders
-	return solana.ConfigureForwarders(ctx, testLogger, don, dons, creEnv)
+	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
+	for _, don := range consensusDons {
+		testLogger.Info().Msg(fmt.Sprintf("configure forwarder for: %s", don.Name))
+		for _, n := range don.Nodes {
+			testLogger.Info().Msg(fmt.Sprintf("solana keys: %s", n.Keys.OCR2BundleIDs["solana"]))
+		}
+		err := solana.ConfigureForwarders(ctx, testLogger, don, dons, creEnv)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // post env

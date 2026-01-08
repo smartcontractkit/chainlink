@@ -175,13 +175,14 @@ func initSolanaInput(bi *blockchain.Input) error {
 	}
 	bi.PublicKey = DefaultSolanaPrivateKey.PublicKey().String()
 	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
-
+	framework.L.Log().Msg(fmt.Sprint("coint", bi.ContractsDir))
 	if bi.SolanaPrograms != nil {
 		var err2 error
 		once.Do(func() {
 			if hasSolanaArtifacts(bi.ContractsDir) {
 				return
 			}
+
 			// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
 			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "e12b1b0f5f23", logger.Nop())
 		})

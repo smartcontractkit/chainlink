@@ -3,11 +3,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"log/slog"
 
-	solanago "github.com/gagliardetto/solana-go"
+	solgo "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana"
@@ -15,6 +16,8 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"gopkg.in/yaml.v3"
+
+	ag_binary "github.com/gagliardetto/binary"
 )
 
 func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
@@ -30,27 +33,33 @@ func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload)
 	runtime.Logger().Info("Solana Write workflow started", "payload", payload)
 	solClient := solana.Client{ChainSelector: chain_selectors.SOLANA_DEVNET.Selector}
 	runtime.Logger().Info("Got Solana client", "chainSelector", solClient.ChainSelector)
-	encodedPayload := []byte{1, 2, 3}
-	// 1. encode report
+	// 1. Derive remaining
+	remaining, err := deriveRemaining(runtime, config)
+	if err != nil {
+		return "", fmt.Errorf("failed to derive remaining: %w", err)
+	}
+	// 2. Get account ctx hash
+	hash := calculateHash(remaining)
+	// 3. Encode report payload
+	encodedPayload, err := encodeReport(hash, config)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode report payload")
+	}
+	// 4. Generate Report
 	report, err := runtime.GenerateReport(&cre.ReportRequest{
 		EncodedPayload: encodedPayload,
-		EncoderName:    "evm", // add borsh encoder later
+		EncoderName:    "solana",
 		SigningAlgo:    "ecdsa",
 		HashingAlgo:    "keccak256",
 	}).Await()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate report: %w", err)
 	}
-
-	remainings, err := deriveRemaining(config, report)
-	if err != nil {
-		return "", fmt.Errorf("failed to derive remaining accounts: %w", err)
-	}
-	// 2. execute WriteReport
+	// 5. Execute WriteReport
 	output, err := solClient.WriteReport(runtime, &solana.WriteCreReportRequest{
 		Receiver:          config.Receiver.Bytes(),
 		Report:            report,
-		RemainingAccounts: remainings,
+		RemainingAccounts: remaining,
 	}).Await()
 	if err != nil {
 		runtime.Logger().Error(fmt.Sprintf("[logger] failed to write report on-chain: %v", err))
@@ -78,58 +87,108 @@ func main() {
 	}).Run(RunSolWriteWorkflow)
 }
 
-func deriveRemaining(config config.Config, report *cre.Report) ([]*solana.AccountMeta, error) {
-	executionState, err := deriveExecutionState(config, report.X_GeneratedCodeOnly_Unwrap().RawReport)
+func deriveRemaining(runtime cre.Runtime, config config.Config) ([]*solana.AccountMeta, error) {
+	authority, err := deriveForwarderAuthority(config.ForwarderState, config.Receiver, config.ForwarderProgramID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to derive execution state: %w", err)
+		return nil, err
 	}
+	decimalReportSeeds := [][]byte{
+		[]byte("decimal_report"),
+		config.ReceiverState.Bytes(),
+		config.FeedID[:],
+	}
+	decimalReportKey, _, err := solgo.FindProgramAddress(decimalReportSeeds, config.Receiver)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := createReportHash(config.FeedID[:], authority.Bytes(), config.WFOwner[:], config.WFName[:])
+	runtime.Logger().Info(fmt.Sprintf("repHash: %x feedID: %x sender: %x owner: %x name: %x", hash, config.FeedID, authority, config.WFOwner, config.WFName))
+	writeFlagSeeds := [][]byte{
+		[]byte("permission_flag"),
+		config.ReceiverState.Bytes(),
+		hash[:],
+	}
+
+	writeFlagKey, _, err := solgo.FindProgramAddress(writeFlagSeeds, config.Receiver)
 	return []*solana.AccountMeta{
-		{PublicKey: config.ForwarderState[:]},
-		{PublicKey: executionState[:], IsWritable: true},
+		{PublicKey: config.ForwarderState[:]},              // 0 state
+		{PublicKey: authority[:]},                          // 1 authority
+		{PublicKey: config.ReceiverState[:]},               // 2 cache state
+		{PublicKey: config.Receiver[:]},                    // 3 dummy legacy store
+		{PublicKey: config.Receiver[:]},                    // 4 dummy legacy feed config
+		{PublicKey: config.Receiver[:]},                    // 5 dummy legacy writer
+		{PublicKey: decimalReportKey[:], IsWritable: true}, // 6 decimal report pda
+		{PublicKey: writeFlagKey[:]},                       // 7 write permission pda
 	}, nil
 }
 
-var (
-	reportIDOffset    = 107
-	reporIDSize       = 2
-	executionIDOffset = 1
-	executionIDSize   = 32
-)
+func createReportHash(dataID []byte, forwarderAuthority []byte, workflowOwner []byte, workflowName []byte) [32]byte {
+	var data []byte
+	data = append(data, dataID...)
+	data = append(data, forwarderAuthority...)
+	data = append(data, workflowOwner...)
+	data = append(data, workflowName...)
 
-func deriveExecutionState(config config.Config, rawReport []byte) (solanago.PublicKey, error) {
-	transmissionID, err := extractTransmissionID(config.Receiver, rawReport)
-	if err != nil {
-		return solanago.PublicKey{}, err
+	return sha256.Sum256(data)
+}
+
+func calculateHash(accs []*solana.AccountMeta) [32]byte {
+	var accounts = make([]byte, 0)
+	for _, acc := range accs {
+		accounts = append(accounts, acc.PublicKey[:]...)
 	}
+	return sha256.Sum256(accounts)
+}
 
+func deriveForwarderAuthority(forwarderState solgo.PublicKey, receiverProgram solgo.PublicKey, forwarderProgram solgo.PublicKey) (solgo.PublicKey, error) {
 	seeds := [][]byte{
-		[]byte("execution_state"),
-		config.ForwarderState.Bytes(),
-		transmissionID[:],
+		[]byte("forwarder"),
+		forwarderState[:],
+		receiverProgram[:],
 	}
-
-	ret, _, err := solanago.FindProgramAddress(seeds, config.ForwarderProgramID)
+	ret, _, err := solgo.FindProgramAddress(seeds, forwarderProgram)
 
 	return ret, err
 }
 
-func extractTransmissionID(receiver solanago.PublicKey, rawReport []byte) ([32]byte, error) {
-	var data []byte
+type ReceivedDecimalReport struct {
+	Timestamp uint32
+	Answer    [16]byte // u128 as 16 little-endian bytes
+	DataID    [16]byte
+}
 
-	if len(rawReport) <= reportIDOffset+reporIDSize {
-		return [32]byte{}, fmt.Errorf("invalid len of raw report: %d", len(rawReport))
+type ForwarderReport struct {
+	AccountHash [32]byte
+	Payload     []byte
+}
+
+func encodeReport(accHash [32]byte, cfg config.Config) ([]byte, error) {
+	var payloadBuf bytes.Buffer
+	payloadEnc := ag_binary.NewBorshEncoder(&payloadBuf)
+
+	reports := []ReceivedDecimalReport{
+		{
+			Timestamp: 1,
+			Answer:    [16]byte{1, 2, 3},
+			DataID:    cfg.FeedID,
+		},
+	}
+	if err := payloadEnc.Encode(reports); err != nil {
+		return nil, fmt.Errorf("failed to borsh-encode ReceivedDecimalReport vec: %w", err)
+	}
+	payload := payloadBuf.Bytes()
+
+	fr := ForwarderReport{
+		AccountHash: accHash,
+		Payload:     payload,
 	}
 
-	// 1. add receiver
-	data = append(data, receiver.Bytes()...)
+	var outBuf bytes.Buffer
+	outEnc := ag_binary.NewBorshEncoder(&outBuf)
+	if err := outEnc.Encode(fr); err != nil {
+		return nil, fmt.Errorf("failed to borsh-encode ForwarderReport: %w", err)
+	}
 
-	// 2. add executionID
-	executionID := rawReport[executionIDOffset : executionIDOffset+executionIDSize]
-	data = append(data, executionID...)
-
-	// 3. add reportID
-	reportID := rawReport[reportIDOffset : reportIDOffset+reporIDSize]
-	data = append(data, reportID...)
-
-	return sha256.Sum256(data), nil
+	return outBuf.Bytes(), nil
 }

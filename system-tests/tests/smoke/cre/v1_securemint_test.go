@@ -83,6 +83,8 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 
 	// configure cache program
 	framework.L.Info().Msg("Deploy and configure data-feeds cache programs...")
+	s.WFName = wFName
+	s.WFOwner = wFOwner
 	deployAndConfigureCache(t, &s, *creEnvironment.CldfEnvironment, solChain)
 	framework.L.Info().Msg("Successfully deployed and configured")
 
@@ -224,8 +226,6 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 	var d [32]byte
 	copy(d[:], []byte(wFDescription))
 	s.Descriptions = append(s.Descriptions, d)
-	s.WFName = wFName
-	s.WFOwner = wFOwner
 	s.FeedID = new(big.Int).SetBytes(feedID[:]).String()
 	var wfname [10]byte
 	copy(wfname[:], []byte(s.WFName))
