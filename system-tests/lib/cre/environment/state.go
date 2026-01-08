@@ -78,6 +78,12 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrap(offChainErr, "failed to create offchain client")
 	}
 
+	for _, ns := range cachedInput.NodeSets {
+		if err := ns.ParseChainCapabilities(); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to parse chain capabilities")
+		}
+	}
+
 	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra)
 	if tErr != nil {
 		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
@@ -110,7 +116,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	cldEnv := cldf.NewEnvironment(
-		"cre",
+		cre.EnvironmentName,
 		cldLogger,
 		cldf.NewMemoryAddressBook(),
 		datastore.Seal(),

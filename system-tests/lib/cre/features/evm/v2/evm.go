@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"dario.cat/mergo"
@@ -50,7 +50,7 @@ import (
 
 const (
 	flag                = cre.EVMCapability
-	configTemplate      = `{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{.}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{.}}{{end}}}`
+	configTemplate      = `{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%.0f" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%.0f" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%.0f" .}}{{end}}}`
 	registrationRefresh = 20 * time.Second
 	registrationExpiry  = 60 * time.Second
 	deltaStage          = 500*time.Millisecond + 1*time.Second // block time + 1 second delta
@@ -458,7 +458,7 @@ func createJobs(
 				Domain:      offchain.ProductLabel,
 				Environment: cre.EnvironmentName,
 				DONName:     don.Name,
-				JobName:     fmt.Sprintf("evm-v2-worker-%d", chainID),
+				JobName:     fmt.Sprintf("evm-capabilities-v2-%d", chainID),
 				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: offchain.FilterKeyDONName, Value: don.Name},
