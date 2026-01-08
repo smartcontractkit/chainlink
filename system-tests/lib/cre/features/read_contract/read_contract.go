@@ -48,7 +48,9 @@ func (o *ReadContract) PreEnvStartup(
 				Version:        "1.0.0",
 				CapabilityType: 1, // ACTION
 			},
-			Config: &capabilitiespb.CapabilityConfig{},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		})
 	}
 

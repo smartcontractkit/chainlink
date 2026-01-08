@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -33,7 +34,7 @@ var DeployCCIPSequence = operations.NewSequence(
 	deployCCIPSequence,
 )
 
-func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in DeployCCIPSeqInput) (DeployCCIPSeqOutput, error) {
+func deployCCIPSequence(b operations.Bundle, deps dependency.AptosDeps, in DeployCCIPSeqInput) (DeployCCIPSeqOutput, error) {
 	var mcmsOperations []mcmstypes.BatchOperation
 
 	// Cleanup MCMS staging area if not clear

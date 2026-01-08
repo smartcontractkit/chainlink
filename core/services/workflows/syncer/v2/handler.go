@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -55,6 +56,7 @@ type eventHandler struct {
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
 	engineLimiters         *v2.EngineLimiters
+	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
@@ -130,6 +132,7 @@ func NewEventHandler(
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
+	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	workflowEncryptionKey workflowkey.Key,
@@ -158,6 +161,7 @@ func NewEventHandler(
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
 		engineLimiters:         engineLimiters,
+		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
@@ -506,6 +510,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			Config:         config,
 			Binary:         binary,
 			SecretsFetcher: emptySecretsFetcher,
+			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
 
 			BillingClient: h.billingClient,

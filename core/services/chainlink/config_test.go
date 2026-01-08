@@ -651,6 +651,14 @@ func TestConfig_Marshal(t *testing.T) {
 		IgnoreInvalidBridges: ptr(true),
 		IgnoreJoblessBridges: ptr(false),
 	}
+	full.Sharding = toml.Sharding{
+		ArbiterPort:              ptr[uint16](9876),
+		ArbiterPollInterval:      commoncfg.MustNewDuration(12 * time.Second),
+		ArbiterRetryInterval:     commoncfg.MustNewDuration(12 * time.Second),
+		ShardIndex:               ptr[uint16](0),
+		ShardOrchestratorPort:    ptr[uint16](50051),
+		ShardOrchestratorAddress: &commoncfg.URL{},
+	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
 	}

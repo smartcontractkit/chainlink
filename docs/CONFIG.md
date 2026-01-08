@@ -2611,6 +2611,56 @@ EnableDKGRecipient = false # Default
 ```
 EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
 
+## Sharding
+```toml
+[Sharding]
+ArbiterPort = 9876 # Default
+ArbiterPollInterval = '12s' # Default
+ArbiterRetryInterval = '12s' # Default
+ShardIndex = 0 # Default
+ShardOrchestratorPort = 50051 # Default
+ShardOrchestratorAddress = '' # Default
+```
+Sharding holds settings for node sharding configuration.
+
+### ArbiterPort
+```toml
+ArbiterPort = 9876 # Default
+```
+ArbiterPort is the port the Arbiter gRPC server listens on.
+
+### ArbiterPollInterval
+```toml
+ArbiterPollInterval = '12s' # Default
+```
+ArbiterPollInterval is how often to poll the ShardConfig contract.
+
+### ArbiterRetryInterval
+```toml
+ArbiterRetryInterval = '12s' # Default
+```
+ArbiterRetryInterval is the retry interval when contract reader is unavailable.
+
+### ShardIndex
+```toml
+ShardIndex = 0 # Default
+```
+ShardIndex is the index of this shard (0-based). If 0, no shard orchestration client is created.
+If greater than 0, a shard orchestration client is created and connects to ShardOrchestratorAddress.
+
+### ShardOrchestratorPort
+```toml
+ShardOrchestratorPort = 50051 # Default
+```
+ShardOrchestratorPort is the port for the shard orchestrator gRPC server.
+When a ring OCR job is created, the shard orchestrator server is spun up on this port.
+
+### ShardOrchestratorAddress
+```toml
+ShardOrchestratorAddress = '' # Default
+```
+ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
+
 ## EVM
 EVM defaults depend on ChainID:
 
