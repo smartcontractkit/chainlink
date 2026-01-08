@@ -9,16 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/freeport"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockContractReader is a mock implementation of types.ContractReader for testing.
@@ -62,7 +60,7 @@ func (m *mockContractReader) GetLatestValue(ctx context.Context, readIdentifier 
 	}
 	// Set the result to our mock value
 	if ptr, ok := returnVal.(**big.Int); ok {
-		*ptr = big.NewInt(int64(m.desiredShardCount))
+		*ptr = big.NewInt(int64(m.desiredShardCount)) //nolint:gosec // G115: test mock value
 	}
 	return nil
 }
@@ -103,7 +101,7 @@ func TestArbiter_New(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 
 	require.NoError(t, err)
 	require.NotNil(t, arb)
@@ -115,7 +113,7 @@ func TestArbiter_StartClose(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	// Test start
@@ -128,7 +126,7 @@ func TestArbiter_StartClose(t *testing.T) {
 	// Test health after start
 	healthReport := arb.HealthReport()
 	require.Contains(t, healthReport, arb.Name())
-	assert.NoError(t, healthReport[arb.Name()])
+	require.NoError(t, healthReport[arb.Name()])
 
 	// Test close
 	err = arb.Close()
@@ -140,7 +138,7 @@ func TestArbiter_ServiceTestRun(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	// Use servicetest.Run to handle lifecycle
@@ -157,7 +155,7 @@ func TestArbiter_HealthReport(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	t.Run("before start - not ready", func(t *testing.T) {
@@ -173,7 +171,7 @@ func TestArbiter_HealthReport(t *testing.T) {
 
 		healthReport := arb.HealthReport()
 		require.Contains(t, healthReport, arb.Name())
-		assert.NoError(t, healthReport[arb.Name()])
+		require.NoError(t, healthReport[arb.Name()])
 
 		err = arb.Close()
 		require.NoError(t, err)
@@ -185,7 +183,7 @@ func TestArbiter_DoubleStart(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	// First start should succeed
@@ -194,7 +192,7 @@ func TestArbiter_DoubleStart(t *testing.T) {
 
 	// Second start should return error (StartOnce)
 	err = arb.Start(context.Background())
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = arb.Close()
 	require.NoError(t, err)
@@ -205,7 +203,7 @@ func TestArbiter_DoubleClose(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	err = arb.Start(context.Background())
@@ -225,7 +223,7 @@ func TestArbiter_Name(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	assert.Equal(t, "Arbiter", arb.Name())
@@ -236,19 +234,19 @@ func TestArbiter_Ready(t *testing.T) {
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
 
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	// Before start, Ready should return error
 	err = arb.Ready()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// After start, Ready should return nil
 	err = arb.Start(context.Background())
 	require.NoError(t, err)
 
 	err = arb.Ready()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// After close, Ready should return error
 	err = arb.Close()
@@ -264,7 +262,7 @@ func TestArbiter_GRPCServerListening(t *testing.T) {
 	factory := mockContractReaderFactory(mockReader)
 
 	port := freeport.GetOne(t)
-	arb, err := New(lggr, factory, testShardConfigAddr, uint16(port), testPollInterval, testRetryInterval)
+	arb, err := New(lggr, factory, testShardConfigAddr, uint16(port), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
 	// Start the arbiter
@@ -276,7 +274,8 @@ func TestArbiter_GRPCServerListening(t *testing.T) {
 
 	// Verify gRPC server is actually listening by attempting to connect
 	addr := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", addr, 1*time.Second)
+	dialer := &net.Dialer{Timeout: 1 * time.Second}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	require.NoError(t, err, "gRPC server should be listening on port %d", port)
 	conn.Close()
 

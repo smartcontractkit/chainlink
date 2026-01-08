@@ -62,7 +62,7 @@ func (m *mockShardConfigContractReader) GetLatestValue(ctx context.Context, read
 		return m.err
 	}
 	if ptr, ok := returnVal.(**big.Int); ok {
-		*ptr = big.NewInt(int64(m.shardCount))
+		*ptr = big.NewInt(int64(m.shardCount)) //nolint:gosec // G115: test mock value
 	}
 	return nil
 }
@@ -110,7 +110,7 @@ func TestShardConfigSyncer_GetDesiredShardCount_BeforeFetch(t *testing.T) {
 
 	// Before start, GetDesiredShardCount should return error
 	count, err := syncer.GetDesiredShardCount(context.Background())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, uint64(0), count)
 	assert.Contains(t, err.Error(), "not yet available")
 }
@@ -131,7 +131,7 @@ func TestShardConfigSyncer_GetDesiredShardCount_AfterFetch(t *testing.T) {
 
 	// After fetch, GetDesiredShardCount should return the cached value
 	count, err := syncer.GetDesiredShardCount(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, uint64(42), count)
 
 	// Cleanup
@@ -169,7 +169,7 @@ func TestShardConfigSyncer_HealthReport(t *testing.T) {
 	healthReport := syncer.HealthReport()
 	require.Contains(t, healthReport, syncer.Name())
 	// Before start, Ready() should return an error
-	assert.Error(t, healthReport[syncer.Name()])
+	require.Error(t, healthReport[syncer.Name()])
 
 	// Start
 	err := syncer.Start(context.Background())
@@ -178,7 +178,7 @@ func TestShardConfigSyncer_HealthReport(t *testing.T) {
 	// After start
 	healthReport = syncer.HealthReport()
 	require.Contains(t, healthReport, syncer.Name())
-	assert.NoError(t, healthReport[syncer.Name()])
+	require.NoError(t, healthReport[syncer.Name()])
 
 	// Cleanup
 	err = syncer.Close()
@@ -198,7 +198,7 @@ func TestShardConfigSyncer_DoubleStart(t *testing.T) {
 
 	// Second start should return error (StartOnce)
 	err = syncer.Start(context.Background())
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = syncer.Close()
 	require.NoError(t, err)

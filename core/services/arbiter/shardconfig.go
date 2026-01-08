@@ -3,6 +3,7 @@ package arbiter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -146,7 +147,7 @@ func (s *shardConfigSyncer) GetDesiredShardCount(ctx context.Context) (uint64, e
 	defer s.cachedMu.RUnlock()
 
 	if s.cachedShardCount == 0 {
-		return 0, fmt.Errorf("shard count not yet available")
+		return 0, errors.New("shard count not yet available")
 	}
 
 	return s.cachedShardCount, nil
@@ -212,7 +213,7 @@ func (s *shardConfigSyncer) newContractReader(ctx context.Context) (types.Contra
 		return nil, fmt.Errorf("failed to create contract reader: %w", err)
 	}
 	if reader == nil {
-		return nil, fmt.Errorf("contract reader factory returned nil")
+		return nil, errors.New("contract reader factory returned nil")
 	}
 
 	// Bind the contract address

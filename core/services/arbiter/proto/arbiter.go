@@ -1,5 +1,7 @@
 // Package proto contains placeholder types for the Arbiter gRPC service.
 // TODO: Replace this file with the actual generated proto types.
+//
+//nolint:revive // This file mimics protobuf generated code naming conventions
 package proto
 
 import (

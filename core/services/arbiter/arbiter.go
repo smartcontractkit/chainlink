@@ -95,7 +95,7 @@ func (a *arbiter) Start(ctx context.Context) error {
 		a.wg.Add(1)
 		go func() {
 			defer a.wg.Done()
-			a.runGRPCServer()
+			a.runGRPCServer(ctx)
 		}()
 
 		a.lggr.Infow("Arbiter service started",
@@ -107,8 +107,9 @@ func (a *arbiter) Start(ctx context.Context) error {
 }
 
 // runGRPCServer starts the gRPC server and blocks until stopped.
-func (a *arbiter) runGRPCServer() {
-	lis, err := net.Listen("tcp", a.grpcAddr)
+func (a *arbiter) runGRPCServer(ctx context.Context) {
+	var lc net.ListenConfig
+	lis, err := lc.Listen(ctx, "tcp", a.grpcAddr)
 	if err != nil {
 		a.lggr.Errorw("Failed to listen for gRPC",
 			"addr", a.grpcAddr,

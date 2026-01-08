@@ -89,9 +89,9 @@ func (s *GRPCServer) GetScalingSpec(ctx context.Context, req *pb.GetScalingSpecR
 	RecordRequest("GetScalingSpec", "OK")
 
 	return &pb.ScalingSpecResponse{
-		CurrentReplicaCount:  int32(spec.CurrentReplicaCount),
-		DesiredReplicaCount:  int32(spec.DesiredReplicaCount),
-		ApprovedReplicaCount: int32(spec.ApprovedReplicaCount),
+		CurrentReplicaCount:  int32(spec.CurrentReplicaCount),  //nolint:gosec // G115: replica count bounded
+		DesiredReplicaCount:  int32(spec.DesiredReplicaCount),  //nolint:gosec // G115: replica count bounded
+		ApprovedReplicaCount: int32(spec.ApprovedReplicaCount), //nolint:gosec // G115: replica count bounded
 		LastScalingReason:    spec.LastScalingReason,
 	}, nil
 }
