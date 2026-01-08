@@ -1,8 +1,9 @@
 name: OCR2 Load Test
 
 on:
+  schedule:
+    - cron: "0 0 * * *" # Run nightly
   workflow_dispatch:
-  pull_request:
 
 defaults:
   run:
@@ -18,7 +19,7 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-    runs-on: ubuntu24.04-16cores-64GB
+    runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
