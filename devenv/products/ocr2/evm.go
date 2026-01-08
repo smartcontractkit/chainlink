@@ -118,7 +118,7 @@ func ETHClient(ctx context.Context, rpcURL string, feeCapMult int64, tipCapMult 
 }
 
 // multiplyEIP1559GasPrices returns bumped EIP1159 gas prices increased by multiplier
-func multiplyEIP1559GasPrices(client *ethclient.Client, fcMult, tcMult int64) (*big.Int, *big.Int, error) {
+func multiplyEIP1559GasPrices(client *ethclient.Client, fcMult, tcMult int64) (*big.Int, *big.Int, error) { //nolint:revive // trivial function
 	feeCap, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
 		return nil, nil, err
