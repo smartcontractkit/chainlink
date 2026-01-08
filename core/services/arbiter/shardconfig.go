@@ -292,7 +292,7 @@ func (s *shardConfigSyncer) fetchAndCache(ctx context.Context) {
 	s.cachedMu.Unlock()
 
 	// Update metrics
-	SetOnChainMaxReplicas(count)
+	SetOnChainShardNumber(count)
 
 	s.lggr.Debugw("Fetched shard count from on-chain",
 		"count", count,
