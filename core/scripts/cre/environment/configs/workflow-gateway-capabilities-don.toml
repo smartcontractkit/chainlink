@@ -47,7 +47,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-trigger", "consensus", "don-time"]
+  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
   [nodesets.chain_capabilities]
     # we want to write only to the home chain, so that we can test whether remote capabilities of the 'capabilities DON' are used

@@ -344,7 +344,7 @@ func SetupTestEnvironment(
 			ContractVersion: cldf.TypeAndVersion{Version: *wfRegVersion},
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
-			AllowedDonIDs:   topology.WorkflowDONIDs,                                                                                    // TODO: this should be shard-aware
+			AllowedDonIDs:   topology.WorkflowDONIDs,
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)
