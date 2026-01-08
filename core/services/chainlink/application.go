@@ -1282,6 +1282,7 @@ func newCREServices(
 						engineRegistry,
 						custmsg.NewLabeler(),
 						engineLimiters,
+						workflowRateLimiter,
 						workflowLimits,
 						artifactsStore,
 						key,
