@@ -87,14 +87,14 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 			return
 		}
 
-		reponseBody, responseErr := getPriceResponseFn(feedID)
+		responseBody, responseErr := getPriceResponseFn(feedID)
 		if responseErr != nil {
 			testLogger.Info().Msgf("Failed to get price response for feedID: %s, error: %s", feedID, responseErr)
 			c.JSON(400, gin.H{"error": responseErr.Error()})
 			return
 		}
 
-		c.JSON(200, reponseBody)
+		c.JSON(200, responseBody)
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to set up fake data provider")

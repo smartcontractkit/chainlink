@@ -328,7 +328,7 @@ func (c *CommitReportTracker) visitCommitReport(sourceChainSelector uint64, minS
 	}
 }
 
-func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
+func (c *CommitReportTracker) allCommitted(sourceChainSelector uint64) bool {
 	for _, v := range c.seenMessages[sourceChainSelector] {
 		if !v {
 			return false
@@ -476,7 +476,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			}
 
 			// Check if all messages committed across multiple reports (if enforceSingleCommit is false)
-			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+			if !enforceSingleCommit && seenMessages.allCommitted(srcSelector) {
 				t.Logf(
 					"✅ All sequence numbers already committed from range [%d, %d] across multiple reports",
 					expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
@@ -704,7 +704,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 				return true, nil
 			}
 
-			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+			if !enforceSingleCommit && seenMessages.allCommitted(srcSelector) {
 				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 				return true, nil
 			}
@@ -823,7 +823,7 @@ func ConfirmCommitWithExpectedSeqNumRangeAptos(
 					return true
 				}
 
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				if !enforceSingleCommit && seenMessages.allCommitted(srcSelector) {
 					t.Logf(
 						"(Aptos) All sequence numbers already committed from range [%d, %d]",
 						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
@@ -1654,7 +1654,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSui(
 					return true
 				}
 
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				if !enforceSingleCommit && seenMessages.allCommitted(srcSelector) {
 					t.Logf(
 						"(Sui) All sequence numbers already committed from range [%d, %d]",
 						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),

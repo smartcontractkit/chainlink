@@ -160,7 +160,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 
 	jsonResponse, err := toJSONResponse(vaultCapResponse, req.Method)
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+		return h.errorResponse(ctx, gatewayID, req, api.NodeResponseEncodingError, err)
 	}
 	return jsonResponse
 }
@@ -178,7 +178,7 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 
 	jsonResponse, err := toJSONResponse(vaultCapResponse, req.Method)
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+		return h.errorResponse(ctx, gatewayID, req, api.NodeResponseEncodingError, err)
 	}
 	return jsonResponse
 }
@@ -212,12 +212,12 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	err = proto.Unmarshal(vaultCapResponse.Payload, vaultResponseProto)
 	if err != nil {
 		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s. Payload was: %s", err.Error(), string(vaultCapResponse.Payload))
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+		return h.errorResponse(ctx, gatewayID, req, api.NodeResponseEncodingError, err)
 	}
 
 	vaultAPIResponseBytes, err := json.Marshal(vaultResponseProto)
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+		return h.errorResponse(ctx, gatewayID, req, api.NodeResponseEncodingError, err)
 	}
 	vaultAPIResponseJSON := json.RawMessage(vaultAPIResponseBytes)
 	return &jsonrpc.Response[json.RawMessage]{
@@ -241,7 +241,7 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 
 	resultBytes, err := resp.ToJSONRPCResult()
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+		return h.errorResponse(ctx, gatewayID, req, api.NodeResponseEncodingError, err)
 	}
 
 	return &jsonrpc.Response[json.RawMessage]{
@@ -265,7 +265,7 @@ func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string
 
 	resultBytes, err := resp.ToJSONRPCResult()
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+		return h.errorResponse(ctx, gatewayID, req, api.NodeResponseEncodingError, err)
 	}
 
 	return &jsonrpc.Response[json.RawMessage]{
@@ -289,7 +289,7 @@ func (h *GatewayHandler) handlePublicKeyGet(ctx context.Context, gatewayID strin
 
 	b, err := json.Marshal(resp)
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+		return h.errorResponse(ctx, gatewayID, req, api.NodeResponseEncodingError, err)
 	}
 
 	return &jsonrpc.Response[json.RawMessage]{

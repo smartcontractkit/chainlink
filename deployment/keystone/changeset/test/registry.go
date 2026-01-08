@@ -160,7 +160,7 @@ func MustAddCapabilities(
 	registry *capabilities_registry.CapabilitiesRegistry,
 ) ([]internal.RegisteredCapability, *CapabilityCache) {
 	t.Helper()
-	cache := NewCapabiltyCache(t, registry)
+	cache := NewCapabilityCache(t, registry)
 	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
 	for _, caps := range in {
 		capabilities = append(capabilities, caps...)
@@ -322,7 +322,7 @@ type CapabilityCache struct {
 	nameToId map[string][32]byte
 }
 
-func NewCapabiltyCache(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry) *CapabilityCache {
+func NewCapabilityCache(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry) *CapabilityCache {
 	cache := &CapabilityCache{
 		t:        t,
 		nameToId: make(map[string][32]byte),

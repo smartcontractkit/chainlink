@@ -594,7 +594,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
 	if meteringErr != nil {
-		lggr.Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
+		lggr.Errorw("could not start metering workflow execution. continuing without metering", "err", meteringErr)
 	}
 
 	isMetering := meteringErr == nil
