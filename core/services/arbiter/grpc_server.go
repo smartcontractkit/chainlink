@@ -52,8 +52,8 @@ func (s *GRPCServer) SubmitScaleIntent(ctx context.Context, req *pb.ScaleIntentR
 	s.state.Update(currentReplicas, int(req.DesiredReplicaCount), req.Reason)
 
 	// Update metrics
-	SetCurrentReplicas(len(currentReplicas))
-	SetDesiredReplicas(int(req.DesiredReplicaCount))
+	SetCurrentShardCount(len(currentReplicas))
+	SetDesiredShardCount(int(req.DesiredReplicaCount))
 
 	// Compute approved count using decision engine
 	approved, err := s.decision.ComputeApprovedCount(ctx, int(req.DesiredReplicaCount))
@@ -68,7 +68,7 @@ func (s *GRPCServer) SubmitScaleIntent(ctx context.Context, req *pb.ScaleIntentR
 
 	// Update state and metrics with approved count
 	s.state.SetApprovedCount(approved)
-	SetApprovedReplicas(approved)
+	SetApprovedShardCount(approved)
 
 	RecordRequest("SubmitScaleIntent", "OK")
 
