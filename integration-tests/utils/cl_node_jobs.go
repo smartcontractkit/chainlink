@@ -20,7 +20,7 @@ import (
 func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]byte) *nodeclient.OCR2TaskJobSpec {
 	hash := common.BytesToHash(feedId[:])
 	return &nodeclient.OCR2TaskJobSpec{
-		Name:    fmt.Sprintf("bootstrap-%s", uuid.NewString()),
+		Name:    "bootstrap-" + uuid.NewString(),
 		JobType: "bootstrap",
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: verifierAddr.String(),
@@ -39,7 +39,6 @@ func BuildOCRSpec(
 	feedId [32]byte, bridges []nodeclient.BridgeTypeAttributes,
 	csaPubKey string, msRemoteUrl string, msPubKey string,
 	nodeOCRKey string, p2pV2Bootstrapper string, allowedFaults int) *nodeclient.OCR2TaskJobSpec {
-
 	tmpl, err := template.New("os").Parse(`
 {{range $i, $b := .Bridges}}
 {{$b.Name}}_payload      [type=bridge name="{{$b.Name}}" timeout="50ms" requestData="{}"];
@@ -90,7 +89,7 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 
 	hash := common.BytesToHash(feedId[:])
 	return &nodeclient.OCR2TaskJobSpec{
-		Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
+		Name:              "ocr2-" + uuid.NewString(),
 		JobType:           "offchainreporting2",
 		MaxTaskDuration:   "1s",
 		ForwardingAllowed: false,
@@ -120,7 +119,7 @@ func BuildBridges(eaUrls []*url.URL) []nodeclient.BridgeTypeAttributes {
 	var bridges []nodeclient.BridgeTypeAttributes
 	for _, url := range eaUrls {
 		bridges = append(bridges, nodeclient.BridgeTypeAttributes{
-			Name:        fmt.Sprintf("bridge_%s", uuid.NewString()[0:6]),
+			Name:        "bridge_" + uuid.NewString()[0:6],
 			URL:         url.String(),
 			RequestData: "{}",
 		})

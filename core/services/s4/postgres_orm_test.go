@@ -168,7 +168,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 		t.Run("full range", func(t *testing.T) {
 			snapshot, err := orm.GetSnapshot(testutils.Context(t), s4.NewFullAddressRange())
 			assert.NoError(t, err)
-			assert.Equal(t, len(rows), len(snapshot))
+			assert.Len(t, snapshot, len(rows))
 
 			snapshotRowMap := make(map[string]*s4.SnapshotRow)
 			for i, sr := range snapshot {

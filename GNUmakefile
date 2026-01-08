@@ -16,6 +16,7 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
+GOLANGCI_LINT_VERSION = "v2.5.0"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -205,7 +206,7 @@ testdb-user-only: ## Prepares the test database with user only.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.6
+	go install github.com/jmank88/gomods@v0.1.7
 
 .PHONY: gomodslocalupdate
 gomodslocalupdate: gomods ## Run gomod-local-update
@@ -243,7 +244,11 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.5.0 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+
+.PHONY: lint-fix
+lint-fix: gomods ## Run golangci-lint with --fix for all modules
+	gomods -u -go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --fix
 
 .PHONY: modgraph
 modgraph:
@@ -253,32 +258,6 @@ modgraph:
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
-
-.PHONY: run_flakeguard_validate_unit_tests
-run_flakeguard_validate_unit_tests:
-	@read -p "Enter a comma-separated list of test packages (e.g., package1,package2): " PKGS; \
-	 read -p "Enter the number of times to rerun the tests (e.g., 5): " REPS; \
-	 read -p "Enter the test runner (default: ubuntu-24.04): " RUNNER; \
-	 RUNNER=$${RUNNER:-ubuntu-24.04}; \
-	 gh workflow run flakeguard-validate-tests.yml \
-	   -f testPackages="$${PKGS}" \
-	   -f testRepeatCount="$${REPS}" \
-	   -f runTestsWithRace="true" \
-	   -f testRunner="$${RUNNER}"
-
-.PHONY: run_flakeguard_validate_e2e_tests
-run_flakeguard_validate_e2e_tests:
-	@read -p "Enter test ids (e.g., smoke/forwarders_ocr2_test.go:*,smoke/vrf_test.go:*): " TEST_IDS; \
-	 read -p "Enter the number of times to run the tests (default: 5): " REPS; \
-	 read -p "Enter the chainlink version (default: develop): " CHAINLINK_VERSION; \
-	 read -p "Enter the branch name to run the workflow (default: develop): " BRANCH; \
-	 REPS=$${REPS:-5}; \
-	 CHAINLINK_VERSION=$${CHAINLINK_VERSION:-develop}; \
-	 BRANCH=$${BRANCH:-develop}; \
-	 gh workflow run run-selected-e2e-tests.yml --ref "$${BRANCH}" \
-	   -f chainlink_version="$${CHAINLINK_VERSION}" \
-	   -f test_ids="$${TEST_IDS}" \
-	   -f extraArgs='{ "flakeguard_enable": "true", "flakeguard_run_count": "'$$REPS'" }'
 
 help:
 	@echo ""

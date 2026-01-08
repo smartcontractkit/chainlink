@@ -3,6 +3,7 @@ package ccip
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -101,7 +102,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	blockChains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.Env)
 	require.NoError(t, err)
 
 	l.Users = users
@@ -125,7 +126,7 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployme
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	l.DON = don
-	l.DeployedEnv.Env = *e
+	l.Env = *e
 
 	// fund the nodes
 	zeroLogLggr := logging.GetTestLogger(t)
@@ -175,7 +176,6 @@ func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error 
 			}
 			return nil
 		})
-
 	}
 	return errGrp.Wait()
 }
@@ -274,7 +274,7 @@ func MustCCIPNameToRMNName(a string) string {
 	}
 	v, ok := m[a]
 	if !ok {
-		panic(fmt.Sprintf("no mapping for %s", a))
+		panic("no mapping for " + a)
 	}
 	return v
 }
@@ -587,7 +587,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 			evmNetwork := evmNetworks[i]
 			sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
 			require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
-			require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
+			require.NotEmpty(t, sethClient.PrivateKeys, seth.ErrNoKeyLoaded)
 			var keyExporters []contracts.ChainlinkKeyExporter
 			for j := range nodes {
 				node := nodes[j]
@@ -609,7 +609,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				return fmt.Errorf("error getting seth client for network %s: %w", evmNetwork.Name, err)
 			}
 			if len(sethClient.PrivateKeys) == 0 {
-				return fmt.Errorf(seth.ErrNoKeyLoaded)
+				return errors.New(seth.ErrNoKeyLoaded)
 			}
 			privateKey := sethClient.PrivateKeys[0]
 			if evmNetwork.ChainID < 0 {
@@ -635,7 +635,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 					return fmt.Errorf("error sending funds to node %s: %w", node.Name, err)
 				}
 				if receipt == nil {
-					return fmt.Errorf("receipt is nil")
+					return errors.New("receipt is nil")
 				}
 				txHash := receipt.TxHash.String()
 				lggr.Info().
@@ -664,7 +664,7 @@ func CreateChainConfigFromNetworks(
 	evmNetworks := networks.MustGetSelectedNetworkConfig(networkConfig)
 	networkPvtKeys := make(map[uint64][]string)
 	for _, net := range evmNetworks {
-		require.Greater(t, len(net.PrivateKeys), 0, "No private keys found for network")
+		require.NotEmpty(t, net.PrivateKeys, "No private keys found for network")
 		if net.ChainID < 0 {
 			t.Fatalf("negative chain ID: %d", net.ChainID)
 		}

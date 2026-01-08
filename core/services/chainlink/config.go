@@ -462,7 +462,7 @@ func (e InvalidSecretsError) Unwrap() error {
 }
 
 func (e InvalidSecretsError) Is(err error) bool {
-	_, ok := err.(InvalidSecretsError) //nolint:errcheck // implementing errors.Is
+	_, ok := err.(InvalidSecretsError)
 	return ok
 }
 

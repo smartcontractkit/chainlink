@@ -1233,7 +1233,6 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", vaulttypes.KeyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
-
 	}
 
 	o.Response = &vaultcommon.Outcome_CreateSecretsResponse{

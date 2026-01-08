@@ -105,7 +105,7 @@ func (l *launcher) runningDONIDs() []registrysyncer.DonID {
 
 // Close implements job.ServiceCtx.
 func (l *launcher) Close() error {
-	return l.StateMachine.StopOnce("launcher", func() error {
+	return l.StopOnce("launcher", func() error {
 		// shut down the monitor goroutine.
 		close(l.stopChan)
 		l.wg.Wait()

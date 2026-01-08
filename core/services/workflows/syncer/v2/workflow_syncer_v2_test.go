@@ -286,7 +286,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
@@ -386,7 +386,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)

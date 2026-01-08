@@ -134,7 +134,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 
 	for _, test := range tests {
 		tc := test
-		t.Run(fmt.Sprintf("%s - Rate Limit", tc.testName), func(t *testing.T) {
+		t.Run(tc.testName+" - Rate Limit", func(t *testing.T) {
 			tc.lane.Test = t
 			src := tc.lane.Source
 			// add liquidity to pools on both networks
@@ -443,7 +443,7 @@ func TestSmokeCCIPOnRampLimits(t *testing.T) {
 	)
 
 	for _, tc := range tests {
-		t.Run(fmt.Sprintf("%s - OnRamp Limits", tc.testName), func(t *testing.T) {
+		t.Run(tc.testName+" - OnRamp Limits", func(t *testing.T) {
 			tc.lane.Test = t
 			src := tc.lane.Source
 			dest := tc.lane.Dest
@@ -660,7 +660,7 @@ func TestSmokeCCIPTokenPoolRateLimits(t *testing.T) {
 	)
 
 	for _, tc := range tests {
-		t.Run(fmt.Sprintf("%s - Token Pool Rate Limits", tc.testName), func(t *testing.T) {
+		t.Run(tc.testName+" - Token Pool Rate Limits", func(t *testing.T) {
 			tc.lane.Test = t
 			src := tc.lane.Source
 			dest := tc.lane.Dest
@@ -866,7 +866,7 @@ func TestSmokeCCIPReorgBelowFinality(t *testing.T) {
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
 	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
-	require.False(t, len(setUpOutput.Lanes) == 0, "No lanes found.")
+	require.NotEmpty(t, setUpOutput.Lanes, "No lanes found.")
 	t.Cleanup(func() {
 		require.NoError(t, setUpOutput.TearDown())
 	})
@@ -1044,7 +1044,7 @@ func performAboveFinalityReorgAndValidate(t *testing.T, network string) {
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
 	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
-	require.False(t, len(setUpOutput.Lanes) == 0, "No lanes found.")
+	require.NotEmpty(t, setUpOutput.Lanes, "No lanes found.")
 	t.Cleanup(func() {
 		require.NoError(t, setUpOutput.TearDown())
 	})
@@ -1073,7 +1073,7 @@ func performAboveFinalityReorgAndValidate(t *testing.T, network string) {
 	nodesDetectedViolation := make(map[string]bool)
 	assert.Eventually(t, func() bool {
 		for _, node := range setUpOutput.Env.CLNodes {
-			if _, ok := nodesDetectedViolation[node.ChainlinkClient.URL()]; ok {
+			if _, ok := nodesDetectedViolation[node.URL()]; ok {
 				continue
 			}
 			resp, _, err := node.Health()
@@ -1081,7 +1081,7 @@ func performAboveFinalityReorgAndValidate(t *testing.T, network string) {
 			for _, d := range resp.Data {
 				if d.Attributes.Name == logPollerName && d.Attributes.Output == "finality violated" && d.Attributes.Status == "failing" {
 					log.Debug().Str("Node", node.ChainlinkClient.URL()).Msg("Finality violated is detected by node")
-					nodesDetectedViolation[node.ChainlinkClient.URL()] = true
+					nodesDetectedViolation[node.URL()] = true
 				}
 			}
 		}
@@ -1159,7 +1159,7 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 	)
 
 	for _, tc := range tests {
-		t.Run(fmt.Sprintf("%s - OffRamp Limits", tc.testName), func(t *testing.T) {
+		t.Run(tc.testName+" - OffRamp Limits", func(t *testing.T) {
 			tc.lane.Test = t
 			src := tc.lane.Source
 			dest := tc.lane.Dest

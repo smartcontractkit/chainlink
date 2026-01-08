@@ -60,7 +60,7 @@ func TestScalar_SmokeTestPick(t *testing.T) {
 	for range numScalarSamples {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
-		require.Equal(t, ToInt(f).Cmp(big.NewInt(1000000000)), 1,
+		require.Equal(t, 1, ToInt(f).Cmp(big.NewInt(1000000000)),
 			"implausibly low value returned from Pick: %v", f)
 	}
 }

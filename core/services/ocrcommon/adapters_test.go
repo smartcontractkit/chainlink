@@ -54,7 +54,7 @@ func (f fakeOnchainKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 
 func (f fakeOnchainKeyring) Sign(rc ocrtypes.ReportContext, r ocrtypes.Report) (signature []byte, err error) {
 	if !reflect.DeepEqual(rc.ConfigDigest, configDigest) {
-		return nil, fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ReportTimestamp.ConfigDigest)
+		return nil, fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ConfigDigest)
 	}
 
 	if rc.Epoch != uint32(seqNr) {
@@ -241,7 +241,7 @@ func (f fakeContractTransmitter) Transmit(ctx context.Context, rc ocrtypes.Repor
 	}
 
 	if !reflect.DeepEqual(rc.ConfigDigest, configDigest) {
-		return fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ReportTimestamp.ConfigDigest)
+		return fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ConfigDigest)
 	}
 
 	if rc.Epoch != uint32(seqNr) {

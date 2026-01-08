@@ -321,7 +321,7 @@ func TestVRFV08_MarshalProof(t *testing.T) {
 			ZInv:          solProof.ZInv,
 		}, randomSeed)
 		require.NoError(t, err, "failed on-chain to verify VRF proof / get its output")
-		require.Equal(t, response.Cmp(proof.Output), 0,
+		require.Equal(t, 0, response.Cmp(proof.Output),
 			"on-chain VRF output differs from off-chain!")
 	}
 }

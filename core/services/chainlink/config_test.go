@@ -438,6 +438,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
+		SampleTelemetry:                    ptr(false),
 		KeyValueStoreRootDir:               ptr("~/.chainlink-data"),
 	}
 	full.OCR = toml.OCR{
@@ -649,6 +650,14 @@ func TestConfig_Marshal(t *testing.T) {
 		PollingInterval:      commoncfg.MustNewDuration(5 * time.Minute),
 		IgnoreInvalidBridges: ptr(true),
 		IgnoreJoblessBridges: ptr(false),
+	}
+	full.Sharding = toml.Sharding{
+		ArbiterPort:              ptr[uint16](9876),
+		ArbiterPollInterval:      commoncfg.MustNewDuration(12 * time.Second),
+		ArbiterRetryInterval:     commoncfg.MustNewDuration(12 * time.Second),
+		ShardIndex:               ptr[uint16](0),
+		ShardOrchestratorPort:    ptr[uint16](50051),
+		ShardOrchestratorAddress: &commoncfg.URL{},
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
@@ -1129,6 +1138,7 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+SampleTelemetry = false
 KeyValueStoreRootDir = '~/.chainlink-data'
 `},
 		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
@@ -1877,7 +1887,6 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 	if err := invalid.Validate(); assert.Error(t, err) {
 		got := err.Error()
 		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
-
 	}
 }
 

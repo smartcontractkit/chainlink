@@ -182,13 +182,13 @@ func getNetworkConfig(config *tc.TestConfig) NetworkConfig {
 
 var networkConfig = map[string]NetworkConfig{
 	networks.SimulatedEVM.Name: {
-		upkeepSLA:  int64(120), //2 minutes
+		upkeepSLA:  int64(120), // 2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	networks.SimulatedEVMNonDev.Name: {
-		upkeepSLA:  int64(120), //2 minutes
+		upkeepSLA:  int64(120), // 2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
@@ -328,7 +328,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testType string, keeperTestConfig
 	if testNetwork.Simulated {
 		// TODO we need to update the image in CTF, the old one is not available anymore
 		// deploy blockscout if running on simulated
-		//testEnvironment.
+		// testEnvironment.
 		//	AddChart(blockscout.New(&blockscout.Props{
 		//		Name:    "geth-blockscout",
 		//		WsURL:   testNetwork.URLs[0],

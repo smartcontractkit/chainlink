@@ -315,6 +315,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+SampleTelemetry = false
 KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
@@ -545,6 +546,14 @@ PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
+[Sharding]
+ArbiterPort = 9876
+ArbiterPollInterval = '12s'
+ArbiterRetryInterval = '12s'
+ShardIndex = 0
+ShardOrchestratorPort = 50051
+ShardOrchestratorAddress = ''
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -639,7 +648,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 50000
+ExternalRequestMaxResponseSize = 1000000
 
 [EVM.OCR]
 ContractConfirmations = 4

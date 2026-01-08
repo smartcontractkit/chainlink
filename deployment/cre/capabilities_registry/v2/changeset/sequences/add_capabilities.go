@@ -184,14 +184,15 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				Strategy:             strategy,
 			},
 			contracts.UpdateDONInput{
-				ChainSelector:     chainSel,
-				P2PIDs:            p2pIDs,
-				CapabilityConfigs: input.CapabilityConfigs,
-				DonName:           input.DonName,
-				F:                 don.F,
-				IsPrivate:         !don.IsPublic,
-				Force:             input.Force,
-				MCMSConfig:        input.MCMSConfig,
+				ChainSelector:                     chainSel,
+				P2PIDs:                            p2pIDs,
+				CapabilityConfigs:                 input.CapabilityConfigs,
+				MergeCapabilityConfigsWithOnChain: true,
+				DonName:                           input.DonName,
+				F:                                 don.F,
+				IsPrivate:                         !don.IsPublic,
+				Force:                             input.Force,
+				MCMSConfig:                        input.MCMSConfig,
 			},
 		)
 		if err != nil {

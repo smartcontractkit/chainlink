@@ -999,7 +999,7 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 		require.True(t, ok)
 		require.True(t, v)
 	}
-	require.Equal(t, len(expected), len(unfulfilled))
+	require.Len(t, unfulfilled, len(expected))
 }
 
 func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
@@ -1064,7 +1064,7 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		require.True(t, ok)
 		require.True(t, v)
 	}
-	require.Equal(t, len(expected), len(unfulfilled))
+	require.Len(t, unfulfilled, len(expected))
 }
 
 /* Tests for getUnfulfilled: END */

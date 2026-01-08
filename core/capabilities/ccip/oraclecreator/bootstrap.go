@@ -300,7 +300,7 @@ func newPeerGroupDialer(
 }
 
 func (d *peerGroupDialer) Start() error {
-	return d.StateMachine.StartOnce("peerGroupDialer", func() error {
+	return d.StartOnce("peerGroupDialer", func() error {
 		d.lggr.Infow("Starting peer group dialer")
 
 		d.wg.Add(1)
@@ -329,7 +329,7 @@ func (d *peerGroupDialer) syncLoop() {
 }
 
 func (d *peerGroupDialer) Close() error {
-	return d.StateMachine.StopOnce("peerGroupDialer", func() error {
+	return d.StopOnce("peerGroupDialer", func() error {
 		// shut down the sync goroutine.
 		// the order of operations here is important:
 		// * we close the stop channel and wait for the syncLoop to stop

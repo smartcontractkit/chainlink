@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -327,7 +328,7 @@ func (a *AutomationTest) LoadRegistry(registryAddress, chainModuleAddress string
 
 func (a *AutomationTest) DeployRegistrar() error {
 	if a.Registry == nil {
-		return fmt.Errorf("registry must be deployed or loaded before registrar")
+		return errors.New("registry must be deployed or loaded before registrar")
 	}
 	a.RegistrarSettings.RegistryAddr = a.Registry.Address()
 	a.RegistrarSettings.WETHTokenAddr = a.WETHToken.Address()
@@ -341,7 +342,7 @@ func (a *AutomationTest) DeployRegistrar() error {
 
 func (a *AutomationTest) LoadRegistrar(address string) error {
 	if a.Registry == nil {
-		return fmt.Errorf("registry must be deployed or loaded before registrar")
+		return errors.New("registry must be deployed or loaded before registrar")
 	}
 	a.RegistrarSettings.RegistryAddr = a.Registry.Address()
 	registrar, err := contracts.LoadKeeperRegistrar(a.ChainClient, common.HexToAddress(address), a.RegistrySettings.RegistryVersion)
@@ -358,12 +359,12 @@ func (a *AutomationTest) CollectNodeDetails() error {
 		nodes []*nodeclient.ChainlinkClient
 	)
 	if a.IsOnk8s {
-		for _, node := range a.ChainlinkNodesk8s[:] {
+		for _, node := range a.ChainlinkNodesk8s {
 			nodes = append(nodes, node.ChainlinkClient)
 		}
 		a.ChainlinkNodes = nodes
 	} else {
-		nodes = a.ChainlinkNodes[:]
+		nodes = a.ChainlinkNodes
 	}
 
 	nodeDetails := make([]NodeDetails, 0)
@@ -390,7 +391,7 @@ func (a *AutomationTest) CollectNodeDetails() error {
 			}
 		}
 
-		TransmitterKeys, err := node.EthAddressesForChain(fmt.Sprint(a.ChainClient.ChainID))
+		TransmitterKeys, err := node.EthAddressesForChain(strconv.FormatInt(a.ChainClient.ChainID, 10))
 		nodeDetail.TransmitterAddresses = make([]string, 0)
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to read Transmitter keys from node %d", i))
@@ -423,21 +424,22 @@ func (a *AutomationTest) AddBootstrapJob() error {
 	}
 	_, err := a.ChainlinkNodes[0].MustCreateJob(bootstrapSpec)
 	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed to create bootstrap job on bootstrap node"))
+		return errors.Join(err, errors.New("failed to create bootstrap job on bootstrap node"))
 	}
 	return nil
 }
 
 func (a *AutomationTest) AddAutomationJobs() error {
 	var contractVersion string
-	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 || a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_3 {
+	switch a.RegistrySettings.RegistryVersion {
+	case ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
 		contractVersion = "v2.1+"
-	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
+	case ethereum.RegistryVersion_2_1:
 		contractVersion = "v2.1"
-	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
+	case ethereum.RegistryVersion_2_0:
 		contractVersion = "v2.0"
-	} else {
-		return fmt.Errorf("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
+	default:
+		return errors.New("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
 	}
 	pluginCfg := map[string]any{
 		"contractVersion": "\"" + contractVersion + "\"",
@@ -495,7 +497,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2ConfigPublicKey, "ocr2cfg_evm_"))
@@ -506,7 +508,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("wrong number of elements copied")
+				return errors.New("wrong number of elements copied")
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2OnChainPublicKey, "ocr2on_evm_"))
@@ -530,22 +532,22 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 	}
 	err := eg.Wait()
 	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed to build oracle identities"))
+		return errors.Join(err, errors.New("failed to build oracle identities"))
 	}
 
 	switch a.RegistrySettings.RegistryVersion {
 	case ethereum.RegistryVersion_2_0:
 		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR2ConfigArgs(a, S, oracleIdentities)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to build config args"))
+			return errors.Join(err, errors.New("failed to build config args"))
 		}
 	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
 		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR3ConfigArgs(a, S, oracleIdentities)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to build config args"))
+			return errors.Join(err, errors.New("failed to build config args"))
 		}
 	default:
-		return fmt.Errorf("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
+		return errors.New("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
 	}
 
 	var signers []common.Address
@@ -576,14 +578,15 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		ocrConfig.OnchainConfig = a.RegistrySettings.Encode20OnchainConfig(a.Registrar.Address())
 		err = a.Registry.SetConfig(a.RegistrySettings, ocrConfig)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+			return errors.Join(err, errors.New("failed to set config on registry"))
 		}
 	} else {
-		if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
+		switch a.RegistrySettings.RegistryVersion {
+		case ethereum.RegistryVersion_2_1:
 			ocrConfig.TypedOnchainConfig21 = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
-		} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
+		case ethereum.RegistryVersion_2_2:
 			ocrConfig.TypedOnchainConfig22 = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
-		} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_3 {
+		case ethereum.RegistryVersion_2_3:
 			ocrConfig.TypedOnchainConfig23 = a.RegistrySettings.Create23OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 			ocrConfig.BillingTokens = []common.Address{
 				common.HexToAddress(a.LinkToken.Address()),
@@ -612,7 +615,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		a.Logger.Debug().Interface("ocrConfig", ocrConfig).Msg("Setting OCR3 config")
 		err = a.Registry.SetConfigTypeSafe(ocrConfig)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+			return errors.Join(err, errors.New("failed to set config on registry"))
 		}
 	}
 	return nil
@@ -708,7 +711,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcur
 		case ethereum.RegistryVersion_2_0:
 			registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
 			if err != nil {
-				errorCh <- errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+				errorCh <- errors.Join(err, errors.New("failed to get registrar abi"))
 				return
 			}
 			registrationRequest, err = registrarABI.Pack(
@@ -723,13 +726,13 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcur
 				upkeepConfig.FundingAmount,
 				a.ChainClient.Addresses[keyNum])
 			if err != nil {
-				errorCh <- errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+				errorCh <- errors.Join(err, errors.New("failed to pack registrar request"))
 				return
 			}
 		case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
 			registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
 			if err != nil {
-				errorCh <- errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+				errorCh <- errors.Join(err, errors.New("failed to get registrar abi"))
 				return
 			}
 			registrationRequest, err = registrarABI.Pack(
@@ -746,11 +749,11 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcur
 				upkeepConfig.FundingAmount,
 				a.ChainClient.Addresses[keyNum])
 			if err != nil {
-				errorCh <- errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+				errorCh <- errors.Join(err, errors.New("failed to pack registrar request"))
 				return
 			}
 		default:
-			errorCh <- fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
+			errorCh <- errors.New("v2.0, v2.1, and v2.2 are the only supported versions")
 			return
 		}
 
@@ -803,7 +806,7 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 	var confirmUpkeep = func(resultCh chan confirmationResult, errorCh chan error, _ int, txHash common.Hash) {
 		receipt, err := a.ChainClient.Client.TransactionReceipt(context.Background(), txHash)
 		if err != nil {
-			errorCh <- errors.Join(err, fmt.Errorf("failed to confirm upkeep registration"))
+			errorCh <- errors.Join(err, errors.New("failed to confirm upkeep registration"))
 			return
 		}
 
@@ -816,7 +819,7 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 			}
 		}
 		if upkeepId == nil {
-			errorCh <- fmt.Errorf("failed to parse upkeep id from registration receipt")
+			errorCh <- errors.New("failed to parse upkeep id from registration receipt")
 			return
 		}
 		resultCh <- confirmationResult{upkeepID: upkeepId}

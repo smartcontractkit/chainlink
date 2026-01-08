@@ -238,7 +238,7 @@ func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
 	if len(buf) != P.MarshalSize() {
 		err = errors.New("wrong length for marshaled point")
 	}
-	if err == nil && !(buf[32] == 0 || buf[32] == 1) {
+	if err == nil && (buf[32] != 0 && buf[32] != 1) {
 		err = errors.New("bad sign byte (the last one)")
 	}
 	if err != nil {

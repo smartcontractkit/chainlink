@@ -390,7 +390,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	err := proto.Unmarshal(sentMessage, &req)
 	assert.NoError(t, err)
 	assert.Equal(t, RequestIDStr, req.RequestId)
-	assert.EqualValues(t, Domains, req.Domains)
+	assert.Equal(t, Domains, req.Domains)
 }
 
 func TestFunctionsListener_PruneRequests(t *testing.T) {

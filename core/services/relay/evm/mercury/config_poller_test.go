@@ -1,7 +1,7 @@
 package mercury
 
 import (
-	"fmt"
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -79,7 +79,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	encodedTransmitter := make([]ocrtypes2.Account, n)
 	for i := range n {
 		offchainTransmitters[i] = oracles[i].OffchainPublicKey
-		encodedTransmitter[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
+		encodedTransmitter[i] = ocrtypes2.Account(hex.EncodeToString(oracles[i].OffchainPublicKey[:]))
 	}
 
 	_, err = th.verifierContract.SetConfig(th.user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, nil)

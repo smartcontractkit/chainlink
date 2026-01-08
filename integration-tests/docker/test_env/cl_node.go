@@ -81,7 +81,7 @@ func WithNodeEnvVars(ev map[string]string) ClNodeOption {
 func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 	return func(c *ClNode) {
 		var err error
-		c.PostgresDb, err = test_env.NewPostgresDb(c.EnvComponent.Networks, opts...)
+		c.PostgresDb, err = test_env.NewPostgresDb(c.Networks, opts...)
 		if err != nil {
 			c.t.Fatalf("failed to create postgres db: %v", err)
 		}
@@ -206,7 +206,7 @@ func (n *ClNode) GetContainerName() string {
 	if err != nil {
 		return ""
 	}
-	return strings.Replace(name, "/", "", -1)
+	return strings.ReplaceAll(name, "/", "")
 }
 
 func (n *ClNode) GetAPIClient() *nodeclient.ChainlinkClient {

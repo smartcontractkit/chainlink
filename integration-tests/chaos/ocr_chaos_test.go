@@ -1,8 +1,8 @@
 package chaos
 
 import (
-	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -138,7 +138,7 @@ func TestOCRChaos(t *testing.T) {
 	for n, tst := range testCases {
 		name := n
 		testCase := tst
-		t.Run(fmt.Sprintf("OCR_%s", name), func(t *testing.T) {
+		t.Run("OCR_"+name, func(t *testing.T) {
 			t.Parallel()
 
 			nsLabels, err := environment.GetRequiredChainLinkNamespaceLabels("data-feedsv1.0", "chaos")
@@ -148,7 +148,7 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err, "Error creating required chain.link labels for workloads and pods")
 
 			testEnvironment := environment.New(&environment.Config{
-				NamespacePrefix: fmt.Sprintf("chaos-ocr-%s", name),
+				NamespacePrefix: "chaos-ocr-" + name,
 				Test:            t,
 				Labels:          nsLabels,
 				WorkloadLabels:  workloadPodLabels,
@@ -196,7 +196,7 @@ func TestOCRChaos(t *testing.T) {
 
 			ocrInstances, err := actions.SetupOCRv1Contracts(l, seth, config.OCR, common.HexToAddress(linkContract.Address()), contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 			require.NoError(t, err)
-			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
+			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, strconv.FormatInt(seth.ChainID, 10))
 			require.NoError(t, err)
 
 			chaosApplied := false

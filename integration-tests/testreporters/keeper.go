@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -66,13 +67,13 @@ func (k *KeeperBlockTimeTestReporter) WriteReport(folderLocation string) error {
 	for contractIndex, report := range k.Reports {
 		avg, maxVal := int64AvgMax(report.AllMissedUpkeeps)
 		err = keeperReportWriter.Write([]string{
-			fmt.Sprint(contractIndex),
+			strconv.Itoa(contractIndex),
 			report.ContractAddress,
-			fmt.Sprint(report.TotalExpectedUpkeeps),
-			fmt.Sprint(report.TotalSuccessfulUpkeeps),
-			fmt.Sprint(len(report.AllMissedUpkeeps)),
+			strconv.FormatInt(report.TotalExpectedUpkeeps, 10),
+			strconv.FormatInt(report.TotalSuccessfulUpkeeps, 10),
+			strconv.Itoa(len(report.AllMissedUpkeeps)),
 			fmt.Sprint(avg),
-			fmt.Sprint(maxVal),
+			strconv.FormatInt(maxVal, 10),
 			fmt.Sprintf("%.2f%%", (float64(report.TotalSuccessfulUpkeeps)/float64(report.TotalExpectedUpkeeps))*100),
 		})
 		totalExpected += report.TotalExpectedUpkeeps
@@ -94,10 +95,10 @@ func (k *KeeperBlockTimeTestReporter) WriteReport(folderLocation string) error {
 		return err
 	}
 	err = keeperReportWriter.Write([]string{
-		fmt.Sprint(totalExpected),
-		fmt.Sprint(totalSuccessful),
-		fmt.Sprint(totalMissed),
-		fmt.Sprint(worstMiss),
+		strconv.FormatInt(totalExpected, 10),
+		strconv.FormatInt(totalSuccessful, 10),
+		strconv.FormatInt(totalMissed, 10),
+		strconv.FormatInt(worstMiss, 10),
 		fmt.Sprintf("%.2f%%", (float64(totalSuccessful)/float64(totalExpected))*100)})
 	if err != nil {
 		return err
@@ -137,20 +138,20 @@ func (k *KeeperBlockTimeTestReporter) SendSlackNotification(t *testing.T, slackC
 	}
 
 	if err := testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
-		Title:           fmt.Sprintf("Keeper Block Time Test Report %s", k.namespace),
+		Title:           "Keeper Block Time Test Report " + k.namespace,
 		Filename:        fmt.Sprintf("keeper_block_time_%s.csv", k.namespace),
 		File:            k.keeperReportFile,
-		InitialComment:  fmt.Sprintf("Keeper Block Time Test Report %s", k.namespace),
+		InitialComment:  "Keeper Block Time Test Report " + k.namespace,
 		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	}); err != nil {
 		return err
 	}
 	return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
-		Title:           fmt.Sprintf("Keeper Block Time Attempted Chainlink Txs %s", k.namespace),
+		Title:           "Keeper Block Time Attempted Chainlink Txs " + k.namespace,
 		Filename:        fmt.Sprintf("attempted_cl_txs_%s.json", k.namespace),
 		File:            k.attemptedTransactionsFile,
-		InitialComment:  fmt.Sprintf("Keeper Block Time Attempted Txs %s", k.namespace),
+		InitialComment:  "Keeper Block Time Attempted Txs " + k.namespace,
 		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	})

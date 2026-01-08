@@ -310,7 +310,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 		return errors.Wrapf(ds.latestUpdateErr, "error updating in memory data source cache for spec ID %v", ds.spec.ID)
 	}
 
-	value, err := ds.inMemoryDataSource.parse(latestTrrs.FinalResult())
+	value, err := ds.parse(latestTrrs.FinalResult())
 	if err != nil {
 		ds.latestUpdateErr = errors.Wrapf(err, "invalid result")
 		return ds.latestUpdateErr
@@ -389,7 +389,7 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 }
 
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
-	run, trrs, err := ds.inMemoryDataSource.executeRun(ctx)
+	run, trrs, err := ds.executeRun(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +405,7 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 	finalResult := trrs.FinalResult()
 	setEATelemetry(&ds.inMemoryDataSource, finalResult, trrs, timestamp)
 
-	return ds.inMemoryDataSource.parse(finalResult)
+	return ds.parse(finalResult)
 }
 
 // Observe with saving to DB, satisfies ocr1 interface

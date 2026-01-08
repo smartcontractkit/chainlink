@@ -36,7 +36,7 @@ func TestABICodec_EncodeDecodeV1Success(t *testing.T) {
 	decoded, err := codec.DecodeReport(encoded)
 	require.NoError(t, err)
 
-	require.Equal(t, len(report), len(decoded))
+	require.Len(t, decoded, len(report))
 	for i := range report {
 		require.Equal(t, report[i].RequestID, decoded[i].RequestID, "RequestIDs not equal at index %d", i)
 		require.Equal(t, report[i].Result, decoded[i].Result, "Results not equal at index %d", i)

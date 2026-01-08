@@ -44,5 +44,4 @@ func TestVersionUpgrade(t *testing.T) {
 	// by default
 	err = env.ClCluster.Nodes[0].UpgradeVersion(*config.ChainlinkUpgradeImage.Image, *config.ChainlinkUpgradeImage.Version)
 	require.NoError(t, err)
-
 }

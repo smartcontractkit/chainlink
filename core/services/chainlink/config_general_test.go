@@ -200,11 +200,11 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		assert.Equal(t, databaseSecrets.Database.URL.URL().String(), opts.Secrets.Database.URL.URL().String())
 		assert.Equal(t, databaseSecrets.Database.BackupURL.URL().String(), opts.Secrets.Database.BackupURL.URL().String())
 
-		assert.Equal(t, (string)(*passwordSecrets.Password.Keystore), (string)(*opts.Secrets.Password.Keystore))
-		assert.Equal(t, (string)(*passwordSecrets.Password.VRF), (string)(*opts.Secrets.Password.VRF))
+		assert.Equal(t, (string)(*passwordSecrets.Password.Keystore), (string)(*opts.Password.Keystore))
+		assert.Equal(t, (string)(*passwordSecrets.Password.VRF), (string)(*opts.Password.VRF))
 		assert.Equal(t, (string)(*pyroscopeSecrets.Pyroscope.AuthToken), (string)(*opts.Secrets.Pyroscope.AuthToken))
-		assert.Equal(t, (string)(*prometheusSecrets.Prometheus.AuthToken), (string)(*opts.Secrets.Prometheus.AuthToken))
-		assert.Equal(t, (string)(*thresholdSecrets.Threshold.ThresholdKeyShare), (string)(*opts.Secrets.Threshold.ThresholdKeyShare))
+		assert.Equal(t, (string)(*prometheusSecrets.Prometheus.AuthToken), (string)(*opts.Prometheus.AuthToken))
+		assert.Equal(t, (string)(*thresholdSecrets.Threshold.ThresholdKeyShare), (string)(*opts.Threshold.ThresholdKeyShare))
 
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ServerAddress.URL().String(), opts.Secrets.WebServer.LDAP.ServerAddress.URL().String())
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserLogin, opts.Secrets.WebServer.LDAP.ReadOnlyUserLogin)

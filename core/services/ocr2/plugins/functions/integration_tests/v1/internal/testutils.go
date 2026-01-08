@@ -491,11 +491,12 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		var jsonMap map[string]any
 		require.NoError(t, json.Unmarshal(b, &jsonMap))
 		var responsePayload []byte
-		if jsonMap["endpoint"].(string) == "lambda" {
+		switch jsonMap["endpoint"].(string) {
+		case "lambda":
 			responsePayload = mockEALambdaExecutionResponse(t, jsonMap)
-		} else if jsonMap["endpoint"].(string) == "fetcher" {
+		case "fetcher":
 			responsePayload = mockEASecretsFetchResponse(t, jsonMap)
-		} else {
+		default:
 			require.Fail(t, "unknown external adapter endpoint '%s'", jsonMap["endpoint"].(string))
 		}
 		res.WriteHeader(http.StatusOK)

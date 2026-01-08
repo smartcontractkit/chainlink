@@ -143,7 +143,7 @@ func (c *client) Transmit(ctx context.Context, req *rpc.TransmitRequest) (resp *
 		return err
 	})
 
-	if err != nil {
+	if err == nil {
 		promTransmitDuration.WithLabelValues(c.serverURL).Observe(float64(time.Since(startTime).Milliseconds()))
 	}
 

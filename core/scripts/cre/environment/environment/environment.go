@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -23,33 +24,32 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
 	"github.com/spf13/cobra"
-
-	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
-	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
+	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const (
@@ -70,11 +70,6 @@ var (
 )
 
 const (
-	TopologyWorkflow                    = "workflow"
-	TopologyWorkflowGateway             = "workflow-gateway"
-	TopologyWorkflowGatewayCapabilities = "workflow-gateway-capabilities"
-	TopologyMock                        = "mock"
-
 	WorkflowTriggerWebTrigger = "web-trigger"
 	WorkflowTriggerCron       = "cron"
 )
@@ -119,23 +114,8 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	// ensure non-nil dxTracker by default
 	initDxTracker()
 
-	// remove all containers before starting the environment, just in case
-	_ = framework.RemoveTestContainers()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigCh
-		fmt.Printf("\nReceived signal: %s\n", sig)
-
-		removeErr := framework.RemoveTestContainers()
-		if removeErr != nil {
-			fmt.Fprint(os.Stderr, removeErr, manualCtfCleanupMsg)
-		}
-
-		os.Exit(1)
-	}()
+	// Note: Signal handler setup moved to RunE after config is loaded,
+	// so we can skip Docker cleanup for Kubernetes provider
 }
 
 var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait time.Duration) {
@@ -159,6 +139,7 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait 
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
+			"topology": os.Getenv("CTF_CONFIGS"),
 		})
 
 		if tracingErr != nil {
@@ -243,6 +224,7 @@ func startCmd() *cobra.Command {
 		cleanupWait              time.Duration
 		withBeholder             bool
 		withDashboards           bool
+		withObs                  bool
 		withBilling              bool
 		setupConfig              SetupConfig
 	)
@@ -289,14 +271,42 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
-			if err := ensureDockerIsRunning(cmdContext); err != nil {
-				return err
+			// Skip Docker operations for Kubernetes provider (Docker not needed)
+			isDocker := in.Infra != nil && !in.Infra.IsKubernetes()
+			if isDocker {
+				// Remove all containers before starting the environment, just in case
+				_ = framework.RemoveTestContainers()
+
+				if err := ensureDockerIsRunning(cmdContext); err != nil {
+					return err
+				}
+
+				// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
+				if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
+					return err
+				}
+			} else {
+				framework.L.Info().Msg("Skipping Docker cleanup and checks for Kubernetes provider")
 			}
 
-			// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
-			if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
-				return err
-			}
+			// Setup signal handler after we know the provider type
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+			go func() {
+				sig := <-sigCh
+				fmt.Printf("\nReceived signal: %s\n", sig)
+
+				// Only cleanup Docker containers if using Docker provider
+				if isDocker {
+					removeErr := framework.RemoveTestContainers()
+					if removeErr != nil {
+						fmt.Fprint(os.Stderr, removeErr, manualCtfCleanupMsg)
+					}
+				}
+
+				os.Exit(1)
+			}()
 
 			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
@@ -386,8 +396,15 @@ func startCmd() *cobra.Command {
 				}
 			}
 
+			if withObs {
+				if err := framework.ObservabilityUpFull(); err != nil {
+					return fmt.Errorf("failed to start ctf observability stack: %w", err)
+				}
+				fmt.Print(libformat.PurpleText("\nObservability stack started successfully\n"))
+			}
+
 			if withDashboards {
-				err := setupDashboards(setupConfig)
+				err := setupDashboards(cmdContext, setupConfig)
 				if err != nil {
 					return errors.Wrap(err, "failed to setup dashboards")
 				}
@@ -478,6 +495,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
+	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
@@ -485,39 +503,37 @@ func startCmd() *cobra.Command {
 	return cmd
 }
 
-func setupDashboards(setupCfg SetupConfig) error {
+func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	cfg, cfgErr := readConfig(setupCfg.ConfigPath)
 	if cfgErr != nil {
 		return errors.Wrap(cfgErr, "failed to read config")
 	}
 
-	// Run the `ctf obs up -f` command from the ./bin directory
-	ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
-
-	obsOutput, err := ctfCmd.CombinedOutput()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		return errors.Wrap(err, "failed to start ctf observability stack: "+string(obsOutput))
-	}
-
-	fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
-
 	// Wait for grafana at localhost:3000 to be available
-	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
-	grafanaContacted := false
-	for range 30 {
-		time.Sleep(1 * time.Second)
-		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
-		_, err = http.DefaultClient.Do(req)
-		if err != nil {
-			continue
+	var isGrafanaUp = func() bool {
+		for range 30 {
+			time.Sleep(1 * time.Second)
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
+			_, err := http.DefaultClient.Do(req)
+			if err != nil {
+				continue
+			}
+			return true
 		}
-		grafanaContacted = true
-		break
+
+		return false
 	}
 
-	if !grafanaContacted {
-		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
+	// if Grafana isn't running start it
+	if !isGrafanaUp() {
+		if err := framework.ObservabilityUpFull(); err != nil {
+			return fmt.Errorf("failed to start ctf observability stack: %w", err)
+		}
+		fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
+		if !isGrafanaUp() {
+			return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
+		}
+		fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
 	}
 
 	targetPath := cfg.Observability.TargetPath
@@ -532,11 +548,13 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 	// Check the file exists before trying to run the script
 	scriptPath := filepath.Join(targetPath, "deploy-cre-local.sh")
-	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
-		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run")
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		return fmt.Errorf("%s script does not exist, ensure the setup command has been run", scriptPath)
 	}
 
-	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
+	fmt.Print(libformat.PurpleText("\nDeploying dashboards...") + "\n(watch for potential authorization requests!)\n")
+
+	deployDashboardsCmd := exec.CommandContext(ctx, "./deploy-cre-local.sh")
 	deployDashboardsCmd.Dir = targetPath
 	deployOutput, err := deployDashboardsCmd.CombinedOutput()
 	if err != nil {
@@ -550,8 +568,9 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
 	metadata := map[string]any{
-		"success": success,
-		"infra":   infraType,
+		"success":  success,
+		"infra":    infraType,
+		"topology": os.Getenv("CTF_CONFIGS"),
 	}
 
 	if errorMessage != nil {
@@ -597,12 +616,17 @@ func stopCmd() *cobra.Command {
 			if allFlag {
 				stopBeholderErr := stopBeholder()
 				if stopBeholderErr != nil {
-					return errors.Wrap(stopBeholderErr, "failed to stop beholder")
+					framework.L.Warn().Msgf("failed to stop Beholder: %s", stopBeholderErr)
 				}
 
 				stopBillingErr := stopBilling()
 				if stopBillingErr != nil {
-					return errors.Wrap(stopBillingErr, "failed to stop billing")
+					framework.L.Warn().Msgf("failed to stop Billing: %s", stopBillingErr)
+				}
+
+				stopObsStack := framework.ObservabilityDown()
+				if stopObsStack != nil {
+					framework.L.Warn().Msgf("failed to stop observability stack: %s", stopObsStack)
 				}
 
 				removeCacheErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
@@ -781,7 +805,7 @@ func PrintCRELogo() {
 
 func setDefaultCtfConfigs() error {
 	if os.Getenv("CTF_CONFIGS") == "" {
-		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml"); err != nil {
+		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml"); err != nil {
 			return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", err)
 		}
 
@@ -880,6 +904,12 @@ func ensureDockerIsRunning(ctx context.Context) error {
 func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *envconfig.Config, withPluginsDockerImageFlag string) error {
 	// Skip checks in CI environment
 	if os.Getenv("CI") == "true" {
+		return nil
+	}
+
+	// Skip checks for Kubernetes provider (images run in cluster, not locally)
+	if in.Infra != nil && in.Infra.IsKubernetes() {
+		logger.Info().Msg("Skipping Docker image checks for Kubernetes provider")
 		return nil
 	}
 
@@ -1098,6 +1128,13 @@ func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
 	stages := 9
 	if in.S3ProviderInput != nil {
 		stages++
+	}
+
+	for _, ns := range in.NodeSets {
+		if slices.Contains(ns.DONTypes, cre.ShardDON) {
+			stages++
+			break
+		}
 	}
 
 	return stagegen.NewStageGen(stages, "STAGE")

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
@@ -70,7 +71,7 @@ type lloProvider struct {
 }
 
 func lloProviderConfiguratorFilterName(addr common.Address, donID uint32) string {
-	return logpoller.FilterName("LLOProvider Configurator", addr.String(), fmt.Sprintf("%d", donID))
+	return logpoller.FilterName("LLOProvider Configurator", addr.String(), strconv.FormatUint(uint64(donID), 10))
 }
 
 func NewLLOProvider(

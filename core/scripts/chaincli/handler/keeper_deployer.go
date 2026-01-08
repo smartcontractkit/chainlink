@@ -219,7 +219,7 @@ func (d *v20KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 		return nil, err
 	}
 
-	return d.KeeperRegistryInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	return d.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
 func (d *v20KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
@@ -360,12 +360,12 @@ func (d *v21KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 		UpkeepPrivilegeManager: common.HexToAddress(d.cfg.UpkeepPrivilegeManager),
 	}
 
-	return d.IKeeperRegistryMasterInterface.SetConfigTypeSafe(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	return d.SetConfigTypeSafe(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
 // legacy support function
 func (d *v21KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return d.IKeeperRegistryMasterInterface.RegisterUpkeep0(opts, target, gasLimit, admin, checkData, offchainConfig)
+	return d.RegisterUpkeep0(opts, target, gasLimit, admin, checkData, offchainConfig)
 }
 
 // the new registerUpkeep function only available on version 2.1 and above

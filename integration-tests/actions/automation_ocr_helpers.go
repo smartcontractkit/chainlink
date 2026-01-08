@@ -46,7 +46,7 @@ func DeployLegacyConsumers(t *testing.T, chainClient *seth.Client, registry cont
 	}
 
 	upkeeps := DeployKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury)
-	require.Equal(t, numberOfUpkeeps, len(upkeeps), "Number of upkeeps should match")
+	require.Len(t, upkeeps, numberOfUpkeeps, "Number of upkeeps should match")
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
@@ -54,7 +54,7 @@ func DeployLegacyConsumers(t *testing.T, chainClient *seth.Client, registry cont
 	upkeepIds := RegisterUpkeepContracts(
 		t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury, isBillingTokenNative, wethToken,
 	)
-	require.Equal(t, numberOfUpkeeps, len(upkeepIds), "Number of upkeepIds should match")
+	require.Len(t, upkeepIds, numberOfUpkeeps, "Number of upkeepIds should match")
 	return upkeeps, upkeepIds
 }
 
@@ -68,7 +68,7 @@ func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.
 	}
 
 	upkeeps := SetupKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury, config)
-	require.Equal(t, numberOfUpkeeps, len(upkeeps), "Number of upkeeps should match")
+	require.Len(t, upkeeps, numberOfUpkeeps, "Number of upkeeps should match")
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
@@ -76,7 +76,7 @@ func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.
 	upkeepIds := RegisterUpkeepContracts(
 		t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury, isBillingTokenNative, wethToken,
 	)
-	require.Equal(t, numberOfUpkeeps, len(upkeepIds), "Number of upkeepIds should match")
+	require.Len(t, upkeepIds, numberOfUpkeeps, "Number of upkeepIds should match")
 	return upkeeps, upkeepIds
 }
 

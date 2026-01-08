@@ -145,7 +145,7 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 // or an error. It passes each candidate x ordinate to ordinates function.
 func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 ) (kyber.Point, error) {
-	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(bm.Zero) >= 0) {
+	if !secp256k1.ValidPublicKey(p) || input.BitLen() > 256 || input.Cmp(bm.Zero) < 0 {
 		return nil, errors.New("bad input to vrf.HashToCurve")
 	}
 	x := FieldHash(append(hashToCurveHashPrefix, append(secp256k1.LongMarshal(p),
@@ -167,8 +167,7 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 // hash computed in VRF.sol#ScalarFromCurvePoints
 func ScalarFromCurvePoints(
 	hash, pk, gamma kyber.Point, uWitness [20]byte, v kyber.Point) *big.Int {
-	if !(secp256k1.ValidPublicKey(hash) && secp256k1.ValidPublicKey(pk) &&
-		secp256k1.ValidPublicKey(gamma) && secp256k1.ValidPublicKey(v)) {
+	if !secp256k1.ValidPublicKey(hash) || !secp256k1.ValidPublicKey(pk) || !secp256k1.ValidPublicKey(gamma) || !secp256k1.ValidPublicKey(v) {
 		panic("bad arguments to vrf.ScalarFromCurvePoints")
 	}
 	// msg will contain abi.encodePacked(hash, pk, gamma, v, uWitness)

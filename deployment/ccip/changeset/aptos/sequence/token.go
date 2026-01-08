@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
@@ -33,7 +34,7 @@ var DeployAptosTokenSequence = operations.NewSequence(
 	deployAptosTokenSequence,
 )
 
-func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenSeqInput) (DeployTokenSeqOutput, error) {
+func deployAptosTokenSequence(b operations.Bundle, deps dependency.AptosDeps, in DeployTokenSeqInput) (DeployTokenSeqOutput, error) {
 	var mcmsOperations []mcmstypes.BatchOperation
 	var txs []mcmstypes.Transaction
 
@@ -124,7 +125,7 @@ var DeployTokenFaucetSequence = operations.NewSequence(
 	deployAptosTokenFaucetSequence,
 )
 
-func deployAptosTokenFaucetSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenFaucetSeqInput) ([]mcmstypes.BatchOperation, error) {
+func deployAptosTokenFaucetSequence(b operations.Bundle, deps dependency.AptosDeps, in DeployTokenFaucetSeqInput) ([]mcmstypes.BatchOperation, error) {
 	var mcmsOperations []mcmstypes.BatchOperation
 
 	// Cleanup staging area
@@ -182,7 +183,7 @@ var TransferTokenOwnershipsSequence = operations.NewSequence(
 	transferTokenOwnershipsSequence,
 )
 
-func transferTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps, in TransferTokenOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+func transferTokenOwnershipsSequence(b operations.Bundle, deps dependency.AptosDeps, in TransferTokenOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, transfer := range in.Transfers {
@@ -224,7 +225,7 @@ var AcceptTokenOwnershipsSequence = operations.NewSequence(
 	acceptTokenOwnershipsSequence,
 )
 
-func acceptTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps, in AcceptTokenOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+func acceptTokenOwnershipsSequence(b operations.Bundle, deps dependency.AptosDeps, in AcceptTokenOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, accept := range in.Accepts {
@@ -260,7 +261,7 @@ var ExecuteTokenOwnershipTransfersSequence = operations.NewSequence(
 	executeTokenOwnershipTransfersSequence,
 )
 
-func executeTokenOwnershipTransfersSequence(b operations.Bundle, deps operation.AptosDeps, in ExecuteTokenOwnershipTransfersSeqInput) (mcmstypes.BatchOperation, error) {
+func executeTokenOwnershipTransfersSequence(b operations.Bundle, deps dependency.AptosDeps, in ExecuteTokenOwnershipTransfersSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, transfer := range in.Transfers {
@@ -297,7 +298,7 @@ var TransferTokenAdminsSequence = operations.NewSequence(
 	transferTokenAdminsSequence,
 )
 
-func transferTokenAdminsSequence(b operations.Bundle, deps operation.AptosDeps, in TransferTokenAdminsSeqInput) (mcmstypes.BatchOperation, error) {
+func transferTokenAdminsSequence(b operations.Bundle, deps dependency.AptosDeps, in TransferTokenAdminsSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, transfer := range in.Transfers {
@@ -333,7 +334,7 @@ var AcceptTokenAdminsSequence = operations.NewSequence(
 	acceptTokenAdminsSequence,
 )
 
-func acceptTokenAdminsSequence(b operations.Bundle, deps operation.AptosDeps, in AcceptTokenAdminsSeqInput) (mcmstypes.BatchOperation, error) {
+func acceptTokenAdminsSequence(b operations.Bundle, deps dependency.AptosDeps, in AcceptTokenAdminsSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
 	for i, accept := range in.Accepts {

@@ -13,8 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"go.uber.org/atomic"
+
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
 

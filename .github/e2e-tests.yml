@@ -1526,7 +1526,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestVersionUpgrade" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/migration
+        -- -v -run "TestVersionUpgrade" -timeout 15m -count=1 github.com/smartcontractkit/chainlink/integration-tests/migration
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: "{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}"

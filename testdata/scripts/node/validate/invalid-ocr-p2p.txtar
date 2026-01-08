@@ -202,6 +202,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+SampleTelemetry = false
 KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
@@ -431,6 +432,14 @@ StatusPath = '/status'
 PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
+
+[Sharding]
+ArbiterPort = 9876
+ArbiterPollInterval = '12s'
+ArbiterRetryInterval = '12s'
+ShardIndex = 0
+ShardOrchestratorPort = 50051
+ShardOrchestratorAddress = ''
 
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -592,5 +593,4 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 			},
 		)
 	})
-
 }

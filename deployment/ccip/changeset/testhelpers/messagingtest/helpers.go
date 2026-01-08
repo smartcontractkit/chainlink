@@ -9,10 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tvm/cell"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
@@ -107,9 +109,10 @@ const (
 )
 
 type TestCaseOutput struct {
-	Replayed     bool
-	Nonce        uint64
-	MsgSentEvent *ccipclient.AnyMsgSentEvent
+	Replayed         bool
+	Nonce            uint64
+	MsgSentEvent     *ccipclient.AnyMsgSentEvent
+	AllMsgSentEvents []*ccipclient.AnyMsgSentEvent
 }
 
 func getLatestNonce(tc TestCase) uint64 {
@@ -211,12 +214,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		c, err := cell.FromBOC(tc.ExtraArgs)
 		require.NoError(tc.T, err)
 
-		msg = ops.TonSendRequest{
-			QueryID:   rand.Uint64(),
-			Data:      tc.MsgData,
-			Receiver:  tc.Receiver,
-			ExtraArgs: c, // TODO handle ExtraArgs properly
-			FeeToken:  feeToken,
+		// TODO: add TokenAmounts support for TON token transfers
+		msg = tonrouter.CCIPSend{
+			QueryID:           rand.Uint64(),
+			DestChainSelector: tc.DestChain,
+			Data:              tc.MsgData,
+			Receiver:          tc.Receiver,
+			ExtraArgs:         c,
+			FeeToken:          feeToken,
 		}
 
 	default:
@@ -329,6 +334,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			msgSentEvents[i] = msgSentEventLocal
 		}
 	}
+	// return all message sent events.
+	out.AllMsgSentEvents = msgSentEvents
 
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs

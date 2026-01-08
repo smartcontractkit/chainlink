@@ -92,11 +92,11 @@ func EncodeOnChainVRFProvingKey(vrfKey nodeclient.VRFKey) ([2]*big.Int, error) {
 	// strip 0x to convert to int
 	provingKey[0], set1 = new(big.Int).SetString(uncompressed[2:66], 16)
 	if !set1 {
-		return [2]*big.Int{}, fmt.Errorf("can not convert VRF key to *big.Int")
+		return [2]*big.Int{}, errors.New("can not convert VRF key to *big.Int")
 	}
 	provingKey[1], set2 = new(big.Int).SetString(uncompressed[66:], 16)
 	if !set2 {
-		return [2]*big.Int{}, fmt.Errorf("can not convert VRF key to *big.Int")
+		return [2]*big.Int{}, errors.New("can not convert VRF key to *big.Int")
 	}
 	return provingKey, nil
 }
@@ -117,7 +117,7 @@ func GenerateWallet() (common.Address, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return common.Address{}, fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+		return common.Address{}, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }
@@ -502,7 +502,7 @@ func DeployForwarderContracts(
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
 
 		for i, event := range decodedTx.Events {
-			require.True(t, len(event.Topics) > 0, fmt.Sprintf("Event %d should have topics", i))
+			require.NotEmpty(t, event.Topics, "Event %d should have topics", i)
 			switch event.Topics[0] {
 			case operator_factory.OperatorFactoryOperatorCreated{}.Topic().String():
 				if address, ok := event.EventData["operator"]; ok {
@@ -628,7 +628,7 @@ func SetupOCRv2Contracts(
 	var ocrInstances []contracts.OffchainAggregatorV2
 
 	if ocrContractsConfig == nil {
-		return nil, fmt.Errorf("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
+		return nil, errors.New("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
 	}
 
 	if !ocrContractsConfig.UseExistingOffChainAggregatorsContracts() {
@@ -945,7 +945,7 @@ func setupAnyOCRv1Contracts(
 	var ocrInstances []contracts.OffchainAggregator
 
 	if ocrContractsConfig == nil {
-		return nil, fmt.Errorf("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
+		return nil, errors.New("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
 	}
 
 	if !ocrContractsConfig.UseExistingOffChainAggregatorsContracts() {
@@ -1102,7 +1102,7 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 
 	if tx.Receipt == nil {
-		return fmt.Errorf("transaction receipt for LINK transfer to multicall contract is nil")
+		return errors.New("transaction receipt for LINK transfer to multicall contract is nil")
 	}
 
 	multiBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: tx.Receipt.BlockNumber}, multicallAddress)
@@ -1111,13 +1111,13 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 
 	// Old code that's querying latest block
-	//err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
-	//if err != nil {
+	// err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+	// if err != nil {
 	//	return errors.Wrapf(err, "Error transferring LINK to multicall contract")
 	//}
 	//
-	//balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
-	//if err != nil {
+	// balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	// if err != nil {
 	//	return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
 	//}
 
@@ -1153,13 +1153,13 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 
 	if ephemeralTx.Receipt == nil {
-		return fmt.Errorf("transaction receipt for LINK transfer to ephemeral keys is nil")
+		return errors.New("transaction receipt for LINK transfer to ephemeral keys is nil")
 	}
 
 	for i := 1; i <= concurrency; i++ {
 		ephemeralBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: ephemeralTx.Receipt.BlockNumber}, chainClient.Addresses[i])
 		// Old code that's querying latest block, for now we prefer to use block number from the transaction receipt
-		//balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
+		// balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
 		if err != nil {
 			return errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
 		}
@@ -1194,7 +1194,7 @@ func GenerateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, en
 		}
 
 		// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
-		err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+		err = errors.New("initial error") // to ensure our for loop runs at least once
 		for err != nil {
 			ctx, cancel := context.WithTimeout(testcontext.Get(t), timeout)
 			logs, err = chainClient.Client.FilterLogs(ctx, filterQuery)
@@ -1299,15 +1299,15 @@ func BuildTOMLNodeConfigForK8s(testConfig ctfconfig.GlobalTestConfig, testNetwor
 }
 
 func IsOPStackChain(chainID int64) bool {
-	return chainID == 8453 || //BASE MAINNET
-		chainID == 84532 || //BASE SEPOLIA
-		chainID == 10 || //OPTIMISM MAINNET
-		chainID == 11155420 //OPTIMISM SEPOLIA
+	return chainID == 8453 || // BASE MAINNET
+		chainID == 84532 || // BASE SEPOLIA
+		chainID == 10 || // OPTIMISM MAINNET
+		chainID == 11155420 // OPTIMISM SEPOLIA
 }
 
 func IsArbitrumChain(chainID int64) bool {
-	return chainID == 42161 || //Arbitrum MAINNET
-		chainID == 421614 //Arbitrum Sepolia
+	return chainID == 42161 || // Arbitrum MAINNET
+		chainID == 421614 // Arbitrum Sepolia
 }
 
 func RandBool() bool {

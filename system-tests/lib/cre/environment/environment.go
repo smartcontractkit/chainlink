@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -182,6 +183,7 @@ func SetupTestEnvironment(
 	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
+		ctx,
 		topology,
 		creEnvironment,
 		input.NodeSets,
@@ -294,6 +296,7 @@ func SetupTestEnvironment(
 
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
+
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                        testLogger,
 		SingleFileLogger:              singleFileLogger,
@@ -341,7 +344,7 @@ func SetupTestEnvironment(
 			ContractVersion: cldf.TypeAndVersion{Version: *wfRegVersion},
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
-			AllowedDonIDs:   []uint64{topology.WorkflowDONID},
+			AllowedDonIDs:   topology.WorkflowDONIDs,
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)
@@ -350,9 +353,9 @@ func SetupTestEnvironment(
 	}
 
 	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
-		// we currently have no way of checking if filters were registered, when code runs in CRIB
+		// we currently have no way of checking if filters were registered, when code runs in CRIB or Kubernetes
 		// as we don't have a way to get its database connection string
-		if input.Provider.Type == infra.CRIB {
+		if !input.Provider.IsDocker() {
 			return nil
 		}
 
@@ -399,6 +402,20 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	if topology.DonsMetadata.ShardingEnabled() {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Setting up Sharding")))
+		err := sharding.SetupSharding(sharding.SetupShardingInput{
+			Logger:   testLogger,
+			CreEnv:   creEnvironment,
+			Topology: topology,
+		})
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to setup Sharding")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	}
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 
 	for _, feature := range input.Features.List() {

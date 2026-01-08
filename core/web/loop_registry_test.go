@@ -51,11 +51,11 @@ func newMockLoopImpl(t *testing.T, port int) *mockLoopImpl {
 }
 
 func (m *mockLoopImpl) start() {
-	require.NoError(m.t, m.PromServer.Start())
+	require.NoError(m.t, m.Start())
 }
 
 func (m *mockLoopImpl) close() {
-	require.NoError(m.t, m.PromServer.Close())
+	require.NoError(m.t, m.Close())
 }
 
 func (m *mockLoopImpl) run() {
@@ -117,9 +117,9 @@ func TestLoopRegistry(t *testing.T) {
 		for _, ls := range got {
 			gotLabels = append(gotLabels, ls.Labels)
 		}
-		assert.Equal(t, len(expectedLabels), len(gotLabels))
+		assert.Len(t, gotLabels, len(expectedLabels))
 		for i := range expectedLabels {
-			assert.EqualValues(t, expectedLabels[i], gotLabels[i])
+			assert.Equal(t, expectedLabels[i], gotLabels[i])
 		}
 	})
 

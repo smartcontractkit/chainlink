@@ -30,10 +30,10 @@ type moduleInfo struct {
 	Version string `json:"Version"`
 }
 
-// getProtoSchemaSetFromGoMod uses `go list` to extract the version/commit ref
+// getSchemaSetFromGoMod uses `go list` to extract the version/commit ref
 // from the github.com/smartcontractkit/chainlink-protos/workflows/go dependency.
-// It returns a ProtoSchemaSet with hardcoded values matching default.toml config.
-func getProtoSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.ProtoSchemaSet, error) {
+// It returns a SchemaSet with hardcoded values matching default.toml config.
+func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, error) {
 	const targetModule = "github.com/smartcontractkit/chainlink-protos/workflows/go"
 
 	// Get the absolute path to the repository root (where go.mod is located)
@@ -71,16 +71,15 @@ func getProtoSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.ProtoSche
 
 	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", targetModule, commitRef, modInfo.Version)
 
-	// Return ProtoSchemaSet with hardcoded values from default.toml
-	protoSchemaSet := chipingressset.ProtoSchemaSet{
-		URI:           "https://github.com/smartcontractkit/chainlink-protos",
-		Ref:           commitRef,
-		Folders:       []string{"workflows"},
-		SubjectPrefix: "cre-",
-		ExcludeFiles:  []string{},
+	// Return SchemaSet with hardcoded values from default.toml
+	schemaSet := chipingressset.SchemaSet{
+		URI:        "https://github.com/smartcontractkit/chainlink-protos",
+		Ref:        commitRef,
+		SchemaDir:  "workflows",
+		ConfigFile: "chip-cre.json", // file with mappings of protobufs to subjects, together with references
 	}
 
-	return []chipingressset.ProtoSchemaSet{protoSchemaSet}, nil
+	return []chipingressset.SchemaSet{schemaSet}, nil
 }
 
 // extractCommitRef extracts a commit reference from various version formats
@@ -285,12 +284,12 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Started Chip Ingress stack in %.2f seconds", stageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Registering protos")))
 
-	protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod(cmdContext)
-	if getProtoErr != nil {
-		return errors.Wrap(getProtoErr, "failed to get proto schema set from go.mod")
+	schemaSets, setErr := getSchemaSetFromGoMod(cmdContext)
+	if setErr != nil {
+		return errors.Wrap(setErr, "failed to get chainlink-proto version from go.mod")
 	}
 
-	registerProtosErr := parseConfigsAndRegisterProtos(cmdContext, protoSchemaSets, out.RedPanda.SchemaRegistryExternalURL)
+	registerProtosErr := parseConfigsAndRegisterProtos(cmdContext, schemaSets, out.ChipIngress)
 	if registerProtosErr != nil {
 		return errors.Wrap(registerProtosErr, "failed to register protos")
 	}
@@ -318,23 +317,23 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 	return in.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
 }
 
-func parseConfigsAndRegisterProtos(ctx context.Context, protoSchemaSets []chipingressset.ProtoSchemaSet, schemaRegistryExternalURL string) error {
-	if len(protoSchemaSets) == 0 {
+func parseConfigsAndRegisterProtos(ctx context.Context, schemaSets []chipingressset.SchemaSet, chipIngressOutput *chipingressset.ChipIngressOutput) error {
+	if len(schemaSets) == 0 {
 		framework.L.Warn().Msg("no proto configs provided, skipping proto registration")
 
 		return nil
 	}
 
-	for _, protoSchemaSet := range protoSchemaSets {
+	for _, protoSchemaSet := range schemaSets {
 		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.URI)
 		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 
-	reposErr := chipingressset.DefaultRegisterAndFetchProtos(
+	reposErr := chipingressset.FetchAndRegisterProtos(
 		ctx,
 		nil, // GH client will be created dynamically, if needed
-		protoSchemaSets,
-		schemaRegistryExternalURL,
+		chipIngressOutput,
+		schemaSets,
 	)
 	if reposErr != nil {
 		return errors.Wrap(reposErr, protoRegistrationErrMsg+"failed to fetch and register protos")
@@ -388,7 +387,7 @@ func createKafkaTopicsCmd() *cobra.Command {
 
 func fetchAndRegisterProtosCmd() *cobra.Command {
 	var (
-		schemaURL string
+		chipIngressGRPCURL string
 	)
 	cmd := &cobra.Command{
 		Use:              "register-protos",
@@ -396,20 +395,16 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 		Long:             `Fetch and register protos`,
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Use default values if not provided
-			if schemaURL == "" {
-				schemaURL = "http://localhost:" + chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT
+			schemaSets, setErr := getSchemaSetFromGoMod(cmd.Context())
+			if setErr != nil {
+				return errors.Wrap(setErr, "failed to get proto schema set from go.mod")
 			}
 
-			protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod(cmd.Context())
-			if getProtoErr != nil {
-				return errors.Wrap(getProtoErr, "failed to get proto schema set from go.mod")
-			}
-
-			return parseConfigsAndRegisterProtos(cmd.Context(), protoSchemaSets, schemaURL)
+			return parseConfigsAndRegisterProtos(cmd.Context(), schemaSets, &chipingressset.ChipIngressOutput{
+				GRPCExternalURL: chipIngressGRPCURL,
+			})
 		},
 	}
-	cmd.Flags().StringVarP(&schemaURL, "red-panda-schema-registry-url", "r", "http://localhost:"+chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT, "Red Panda Schema Registry URL")
-
+	cmd.Flags().StringVarP(&chipIngressGRPCURL, "chip-ingress-grpc-url", "h", "localhost:"+chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT, "Chip Ingress GRPC URL")
 	return cmd
 }

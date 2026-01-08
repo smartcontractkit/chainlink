@@ -150,19 +150,19 @@ func (l *Lanes) CopyCommonContracts(fromNetwork, toNetwork string, reuse, isToke
 	}
 	// if reuse is set to true, it copies all the common contracts except the router
 	if reuse {
-		cfg.CommonContracts.FeeToken = existing.FeeToken
-		cfg.CommonContracts.PriceRegistry = existing.PriceRegistry
-		cfg.CommonContracts.TokenAdminRegistry = existing.TokenAdminRegistry
-		cfg.CommonContracts.PriceAggregators = existing.PriceAggregators
-		cfg.CommonContracts.ARM = existing.ARM
-		cfg.CommonContracts.IsMockARM = existing.IsMockARM
-		cfg.CommonContracts.Multicall = existing.Multicall
+		cfg.FeeToken = existing.FeeToken
+		cfg.PriceRegistry = existing.PriceRegistry
+		cfg.TokenAdminRegistry = existing.TokenAdminRegistry
+		cfg.PriceAggregators = existing.PriceAggregators
+		cfg.ARM = existing.ARM
+		cfg.IsMockARM = existing.IsMockARM
+		cfg.Multicall = existing.Multicall
 	}
 	// if it is a token transfer, it copies the bridge token contracts
 	if isTokenTransfer {
-		cfg.CommonContracts.BridgeTokens = existing.BridgeTokens
+		cfg.BridgeTokens = existing.BridgeTokens
 		if reuse {
-			cfg.CommonContracts.BridgeTokenPools = existing.BridgeTokenPools
+			cfg.BridgeTokenPools = existing.BridgeTokenPools
 		}
 	}
 	l.LaneConfigs[toNetwork] = cfg

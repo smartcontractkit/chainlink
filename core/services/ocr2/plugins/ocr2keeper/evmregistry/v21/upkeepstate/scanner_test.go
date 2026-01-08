@@ -102,7 +102,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, len(tc.scannerResults), len(results))
+			require.Len(t, results, len(tc.scannerResults))
 
 			for _, result := range results {
 				require.Contains(t, tc.scannerResults, result)

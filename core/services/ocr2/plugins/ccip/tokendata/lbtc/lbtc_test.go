@@ -355,7 +355,7 @@ func TestLBTCReader_skipApiOnFullPayload(t *testing.T) {
 		},
 	}, 0)
 	require.NoError(t, err)
-	require.EqualValues(t, []byte(lbtcMessageHash), destTokenData)
+	require.Equal(t, []byte(lbtcMessageHash), destTokenData)
 
 	require.Equal(t, 1, logs.Len())
 	require.Contains(t, logs.All()[0].Message, "SourceTokenData.extraData size is not 32. This is deposit payload, not sha256(payload). Attestation is disabled onchain")
@@ -472,7 +472,7 @@ func TestLBTCReader_expectedOutput(t *testing.T) {
 			}, 0)
 
 			if tc.expectedReturn != nil {
-				require.EqualValues(t, tc.expectedReturn, payloadAndProof)
+				require.Equal(t, tc.expectedReturn, payloadAndProof)
 			} else if tc.expectedError != nil {
 				require.Contains(t, err.Error(), tc.expectedError.Error())
 			}
