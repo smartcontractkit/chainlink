@@ -69,7 +69,7 @@ func NewEnvironment(ctx context.Context) error {
 			ns.Node.Image = os.Getenv("CHAINLINK_IMAGE")
 		}
 	}
-	
+
 	_, err = ns.NewSharedDBNodeSet(in.NodeSets[0], nil)
 	if err != nil {
 		return fmt.Errorf("failed to create new shared db node set: %w", err)
