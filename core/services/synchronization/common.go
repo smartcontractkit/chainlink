@@ -58,7 +58,7 @@ type TelemetryService interface {
 
 type ChipIngressService interface {
 	services.ServiceCtx
-	Send(ctx context.Context, telemetry []byte, contractID string, telemType TelemetryType, chainSelector uint64, domain string, entity string, network string)
+	Send(ctx context.Context, payload TelemPayload)
 }
 
 // TelemetryTypeToDomainAndEntity maps TelemetryType to (domain, entity) pairs for beholder ingestion.

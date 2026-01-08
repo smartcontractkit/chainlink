@@ -74,8 +74,16 @@ func NewChipIngressAgent(
 // It forwards the telemetry log to the TelemetryService
 func (a *ChipIngressAgent) SendLog(log []byte) {
 	ctx := context.Background()
-	// Send telemetry using the TelemetryService
-	a.telemService.Send(ctx, log, a.ContractID, a.TelemType, a.ChainSelector, a.Domain, a.Entity, a.Network)
+	payload := synchronization.TelemPayload{
+		Telemetry:     log,
+		TelemType:     a.TelemType,
+		ContractID:    a.ContractID,
+		ChainSelector: a.ChainSelector,
+		Domain:        a.Domain,
+		Entity:        a.Entity,
+		Network:       a.Network,
+	}
+	a.telemService.Send(ctx, payload)
 }
 
 type ChipIngressAgentMultitype struct {
@@ -125,5 +133,14 @@ func (a *ChipIngressAgentMultitype) SendTypedLog(telemType synchronization.Telem
 		return
 	}
 
-	a.chipIngressService.Send(ctx, log, a.ContractID, telemType, a.ChainSelector, domain, entity, a.Network)
+	payload := synchronization.TelemPayload{
+		Telemetry:     log,
+		TelemType:     telemType,
+		ContractID:    a.ContractID,
+		ChainSelector: a.ChainSelector,
+		Domain:        domain,
+		Entity:        entity,
+		Network:       a.Network,
+	}
+	a.chipIngressService.Send(ctx, payload)
 }

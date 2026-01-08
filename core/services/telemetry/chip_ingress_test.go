@@ -27,8 +27,8 @@ func (m *MockChipIngressService) Close() error {
 	return args.Error(0)
 }
 
-func (m *MockChipIngressService) Send(ctx context.Context, telemetry []byte, contractID string, telemType synchronization.TelemetryType, chainSelector uint64, domain string, entity string, network string) {
-	m.Called(ctx, telemetry, contractID, telemType, chainSelector, domain, entity, network)
+func (m *MockChipIngressService) Send(ctx context.Context, payload synchronization.TelemPayload) {
+	m.Called(ctx, payload)
 }
 
 func (m *MockChipIngressService) HealthReport() map[string]error {
@@ -149,10 +149,16 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", contractID, telemType, lggr)
 		require.NoError(t, err)
 
-		// Setup expectations - now includes chainSelector, domain, entity, network
-		mockTelemService.
-			On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).
-			Once()
+		expectedPayload := synchronization.TelemPayload{
+			Telemetry:     telemetryLog,
+			TelemType:     telemType,
+			ContractID:    contractID,
+			ChainSelector: adapter.ChainSelector,
+			Domain:        adapter.Domain,
+			Entity:        adapter.Entity,
+			Network:       adapter.Network,
+		}
+		mockTelemService.On("Send", mock.Anything, expectedPayload).Once()
 
 		// Call SendLog
 		adapter.SendLog(telemetryLog)
@@ -171,9 +177,16 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "137", contractID, telemType, lggr)
 		require.NoError(t, err)
 
-		// Setup expectations - Send doesn't return an error
-		mockTelemService.On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).
-			Once()
+		expectedPayload := synchronization.TelemPayload{
+			Telemetry:     telemetryLog,
+			TelemType:     telemType,
+			ContractID:    contractID,
+			ChainSelector: adapter.ChainSelector,
+			Domain:        adapter.Domain,
+			Entity:        adapter.Entity,
+			Network:       adapter.Network,
+		}
+		mockTelemService.On("Send", mock.Anything, expectedPayload).Once()
 
 		// Call SendLog - should not panic
 		assert.NotPanics(t, func() {
@@ -197,9 +210,37 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		log2 := []byte("log 2")
 		log3 := []byte("log 3")
 
-		mockTelemService.On("Send", mock.Anything, log1, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).Once()
-		mockTelemService.On("Send", mock.Anything, log2, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).Once()
-		mockTelemService.On("Send", mock.Anything, log3, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).Once()
+		payload1 := synchronization.TelemPayload{
+			Telemetry:     log1,
+			TelemType:     telemType,
+			ContractID:    contractID,
+			ChainSelector: adapter.ChainSelector,
+			Domain:        adapter.Domain,
+			Entity:        adapter.Entity,
+			Network:       adapter.Network,
+		}
+		payload2 := synchronization.TelemPayload{
+			Telemetry:     log2,
+			TelemType:     telemType,
+			ContractID:    contractID,
+			ChainSelector: adapter.ChainSelector,
+			Domain:        adapter.Domain,
+			Entity:        adapter.Entity,
+			Network:       adapter.Network,
+		}
+		payload3 := synchronization.TelemPayload{
+			Telemetry:     log3,
+			TelemType:     telemType,
+			ContractID:    contractID,
+			ChainSelector: adapter.ChainSelector,
+			Domain:        adapter.Domain,
+			Entity:        adapter.Entity,
+			Network:       adapter.Network,
+		}
+
+		mockTelemService.On("Send", mock.Anything, payload1).Once()
+		mockTelemService.On("Send", mock.Anything, payload2).Once()
+		mockTelemService.On("Send", mock.Anything, payload3).Once()
 
 		// Send multiple logs
 		adapter.SendLog(log1)
@@ -256,7 +297,7 @@ func TestChipIngressAdapter_InterfaceCompliance(t *testing.T) {
 	var _ interface{} = adapter
 
 	// Call the interface method
-	mockTelemService.On("Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockTelemService.On("Send", mock.Anything, mock.Anything)
 	adapter.SendLog([]byte("test"))
-	mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything)
 }

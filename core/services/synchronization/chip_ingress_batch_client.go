@@ -70,16 +70,7 @@ func (cc *chipIngressBatchClient) close() error {
 // Send directs incoming telmetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
-func (cc *chipIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType, chainSelector uint64, domain string, entity string, network string) {
-	payload := TelemPayload{
-		Telemetry:     telemData,
-		TelemType:     telemType,
-		ContractID:    contractID,
-		ChainSelector: chainSelector,
-		Domain:        domain,
-		Entity:        entity,
-		Network:       network,
-	}
+func (cc *chipIngressBatchClient) Send(ctx context.Context, payload TelemPayload) {
 	worker := cc.findOrCreateWorker(payload)
 
 	select {

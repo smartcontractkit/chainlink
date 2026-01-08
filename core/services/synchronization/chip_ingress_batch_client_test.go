@@ -86,11 +86,11 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 
 	// Send telemetry
 	testCtx := testutils.Context(t)
-	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity, telemPayload1.Network)
-	chipIngressClient.Send(testCtx, telemPayload3.Telemetry, telemPayload3.ContractID, telemPayload3.TelemType, telemPayload3.ChainSelector, telemPayload3.Domain, telemPayload3.Entity, telemPayload3.Network)
+	chipIngressClient.Send(testCtx, telemPayload1)
+	chipIngressClient.Send(testCtx, telemPayload3)
 	time.Sleep(sendInterval * 2)
-	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity, telemPayload1.Network)
-	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity, telemPayload1.Network)
+	chipIngressClient.Send(testCtx, telemPayload1)
+	chipIngressClient.Send(testCtx, telemPayload1)
 
 	// Wait for the telemetry to be handled
 	g.Eventually(func() []uint32 {
@@ -126,7 +126,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 	testCtx := testutils.Context(t)
 	// Send multiple messages to trigger multiple batches
 	for i := 0; i < 10; i++ {
-		chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
+		chipIngressClient.Send(testCtx, telemPayload)
 		if i%3 == 0 {
 			time.Sleep(sendInterval * 2) // Allow batch to be sent
 		}
@@ -182,8 +182,8 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 	})
 
 	testCtx := testutils.Context(t)
-	chipIngressClient.Send(testCtx, payloadOCR.Telemetry, payloadOCR.ContractID, payloadOCR.TelemType, payloadOCR.ChainSelector, payloadOCR.Domain, payloadOCR.Entity, payloadOCR.Network)
-	chipIngressClient.Send(testCtx, payloadOCR2.Telemetry, payloadOCR2.ContractID, payloadOCR2.TelemType, payloadOCR2.ChainSelector, payloadOCR2.Domain, payloadOCR2.Entity, payloadOCR2.Network)
+	chipIngressClient.Send(testCtx, payloadOCR)
+	chipIngressClient.Send(testCtx, payloadOCR2)
 
 	g.Eventually(func() []uint32 {
 		return []uint32{ocrCount.Load(), ocr2Count.Load()}
@@ -214,7 +214,7 @@ func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
 	cancel()
 
 	// Should not panic or block when context is cancelled
-	chipIngressClient.Send(ctx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
+	chipIngressClient.Send(ctx, telemPayload)
 }
 
 func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
@@ -247,7 +247,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 	testCtx := testutils.Context(t)
 	// Send multiple messages with same contract and type - should reuse worker
 	for i := 0; i < 5; i++ {
-		chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
+		chipIngressClient.Send(testCtx, telemPayload)
 	}
 
 	// Wait for all messages to be sent
@@ -285,7 +285,7 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 	})
 
 	testCtx := testutils.Context(t)
-	chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
+	chipIngressClient.Send(testCtx, telemPayload)
 
 	g.Eventually(func() string {
 		return capturedChainSelector
