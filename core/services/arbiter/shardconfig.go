@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/shardconfig/generated/v1_0_0/shard_config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -24,19 +25,6 @@ const (
 	// GetDesiredShardCountMethod is the method name for reading the desired shard count.
 	GetDesiredShardCountMethod = "getDesiredShardCount"
 )
-
-// ShardConfigABI is the ABI for the ShardConfig contract.
-// TODO: Once the chainlink-evm/contracts/cre/gobindings module is published,
-// import shard_config.ShardConfigABI instead of using this inline definition.
-const ShardConfigABI = `[
-	{
-		"inputs": [],
-		"name": "getDesiredShardCount",
-		"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-		"stateMutability": "view",
-		"type": "function"
-	}
-]`
 
 // ContractReaderFactory creates a ContractReader from a config.
 // This matches the pattern used in workflow registry syncer.
@@ -238,7 +226,7 @@ func buildShardConfigReaderConfig() config.ChainReaderConfig {
 	return config.ChainReaderConfig{
 		Contracts: map[string]config.ChainContractReader{
 			ShardConfigContractName: {
-				ContractABI: ShardConfigABI,
+				ContractABI: shard_config.ShardConfigABI,
 				Configs: map[string]*config.ChainReaderDefinition{
 					GetDesiredShardCountMethod: {
 						ChainSpecificName: GetDesiredShardCountMethod,
