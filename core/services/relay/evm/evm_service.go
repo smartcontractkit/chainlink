@@ -223,7 +223,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	// Find address with highest balance
 	fromAddress, err := e.getAddressWithHighestBalance(ctx, addresses)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine from address: %w", err)
+		return nil, fmt.Errorf("failed to determine FromAddress for SubmitTransaction: %w", err)
 	}
 
 	id, err := uuid.NewUUID()

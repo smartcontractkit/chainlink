@@ -127,8 +127,6 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 	}
 
 	receiver := createToAddress()
-	// mocks.KeyStoreMock.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{createFromAddress().Address()}, nil).Maybe()
-	// mocks.EVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second)
 	gasLimit := uint64(1000)
 	result, err := relayer.SubmitTransaction(ctx, evm.SubmitTransactionRequest{
 		To:   receiver,
