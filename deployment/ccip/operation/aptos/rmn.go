@@ -7,10 +7,17 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+)
+
+// allow test seams
+var (
+	ccipBindFn       = ccip.Bind
+	generateMCMSTxFn = utils.GenerateMCMSTx
 )
 
 // CurseMultipleInput is the input for cursing multiple subjects
@@ -30,7 +37,7 @@ var CurseMultipleOp = operations.NewOperation(
 func curseMultiple(b operations.Bundle, deps dependency.AptosDeps, in CurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := in.CCIPAddress
-	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+	ccipBind := ccipBindFn(ccipAddress, deps.AptosChain.Client)
 
 	// Encode curse multiple operation
 	moduleInfo, function, _, args, err := ccipBind.RMNRemote().Encoder().CurseMultiple(in.Subjects)
@@ -39,7 +46,7 @@ func curseMultiple(b operations.Bundle, deps dependency.AptosDeps, in CurseMulti
 	}
 
 	// Generate MCMS transaction
-	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	tx, err := generateMCMSTxFn(ccipAddress, moduleInfo, function, args)
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to generate MCMS transaction: %w", err)
 	}
@@ -64,7 +71,7 @@ var UncurseMultipleOp = operations.NewOperation(
 func uncurseMultiple(b operations.Bundle, deps dependency.AptosDeps, in UncurseMultipleInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := in.CCIPAddress
-	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+	ccipBind := ccipBindFn(ccipAddress, deps.AptosChain.Client)
 
 	// Encode uncurse multiple operation
 	moduleInfo, function, _, args, err := ccipBind.RMNRemote().Encoder().UncurseMultiple(in.Subjects)
@@ -73,10 +80,21 @@ func uncurseMultiple(b operations.Bundle, deps dependency.AptosDeps, in UncurseM
 	}
 
 	// Generate MCMS transaction
-	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	tx, err := generateMCMSTxFn(ccipAddress, moduleInfo, function, args)
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to generate MCMS transaction: %w", err)
 	}
 
 	return tx, nil
+}
+
+// IsSubjectCursed checks whether the given subject (or a global curse) exists on the RMN Remote.
+func IsSubjectCursed(deps dependency.AptosDeps, ccipAddress aptos.AccountAddress, subject []byte) (bool, error) {
+	ccipBind := ccipBindFn(ccipAddress, deps.AptosChain.Client)
+	callOpts := &bind.CallOpts{}
+	cursed, err := ccipBind.RMNRemote().IsCursed(callOpts, subject)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subject is cursed: %w", err)
+	}
+	return cursed, nil
 }

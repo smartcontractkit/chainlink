@@ -370,6 +370,7 @@ flowchart LR
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-testing-framework/framework --> chainlink-testing-framework/wasp
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/framework/components/dockercompose --> chainlink-common/pkg/chipingress
 	chainlink-testing-framework/framework/components/dockercompose --> chainlink-testing-framework/framework
 	chainlink-testing-framework/framework/components/dockercompose --> freeport
 	click chainlink-testing-framework/framework/components/dockercompose href "https://github.com/smartcontractkit/chainlink-testing-framework"

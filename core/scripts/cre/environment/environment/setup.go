@@ -73,6 +73,7 @@ type config struct {
 	General        generalConfig         `toml:"general"`
 	JobDistributor jobDistributorConfig  `toml:"job_distributor"`
 	ChipIngress    *chipIngressConfig    `toml:"chip_ingress"`
+	ChipConfig     *chipConfigConfig     `toml:"chip_config"`
 	BillingService *billingServiceConfig `toml:"billing_platform_service"`
 	Capabilities   capabilitiesConfig    `toml:"capabilities"`
 	Observability  observabilityConfig   `toml:"observability"`
@@ -89,6 +90,11 @@ type jobDistributorConfig struct {
 }
 
 type chipIngressConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
+type chipConfigConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
@@ -359,7 +365,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		name := strings.ReplaceAll(strings.Split(c.BuildConfig.LocalImage, ":")[0], "-", " ")
 		name = cases.Title(language.English).String(name)
 		logger.Info().Msgf("🔍 %s image not found.", name)
-		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [P]", name)
+		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [B]", name)
 
 		var input = PullOption // Default to Pull
 		if !noPrompt {
@@ -494,7 +500,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
-	var chipLocalImage string
+	var chipIngressLocalImage string
 	if cfg.ChipIngress != nil {
 		chipConfig := ImageConfig{
 			BuildConfig: cfg.ChipIngress.BuildConfig,
@@ -502,13 +508,30 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
 			return
 		}
 	} else {
 		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Ingress setup, because configuration is not provided in the config file")
+	}
+
+	var chipConfigLocalImage string
+	if cfg.ChipConfig != nil {
+		chipConfig := ImageConfig{
+			BuildConfig: cfg.ChipConfig.BuildConfig,
+			PullConfig:  cfg.ChipConfig.PullConfig,
+		}
+
+		var err error
+		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Config image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Config setup, because configuration is not provided in the config file")
 	}
 
 	var billingLocalImage string
@@ -555,8 +578,11 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("✅ Setup Summary:")
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
-	if chipLocalImage != "" {
-		logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	if chipIngressLocalImage != "" {
+		logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipIngressLocalImage)
+	}
+	if chipConfigLocalImage != "" {
+		logger.Info().Msgf("   ✓ Atlas Chip Config image %s is available", chipConfigLocalImage)
 	}
 	logger.Info().Msgf("   ✓ Observability repo cloned to %s", observabilityRepoPath)
 	if billingLocalImage != "" {
