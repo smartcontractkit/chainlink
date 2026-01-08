@@ -110,8 +110,8 @@ github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 h1:zuQyyAK
 github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06/go.mod h1:7nc4anLGjupUW/PeY5qiNYsdNXj7zopG+eqsS7To5IQ=
 github.com/coder/websocket v1.8.12 h1:5bUXkEPPIbewrnkU8LTCLVaxi4N4J8ahufH2vlo4NAo=
 github.com/coder/websocket v1.8.12/go.mod h1:LNVeNrXQZfe5qhS9ALED3uA+l5pPqvwXg3CKoDBB2gs=
-github.com/consensys/gnark-crypto v0.19.0 h1:zXCqeY2txSaMl6G5wFpZzMWJU9HPNh8qxPnYJ1BL9vA=
-github.com/consensys/gnark-crypto v0.19.0/go.mod h1:rT23F0XSZqE0mUA0+pRtnL56IbPxs6gp4CeRsBk4XS0=
+github.com/consensys/gnark-crypto v0.19.2 h1:qrEAIXq3T4egxqiliFFoNrepkIWVEeIYwt3UL0fvS80=
+github.com/consensys/gnark-crypto v0.19.2/go.mod h1:rT23F0XSZqE0mUA0+pRtnL56IbPxs6gp4CeRsBk4XS0=
 github.com/containerd/errdefs v1.0.0 h1:tg5yIfIlQIrxYtu9ajqY42W3lpS19XqdxRQeEwYG8PI=
 github.com/containerd/errdefs v1.0.0/go.mod h1:+YBYIdtsnF4Iw6nWZhJcqGSg/dwvV7tyJ/kCkyJ2k+M=
 github.com/containerd/errdefs/pkg v0.3.0 h1:9IKJ06FvyNlexW690DXuQNx2KA2cUJXx151Xdx3ZPPE=
