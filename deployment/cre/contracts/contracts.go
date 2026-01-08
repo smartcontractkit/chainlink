@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
+	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/shardconfig/generated/v1_0_0/shard_config"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
@@ -33,6 +34,7 @@ var (
 	FeedConsumer              cldf.ContractType = "FeedConsumer"              // no type and a version in contract https://github.com/smartcontractkit/chainlink/blob/89183a8a5d22b1aeca0ade3b76d16aa84067aa57/contracts/src/v0.8/keystone/KeystoneFeedsConsumer.sol#L1
 	RBACTimelock              cldf.ContractType = "RBACTimelock"              // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/RBACTimelock.sol
 	ProposerManyChainMultiSig cldf.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
+	ShardConfig               cldf.ContractType = "ShardConfig"               // manages desired shard count configuration
 )
 
 type MCMSConfig = proposalutils.TimelockConfig
@@ -186,6 +188,7 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 	case *ocr3_capability.OCR3Capability:
 	case *workflow_registry.WorkflowRegistry:
 	case *workflow_registry_v2.WorkflowRegistry:
+	case *shard_config.ShardConfig:
 	default:
 		return nil, fmt.Errorf("unsupported contract type %T", *new(T))
 	}
@@ -221,6 +224,9 @@ func createContractInstance[T Ownable](addr string, chain cldf_evm.Chain) (*T, e
 		instance, err = any(c).(T), e
 	case *workflow_registry_v2.WorkflowRegistry:
 		c, e := workflow_registry_v2.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
+		instance, err = any(c).(T), e
+	case *shard_config.ShardConfig:
+		c, e := shard_config.NewShardConfig(common.HexToAddress(addr), chain.Client)
 		instance, err = any(c).(T), e
 	default:
 		return nil, errors.New("unsupported contract type for instance creation")
