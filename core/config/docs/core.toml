@@ -925,9 +925,11 @@ ArbiterPort = 9876 # Default
 ArbiterPollInterval = '12s' # Default
 # ArbiterRetryInterval is the retry interval when contract reader is unavailable.
 ArbiterRetryInterval = '12s' # Default
-# ShardIndex is the index of this shard (0-based).
+# ShardIndex is the index of this shard (0-based). If 0, no shard orchestration client is created.
+# If greater than 0, a shard orchestration client is created and connects to ShardOrchestratorAddress.
 ShardIndex = 0 # Default
-# ShardOrchestratorPort is the port for connecting to the shard orchestrator.
+# ShardOrchestratorPort is the port for the shard orchestrator gRPC server.
+# When a ring OCR job is created, the shard orchestrator server is spun up on this port.
 ShardOrchestratorPort = 50051 # Default
-# ShardOrchestratorAddress is the URL of the shard orchestrator service.
+# ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
 ShardOrchestratorAddress = '' # Default
