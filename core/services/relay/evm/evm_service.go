@@ -29,9 +29,9 @@ import (
 )
 
 type evmService struct {
-	addressChecker keys.AddressChecker
-	chain          legacyevm.Chain
-	logger         logger.Logger
+	addressLister keys.AddressLister
+	chain         legacyevm.Chain
+	logger        logger.Logger
 }
 
 // Direct RPC
@@ -207,12 +207,23 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		gasLimit = *txRequest.GasConfig.GasLimit
 	}
 
-	if e.addressChecker == nil {
-		return nil, errors.New("address checker is not initialized")
+	if e.addressLister == nil {
+		return nil, errors.New("address lister is not initialized")
 	}
 
-	if err := e.addressChecker.CheckEnabled(ctx, txRequest.From); err != nil {
-		return nil, fmt.Errorf("invalid from address: %w in txRequest", err)
+	addresses, err := e.addressLister.EnabledAddresses(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enabled addresses: %w", err)
+	}
+
+	if len(addresses) == 0 {
+		return nil, errors.New("no enabled addresses available")
+	}
+
+	// Find address with highest balance
+	fromAddress, err := e.getAddressWithHighestBalance(ctx, addresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine from address: %w", err)
 	}
 
 	id, err := uuid.NewUUID()
@@ -225,7 +236,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	// PLEX-1524 - Define how we should properly get the workflow execution ID into the meta without making the API CRE specific.
 	var txMeta *txmgrtypes.TxMeta[common.Address, common.Hash]
 	txmReq := evmtxmgr.TxRequest{
-		FromAddress:    txRequest.From,
+		FromAddress:    fromAddress,
 		ToAddress:      txRequest.To,
 		EncodedPayload: txRequest.Data,
 		FeeLimit:       gasLimit,
@@ -290,6 +301,44 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		TxHash:           (*receipt).GetTxHash(),
 		TxIdempotencyKey: txID,
 	}, nil
+}
+
+// getAddressWithHighestBalance returns the address with the highest ETH balance
+func (e *evmService) getAddressWithHighestBalance(ctx context.Context, addresses []common.Address) (common.Address, error) {
+	if len(addresses) == 0 {
+		return common.Address{}, errors.New("no addresses provided")
+	}
+	if len(addresses) == 1 {
+		return addresses[0], nil
+	}
+
+	var highestBalance *big.Int
+	var selectedAddress common.Address
+
+	for _, addr := range addresses {
+		balance, err := e.chain.Client().BalanceAt(ctx, addr, nil) // nil = latest block
+		if err != nil {
+			e.logger.Warnw("failed to get balance for address, skipping", "address", addr.Hex(), "error", err)
+			continue
+		}
+
+		if highestBalance == nil || balance.Cmp(highestBalance) > 0 {
+			highestBalance = balance
+			selectedAddress = addr
+		}
+	}
+
+	if highestBalance == nil {
+		// Fallback to first address if all balance queries failed
+		return addresses[0], nil
+	}
+
+	e.logger.Debugw("selected address with highest balance",
+		"address", selectedAddress.Hex(),
+		"balance", highestBalance.String(),
+		"totalAddresses", len(addresses))
+
+	return selectedAddress, nil
 }
 
 func (e *evmService) CalculateTransactionFee(ctx context.Context, receipt evm.ReceiptGasInfo) (*evm.TransactionFee, error) {

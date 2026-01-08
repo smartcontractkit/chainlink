@@ -68,8 +68,8 @@ type keyStoreMock struct {
 	*keystoremocks.Eth
 }
 
-func (_m keyStoreMock) CheckEnabled(ctx context.Context, address common.Address) error {
-	return _m.Eth.CheckEnabled(ctx, address, _m.chainID)
+func (_m keyStoreMock) EnabledAddresses(ctx context.Context) ([]common.Address, error) {
+	return _m.Eth.EnabledAddressesForChain(ctx, _m.chainID)
 }
 
 func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
@@ -82,6 +82,8 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	poller := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*types.Head](t)
 	ksMock := keyStoreMock{chainID: evmtestutils.FixtureChainID, Eth: keystoremocks.NewEth(t)}
+	ksMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{createFromAddress().Address()}, nil).Maybe()
+	mockEVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second).Maybe()
 	chain.On("TxManager").Return(txManager).Maybe()
 	chain.On("LogPoller").Return(poller).Maybe()
 	chain.On("HeadTracker").Return(ht).Maybe()
@@ -93,7 +95,7 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	require.NoError(t, err)
 	relayer := &Relayer{
 		chain:      chain,
-		evmService: evmService{addressChecker: ksMock, chain: chain, logger: lggr},
+		evmService: evmService{addressLister: ksMock, chain: chain, logger: lggr},
 	}
 
 	return &Mocks{
@@ -125,11 +127,10 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 	}
 
 	receiver := createToAddress()
-	mocks.KeyStoreMock.EXPECT().CheckEnabled(mock.Anything, createFromAddress().Address(), mock.Anything).Return(nil)
-	mocks.EVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second)
+	// mocks.KeyStoreMock.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{createFromAddress().Address()}, nil).Maybe()
+	// mocks.EVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second)
 	gasLimit := uint64(1000)
 	result, err := relayer.SubmitTransaction(ctx, evm.SubmitTransactionRequest{
-		From: createFromAddress().Address(),
 		To:   receiver,
 		Data: createPayload(),
 		GasConfig: &evm.GasConfig{
@@ -351,6 +352,26 @@ func TestEVMService(t *testing.T) {
 				TxHash:   common.Hash{},
 				TxStatus: evm.TxFatal,
 			},
+		},
+		{
+			Name: "Fails with failed to get enabled addresses",
+			SetupMocks: func(m *Mocks, ctx any) {
+				// Clear the default expectation first
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				// Set new expectation
+				m.KeyStoreMock.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{}, errors.New("some error")).Once()
+			},
+			ExpectedError: "failed to get enabled addresses: some error",
+		},
+		{
+			Name: "Fails with no enabled addresses",
+			SetupMocks: func(m *Mocks, ctx any) {
+				// Clear the default expectation first
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				// Set new expectation
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{}, nil).Once()
+			},
+			ExpectedError: "no enabled addresses available",
 		},
 	}
 
