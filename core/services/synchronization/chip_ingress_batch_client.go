@@ -92,7 +92,10 @@ func (cc *chipIngressBatchClient) Send(ctx context.Context, telemData []byte, co
 	}
 }
 
-// findOrCreateWorker finds a worker by ContractID or creates a new one if none exists
+// findOrCreateWorker finds a worker by ContractID or creates a new one if none exists.
+// The number of workers is naturally bounded by the number of unique (ContractID, TelemetryType)
+// pairs, which is determined by the jobs configured on the node. Each job has a fixed contract
+// and telemetry type, so the worker count is proportional to the number of active jobs.
 func (cc *chipIngressBatchClient) findOrCreateWorker(payload TelemPayload) *chipIngressBatchWorker {
 	cc.workersMutex.Lock()
 	defer cc.workersMutex.Unlock()
