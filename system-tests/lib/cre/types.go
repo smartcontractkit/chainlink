@@ -598,7 +598,7 @@ func (m *DonMetadata) IsShardLeader() bool {
 }
 
 func (m *DonMetadata) HasOnlyLocalCapabilities() bool {
-	return m.ExposesRemoteCapabilities == false
+	return !m.ExposesRemoteCapabilities
 }
 
 // ConfigureForGatewayAccess adds gateway connector configuration to each node;s TOML config. It only adds connectors, if they are not already present.
@@ -846,7 +846,7 @@ func (m DonsMetadata) validate() error {
 
 		// Validate in a single pass: must start at 0, be sequential, and have no duplicates
 		for i, shardIdx := range shardIndexes {
-			expectedIdx := uint(i)
+			expectedIdx := uint(i) //nolint:gosec // disable G115 overflow is unrealistic
 
 			if shardIdx != expectedIdx {
 				if i > 0 && shardIdx == shardIndexes[i-1] {
