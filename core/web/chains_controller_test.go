@@ -110,6 +110,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 }
 
 func Test_EVMChainsController_Index(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1549")
 	quarantine.Flaky(t, "DX-1795")
 	t.Parallel()
 
