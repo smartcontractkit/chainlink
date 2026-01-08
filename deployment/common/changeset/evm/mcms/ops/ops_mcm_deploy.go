@@ -8,6 +8,8 @@ import (
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	zkbindings "github.com/smartcontractkit/mcms/sdk/zksync/bindings"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -25,7 +27,7 @@ var OpEVMDeployProposerMCM = opsutils.NewEVMDeployOperation(
 	&opsutils.ContractOpts{
 		Version:     &deployment.Version1_0_0,
 		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
-		// ZkSyncVMBytecode not supported
+		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
 		return []any{}
@@ -41,7 +43,7 @@ var OpEVMDeployBypasserMCM = opsutils.NewEVMDeployOperation(
 	&opsutils.ContractOpts{
 		Version:     &deployment.Version1_0_0,
 		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
-		// ZkSyncVMBytecode not supported
+		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
 		return []any{}
@@ -57,7 +59,7 @@ var OpEVMDeployCancellerMCM = opsutils.NewEVMDeployOperation(
 	&opsutils.ContractOpts{
 		Version:     &deployment.Version1_0_0,
 		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
-		// ZkSyncVMBytecode not supported
+		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
 		return []any{}
