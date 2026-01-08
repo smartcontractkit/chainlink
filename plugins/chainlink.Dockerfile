@@ -14,10 +14,13 @@ COPY tools/bin/ldflags ./tools/bin/
 COPY ./plugins/scripts/setup_git_auth.sh ./
 
 ADD go.mod go.sum ./
+ENV GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=secret,id=GIT_AUTH_TOKEN \
+    set -e && \
+    trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./setup_git_auth.sh && \
-    GOPRIVATE=github.com/smartcontractkit/*  go mod download
+    GOPRIVATE=github.com/smartcontractkit/* go mod download
 COPY . .
 
 # Install Delve for debugging with cache mounts
@@ -37,8 +40,7 @@ ARG GO_GCFLAGS
 ARG COMMIT_SHA
 ARG VERSION_TAG
 
-ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
-    GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
+ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
