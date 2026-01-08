@@ -41,6 +41,9 @@ jobs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
       contents: read
+      id-token: write
+    env:
+      GOPRIVATE: github.com/smartcontractkit/chainlink-internal-solana
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,6 +55,16 @@ jobs:
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
         if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+      
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
 
       - name: Set up Go
         id: setup-go
@@ -160,6 +173,16 @@ jobs:
         with:
           ref: ${{ inputs.chainlink_version }}
           persist-credentials: false
+      
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
 
       - name: Set up Go
         id: setup-go
@@ -274,16 +297,6 @@ jobs:
             echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
             exit $exit_code
           fi
-
-      - name: Setup GitHub token using GATI
-        id: github-token
-        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: us-west-2
-          aws-role-duration-seconds: "1800"
-          set-git-config: "true"
 
       - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
         id: run-tests

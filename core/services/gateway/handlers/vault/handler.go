@@ -486,7 +486,7 @@ func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeResponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
 	}
 
 	var errorCode api.ErrorCode
@@ -527,7 +527,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	reqBytes, err := json.Marshal(createSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeResponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -559,7 +559,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	reqBytes, err := json.Marshal(updateSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeResponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -589,7 +589,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	reqBytes, err := json.Marshal(deleteSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeResponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -638,7 +638,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeResponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -701,7 +701,7 @@ func (h *handler) errorResponse(
 ) gwhandlers.UserCallbackPayload {
 	switch errorCode {
 	case api.FatalError:
-	case api.NodeReponseEncodingError:
+	case api.NodeResponseEncodingError:
 		h.lggr.Errorw(err.Error(), "requestID", req.ID)
 		// Intentionally hide the error from the user
 		err = errors.New(errorCode.String())
@@ -744,7 +744,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	switch resp.ErrorCode {
 	case api.StaleNodeResponseError:
 	case api.FatalError:
-	case api.NodeReponseEncodingError:
+	case api.NodeResponseEncodingError:
 	case api.RequestTimeoutError:
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(

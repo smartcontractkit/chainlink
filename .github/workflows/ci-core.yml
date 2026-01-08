@@ -121,6 +121,7 @@ jobs:
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
+      id-token: write
     runs-on: ${{ needs.runner-config.outputs.lint-runner }}
     strategy:
       fail-fast: false
@@ -137,10 +138,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
       - name: Golang Lint (${{ matrix.modules }})
         id: golang-lint
         uses: ./.github/actions/golangci-lint
         timeout-minutes: 20
+        env:
+          GOPRIVATE: github.com/smartcontractkit/chainlink-internal-solana
         with:
           go-directory: ${{ matrix.modules }}
 
@@ -201,6 +214,7 @@ jobs:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
       # when they should not be using it, while still allowing us to DRY up the setup
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+      GOPRIVATE: github.com/smartcontractkit/chainlink-internal-solana
     strategy:
       fail-fast: false
       matrix:
@@ -257,6 +271,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
       - name: Setup Go
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-go
@@ -301,7 +325,7 @@ jobs:
 
       - name: Download Go vendor packages
         if: ${{ matrix.type.should-run == 'true' }}
-        run: go mod download
+        run: GOPRIVATE=github.com/smartcontractkit/chainlink-internal-solana go mod download
 
       - name: Setup DB
         if: ${{ matrix.type.should-run == 'true' }}
@@ -540,6 +564,11 @@ jobs:
     name: Clean Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu22.04-8cores-32GB
+    env:
+      GOPRIVATE: github.com/smartcontractkit/chainlink-internal-solana
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         shell: bash
@@ -548,6 +577,15 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
