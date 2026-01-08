@@ -50,7 +50,9 @@ func (o *LogEventTrigger) PreEnvStartup(
 				CapabilityType: 0, // TRIGGER
 				ResponseType:   0, // REPORT
 			},
-			Config: &capabilitiespb.CapabilityConfig{},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		})
 	}
 

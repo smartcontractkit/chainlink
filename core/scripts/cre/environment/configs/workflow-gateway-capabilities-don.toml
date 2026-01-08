@@ -74,6 +74,7 @@
   nodes = 4
   name = "capabilities"
   don_types = ["capabilities"]
+  exposes_remote_capabilities = true
   override_mode = "all"
   http_port_range_start = 10200
 
@@ -82,7 +83,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["web-api-target","vault"]
+  capabilities = ["web-api-target", "vault"]
 
   [nodesets.chain_capabilities]
   write-evm = ["2337"]
