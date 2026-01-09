@@ -491,20 +491,6 @@ func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, node
 	}
 }
 
-// func findNodeAddressPerChain(nodeSet *cre.NodeSet, workerNode *cre.NodeMetadata) (map[uint64]common.Address, error) {
-// 	// get all the forwarders and add workflow config (FromAddress) for chains that have evm enabled
-// 	data := make(map[uint64]common.Address)
-// 	for _, chainID := range nodeSet.ChainCapabilities[flag].EnabledChains {
-// 		evmKey, ok := workerNode.Keys.EVM[chainID]
-// 		if !ok {
-// 			return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-// 		}
-// 		data[chainID] = evmKey.PublicAddress
-// 	}
-
-// 	return data, nil
-// }
-
 // getEvmMethodConfigs returns the method configs for all EVM methods we want to support, if any method is missing it
 // will not be reached by the node when running evm capability in remote don
 func getEvmMethodConfigs(nodeSet *cre.NodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
