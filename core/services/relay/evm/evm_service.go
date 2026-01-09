@@ -206,6 +206,10 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	if txRequest.GasConfig != nil && txRequest.GasConfig.GasLimit != nil {
 		gasLimit = *txRequest.GasConfig.GasLimit
 	}
+	var maxGasPrice *big.Int
+	if txRequest.GasConfig != nil && txRequest.GasConfig.MaxGasPrice != nil {
+		maxGasPrice = txRequest.GasConfig.MaxGasPrice
+	}
 
 	id, err := uuid.NewUUID()
 	if err != nil {
@@ -221,6 +225,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		ToAddress:      txRequest.To,
 		EncodedPayload: txRequest.Data,
 		FeeLimit:       gasLimit,
+		MaxGasPrice:    maxGasPrice,
 		Meta:           txMeta,
 		IdempotencyKey: &txID,
 		// PLEX-1524 - Review strategy to be used.
