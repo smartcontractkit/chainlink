@@ -275,12 +275,12 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 		Network:       "ethereum-mainnet",
 	}
 
-	var capturedChainSelector string
+	var capturedChainSelector atomic.Value
 	chipClient.On("PublishBatch", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PublishResponse{}, nil).Run(func(args mock.Arguments) {
 		batch := args.Get(1).(*chipingress.CloudEventBatch)
 		if len(batch.Events) > 0 {
 			attrs := batch.Events[0].GetAttributes()
-			capturedChainSelector = attrs["chainselector"].GetCeString()
+			capturedChainSelector.Store(attrs["chainselector"].GetCeString())
 		}
 	})
 
@@ -288,7 +288,11 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 	chipIngressClient.Send(testCtx, telemPayload)
 
 	g.Eventually(func() string {
-		return capturedChainSelector
+		v := capturedChainSelector.Load()
+		if v == nil {
+			return ""
+		}
+		return v.(string)
 	}).Should(gomega.Equal("123456789"))
 }
 

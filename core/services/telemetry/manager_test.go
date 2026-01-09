@@ -381,6 +381,12 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 		ks := keymocks.NewCSA(t)
 
 		tm := NewManager(tic, ks, lggr)
+		// Start and cleanup the manager to ensure background goroutines are properly stopped
+		require.NoError(t, tm.Start(testutils.Context(t)))
+		t.Cleanup(func() {
+			require.NoError(t, tm.Close())
+		})
+
 		me := tm.GenMonitoringEndpoint("EVM", "1", "0x123", synchronization.OCR2Median)
 		require.Equal(t, "*telemetry.ChipIngressAgent", reflect.TypeOf(me).String())
 
