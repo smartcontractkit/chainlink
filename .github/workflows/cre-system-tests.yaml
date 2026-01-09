@@ -326,7 +326,7 @@ jobs:
             --junitfile=/tmp/junit-report.xml \
             --format=github-actions \
             -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
+            -v -run "${TEST_NAME}" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
           exit_code=$?
