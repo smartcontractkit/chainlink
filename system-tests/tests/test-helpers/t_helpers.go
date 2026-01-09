@@ -240,6 +240,34 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	return nil
 }
 
+func LogBeholderMessages(ctx context.Context, testLogger zerolog.Logger, messageChan <-chan proto.Message) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-messageChan:
+			// Process received messages
+			switch typedMsg := msg.(type) {
+			case *commonevents.BaseMessage:
+				l := testLogger.Info()
+				for labelKey, labelValue := range typedMsg.Labels {
+					l = l.Str(labelKey, labelValue)
+				}
+				l.Msg("➡️ Beholder Msg: " + typedMsg.Msg)
+			case *workflowevents.UserLogs:
+				l := testLogger.Info().
+					Str("execution_id", typedMsg.M.WorkflowExecutionID).
+					Str("workflow_name", typedMsg.M.WorkflowName)
+				for _, logLine := range typedMsg.LogLines {
+					l.Msg("➡️ Beholder user msg: " + logLine.Message)
+				}
+			default:
+				// ignore other message types
+			}
+		}
+	}
+}
+
 //////////////////////////////
 //      CRYPTO HELPERS      //
 //////////////////////////////
@@ -276,17 +304,17 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 // Register your workflow configuration types here
 type WorkflowConfig interface {
 	None |
-		portypes.WorkflowConfig |
-		crontypes.WorkflowConfig |
-		HTTPWorkflowConfig |
-		consensus_negative_config.Config |
-		evmread_config.Config |
-		logtrigger_config.Config |
-		evmread_negative_config.Config |
-		evmwrite_negative_config.Config |
-		http_config.Config |
-		httpaction_smoke_config.Config |
-		httpaction_negative_config.Config
+	portypes.WorkflowConfig |
+	crontypes.WorkflowConfig |
+	HTTPWorkflowConfig |
+	consensus_negative_config.Config |
+	evmread_config.Config |
+	logtrigger_config.Config |
+	evmread_negative_config.Config |
+	evmwrite_negative_config.Config |
+	http_config.Config |
+	httpaction_smoke_config.Config |
+	httpaction_negative_config.Config
 }
 
 // None represents an empty workflow configuration

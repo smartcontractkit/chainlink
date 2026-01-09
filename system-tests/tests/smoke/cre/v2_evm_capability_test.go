@@ -37,6 +37,9 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const workflowFileLocation = "./evm/evmread/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
+	listenerCtx, messageChan, _ := t_helpers.StartBeholder(t, lggr, testEnv)
+	go t_helpers.LogBeholderMessages(listenerCtx, lggr, messageChan)
+
 	var workflowsWg sync.WaitGroup
 	var successfulWorkflowRuns atomic.Int32
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"runtime/debug"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -49,11 +48,11 @@ func RunReadWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider sdk
 	}, nil
 }
 
-func onReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Payload) (_ any, _ error) {
+func onReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Payload) (_ any, err error) {
 	runtime.Logger().Info("onReadTrigger called", "payload", payload)
 	defer func() {
 		if r := recover(); r != nil {
-			runtime.Logger().Error("recovered from panic", "recovered", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
 	t := &T{Logger: runtime.Logger()}
@@ -71,7 +70,7 @@ func onReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Payload
 	requireReceipt(t, runtime, cfg, client)
 	runtime.Logger().Info("Successfully got receipt")
 	var expectedTx types.Transaction
-	err := expectedTx.UnmarshalBinary(cfg.ExpectedBinaryTx)
+	err = expectedTx.UnmarshalBinary(cfg.ExpectedBinaryTx)
 	require.NoError(t, err)
 	requireTx(t, runtime, &expectedTx, client)
 	runtime.Logger().Info("Successfully got transaction")
@@ -247,14 +246,20 @@ func (t *T) Errorf(format string, args ...interface{}) {
 	// if the log was produced by require/assert we need to split it, as engine does not allow logs longer than 1k bytes
 	if len(args) > 0 {
 		if msg, ok := args[0].(string); ok && strings.Contains(msg, "Error:") && strings.Contains(msg, "Error Trace:") {
-			for _, line := range strings.Split(msg, "Error:") {
-				t.Logger.Error(line)
+			var out []string
+			for _, line := range strings.Split(msg, "\n") {
+				if strings.Contains(line, "Error Trace") {
+					continue
+				}
+
+				out = append(out, line)
 			}
+
+			t.Logger.Error(strings.Join(out, ";"))
 			return
 		}
 	}
 	t.Logger.Error(fmt.Sprintf(format, args...))
-	panic(fmt.Sprintf(format, args...)) // panic to stop execution
 }
 
 func (t *T) FailNow() {
