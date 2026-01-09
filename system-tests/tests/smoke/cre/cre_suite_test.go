@@ -122,7 +122,7 @@ func Test_EVM_Job_Update(t *testing.T) {
 	var f = func(don *cre.Don) error {
 		// horrible copy & paste of `createJobs` function from /Users/bartektofel/Desktop/repos/chainlink/system-tests/lib/cre/features/evm/v2/evm.go
 
-		configTemplate := `{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%.0f" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%.0f" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%.0f" .}}{{end}}}`
+		configTemplate := `{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%d" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%d" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%d" .}}{{end}}}`
 		specs := make(map[string][]string)
 		capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
 		if !ok {
