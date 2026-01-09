@@ -371,6 +371,41 @@ func TestEVMService(t *testing.T) {
 			},
 			ExpectedError: "no enabled addresses available",
 		},
+		{
+			Name: "Selects address with highest balance when multiple addresses available",
+			SetupMocks: func(m *Mocks, ctx any) {
+				highBalanceAddr := createFromAddress().Address()
+				lowBalanceAddr := common.HexToAddress("0x333")
+
+				// Clear the default expectation and return multiple addresses
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return(
+					[]common.Address{lowBalanceAddr, highBalanceAddr}, nil,
+				).Once()
+
+				// Mock BalanceAt: lowBalanceAddr has 0, highBalanceAddr has 1000
+				m.EvmClient.EXPECT().BalanceAt(mock.Anything, lowBalanceAddr, (*big.Int)(nil)).Return(big.NewInt(0), nil).Once()
+				m.EvmClient.EXPECT().BalanceAt(mock.Anything, highBalanceAddr, (*big.Int)(nil)).Return(big.NewInt(1000), nil).Once()
+
+				// Expect transaction to be created with the high balance address
+				expectedTxRequest := txmgr.TxRequest{
+					FromAddress:    highBalanceAddr,
+					ToAddress:      createToAddress(),
+					EncodedPayload: createPayload(),
+				}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
+					return txRequest.FromAddress == expectedTxRequest.FromAddress &&
+						txRequest.ToAddress == expectedTxRequest.ToAddress &&
+						slices.Equal(txRequest.EncodedPayload, expectedTxRequest.EncodedPayload)
+				})).Return(txmgr.Tx{}, nil).Once()
+
+				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Once()
+				txHash := common.HexToHash(ExpectedTxHash)
+				mockReceipt := NewChainReceipt(txHash, t)
+				m.TxManager.EXPECT().GetTransactionReceipt(mock.Anything, mock.Anything).Return(&mockReceipt, nil).Once()
+			},
+			ExpectedResult: &evm.TransactionResult{TxStatus: evm.TxSuccess, TxHash: common.HexToHash(ExpectedTxHash)},
+		},
 	}
 
 	for _, tc := range submitTxCases {
