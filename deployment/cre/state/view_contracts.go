@@ -97,7 +97,8 @@ func (v CREView) MarshalJSON() ([]byte, error) {
 
 type CREViewV2 struct {
 	Chains map[string]CREChainView   `json:"chains,omitempty"`
-	Nops   map[string]view.NopViewV2 `json:"nops,omitempty"`
+	Nops   map[string]view.NopView   `json:"nops,omitempty"`
+	NopsV2 map[string]view.NopViewV2 `json:"nops_v2,omitempty"`
 }
 
 func (v CREViewV2) MarshalJSON() ([]byte, error) {
