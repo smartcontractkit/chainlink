@@ -107,6 +107,10 @@ func NewChipIngressAgentMultitype(
 // SendLog implements commontypes.MonitoringEndpoint.
 // It forwards the telemetry log to the TelemetryService using the TelemType set at construction.
 // For multitype agents (created via NewChipIngressAgentMultitype), this is a no-op.
+//
+// Note: This method does not accept a context parameter because it implements
+// the commontypes.MonitoringEndpoint interface from libocr, which defines
+// SendLog(log []byte) without a context. A background context is used internally.
 func (a *ChipIngressAgent) SendLog(log []byte) {
 	if a.TelemType == "" {
 		// Multitype agent - SendLog should not be called, use SendTypedLog instead
@@ -128,6 +132,10 @@ func (a *ChipIngressAgent) SendLog(log []byte) {
 
 // SendTypedLog implements MultitypeMonitoringEndpoint.
 // It forwards the telemetry log to the TelemetryService with the specified telemetry type.
+//
+// Note: This method does not accept a context parameter because it implements
+// the MultitypeMonitoringEndpoint interface, which mirrors the libocr
+// MonitoringEndpoint.SendLog signature for consistency. A background context is used internally.
 func (a *ChipIngressAgent) SendTypedLog(telemType synchronization.TelemetryType, log []byte) {
 	ctx := context.Background()
 
