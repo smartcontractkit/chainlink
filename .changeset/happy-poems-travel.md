@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-bump chain-selectors version to 1.0.88
+#updated chain-selectors version to 1.0.88
