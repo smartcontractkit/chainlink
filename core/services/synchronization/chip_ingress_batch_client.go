@@ -28,8 +28,6 @@ type chipIngressBatchClient struct {
 
 	workers      map[string]*chipIngressBatchWorker
 	workersMutex sync.RWMutex
-
-	healthMonitorCancel context.CancelFunc
 }
 
 // NewChipIngressBatchClient returns a client backed by chipingress.Client that
@@ -47,7 +45,6 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, logging bool, lggr
 	c.Service, c.eng = services.Config{
 		Name:  "ChipIngressBatchClient",
 		Start: c.start,
-		Close: c.close,
 	}.NewServiceEngine(lggr)
 
 	return c
@@ -56,14 +53,6 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, logging bool, lggr
 // start initializes the chip ingress batch client and starts health monitoring
 func (cc *chipIngressBatchClient) start(ctx context.Context) error {
 	cc.startHealthMonitoring(ctx, cc.chipClient)
-	return nil
-}
-
-// close stops health monitoring and cleans up resources
-func (cc *chipIngressBatchClient) close() error {
-	if cc.healthMonitorCancel != nil {
-		cc.healthMonitorCancel()
-	}
 	return nil
 }
 
@@ -117,31 +106,19 @@ func (cc *chipIngressBatchClient) findOrCreateWorker(payload TelemPayload) *chip
 }
 
 // startHealthMonitoring starts a goroutine to monitor the connection state and update other relevant metrics every 5 seconds
-func (cc *chipIngressBatchClient) startHealthMonitoring(ctx context.Context, chipClient chipingress.Client) {
-	_, cancel := context.WithCancel(ctx)
-	cc.healthMonitorCancel = cancel
-
-	cc.eng.Go(func(ctx context.Context) {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				// Check the connection state
-				connected := float64(0)
-				pingCtx, pingCancel := context.WithTimeout(ctx, 2*time.Second)
-				_, err := chipClient.Ping(pingCtx, &pb.EmptyRequest{})
-				pingCancel()
-				if err == nil {
-					connected = float64(1)
-				} else {
-					cc.eng.EmitHealthErr(err)
-				}
-				TelemetryClientConnectionStatus.WithLabelValues(chipIngress).Set(connected)
-			case <-ctx.Done():
-				return
-			}
+func (cc *chipIngressBatchClient) startHealthMonitoring(_ context.Context, chipClient chipingress.Client) {
+	cc.eng.GoTick(timeutil.NewTicker(func() time.Duration {
+		return 5 * time.Second
+	}), func(ctx context.Context) {
+		connected := float64(0)
+		pingCtx, pingCancel := context.WithTimeout(ctx, 2*time.Second)
+		_, err := chipClient.Ping(pingCtx, &pb.EmptyRequest{})
+		pingCancel()
+		if err == nil {
+			connected = float64(1)
+		} else {
+			cc.eng.EmitHealthErr(err)
 		}
+		TelemetryClientConnectionStatus.WithLabelValues(chipIngress).Set(connected)
 	})
 }
