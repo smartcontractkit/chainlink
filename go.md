@@ -281,6 +281,7 @@ flowchart LR
 	click chainlink-ccv href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-common --> chain-selectors
 	chainlink-common --> chainlink-common/pkg/chipingress
+	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> chainlink-protos/cre/go
 	chainlink-common --> chainlink-protos/linking-service/go
@@ -363,7 +364,6 @@ flowchart LR
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
-	chainlink-sui --> chainlink-common/pkg/values
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-sui/deployment --> chainlink-deployments-framework
 	chainlink-sui/deployment --> chainlink/v2
@@ -420,6 +420,12 @@ flowchart LR
 	chainlink/deployment --> chainlink-sui/deployment
 	chainlink/deployment --> chainlink-ton/deployment
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
+	chainlink/devenv --> chainlink-deployments-framework
+	chainlink/devenv --> chainlink-evm
+	chainlink/devenv --> chainlink-testing-framework/framework/components/fake
+	click chainlink/devenv href "https://github.com/smartcontractkit/chainlink"
+	chainlink/devenv/fakes --> chainlink-testing-framework/framework/components/fake
+	click chainlink/devenv/fakes href "https://github.com/smartcontractkit/chainlink"
 	chainlink/integration-tests --> chainlink-testing-framework/havoc
 	chainlink/integration-tests --> chainlink-testing-framework/sentinel
 	chainlink/integration-tests --> chainlink/deployment
@@ -526,6 +532,8 @@ flowchart LR
 		 chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
 		 chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 		 chainlink/deployment
+		 chainlink/devenv
+		 chainlink/devenv/fakes
 		 chainlink/integration-tests
 		 chainlink/load-tests
 		 chainlink/system-tests/lib

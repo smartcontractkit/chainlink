@@ -10,6 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -77,8 +78,8 @@ func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
 	return oracleConfig, nil
 }
 
-func DefaultOCR3_1Config(numWorkers int) (*ocr3.V3_1OracleConfig, error) {
-	return &ocr3.V3_1OracleConfig{
+func DefaultOCR3_1Config(numWorkers int) (*ocr3_1.V3_1OracleConfig, error) {
+	return &ocr3_1.V3_1OracleConfig{
 		DeltaProgressMillis:  5000, // DKG 10-15 seconds; Vault 5 sec // check bandwidth from nops
 		DeltaRoundMillis:     200,
 		DeltaGraceMillis:     0,
@@ -98,6 +99,10 @@ func DefaultOCR3_1Config(numWorkers int) (*ocr3.V3_1OracleConfig, error) {
 		WarnDurationCommitted:                 1000,
 
 		MaxFaultyOracles: 1,
+
+		PrevConfigDigest:  "",
+		PrevSeqNr:         0,
+		PrevHistoryDigest: "",
 	}, nil
 }
 

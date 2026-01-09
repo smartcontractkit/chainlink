@@ -31,8 +31,8 @@ var OpEVMDeployTimelock = opsutils.NewEVMDeployOperation(
 	commontypes.RBACTimelock,
 	bindings.RBACTimelockMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.RBACTimelockBin),
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.RBACTimelockBin),
 		ZkSyncVMBytecode: zkbindings.RBACTimelockZkBytecode,
 	},
 	func(input OpEVMDeployTimelockInput) []any {

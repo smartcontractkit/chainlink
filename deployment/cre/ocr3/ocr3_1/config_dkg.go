@@ -1,9 +1,10 @@
-package ocr3
+package ocr3_1
 
 import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,30 +17,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
-
-type V3_1OracleConfig struct {
-	DeltaProgressMillis  uint32
-	DeltaRoundMillis     uint32
-	DeltaGraceMillis     uint32
-	DeltaStageMillis     uint32
-	MaxRoundsPerEpoch    uint64
-	TransmissionSchedule []int
-
-	MaxDurationInitializationMillis               uint32
-	MaxDurationShouldAcceptAttestedReportMillis   uint32
-	MaxDurationShouldTransmitAcceptedReportMillis uint32
-
-	WarnDurationQueryMillis               uint32
-	WarnDurationObservationMillis         uint32
-	WarnDurationValidateObservationMillis uint32
-	WarnDurationObservationQuorumMillis   uint32
-	WarnDurationStateTransition           uint32
-	WarnDurationCommitted                 uint32
-
-	MaxFaultyOracles int
-}
 
 const offchainPublicKeyType byte = 0x8
 
@@ -52,28 +32,28 @@ func oCR3CapabilityCompatibleOnchainPublicKey(offchainPublicKey types.OffchainPu
 	return result
 }
 
-func GenerateDKGConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (OCR2OracleConfig, error) {
-	nca := makeNodeKeysSlice(nodes, registryChainSel)
+func GenerateDKGConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (ocr3.OCR2OracleConfig, error) {
+	nca := ocr3.MakeNodeKeysSlice(nodes, registryChainSel)
 	return GenerateDKGConfig(cfg, nca, secrets, dkgCfg)
 }
 
-func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (OCR2OracleConfig, error) {
+func GenerateDKGConfig(cfg V3_1OracleConfig, nca []ocr3.NodeKeys, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (ocr3.OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
-		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
+		return ocr3.OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
 	}
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
 	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
 		if err != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
+			return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		nCopied := copy(pkBytesFixed[:], pkBytes)
 		if nCopied != ed25519.PublicKeySize {
-			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
+			return ocr3.OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
 		}
 
 		offchainPubKeysBytes = append(offchainPubKeysBytes, pkBytesFixed)
@@ -88,13 +68,13 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
 		if err != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
+			return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		n := copy(pkBytesFixed[:], pkBytes)
 		if n != ed25519.PublicKeySize {
-			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
+			return ocr3.OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
 		}
 
 		configPubKeysBytes = append(configPubKeysBytes, pkBytesFixed)
@@ -115,7 +95,15 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 
 	cfgBytes, err := dkgCfg.MarshalBinary()
 	if err != nil {
-		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
+		return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
+	}
+	prevConfigDigest, prevHistoryDigest, err := VerifyAndExtractOCR3_1Fields(cfg.PrevConfigDigest, cfg.PrevSeqNr, cfg.PrevHistoryDigest)
+	if err != nil {
+		return ocr3.OCR2OracleConfig{}, errors.New("VerifyAndExtractOCR3_1Fields failed to verify and extract OCR3.1 fields: " + err.Error())
+	}
+	var prevSeqNr *uint64
+	if cfg.PrevSeqNr != 0 {
+		prevSeqNr = &cfg.PrevSeqNr
 	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3_1confighelper.ContractSetConfigArgsDeterministic(
@@ -141,10 +129,14 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 		time.Duration(cfg.WarnDurationCommitted)*time.Millisecond,
 		time.Duration(cfg.MaxDurationShouldAcceptAttestedReportMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationShouldTransmitAcceptedReportMillis)*time.Millisecond,
-		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{},
+		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{
+			PrevConfigDigest:  prevConfigDigest,
+			PrevSeqNr:         prevSeqNr,
+			PrevHistoryDigest: prevHistoryDigest,
+		},
 	)
 	if err != nil {
-		return OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
+		return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
 	}
 
 	var configSigners [][]byte
@@ -154,10 +146,10 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecr
 
 	transmitterAddresses, err := evm.AccountToAddress(transmitters)
 	if err != nil {
-		return OCR2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
+		return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
 	}
 
-	config := OCR2OracleConfig{
+	config := ocr3.OCR2OracleConfig{
 		Signers:               configSigners,
 		Transmitters:          transmitterAddresses,
 		F:                     f,

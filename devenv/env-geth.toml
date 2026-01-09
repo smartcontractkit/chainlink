@@ -1,0 +1,5 @@
+[[blockchains]]
+  container_name = "blockchain"
+  chain_id = "1337"
+  port = "8545"
+  type = "geth"
