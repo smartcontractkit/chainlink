@@ -119,10 +119,7 @@ func Test_EVM_Job_Update(t *testing.T) {
 	creEnv := testEnv.CreEnvironment
 	dons := testEnv.Dons
 
-	don, err := dons.OneDonWithFlag(flag)
-	require.NoError(t, err)
-
-	var f = func() error {
+	var f = func(don *cre.Don) error {
 		// horrible copy & paste of `createJobs` function from /Users/bartektofel/Desktop/repos/chainlink/system-tests/lib/cre/features/evm/v2/evm.go
 
 		configTemplate := `{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%.0f" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%.0f" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%.0f" .}}{{end}}}`
@@ -302,8 +299,12 @@ func Test_EVM_Job_Update(t *testing.T) {
 		return nil
 	}
 
-	err = f()
-	require.NoError(t, err)
+	dd := dons.DonsWithFlags(flag)
+
+	for _, don := range dd {
+		err := f(don)
+		require.NoError(t, err)
+	}
 }
 
 //////////// V2 TESTS /////////////
