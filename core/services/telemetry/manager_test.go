@@ -461,7 +461,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 
 		tm := NewManager(tic, ks, lggr)
 		me := tm.GenMultitypeMonitoringEndpoint("EVM", "137", "0x456")
-		assert.Equal(t, "*telemetry.ChipIngressAgentMultitype", reflect.TypeOf(me).String())
+		assert.Equal(t, "*telemetry.ChipIngressAgent", reflect.TypeOf(me).String())
 	})
 
 	t.Run("returns noop agent for invalid chain when chip ingress enabled", func(t *testing.T) {

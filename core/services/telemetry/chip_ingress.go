@@ -17,9 +17,13 @@ import (
 // Verify interface implementation at compile time
 var (
 	_ commontypes.MonitoringEndpoint = (*ChipIngressAgent)(nil)
-	_ MultitypeMonitoringEndpoint    = (*ChipIngressAgentMultitype)(nil)
+	_ MultitypeMonitoringEndpoint    = (*ChipIngressAgent)(nil)
 )
 
+// ChipIngressAgent implements both commontypes.MonitoringEndpoint and MultitypeMonitoringEndpoint.
+// When created with a TelemType, it uses that type for SendLog calls.
+// When created without a TelemType (via NewChipIngressAgentMultitype), SendLog is a no-op
+// and SendTypedLog must be used instead.
 type ChipIngressAgent struct {
 	Network       string
 	ChainID       string
@@ -28,13 +32,13 @@ type ChipIngressAgent struct {
 	telemService  synchronization.ChipIngressService
 	lggr          logger.Logger
 
-	TelemType synchronization.TelemetryType // Stored for single-type SendLog
-	Domain    string                        // Derived from TelemetryType (for single-type endpoints)
-	Entity    string                        // Derived from TelemetryType (for single-type endpoints)
+	TelemType synchronization.TelemetryType // Empty for multitype endpoints
+	Domain    string                        // Derived from TelemetryType (empty for multitype)
+	Entity    string                        // Derived from TelemetryType (empty for multitype)
 }
 
-// NewChipIngressAgent creates a new adapter for a telemetryEndpoint
-// It derives the chain selector from the Network and ChainID
+// NewChipIngressAgent creates a new agent for a single telemetry type endpoint.
+// It derives the chain selector from the Network and ChainID.
 func NewChipIngressAgent(
 	telemService synchronization.ChipIngressService,
 	network string,
@@ -70,9 +74,45 @@ func NewChipIngressAgent(
 	}, nil
 }
 
-// SendLog implements commontypes.MonitoringEndpoint
-// It forwards the telemetry log to the TelemetryService
+// NewChipIngressAgentMultitype creates a new agent for multitype telemetry endpoints.
+// Unlike NewChipIngressAgent, the telemetry type is not set at construction time
+// and must be provided with each SendTypedLog call.
+func NewChipIngressAgentMultitype(
+	telemService synchronization.ChipIngressService,
+	network string,
+	chainID string,
+	contractID string,
+	lggr logger.Logger,
+) (*ChipIngressAgent, error) {
+	if telemService == nil {
+		return nil, errors.New("telemetry service cannot be nil")
+	}
+	// Use chain-selectors package to get the ChainDetails which includes the selector
+	details, err := chainselector.GetChainDetailsByChainIDAndFamily(chainID, strings.ToLower(network))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain details for chainID %s and network %s: %w", chainID, network, err)
+	}
+
+	return &ChipIngressAgent{
+		Network:       network,
+		ChainID:       chainID,
+		ContractID:    contractID,
+		ChainSelector: details.ChainSelector,
+		telemService:  telemService,
+		lggr:          lggr,
+		// TelemType, Domain, Entity left empty for multitype
+	}, nil
+}
+
+// SendLog implements commontypes.MonitoringEndpoint.
+// It forwards the telemetry log to the TelemetryService using the TelemType set at construction.
+// For multitype agents (created via NewChipIngressAgentMultitype), this is a no-op.
 func (a *ChipIngressAgent) SendLog(log []byte) {
+	if a.TelemType == "" {
+		// Multitype agent - SendLog should not be called, use SendTypedLog instead
+		a.lggr.Warnw("SendLog called on multitype agent, use SendTypedLog instead")
+		return
+	}
 	ctx := context.Background()
 	payload := synchronization.TelemPayload{
 		Telemetry:     log,
@@ -86,45 +126,9 @@ func (a *ChipIngressAgent) SendLog(log []byte) {
 	a.telemService.Send(ctx, payload)
 }
 
-type ChipIngressAgentMultitype struct {
-	Network            string
-	ChainID            string
-	ContractID         string
-	ChainSelector      uint64
-	chipIngressService synchronization.ChipIngressService
-	lggr               logger.Logger
-	// no TelemType
-}
-
-func NewChipIngressAgentMultitype(
-	telemService synchronization.ChipIngressService,
-	network string,
-	chainID string,
-	contractID string,
-	lggr logger.Logger,
-) (*ChipIngressAgentMultitype, error) {
-	if telemService == nil {
-		return nil, errors.New("telemetry service cannot be nil")
-	}
-	// Use chain-selectors package to get the ChainDetails which includes the selector
-	details, err := chainselector.GetChainDetailsByChainIDAndFamily(chainID, strings.ToLower(network))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain details for chainID %s and network %s: %w", chainID, network, err)
-	}
-
-	return &ChipIngressAgentMultitype{
-		Network:            network,
-		ChainID:            chainID,
-		ContractID:         contractID,
-		ChainSelector:      details.ChainSelector,
-		chipIngressService: telemService,
-		lggr:               lggr,
-	}, nil
-}
-
-// SendTypedLog implements MultitypeMonitoringEndpoint
-// It forwards the telemetry log to the TelemetryService with the specified telemetry type
-func (a *ChipIngressAgentMultitype) SendTypedLog(telemType synchronization.TelemetryType, log []byte) {
+// SendTypedLog implements MultitypeMonitoringEndpoint.
+// It forwards the telemetry log to the TelemetryService with the specified telemetry type.
+func (a *ChipIngressAgent) SendTypedLog(telemType synchronization.TelemetryType, log []byte) {
 	ctx := context.Background()
 
 	domain, entity, err := synchronization.TelemetryTypeToDomainAndEntity(telemType)
@@ -142,5 +146,5 @@ func (a *ChipIngressAgentMultitype) SendTypedLog(telemType synchronization.Telem
 		Entity:        entity,
 		Network:       a.Network,
 	}
-	a.chipIngressService.Send(ctx, payload)
+	a.telemService.Send(ctx, payload)
 }

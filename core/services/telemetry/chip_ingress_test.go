@@ -46,7 +46,7 @@ func (m *MockChipIngressService) Ready() error {
 	return args.Error(0)
 }
 
-func TestNewChipIngressAdapter(t *testing.T) {
+func TestNewChipIngressAgent(t *testing.T) {
 	t.Run("Success - Ethereum Mainnet", func(t *testing.T) {
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
@@ -138,7 +138,47 @@ func TestNewChipIngressAdapter(t *testing.T) {
 	})
 }
 
-func TestChipIngressAdapter_SendLog(t *testing.T) {
+func TestNewChipIngressAgentMultitype(t *testing.T) {
+	t.Run("Success - creates multitype agent", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+
+		adapter, err := NewChipIngressAgentMultitype(mockTelemService, "EVM", "1", "0x1234", lggr)
+		require.NoError(t, err)
+		require.NotNil(t, adapter)
+
+		// Verify chain selector was derived correctly
+		assert.Equal(t, uint64(5009297550715157269), adapter.ChainSelector)
+		assert.Equal(t, "EVM", adapter.Network)
+		assert.Equal(t, "1", adapter.ChainID)
+
+		// Verify TelemType, Domain, Entity are empty for multitype
+		assert.Empty(t, adapter.TelemType)
+		assert.Empty(t, adapter.Domain)
+		assert.Empty(t, adapter.Entity)
+	})
+
+	t.Run("Error - nil telemetry service", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+
+		adapter, err := NewChipIngressAgentMultitype(nil, "EVM", "1", "0x1234", lggr)
+		require.Error(t, err)
+		assert.Nil(t, adapter)
+		assert.Contains(t, err.Error(), "telemetry service cannot be nil")
+	})
+
+	t.Run("Error - invalid chainID", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+
+		adapter, err := NewChipIngressAgentMultitype(mockTelemService, "EVM", "invalid", "0x1234", lggr)
+		require.Error(t, err)
+		assert.Nil(t, adapter)
+		assert.Contains(t, err.Error(), "failed to get chain details")
+	})
+}
+
+func TestChipIngressAgent_SendLog(t *testing.T) {
 	t.Run("Success - sends to telemetry service", func(t *testing.T) {
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
@@ -249,9 +289,112 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 
 		mockTelemService.AssertExpectations(t)
 	})
+
+	t.Run("SendLog on multitype agent logs warning", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+
+		adapter, err := NewChipIngressAgentMultitype(mockTelemService, "EVM", "1", "0x1234", lggr)
+		require.NoError(t, err)
+
+		// SendLog should not call Send on multitype agent
+		assert.NotPanics(t, func() {
+			adapter.SendLog([]byte("test"))
+		})
+
+		// Verify Send was NOT called
+		mockTelemService.AssertNotCalled(t, "Send", mock.Anything, mock.Anything)
+	})
 }
 
-func TestChipIngressAdapter_ExportedFields(t *testing.T) {
+func TestChipIngressAgent_SendTypedLog(t *testing.T) {
+	t.Run("Success - sends typed log", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+		contractID := "0x1234"
+
+		adapter, err := NewChipIngressAgentMultitype(mockTelemService, "EVM", "1", contractID, lggr)
+		require.NoError(t, err)
+
+		telemType := synchronization.OCR2Median
+		telemetryLog := []byte("test data")
+
+		expectedPayload := synchronization.TelemPayload{
+			Telemetry:     telemetryLog,
+			TelemType:     telemType,
+			ContractID:    contractID,
+			ChainSelector: adapter.ChainSelector,
+			Domain:        "data-feeds.telemetry.ocr2-median",
+			Entity:        "offchainreporting2.TelemetryWrapper",
+			Network:       adapter.Network,
+		}
+		mockTelemService.On("Send", mock.Anything, expectedPayload).Once()
+
+		adapter.SendTypedLog(telemType, telemetryLog)
+
+		mockTelemService.AssertExpectations(t)
+	})
+
+	t.Run("SendTypedLog with different types", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+		contractID := "0x5678"
+
+		adapter, err := NewChipIngressAgentMultitype(mockTelemService, "EVM", "137", contractID, lggr)
+		require.NoError(t, err)
+
+		// Send with OCR2Median
+		mockTelemService.On("Send", mock.Anything, mock.MatchedBy(func(p synchronization.TelemPayload) bool {
+			return p.TelemType == synchronization.OCR2Median && p.Domain == "data-feeds.telemetry.ocr2-median"
+		})).Once()
+		adapter.SendTypedLog(synchronization.OCR2Median, []byte("median data"))
+
+		// Send with OCR3Mercury
+		mockTelemService.On("Send", mock.Anything, mock.MatchedBy(func(p synchronization.TelemPayload) bool {
+			return p.TelemType == synchronization.OCR3Mercury && p.Domain == "data-streams.telemetry.ocr3-mercury"
+		})).Once()
+		adapter.SendTypedLog(synchronization.OCR3Mercury, []byte("mercury data"))
+
+		mockTelemService.AssertExpectations(t)
+	})
+
+	t.Run("SendTypedLog with invalid type logs error", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+
+		adapter, err := NewChipIngressAgentMultitype(mockTelemService, "EVM", "1", "0x1234", lggr)
+		require.NoError(t, err)
+
+		// Should not panic, just log error
+		assert.NotPanics(t, func() {
+			adapter.SendTypedLog(synchronization.TelemetryType("invalid"), []byte("test"))
+		})
+
+		// Verify Send was NOT called due to invalid type
+		mockTelemService.AssertNotCalled(t, "Send", mock.Anything, mock.Anything)
+	})
+
+	t.Run("SendTypedLog works on single-type agent too", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+		contractID := "0x1234"
+
+		// Create single-type agent
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", contractID, synchronization.OCR2Median, lggr)
+		require.NoError(t, err)
+
+		// SendTypedLog should still work
+		mockTelemService.On("Send", mock.Anything, mock.MatchedBy(func(p synchronization.TelemPayload) bool {
+			return p.TelemType == synchronization.OCR3Mercury
+		})).Once()
+
+		adapter.SendTypedLog(synchronization.OCR3Mercury, []byte("different type"))
+
+		mockTelemService.AssertExpectations(t)
+	})
+}
+
+func TestChipIngressAgent_ExportedFields(t *testing.T) {
 	mockTelemService := new(MockChipIngressService)
 	lggr := logger.TestLogger(t)
 	contractID := "0x1234567890"
@@ -285,19 +428,37 @@ func TestChipIngressAdapter_ExportedFields(t *testing.T) {
 	})
 }
 
-func TestChipIngressAdapter_InterfaceCompliance(t *testing.T) {
-	// This test verifies that ChipIngressAdapter implements commontypes.MonitoringEndpoint
-	mockTelemService := new(MockChipIngressService)
-	lggr := logger.TestLogger(t)
+func TestChipIngressAgent_InterfaceCompliance(t *testing.T) {
+	t.Run("single-type agent implements MonitoringEndpoint", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
 
-	adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", "0x123", synchronization.OCR2Median, lggr)
-	require.NoError(t, err)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", "0x123", synchronization.OCR2Median, lggr)
+		require.NoError(t, err)
 
-	// Verify it can be assigned to the interface
-	var _ interface{} = adapter
+		// Verify it can be assigned to the interface
+		var _ interface{} = adapter
 
-	// Call the interface method
-	mockTelemService.On("Send", mock.Anything, mock.Anything)
-	adapter.SendLog([]byte("test"))
-	mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything)
+		// Call the interface method
+		mockTelemService.On("Send", mock.Anything, mock.Anything)
+		adapter.SendLog([]byte("test"))
+		mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything)
+	})
+
+	t.Run("multitype agent implements MultitypeMonitoringEndpoint", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
+		lggr := logger.TestLogger(t)
+
+		adapter, err := NewChipIngressAgentMultitype(mockTelemService, "EVM", "1", "0x123", lggr)
+		require.NoError(t, err)
+
+		// Verify it implements MultitypeMonitoringEndpoint
+		var me MultitypeMonitoringEndpoint = adapter
+		require.NotNil(t, me)
+
+		// Call the interface method
+		mockTelemService.On("Send", mock.Anything, mock.Anything)
+		adapter.SendTypedLog(synchronization.OCR2Median, []byte("test"))
+		mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything)
+	})
 }
