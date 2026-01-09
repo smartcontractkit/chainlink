@@ -225,6 +225,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine FromAddress for SubmitTransaction: %w", err)
 	}
+	e.logger.Debugw("Using fromAddress", "address", fromAddress.Hex())
 
 	id, err := uuid.NewUUID()
 	if err != nil {
@@ -309,6 +310,7 @@ func (e *evmService) getAddressWithHighestBalance(ctx context.Context, addresses
 		return common.Address{}, errors.New("no addresses provided")
 	}
 	if len(addresses) == 1 {
+		e.logger.Debugw("only one enabled fromAddress for chain", "address", addresses[0].Hex())
 		return addresses[0], nil
 	}
 
@@ -333,7 +335,7 @@ func (e *evmService) getAddressWithHighestBalance(ctx context.Context, addresses
 		return addresses[0], nil
 	}
 
-	e.logger.Debugw("selected address with highest balance",
+	e.logger.Debugw("selected fromAddress with highest balance for chain",
 		"address", selectedAddress.Hex(),
 		"balance", highestBalance.String(),
 		"totalAddresses", len(addresses))

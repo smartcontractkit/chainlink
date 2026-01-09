@@ -261,11 +261,9 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainC
 		}
 
 		evmData.ForwarderAddress = contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, chain.Selector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-		evmKey, ok := workerNode.Keys.EVM[chainID]
-		if !ok {
-			return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-		}
-		evmData.FromAddress = evmKey.PublicAddress
+
+		// we don't need to add FromAddress here anymore
+		// the node will use EnabledAddresses from the keystore while submitting transactions
 
 		var mergeErr error
 		evmData, mergeErr = mergeDefaultAndRuntimeConfigValues(evmData, creEnv.CapabilityConfigs, chainCapabilityConfigs, chainID)

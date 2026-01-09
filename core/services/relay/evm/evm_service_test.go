@@ -69,7 +69,7 @@ type keyStoreMock struct {
 }
 
 func (_m keyStoreMock) EnabledAddresses(ctx context.Context) ([]common.Address, error) {
-	return _m.Eth.EnabledAddressesForChain(ctx, _m.chainID)
+	return _m.EnabledAddressesForChain(ctx, _m.chainID)
 }
 
 func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
