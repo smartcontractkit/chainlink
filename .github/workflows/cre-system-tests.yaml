@@ -124,6 +124,29 @@ jobs:
               )
           ')
 
+          # Extra tests: mix of contract and engine versions
+          cross_version_entries='[
+            {
+              "test_name": "Test_CRE_V1_Proof_Of_Reserve",
+              "topology": "workflow-gateway",
+              "configs": "configs/workflow-gateway-don.toml",
+              "test_id": null,
+              "cre_version": "v2"
+            },
+            {
+              "test_name": "Test_CRE_V2_Suite/[v2]_Proof_Of_Reserve_-_workflow-gateway",
+              "topology": "workflow-gateway",
+              "configs": "configs/workflow-gateway-don.toml",
+              "test_id": null,
+              "cre_version": "v1"
+            }
+          ]'
+
+          # Merge and reassign test_id sequentially
+          tests=$(echo "$tests" | jq -c \
+            --argjson manual "$cross_version_entries" \
+            '. + $manual | to_entries | map(.value + {test_id: .key})')
+
           tests=$(echo "$tests" | jq -c .)
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
