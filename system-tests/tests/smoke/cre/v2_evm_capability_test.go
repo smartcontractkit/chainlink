@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"math/rand"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,8 +39,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	listenerCtx, messageChan, _ := t_helpers.StartBeholder(t, lggr, testEnv)
 	go t_helpers.LogBeholderMessages(listenerCtx, lggr, messageChan)
 
-	var workflowsWg sync.WaitGroup
-	var successfulWorkflowRuns atomic.Int32
+	chainLock := sync.Mutex{}
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
@@ -49,27 +47,31 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			continue
 		}
 
-		lggr.Info().Msg("Creating EVM Read workflow configuration...")
-		require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
-		evmChain := bcOutput.(*evm.Blockchain)
-		workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain)
-		workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+		for tc := range evm_config.TestCaseLen {
+			t.Run(fmt.Sprintf("Read %s on chain %s", tc.String(), chainID), func(t *testing.T) {
+				t.Parallel()
+				workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
+				lggr.Info().
+					Str("workflow_name", workflowName).
+					Str("chain_id", chainID).
+					Str("test_case", tc.String()).
+					Msg("Creating EVM Read workflow configuration...")
+				require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
+				evmChain := bcOutput.(*evm.Blockchain)
+				// lock to avoid nonce issues
+				chainLock.Lock()
+				workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
+				t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+				chainLock.Unlock()
 
-		workflowsWg.Add(1)
-		go func(evmChain *evm.Blockchain) {
-			defer workflowsWg.Done()
-			validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64()) //nolint:testifylint // TODO: consider refactoring
-			successfulWorkflowRuns.Add(1)
-		}(evmChain)
+				validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
+			})
+
+		}
 	}
-
-	// wait for all workflows to complete
-	workflowsWg.Wait()
-	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
 }
 
-func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain) evm_config.Config {
+func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain, testCase evm_config.TestCase, workflowName string) evm_config.Config {
 	t.Helper()
 
 	chainID := chain.CtfOutput().ChainID
@@ -106,6 +108,8 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Bloc
 
 	accountAddress := addresses[0].Bytes()
 	return evm_config.Config{
+		TestCase:         testCase,
+		WorkflowName:     workflowName,
 		ContractAddress:  msgEmitterContractAddr.Bytes(),
 		ChainSelector:    chain.ChainSelector(),
 		AccountAddress:   accountAddress,
@@ -140,7 +144,7 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttype
 
 		// if there are no more filtered reports, stop
 		return !isReportSubmittedByWorkflow(ctx, t, forwarderContract, msgEmitterAddr, startBlock)
-	}, timeout, tick, "workflow %s did not execute within the timeout %s", workflowName, timeout.String())
+	}, timeout, tick, "workflow %s did not execute within the timeout %s. Check logs of parent test.", workflowName, timeout.String())
 }
 
 // isReportSubmittedByWorkflow checks if a report has been submitted by the workflow by filtering the ReportProcessed events
