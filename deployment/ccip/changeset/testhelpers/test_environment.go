@@ -424,10 +424,6 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 }
 
 func (d *DeployedEnv) RefreshAdapters() {
-	state, err := stateview.LoadOnchainState(d.Env)
-	if err != nil {
-		panic(err)
-	}
 	if d.Adapters == nil {
 		d.Adapters = make(map[uint64]Adapter)
 	}
@@ -444,7 +440,7 @@ func (d *DeployedEnv) RefreshAdapters() {
 			// NOTE: skip any chains with no adapter, give them a dummy one?
 			continue
 		}
-		d.Adapters[selector] = adapterFactory(chain, state)
+		d.Adapters[selector] = adapterFactory(chain, d.Env)
 	}
 }
 
