@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -254,7 +253,6 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		nodeIDToConfig[evmCapInput.NodeID] = string(enc)
 	}
 
-	job.ExternalJobID = evmJobIDHashFunc(job.Command, input.Environment, input.ChainSelector).String()
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		operations2.ProposeStandardCapabilityJob,
@@ -277,10 +275,4 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 	return cldf.ChangesetOutput{
 		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
-}
-
-func evmJobIDHashFunc(command, env string, chainSelector uint64) uuid.UUID {
-	byt := append([]byte(command), env...)
-	byt = append(byt, []byte(strconv.FormatUint(chainSelector, 10))...)
-	return uuid.NewSHA1(uuid.Nil, byt)
 }
