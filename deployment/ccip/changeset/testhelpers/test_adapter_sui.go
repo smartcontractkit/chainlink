@@ -23,8 +23,8 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 type SuiAdapter struct {
@@ -32,13 +32,17 @@ type SuiAdapter struct {
 	cldf_sui.Chain
 }
 
-func NewSuiAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
+func NewSuiAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter {
 	c, ok := chain.(cldf_sui.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
+	state, err := suistate.LoadOnchainStatesui(env)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load onchain state: %T", err))
+	}
 	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
-	s := state.SuiChains[c.ChainSelector()]
+	s := state[c.ChainSelector()]
 	return &SuiAdapter{
 		state: s,
 		Chain: c,

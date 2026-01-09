@@ -19,24 +19,28 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	aptos_stateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 )
 
 type AptosAdapter struct {
-	state aptos_stateview.CCIPChainState
+	state aptosstate.CCIPChainState
 	cldf_aptos.Chain
 }
 
-func NewAptosAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
+func NewAptosAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter {
 	c, ok := chain.(cldf_aptos.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
+	state, err := aptosstate.LoadOnchainStateAptos(env)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load onchain state: %T", err))
+	}
 	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
-	s := state.AptosChains[c.ChainSelector()]
+	s := state[c.ChainSelector()]
 	return &AptosAdapter{
 		state: s,
 		Chain: c,

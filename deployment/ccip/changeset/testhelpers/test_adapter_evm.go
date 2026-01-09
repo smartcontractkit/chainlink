@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	evm_stateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 )
@@ -26,10 +27,14 @@ type EVMAdapter struct {
 	cldf_evm.Chain
 }
 
-func NewEVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
+func NewEVMAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter {
 	c, ok := chain.(cldf_evm.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
+	}
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load onchain state: %T", err))
 	}
 	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
 	s, ok := state.Chains[c.ChainSelector()]

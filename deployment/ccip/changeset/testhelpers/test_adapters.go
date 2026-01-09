@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // Based on unfinished implementation at https://github.com/smartcontractkit/chainlink/blob/f0432dc777d33b83a621da2b042657601d5db8b6/integration-tests/smoke/ccip/canonical/types/types.go
@@ -109,7 +109,7 @@ type Adapter interface {
 	ValidateExec(t *testing.T, sourceSelector uint64, startBlock *uint64, seqNrs []uint64) (execStates map[uint64]int)
 }
 
-type AdapterFactory = func(cldf.BlockChain, stateview.CCIPOnChainState) Adapter
+type AdapterFactory = func(cldf.BlockChain, deployment.Environment) Adapter
 
 var Adapters = map[string]AdapterFactory{
 	chain_selectors.FamilyEVM:    NewEVMAdapter,

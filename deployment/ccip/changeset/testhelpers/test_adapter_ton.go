@@ -15,10 +15,10 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 type TonAdapter struct {
@@ -26,13 +26,19 @@ type TonAdapter struct {
 	cldf_ton.Chain
 }
 
-func NewTonAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
+func NewTonAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter {
 	c, ok := chain.(cldf_ton.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
+
+	state, err := tonstate.LoadOnchainState(env)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load onchain state: %T", err))
+	}
+
 	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
-	s := state.TonChains[c.ChainSelector()]
+	s := state[c.ChainSelector()]
 	return &TonAdapter{
 		state: s,
 		Chain: c,

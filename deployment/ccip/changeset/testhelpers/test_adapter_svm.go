@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	svm_stateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
@@ -33,10 +34,14 @@ type SVMAdapter struct {
 	cldf_solana.Chain
 }
 
-func NewSVMAdapter(chain cldf.BlockChain, state stateview.CCIPOnChainState) Adapter {
+func NewSVMAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter {
 	c, ok := chain.(cldf_solana.Chain)
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
+	}
+	state, err := stateview.LoadOnchainStateSolana(env)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load onchain state: %T", err))
 	}
 	// NOTE: since this returns a copy, adapters shouldn't be constructed until everything is deployed
 	s := state.SolChains[c.ChainSelector()]
