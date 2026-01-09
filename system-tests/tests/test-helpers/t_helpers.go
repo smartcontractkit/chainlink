@@ -304,17 +304,17 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 // Register your workflow configuration types here
 type WorkflowConfig interface {
 	None |
-	portypes.WorkflowConfig |
-	crontypes.WorkflowConfig |
-	HTTPWorkflowConfig |
-	consensus_negative_config.Config |
-	evmread_config.Config |
-	logtrigger_config.Config |
-	evmread_negative_config.Config |
-	evmwrite_negative_config.Config |
-	http_config.Config |
-	httpaction_smoke_config.Config |
-	httpaction_negative_config.Config
+		portypes.WorkflowConfig |
+		crontypes.WorkflowConfig |
+		HTTPWorkflowConfig |
+		consensus_negative_config.Config |
+		evmread_config.Config |
+		logtrigger_config.Config |
+		evmread_negative_config.Config |
+		evmwrite_negative_config.Config |
+		http_config.Config |
+		httpaction_smoke_config.Config |
+		httpaction_negative_config.Config
 }
 
 // None represents an empty workflow configuration

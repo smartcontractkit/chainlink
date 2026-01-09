@@ -66,7 +66,6 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 				validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
 			})
-
 		}
 	}
 }
