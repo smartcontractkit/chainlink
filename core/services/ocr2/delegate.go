@@ -63,6 +63,7 @@ import (
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -90,6 +91,7 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/sharding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -147,7 +149,6 @@ type Delegate struct {
 	legacyChains                   legacyevm.LegacyChainContainer // legacy: use relayers instead
 	capabilitiesRegistry           core.CapabilitiesRegistry
 	dontimeStore                   *dontime.Store
-	ringStore                      *ring.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 	limitsFactory                  limits.Factory
@@ -160,6 +161,7 @@ type DelegateConfig interface {
 	Insecure() insecureConfig
 	Mercury() coreconfig.Mercury
 	Threshold() coreconfig.Threshold
+	Sharding() coreconfig.Sharding
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -170,6 +172,7 @@ type delegateConfig struct {
 	insecure    insecureConfig
 	mercury     mercuryConfig
 	threshold   thresholdConfig
+	sharding    coreconfig.Sharding
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -190,6 +193,10 @@ func (d *delegateConfig) Mercury() coreconfig.Mercury {
 
 func (d *delegateConfig) OCR2() ocr2Config {
 	return d.ocr2
+}
+
+func (d *delegateConfig) Sharding() coreconfig.Sharding {
+	return d.sharding
 }
 
 type ocr2Config interface {
@@ -230,7 +237,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -238,6 +245,7 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 		insecure:        i,
 		mercury:         m,
 		threshold:       t,
+		sharding:        s,
 	}
 }
 
@@ -260,7 +268,6 @@ type DelegateOpts struct {
 	MailMon                        *mailbox.Monitor
 	CapabilitiesRegistry           core.CapabilitiesRegistry
 	DonTimeStore                   *dontime.Store
-	RingStore                      *ring.Store
 	RetirementReportCache          retirement.RetirementReportCache
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowKs                     keystore.Workflow
@@ -297,7 +304,6 @@ func NewDelegate(
 		mailMon:                        opts.MailMon,
 		capabilitiesRegistry:           opts.CapabilitiesRegistry,
 		dontimeStore:                   opts.DonTimeStore,
-		ringStore:                      opts.RingStore,
 		retirementReportCache:          opts.RetirementReportCache,
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
 		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
@@ -1021,7 +1027,50 @@ func (d *Delegate) newRingPlugin(
 		synchronization.TelemetryType(types.RingPlugin),
 	)
 
-	transmitter := ring.NewTransmitter(lggr, d.ringStore, ocrtypes.Account(spec.TransmitterID.String))
+	// Get sharding config
+	shardingCfg := d.cfg.Sharding()
+
+	// TODO: expand this into validation
+	// Start Arbiter if this is shard 0 (the leader shard)
+	if shardingCfg.ShardIndex() == 0 {
+		// Get ContractReaderFactory from relayer for shard config reading
+		contractReaderFactory := func(ctx context.Context, cfg []byte) (types.ContractReader, error) {
+			return relayer.NewContractReader(ctx, cfg)
+		}
+
+		// TODO: Get shardConfigAddr from job spec pluginConfig
+		shardConfigAddr := "" // Placeholder - should come from pluginConfig
+
+		arbiterSvc, arbiterErr := arbiter.New(
+			lggr,
+			contractReaderFactory,
+			shardConfigAddr,
+			shardingCfg.ArbiterPort(),
+			shardingCfg.ArbiterPollInterval(),
+			shardingCfg.ArbiterRetryInterval(),
+		)
+		if arbiterErr != nil {
+			return nil, fmt.Errorf("failed to create arbiter: %w", arbiterErr)
+		}
+		srvs = append(srvs, arbiterSvc)
+		lggr.Info("Arbiter service created (shard 0)")
+	}
+	store := ring.NewStore()
+	// Start ShardOrchestrator
+	orchestratorSvc, orchestratorErr := sharding.NewOrchestrator(
+		lggr,
+		shardingCfg.ShardOrchestratorPort(),
+	)
+	if orchestratorErr != nil {
+		return nil, fmt.Errorf("failed to create shard orchestrator: %w", orchestratorErr)
+	}
+	srvs = append(srvs, orchestratorSvc)
+	lggr.Infow("ShardOrchestrator service created", "shardIndex", shardingCfg.ShardIndex())
+
+	// Create no-op ArbiterScalerClient (TODO: replace with actual gRPC client)
+	arbiterScalerClient := sharding.NewNoopArbiterScalerClient(lggr)
+
+	transmitter := ring.NewTransmitter(lggr, store, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
@@ -1070,7 +1119,10 @@ func (d *Delegate) newRingPlugin(
 		OnchainKeyring:               onchainKeyringAdapter,
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(d.ringStore, lggr.Named("RingPluginFactory"), nil)
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(store, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
+		BatchSize:  100,         // Default batch size
+		TimeToSync: time.Second, // Default sync time
+	})
 	if err != nil {
 		return nil, err
 	}
