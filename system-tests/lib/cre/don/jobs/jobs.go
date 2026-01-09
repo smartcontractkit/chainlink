@@ -84,17 +84,15 @@ func Create(ctx context.Context, offChainClient cldf_offchain.Client, dons *cre.
 }
 
 func accept(ctx context.Context, node *cre.Node, jobSpec string) error {
-	// TODO: is there a way to accept the job with proposal id?
 	if err := node.AcceptJob(ctx, jobSpec); err != nil {
 		// Workflow specs get auto approved
-		// TODO: Narrow down scope by checking type == workflow
-		if strings.Contains(err.Error(), "cannot approve an approved spec") {
+		if strings.Contains(err.Error(), "cannot approve an approved spec") && strings.Contains(jobSpec, `type = "workflow"`) {
 			return nil
 		}
-		fmt.Println("Failed jobspec proposal:")
+		fmt.Println("Failed jobspec proposal for node ", node.Name)
 		fmt.Println(jobSpec)
 
-		return fmt.Errorf("failed to accept job. err: %w", err)
+		return fmt.Errorf("failed to accept job for node %s. err: %w", node.Name, err)
 	}
 
 	return nil

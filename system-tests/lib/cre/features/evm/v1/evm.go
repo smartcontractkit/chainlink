@@ -378,8 +378,8 @@ type writeEVMData struct {
 const evmWorkflowConfigTemplate = `
 	FromAddress = '{{.FromAddress}}'
 	ForwarderAddress = '{{.ForwarderAddress}}'
-	GasLimitDefault = {{.GasLimitDefault}}
-	TxAcceptanceState = {{.TxAcceptanceState}}
+	GasLimitDefault = {{printf "%v" .GasLimitDefault}}
+	TxAcceptanceState = {{printf "%v" .TxAcceptanceState}}
 	PollPeriod = '{{.PollPeriod}}'
 	AcceptanceTimeout = '{{.AcceptanceTimeout}}'
 `

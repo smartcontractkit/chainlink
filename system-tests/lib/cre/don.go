@@ -581,6 +581,7 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 	if idToAccept == "" {
 		return fmt.Errorf("no job proposal found for job spec %s", spec)
 	}
+	// set force to 'true' to mirror what the UI does
 	approvedSpec, err := n.Clients.GQLClient.ApproveJobProposalSpec(ctx, idToAccept, true)
 	if err != nil {
 		return err

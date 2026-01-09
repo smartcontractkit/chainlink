@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -55,7 +55,7 @@ func (o *Mock) PreEnvStartup(
 }
 
 const configTemplate = `
-port={{.Port}}
+port={{printf "%d" .Port}}
 {{- range .DefaultMocks }}
 [[DefaultMocks]]
 id = "{{ .Id }}"
