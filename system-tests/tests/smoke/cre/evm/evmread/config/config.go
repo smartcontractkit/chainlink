@@ -44,10 +44,6 @@ func (tc TestCase) String() string {
 	}
 }
 
-func FormatSuccessMessage(workflowName string, tc TestCase) string {
-	return fmt.Sprintf("Test case %s passed for workflow %s", tc.String(), workflowName)
-}
-
 type Config struct {
 	ChainSelector    uint64
 	TestCase         TestCase
