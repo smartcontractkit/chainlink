@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	ChainSelector    uint64
+	TestCaseName     string
 	ContractAddress  []byte
 	AccountAddress   []byte
 	ExpectedBalance  *big.Int
