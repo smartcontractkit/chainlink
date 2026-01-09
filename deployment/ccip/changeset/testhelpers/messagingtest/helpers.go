@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -96,9 +97,10 @@ const (
 )
 
 type TestCaseOutput struct {
-	Replayed     bool
-	Nonce        uint64
-	MsgSentEvent *ccipclient.AnyMsgSentEvent
+	Replayed         bool
+	Nonce            uint64
+	MsgSentEvent     *ccipclient.AnyMsgSentEvent
+	AllMsgSentEvents []*ccipclient.AnyMsgSentEvent
 }
 
 func getLatestNonce(tc TestCase) uint64 {
@@ -247,6 +249,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			msgSentEvents[i] = msgSentEventLocal
 		}
 	}
+	// return all message sent events.
+	out.AllMsgSentEvents = msgSentEvents
 
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs

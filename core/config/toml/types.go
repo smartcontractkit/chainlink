@@ -64,6 +64,7 @@ type Core struct {
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
+	Sharding             Sharding             `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -109,6 +110,8 @@ func (c *Core) SetFrom(f *Core) {
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
+
+	c.Sharding.setFrom(&f.Sharding)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -2751,4 +2754,53 @@ func (jd *JobDistributor) setFrom(f *JobDistributor) {
 	if f.DisplayName != nil {
 		jd.DisplayName = f.DisplayName
 	}
+}
+
+type Sharding struct {
+	ArbiterPort              *uint16
+	ArbiterPollInterval      *commonconfig.Duration
+	ArbiterRetryInterval     *commonconfig.Duration
+	ShardIndex               *uint16
+	ShardOrchestratorPort    *uint16
+	ShardOrchestratorAddress *commonconfig.URL
+}
+
+func (s *Sharding) setFrom(f *Sharding) {
+	if f.ArbiterPort != nil {
+		s.ArbiterPort = f.ArbiterPort
+	}
+
+	if f.ArbiterPollInterval != nil {
+		s.ArbiterPollInterval = f.ArbiterPollInterval
+	}
+
+	if f.ArbiterRetryInterval != nil {
+		s.ArbiterRetryInterval = f.ArbiterRetryInterval
+	}
+
+	if f.ShardIndex != nil {
+		s.ShardIndex = f.ShardIndex
+	}
+
+	if f.ShardOrchestratorPort != nil {
+		s.ShardOrchestratorPort = f.ShardOrchestratorPort
+	}
+
+	if f.ShardOrchestratorAddress != nil {
+		s.ShardOrchestratorAddress = f.ShardOrchestratorAddress
+	}
+}
+
+func (s *Sharding) ValidateConfig() (err error) {
+	// If ShardIndex > 0, ShardOrchestratorAddress must be specified
+	if s.ShardIndex != nil && *s.ShardIndex > 0 {
+		if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
+			err = errors.Join(err, configutils.ErrInvalid{
+				Name:  "ShardOrchestratorAddress",
+				Value: s.ShardOrchestratorAddress,
+				Msg:   "must be specified when ShardIndex > 0",
+			})
+		}
+	}
+	return err
 }

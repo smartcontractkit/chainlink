@@ -1,0 +1,31 @@
+[[nodesets]]
+  name = "don"
+  nodes = 4
+  override_mode = "each"
+
+  [nodesets.db]
+    image = "postgres:15.0"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../chainlink"
+      docker_file = "plugins/chainlink.Dockerfile"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../chainlink"
+      docker_file = "plugins/chainlink.Dockerfile"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../chainlink"
+      docker_file = "plugins/chainlink.Dockerfile"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../chainlink"
+      docker_file = "plugins/chainlink.Dockerfile"
