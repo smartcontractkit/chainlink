@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 var _ cldf.ChangeSetV2[ProposeEVMCapJobSpecInput] = ProposeEVMCapJobSpec{}
@@ -263,9 +262,9 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 			Domain:         input.Domain,
 			DONName:        input.DONName,
 
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: "zone", Value: input.Zone},
-			},
+			//	DONFilters: []offchain.TargetDONFilter{
+			//		{Key: "zone", Value: input.Zone},
+			//	},
 		},
 	)
 	if err != nil {

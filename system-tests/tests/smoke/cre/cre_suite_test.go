@@ -17,6 +17,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -113,7 +114,105 @@ func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, node
 	}
 }
 
-func Test_EVM_Job_Update(t *testing.T) {
+func Test_EVM_Job_Update_Fail(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+	flag := cre.EVMCapability
+	creEnv := testEnv.CreEnvironment
+	dons := testEnv.Dons
+
+	var f = func(don *cre.Don) error {
+		// horrible copy & paste of `createJobs` function from /Users/bartektofel/Desktop/repos/chainlink/system-tests/lib/cre/features/evm/v2/evm.go
+		specs := make(map[string][]string)
+		var nodeSet cre.NodeSetWithCapabilityConfigs
+		for _, ns := range dons.AsNodeSetWithChainCapabilities() {
+			if ns.GetName() == don.Name {
+				nodeSet = ns
+				break
+			}
+		}
+		if nodeSet == nil {
+			return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+		}
+
+		bootstrap, isBootstrap := dons.Bootstrap()
+		if !isBootstrap {
+			return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+		}
+
+		chainConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
+		if !ok {
+			return fmt.Errorf("could not find capability config for capability %s in node set %s", flag, nodeSet.GetName())
+		}
+
+		for _, chainID := range chainConfig.EnabledChains {
+			chainSelector, selErr := chainselectors.SelectorFromChainId(chainID)
+			if selErr != nil {
+				return errors.Wrapf(selErr, "failed to get chain selector from chainID %d", chainID)
+			}
+			qualifier := ks_contracts_op.CapabilityContractIdentifier(chainID)
+
+			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
+			evmInputs := make([]cre_jobs.EVMCapabilityInput, 0)
+
+			response, err := creEnv.CldfEnvironment.Offchain.ListNodes(t.Context(), &node.ListNodesRequest{})
+			require.NoError(t, err)
+			for _, node := range response.GetNodes() {
+				if strings.Contains(node.Name, "capabilities") {
+					evmInputs = append(evmInputs, cre_jobs.EVMCapabilityInput{NodeID: node.Id})
+				}
+			}
+
+			input := cre_jobs.ProposeEVMCapJobSpecInput{
+				Domain:                  offchain.ProductLabel,
+				Environment:             cre.EnvironmentName,
+				DONName:                 don.Name,
+				Zone:                    "test",
+				ChainSelector:           chainSelector,
+				BootstrapperOCR3Urls:    bootstrapPeers,
+				ForwarderLookbackBlocks: 1000,
+				OCRChainSelector:        chainSelector,
+				OCRContractQualifier:    qualifier,
+				EVMCapabilityInputs:     evmInputs,
+			}
+			workerReport, err := cre_jobs.ProposeEVMCapJobSpec{}.Apply(*creEnv.CldfEnvironment, input)
+			require.NoError(t, err)
+
+			for _, r := range workerReport.Reports {
+				out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+				if !ok {
+					return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+				}
+				mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+				if mErr != nil {
+					return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+				}
+			}
+			approveErr := jobs.Approve(t.Context(), creEnv.CldfEnvironment.Offchain, dons, specs)
+			if approveErr != nil {
+				return fmt.Errorf("failed to approve EVM v2 jobs: %w", approveErr)
+			}
+			return nil
+		}
+
+		approveErr := jobs.Approve(t.Context(), creEnv.CldfEnvironment.Offchain, dons, specs)
+		if approveErr != nil {
+			return fmt.Errorf("failed to approve EVM v2 jobs: %w", approveErr)
+		}
+
+		return nil
+	}
+
+	dd := dons.DonsWithFlags(flag)
+
+	for _, don := range dd {
+		if strings.Contains(don.Name, "capabilities") {
+			err := f(don)
+			require.NoError(t, err)
+		}
+	}
+}
+
+func Test_EVM_Job_Update_Success(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 	flag := cre.EVMCapability
 	creEnv := testEnv.CreEnvironment
@@ -238,7 +337,6 @@ func Test_EVM_Job_Update(t *testing.T) {
 				if len(workerNode.Keys.OCR2BundleIDs) > 1 {
 					strategyName = "multi-chain"
 				}
-
 				workerInput := cre_jobs.ProposeJobSpecInput{
 					Domain:      offchain.ProductLabel,
 					Environment: cre.EnvironmentName,
@@ -290,7 +388,6 @@ func Test_EVM_Job_Update(t *testing.T) {
 				}
 			}
 		}
-
 		approveErr := jobs.Approve(t.Context(), creEnv.CldfEnvironment.Offchain, dons, specs)
 		if approveErr != nil {
 			return fmt.Errorf("failed to approve EVM v2 jobs: %w", approveErr)
@@ -302,8 +399,10 @@ func Test_EVM_Job_Update(t *testing.T) {
 	dd := dons.DonsWithFlags(flag)
 
 	for _, don := range dd {
-		err := f(don)
-		require.NoError(t, err)
+		if strings.Contains(don.Name, "capabilities") {
+			err := f(don)
+			require.NoError(t, err)
+		}
 	}
 }
 
