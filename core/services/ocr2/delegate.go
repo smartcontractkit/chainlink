@@ -54,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -91,7 +92,7 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/sharding"
+	localshardorch "github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -602,7 +603,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.RingPlugin:
-		return d.newRingPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -982,7 +983,7 @@ func (d *Delegate) newDonTimePlugin(
 	return srvs, nil
 }
 
-func (d *Delegate) newRingPlugin(
+func (d *Delegate) newServicesRing(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
@@ -1030,47 +1031,44 @@ func (d *Delegate) newRingPlugin(
 	// Get sharding config
 	shardingCfg := d.cfg.Sharding()
 
-	// TODO: expand this into validation
-	// Start Arbiter if this is shard 0 (the leader shard)
-	if shardingCfg.ShardIndex() == 0 {
-		// Get ContractReaderFactory from relayer for shard config reading
-		contractReaderFactory := func(ctx context.Context, cfg []byte) (types.ContractReader, error) {
-			return relayer.NewContractReader(ctx, cfg)
-		}
-
-		// TODO: Get shardConfigAddr from job spec pluginConfig
-		shardConfigAddr := "" // Placeholder - should come from pluginConfig
-
-		arbiterSvc, arbiterErr := arbiter.New(
-			lggr,
-			contractReaderFactory,
-			shardConfigAddr,
-			shardingCfg.ArbiterPort(),
-			shardingCfg.ArbiterPollInterval(),
-			shardingCfg.ArbiterRetryInterval(),
-		)
-		if arbiterErr != nil {
-			return nil, fmt.Errorf("failed to create arbiter: %w", arbiterErr)
-		}
-		srvs = append(srvs, arbiterSvc)
-		lggr.Info("Arbiter service created (shard 0)")
+	// Ring jobs only run on shard 0, where the Arbiter is also created
+	// Get ContractReaderFactory from relayer for shard config reading
+	contractReaderFactory := func(ctx context.Context, cfg []byte) (types.ContractReader, error) {
+		return relayer.NewContractReader(ctx, cfg)
 	}
-	store := ring.NewStore()
-	// Start ShardOrchestrator
-	orchestratorSvc, orchestratorErr := sharding.NewOrchestrator(
+
+	// TODO: Get shardConfigAddr from job spec pluginConfig
+	shardConfigAddr := "" // Placeholder - should come from pluginConfig
+
+	arbiterSvc, arbiterErr := arbiter.New(
 		lggr,
-		shardingCfg.ShardOrchestratorPort(),
+		contractReaderFactory,
+		shardConfigAddr,
+		shardingCfg.ArbiterPort(),
+		shardingCfg.ArbiterPollInterval(),
+		shardingCfg.ArbiterRetryInterval(),
 	)
-	if orchestratorErr != nil {
-		return nil, fmt.Errorf("failed to create shard orchestrator: %w", orchestratorErr)
+	if arbiterErr != nil {
+		return nil, fmt.Errorf("failed to create arbiter: %w", arbiterErr)
 	}
+	srvs = append(srvs, arbiterSvc)
+	lggr.Info("Arbiter service created")
+
+	ringStore := ring.NewStore()
+	shardOrchStore := shardorchestrator.NewStore(lggr)
+	// Start ShardOrchestrator
+	orchestratorSvc := localshardorch.New(
+		int(shardingCfg.ShardOrchestratorPort()),
+		shardOrchStore,
+		lggr,
+	)
 	srvs = append(srvs, orchestratorSvc)
 	lggr.Infow("ShardOrchestrator service created", "shardIndex", shardingCfg.ShardIndex())
 
-	// Create no-op ArbiterScalerClient (TODO: replace with actual gRPC client)
-	arbiterScalerClient := sharding.NewNoopArbiterScalerClient(lggr)
+	// Create local ArbiterScalerClient that calls the Arbiter directly (no gRPC network)
+	arbiterScalerClient := arbiter.NewLocalArbiterScalerClient(arbiterSvc.ArbiterScalerServer(), lggr)
 
-	transmitter := ring.NewTransmitter(lggr, store, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
+	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
@@ -1119,7 +1117,7 @@ func (d *Delegate) newRingPlugin(
 		OnchainKeyring:               onchainKeyringAdapter,
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(store, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, shardOrchStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
 		BatchSize:  100,         // Default batch size
 		TimeToSync: time.Second, // Default sync time
 	})

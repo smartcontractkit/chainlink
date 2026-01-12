@@ -62,3 +62,15 @@ type ScalingSpecResponse struct {
 type StatusResponse struct {
 	Status string `json:"status"`
 }
+
+// RoutableShardsInfo contains routing info for Ring OCR.
+// This is used internally; the actual protobuf response is built in arbiter_scaler.go.
+type RoutableShardsInfo struct {
+	ReadyCount int                   // Count of shards with Status == READY
+	ShardInfo  map[uint32]ShardHealth // Per-shard health status (shard_id → health)
+}
+
+// ShardHealth represents the health status of a single shard.
+type ShardHealth struct {
+	IsHealthy bool
+}

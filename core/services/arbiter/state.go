@@ -10,6 +10,7 @@ type State struct {
 	lastScalingReason     string
 	desiredReplicasCount  int
 	approvedReplicasCount int
+	consensusWantShards   int // Number of shards the Ring consensus wants
 	mu                    sync.RWMutex
 }
 
@@ -76,4 +77,49 @@ func (s *State) GetApprovedReplicaCount() int {
 	defer s.mu.RUnlock()
 
 	return s.approvedReplicasCount
+}
+
+// SetConsensusWantShards sets the number of shards the Ring consensus wants.
+func (s *State) SetConsensusWantShards(count int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.consensusWantShards = count
+}
+
+// GetConsensusWantShards returns the number of shards the Ring consensus wants.
+func (s *State) GetConsensusWantShards() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.consensusWantShards
+}
+
+// GetRoutableShards returns the count and status of shards ready for routing.
+// This is used by Ring OCR to determine which shards can receive traffic.
+// Only shards with Status == READY are counted as routable.
+func (s *State) GetRoutableShards() RoutableShardsInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	readyCount := 0
+	shardInfo := make(map[uint32]ShardHealth)
+
+	// Iterate through current replicas and count READY ones
+	shardID := uint32(0)
+	for _, replica := range s.currentReplicas {
+		isHealthy := replica.Status == StatusReady.String()
+		shardInfo[shardID] = ShardHealth{
+			IsHealthy: isHealthy,
+		}
+		if isHealthy {
+			readyCount++
+		}
+		shardID++
+	}
+
+	return RoutableShardsInfo{
+		ReadyCount: readyCount,
+		ShardInfo:  shardInfo,
+	}
 }

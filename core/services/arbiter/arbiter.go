@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
 
 	// TODO: Update this import path once proto is moved
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/arbiter/proto"
@@ -21,17 +22,20 @@ import (
 type Arbiter interface {
 	services.Service
 	HealthReport() map[string]error
+	// ArbiterScalerServer returns the ArbiterScalerServer interface for in-process calls.
+	ArbiterScalerServer() ringpb.ArbiterScalerServer
 }
 
 type arbiter struct {
 	services.StateMachine
 
-	grpcServer  *grpc.Server
-	grpcHandler *GRPCServer
-	state       *State
-	decision    DecisionEngine
-	shardConfig ShardConfigReader
-	lggr        logger.Logger
+	grpcServer          *grpc.Server
+	grpcHandler         *GRPCServer
+	arbiterScaleHandler *ArbiterScalerHandler
+	state               *State
+	decision            DecisionEngine
+	shardConfig         ShardConfigReader
+	lggr                logger.Logger
 
 	grpcAddr string
 	stopCh   services.StopChan
@@ -62,22 +66,27 @@ func New(
 	// Create decision engine with sugared logger
 	decision := NewDecisionEngine(shardConfig, logger.Sugared(lggr))
 
-	// Create gRPC handler
+	// Create gRPC handler for ArbiterService
 	grpcHandler := NewGRPCServer(state, decision, lggr)
 
-	// Create gRPC server
+	// Create handler for ArbiterScaler (from chainlink-common)
+	arbiterScaleHandler := NewArbiterScalerHandler(state, lggr)
+
+	// Create gRPC server and register both services
 	grpcServer := grpc.NewServer()
 	pb.RegisterArbiterServiceServer(grpcServer, grpcHandler)
+	ringpb.RegisterArbiterScalerServer(grpcServer, arbiterScaleHandler)
 
 	return &arbiter{
-		grpcServer:  grpcServer,
-		grpcHandler: grpcHandler,
-		state:       state,
-		decision:    decision,
-		shardConfig: shardConfig,
-		lggr:        lggr,
-		grpcAddr:    fmt.Sprintf(":%d", port),
-		stopCh:      make(services.StopChan),
+		grpcServer:          grpcServer,
+		grpcHandler:         grpcHandler,
+		arbiterScaleHandler: arbiterScaleHandler,
+		state:               state,
+		decision:            decision,
+		shardConfig:         shardConfig,
+		lggr:                lggr,
+		grpcAddr:            fmt.Sprintf(":%d", port),
+		stopCh:              make(services.StopChan),
 	}, nil
 }
 
@@ -172,4 +181,10 @@ func (a *arbiter) HealthReport() map[string]error {
 // Name returns the service name.
 func (a *arbiter) Name() string {
 	return a.lggr.Name()
+}
+
+// ArbiterScalerServer returns the ArbiterScalerServer interface for in-process calls.
+// This allows the Ring plugin to communicate with the Arbiter without going over gRPC.
+func (a *arbiter) ArbiterScalerServer() ringpb.ArbiterScalerServer {
+	return a.arbiterScaleHandler
 }
