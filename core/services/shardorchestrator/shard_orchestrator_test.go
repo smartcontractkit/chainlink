@@ -27,12 +27,12 @@ func setupShardOrchestrator(t *testing.T) (*shardorchestrator.Store, pb.ShardOrc
 	err := orchestrator.Start(ctx)
 	require.NoError(t, err)
 
-	// Give the server a moment to start and get the listener
-	time.Sleep(100 * time.Millisecond)
-
-	// Get the actual address the server is listening on
-	addr := orchestrator.GetAddress()
-	require.NotEmpty(t, addr, "orchestrator should have started and be listening")
+	// Wait for the server to start and get the listener
+	var addr string
+	require.Eventually(t, func() bool {
+		addr = orchestrator.GetAddress()
+		return addr != ""
+	}, 5*time.Second, 10*time.Millisecond, "orchestrator should have started and be listening")
 
 	// Connect to the gRPC server
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))

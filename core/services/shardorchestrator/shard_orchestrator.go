@@ -28,9 +28,10 @@ type orchestrator struct {
 	listener    net.Listener
 	lggr        logger.Logger
 
-	grpcAddr string
-	stopCh   services.StopChan
-	wg       sync.WaitGroup
+	grpcAddr   string
+	stopCh     services.StopChan
+	wg         sync.WaitGroup
+	listenerMu sync.RWMutex
 }
 
 var _ ShardOrchestrator = (*orchestrator)(nil)
@@ -79,7 +80,9 @@ func (o *orchestrator) runGRPCServer(ctx context.Context) {
 		return
 	}
 
+	o.listenerMu.Lock()
 	o.listener = lis
+	o.listenerMu.Unlock()
 	o.lggr.Infow("gRPC server listening", "addr", lis.Addr().String())
 
 	if err := o.grpcServer.Serve(lis); err != nil {
@@ -121,6 +124,8 @@ func (o *orchestrator) Name() string                   { return "ShardOrchestrat
 // GetAddress returns the address the gRPC server is listening on.
 // Returns empty string if the server hasn't started yet.
 func (o *orchestrator) GetAddress() string {
+	o.listenerMu.RLock()
+	defer o.listenerMu.RUnlock()
 	if o.listener == nil {
 		return ""
 	}
