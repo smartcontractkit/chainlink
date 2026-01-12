@@ -108,7 +108,7 @@ func (s *State) GetRoutableShards() RoutableShardsInfo {
 	// Iterate through current replicas and count READY ones
 	shardID := uint32(0)
 	for _, replica := range s.currentReplicas {
-		isHealthy := replica.Status == StatusReady.String()
+		isHealthy := replica.Status == StatusReady
 		shardInfo[shardID] = ShardHealth{
 			IsHealthy: isHealthy,
 		}
