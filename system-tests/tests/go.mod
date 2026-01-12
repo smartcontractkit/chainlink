@@ -48,7 +48,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.88
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260107095648-223976d2b9f1
 	github.com/smartcontractkit/chainlink-data-streams v0.1.10
-	github.com/smartcontractkit/chainlink-deployments-framework v0.72.1-0.20260109052419-52648b1643e4
+	github.com/smartcontractkit/chainlink-deployments-framework v0.72.1-0.20260112091328-07991b0bcb5d
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251211123524-f0c4fe7cfc0a
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
