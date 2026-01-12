@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -93,6 +94,10 @@ type workflowRegistry struct {
 	clock            clockwork.Clock
 
 	hooks Hooks
+
+	// shardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
+	// This is nil for shard 0.
+	shardOrchestratorClient *shardorchestrator.Client
 }
 
 type Hooks struct {
@@ -119,6 +124,14 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.retryInterval = retryInterval
+	}
+}
+
+// WithShardOrchestratorClient sets the shard orchestrator client for querying/reporting
+// workflow mappings to shard 0. This should only be set for shards > 0.
+func WithShardOrchestratorClient(client *shardorchestrator.Client) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		wr.shardOrchestratorClient = client
 	}
 }
 
