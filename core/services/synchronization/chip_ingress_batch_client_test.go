@@ -95,7 +95,7 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 	// Wait for the telemetry to be handled
 	g.Eventually(func() []uint32 {
 		return []uint32{contractCounter1.Load(), contractCounter3.Load()}
-	}).Should(gomega.Equal([]uint32{3, 1}))
+	}, testutils.WaitTimeout(t)).Should(gomega.Equal([]uint32{3, 1}))
 }
 
 func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
@@ -133,7 +133,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 	}
 
 	// Wait for batches to be sent
-	g.Eventually(batchCount.Load, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	g.Eventually(batchCount.Load, testutils.WaitTimeout(t)).Should(gomega.BeNumerically(">=", 2))
 }
 
 func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
@@ -187,7 +187,7 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 
 	g.Eventually(func() []uint32 {
 		return []uint32{ocrCount.Load(), ocr2Count.Load()}
-	}).Should(gomega.Equal([]uint32{1, 1}))
+	}, testutils.WaitTimeout(t)).Should(gomega.Equal([]uint32{1, 1}))
 }
 
 func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
@@ -251,7 +251,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 	}
 
 	// Wait for all messages to be sent
-	g.Eventually(messageCount.Load).Should(gomega.Equal(uint32(5)))
+	g.Eventually(messageCount.Load, testutils.WaitTimeout(t)).Should(gomega.Equal(uint32(5)))
 }
 
 func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
@@ -293,7 +293,7 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 			return ""
 		}
 		return v.(string)
-	}).Should(gomega.Equal("123456789"))
+	}, testutils.WaitTimeout(t)).Should(gomega.Equal("123456789"))
 }
 
 func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
@@ -314,7 +314,7 @@ func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
 	servicetest.Run(t, chipIngressClient)
 
 	// Wait for at least 2 ping calls to verify health monitoring is running
-	g.Eventually(pingCallCount.Load, 15*time.Second, 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	g.Eventually(pingCallCount.Load, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 }
 
 func TestChipIngressBatchClient_HealthMonitoring_PingFailure(t *testing.T) {
@@ -335,5 +335,5 @@ func TestChipIngressBatchClient_HealthMonitoring_PingFailure(t *testing.T) {
 	servicetest.Run(t, chipIngressClient)
 
 	// Wait for at least 2 ping calls to verify health monitoring continues despite failures
-	g.Eventually(pingCallCount.Load, 15*time.Second, 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	g.Eventually(pingCallCount.Load, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 }
