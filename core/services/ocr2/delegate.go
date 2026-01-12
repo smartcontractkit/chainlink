@@ -79,6 +79,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
+	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
@@ -1037,8 +1038,12 @@ func (d *Delegate) newServicesRing(
 		return relayer.NewContractReader(ctx, cfg)
 	}
 
-	// TODO: Get shardConfigAddr from job spec pluginConfig
-	shardConfigAddr := "" // Placeholder - should come from pluginConfig
+	// Parse Ring plugin configuration
+	var ringPluginConfig ringconfig.PluginConfig
+	if err := ringPluginConfig.Unmarshal(spec.PluginConfig.Bytes()); err != nil {
+		return nil, fmt.Errorf("failed to parse Ring plugin config: %w", err)
+	}
+	shardConfigAddr := ringPluginConfig.ShardConfigAddr
 
 	arbiterSvc, arbiterErr := arbiter.New(
 		lggr,
