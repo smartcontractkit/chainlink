@@ -78,14 +78,14 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.85
+	github.com/smartcontractkit/chain-selectors v1.0.88
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251128020529-88d93b01d749
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260107192940-0be702ef3ff5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260106165728-3d896e87cc56
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260107095648-223976d2b9f1
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260108100721-7044bd402d84
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
 	github.com/smartcontractkit/chainlink-data-streams v0.1.10
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251210110629-10c56e8d2cec
@@ -101,7 +101,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260106052706-6dd937cb5ec6
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251121223352-370eb61346d6
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260112124110-73087fb3ec15
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251219221624-54a39a031e62
 	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81

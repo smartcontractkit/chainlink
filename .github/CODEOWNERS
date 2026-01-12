@@ -82,6 +82,8 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
+/devenv/ @smartcontractkit/devex-tooling
+/devenv/products/ocr2/ @smartcontractkit/devex-tooling
 
 # Deployment tooling
 /deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/operations-platform @smartcontractkit/core
@@ -104,6 +106,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
+/.github/workflows/devenv-ocr2.yml @smartcontractkit/devex-tooling
 /tools/plugout @smartcontractkit/devex-cicd
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core

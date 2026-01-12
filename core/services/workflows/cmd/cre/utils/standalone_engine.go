@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -60,6 +61,7 @@ func NewStandaloneEngine(
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
 	workflowName string,
+	workflowSettingsCfgFn func(*cresettings.Workflows),
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
 	labeler := custmsg.NewLabeler()
@@ -86,7 +88,7 @@ func NewStandaloneEngine(
 	}
 
 	lf := limits.Factory{Logger: logger.Named(lggr, "Limits")}
-	limiters, err := v2.NewLimiters(lf, nil)
+	limiters, err := v2.NewLimiters(lf, workflowSettingsCfgFn)
 	if err != nil {
 		return nil, nil, err
 	}

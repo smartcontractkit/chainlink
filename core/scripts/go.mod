@@ -46,8 +46,8 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251128020529-88d93b01d749
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260107095648-223976d2b9f1
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260107192940-0be702ef3ff5
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260108100721-7044bd402d84
 	github.com/smartcontractkit/chainlink-data-streams v0.1.10
 	github.com/smartcontractkit/chainlink-deployments-framework v0.70.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260107110405-8d4f10fa9a56
@@ -486,7 +486,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
-	github.com/smartcontractkit/chain-selectors v1.0.85 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.88 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251229170147-e243de8c69ad // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5 // indirect
@@ -509,7 +509,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260106052706-6dd937cb5ec6 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251121223352-370eb61346d6 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260112124110-73087fb3ec15 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251205161630-88314452254c // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
