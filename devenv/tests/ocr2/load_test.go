@@ -58,7 +58,7 @@ func TestLoad(t *testing.T) {
 			name:               "clean",
 			roundCheckInterval: 5 * time.Second,
 			roundTimeout:       2 * time.Minute,
-			repeat:             2,
+			repeat:             10,
 			cfg:                productionCfg,
 			roundSettings: []*roundSettings{
 				{value: 1},
@@ -135,7 +135,7 @@ func TestLoad(t *testing.T) {
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)
 			}
-			checkResourceConsumption(t, in, start, time.Now(), 10.0, 400e6)
+			checkResourceConsumption(t, in, start, time.Now(), 20.0, 600e6)
 		})
 	}
 }
