@@ -127,13 +127,6 @@ func (o *EVM) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.NodeSet, currentConfig string) (*string, error) {
-	// V2 EVM capability now dynamically selects the address with highest balance
-	// in SubmitTransaction, so no config changes are needed here.
-	// The node will use EnabledAddressesForChain from the keystore and pick the best one.
-	return ptr.Ptr(currentConfig), nil
-}
-
 func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
