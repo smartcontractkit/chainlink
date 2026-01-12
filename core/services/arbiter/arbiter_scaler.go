@@ -9,26 +9,26 @@ import (
 	pb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
 )
 
-// ArbiterScalerHandler implements the ArbiterScalerServer interface from chainlink-common.
+// ScalerHandler implements the ArbiterScalerServer interface from chainlink-common.
 // This allows the Ring consensus to communicate with the Arbiter about shard scaling.
-type ArbiterScalerHandler struct {
+type ScalerHandler struct {
 	pb.UnimplementedArbiterScalerServer
 	state *State
 	lggr  logger.Logger
 }
 
-// NewArbiterScalerHandler creates a new ArbiterScalerHandler.
-func NewArbiterScalerHandler(state *State, lggr logger.Logger) *ArbiterScalerHandler {
-	return &ArbiterScalerHandler{
+// NewScalerHandler creates a new ScalerHandler.
+func NewScalerHandler(state *State, lggr logger.Logger) *ScalerHandler {
+	return &ScalerHandler{
 		state: state,
-		lggr:  logger.Named(lggr, "ArbiterScalerHandler"),
+		lggr:  logger.Named(lggr, "ScalerHandler"),
 	}
 }
 
 // Status returns the current replica status for Ring OCR routing.
 // Returns only READY shards count and per-shard health status.
 // This is called by the Ring plugin to determine which shards can receive traffic.
-func (h *ArbiterScalerHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.ReplicaStatus, error) {
+func (h *ScalerHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.ReplicaStatus, error) {
 	routable := h.state.GetRoutableShards()
 
 	h.lggr.Debugw("Status requested",
@@ -55,7 +55,7 @@ func (h *ArbiterScalerHandler) Status(ctx context.Context, _ *emptypb.Empty) (*p
 
 // ConsensusWantShards is called by the Ring consensus to report the desired number of shards.
 // The consensus has agreed on how many shards the system should have.
-func (h *ArbiterScalerHandler) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
+func (h *ScalerHandler) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
 	h.lggr.Infow("Consensus wants shards",
 		"nShards", req.GetNShards(),
 	)

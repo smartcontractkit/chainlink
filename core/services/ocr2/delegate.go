@@ -79,11 +79,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
-	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -1040,7 +1040,7 @@ func (d *Delegate) newServicesRing(
 
 	// Parse Ring plugin configuration
 	var ringPluginConfig ringconfig.PluginConfig
-	if err := ringPluginConfig.Unmarshal(spec.PluginConfig.Bytes()); err != nil {
+	if err = ringPluginConfig.Unmarshal(spec.PluginConfig.Bytes()); err != nil {
 		return nil, fmt.Errorf("failed to parse Ring plugin config: %w", err)
 	}
 	shardConfigAddr := ringPluginConfig.ShardConfigAddr

@@ -79,8 +79,8 @@ func TestRingStoreIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Both should be valid shard IDs (0, 1, or 2)
-		require.True(t, shard1 <= 2, "shard1 should be <= 2")
-		require.True(t, shard2 <= 2, "shard2 should be <= 2")
+		require.LessOrEqual(t, shard1, uint32(2), "shard1 should be <= 2")
+		require.LessOrEqual(t, shard2, uint32(2), "shard2 should be <= 2")
 	})
 
 	t.Run("RingStore caches workflow allocations", func(t *testing.T) {

@@ -31,7 +31,7 @@ type arbiter struct {
 
 	grpcServer          *grpc.Server
 	grpcHandler         *GRPCServer
-	arbiterScaleHandler *ArbiterScalerHandler
+	arbiterScaleHandler *ScalerHandler
 	state               *State
 	decision            DecisionEngine
 	shardConfig         ShardConfigReader
@@ -70,7 +70,7 @@ func New(
 	grpcHandler := NewGRPCServer(state, decision, lggr)
 
 	// Create handler for ArbiterScaler (from chainlink-common)
-	arbiterScaleHandler := NewArbiterScalerHandler(state, lggr)
+	arbiterScaleHandler := NewScalerHandler(state, lggr)
 
 	// Create gRPC server and register both services
 	grpcServer := grpc.NewServer()
