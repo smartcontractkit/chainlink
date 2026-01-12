@@ -12,9 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
 
-	// TODO: Update this import path once proto is moved
-	pb "github.com/smartcontractkit/chainlink/v2/core/services/arbiter/proto"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -33,7 +30,6 @@ type arbiter struct {
 	grpcHandler         *GRPCServer
 	arbiterScaleHandler *ScalerHandler
 	state               *State
-	decision            DecisionEngine
 	shardConfig         ShardConfigReader
 	lggr                logger.Logger
 
@@ -63,18 +59,15 @@ func New(
 	// Create ShardConfig syncer (implements services.Service)
 	shardConfig := NewShardConfigSyncer(contractReaderFactory, shardConfigAddr, pollInterval, retryInterval, lggr)
 
-	// Create decision engine with sugared logger
-	decision := NewDecisionEngine(shardConfig, logger.Sugared(lggr))
-
-	// Create gRPC handler for ArbiterService
-	grpcHandler := NewGRPCServer(state, decision, lggr)
+	// Create gRPC handler for Arbiter service (from chainlink-common)
+	grpcHandler := NewGRPCServer(shardConfig, lggr)
 
 	// Create handler for ArbiterScaler (from chainlink-common)
 	arbiterScaleHandler := NewScalerHandler(state, lggr)
 
 	// Create gRPC server and register both services
 	grpcServer := grpc.NewServer()
-	pb.RegisterArbiterServiceServer(grpcServer, grpcHandler)
+	ringpb.RegisterArbiterServer(grpcServer, grpcHandler)
 	ringpb.RegisterArbiterScalerServer(grpcServer, arbiterScaleHandler)
 
 	return &arbiter{
@@ -82,7 +75,6 @@ func New(
 		grpcHandler:         grpcHandler,
 		arbiterScaleHandler: arbiterScaleHandler,
 		state:               state,
-		decision:            decision,
 		shardConfig:         shardConfig,
 		lggr:                lggr,
 		grpcAddr:            fmt.Sprintf(":%d", port),
