@@ -477,6 +477,15 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
+			addresses, aErr := output.CreEnvironment.CldfEnvironment.DataStore.Addresses().Fetch()
+			if aErr != nil {
+				return errors.Wrap(aErr, "failed to fetch addresses from datastore")
+			}
+
+			stErr := in.SetAddresses(addresses)
+			if stErr != nil {
+				return errors.Wrap(stErr, "failed to set addresses on Config")
+			}
 			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 			if storeErr != nil {
 				return errors.Wrap(storeErr, "failed to store local CRE state")
@@ -641,14 +650,6 @@ func stopCmd() *cobra.Command {
 				} else {
 					framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
 				}
-
-				envArtifactFile := creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)
-				eErr := os.Remove(envArtifactFile)
-				if eErr != nil {
-					framework.L.Warn().Msgf("failed to remove local CRE environment artifact file: %s", eErr)
-				} else {
-					framework.L.Info().Msgf("removed local CRE environment artifact file: %s", envArtifactFile)
-				}
 			}
 
 			fmt.Println("Environment stopped successfully")
@@ -743,26 +744,6 @@ func StartCLIEnvironment(
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
-	}
-
-	capabilitiesContractFactoryFunctions := []cre.CapabilityRegistryConfigFn{}
-	for _, cap := range capabilities {
-		capabilitiesContractFactoryFunctions = append(capabilitiesContractFactoryFunctions, cap.CapabilityRegistryV1ConfigFn())
-	}
-
-	artifactPath, artifactErr := creenv.DumpArtifact(
-		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
-		*universalSetupOutput.Dons,
-		universalSetupOutput.CreEnvironment,
-		*in.JD.Out,
-		in.NodeSets,
-		capabilitiesContractFactoryFunctions,
-	)
-
-	if artifactErr != nil {
-		testLogger.Error().Err(artifactErr).Msg("failed to generate env artifact")
-	} else {
-		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
 	}
 
 	return universalSetupOutput, nil

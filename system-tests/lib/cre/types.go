@@ -129,6 +129,27 @@ func NewContractVersionsProvider(overrides map[ContractType]*semver.Version) *co
 	return cvp
 }
 
+func ContractVersionsProviderFromDataStore(ds datastore.DataStore) (*contractVersionsProvider, error) {
+	defaults := NewContractVersionsProvider(nil)
+
+	addresses, aErr := ds.Addresses().Fetch()
+	if aErr != nil {
+		return nil, fmt.Errorf("failed to fetch addresses from datastore: %w", aErr)
+	}
+
+	overrides := map[ContractType]*semver.Version{}
+
+	for t := range defaults.ContractVersions() {
+		for _, addressRef := range addresses {
+			if t == ContractType(addressRef.Type) {
+				overrides[t] = addressRef.Version
+			}
+		}
+	}
+
+	return NewContractVersionsProvider(overrides), nil
+}
+
 type CapabilityFlagsProvider interface {
 	SupportedCapabilityFlags() []CapabilityFlag
 	GlobalCapabilityFlags() []CapabilityFlag
