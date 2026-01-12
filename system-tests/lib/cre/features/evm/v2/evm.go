@@ -95,7 +95,6 @@ func (o *EVM) PreEnvStartup(
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 		currentConfigPtr := ptr.Ptr(currentConfig)
-
 		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
 	}
 
