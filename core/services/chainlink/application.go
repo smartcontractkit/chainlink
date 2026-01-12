@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -208,6 +209,7 @@ type ChainlinkApplication struct {
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
 	capabilitiesRegistry     *capabilities.Registry
+	shardOrchestratorClient  *shardorchestrator.Client
 
 	started     bool
 	startStopMu sync.Mutex
@@ -267,6 +269,28 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
+	}
+
+	var shardOrchestratorClient *shardorchestrator.Client
+	shardIdx := cfg.Sharding().ShardIndex()
+
+	shardID := shardIdx // TODO: confirm these are the same or if its going to be derived from it + CSAKey
+	// Shard 1+ runs the gRPC client
+	if shardID > 0 {
+		address := cfg.Sharding().ShardOrchestratorAddress()
+		if address == nil {
+			return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
+		}
+		client, err := shardorchestrator.NewClient(
+			ctx,
+			address.String(),
+			globalLogger.Named("ShardOrchestratorClient"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+		}
+		shardOrchestratorClient = client
+		globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
 	}
 
 	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
@@ -857,6 +881,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		loopRegistry:             loopRegistry,
 		loopRegistrarConfig:      loopRegistrarConfig,
 		capabilitiesRegistry:     opts.CapabilitiesRegistry,
+		shardOrchestratorClient:  shardOrchestratorClient,
 
 		ds: opts.DS,
 
@@ -1446,6 +1471,11 @@ func (app *ChainlinkApplication) stop() (err error) {
 		if app.FeedsService != nil {
 			app.logger.Debug("Closing Feeds Service...")
 			err = stderrors.Join(err, app.FeedsService.Close())
+		}
+
+		if app.shardOrchestratorClient != nil {
+			app.logger.Debug("Closing ShardOrchestrator gRPC client...")
+			err = stderrors.Join(err, app.shardOrchestratorClient.Close())
 		}
 
 		if app.profiler != nil {

@@ -1,0 +1,66 @@
+
+[[blockchains]]
+  chain_id = "<fill_in>"
+  type = "anvil"
+
+  [blockchains.out]
+    type = "anvil"
+    use_cache = true
+
+    [[blockchains.out.nodes]]
+      http_url = "<fill_in>"
+      internal_http_url = "<fill_in>"
+      internal_ws_url = "<fill_in>"
+      ws_url = "<fill_in>"
+
+[data_feeds]
+  contracts_configuration_timeout_sec = 600
+  chain_finality_depth = 1
+  cl_nodes_funding_eth = 0.05
+  cl_nodes_funding_link = 1
+  link_contract_address = "<fill_in>"
+
+  [data_feeds.gas_settings]
+  fee_cap_multiplier = 3
+  tip_cap_multiplier = 3
+
+  [data_feeds.ea_fake]
+    high_value = 30000
+    low_value = 3
+
+  [data_feeds.jobs]
+    max_task_duration_sec = 60
+
+  [data_feeds.ocr2]
+    billing_access_controller_addr = "0x0000000000000000000000000000000000000000"
+    decimals = 18
+    description = "fake-ea-price"
+    link_gwei_per_observation = 500
+    link_gwei_per_transmission = 500
+    maximum_answer = 50000000000000000
+    maximum_gas_price = 3000
+    micro_link_per_eth = 500
+    minimum_answer = 1
+    reasonable_gas_price = 10
+    requester_access_controller_addr = "0x0000000000000000000000000000000000000000"
+
+  [data_feeds.ocr2_median_offchain_config]
+    alpha_accept_infinite = false
+    alpha_accept_ppb = 1
+    alpha_report_infinite = false
+    alpha_report_ppb = 1
+    delta_sec = 1800
+
+  [data_feeds.ocr2_set_config]
+    delta_grace_sec = 20
+    delta_progress_sec = 30
+    delta_resend_sec = 30
+    delta_round_sec = 10
+    delta_stage_sec = 20
+    max_duration_initialization_sec = 5
+    max_duration_observation_sec = 5
+    max_duration_query_sec = 5
+    max_duration_report_sec = 5
+    max_duration_should_accept_finalized_report_sec = 5
+    max_duration_should_transmit_accepted_report_sec = 5
+    r_max = 3

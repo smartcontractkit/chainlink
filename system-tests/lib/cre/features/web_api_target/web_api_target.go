@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -79,10 +79,10 @@ func (o *WebAPITarget) PreEnvStartup(
 
 const configTemplate = `
 [rateLimiter]
-GlobalRPS = {{.GlobalRPS}}
-GlobalBurst = {{.GlobalBurst}}
-PerSenderRPS = {{.PerSenderRPS}}
-PerSenderBurst = {{.PerSenderBurst}}
+GlobalRPS = {{printf "%v" .GlobalRPS}}
+GlobalBurst = {{printf "%v" .GlobalBurst}}
+PerSenderRPS = {{printf "%v" .PerSenderRPS}}
+PerSenderBurst = {{printf "%v" .PerSenderBurst}}
 `
 
 func (o *WebAPITarget) PostEnvStartup(

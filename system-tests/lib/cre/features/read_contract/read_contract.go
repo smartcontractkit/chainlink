@@ -59,7 +59,7 @@ func (o *ReadContract) PreEnvStartup(
 	}, nil
 }
 
-const configTemplate = `{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}"}`
+const configTemplate = `{"chainId":{{printf "%d" .ChainID}},"network":"{{.NetworkFamily}}"}`
 
 func (o *ReadContract) PostEnvStartup(
 	ctx context.Context,

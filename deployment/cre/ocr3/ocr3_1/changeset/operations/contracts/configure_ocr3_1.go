@@ -11,11 +11,12 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
+	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -23,66 +24,66 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
-type ConfigureDKGDeps struct {
+type ConfigureOCR3_1Deps struct {
 	Env                  *cldf.Environment
 	WriteGeneratedConfig io.Writer
 	Strategy             strategies.TransactionStrategy
 }
 
-type ConfigureDKGInput struct {
+type ConfigureOCR3_1Input struct {
 	ContractAddress *common.Address
 	ChainSelector   uint64
-	DON             DonNodeSet
-	Config          *ocr3.V3_1OracleConfig
+	DON             contracts2.DonNodeSet
+	Config          *ocr3_1.V3_1OracleConfig
 	DryRun          bool
 
-	MCMSConfig            *contracts.MCMSConfig
-	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
+	ReportingPluginConfigOverride []byte
+
+	MCMSConfig *contracts.MCMSConfig
 }
 
-func (i ConfigureDKGInput) UseMCMS() bool {
+func (i ConfigureOCR3_1Input) UseMCMS() bool {
 	return i.MCMSConfig != nil
 }
 
-type ConfigureDKGOpOutput struct {
+type ConfigureOCR3_1OpOutput struct {
 	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
-var ConfigureDKG = operations.NewOperation(
-	"configure-dkg-op",
+var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR3_1OpOutput, ConfigureOCR3_1Deps](
+	"configure-ocr3-1-op",
 	semver.MustParse("1.0.0"),
-	"Configure DKG Contract",
-	func(b operations.Bundle, deps ConfigureDKGDeps, input ConfigureDKGInput) (ConfigureDKGOpOutput, error) {
+	"Configure OCR3.1 Contract",
+	func(b operations.Bundle, deps ConfigureOCR3_1Deps, input ConfigureOCR3_1Input) (ConfigureOCR3_1OpOutput, error) {
 		if input.ContractAddress == nil {
-			return ConfigureDKGOpOutput{}, errors.New("ContractAddress is required")
+			return ConfigureOCR3_1OpOutput{}, errors.New("ContractAddress is required")
 		}
 
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
-			return ConfigureDKGOpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
+			return ConfigureOCR3_1OpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
 		}
 
 		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
 		if err != nil {
-			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to get DKG contract: %w", err)
+			return ConfigureOCR3_1OpOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
 		nodes, err := deployment.NodeInfo(input.DON.NodeIDs, deps.Env.Offchain)
 		if err != nil {
-			return ConfigureDKGOpOutput{}, err
+			return ConfigureOCR3_1OpOutput{}, err
 		}
 
-		config, err := ocr3.GenerateDKGConfigFromNodes(
+		config, err := ocr3_1.GenerateOCR3_1ConfigFromNodes(
 			*input.Config,
 			nodes,
 			input.ChainSelector,
 			deps.Env.OCRSecrets,
-			input.ReportingPluginConfig,
+			input.ReportingPluginConfigOverride,
 		)
 		if err != nil {
-			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to generate DKG config: %w", err)
+			return ConfigureOCR3_1OpOutput{}, fmt.Errorf("failed to generate DKG config: %w", err)
 		}
-
 		resp, err := ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
 			Config:   config,
 			Chain:    chain,
@@ -92,32 +93,32 @@ var ConfigureDKG = operations.NewOperation(
 			Strategy: deps.Strategy,
 		})
 		if err != nil {
-			return ConfigureDKGOpOutput{}, err
+			return ConfigureOCR3_1OpOutput{}, err
 		}
 		if w := deps.WriteGeneratedConfig; w != nil {
 			b, err := json.MarshalIndent(&resp.OcrConfig, "", "  ")
 			if err != nil {
-				return ConfigureDKGOpOutput{}, fmt.Errorf("failed to marshal response output: %w", err)
+				return ConfigureOCR3_1OpOutput{}, fmt.Errorf("failed to marshal response output: %w", err)
 			}
-			deps.Env.Logger.Infof("Generated DKG config: %s", string(b))
+			deps.Env.Logger.Infof("Generated OCR3 config: %s", string(b))
 			n, err := w.Write(b)
 			if err != nil {
-				return ConfigureDKGOpOutput{}, fmt.Errorf("failed to write response output: %w", err)
+				return ConfigureOCR3_1OpOutput{}, fmt.Errorf("failed to write response output: %w", err)
 			}
 			if n != len(b) {
-				return ConfigureDKGOpOutput{}, errors.New("failed to write all bytes")
+				return ConfigureOCR3_1OpOutput{}, errors.New("failed to write all bytes")
 			}
 		}
 
 		// does not create any new addresses
-		var out ConfigureDKGOpOutput
+		var out ConfigureOCR3_1OpOutput
 		if input.UseMCMS() {
 			if resp.Ops == nil {
 				return out, errors.New("expected MCMS operation to be non-nil")
 			}
 
 			if contract.McmsContracts == nil {
-				return out, fmt.Errorf("expected DKG capabilty contract %s to be owned by MCMS", contract.Contract.Address().String())
+				return out, fmt.Errorf("expected OCR3 capabilty contract %s to be owned by MCMS", contract.Contract.Address().String())
 			}
 
 			proposal, err := deps.Strategy.BuildProposal([]mcmstypes.BatchOperation{*resp.Ops})

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
 	solanago "github.com/gagliardetto/solana-go"
@@ -257,7 +257,7 @@ const solWorkflowConfigTemplate = `
 		ForwarderState   = '{{.ForwarderState}}'
 		PollPeriod = '{{.PollPeriod}}'
 		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
-		TxAcceptanceState = {{.TxAcceptanceState}}
+		TxAcceptanceState = {{printf "%d" .TxAcceptanceState}}
 		Local = {{.Local}}
 	`
 

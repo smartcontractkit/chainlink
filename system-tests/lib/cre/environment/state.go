@@ -110,7 +110,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	cldEnv := cldf.NewEnvironment(
-		"cre",
+		cre.EnvironmentName,
 		cldLogger,
 		cldf.NewMemoryAddressBook(),
 		datastore.Seal(),
