@@ -174,6 +174,12 @@ func downloadProgramArtifacts(ctx context.Context, url string, targetDir string,
 
 		// Copy the file to the target directory
 		outPath := filepath.Join(targetDir, filepath.Base(header.Name))
+		// Ensure the destination path is within the target directory to prevent Zip Slip
+		cleanTargetDir := filepath.Clean(targetDir)
+		if !strings.HasPrefix(filepath.Clean(outPath), cleanTargetDir) {
+			return fmt.Errorf("illegal file path in archive: %s", header.Name)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
 			return err
 		}
