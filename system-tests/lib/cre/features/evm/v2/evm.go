@@ -94,12 +94,13 @@ func (o *EVM) PreEnvStartup(
 	}
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, don.NodeSets(), currentConfig)
-		if updErr != nil {
-			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
-		}
+		// updatedConfig, updErr := updateNodeConfig(workerNode, don.NodeSets(), currentConfig)
+		currentConfigPtr := ptr.Ptr(currentConfig)
+		// if updErr != nil {
+		// 	return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
+		// }
 
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
