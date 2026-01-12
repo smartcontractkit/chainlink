@@ -33,19 +33,19 @@ plugins:
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
+      gitRef: "42560aeb1de46a07a7b79cdbb5543d7bd54129a6"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
+      gitRef: "42560aeb1de46a07a7b79cdbb5543d7bd54129a6"
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
+      gitRef: "42560aeb1de46a07a7b79cdbb5543d7bd54129a6"
       installPath: "."
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"
-      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
+      gitRef: "42560aeb1de46a07a7b79cdbb5543d7bd54129a6"
       installPath: "."
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
