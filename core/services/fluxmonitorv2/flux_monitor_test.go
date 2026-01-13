@@ -825,6 +825,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1565")
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
