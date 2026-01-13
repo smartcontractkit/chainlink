@@ -295,7 +295,8 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	t.Logf("Token receiver ATA: %s\n", tokenReceiverATA.String())
 
 	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
-		TokenReceiver: tokenReceiver,
+		TokenReceiver:            tokenReceiver,
+		AllowOutOfOrderExecution: true,
 	})
 	require.NoError(t, err)
 

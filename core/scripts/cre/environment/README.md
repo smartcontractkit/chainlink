@@ -124,13 +124,14 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
     - with use of containerd for pulling and storing images **disabled**
 2. **AWS SSO access to SDLC** or **Access to Git repositories**
   AWS:
-  - REQUIRED: `sdlc` profile (with `PowerUserAccess` role)
+  - REQUIRED: `staging-default` profile (with `DefaultEngineeringAccess` role)
 >  [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
   Git repositories:
   - REQUIRED: read access to [Atlas](https://github.com/smartcontractkit/atlas) and [Capabilities](https://github.com/smartcontractkit/capabilities) and [Job Distributor](https://github.com/smartcontractkit/job-distributor) repositories
 
   Either AWS or Git access is required in order to pull/build Docker images for:
-  - Chip Ingress (Beholder)
+  - Chip Ingress (Beholder stack)
+  - Chip Config (Beholder stack)
   - Job Distributor
 
   Git access to `Capabilities` repository is required in order to build capability binaries. Unless you plan on only using Docker images with all capabilities baked in.

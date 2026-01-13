@@ -1,182 +1,30 @@
 package testhelpers
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"math/big"
-	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/block-vision/sui-go-sdk/sui"
-
-	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
-	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
-	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
-	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
-
-func ConfirmGasPriceUpdatedForAll(
-	t *testing.T,
-	e cldf.Environment,
-	state stateview.CCIPOnChainState,
-	startBlocks map[uint64]*uint64,
-	gasPrice *big.Int,
-) {
-	var wg errgroup.Group
-	evmChains := e.BlockChains.EVMChains()
-	for src, srcChain := range evmChains {
-		for dest, dstChain := range evmChains {
-			if src == dest {
-				continue
-			}
-			srcChain := srcChain
-			dstChain := dstChain
-			wg.Go(func() error {
-				var startBlock *uint64
-				if startBlocks != nil {
-					startBlock = startBlocks[srcChain.Selector]
-				}
-				return ConfirmGasPriceUpdated(
-					t,
-					dstChain,
-					state.MustGetEVMChainState(srcChain.Selector).FeeQuoter,
-					*startBlock,
-					gasPrice,
-				)
-			})
-		}
-	}
-	require.NoError(t, wg.Wait())
-}
-
-func ConfirmGasPriceUpdated(
-	t *testing.T,
-	dest cldf_evm.Chain,
-	srcFeeQuoter *fee_quoter.FeeQuoter,
-	startBlock uint64,
-	gasPrice *big.Int,
-) error {
-	it, err := srcFeeQuoter.FilterUsdPerUnitGasUpdated(&bind.FilterOpts{
-		Context: context.Background(),
-		Start:   startBlock,
-	}, []uint64{dest.Selector})
-
-	require.NoError(t, err)
-	require.Truef(t, it.Next(), "No gas price update event found on chain %d, fee quoter %s",
-		dest.Selector, srcFeeQuoter.Address().String())
-	require.NotEqualf(t, gasPrice, it.Event.Value, "Gas price not updated on chain %d, fee quoter %s",
-		dest.Selector, srcFeeQuoter.Address().String())
-	return nil
-}
-
-func ConfirmTokenPriceUpdatedForAll(
-	t *testing.T,
-	e cldf.Environment,
-	state stateview.CCIPOnChainState,
-	startBlocks map[uint64]*uint64,
-	linkPrice *big.Int,
-	wethPrice *big.Int,
-) {
-	var wg errgroup.Group
-	for _, chain := range e.BlockChains.EVMChains() {
-		wg.Go(func() error {
-			var startBlock *uint64
-			if startBlocks != nil {
-				startBlock = startBlocks[chain.Selector]
-			}
-			linkAddress := state.MustGetEVMChainState(chain.Selector).LinkToken.Address()
-			wethAddress := state.MustGetEVMChainState(chain.Selector).Weth9.Address()
-			tokenToPrice := make(map[common.Address]*big.Int)
-			tokenToPrice[linkAddress] = linkPrice
-			tokenToPrice[wethAddress] = wethPrice
-			return ConfirmTokenPriceUpdated(
-				t,
-				chain,
-				state.MustGetEVMChainState(chain.Selector).FeeQuoter,
-				*startBlock,
-				tokenToPrice,
-			)
-		})
-	}
-	require.NoError(t, wg.Wait())
-}
-
-func ConfirmTokenPriceUpdated(
-	t *testing.T,
-	chain cldf_evm.Chain,
-	feeQuoter *fee_quoter.FeeQuoter,
-	startBlock uint64,
-	tokenToInitialPrice map[common.Address]*big.Int,
-) error {
-	tokens := make([]common.Address, 0, len(tokenToInitialPrice))
-	for token := range tokenToInitialPrice {
-		tokens = append(tokens, token)
-	}
-	it, err := feeQuoter.FilterUsdPerTokenUpdated(&bind.FilterOpts{
-		Context: context.Background(),
-		Start:   startBlock,
-	}, tokens)
-	require.NoError(t, err)
-	for it.Next() {
-		token := it.Event.Token
-		initialValue, ok := tokenToInitialPrice[token]
-		if ok {
-			require.Contains(t, tokens, token)
-			// Initial Value should be changed
-			require.NotEqual(t, initialValue, it.Event.Value)
-		}
-
-		// Remove the token from the map until we assert all tokens are updated
-		delete(tokenToInitialPrice, token)
-		if len(tokenToInitialPrice) == 0 {
-			return nil
-		}
-	}
-
-	if len(tokenToInitialPrice) > 0 {
-		return fmt.Errorf("not all tokens updated on chain  %d", chain.Selector)
-	}
-
-	return nil
-}
 
 // SourceDestPair is represents a pair of source and destination chain selectors.
 // Use this as a key in maps that need to identify sequence numbers, nonces, or
@@ -241,7 +89,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				if startBlock != nil {
 					startSlot = *startBlock
 				}
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSol(
+				return commonutils.JustError(confirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
 					e.BlockChains.SolanaChains()[dstChain],
@@ -251,7 +99,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilySui:
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSui(
+				return commonutils.JustError(confirmCommitWithExpectedSeqNumRangeSui(
 					t,
 					srcChain,
 					e.BlockChains.SuiChains()[dstChain],
@@ -261,7 +109,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilyAptos:
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeAptos(
+				return commonutils.JustError(confirmCommitWithExpectedSeqNumRangeAptos(
 					t,
 					srcChain,
 					e.BlockChains.AptosChains()[dstChain],
@@ -271,7 +119,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilyTon:
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeTON(
+				return commonutils.JustError(confirmCommitWithExpectedSeqNumRangeTON(
 					t,
 					srcChain,
 					e.BlockChains.TonChains()[dstChain],
@@ -375,7 +223,7 @@ func ConfirmMultipleCommits(
 				if startBlocks[destChain] != nil {
 					startSlot = *startBlocks[destChain]
 				}
-				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
+				_, err := confirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
 					env.BlockChains.SolanaChains()[destChain],
@@ -386,7 +234,7 @@ func ConfirmMultipleCommits(
 				)
 				return err
 			case chainsel.FamilySui:
-				_, err := ConfirmCommitWithExpectedSeqNumRangeSui(
+				_, err := confirmCommitWithExpectedSeqNumRangeSui(
 					t,
 					srcChain,
 					env.BlockChains.SuiChains()[destChain],
@@ -397,7 +245,7 @@ func ConfirmMultipleCommits(
 				)
 				return err
 			case chainsel.FamilyAptos:
-				_, err := ConfirmCommitWithExpectedSeqNumRangeAptos(
+				_, err := confirmCommitWithExpectedSeqNumRangeAptos(
 					t,
 					srcChain,
 					env.BlockChains.AptosChains()[destChain],
@@ -414,443 +262,6 @@ func ConfirmMultipleCommits(
 	}
 
 	return errGrp.Wait()
-}
-
-// ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
-// startBlock is the block number to start watching from.
-// If startBlock is nil, it will start watching from the latest block.
-func ConfirmCommitWithExpectedSeqNumRange(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_evm.Chain,
-	offRamp offramp.OffRampInterface,
-	startBlock *uint64,
-	expectedSeqNumRange ccipocr3.SeqNumRange,
-	enforceSingleCommit bool,
-) (*offramp.OffRampCommitReportAccepted, error) {
-	sink := make(chan *offramp.OffRampCommitReportAccepted)
-	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
-		Context: context.Background(),
-		Start:   startBlock,
-	}, sink)
-	if err != nil {
-		return nil, fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
-	}
-
-	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
-
-	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
-		t.Logf("Verifying commit report: blessed roots=%d, unblessed roots=%d",
-			len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots))
-
-		processRoots := func(roots []offramp.InternalMerkleRoot, rootType string) bool {
-			t.Logf("Processing %d %s merkle roots", len(roots), rootType)
-			for i, mr := range roots {
-				t.Logf(
-					"[%s Root #%d] Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					rootType, i+1, mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
-				)
-				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
-
-				// Check source chain selector match
-				if mr.SourceChainSelector != srcSelector {
-					t.Logf("[%s Root #%d] Source chain mismatch: got %d, expected %d",
-						rootType, i+1, mr.SourceChainSelector, srcSelector)
-					continue
-				}
-
-				// Check sequence number range
-				expectedStart := uint64(expectedSeqNumRange.Start())
-				expectedEnd := uint64(expectedSeqNumRange.End())
-				if expectedStart < mr.MinSeqNr || expectedEnd > mr.MaxSeqNr {
-					t.Logf("[%s Root #%d] Sequence range mismatch: expected [%d, %d], got [%d, %d]",
-						rootType, i+1, expectedStart, expectedEnd, mr.MinSeqNr, mr.MaxSeqNr)
-					continue
-				}
-
-				t.Logf(
-					"[%s Root #%d] ✅ All sequence numbers committed in a single report [%d, %d]",
-					rootType, i+1, expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-				)
-				return true
-			}
-
-			// Check if all messages committed across multiple reports (if enforceSingleCommit is false)
-			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-				t.Logf(
-					"✅ All sequence numbers already committed from range [%d, %d] across multiple reports",
-					expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-				)
-				return true
-			}
-
-			t.Logf("No matching %s roots found for expected criteria", rootType)
-			return false
-		}
-
-		blessedResult := processRoots(report.BlessedMerkleRoots, "Blessed")
-		if blessedResult {
-			return true
-		}
-
-		unblessedResult := processRoots(report.UnblessedMerkleRoots, "Unblessed")
-		return unblessedResult
-	}
-
-	defer subscription.Unsubscribe()
-	timeoutDuration := tests.WaitTimeout(t)
-	startTime := time.Now()
-	t.Logf("Starting commit report wait with timeout: %s", timeoutDuration)
-	timeout := time.NewTimer(timeoutDuration)
-	defer timeout.Stop()
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-t.Context().Done():
-			return nil, nil
-		case <-ticker.C:
-			elapsed := time.Since(startTime)
-			remaining := timeoutDuration - elapsed
-			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s (elapsed: %s, remaining: %s)",
-				dest.Selector, srcSelector, expectedSeqNumRange.String(), elapsed.Round(time.Second), remaining.Round(time.Second))
-
-			// Need to do this because the subscription sometimes fails to get the event.
-			t.Logf("Creating FilterCommitReportAccepted iterator for offramp %s", offRamp.Address().String())
-			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
-				Context: t.Context(),
-			})
-
-			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					t.Logf("FilterCommitReportAccepted context was canceled, continuing...")
-				} else {
-					t.Logf("FilterCommitReportAccepted failed with error: %v", err)
-					require.NoError(t, err)
-				}
-				continue // Skip to next ticker iteration if filter creation failed
-			}
-
-			eventCount := 0
-			t.Logf("Starting to iterate through FilterCommitReportAccepted events...")
-			for iter.Next() {
-				eventCount++
-				event := iter.Event
-				t.Logf("Processing commit report event #%d: blessed roots=%d, unblessed roots=%d",
-					eventCount, len(event.BlessedMerkleRoots), len(event.UnblessedMerkleRoots))
-
-				verified := verifyCommitReport(event)
-				if verified {
-					t.Logf("Commit report verified successfully after processing %d events", eventCount)
-					return event, nil
-				}
-				t.Logf("Commit report event #%d did not match expected criteria", eventCount)
-			}
-
-			// Check for iteration errors
-			if err := iter.Error(); err != nil {
-				t.Logf("Iterator error after processing %d events: %v", eventCount, err)
-			} else if eventCount == 0 {
-				t.Logf("No commit report events found in this iteration")
-			} else {
-				t.Logf("Processed %d commit report events, none matched expected criteria", eventCount)
-			}
-		case subErr := <-subscription.Err():
-			return nil, fmt.Errorf("subscription error: %w", subErr)
-		case <-timeout.C:
-			return nil, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
-		case report := <-sink:
-			t.Logf("Received commit report via subscription: blessed roots=%d, unblessed roots=%d",
-				len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots))
-			verified := verifyCommitReport(report)
-			if verified {
-				t.Logf("Subscription commit report verified successfully")
-				return report, nil
-			} else {
-				t.Logf("Subscription commit report did not match expected criteria")
-			}
-		}
-	}
-}
-
-type EventWithTxn[T any] struct {
-	Event T
-	Txn   *solrpc.GetTransactionResult
-}
-
-// SolEventEmitter listens for events of type T emitted by the Solana program at the given address. Failed transactions
-// can be included by setting the includeFailed flag to true.
-func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker, includeFailed bool) (<-chan EventWithTxn[T], <-chan error) {
-	ch := make(chan EventWithTxn[T])
-	errorCh := make(chan error)
-	go func() {
-		defer ticker.Stop()
-		var until solana.Signature
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				// Scan for transactions referencing the address
-				txSigs, err := client.GetSignaturesForAddressWithOpts(
-					ctx,
-					address,
-					&solrpc.GetSignaturesForAddressOpts{
-						Commitment: solrpc.CommitmentConfirmed,
-						Until:      until,
-					},
-				)
-				if err != nil {
-					errorCh <- err
-					return
-				}
-
-				if len(txSigs) == 0 {
-					continue
-				}
-
-				// values are returned ordered newest to oldest, so we replay them backwards
-				for _, txSig := range slices.Backward(txSigs) {
-					if txSig.Err != nil && !includeFailed {
-						// We're not interested in failed transactions.
-						continue
-					}
-					if txSig.Slot < startSlot {
-						// Skip any signatures that are before the starting slot
-						continue
-					}
-					v := uint64(0) // v0 = latest, supports address table lookups
-					tx, err := client.GetTransaction(
-						ctx,
-						txSig.Signature,
-						&solrpc.GetTransactionOpts{
-							Commitment:                     solrpc.CommitmentConfirmed,
-							Encoding:                       solana.EncodingBase64,
-							MaxSupportedTransactionVersion: &v,
-						},
-					)
-					if err != nil {
-						errorCh <- err
-						return
-					}
-
-					events, err := solcommon.ParseMultipleEvents[T](tx.Meta.LogMessages, eventType, solconfig.PrintEvents)
-					if err != nil && strings.Contains(err.Error(), "event not found") {
-						continue
-					}
-					if err != nil {
-						errorCh <- err
-						return
-					}
-
-					for _, event := range events {
-						select {
-						case ch <- EventWithTxn[T]{
-							Event: event,
-							Txn:   tx,
-						}:
-						case <-done:
-							return
-						}
-					}
-				}
-				// next scan should stop at the newest signature we've received
-				until = txSigs[0].Signature
-			}
-		}
-	}()
-
-	return ch, errorCh
-}
-
-func ConfirmCommitWithExpectedSeqNumRangeSol(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_solana.Chain,
-	offrampAddress solana.PublicKey,
-	startSlot uint64,
-	expectedSeqNumRange ccipocr3.SeqNumRange,
-	enforceSingleCommit bool,
-) (bool, error) {
-	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
-
-	done := make(chan any)
-	defer close(done)
-	sink, errCh := SolEventEmitter[solcommon.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second), false)
-
-	timeout := time.NewTimer(tests.WaitTimeout(t))
-	defer timeout.Stop()
-
-	for {
-		select {
-		case eventWithTxn := <-sink:
-			commitEvent := eventWithTxn.Event
-			// if merkle root is zero, it only contains price updates
-			if commitEvent.Report == nil {
-				t.Logf("Skipping CommitReportAccepted with only price updates")
-				continue
-			}
-			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
-
-			// TODO: this logic is duplicated with verifyCommitReport, share
-			mr := commitEvent.Report
-			seenMessages.visitCommitReport(mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
-			if mr.SourceChainSelector == srcSelector &&
-				uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-				uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-				t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-				return true, nil
-			}
-
-			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-				return true, nil
-			}
-		case err := <-errCh:
-			require.NoError(t, err)
-		case <-timeout.C:
-			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
-		}
-	}
-}
-
-func AptosEventEmitter[T any](
-	t *testing.T,
-	client aptos.AptosRpcClient,
-	address aptos.AccountAddress,
-	eventHandle, fieldname string,
-	startVersion *uint64,
-	done chan any,
-) (<-chan struct {
-	Event   T
-	Version uint64
-}, <-chan error) {
-	ch := make(chan struct {
-		Event   T
-		Version uint64
-	}, 200)
-	errChan := make(chan error)
-	limit := uint64(100)
-	seqNum := uint64(0)
-	go func() {
-		ticker := time.NewTicker(time.Second * 2)
-		defer ticker.Stop()
-
-		for {
-			for {
-				// As this can take a few iterations if there are many events, check for done before each request
-				select {
-				case <-done:
-					return
-				default:
-				}
-				events, err := client.EventsByHandle(address, eventHandle, fieldname, &seqNum, &limit)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if len(events) == 0 {
-					// No new events found
-					break
-				}
-				for _, event := range events {
-					seqNum = event.SequenceNumber + 1
-					if startVersion != nil && event.Version < *startVersion {
-						continue
-					}
-					var out T
-					if err := codec.DecodeAptosJsonValue(event.Data, &out); err != nil {
-						errChan <- err
-						continue
-					}
-					ch <- struct {
-						Event   T
-						Version uint64
-					}{
-						Event:   out,
-						Version: event.Version,
-					}
-				}
-			}
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				continue
-			}
-		}
-	}()
-	return ch, errChan
-}
-
-func ConfirmCommitWithExpectedSeqNumRangeAptos(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_aptos.Chain,
-	offRampAddress aptos.AccountAddress,
-	startVersion *uint64,
-	expectedSeqNumRange ccipocr3.SeqNumRange,
-	enforceSingleCommit bool,
-) (*module_offramp.CommitReportAccepted, error) {
-	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
-	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
-	require.NoError(t, err)
-
-	done := make(chan any)
-	defer close(done)
-	sink, errChan := AptosEventEmitter[module_offramp.CommitReportAccepted](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "commit_report_accepted_events", startVersion, done)
-
-	timeout := time.NewTimer(tests.WaitTimeout(t))
-	defer timeout.Stop()
-
-	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
-
-	verifyCommitReport := func(report module_offramp.CommitReportAccepted) bool {
-		processRoots := func(roots []module_offramp.MerkleRoot) bool {
-			for _, mr := range roots {
-				t.Logf("(Aptos) Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
-				)
-				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
-
-				if mr.SourceChainSelector == srcSelector && uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr && uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-					t.Logf("(Aptos) All sequence numbers committed in a single report [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
-				}
-
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-					t.Logf(
-						"(Aptos) All sequence numbers already committed from range [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
-				}
-			}
-			return false
-		}
-
-		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
-	}
-
-	for {
-		select {
-		case event := <-sink:
-			verified := verifyCommitReport(event.Event)
-			if verified {
-				return &event.Event, nil
-			}
-		case err := <-errChan:
-			require.NoError(t, err)
-		case <-timeout.C:
-			return nil, fmt.Errorf("(aptos) timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
-		}
-	}
 }
 
 // ConfirmExecWithSeqNrsForAll waits for all chains in the environment to execute the given expectedSeqNums.
@@ -905,7 +316,7 @@ func ConfirmExecWithSeqNrsForAll(
 				if startBlock != nil {
 					startSlot = *startBlock
 				}
-				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
+				innerExecutionStates, err = confirmExecWithSeqNrsSol(
 					t,
 					srcChain,
 					e.BlockChains.SolanaChains()[dstChain],
@@ -917,7 +328,7 @@ func ConfirmExecWithSeqNrsForAll(
 					return err
 				}
 			case chainsel.FamilyAptos:
-				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsAptos(
+				innerExecutionStates, err = confirmExecWithExpectedSeqNrsAptos(
 					t,
 					srcChain,
 					e.BlockChains.AptosChains()[dstChain],
@@ -929,7 +340,7 @@ func ConfirmExecWithSeqNrsForAll(
 					return err
 				}
 			case chainsel.FamilySui:
-				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsSui(
+				innerExecutionStates, err = confirmExecWithExpectedSeqNrsSui(
 					t,
 					srcChain,
 					e.BlockChains.SuiChains()[dstChain],
@@ -941,7 +352,7 @@ func ConfirmExecWithSeqNrsForAll(
 					return err
 				}
 			case chainsel.FamilyTon:
-				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsTON(
+				innerExecutionStates, err = confirmExecWithExpectedSeqNrsTON(
 					t,
 					srcChain,
 					e.BlockChains.TonChains()[dstChain],
@@ -966,378 +377,6 @@ func ConfirmExecWithSeqNrsForAll(
 
 	require.NoError(t, wg.Wait())
 	return executionStates
-}
-
-// ConfirmExecWithSeqNrs waits for an execution state change on the destination chain with the expected sequence number.
-// startBlock is the block number to start watching from.
-// If startBlock is nil, it will start watching from the latest block.
-// Returns a map that maps the expected sequence number to its execution state.
-func ConfirmExecWithSeqNrs(
-	t *testing.T,
-	sourceSelector uint64,
-	dest cldf_evm.Chain,
-	offRamp offramp.OffRampInterface,
-	startBlock *uint64,
-	expectedSeqNrs []uint64,
-) (executionStates map[uint64]int, err error) {
-	if len(expectedSeqNrs) == 0 {
-		return nil, errors.New("no expected sequence numbers provided")
-	}
-
-	timeout := time.NewTimer(tests.WaitTimeout(t))
-	defer timeout.Stop()
-	tick := time.NewTicker(3 * time.Second)
-	defer tick.Stop()
-	sink := make(chan *offramp.OffRampExecutionStateChanged)
-	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
-		Context: context.Background(),
-		Start:   startBlock,
-	}, sink, nil, nil, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error to subscribe ExecutionStateChanged : %w", err)
-	}
-	defer subscription.Unsubscribe()
-
-	// some state to efficiently track the execution states
-	// of all the expected sequence numbers.
-	executionStates = make(map[uint64]int)
-	seqNrsToWatch := make(map[uint64]struct{})
-	for _, seqNr := range expectedSeqNrs {
-		seqNrsToWatch[seqNr] = struct{}{}
-	}
-	for {
-		select {
-		case <-tick.C:
-			for expectedSeqNr := range seqNrsToWatch {
-				scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
-				t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
-					dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-				if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
-					t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
-						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
-					executionStates[expectedSeqNr] = int(executionState)
-					delete(seqNrsToWatch, expectedSeqNr)
-					if len(seqNrsToWatch) == 0 {
-						return executionStates, nil
-					}
-				}
-			}
-		case execEvent := <-sink:
-			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
-				executionStateToString(execEvent.State), execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(),
-				sourceSelector,
-			)
-
-			_, found := seqNrsToWatch[execEvent.SequenceNumber]
-			if found && execEvent.SourceChainSelector == sourceSelector {
-				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), sourceSelector, execEvent.SequenceNumber)
-				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
-				delete(seqNrsToWatch, execEvent.SequenceNumber)
-				if len(seqNrsToWatch) == 0 {
-					return executionStates, nil
-				}
-			}
-		case <-timeout.C:
-			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNrs)
-		case subErr := <-subscription.Err():
-			return nil, fmt.Errorf("subscription error: %w", subErr)
-		}
-	}
-}
-
-type MessageStateEvent struct {
-	SequenceNumber uint64
-	Block          uint64
-	State          ccip_offramp.MessageExecutionState
-}
-
-// GetMessageStatesWithSeqNrsSol waits for execution state changes on the destination Solana chain with the expected
-// sequence numbers. The timeout is configurable.
-// If "inProgress" is true, and there are unexecutable messages, it will continue to watch for additional "InProgress"
-// states for the entire timeoutDuration.
-func GetMessageStatesWithSeqNrsSol(
-	t *testing.T,
-	timeoutDuration time.Duration,
-	srcSelector uint64,
-	dest cldf_solana.Chain,
-	offrampAddress solana.PublicKey,
-	startSlot uint64,
-	expectedSeqNrs []uint64,
-	inProgress bool,
-) (executionStates map[uint64][]MessageStateEvent, err error) {
-	// TODO: share with EVM
-	// some state to efficiently track the execution states
-	// of all the expected sequence numbers.
-	executionStates = make(map[uint64][]MessageStateEvent)
-	seqNrsInProgress := make(map[uint64]struct{})
-	seqNrsToWatch := make(map[uint64]struct{})
-	for _, seqNr := range expectedSeqNrs {
-		seqNrsToWatch[seqNr] = struct{}{}
-		seqNrsInProgress[seqNr] = struct{}{}
-	}
-
-	done := make(chan any)
-	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second), inProgress)
-
-	timeout := time.NewTimer(timeoutDuration)
-	defer timeout.Stop()
-
-	for {
-		select {
-		case eventWithTxn := <-sink:
-			execEvent := eventWithTxn.Event
-			// TODO: share with EVM
-			_, found := seqNrsToWatch[execEvent.SequenceNumber]
-			if found && execEvent.SourceChainSelector == srcSelector {
-				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					execEvent.State.String(), dest.Selector, offrampAddress.String(), srcSelector, execEvent.SequenceNumber)
-				executionStates[execEvent.SequenceNumber] = append(executionStates[execEvent.SequenceNumber],
-					MessageStateEvent{
-						SequenceNumber: execEvent.SequenceNumber,
-						Block:          eventWithTxn.Txn.Slot,
-						State:          execEvent.State,
-					})
-				if execEvent.State == ccip_offramp.InProgress_MessageExecutionState {
-					delete(seqNrsInProgress, execEvent.SequenceNumber)
-					// continue watching for final state or timeout
-					continue
-				}
-				delete(seqNrsToWatch, execEvent.SequenceNumber)
-				delete(seqNrsInProgress, execEvent.SequenceNumber)
-				if len(seqNrsToWatch) == 0 {
-					return executionStates, nil
-				}
-			}
-		case err := <-errCh:
-			require.NoError(t, err)
-		case <-timeout.C:
-			// If we have some status for every seqNr, return what we have instead of an error.
-			if len(seqNrsInProgress) == 0 {
-				return executionStates, nil
-			}
-			// Otherwise, return a timeout error.
-			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
-		}
-	}
-}
-
-// ConfirmExecWithSeqNrsSol waits for an execution state change on the destination Solana chain with the expected
-// sequence numbers. The timeout is automatically set to 30 seconds or 90% of the test timeout (if there is one).
-// This is a wrapper around the more general GetMessageStatesWithSeqNrsSol.
-func ConfirmExecWithSeqNrsSol(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_solana.Chain,
-	offrampAddress solana.PublicKey,
-	startSlot uint64,
-	expectedSeqNrs []uint64,
-) (executionStates map[uint64]int, err error) {
-	timeout := tests.WaitTimeout(t)
-	states, err := GetMessageStatesWithSeqNrsSol(t, timeout, srcSelector, dest, offrampAddress, startSlot, expectedSeqNrs, false)
-	if err != nil {
-		return nil, err
-	}
-
-	executionStates = make(map[uint64]int)
-
-	for seqNr, stateList := range states {
-		if len(stateList) == 0 {
-			return nil, fmt.Errorf("no execution states found for seqNr %d", seqNr)
-		}
-		// check that the final state is either success or failure
-		state := stateList[len(stateList)-1].State
-		if state != ccip_offramp.Success_MessageExecutionState && state != ccip_offramp.Failure_MessageExecutionState {
-			return nil, fmt.Errorf("expected final execution state for seqNr %d, got %s", seqNr, state.String())
-		}
-
-		executionStates[seqNr] = int(state)
-	}
-
-	return executionStates, nil
-}
-
-func ConfirmExecWithExpectedSeqNrsAptos(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_aptos.Chain,
-	offRampAddress aptos.AccountAddress,
-	startVersion *uint64,
-	expectedSeqNrs []uint64,
-) (executionStates map[uint64]int, err error) {
-	if startVersion != nil {
-		t.Logf("[DEBUG] startVersion = %d", *startVersion)
-	} else {
-		t.Log("[DEBUG] startVersion = nil (streaming from latest)")
-	}
-
-	if len(expectedSeqNrs) == 0 {
-		t.Log("[DEBUG] expectedSeqNrs is empty")
-		return nil, errors.New("no expected sequence numbers provided")
-	}
-
-	t.Logf("[DEBUG] Binding OffRamp at address %s", offRampAddress.String())
-	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
-	t.Log("[DEBUG] Fetching OffRamp state address...")
-	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
-	require.NoError(t, err)
-	t.Logf("[DEBUG] Got OffRamp state address: %s", offRampStateAddress.String())
-
-	done := make(chan any)
-	defer close(done)
-
-	t.Log("[DEBUG] Subscribing to Aptos events...")
-	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "execution_state_changed_events", startVersion, done)
-
-	t.Log("[DEBUG] Event subscription established")
-
-	executionStates = make(map[uint64]int)
-	seqNrsToWatch := make(map[uint64]bool)
-	for _, seqNr := range expectedSeqNrs {
-		seqNrsToWatch[seqNr] = true
-	}
-	t.Logf("[DEBUG] Watching for sequence numbers: %+v", seqNrsToWatch)
-
-	timeout := time.NewTimer(tests.WaitTimeout(t))
-	defer timeout.Stop()
-
-	for {
-		select {
-		case event := <-sink:
-			t.Logf("[DEBUG] Received event: %+v", event)
-
-			if !seqNrsToWatch[event.Event.SequenceNumber] {
-				t.Logf("[DEBUG] Ignoring event with unexpected sequence number: %d", event.Event.SequenceNumber)
-				continue
-			}
-
-			if event.Event.SourceChainSelector != srcSelector {
-				t.Logf("[DEBUG] Ignoring event with unexpected source chain selector: got %d, expected %d",
-					event.Event.SourceChainSelector, srcSelector)
-				continue
-			}
-
-			if seqNrsToWatch[event.Event.SequenceNumber] && event.Event.SourceChainSelector == srcSelector {
-				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %d)",
-					executionStateToString(event.Event.State), dest.Selector, offRampAddress.String(), event.Event.SequenceNumber, event.Version,
-				)
-				if event.Event.State == EXECUTION_STATE_INPROGRESS {
-					continue
-				}
-				executionStates[event.Event.SequenceNumber] = int(event.Event.State)
-				delete(seqNrsToWatch, event.Event.SequenceNumber)
-				if len(seqNrsToWatch) == 0 {
-					return executionStates, nil
-				}
-			}
-
-		case err := <-errChan:
-			require.NoError(t, err)
-		case <-timeout.C:
-			return nil, fmt.Errorf("(Aptos) timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offRampAddress.String(), srcSelector, expectedSeqNrs)
-		}
-	}
-}
-
-func ConfirmExecWithExpectedSeqNrsSui(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_sui.Chain,
-	offRampAddress string,
-	startVersion *uint64,
-	expectedSeqNrs []uint64,
-) (executionStates map[uint64]int, err error) {
-	if startVersion != nil {
-		t.Logf("[DEBUG] startVersion = %d", *startVersion)
-	} else {
-		t.Log("[DEBUG] startVersion = nil (streaming from latest)")
-	}
-
-	if len(expectedSeqNrs) == 0 {
-		t.Log("[DEBUG] expectedSeqNrs is empty")
-		return nil, errors.New("no expected sequence numbers provided")
-	}
-
-	done := make(chan any)
-	defer close(done)
-
-	t.Log("[DEBUG] Subscribing to Sui events...", offRampAddress)
-	sink, errChan := SuiEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
-
-	t.Log("[DEBUG] Event subscription established")
-
-	executionStates = make(map[uint64]int)
-	seqNrsToWatch := make(map[uint64]bool)
-	for _, seqNr := range expectedSeqNrs {
-		seqNrsToWatch[seqNr] = true
-	}
-	t.Logf("[DEBUG] Watching for sequence numbers: %+v", seqNrsToWatch)
-
-	timeout := time.NewTimer(tests.WaitTimeout(t))
-	defer timeout.Stop()
-
-	for {
-		select {
-		case event := <-sink:
-			t.Logf("[DEBUG] Received event: %+v", event)
-
-			if !seqNrsToWatch[event.Event.SequenceNumber] {
-				t.Logf("[DEBUG] Ignoring event with unexpected sequence number: %d", event.Event.SequenceNumber)
-				continue
-			}
-
-			if event.Event.SourceChainSelector != srcSelector {
-				t.Logf("[DEBUG] Ignoring event with unexpected source chain selector: got %d, expected %d",
-					event.Event.SourceChainSelector, srcSelector)
-				continue
-			}
-
-			if seqNrsToWatch[event.Event.SequenceNumber] && event.Event.SourceChainSelector == srcSelector {
-				t.Logf("(Sui) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %s)",
-					executionStateToString(event.Event.State), dest.Selector, offRampAddress, event.Event.SequenceNumber, event.Version,
-				)
-				if event.Event.State == EXECUTION_STATE_INPROGRESS {
-					continue
-				}
-				executionStates[event.Event.SequenceNumber] = int(event.Event.State)
-				delete(seqNrsToWatch, event.Event.SequenceNumber)
-				if len(seqNrsToWatch) == 0 {
-					return executionStates, nil
-				}
-			}
-
-		case err := <-errChan:
-			require.NoError(t, err)
-		case <-timeout.C:
-			return nil, fmt.Errorf("(Sui) timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offRampAddress, srcSelector, expectedSeqNrs)
-		}
-	}
-}
-
-func ConfirmNoExecConsistentlyWithSeqNr(
-	t *testing.T,
-	sourceSelector uint64,
-	dest cldf_evm.Chain,
-	offRamp offramp.OffRampInterface,
-	expectedSeqNr uint64,
-	timeout time.Duration,
-) {
-	RequireConsistently(t, func() bool {
-		scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
-		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
-			dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-		if executionState == EXECUTION_STATE_UNTOUCHED {
-			return true
-		}
-		t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
-			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
-		return false
-	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 }
 
 func ConfirmNoExecSuccessConsistentlyWithSeqNr(
@@ -1483,203 +522,5 @@ func AssertTimelockOwnership(
 		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[e.HomeChainSel].Client)
 		require.NoError(t, err)
 		require.Equal(t, homeChainTimelockAddress, owner)
-	}
-}
-
-func SuiEventEmitter[T any](
-	t *testing.T,
-	client sui.ISuiAPI,
-	packageID, moduleName, event string,
-	done chan any,
-) (<-chan struct {
-	Event   T
-	Version string
-}, <-chan error) {
-	startTime := time.Now()
-	t.Logf("[DEBUG] SuiEventEmitter: Starting at %s - will capture ALL historical events plus new ones", startTime.Format(time.RFC3339))
-	ch := make(chan struct {
-		Event   T
-		Version string
-	}, 200)
-	errChan := make(chan error)
-	limit := uint64(50)                 // Use uint64 directly to avoid conversion
-	seenEvents := make(map[string]bool) // Track all seen event IDs to prevent duplicates
-
-	go func() {
-		defer close(ch)
-		defer close(errChan)
-
-		ticker := time.NewTicker(time.Second * 2)
-		defer ticker.Stop()
-
-		for {
-			for {
-				// As this can take a few iterations if there are many events, check for done before each request
-				select {
-				case <-done:
-					t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal")
-					return
-				default:
-				}
-
-				eventFilter := models.EventFilterByMoveEventType{
-					MoveEventType: fmt.Sprintf("%s::%s::%s", packageID, moduleName, event),
-				}
-
-				events, err := client.SuiXQueryEvents(t.Context(), models.SuiXQueryEventsRequest{
-					SuiEventFilter:  eventFilter,
-					Limit:           limit,
-					DescendingOrder: false,
-				})
-				if err != nil {
-					t.Logf("[DEBUG] SuiEventEmitter: Query error: %v", err)
-					select {
-					case errChan <- err:
-					case <-done:
-						return
-					}
-					return
-				}
-
-				if len(events.Data) == 0 {
-					// No new events found
-					t.Logf("[DEBUG] SuiEventEmitter: No new events found")
-					break
-				}
-
-				t.Logf("[DEBUG] SuiEventEmitter: Processing %d events", len(events.Data))
-				newEventsCount := 0
-
-				for _, ev := range events.Data {
-					// Create unique event ID combining transaction digest and event sequence
-					eventID := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
-
-					if seenEvents[eventID] {
-						t.Logf("[DEBUG] SuiEventEmitter: Skipping duplicate event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-						continue // skip duplicates
-					}
-					seenEvents[eventID] = true
-
-					var out T
-					// TODO: Use proper SUI JSON decoder instead of Aptos decoder
-					if err := codec.DecodeAptosJsonValue(ev.ParsedJson, &out); err != nil {
-						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s with type %s and transaction module %s at timestamp %s: %v", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err)
-						select {
-						case errChan <- fmt.Errorf("failed to decode event %s with type %s and transaction module %s at timestamp %s: %w", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err):
-						case <-done:
-							return
-						}
-						continue
-					}
-
-					newEventsCount++
-					eventData := struct {
-						Event   T
-						Version string
-					}{
-						Event:   out,
-						Version: ev.Id.EventSeq,
-					}
-
-					// Non-blocking send to prevent goroutine deadlock
-					select {
-					case ch <- eventData:
-						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-					case <-done:
-						t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal during send")
-						return
-					default:
-						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-						// Channel is full, log warning but continue processing
-						// This prevents blocking the entire event loop
-					}
-				}
-
-				t.Logf("[DEBUG] SuiEventEmitter: Processed %d new events out of %d total", newEventsCount, len(events.Data))
-
-				// For now, break after processing to avoid infinite loops
-				// TODO: Implement proper cursor-based pagination when SUI SDK supports it
-				if uint64(len(events.Data)) < limit {
-					// Received fewer events than limit, likely no more events available
-					break
-				}
-			}
-			select {
-			case <-done:
-				t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal in ticker loop")
-				return
-			case <-ticker.C:
-				t.Logf("[DEBUG] SuiEventEmitter: Ticker fired, checking for new events")
-				continue
-			}
-		}
-	}()
-	return ch, errChan
-}
-
-func ConfirmCommitWithExpectedSeqNumRangeSui(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_sui.Chain,
-	offRampAddress string,
-	startVersion *uint64,
-	expectedSeqNumRange ccipocr3common.SeqNumRange,
-	enforceSingleCommit bool,
-) (any, error) {
-	// Bound the offRamp
-	boundOffRamp, err := sui_ccip_offramp.NewOfframp(offRampAddress, dest.Client)
-	require.NoError(t, err)
-
-	done := make(chan any)
-	defer close(done)
-	sink, errChan := SuiEventEmitter[sui_module_offramp.CommitReportAccepted](t, dest.Client, boundOffRamp.Address(), "offramp", "CommitReportAccepted", done)
-
-	timeout := time.NewTimer(tests.WaitTimeout(t))
-	defer timeout.Stop()
-
-	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
-
-	verifyCommitReport := func(report sui_module_offramp.CommitReportAccepted) bool {
-		processRoots := func(roots []sui_module_offramp.MerkleRoot) bool {
-			for _, mr := range roots {
-				t.Logf("(Sui) Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
-				)
-				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
-
-				if mr.SourceChainSelector == srcSelector && uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr && uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-					t.Logf("(Sui) All sequence numbers committed in a single report [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
-				}
-
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-					t.Logf(
-						"(Sui) All sequence numbers already committed from range [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
-				}
-			}
-			return false
-		}
-
-		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
-	}
-
-	for {
-		select {
-		case event := <-sink:
-			verified := verifyCommitReport(event.Event)
-			if verified {
-				return &event.Event, nil
-			}
-		case err := <-errChan:
-			require.NoError(t, err)
-		case <-timeout.C:
-			return nil, fmt.Errorf("(sui) timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
-		}
 	}
 }
