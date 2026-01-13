@@ -538,14 +538,14 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 	testLogger zerolog.Logger,
 ) {
 	t.Helper()
-
-	t.Cleanup(func() {
-		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
-			wfRegCfg.CompressedWasmPath, wfRegCfg.Blockchains,
-			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryVersion,
-		)
-	})
-
+	/*
+		t.Cleanup(func() {
+			deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
+				wfRegCfg.CompressedWasmPath, wfRegCfg.Blockchains,
+				wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryVersion,
+			)
+		})
+	*/
 	donID := wfRegCfg.DonID
 	workflowName := wfRegCfg.WorkflowName
 	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
