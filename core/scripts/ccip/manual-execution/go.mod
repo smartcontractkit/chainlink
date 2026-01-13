@@ -5,7 +5,7 @@ go 1.24.5
 require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/pkg/errors v0.9.1
-	github.com/smartcontractkit/chain-selectors v1.0.71
+	github.com/smartcontractkit/chain-selectors v1.0.88
 	golang.org/x/crypto v0.41.0
 )
 
