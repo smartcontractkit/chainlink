@@ -49,6 +49,7 @@ type DestinationGun struct {
 	testConfig       *ccip.LoadConfig
 	evmSourceKeys    map[uint64]*bind.TransactOpts
 	solanaSourceKeys map[uint64]*solana.PrivateKey
+	tonSourceKeys    map[uint64]*TonSourceManager
 	metricPipe       chan messageData
 	availableSources []uint64 // Cache of available source chains for this destination
 }
@@ -62,6 +63,7 @@ func NewDestinationGun(
 	overrides *ccip.LoadConfig,
 	evmSourceKeys map[uint64]*bind.TransactOpts,
 	solanaSourceKeys map[uint64]*solana.PrivateKey,
+	tonSourceKeys map[uint64]*TonSourceManager,
 	metricPipe chan messageData,
 	availableSources []uint64,
 ) (*DestinationGun, error) {
@@ -84,6 +86,7 @@ func NewDestinationGun(
 		testConfig:       overrides,
 		evmSourceKeys:    evmSourceKeys,
 		solanaSourceKeys: solanaSourceKeys,
+		tonSourceKeys:    tonSourceKeys,
 		metricPipe:       metricPipe,
 		availableSources: availableSources,
 	}
@@ -109,6 +112,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		err = m.sendEVMSourceMessage(src)
 	case selectors.FamilySolana:
 		err = m.sendSOLSourceMessage(src)
+	case selectors.FamilyTon:
+		err = m.sendTONSourceMessage(src)
 	}
 
 	if err != nil {
@@ -469,4 +474,49 @@ func (m *DestinationGun) getSolanaMessage(src uint64) (ccip_router.SVM2AnyMessag
 	}
 
 	return message, nil
+}
+
+func (m *DestinationGun) sendTONSourceMessage(src uint64) error {
+	tonManager, exists := m.tonSourceKeys[src]
+	if !exists {
+		return fmt.Errorf("no TON source key available for chain %d", src)
+	}
+
+	ctx := m.env.GetContext()
+
+	// Send the message using the TON source manager
+	seqNum, messageID, err := tonManager.sendTONMessage(
+		ctx,
+		m.chainSelector,
+		m.receiver,
+		m.testConfig,
+	)
+	if err != nil {
+		m.l.Errorw("Failed to send TON message",
+			"sourceChain", src,
+			"destChain", m.chainSelector,
+			"err", err)
+		return fmt.Errorf("failed to send TON CCIP message: %w", err)
+	}
+
+	m.l.Infow("TON message sent successfully",
+		"sourceChain", src,
+		"destChain", m.chainSelector,
+		"seqNum", seqNum,
+		"messageID", messageID)
+
+	// Send metrics if channel is available
+	if m.metricPipe != nil {
+		m.metricPipe <- messageData{
+			eventType: transmitted,
+			srcDstSeqNum: srcDstSeqNum{
+				src:    src,
+				dst:    m.chainSelector,
+				seqNum: seqNum,
+			},
+			timestamp: uint64(time.Now().UnixNano()),
+		}
+	}
+
+	return nil
 }

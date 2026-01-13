@@ -34,6 +34,22 @@ type LoadConfig struct {
 	GasLimit             *uint64
 	OOOExecution         *bool
 	SolanaDataSize       *int
+	TestnetConfig        *TestnetConfig
+}
+
+type TestnetConfig struct {
+	Testnet          *bool
+	EVMPrivateKey    *string
+	AptosPrivateKey  *string
+	SolanaPrivateKey *string
+	TonMnemonic      *string // 24-word mnemonic for HighloadWalletV3
+	FundingAmountEth *uint64 // Default funding for EVM chains
+	FundingAmountSol *uint64
+	FundingAmountApt *uint64
+	// Per-chain funding overrides (chain selector -> amount in wei)
+	// Use chain selectors like 14767482510784806043 (Fuji), 3478487238524512106 (Arbitrum Sepolia)
+	// If not specified, falls back to FundingAmountEth
+	ChainFundingOverrides map[uint64]uint64
 }
 
 const (

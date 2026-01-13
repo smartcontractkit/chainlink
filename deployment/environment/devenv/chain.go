@@ -31,6 +31,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_client "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
@@ -42,6 +43,7 @@ const (
 	SolChainType   = "SOLANA"
 	AptosChainType = "APTOS"
 	TronChainType  = "TRON"
+	TonChainType   = "TON"
 )
 
 type CribRPCs struct {
@@ -154,6 +156,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 	var solSyncMap sync.Map
 	var aptosSyncMap sync.Map
 	var tronSyncMap sync.Map
+	var tonSyncMap sync.Map
 
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
@@ -318,6 +321,21 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 
 				tronSyncMap.Store(chainDetails.ChainSelector, tronChain)
 				return nil
+
+			case TonChainType:
+				// TON requires special initialization with liteserver connections
+				// For now, we store the chain metadata and let the load test handle full initialization
+				tonSyncMap.Store(chainDetails.ChainSelector, cldf_ton.Chain{
+					ChainMetadata: cldf_ton.ChainMetadata{
+						Selector: chainDetails.ChainSelector,
+					},
+					// Client and Wallet will be initialized by the load test using the mnemonic
+				})
+				logger.Infow("TON chain registered (requires load test initialization)",
+					"selector", chainDetails.ChainSelector,
+					"chainName", chainCfg.ChainName)
+				return nil
+
 			default:
 				return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
 			}
@@ -347,6 +365,11 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 
 	tronSyncMap.Range(func(sel, value any) bool {
 		blockChains = append(blockChains, value.(cldf_tron.Chain))
+		return true
+	})
+
+	tonSyncMap.Range(func(sel, value any) bool {
+		blockChains = append(blockChains, value.(cldf_ton.Chain))
 		return true
 	})
 

@@ -13,6 +13,7 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
@@ -43,10 +43,6 @@ const (
 	executed
 	tickerDuration      = 3 * time.Minute
 	SubscriptionTimeout = 1 * time.Minute
-)
-
-var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 eth
 )
 
 type finalSeqNrReport struct {
@@ -482,7 +478,9 @@ func subscribeSkippedIncorrectNonce(
 }
 
 // fundAdditionalKeys will create len(targetChains) new addresses, and send funds to them on every targetChain
-func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
+// chainFundingOverrides maps chain selectors to funding amounts in wei
+// If a chain is not in overrides, defaultFunding is used
+func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64, defaultFunding uint64, chainFundingOverrides map[uint64]uint64) (map[uint64][]*bind.TransactOpts, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
@@ -494,6 +492,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 			if err != nil {
 				return nil, fmt.Errorf("failed to create new address: %w", err)
 			}
+			lggr.Infow("created account for load testing", "private key", pk, "selector", chain, "address", addr)
 			pvtKey, err := crypto.HexToECDSA(pk)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)
@@ -515,8 +514,17 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	g := new(errgroup.Group)
 	for sel, addresses := range addressMap {
 		sel, addresses := sel, addresses
+		// Determine funding amount: check for chain-specific override, else use default
+		funding := defaultFunding
+		if chainFundingOverrides != nil {
+			if override, ok := chainFundingOverrides[sel]; ok {
+				funding = override
+				lggr.Infow("using chain-specific funding override", "chainSelector", sel, "amount", funding)
+			}
+		}
+		fundingBig := new(big.Int).SetUint64(funding)
 		g.Go(func() error {
-			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, fundingAmount, sel)
+			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, fundingBig, sel)
 		})
 	}
 
@@ -545,20 +553,46 @@ func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[u
 				continue
 			}
 
-			// Get the current gas price
+			// Get the current gas price with a 2x buffer to handle fluctuations
 			gasPrice, err := chain.Client.SuggestGasPrice(ctx)
 			if err != nil {
 				lggr.Warnw("could not get gas price",
 					"err", err,
 					"chain", sel)
+				continue
+			}
+			// Apply 2x buffer for gas price fluctuations (especially important for Arbitrum)
+			gasPrice = new(big.Int).Mul(gasPrice, big.NewInt(2))
+
+			// Estimate gas - different chains have different intrinsic costs (e.g., Arbitrum L2)
+			gasLimit := uint64(21000)
+			estimatedGas, err := chain.Client.EstimateGas(ctx, ethereum.CallMsg{
+				From:  deployer.From,
+				To:    &returnAddress,
+				Value: big.NewInt(1), // estimate with minimal value
+			})
+			if err == nil && estimatedGas > gasLimit {
+				gasLimit = estimatedGas
+			}
+
+			// Calculate max gas cost and ensure we leave enough for gas
+			maxGasCost := new(big.Int).Mul(gasPrice, big.NewInt(int64(gasLimit)))
+			valueToSend := new(big.Int).Sub(balance, maxGasCost)
+			if valueToSend.Sign() <= 0 {
+				lggr.Warnw("insufficient balance to return funds after gas",
+					"balance", balance,
+					"gasCost", maxGasCost,
+					"chain", sel,
+					"account", deployer.From)
+				continue
 			}
 
 			tx := gethtypes.NewTx(&gethtypes.LegacyTx{
 				Nonce:    nonce,
 				To:       &returnAddress,
-				Value:    balance.Sub(balance, big.NewInt(1e14)), // leave a little bit for gas
+				Value:    valueToSend,
 				GasPrice: gasPrice,
-				Gas:      21000,
+				Gas:      gasLimit,
 			})
 
 			signedTx, err := deployer.Signer(deployer.From, tx)

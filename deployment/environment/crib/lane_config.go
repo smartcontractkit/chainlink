@@ -329,9 +329,11 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
 	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
 	aptosChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyAptos))
+	tonChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyTon))
 	//nolint: gocritic // append is fine here
 	allChains := append(evmChains, solChains...)
 	allChains = append(allChains, aptosChains...)
+	allChains = append(allChains, tonChains...)
 
 	// Discover EVM to EVM lanes
 	for _, srcChain := range evmChains {
@@ -389,6 +391,23 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 
 		for _, dstChain := range destinations {
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      srcChain,
+				DestinationChain: dstChain,
+			})
+		}
+	}
+
+	// Discover TON to EVM lanes
+	// For TON, we assume bidirectional lanes exist with all EVM chains if the TON chain state exists
+	for _, srcChain := range tonChains {
+		_, exists := state.TonChains[srcChain]
+		if !exists {
+			continue
+		}
+
+		// Add TON -> EVM lanes for all EVM chains
+		for _, dstChain := range evmChains {
 			discoveredLanes = append(discoveredLanes, LaneConfig{
 				SourceChain:      srcChain,
 				DestinationChain: dstChain,

@@ -1,7 +1,9 @@
 package ccip
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -27,9 +29,6 @@ import (
 func TestStaging_CCIP_Load(t *testing.T) {
 	lggr := logger.Test(t)
 
-	evmSourceKey := simChainTestKey
-	solSourceKey := solTestKey
-
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
@@ -38,9 +37,9 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(crib.DeployerKeys{
-		EVMKey:   evmSourceKey,
-		SolKey:   solSourceKey,
-		AptosKey: aptosTestKey,
+		EVMKey:   *userOverrides.TestnetConfig.EVMPrivateKey,
+		SolKey:   *userOverrides.TestnetConfig.SolanaPrivateKey,
+		AptosKey: *userOverrides.TestnetConfig.AptosPrivateKey,
 	})
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
@@ -50,8 +49,43 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	state, err := stateview.LoadOnchainState(*env)
 	require.NoError(t, err)
 
+	// Create context for the test duration
+	ctx, cancel := context.WithTimeout(context.Background(), userOverrides.GetLoadDuration()+5*time.Minute)
+	defer cancel()
+
+	// Calculate block times for EVM chains (needed for metrics)
+	blockTimes := make(map[uint64]uint64)
+	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	for _, cs := range evmChains {
+		client := env.BlockChains.EVMChains()[cs].Client
+		block1, err := client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			lggr.Warnw("Failed to get block header", "chainSelector", cs, "error", err)
+			blockTimes[cs] = 12 // default block time
+			continue
+		}
+		time.Sleep(2 * time.Second)
+		block2, err := client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			lggr.Warnw("Failed to get second block header", "chainSelector", cs, "error", err)
+			blockTimes[cs] = 12 // default block time
+			continue
+		}
+		time1 := time.Unix(int64(block1.Time), 0)
+		time2 := time.Unix(int64(block2.Time), 0)
+		blockTimeDiff := int64(time2.Sub(time1))
+		blockNumberDiff := new(big.Int).Sub(block2.Number, block1.Number).Int64()
+		if blockNumberDiff > 0 {
+			blockTime := blockTimeDiff / blockNumberDiff / int64(time.Second)
+			blockTimes[cs] = uint64(blockTime) //nolint:gosec // G115
+		} else {
+			blockTimes[cs] = 12 // default block time
+		}
+		lggr.Infow("Chain block time", "chainSelector", cs, "blockTime", blockTimes[cs])
+	}
+
 	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains])
+	transmitKeys, err := fundAdditionalKeys(lggr, *env, evmChains[:*userOverrides.NumDestinationChains], *userOverrides.TestnetConfig.FundingAmountEth, userOverrides.TestnetConfig.ChainFundingOverrides)
 	require.NoError(t, err)
 
 	// Discover lanes from deployed state
@@ -59,11 +93,33 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
 	require.NoError(t, err)
 
+	// Initialize TON source keys
+	tonSourceKeys, initErr := initializeTonSourceKeys(env.GetContext(), lggr, env, *userOverrides.TestnetConfig.TonMnemonic)
+	if initErr != nil {
+		lggr.Warnw("Failed to initialize TON source keys", "error", initErr)
+	}
+
+	// Initialize MetricsManager for Loki integration
+	mm := NewMetricsManager(t, env.Logger, userOverrides, blockTimes)
+	go mm.Start(ctx)
+
+	// Track start blocks for event subscriptions
+	startBlocks := make(map[uint64]*uint64)
+	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
+	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
+	var wg sync.WaitGroup
+
 	// gunMap holds a destinationGun for every enabled destination chain
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
 	for ind := range *userOverrides.NumDestinationChains {
-		cs := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[ind]
+		cs := evmChains[ind]
+
+		// Get start block for event subscriptions
+		latesthdr, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(ctx, nil)
+		require.NoError(t, err)
+		block := latesthdr.Number.Uint64()
+		startBlocks[cs] = &block
 
 		messageKeys := make(map[uint64]*bind.TransactOpts)
 		other := env.BlockChains.ListChainSelectors(
@@ -83,6 +139,11 @@ func TestStaging_CCIP_Load(t *testing.T) {
 		}
 		wg2.Wait()
 		srcChains := laneConfig.GetSourceChainsForDestination(cs)
+
+		// Initialize channels for this destination
+		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
+		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
+
 		gunMap[cs], err = NewDestinationGun(
 			env.Logger,
 			cs,
@@ -92,13 +153,39 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			userOverrides,
 			messageKeys,
 			nil,
-			nil,
+			tonSourceKeys,
+			mm.InputChan, // Pass metrics pipe for Loki integration
 			srcChains,
 		)
 		if err != nil {
 			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
 			t.Fatal(err)
 		}
+
+		// Subscribe to commit and execution events for this destination
+		wg.Add(2)
+		go subscribeCommitEvents(
+			ctx,
+			lggr,
+			state.Chains[cs].OffRamp,
+			srcChains,
+			startBlocks[cs],
+			cs,
+			env.BlockChains.EVMChains()[cs].Client,
+			finalSeqNrCommitChannels[cs],
+			&wg,
+			mm.InputChan)
+		go subscribeExecutionEvents(
+			ctx,
+			lggr,
+			state.Chains[cs].OffRamp,
+			srcChains,
+			startBlocks[cs],
+			cs,
+			env.BlockChains.EVMChains()[cs].Client,
+			finalSeqNrExecChannels[cs],
+			&wg,
+			mm.InputChan)
 	}
 
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
@@ -124,12 +211,20 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			// use the same loki client using `NewLokiClient` with the same config for sending events
 		}))
 	}
+
+	// DEBUG BREAKPOINT: Setup complete
+	lggr.Info("=== SETUP COMPLETE ===")
+	lggr.Infow("Discovered lanes summary",
+		"numDestinations", len(gunMap),
+		"tonSourceKeys", len(tonSourceKeys),
+	)
+
 	_, err = p.Run(true)
 	require.NoError(t, err)
 
 	lggr.Info("Load test complete, returning funds")
 	// return funds to source address at the end of the test
-	sourcePk, err := crypto.HexToECDSA(evmSourceKey)
+	sourcePk, err := crypto.HexToECDSA(*userOverrides.TestnetConfig.EVMPrivateKey)
 	if err != nil {
 		lggr.Errorw("could not return funds to source address")
 	}

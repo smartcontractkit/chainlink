@@ -43,7 +43,8 @@ var (
 	wg sync.WaitGroup
 )
 
-// this key only works on simulated geth chains in crib
+// Test keys for local/simulated environments (hardcoded defaults)
+// For staging/testnet, use config file values instead
 const (
 	simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	solTestKey      = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
@@ -148,7 +149,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize additional accounts on EVM, we need more accounts to avoid nonce issues
 	// Solana doesn't have a nonce concept so we just use a single account for all chains
-	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains)
+	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains, *userOverrides.TestnetConfig.FundingAmountEth, nil)
 	require.NoError(t, err)
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
@@ -233,6 +234,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	evmSourceKeys := make(map[uint64]map[uint64]*bind.TransactOpts)
 	solSourceKeys := make(map[uint64]*solana.PrivateKey)
+	tonSourceKeys := make(map[uint64]*TonSourceManager) // TON not used in local tests
 	var mu sync.Mutex
 
 	for ind, cs := range destinationChains {
@@ -264,6 +266,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				if _, exists := solSourceKeys[src]; !exists {
 					solSourceKeys[src] = env.BlockChains.SolanaChains()[src].DeployerKey
 				}
+			case selectors.FamilyTon:
+				// TON source keys are already initialized above
+				lggr.Debugw("TON source chain detected", "chainSelector", src)
 			}
 			mu.Unlock()
 		}
@@ -310,6 +315,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				userOverrides,
 				evmSourceKeys[cs],
 				solSourceKeys,
+				tonSourceKeys,
 				mm.InputChan,
 				srcChains,
 			)
@@ -354,7 +360,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				state.Chains[cs].OffRamp,
 				lggr)
 		case selectors.FamilySolana:
-
 			gunMap[cs], err = NewDestinationGun(
 				env.Logger,
 				cs,
@@ -364,6 +369,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				userOverrides,
 				evmSourceKeys[cs],
 				solSourceKeys,
+				tonSourceKeys,
 				mm.InputChan,
 				srcChains,
 			)
