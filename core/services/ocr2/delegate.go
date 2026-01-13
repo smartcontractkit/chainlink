@@ -1070,8 +1070,8 @@ func (d *Delegate) newServicesRing(
 	srvs = append(srvs, orchestratorSvc)
 	lggr.Infow("ShardOrchestrator service created", "shardIndex", shardingCfg.ShardIndex())
 
-	// Create local ArbiterScalerClient that calls the Arbiter directly (no gRPC network)
-	arbiterScalerClient := arbiter.NewLocalArbiterScalerClient(arbiterSvc.ArbiterScalerServer(), lggr)
+	// Create RingArbiterClient that calls the Arbiter directly (no gRPC network)
+	arbiterScalerClient := arbiter.NewRingArbiterClient(arbiterSvc.ArbiterScalerServer(), lggr)
 
 	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
 
