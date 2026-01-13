@@ -9,26 +9,29 @@ import (
 	pb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
 )
 
-// ScalerHandler implements the ArbiterScalerServer interface from chainlink-common.
-// This allows the Ring consensus to communicate with the Arbiter about shard scaling.
-type ScalerHandler struct {
+// RingArbiterHandler implements the ArbiterScalerServer interface from chainlink-common.
+// This is the inbound handler for Ring OCR → Arbiter communication.
+// It provides:
+//   - Status(): Returns routable shard count and per-shard health for Ring OCR routing decisions
+//   - ConsensusWantShards(): Receives the Ring consensus decision about desired shard count
+type RingArbiterHandler struct {
 	pb.UnimplementedArbiterScalerServer
 	state *State
 	lggr  logger.Logger
 }
 
-// NewScalerHandler creates a new ScalerHandler.
-func NewScalerHandler(state *State, lggr logger.Logger) *ScalerHandler {
-	return &ScalerHandler{
+// NewRingArbiterHandler creates a new RingArbiterHandler.
+func NewRingArbiterHandler(state *State, lggr logger.Logger) *RingArbiterHandler {
+	return &RingArbiterHandler{
 		state: state,
-		lggr:  logger.Named(lggr, "ScalerHandler"),
+		lggr:  logger.Named(lggr, "RingArbiterHandler"),
 	}
 }
 
 // Status returns the current replica status for Ring OCR routing.
 // Returns only READY shards count and per-shard health status.
 // This is called by the Ring plugin to determine which shards can receive traffic.
-func (h *ScalerHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.ReplicaStatus, error) {
+func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.ReplicaStatus, error) {
 	routable := h.state.GetRoutableShards()
 
 	h.lggr.Debugw("Status requested",
@@ -55,7 +58,7 @@ func (h *ScalerHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.Repli
 
 // ConsensusWantShards is called by the Ring consensus to report the desired number of shards.
 // The consensus has agreed on how many shards the system should have.
-func (h *ScalerHandler) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
+func (h *RingArbiterHandler) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
 	nShards := req.GetNShards()
 
 	if nShards == 0 {

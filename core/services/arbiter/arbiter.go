@@ -26,10 +26,10 @@ type Arbiter interface {
 type arbiter struct {
 	services.StateMachine
 
-	grpcServer          *grpc.Server
-	grpcHandler         *GRPCServer
-	arbiterScaleHandler *ScalerHandler
-	state               *State
+	grpcServer         *grpc.Server
+	grpcHandler        *GRPCServer
+	ringArbiterHandler *RingArbiterHandler
+	state              *State
 	shardConfig         ShardConfigReader
 	lggr                logger.Logger
 
@@ -62,19 +62,19 @@ func New(
 	// Create gRPC handler for Arbiter service (from chainlink-common)
 	grpcHandler := NewGRPCServer(shardConfig, lggr)
 
-	// Create handler for ArbiterScaler (from chainlink-common)
-	arbiterScaleHandler := NewScalerHandler(state, lggr)
+	// Create handler for ArbiterScaler (Ring OCR → Arbiter communication)
+	ringArbiterHandler := NewRingArbiterHandler(state, lggr)
 
 	// Create gRPC server and register both services
 	grpcServer := grpc.NewServer()
 	ringpb.RegisterArbiterServer(grpcServer, grpcHandler)
-	ringpb.RegisterArbiterScalerServer(grpcServer, arbiterScaleHandler)
+	ringpb.RegisterArbiterScalerServer(grpcServer, ringArbiterHandler)
 
 	return &arbiter{
-		grpcServer:          grpcServer,
-		grpcHandler:         grpcHandler,
-		arbiterScaleHandler: arbiterScaleHandler,
-		state:               state,
+		grpcServer:         grpcServer,
+		grpcHandler:        grpcHandler,
+		ringArbiterHandler: ringArbiterHandler,
+		state:              state,
 		shardConfig:         shardConfig,
 		lggr:                lggr,
 		grpcAddr:            fmt.Sprintf(":%d", port),
@@ -178,5 +178,5 @@ func (a *arbiter) Name() string {
 // ArbiterScalerServer returns the ArbiterScalerServer interface for in-process calls.
 // This allows the Ring plugin to communicate with the Arbiter without going over gRPC.
 func (a *arbiter) ArbiterScalerServer() ringpb.ArbiterScalerServer {
-	return a.arbiterScaleHandler
+	return a.ringArbiterHandler
 }
