@@ -408,6 +408,7 @@ type TestEnvironment interface {
 
 type DeployedEnv struct {
 	Env                    cldf.Environment
+	Adapters               map[uint64]Adapter
 	HomeChainSel           uint64
 	FeedChainSel           uint64
 	ReplayBlocks           map[uint64]uint64
@@ -420,6 +421,27 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
 	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
+}
+
+func (d *DeployedEnv) RefreshAdapters() {
+	if d.Adapters == nil {
+		d.Adapters = make(map[uint64]Adapter)
+	}
+	// re-wrap adapters
+	for selector, chain := range d.Env.BlockChains.All() {
+		family, err := chain_selectors.GetSelectorFamily(selector)
+		if err != nil {
+			continue
+			// TODO:
+		}
+
+		adapterFactory, ok := Adapters[family]
+		if !ok {
+			// NOTE: skip any chains with no adapter, give them a dummy one?
+			continue
+		}
+		d.Adapters[selector] = adapterFactory(chain, d.Env)
+	}
 }
 
 type MemoryEnvironment struct {
@@ -442,6 +464,7 @@ func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
 }
 
 func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
+	env.RefreshAdapters()
 	m.DeployedEnv = env
 }
 

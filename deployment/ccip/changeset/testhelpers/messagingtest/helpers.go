@@ -1,29 +1,17 @@
 package messagingtest
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
-	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
-	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -121,26 +109,14 @@ func getLatestNonce(tc TestCase) uint64 {
 
 	var latestNonce uint64
 	switch family {
-	case chain_selectors.FamilyEVM:
-		latestNonce, err = tc.OnchainState.Chains[tc.DestChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tc.T.Context(),
-		}, tc.SourceChain, tc.Sender)
-		require.NoError(tc.T, err)
-	case chain_selectors.FamilySolana:
-		ctx := tc.T.Context()
-		client := tc.Env.BlockChains.SolanaChains()[tc.DestChain].Client
-		// TODO: solcommon.FindNoncePDA expected the sender to be a solana pubkey
-		chainSelectorLE := solcommon.Uint64ToLE(tc.DestChain)
-		noncePDA, _, err := solana.FindProgramAddress([][]byte{[]byte("nonce"), chainSelectorLE, tc.Sender}, tc.OnchainState.SolChains[tc.DestChain].Router)
-		require.NoError(tc.T, err)
-		var nonceCounterAccount ccip_router.Nonce
-		// we ignore the error because the account might not exist yet
-		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
-		latestNonce = nonceCounterAccount.Counter
 	case chain_selectors.FamilyTon:
 		// No nonce management on Ton, just return the test value
 		return *tc.Nonce
 	}
+
+	destAdapter := tc.DeployedEnv.Adapters[tc.DestChain]
+	latestNonce, err = destAdapter.GetInboundNonce(tc.T.Context(), tc.Sender, tc.SourceChain)
+	require.NoError(tc.T, err)
 	return latestNonce
 }
 
@@ -149,100 +125,41 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// we need to reference the inner testing.T inside a t.Run
 	tc.T = t
 
-	startBlocks := make(map[uint64]*uint64)
+	var startBlock *uint64
 
-	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
+	sourceFamily, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
 	require.NoError(tc.T, err)
 
-	receiver := common.LeftPadBytes(tc.Receiver, 32)
-	var msg any
-	switch family {
-	case chain_selectors.FamilyEVM:
-		feeToken := common.HexToAddress("0x0")
-		if len(tc.FeeToken) > 0 {
-			feeToken = common.HexToAddress(tc.FeeToken)
-		}
-
-		msg = router.ClientEVM2AnyMessage{
-			Receiver:     receiver,
-			Data:         tc.MsgData,
-			TokenAmounts: nil,
-			FeeToken:     feeToken,
-			ExtraArgs:    tc.ExtraArgs,
-		}
-	case chain_selectors.FamilySolana:
-		feeToken := solana.PublicKey{}
-		if len(tc.FeeToken) > 0 {
-			feeToken, err = solana.PublicKeyFromBase58(tc.FeeToken)
-			require.NoError(t, err)
-		}
-
-		msg = ccip_router.SVM2AnyMessage{
-			Receiver:     receiver,
-			TokenAmounts: nil,
-			Data:         tc.MsgData,
-			FeeToken:     feeToken,
-			ExtraArgs:    tc.ExtraArgs,
-		}
-
-	case chain_selectors.FamilySui:
-		msg = testhelpers.SuiSendRequest{
-			Data:      tc.MsgData,
-			Receiver:  common.LeftPadBytes(tc.Receiver, 32),
-			ExtraArgs: tc.ExtraArgs,
-			FeeToken:  tc.FeeToken,
-		}
-	case chain_selectors.FamilyAptos:
-		feeToken := aptos.AccountAddress{}
-		if len(tc.FeeToken) > 0 {
-			feeToken = aptoscs.MustParseAddress(t, tc.FeeToken)
-		}
-		msg = testhelpers.AptosSendRequest{
-			Data:         tc.MsgData,
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
-			ExtraArgs:    tc.ExtraArgs,
-			FeeToken:     feeToken,
-			TokenAmounts: nil,
-		}
-	case chain_selectors.FamilyTon:
-		feeToken := ops.TonTokenAddr
-		if len(tc.FeeToken) > 0 {
-			feeToken, err = address.ParseAddr(tc.FeeToken)
-			require.NoError(tc.T, err)
-		}
-
-		c, err := cell.FromBOC(tc.ExtraArgs)
-		require.NoError(tc.T, err)
-
-		// TODO: add TokenAmounts support for TON token transfers
-		msg = tonrouter.CCIPSend{
-			QueryID:           rand.Uint64(),
-			DestChainSelector: tc.DestChain,
-			Data:              tc.MsgData,
-			Receiver:          tc.Receiver,
-			ExtraArgs:         c,
-			FeeToken:          feeToken,
-		}
-
-	default:
-		tc.T.Errorf("unsupported source chain: %v", family)
+	sourceAdapter, ok := tc.DeployedEnv.Adapters[tc.SourceChain]
+	if !ok {
+		tc.T.Errorf("unsupported source chain: %v", tc.SourceChain)
 	}
+	destAdapter, ok := tc.DeployedEnv.Adapters[tc.DestChain]
+	if !ok {
+		tc.T.Errorf("unsupported dest chain: %v", tc.DestChain)
+	}
+
+	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{
+		DestChainSelector: tc.DestChain,
+		Receiver:          tc.Receiver,
+		Data:              tc.MsgData,
+		FeeToken:          tc.FeeToken,
+		ExtraArgs:         tc.ExtraArgs,
+		TokenAmounts:      []testhelpers.TokenAmount{},
+	})
+	require.NoError(tc.T, err)
 
 	if tc.NumberOfMessages == 0 {
 		tc.NumberOfMessages = 1 // default to sending one message if not specified
 	}
 
-	expectedSeqNumRange := map[testhelpers.SourceDestPair]ccipocr3.SeqNumRange{}
-	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{}
+	expectedSeqNumRange := ccipocr3.SeqNumRange{}
+	expectedSeqNumExec := []uint64{}
 	msgSentEvents := make([]*ccipclient.AnyMsgSentEvent, tc.NumberOfMessages)
-	sourceDest := testhelpers.SourceDestPair{
-		SourceChainSelector: tc.SourceChain,
-		DestChainSelector:   tc.DestChain,
-	}
 
 	// send all messages first, then validate them
 	if tc.UseMulticall3 {
-		require.Equal(t, chain_selectors.FamilyEVM, family, "only EVM family supported for multicall3 usage")
+		require.Equal(t, chain_selectors.FamilyEVM, sourceFamily, "only EVM family supported for multicall3 usage")
 
 		msgEVM2Any, ok := msg.(router.ClientEVM2AnyMessage)
 		require.True(tc.T, ok, "expected EVM message type")
@@ -300,13 +217,13 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		out.MsgSentEvent = msgSentEvents[len(msgSentEvents)-1]
 
 		// Expect a single root with this sequence number range.
-		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{
+		expectedSeqNumRange = ccipocr3.SeqNumRange{
 			ccipocr3.SeqNum(msgSentEvents[0].SequenceNumber),
 			ccipocr3.SeqNum(msgSentEvents[len(msgSentEvents)-1].SequenceNumber),
 		}
 		// Expect all messages to be executed.
 		for i := range msgSentEvents {
-			expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEvents[i].SequenceNumber)
+			expectedSeqNumExec = append(expectedSeqNumExec, msgSentEvents[i].SequenceNumber)
 		}
 	} else {
 		// Send sequentially
@@ -320,14 +237,12 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 				tc.TestRouter,
 				msg)
 
-			_, ok := expectedSeqNumRange[sourceDest]
-			if !ok {
-				expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+			if i == 0 {
+				expectedSeqNumRange = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 			}
-			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
-				ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+			expectedSeqNumRange = ccipocr3.SeqNumRange{expectedSeqNumRange.Start(), ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 
-			expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
+			expectedSeqNumExec = append(expectedSeqNumExec, msgSentEventLocal.SequenceNumber)
 			// TODO: If this feature is needed more we can refactor the function to return a slice of events
 			// return only last msg event
 			out.MsgSentEvent = msgSentEventLocal
@@ -349,53 +264,45 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	switch tc.ValidationType {
 	case ValidationTypeCommit:
 		commitStart := time.Now()
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
+		destAdapter.ValidateCommit(t, tc.SourceChain, startBlock, expectedSeqNumRange)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
 		// Explicitly log that only commit was validated if only Commit was requested
 		tc.T.Logf("only commit validation was performed")
 	case ValidationTypeExec: // will validate both commit and exec
 		// First, validate commit
 		commitStart := time.Now()
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
+		destAdapter.ValidateCommit(t, tc.SourceChain, startBlock, expectedSeqNumRange)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
 
 		// Then, validate execution
 		execStart := time.Now()
-		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
+		execStates := destAdapter.ValidateExec(t, tc.SourceChain, startBlock, expectedSeqNumExec)
 		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
 
 		for _, msgSentEvent := range msgSentEvents {
 			require.Equalf(
 				tc.T,
 				tc.ExpectedExecutionState,
-				execStates[sourceDest][msgSentEvent.SequenceNumber],
+				execStates[msgSentEvent.SequenceNumber],
 				"wrong execution state for seq nr %d, expected %d, got %d",
 				msgSentEvent.SequenceNumber,
 				tc.ExpectedExecutionState,
-				execStates[sourceDest][msgSentEvent.SequenceNumber],
+				execStates[msgSentEvent.SequenceNumber],
 			)
 		}
 
 		family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 
-		unorderedExec := false
+		unorderedExec := true
+		// Only EVM (and by extension Tron) support ordered execution
 		switch family {
-		// Solana doesn't support catching CPI errors, so nonces can't be ordered
-		case chain_selectors.FamilySolana:
-			unorderedExec = true
-		// Aptos does only support out-of-order execution
-		case chain_selectors.FamilyAptos:
-			unorderedExec = true
-		// Sui does only support out-of-order execution
-		case chain_selectors.FamilySui:
-			unorderedExec = true
-		// TON does only support out-of-order execution
-		case chain_selectors.FamilyTon:
-			unorderedExec = true
+		case chain_selectors.FamilyEVM:
+			unorderedExec = false
+		case chain_selectors.FamilyTron:
+			unorderedExec = false
 		}
 
-		// TODO investigate TON nonce management, getLatestNonce is mocked to increase by 1 for now
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
 			// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.
@@ -415,6 +322,5 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	case ValidationTypeNone:
 		tc.T.Logf("skipping validation of sent message")
 	}
-
 	return
 }
