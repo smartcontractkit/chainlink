@@ -1031,6 +1031,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1563")
 	quarantine.Flaky(t, "DX-1857")
 	t.Parallel()
 
