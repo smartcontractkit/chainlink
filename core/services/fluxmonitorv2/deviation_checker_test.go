@@ -29,6 +29,7 @@ func (o outsideDeviationRow) String() string {
 }
 
 func TestDeviationChecker_OutsideDeviation(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1559")
 	quarantine.Flaky(t, "DX-1856")
 	t.Parallel()
 
