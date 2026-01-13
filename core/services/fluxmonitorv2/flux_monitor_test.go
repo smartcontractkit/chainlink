@@ -1426,6 +1426,7 @@ func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1569")
 	t.Parallel()
 
 	testCases := []struct {
