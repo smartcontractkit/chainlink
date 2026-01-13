@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.8
 // 	protoc        v5.29.3
-// source: execution_log.proto
+// source: execution_event.proto
 
 package executionlog
 
@@ -36,7 +36,7 @@ type CapabilityEvent struct {
 
 func (x *CapabilityEvent) Reset() {
 	*x = CapabilityEvent{}
-	mi := &file_execution_log_proto_msgTypes[0]
+	mi := &file_execution_event_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -48,7 +48,7 @@ func (x *CapabilityEvent) String() string {
 func (*CapabilityEvent) ProtoMessage() {}
 
 func (x *CapabilityEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[0]
+	mi := &file_execution_event_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -61,7 +61,7 @@ func (x *CapabilityEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CapabilityEvent.ProtoReflect.Descriptor instead.
 func (*CapabilityEvent) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{0}
+	return file_execution_event_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CapabilityEvent) GetRequest() *sdk.CapabilityRequest {
@@ -96,7 +96,7 @@ type SecretsEvent struct {
 
 func (x *SecretsEvent) Reset() {
 	*x = SecretsEvent{}
-	mi := &file_execution_log_proto_msgTypes[1]
+	mi := &file_execution_event_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -108,7 +108,7 @@ func (x *SecretsEvent) String() string {
 func (*SecretsEvent) ProtoMessage() {}
 
 func (x *SecretsEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[1]
+	mi := &file_execution_event_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -121,7 +121,7 @@ func (x *SecretsEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecretsEvent.ProtoReflect.Descriptor instead.
 func (*SecretsEvent) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{1}
+	return file_execution_event_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SecretsEvent) GetRequest() *sdk.GetSecretsRequest {
@@ -154,7 +154,7 @@ type NodeTimeEvent struct {
 
 func (x *NodeTimeEvent) Reset() {
 	*x = NodeTimeEvent{}
-	mi := &file_execution_log_proto_msgTypes[2]
+	mi := &file_execution_event_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -166,7 +166,7 @@ func (x *NodeTimeEvent) String() string {
 func (*NodeTimeEvent) ProtoMessage() {}
 
 func (x *NodeTimeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[2]
+	mi := &file_execution_event_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -179,7 +179,7 @@ func (x *NodeTimeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeTimeEvent.ProtoReflect.Descriptor instead.
 func (*NodeTimeEvent) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{2}
+	return file_execution_event_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *NodeTimeEvent) GetResponse() *timestamppb.Timestamp {
@@ -192,13 +192,14 @@ func (x *NodeTimeEvent) GetResponse() *timestamppb.Timestamp {
 type DonTimeEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Response      *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DonTimeEvent) Reset() {
 	*x = DonTimeEvent{}
-	mi := &file_execution_log_proto_msgTypes[3]
+	mi := &file_execution_event_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -210,7 +211,7 @@ func (x *DonTimeEvent) String() string {
 func (*DonTimeEvent) ProtoMessage() {}
 
 func (x *DonTimeEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[3]
+	mi := &file_execution_event_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -223,7 +224,7 @@ func (x *DonTimeEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DonTimeEvent.ProtoReflect.Descriptor instead.
 func (*DonTimeEvent) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{3}
+	return file_execution_event_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DonTimeEvent) GetResponse() *timestamppb.Timestamp {
@@ -231,6 +232,13 @@ func (x *DonTimeEvent) GetResponse() *timestamppb.Timestamp {
 		return x.Response
 	}
 	return nil
+}
+
+func (x *DonTimeEvent) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
 }
 
 type EmitLogEvent struct {
@@ -243,7 +251,7 @@ type EmitLogEvent struct {
 
 func (x *EmitLogEvent) Reset() {
 	*x = EmitLogEvent{}
-	mi := &file_execution_log_proto_msgTypes[4]
+	mi := &file_execution_event_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -255,7 +263,7 @@ func (x *EmitLogEvent) String() string {
 func (*EmitLogEvent) ProtoMessage() {}
 
 func (x *EmitLogEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[4]
+	mi := &file_execution_event_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -268,7 +276,7 @@ func (x *EmitLogEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmitLogEvent.ProtoReflect.Descriptor instead.
 func (*EmitLogEvent) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{4}
+	return file_execution_event_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EmitLogEvent) GetLog() string {
@@ -302,7 +310,7 @@ type ExecutionEvent struct {
 
 func (x *ExecutionEvent) Reset() {
 	*x = ExecutionEvent{}
-	mi := &file_execution_log_proto_msgTypes[5]
+	mi := &file_execution_event_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -314,7 +322,7 @@ func (x *ExecutionEvent) String() string {
 func (*ExecutionEvent) ProtoMessage() {}
 
 func (x *ExecutionEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[5]
+	mi := &file_execution_event_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -327,7 +335,7 @@ func (x *ExecutionEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecutionEvent.ProtoReflect.Descriptor instead.
 func (*ExecutionEvent) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{5}
+	return file_execution_event_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ExecutionEvent) GetEvent() isExecutionEvent_Event {
@@ -445,7 +453,7 @@ type ReturnValue struct {
 
 func (x *ReturnValue) Reset() {
 	*x = ReturnValue{}
-	mi := &file_execution_log_proto_msgTypes[6]
+	mi := &file_execution_event_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -457,7 +465,7 @@ func (x *ReturnValue) String() string {
 func (*ReturnValue) ProtoMessage() {}
 
 func (x *ReturnValue) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[6]
+	mi := &file_execution_event_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -470,7 +478,7 @@ func (x *ReturnValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReturnValue.ProtoReflect.Descriptor instead.
 func (*ReturnValue) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{6}
+	return file_execution_event_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ReturnValue) GetResponse() isReturnValue_Response {
@@ -539,7 +547,7 @@ type ExecutionDump struct {
 
 func (x *ExecutionDump) Reset() {
 	*x = ExecutionDump{}
-	mi := &file_execution_log_proto_msgTypes[7]
+	mi := &file_execution_event_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -551,7 +559,7 @@ func (x *ExecutionDump) String() string {
 func (*ExecutionDump) ProtoMessage() {}
 
 func (x *ExecutionDump) ProtoReflect() protoreflect.Message {
-	mi := &file_execution_log_proto_msgTypes[7]
+	mi := &file_execution_event_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -564,7 +572,7 @@ func (x *ExecutionDump) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecutionDump.ProtoReflect.Descriptor instead.
 func (*ExecutionDump) Descriptor() ([]byte, []int) {
-	return file_execution_log_proto_rawDescGZIP(), []int{7}
+	return file_execution_event_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ExecutionDump) GetEvents() []*ExecutionEvent {
@@ -581,11 +589,11 @@ func (x *ExecutionDump) GetReturnValue() *ReturnValue {
 	return nil
 }
 
-var File_execution_log_proto protoreflect.FileDescriptor
+var File_execution_event_proto protoreflect.FileDescriptor
 
-const file_execution_log_proto_rawDesc = "" +
+const file_execution_event_proto_rawDesc = "" +
 	"\n" +
-	"\x13execution_log.proto\x12\fexecutionlog\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x15sdk/v1alpha/sdk.proto\x1a\x16values/v1/values.proto\"\x9e\x01\n" +
+	"\x15execution_event.proto\x12\fexecutionlog\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x15sdk/v1alpha/sdk.proto\x1a\x16values/v1/values.proto\"\x9e\x01\n" +
 	"\x0fCapabilityEvent\x128\n" +
 	"\arequest\x18\x01 \x01(\v2\x1e.sdk.v1alpha.CapabilityRequestR\arequest\x12;\n" +
 	"\bresponse\x18\x02 \x01(\v2\x1f.sdk.v1alpha.CapabilityResponseR\bresponse\x12\x14\n" +
@@ -595,9 +603,10 @@ const file_execution_log_proto_rawDesc = "" +
 	"\bresponse\x18\x02 \x01(\v2\x1b.sdk.v1alpha.SecretResponseR\bresponse\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\"G\n" +
 	"\rNodeTimeEvent\x126\n" +
-	"\bresponse\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\bresponse\"F\n" +
+	"\bresponse\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\bresponse\"\\\n" +
 	"\fDonTimeEvent\x126\n" +
-	"\bresponse\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\bresponse\"6\n" +
+	"\bresponse\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\bresponse\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"6\n" +
 	"\fEmitLogEvent\x12\x10\n" +
 	"\x03log\x18\x01 \x01(\tR\x03log\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"\xa5\x03\n" +
@@ -620,19 +629,19 @@ const file_execution_log_proto_rawDesc = "" +
 	"\freturn_value\x18\x02 \x01(\v2\x19.executionlog.ReturnValueR\vreturnValueBRZPgithub.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/executionlogb\x06proto3"
 
 var (
-	file_execution_log_proto_rawDescOnce sync.Once
-	file_execution_log_proto_rawDescData []byte
+	file_execution_event_proto_rawDescOnce sync.Once
+	file_execution_event_proto_rawDescData []byte
 )
 
-func file_execution_log_proto_rawDescGZIP() []byte {
-	file_execution_log_proto_rawDescOnce.Do(func() {
-		file_execution_log_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_execution_log_proto_rawDesc), len(file_execution_log_proto_rawDesc)))
+func file_execution_event_proto_rawDescGZIP() []byte {
+	file_execution_event_proto_rawDescOnce.Do(func() {
+		file_execution_event_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_execution_event_proto_rawDesc), len(file_execution_event_proto_rawDesc)))
 	})
-	return file_execution_log_proto_rawDescData
+	return file_execution_event_proto_rawDescData
 }
 
-var file_execution_log_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_execution_log_proto_goTypes = []any{
+var file_execution_event_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_execution_event_proto_goTypes = []any{
 	(*CapabilityEvent)(nil),        // 0: executionlog.CapabilityEvent
 	(*SecretsEvent)(nil),           // 1: executionlog.SecretsEvent
 	(*NodeTimeEvent)(nil),          // 2: executionlog.NodeTimeEvent
@@ -649,7 +658,7 @@ var file_execution_log_proto_goTypes = []any{
 	(*pb.Value)(nil),               // 13: values.v1.Value
 	(*emptypb.Empty)(nil),          // 14: google.protobuf.Empty
 }
-var file_execution_log_proto_depIdxs = []int32{
+var file_execution_event_proto_depIdxs = []int32{
 	8,  // 0: executionlog.CapabilityEvent.request:type_name -> sdk.v1alpha.CapabilityRequest
 	9,  // 1: executionlog.CapabilityEvent.response:type_name -> sdk.v1alpha.CapabilityResponse
 	10, // 2: executionlog.SecretsEvent.request:type_name -> sdk.v1alpha.GetSecretsRequest
@@ -672,12 +681,12 @@ var file_execution_log_proto_depIdxs = []int32{
 	0,  // [0:15] is the sub-list for field type_name
 }
 
-func init() { file_execution_log_proto_init() }
-func file_execution_log_proto_init() {
-	if File_execution_log_proto != nil {
+func init() { file_execution_event_proto_init() }
+func file_execution_event_proto_init() {
+	if File_execution_event_proto != nil {
 		return
 	}
-	file_execution_log_proto_msgTypes[5].OneofWrappers = []any{
+	file_execution_event_proto_msgTypes[5].OneofWrappers = []any{
 		(*ExecutionEvent_CapabilityEvent)(nil),
 		(*ExecutionEvent_SecretsEvent)(nil),
 		(*ExecutionEvent_WorkflowIdEvent)(nil),
@@ -685,7 +694,7 @@ func file_execution_log_proto_init() {
 		(*ExecutionEvent_DonTimeEvent)(nil),
 		(*ExecutionEvent_EmitLogEvent)(nil),
 	}
-	file_execution_log_proto_msgTypes[6].OneofWrappers = []any{
+	file_execution_event_proto_msgTypes[6].OneofWrappers = []any{
 		(*ReturnValue_Value)(nil),
 		(*ReturnValue_Error)(nil),
 		(*ReturnValue_Panic)(nil),
@@ -694,17 +703,17 @@ func file_execution_log_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_execution_log_proto_rawDesc), len(file_execution_log_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_execution_event_proto_rawDesc), len(file_execution_event_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_execution_log_proto_goTypes,
-		DependencyIndexes: file_execution_log_proto_depIdxs,
-		MessageInfos:      file_execution_log_proto_msgTypes,
+		GoTypes:           file_execution_event_proto_goTypes,
+		DependencyIndexes: file_execution_event_proto_depIdxs,
+		MessageInfos:      file_execution_event_proto_msgTypes,
 	}.Build()
-	File_execution_log_proto = out.File
-	file_execution_log_proto_goTypes = nil
-	file_execution_log_proto_depIdxs = nil
+	File_execution_event_proto = out.File
+	file_execution_event_proto_goTypes = nil
+	file_execution_event_proto_depIdxs = nil
 }

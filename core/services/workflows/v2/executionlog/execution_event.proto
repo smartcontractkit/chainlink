@@ -27,6 +27,7 @@ message NodeTimeEvent {
 
 message DonTimeEvent {
   google.protobuf.Timestamp response = 1;
+  string error = 2;
 }
 
 message EmitLogEvent {

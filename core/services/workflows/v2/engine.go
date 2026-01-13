@@ -14,6 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -653,11 +655,19 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		return
 	}
-	execHelper := &ExecutionHelper{
+	underlyingHelper := &ExecutionHelper{
 		Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
 		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
-	execHelper.initLimiters(e.cfg.LocalLimiters)
+	underlyingHelper.initLimiters(e.cfg.LocalLimiters)
+
+	var execHelper host.ExecutionHelper = underlyingHelper
+
+	var execEventHook = e.cfg.Hooks.OnExecutionEvent
+	if execEventHook != nil {
+		execHelper = &ExecutionCallbackHelper{ExecutionHelper: execHelper, OnExecutionEvent: execEventHook}
+	}
+
 	result, execErr := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
