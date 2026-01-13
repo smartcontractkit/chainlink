@@ -252,11 +252,12 @@ func GenerateArtifact(
 		}
 
 		workerNodes, wErr := don.Workers()
-		if wErr != nil {
-			// it is possible that a DON has only bootstrap or gateway nodes
-			continue
+		if wErr == nil {
+			donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
+		} else {
+			// set F explictily to 0 if there are no workder nodes (e.g. DON has only gateway or bootstrap nodes)
+			donArtifact.F = 0
 		}
-		donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
 
 		for _, capabilityFn := range capabilityRegistryFns {
 			if capabilityFn == nil {

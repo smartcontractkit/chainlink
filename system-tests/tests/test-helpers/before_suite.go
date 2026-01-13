@@ -96,7 +96,9 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 	t.Helper()
 
-	in, err := framework.Load[envconfig.Config](nil)
+	// we call our own Load function because it executes a couple of crucial extra input transformations
+	in := &envconfig.Config{}
+	err := in.Load(os.Getenv("CTF_CONFIGS"))
 	require.NoError(t, err, "couldn't load environment state")
 	return in
 }

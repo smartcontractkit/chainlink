@@ -211,6 +211,11 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		maxGasPrice = txRequest.GasConfig.MaxGasPrice
 	}
 
+	e.logger.Infow("DEBUG: SubmitTransaction received",
+		"gasLimit", gasLimit,
+		"maxGasPrice", maxGasPrice,
+		"maxGasPriceIsNil", maxGasPrice == nil)
+
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return nil, err
