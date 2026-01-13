@@ -42,3 +42,40 @@ func TestPluginConfig_UnmarshalTOML(t *testing.T) {
 		assert.Equal(t, "0xdeadbeef", cfg.ShardConfigAddr)
 	})
 }
+
+func TestPluginConfig_Validate(t *testing.T) {
+	t.Run("valid address passes", func(t *testing.T) {
+		cfg := PluginConfig{
+			ShardConfigAddr: "0x1234567890123456789012345678901234567890",
+		}
+		err := cfg.Validate()
+		require.NoError(t, err)
+	})
+
+	t.Run("empty address fails", func(t *testing.T) {
+		cfg := PluginConfig{
+			ShardConfigAddr: "",
+		}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "shardConfigAddr is required")
+	})
+
+	t.Run("invalid address fails", func(t *testing.T) {
+		cfg := PluginConfig{
+			ShardConfigAddr: "not-an-address",
+		}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not a valid hex address")
+	})
+
+	t.Run("short address fails", func(t *testing.T) {
+		cfg := PluginConfig{
+			ShardConfigAddr: "0x1234",
+		}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not a valid hex address")
+	})
+}

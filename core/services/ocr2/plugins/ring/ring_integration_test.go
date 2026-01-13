@@ -15,17 +15,36 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
 )
 
-// mockArbiterScalerClient implements pb.ArbiterScalerClient for testing
-type mockArbiterScalerClient struct{}
+// mockArbiterScalerClient implements pb.ArbiterScalerClient for testing.
+// It allows configuring the return values for Status and ConsensusWantShards.
+type mockArbiterScalerClient struct {
+	wantShards  uint32
+	shardStatus map[uint32]*pb.ShardStatus
+	statusErr   error
+	consensusErr error
+}
+
+func newMockArbiterScalerClient() *mockArbiterScalerClient {
+	return &mockArbiterScalerClient{
+		wantShards:  1,
+		shardStatus: map[uint32]*pb.ShardStatus{0: {IsHealthy: true}},
+	}
+}
 
 func (m *mockArbiterScalerClient) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*pb.ReplicaStatus, error) {
+	if m.statusErr != nil {
+		return nil, m.statusErr
+	}
 	return &pb.ReplicaStatus{
-		WantShards: 1,
-		Status:     map[uint32]*pb.ShardStatus{0: {IsHealthy: true}},
+		WantShards: m.wantShards,
+		Status:     m.shardStatus,
 	}, nil
 }
 
 func (m *mockArbiterScalerClient) ConsensusWantShards(_ context.Context, _ *pb.ConsensusWantShardsRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	if m.consensusErr != nil {
+		return nil, m.consensusErr
+	}
 	return &emptypb.Empty{}, nil
 }
 
@@ -109,10 +128,10 @@ func TestRingFactoryIntegration(t *testing.T) {
 	t.Run("RingFactory can be created", func(t *testing.T) {
 		lggr := logger.Test(t)
 		store := ring.NewStore()
-		shardOrchStore := shardorchestrator.NewStore(lggr)
-		mockArbiter := &mockArbiterScalerClient{}
+		shardOrchestratorStore := shardorchestrator.NewStore(lggr)
+		mockArbiter := newMockArbiterScalerClient()
 
-		factory, err := ring.NewFactory(store, shardOrchStore, mockArbiter, lggr, nil)
+		factory, err := ring.NewFactory(store, shardOrchestratorStore, mockArbiter, lggr, nil)
 		require.NoError(t, err)
 		require.NotNil(t, factory)
 	})

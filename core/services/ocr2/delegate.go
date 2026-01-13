@@ -1032,16 +1032,23 @@ func (d *Delegate) newServicesRing(
 	// Get sharding config
 	shardingCfg := d.cfg.Sharding()
 
-	// Ring jobs only run on shard 0, where the Arbiter is also created
+	// Ring jobs only run on shard 0, where the Arbiter and ShardOrchestrator are created
+	if shardingCfg.ShardIndex() != 0 {
+		return nil, fmt.Errorf("Ring jobs can only run on shard 0, current shard index: %d", shardingCfg.ShardIndex())
+	}
+
 	// Get ContractReaderFactory from relayer for shard config reading
 	contractReaderFactory := func(ctx context.Context, cfg []byte) (types.ContractReader, error) {
 		return relayer.NewContractReader(ctx, cfg)
 	}
 
-	// Parse Ring plugin configuration
+	// Parse and validate Ring plugin configuration
 	var ringPluginConfig ringconfig.PluginConfig
 	if err = ringPluginConfig.Unmarshal(spec.PluginConfig.Bytes()); err != nil {
 		return nil, fmt.Errorf("failed to parse Ring plugin config: %w", err)
+	}
+	if err = ringPluginConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid Ring plugin config: %w", err)
 	}
 	shardConfigAddr := ringPluginConfig.ShardConfigAddr
 
@@ -1060,11 +1067,11 @@ func (d *Delegate) newServicesRing(
 	lggr.Info("Arbiter service created")
 
 	ringStore := ring.NewStore()
-	shardOrchStore := shardorchestrator.NewStore(lggr)
+	shardOrchestratorStore := shardorchestrator.NewStore(lggr)
 	// Start ShardOrchestrator
 	orchestratorSvc := localshardorch.New(
 		int(shardingCfg.ShardOrchestratorPort()),
-		shardOrchStore,
+		shardOrchestratorStore,
 		lggr,
 	)
 	srvs = append(srvs, orchestratorSvc)
@@ -1073,7 +1080,7 @@ func (d *Delegate) newServicesRing(
 	// Create RingArbiterClient that calls the Arbiter directly (no gRPC network)
 	arbiterScalerClient := arbiter.NewRingArbiterClient(arbiterSvc.ArbiterScalerServer(), lggr)
 
-	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
+	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchestratorStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
@@ -1122,7 +1129,7 @@ func (d *Delegate) newServicesRing(
 		OnchainKeyring:               onchainKeyringAdapter,
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, shardOrchStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, shardOrchestratorStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
 		BatchSize:  100,         // Default batch size
 		TimeToSync: time.Second, // Default sync time
 	})

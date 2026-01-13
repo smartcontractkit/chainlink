@@ -19,25 +19,40 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
 )
 
-// RingJobConfigInput contains the input configuration for a Ring job.
+// RingJobConfigInput contains the input configuration for a Ring job proposal.
+// This is used when proposing Ring jobs via the job distributor.
 type RingJobConfigInput struct {
-	ContractQualifier    string        `yaml:"contractQualifier"`
-	ChainSelectorEVM     ChainSelector `yaml:"chainSelectorEVM"`
-	ShardConfigAddr      string        `yaml:"shardConfigAddr"`
-	BootstrapperRingUrls []string      `yaml:"bootstrapperRingUrls"`
+	// ContractQualifier is the qualifier for the OCR3 capability contract.
+	ContractQualifier string `yaml:"contractQualifier"`
+	// ChainSelectorEVM is the EVM chain selector for the target chain.
+	ChainSelectorEVM ChainSelector `yaml:"chainSelectorEVM"`
+	// ShardConfigAddr is the address of the ShardConfig contract on-chain.
+	ShardConfigAddr string `yaml:"shardConfigAddr"`
+	// BootstrapperRingUrls are the P2P URLs of the bootstrapper nodes for Ring.
+	BootstrapperRingUrls []string `yaml:"bootstrapperRingUrls"`
 }
 
-// RingJobConfig contains the configuration for a Ring job spec.
+// RingJobConfig contains the configuration for rendering a Ring job spec template.
+// This is used internally to generate the TOML job specification.
 type RingJobConfig struct {
-	JobName            string
-	ChainID            string
-	P2PID              string
+	// JobName is the human-readable name for the job.
+	JobName string
+	// ChainID is the numeric chain ID for the target EVM chain.
+	ChainID string
+	// P2PID is the node's P2P peer ID.
+	P2PID string
+	// OCR2EVMKeyBundleID is the OCR2 key bundle ID for EVM signing.
 	OCR2EVMKeyBundleID string
-	TransmitterID      string
-	ContractID         string
+	// TransmitterID is the address used for transmitting reports.
+	TransmitterID string
+	// ContractID is the OCR3 capability contract address.
+	ContractID string
+	// P2Pv2Bootstrappers are the bootstrapper URLs for P2P networking.
 	P2Pv2Bootstrappers []string
-	ExternalJobID      string
-	ShardConfigAddr    string
+	// ExternalJobID is the deterministic UUID for the job (generated from DON name and contract).
+	ExternalJobID string
+	// ShardConfigAddr is the address of the ShardConfig contract.
+	ShardConfigAddr string
 }
 
 // Validate validates the Ring job configuration.
@@ -87,11 +102,15 @@ func (c RingJobConfig) ResolveJob() (string, error) {
 	return b.String(), nil
 }
 
-// RingJobConfigSpec contains the resolved job spec for a node.
+// RingJobConfigSpec contains the resolved job spec for a specific node.
+// This is the output of BuildRingJobConfigSpecs and contains the rendered TOML spec.
 type RingJobConfigSpec struct {
-	NodeID  string
+	// NodeID is the unique identifier of the node this spec is for.
+	NodeID string
+	// JobName is the human-readable name assigned to this job.
 	JobName string
-	Spec    string
+	// Spec is the fully rendered TOML job specification.
+	Spec string
 }
 
 // BuildRingJobConfigSpecs builds Ring job specs for all plugin nodes.

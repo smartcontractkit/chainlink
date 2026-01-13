@@ -56,13 +56,21 @@ func (h *ScalerHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.Repli
 // ConsensusWantShards is called by the Ring consensus to report the desired number of shards.
 // The consensus has agreed on how many shards the system should have.
 func (h *ScalerHandler) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
+	nShards := req.GetNShards()
+
+	if nShards == 0 {
+		h.lggr.Warnw("Consensus reported 0 shards, this may indicate a problem",
+			"nShards", nShards,
+		)
+	}
+
 	h.lggr.Infow("Consensus wants shards",
-		"nShards", req.GetNShards(),
+		"nShards", nShards,
 	)
 
 	// Update the state with the consensus's desired shard count
 	// This informs the Arbiter what the Ring consensus has agreed upon
-	h.state.SetConsensusWantShards(int(req.GetNShards()))
+	h.state.SetConsensusWantShards(int(nShards))
 
 	return &emptypb.Empty{}, nil
 }

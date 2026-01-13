@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -81,7 +82,7 @@ var ProposeRingJob = operations.NewSequence[ProposeRingJobInput, ProposeRingJobO
 
 		finalSpecs := make(map[string][]string)
 
-		var mergedErrs error
+		var errs []error
 		for _, spec := range specs {
 			// Let's limit the target to the specific node for this spec.
 			filters := []offchain.TargetDONFilter{
@@ -100,7 +101,7 @@ var ProposeRingJob = operations.NewSequence[ProposeRingJobInput, ProposeRingJobO
 			})
 			if opErr != nil {
 				// Do not fail the sequence if a single proposal fails, make it through all proposals.
-				mergedErrs = fmt.Errorf("error proposing Ring job to node %s spec %s: %w", spec.NodeID, spec.Spec, opErr)
+				errs = append(errs, fmt.Errorf("error proposing Ring job to node %s: %w", spec.NodeID, opErr))
 				continue
 			}
 
@@ -111,6 +112,6 @@ var ProposeRingJob = operations.NewSequence[ProposeRingJobInput, ProposeRingJobO
 
 		return ProposeRingJobOutput{
 			Specs: finalSpecs,
-		}, mergedErrs
+		}, errors.Join(errs...)
 	},
 )

@@ -13,15 +13,6 @@ type ShardReplica struct {
 	Metrics map[string]float64 `json:"metrics,omitempty"`
 }
 
-// ScalingSpecResponse represents the scaling state response.
-// Used by State.GetScalingSpec().
-type ScalingSpecResponse struct {
-	LastScalingReason    string `json:"lastScalingReason"`
-	CurrentReplicaCount  int    `json:"currentReplicaCount"`
-	DesiredReplicaCount  int    `json:"desiredReplicaCount"`
-	ApprovedReplicaCount int    `json:"approvedReplicaCount"`
-}
-
 // RoutableShardsInfo contains routing info for Ring OCR.
 // This is used internally; the actual protobuf response is built in arbiter_scaler.go.
 type RoutableShardsInfo struct {
