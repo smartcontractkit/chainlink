@@ -220,7 +220,7 @@ var testCmd = &cobra.Command{
 			return fmt.Errorf("test suite %s is unknown, choose between smoke or load", args[0])
 		}
 
-		testCmd := exec.Command("go", "test", "-v", "-run", testPattern, "./...")
+		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", testPattern, "./...")
 		testCmd.Dir = "./tests"
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr

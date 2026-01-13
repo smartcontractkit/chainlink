@@ -58,7 +58,7 @@ func TestLoad(t *testing.T) {
 			name:               "clean",
 			roundCheckInterval: 5 * time.Second,
 			roundTimeout:       2 * time.Minute,
-			repeat:             10,
+			repeat:             60,
 			cfg:                productionCfg,
 			roundSettings: []*roundSettings{
 				{value: 1},
@@ -125,6 +125,7 @@ func TestLoad(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		pc := framework.NewPrometheusQueryClient(framework.LocalPrometheusBaseURL)
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
 			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(pdConfig.OCR2.DeployedContracts.OCRv2AggregatorAddr), c)
@@ -135,7 +136,7 @@ func TestLoad(t *testing.T) {
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)
 			}
-			checkResourceConsumption(t, in, start, time.Now(), 20.0, 600e6)
+			checkResourceConsumption(t, pc, in, start, time.Now(), 20.0, 600e6)
 		})
 	}
 }

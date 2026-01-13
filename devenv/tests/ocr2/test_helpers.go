@@ -160,8 +160,7 @@ func verifyRounds(t *testing.T, in *de.Cfg, o2 *ocr2aggregator.OCR2Aggregator, t
 }
 
 // checkResourceConsumption checks if resource consumption during tests is acceptable
-func checkResourceConsumption(t *testing.T, in *de.Cfg, start, end time.Time, maxCPUTotalPercentage float64, maxMem int) {
-	pc := f.NewPrometheusQueryClient(f.LocalPrometheusBaseURL)
+func checkResourceConsumption(t *testing.T, pc *f.PrometheusQueryClient, in *de.Cfg, start, end time.Time, maxCPUTotalPercentage float64, maxMem int) {
 	cpuResp, err := pc.Query("sum(rate(container_cpu_usage_seconds_total{name=~\".*don.*\"}[5m])) by (name) *100", end)
 	require.NoError(t, err)
 	cpu := f.ToLabelsMap(cpuResp)
