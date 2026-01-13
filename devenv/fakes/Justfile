@@ -3,9 +3,12 @@ IMAGE_NAME := "ocr2-fakes"
 run:
     docker run --rm -it -v $(pwd):/app -p 9111:9111 {{IMAGE_NAME}}:latest
 
-build registry platform="linux/amd64":
+build registry="" platform="linux/amd64":
     docker build --platform {{platform}} -f Dockerfile -t {{IMAGE_NAME}}:latest .
-    docker tag {{IMAGE_NAME}}:latest {{registry}}/{{IMAGE_NAME}}
+    # Only tag with registry if provided
+    if [ -n "{{registry}}" ]; then \
+        docker tag {{IMAGE_NAME}}:latest {{registry}}/{{IMAGE_NAME}}; \
+    fi
 
 push registry:
     aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin {{registry}}
