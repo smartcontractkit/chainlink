@@ -1,9 +1,5 @@
 package devenv
 
-/*
-This code is an example if product uses CLD, CLDF integrations
-*/
-
 import (
 	"context"
 	"errors"
@@ -12,17 +8,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
-
-const (
-	AnvilKey0 = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-)
-
-const LinkToken cldf.ContractType = "LinkToken"
 
 type JobDistributor struct {
 	nodev1.NodeServiceClient
