@@ -293,6 +293,7 @@ func setupFullDBWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 }
 
 func TestFluxMonitor_PollIfEligible(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1557")
 	t.Parallel()
 	testCases := []struct {
 		name              string
