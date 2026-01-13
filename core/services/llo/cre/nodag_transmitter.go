@@ -3,259 +3,299 @@ package cre
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"sync"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	streams "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/streams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
-	streamstypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 )
 
-// nodagTransmitter wraps the existing legacy transmitter to provide the NoDAG capability API.
-// This is a thin adapter layer that converts between the proto-based NoDAG API and the
-// existing legacy RegisterTrigger/UnregisterTrigger API.
+const (
+	nodagCapabilityID          = "streams-trigger@2.0.0"
+	nodagTickerResolutionMs    = 1000
+	nodagSendChannelBufferSize = 1000
+)
+
+// nodagTransmitter is a standalone NoDAG implementation of the Streams LLO Trigger.
+// It receives reports from the LLO plugin via the Transmitter interface and emits them
+// to workflow subscribers via the StreamsCapability interface.
 //
 // Architecture:
 //
-//	LLO Plugin → LLO Transmitter → CRE Sub-Transmitter (this) → NoDAG API → Workflows
+//	LLO Plugin → nodagTransmitter.Transmit() → processReport() → subscribers
 //
-// The NoDAG API uses:
-//   - Proto-based Config message (type-safe configuration)
-//   - Proto-based Report message (type-safe output)
-//   - Streaming RPC pattern (instead of RegisterTrigger/UnregisterTrigger)
+// This is a clean NoDAG implementation that uses proto-based types throughout.
 type nodagTransmitter struct {
-	*transmitter // Embed the existing legacy transmitter
+	services.Service
+	eng *services.Engine
+	capabilities.CapabilityInfo
 
-	// NoDAG-specific state
-	lggr logger.Logger
+	lggr        logger.Logger
+	donID       uint32
+	fromAccount ocr2types.Account
+	registry    coretypes.CapabilitiesRegistry
+
+	// Subscriber management
+	subscribers  map[string]*nodagSubscriber
+	lastReportMs uint64
+	mu           sync.Mutex
 }
 
-// NewNodagTransmitter creates a new NoDAG-compatible transmitter.
-// This wraps the existing legacy transmitter and provides the NoDAG API.
-func NewNodagTransmitter(cfg TransmitterConfig) (*nodagTransmitter, error) {
-	// Create the legacy transmitter
-	legacy, err := cfg.newTransmitter(cfg.Logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create legacy transmitter: %w", err)
+// nodagSubscriber holds the state for a single workflow subscription
+type nodagSubscriber struct {
+	ch         chan<- capabilities.TriggerAndId[*streams.Report]
+	workflowID string
+	config     *streams.Config
+}
+
+// NewNodagTransmitter creates a new standalone NoDAG transmitter
+func NewNodagTransmitter(lggr logger.Logger, donID uint32, registry coretypes.CapabilitiesRegistry) (*nodagTransmitter, error) {
+	t := &nodagTransmitter{
+		lggr:        lggr,
+		donID:       donID,
+		fromAccount: ocr2types.Account(lggr.Name() + strconv.FormatUint(uint64(donID), 10)),
+		registry:    registry,
+		subscribers: make(map[string]*nodagSubscriber),
 	}
 
-	return &nodagTransmitter{
-		transmitter: legacy,
-		lggr:        cfg.Logger,
-	}, nil
+	capInfo, err := capabilities.NewCapabilityInfo(
+		nodagCapabilityID,
+		capabilities.CapabilityTypeTrigger,
+		"Streams LLO NoDAG Trigger",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create capability info: %w", err)
+	}
+	t.CapabilityInfo = capInfo
+
+	t.Service, t.eng = services.Config{
+		Name:  "NodagTransmitter",
+		Start: t.start,
+		Close: t.close,
+	}.NewServiceEngine(lggr)
+
+	return t, nil
 }
 
-// RegisterTrigger implements the NoDAG capability API.
-// This is the main entry point for workflows to subscribe to LLO reports.
-//
-// The NoDAG API differs from the legacy API in several ways:
-//  1. Takes typed proto Config instead of generic values.Map
-//  2. Returns typed channel of proto Report instead of generic TriggerResponse
-//  3. Returns caperrors.Error instead of standard error
-//  4. Separates triggerID and metadata as explicit parameters
-//
-// This method bridges between the two APIs by:
-//  1. Converting proto Config → legacy LLOTriggerConfig
-//  2. Calling legacy RegisterTrigger
-//  3. Converting legacy channel → typed proto channel
+func (t *nodagTransmitter) start(ctx context.Context) error {
+	return t.registry.Add(ctx, t)
+}
+
+func (t *nodagTransmitter) close() error {
+	return t.registry.Remove(context.Background(), t.ID)
+}
+
+// FromAccount implements llotypes.Transmitter
+func (t *nodagTransmitter) FromAccount(context.Context) (ocr2types.Account, error) {
+	return t.fromAccount, nil
+}
+
+// Transmit receives reports from the LLO plugin and distributes them to subscribers.
+// This implements the llotypes.Transmitter interface.
+func (t *nodagTransmitter) Transmit(
+	ctx context.Context,
+	cd ocr2types.ConfigDigest,
+	seqNr uint64,
+	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
+	sigs []types.AttributedOnchainSignature,
+) error {
+	// Only process capability trigger reports
+	if report.Info.ReportFormat != llotypes.ReportFormatCapabilityTrigger {
+		return nil
+	}
+
+	// Only process production reports
+	if report.Info.LifeCycleStage != datastreamsllo.LifeCycleStageProduction {
+		return nil
+	}
+
+	// Convert OCR signatures to proto format
+	protoSigs := make([]*streams.OCRSignature, len(sigs))
+	for i, sig := range sigs {
+		protoSigs[i] = &streams.OCRSignature{
+			Signer:    uint32(sig.Signer),
+			Signature: sig.Signature,
+		}
+	}
+
+	// Create proto Report
+	protoReport := &streams.Report{
+		ConfigDigest: cd[:],
+		SeqNr:        seqNr,
+		Report:       report.Report,
+		Sigs:         protoSigs,
+	}
+
+	return t.processReport(ctx, protoReport)
+}
+
+// processReport distributes a report to all subscribers that should receive it
+func (t *nodagTransmitter) processReport(ctx context.Context, report *streams.Report) error {
+	// Extract timestamp from the report for frequency throttling
+	p := &capabilitiespb.OCRTriggerReport{}
+	if err := proto.Unmarshal(report.Report, p); err != nil {
+		return fmt.Errorf("failed to unmarshal OCRTriggerReport: %w", err)
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Global frequency throttling - ignore reports that are too frequent
+	tsMs := p.Timestamp / 1000000 // nanoseconds -> milliseconds
+	if tsMs/uint64(nodagTickerResolutionMs) == t.lastReportMs/uint64(nodagTickerResolutionMs) {
+		return nil
+	}
+	t.lastReportMs = tsMs
+
+	// Align timestamp to ticker resolution for subscriber filtering
+	alignedTsMs := tsMs - tsMs%uint64(nodagTickerResolutionMs)
+
+	t.eng.Debugw("ProcessReport distributing", "eventID", p.EventID, "seqNr", report.SeqNr, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers))
+
+	// Distribute to subscribers based on their frequency configuration
+	nIncluded := 0
+	for triggerID, sub := range t.subscribers {
+		// Check if this subscriber should receive this report based on frequency
+		if alignedTsMs%sub.config.MaxFrequencyMs == 0 {
+			// Check if report contains any of the subscriber's requested stream IDs
+			if shouldIncludeSubscriber(report, sub.config) {
+				triggerEvent := capabilities.TriggerAndId[*streams.Report]{
+					Id:      triggerID,
+					Trigger: report,
+				}
+
+				select {
+				case sub.ch <- triggerEvent:
+					t.eng.Debugw("Sent report to subscriber", "triggerID", triggerID, "seqNr", report.SeqNr)
+					nIncluded++
+				case <-ctx.Done():
+					t.eng.Error("Context done, stopping report distribution")
+					return ctx.Err()
+				default:
+					// Non-blocking send - drop if channel is full
+					t.eng.Warnw("Subscriber channel full, dropping report", "triggerID", triggerID, "workflowID", sub.workflowID, "seqNr", report.SeqNr)
+				}
+			}
+		}
+	}
+
+	t.eng.Debugw("ProcessReport done", "eventID", p.EventID, "nIncluded", nIncluded, "nTotal", len(t.subscribers))
+	return nil
+}
+
+// shouldIncludeSubscriber checks if a report should be sent to a subscriber
+// based on the stream IDs they've configured
+func shouldIncludeSubscriber(report *streams.Report, config *streams.Config) bool {
+	// If no stream IDs configured, send all reports
+	if len(config.StreamIds) == 0 {
+		return true
+	}
+
+	// Parse the report to extract which streams it contains
+	// For now, we send all reports to all subscribers
+	// TODO: Implement stream ID filtering once we have the report format defined
+	return true
+}
+
+// RegisterTrigger implements the NoDAG API for trigger registration
 func (t *nodagTransmitter) RegisterTrigger(
 	ctx context.Context,
 	triggerID string,
 	metadata capabilities.RequestMetadata,
 	input *streams.Config,
 ) (<-chan capabilities.TriggerAndId[*streams.Report], caperrors.Error) {
-	// 1. Convert proto Config to legacy LLOTriggerConfig
-	legacyConfig, err := convertProtoConfigToLegacy(input)
-	if err != nil {
-		return nil, caperrors.NewError(err, caperrors.VisibilityPublic, caperrors.OriginSystem, caperrors.InvalidArgument)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Validate config
+	if input == nil {
+		return nil, caperrors.NewError(
+			fmt.Errorf("config is nil"),
+			caperrors.VisibilityPublic,
+			caperrors.OriginSystem,
+			caperrors.InvalidArgument,
+		)
 	}
 
-	// 2. Convert legacy config to values.Map for legacy API
-	configMap, err := values.WrapMap(legacyConfig)
-	if err != nil {
-		return nil, caperrors.NewError(err, caperrors.VisibilityPublic, caperrors.OriginSystem, caperrors.InvalidArgument)
+	// Validate MaxFrequencyMs is a multiple of ticker resolution
+	if int64(input.MaxFrequencyMs)%int64(nodagTickerResolutionMs) != 0 {
+		return nil, caperrors.NewError(
+			fmt.Errorf("MaxFrequencyMs must be a multiple of %d", nodagTickerResolutionMs),
+			caperrors.VisibilityPublic,
+			caperrors.OriginSystem,
+			caperrors.InvalidArgument,
+		)
 	}
 
-	// 3. Call legacy RegisterTrigger
-	legacyReq := capabilities.TriggerRegistrationRequest{
-		TriggerID: triggerID,
-		Metadata:  metadata,
-		Config:    configMap,
+	// Check if already registered
+	if _, exists := t.subscribers[triggerID]; exists {
+		return nil, caperrors.NewError(
+			fmt.Errorf("trigger %s already registered", triggerID),
+			caperrors.VisibilityPublic,
+			caperrors.OriginSystem,
+			caperrors.InvalidArgument,
+		)
 	}
 
-	legacyCh, err := t.transmitter.RegisterTrigger(ctx, legacyReq)
-	if err != nil {
-		return nil, caperrors.NewError(err, caperrors.VisibilityPublic, caperrors.OriginSystem, caperrors.Internal)
+	// Create channel for this subscriber
+	ch := make(chan capabilities.TriggerAndId[*streams.Report], nodagSendChannelBufferSize)
+
+	// Register subscriber
+	t.subscribers[triggerID] = &nodagSubscriber{
+		ch:         ch,
+		workflowID: metadata.WorkflowID,
+		config:     input,
 	}
 
-	// 4. Create typed proto channel
-	protoCh := make(chan capabilities.TriggerAndId[*streams.Report], t.config.TriggerSendChannelBufferSize)
+	t.eng.Debugw("Registered trigger", "triggerID", triggerID, "workflowID", metadata.WorkflowID, "streamIds", input.StreamIds, "maxFrequencyMs", input.MaxFrequencyMs)
 
-	// 5. Bridge between legacy channel and proto channel
-	go t.bridgeChannels(ctx, triggerID, legacyCh, protoCh)
-
-	return protoCh, nil
+	return ch, nil
 }
 
-// UnregisterTrigger implements the NoDAG capability API for unsubscribing.
+// UnregisterTrigger implements the NoDAG API for trigger unregistration
 func (t *nodagTransmitter) UnregisterTrigger(
 	ctx context.Context,
 	triggerID string,
 	metadata capabilities.RequestMetadata,
 	input *streams.Config,
 ) caperrors.Error {
-	// Convert proto Config to legacy format
-	legacyConfig, err := convertProtoConfigToLegacy(input)
-	if err != nil {
-		return caperrors.NewError(err, caperrors.VisibilityPublic, caperrors.OriginSystem, caperrors.InvalidArgument)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	sub, exists := t.subscribers[triggerID]
+	if !exists {
+		return caperrors.NewError(
+			fmt.Errorf("trigger %s not registered", triggerID),
+			caperrors.VisibilityPublic,
+			caperrors.OriginSystem,
+			caperrors.InvalidArgument,
+		)
 	}
 
-	configMap, err := values.WrapMap(legacyConfig)
-	if err != nil {
-		return caperrors.NewError(err, caperrors.VisibilityPublic, caperrors.OriginSystem, caperrors.InvalidArgument)
-	}
+	// Close channel and remove subscriber
+	close(sub.ch)
+	delete(t.subscribers, triggerID)
 
-	// Call legacy UnregisterTrigger
-	legacyReq := capabilities.TriggerRegistrationRequest{
-		TriggerID: triggerID,
-		Metadata:  metadata,
-		Config:    configMap,
-	}
-
-	if err := t.transmitter.UnregisterTrigger(ctx, legacyReq); err != nil {
-		return caperrors.NewError(err, caperrors.VisibilityPublic, caperrors.OriginSystem, caperrors.Internal)
-	}
+	t.eng.Debugw("Unregistered trigger", "triggerID", triggerID, "workflowID", metadata.WorkflowID)
 
 	return nil
 }
 
-// bridgeChannels converts events from the legacy channel to the typed proto channel.
-// This runs in a goroutine and handles the conversion of each event.
-func (t *nodagTransmitter) bridgeChannels(
-	ctx context.Context,
-	triggerID string,
-	legacyCh <-chan capabilities.TriggerResponse,
-	protoCh chan<- capabilities.TriggerAndId[*streams.Report],
-) {
-	defer close(protoCh)
+// Ensure nodagTransmitter implements required interfaces
+var _ llotypes.Transmitter = &nodagTransmitter{}
+var _ services.Service = &nodagTransmitter{}
 
-	for {
-		select {
-		case <-ctx.Done():
-			t.lggr.Debugw("Context cancelled, stopping channel bridge", "triggerID", triggerID)
-			return
-
-		case legacyResp, ok := <-legacyCh:
-			if !ok {
-				t.lggr.Debugw("Legacy channel closed, stopping bridge", "triggerID", triggerID)
-				return
-			}
-
-			// Convert legacy TriggerResponse to proto Report
-			protoReport, err := convertLegacyResponseToProto(legacyResp)
-			if err != nil {
-				t.lggr.Errorw("Failed to convert legacy response to proto",
-					"triggerID", triggerID,
-					"error", err,
-				)
-				continue
-			}
-
-			// Send to proto channel
-			select {
-			case protoCh <- capabilities.TriggerAndId[*streams.Report]{
-				Id:      triggerID,
-				Trigger: protoReport,
-			}:
-				t.lggr.Debugw("Sent proto report",
-					"triggerID", triggerID,
-					"seqNr", protoReport.SeqNr,
-				)
-
-			case <-ctx.Done():
-				t.lggr.Debugw("Context cancelled while sending", "triggerID", triggerID)
-				return
-
-			default:
-				// Channel full, drop event (same behavior as legacy transmitter)
-				t.lggr.Warnw("Proto channel full, dropping event",
-					"triggerID", triggerID,
-					"seqNr", protoReport.SeqNr,
-				)
-			}
-		}
-	}
-}
-
-// convertProtoConfigToLegacy converts the proto Config message to the legacy LLOTriggerConfig.
-//
-// Proto Config:
-//   - stream_ids: repeated uint32
-//   - max_frequency_ms: uint64
-//
-// Legacy LLOTriggerConfig:
-//   - StreamIDs: []LLOStreamID (which is uint32)
-//   - MaxFrequencyMs: uint64
-func convertProtoConfigToLegacy(proto *streams.Config) (*streamstypes.LLOTriggerConfig, error) {
-	if proto == nil {
-		return nil, fmt.Errorf("proto config is nil")
-	}
-
-	// Convert stream IDs
-	streamIDs := make([]streamstypes.LLOStreamID, len(proto.StreamIds))
-	for i, id := range proto.StreamIds {
-		streamIDs[i] = streamstypes.LLOStreamID(id)
-	}
-
-	return &streamstypes.LLOTriggerConfig{
-		StreamIDs:      streamIDs,
-		MaxFrequencyMs: proto.MaxFrequencyMs,
-	}, nil
-}
-
-// convertLegacyResponseToProto converts a legacy TriggerResponse to a proto Report.
-//
-// Legacy TriggerResponse contains:
-//   - Event.Outputs["event"] = OCRTriggerEvent with:
-//   - ConfigDigest: []byte
-//   - SeqNr: uint64
-//   - Report: []byte
-//   - Sigs: []OCRAttributedOnchainSignature
-//
-// Proto Report contains:
-//   - config_digest: bytes
-//   - seq_nr: uint64
-//   - report: bytes
-//   - sigs: []OCRSignature
-func convertLegacyResponseToProto(legacy capabilities.TriggerResponse) (*streams.Report, error) {
-	// Extract OCRTriggerEvent from legacy response
-	// legacy.Event.Outputs is a *values.Map, need to get the "event" field
-	var event capabilities.OCRTriggerEvent
-	if err := legacy.Event.Outputs.UnwrapTo(&event); err != nil {
-		return nil, fmt.Errorf("failed to unwrap event from outputs: %w", err)
-	}
-
-	// Convert signatures
-	sigs := make([]*streams.OCRSignature, len(event.Sigs))
-	for i, sig := range event.Sigs {
-		sigs[i] = &streams.OCRSignature{
-			Signer:    sig.Signer,
-			Signature: sig.Signature,
-		}
-	}
-
-	// Create proto Report
-	return &streams.Report{
-		ConfigDigest: event.ConfigDigest,
-		SeqNr:        event.SeqNr,
-		Report:       event.Report,
-		Sigs:         sigs,
-	}, nil
-}
-
-// Ensure nodagTransmitter implements the required interfaces
-var _ Transmitter = (*nodagTransmitter)(nil)
-var _ services.Service = (*nodagTransmitter)(nil)
+// Note: The NoDAG trigger registration methods (RegisterTrigger/UnregisterTrigger) provide
+// the StreamsCapability interface, which can be wrapped by the generated server
