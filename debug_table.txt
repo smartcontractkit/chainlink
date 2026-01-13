@@ -1,0 +1,25 @@
+Line 0: (empty line)
+Line 1: --------------------------------- (divider)
+Line 2: Name:      (empty node)
+Line 3: Chain ID:  starknet chain ID
+Line 4: State:     (empty)
+Line 5: Config:    Name = ''
+Line 6: URL = ''
+Line 7: APIKey = ''
+Line 8: (empty line)
+Line 9: --------------------------------- (divider)
+Line 10: Name:     first
+Line 11: Chain ID: starknet chain ID  
+Line 12: State:    (empty)
+Line 13: Config:   Name = 'first'
+Line 14: URL = 'https://starknet1.example'
+Line 15: (empty line)
+Line 16: --------------------------------- (divider)
+Line 17: Name:     second
+Line 18: Chain ID: starknet chain ID
+Line 19: State:    (empty)
+Line 20: Config:   Name = 'second'
+Line 21: URL = 'https://starknet2.example' 
+Line 22: (empty line)
+Line 23: --------------------------------- (divider)
+Line 24: (empty line)
