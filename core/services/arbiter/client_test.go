@@ -17,11 +17,11 @@ import (
 // mockArbiterScalerServer implements pb.ArbiterScalerServer for testing.
 type mockArbiterScalerServer struct {
 	pb.UnimplementedArbiterScalerServer
-	statusResp    *pb.ReplicaStatus
-	statusErr     error
-	consensusErr  error
+	statusResp      *pb.ReplicaStatus
+	statusErr       error
+	consensusErr    error
 	consensusCalled bool
-	lastNShards   uint32
+	lastNShards     uint32
 }
 
 func (m *mockArbiterScalerServer) Status(ctx context.Context, _ *emptypb.Empty) (*pb.ReplicaStatus, error) {

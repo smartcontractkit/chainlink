@@ -61,7 +61,7 @@ func TestState_GetRoutableShards_Empty(t *testing.T) {
 	routable := state.GetRoutableShards()
 
 	assert.Equal(t, 0, routable.ReadyCount)
-	assert.Len(t, routable.ShardInfo, 0)
+	assert.Empty(t, routable.ShardInfo)
 }
 
 func TestState_Concurrency(t *testing.T) {

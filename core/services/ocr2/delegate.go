@@ -1034,7 +1034,7 @@ func (d *Delegate) newServicesRing(
 
 	// Ring jobs only run on shard 0, where the Arbiter and ShardOrchestrator are created
 	if shardingCfg.ShardIndex() != 0 {
-		return nil, fmt.Errorf("Ring jobs can only run on shard 0, current shard index: %d", shardingCfg.ShardIndex())
+		return nil, fmt.Errorf("ring jobs can only run on shard 0, current shard index: %d", shardingCfg.ShardIndex())
 	}
 
 	// Get ContractReaderFactory from relayer for shard config reading

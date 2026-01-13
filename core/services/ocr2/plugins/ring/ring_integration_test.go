@@ -18,9 +18,9 @@ import (
 // mockArbiterScalerClient implements pb.ArbiterScalerClient for testing.
 // It allows configuring the return values for Status and ConsensusWantShards.
 type mockArbiterScalerClient struct {
-	wantShards  uint32
-	shardStatus map[uint32]*pb.ShardStatus
-	statusErr   error
+	wantShards   uint32
+	shardStatus  map[uint32]*pb.ShardStatus
+	statusErr    error
 	consensusErr error
 }
 

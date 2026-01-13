@@ -30,8 +30,8 @@ type arbiter struct {
 	grpcHandler        *GRPCServer
 	ringArbiterHandler *RingArbiterHandler
 	state              *State
-	shardConfig         ShardConfigReader
-	lggr                logger.Logger
+	shardConfig        ShardConfigReader
+	lggr               logger.Logger
 
 	grpcAddr string
 	stopCh   services.StopChan
@@ -75,10 +75,10 @@ func New(
 		grpcHandler:        grpcHandler,
 		ringArbiterHandler: ringArbiterHandler,
 		state:              state,
-		shardConfig:         shardConfig,
-		lggr:                lggr,
-		grpcAddr:            fmt.Sprintf(":%d", port),
-		stopCh:              make(services.StopChan),
+		shardConfig:        shardConfig,
+		lggr:               lggr,
+		grpcAddr:           fmt.Sprintf(":%d", port),
+		stopCh:             make(services.StopChan),
 	}, nil
 }
 
