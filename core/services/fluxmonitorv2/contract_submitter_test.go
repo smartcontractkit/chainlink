@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
@@ -15,6 +17,7 @@ import (
 )
 
 func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1553")
 	t.Parallel()
 	var (
 		fluxAggregator    = mocks.NewFluxAggregator(t)
