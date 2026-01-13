@@ -19,7 +19,7 @@ require (
 	github.com/cockroachdb/errors v1.11.3
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/docker/docker v28.5.1+incompatible
-	github.com/ethereum/go-ethereum v1.16.7
+	github.com/ethereum/go-ethereum v1.16.8
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/gagliardetto/solana-go v1.13.0
 	github.com/goccy/go-yaml v1.18.0
