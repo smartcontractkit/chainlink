@@ -7,8 +7,8 @@ default:
 clean:
     rm -rf compose/ blockscout/
 
-build-fakes registry platform="linux/amd64":
-    just fakes/build {{registry}}
+build-fakes platform="linux/amd64":
+    just fakes/build
 
 push-fakes registry:
     just fakes/push {{registry}}
