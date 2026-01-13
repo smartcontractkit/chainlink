@@ -909,6 +909,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1555")
 	quarantine.Flaky(t, "DX-1806")
 	t.Parallel()
 	db, nodeAddr := setupFullDBWithKey(t)
