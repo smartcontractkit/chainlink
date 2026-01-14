@@ -23,6 +23,8 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/e
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger => ./smoke/cre/evm/logtrigger
 
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction => ./smoke/cre/httpaction
+
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus => ./regression/cre/consensus
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative => ./regression/cre/evm/evmread-negative
@@ -30,6 +32,8 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative => ./regression/cre/evm/evmwrite-negative
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http => ./regression/cre/http
+
+replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative => ./regression/cre/httpaction-negative
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -216,7 +220,7 @@ require (
 	github.com/consensys/gnark-crypto v0.19.2 // indirect
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/containerd/api v1.9.0 // indirect
-	github.com/containerd/containerd/v2 v2.1.4 // indirect
+	github.com/containerd/containerd/v2 v2.1.5 // indirect
 	github.com/containerd/continuity v0.4.5 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
@@ -750,10 +754,3 @@ require (
 
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20251014124537-af6b1684fe15
-
-// make the vulnerability scanner happy (https://github.com/advisories/GHSA-pwhc-rpq9-4c8w)
-replace github.com/containerd/containerd/v2 => github.com/containerd/containerd/v2 v2.1.5
-
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction => ./smoke/cre/httpaction
-
-replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative => ./regression/cre/httpaction-negative
