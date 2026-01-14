@@ -1,6 +1,7 @@
 name: OCR2 Load Test
 
 on:
+  push:
   schedule:
     - cron: "0 6 * * *"  # Run daily at 6 AM
   workflow_dispatch:
