@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -420,6 +421,22 @@ func SetupTestEnvironment(
 		}
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	// Sharding setup moved AFTER PostEnvStartup to ensure OCR3 configs work properly
+	if topology.DonsMetadata.ShardingEnabled() {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Setting up Sharding")))
+		err := sharding.SetupSharding(sharding.SetupShardingInput{
+			Ctx:      ctx,
+			Logger:   testLogger,
+			CreEnv:   creEnvironment,
+			Topology: topology,
+			Dons:     dons,
+		})
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to setup Sharding")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	}
 
 	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")

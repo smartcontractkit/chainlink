@@ -28,82 +28,75 @@ import (
 )
 
 const (
-	flag = cre.ShardDON
-
 	// RingContractQualifier is the qualifier used for the Ring OCR3 contract
 	RingContractQualifier = "ring"
 )
 
-// Sharding implements the Feature interface for Ring/Sharding setup
-type Sharding struct{}
-
-func (s *Sharding) Flag() cre.CapabilityFlag {
-	return flag
+type SetupShardingInput struct {
+	Ctx      context.Context
+	Logger   zerolog.Logger
+	CreEnv   *cre.Environment
+	Topology *cre.Topology
+	Dons     *cre.Dons
 }
 
-func (s *Sharding) PreEnvStartup(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	don *cre.DonMetadata,
-	topology *cre.Topology,
-	creEnv *cre.Environment,
-) (*cre.PreEnvStartupOutput, error) {
-	// No pre-startup actions needed for sharding
-	return nil, nil
-}
-
-func (s *Sharding) PostEnvStartup(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	don *cre.Don,
-	dons *cre.Dons,
-	creEnv *cre.Environment,
-) error {
-	// Only run Ring setup on the shard leader DON
-	if !don.IsShardLeader() {
-		testLogger.Debug().Msgf("Skipping Ring setup for non-leader shard DON '%s'", don.Name)
-		return nil
+func SetupSharding(input SetupShardingInput) error {
+	// Get the shard leader DON
+	shardLeaderDON, err := getShardLeaderDON(input.Dons)
+	if err != nil {
+		return fmt.Errorf("failed to get shard leader DON: %w", err)
 	}
 
-	testLogger.Info().Msgf("Setting up Ring for shard leader DON '%s'", don.Name)
+	input.Logger.Info().Msgf("Setting up Ring for shard leader DON '%s'", shardLeaderDON.Name)
 
 	// 1. Deploy ShardConfig contract
-	shardConfigAddr, err := deployShardConfigContract(creEnv, testLogger, dons)
+	shardConfigAddr, err := deployShardConfigContract(input.CreEnv, input.Logger, input.Dons)
 	if err != nil {
 		return fmt.Errorf("failed to deploy ShardConfig contract: %w", err)
 	}
 
 	// 2. Deploy Ring OCR3 contract
-	ringOCR3Addr, err := deployRingOCR3Contract(creEnv, testLogger)
+	ringOCR3Addr, err := deployRingOCR3Contract(input.CreEnv, input.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Ring OCR3 contract: %w", err)
 	}
 
 	// 3. Get bootstrap URLs for Ring P2P
-	bootstrapURLs, err := getBootstrapURLs(dons)
+	bootstrapURLs, err := getBootstrapURLs(input.Dons)
 	if err != nil {
 		return fmt.Errorf("failed to get bootstrap URLs: %w", err)
 	}
 
 	// 4. Create Ring jobs on the shard leader DON
-	err = createRingJobs(ctx, creEnv, don, dons, ringOCR3Addr, shardConfigAddr, bootstrapURLs)
+	err = createRingJobs(input.Ctx, input.CreEnv, shardLeaderDON, input.Dons, ringOCR3Addr, shardConfigAddr, bootstrapURLs)
 	if err != nil {
 		return fmt.Errorf("failed to create Ring jobs: %w", err)
 	}
 
 	// 5. Wait for LogPoller to be healthy before configuring OCR3
-	if err := consensus.WaitForLogPollerToBeHealthy(don); err != nil {
+	if err := consensus.WaitForLogPollerToBeHealthy(shardLeaderDON); err != nil {
 		return errors.Wrap(err, "failed while waiting for Log Poller to become healthy")
 	}
 
-	// 6. Configure OCR3 contract (following consensus v1 pattern)
-	err = configureRingOCR3(creEnv, ringOCR3Addr, don, testLogger)
+	// 6. Configure OCR3 contract
+	err = configureRingOCR3(input.CreEnv, ringOCR3Addr, shardLeaderDON, input.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to configure Ring OCR3: %w", err)
 	}
 
-	testLogger.Info().Msgf("Ring setup completed for shard leader DON '%s'", don.Name)
+	input.Logger.Info().Msgf("Ring setup completed for shard leader DON '%s'", shardLeaderDON.Name)
 	return nil
+}
+
+// getShardLeaderDON finds the shard leader DON (ShardIndex == 0)
+func getShardLeaderDON(dons *cre.Dons) (*cre.Don, error) {
+	shardDONs := dons.DonsWithFlag(cre.ShardDON)
+	for _, don := range shardDONs {
+		if don.Metadata().IsShardLeader() {
+			return don, nil
+		}
+	}
+	return nil, fmt.Errorf("no shard leader DON found")
 }
 
 // deployShardConfigContract deploys the ShardConfig contract
