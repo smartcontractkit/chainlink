@@ -32,7 +32,7 @@ func TestLoad(t *testing.T) {
 		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
 		require.NoError(t, cErr)
 	})
-	c, _, _, err := ocr2.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.OCR2.GasSettings.FeeCapMultiplier, pdConfig.OCR2.GasSettings.TipCapMultiplier)
+	c, _, _, err := ocr2.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
 	clNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 	require.NoError(t, err)
@@ -127,10 +127,10 @@ func TestLoad(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(pdConfig.OCR2.DeployedContracts.OCRv2AggregatorAddr), c)
+			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(pdConfig.Config[0].DeployedContracts.OCRv2AggregatorAddr), c)
 			require.NoError(t, err)
 			L.Info().Any("Config", tc.cfg).Msg("Applying new OCR2 configuration")
-			err = ocr2.UpdateOCR2ConfigOffChainValues(context.Background(), in.Blockchains[0], pdConfig.OCR2, o2, clNodes, tc.cfg)
+			err = ocr2.UpdateOCR2ConfigOffChainValues(context.Background(), in.Blockchains[0], pdConfig.Config[0], o2, clNodes, tc.cfg)
 			require.NoError(t, err)
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)

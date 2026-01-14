@@ -14,7 +14,7 @@ type Product interface {
 	// Load loads product-specific config part from TOML
 	Load() error
 	// Store stores product-specific config part to TOML
-	Store(path string) error
+	Store(path string, i int) error
 	// GenerateCLNodesBlockchainConfig generates configuration for CL nodes for blockchain connection
 	GenerateCLNodesBlockchainConfig(
 		ctx context.Context,
