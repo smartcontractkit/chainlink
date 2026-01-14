@@ -10,110 +10,96 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/smartcontractkit/chainlink/v2/core/services/arbiter/proto"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// mockDecisionEngine is a mock implementation of DecisionEngine for testing.
-type mockDecisionEngine struct {
-	approvedCount int
-	err           error
+// mockShardConfigReaderForGRPC is a mock implementation of ShardConfigReader for testing.
+type mockShardConfigReaderForGRPC struct {
+	services.StateMachine
+	shardCount uint64
+	err        error
 }
 
-func (m *mockDecisionEngine) ComputeApprovedCount(ctx context.Context, desiredCount int) (int, error) {
-	return m.approvedCount, m.err
+func (m *mockShardConfigReaderForGRPC) Start(ctx context.Context) error {
+	return nil
 }
 
-func TestGRPCServer_SubmitScaleIntent_Success(t *testing.T) {
+func (m *mockShardConfigReaderForGRPC) Close() error {
+	return nil
+}
+
+func (m *mockShardConfigReaderForGRPC) Ready() error {
+	return nil
+}
+
+func (m *mockShardConfigReaderForGRPC) HealthReport() map[string]error {
+	return nil
+}
+
+func (m *mockShardConfigReaderForGRPC) Name() string {
+	return "mockShardConfigReaderForGRPC"
+}
+
+func (m *mockShardConfigReaderForGRPC) GetDesiredShardCount(ctx context.Context) (uint64, error) {
+	return m.shardCount, m.err
+}
+
+func TestGRPCServer_GetDesiredReplicas_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	state := NewState()
-	mockDecision := &mockDecisionEngine{approvedCount: 5}
+	mockReader := &mockShardConfigReaderForGRPC{shardCount: 5}
 
-	server := NewGRPCServer(state, mockDecision, lggr)
+	server := NewGRPCServer(mockReader, lggr)
 
-	req := &pb.ScaleIntentRequest{
-		CurrentReplicas: map[string]*pb.ShardReplica{
-			"shard-0": {Status: pb.ReleaseStatus_RELEASE_STATUS_READY, Message: "Running"},
-			"shard-1": {Status: pb.ReleaseStatus_RELEASE_STATUS_READY, Message: "Running"},
+	req := &ringpb.ShardStatusRequest{
+		Status: map[uint32]*ringpb.ShardStatus{
+			0: {IsHealthy: true},
+			1: {IsHealthy: true},
+			2: {IsHealthy: false},
 		},
-		DesiredReplicaCount: 5,
-		Reason:              "high CPU utilization",
 	}
 
-	resp, err := server.SubmitScaleIntent(context.Background(), req)
+	resp, err := server.GetDesiredReplicas(context.Background(), req)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "ok", resp.Status)
-
-	// Verify state was updated
-	spec := state.GetScalingSpec()
-	assert.Equal(t, 2, spec.CurrentReplicaCount)
-	assert.Equal(t, 5, spec.DesiredReplicaCount)
-	assert.Equal(t, 5, spec.ApprovedReplicaCount)
-	assert.Equal(t, "high CPU utilization", spec.LastScalingReason)
+	assert.Equal(t, uint32(5), resp.WantShards)
 }
 
-func TestGRPCServer_SubmitScaleIntent_InvalidArgument(t *testing.T) {
+func TestGRPCServer_GetDesiredReplicas_EmptyRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	state := NewState()
-	mockDecision := &mockDecisionEngine{approvedCount: 1}
+	mockReader := &mockShardConfigReaderForGRPC{shardCount: 3}
 
-	server := NewGRPCServer(state, mockDecision, lggr)
+	server := NewGRPCServer(mockReader, lggr)
 
-	tests := []struct {
-		name    string
-		request *pb.ScaleIntentRequest
-	}{
-		{
-			name: "desired count is zero",
-			request: &pb.ScaleIntentRequest{
-				CurrentReplicas:     map[string]*pb.ShardReplica{},
-				DesiredReplicaCount: 0,
-				Reason:              "test",
-			},
-		},
-		{
-			name: "desired count is negative",
-			request: &pb.ScaleIntentRequest{
-				CurrentReplicas:     map[string]*pb.ShardReplica{},
-				DesiredReplicaCount: -1,
-				Reason:              "test",
-			},
-		},
+	req := &ringpb.ShardStatusRequest{
+		Status: map[uint32]*ringpb.ShardStatus{},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			resp, err := server.SubmitScaleIntent(context.Background(), tc.request)
+	resp, err := server.GetDesiredReplicas(context.Background(), req)
 
-			require.Error(t, err)
-			assert.Nil(t, resp)
-
-			st, ok := status.FromError(err)
-			require.True(t, ok)
-			assert.Equal(t, codes.InvalidArgument, st.Code())
-		})
-	}
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, uint32(3), resp.WantShards)
 }
 
-func TestGRPCServer_SubmitScaleIntent_DecisionEngineError(t *testing.T) {
+func TestGRPCServer_GetDesiredReplicas_ShardConfigError(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	state := NewState()
-	mockDecision := &mockDecisionEngine{
+	mockReader := &mockShardConfigReaderForGRPC{
 		err: errors.New("contract read failed"),
 	}
 
-	server := NewGRPCServer(state, mockDecision, lggr)
+	server := NewGRPCServer(mockReader, lggr)
 
-	req := &pb.ScaleIntentRequest{
-		CurrentReplicas:     map[string]*pb.ShardReplica{},
-		DesiredReplicaCount: 5,
-		Reason:              "test",
+	req := &ringpb.ShardStatusRequest{
+		Status: map[uint32]*ringpb.ShardStatus{
+			0: {IsHealthy: true},
+		},
 	}
 
-	resp, err := server.SubmitScaleIntent(context.Background(), req)
+	resp, err := server.GetDesiredReplicas(context.Background(), req)
 
 	require.Error(t, err)
 	assert.Nil(t, resp)
@@ -123,133 +109,42 @@ func TestGRPCServer_SubmitScaleIntent_DecisionEngineError(t *testing.T) {
 	assert.Equal(t, codes.Internal, st.Code())
 }
 
-func TestGRPCServer_GetScalingSpec(t *testing.T) {
+func TestGRPCServer_GetDesiredReplicas_ZeroShards(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	state := NewState()
-	mockDecision := &mockDecisionEngine{approvedCount: 5}
+	mockReader := &mockShardConfigReaderForGRPC{shardCount: 0}
 
-	// Set up some state
-	replicas := map[string]ShardReplica{
-		"shard-0": {Status: "READY", Message: "Running"},
-		"shard-1": {Status: "READY", Message: "Running"},
-		"shard-2": {Status: "INSTALLING", Message: "In progress"},
+	server := NewGRPCServer(mockReader, lggr)
+
+	req := &ringpb.ShardStatusRequest{
+		Status: map[uint32]*ringpb.ShardStatus{},
 	}
-	state.Update(replicas, 10, "scale-up request")
-	state.SetApprovedCount(8)
 
-	server := NewGRPCServer(state, mockDecision, lggr)
-
-	resp, err := server.GetScalingSpec(context.Background(), &pb.GetScalingSpecRequest{})
+	resp, err := server.GetDesiredReplicas(context.Background(), req)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
-	assert.Equal(t, int32(3), resp.CurrentReplicaCount)
-	assert.Equal(t, int32(10), resp.DesiredReplicaCount)
-	assert.Equal(t, int32(8), resp.ApprovedReplicaCount)
-	assert.Equal(t, "scale-up request", resp.LastScalingReason)
+	assert.Equal(t, uint32(0), resp.WantShards)
 }
 
-func TestGRPCServer_GetScalingSpec_InitialState(t *testing.T) {
+func TestGRPCServer_GetDesiredReplicas_LargeShardCount(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	state := NewState()
-	mockDecision := &mockDecisionEngine{}
+	mockReader := &mockShardConfigReaderForGRPC{shardCount: 100}
 
-	server := NewGRPCServer(state, mockDecision, lggr)
+	server := NewGRPCServer(mockReader, lggr)
 
-	resp, err := server.GetScalingSpec(context.Background(), &pb.GetScalingSpecRequest{})
+	// Simulate many healthy shards
+	status := make(map[uint32]*ringpb.ShardStatus)
+	for i := uint32(0); i < 100; i++ {
+		status[i] = &ringpb.ShardStatus{IsHealthy: true}
+	}
+
+	req := &ringpb.ShardStatusRequest{
+		Status: status,
+	}
+
+	resp, err := server.GetDesiredReplicas(context.Background(), req)
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
-	assert.Equal(t, int32(0), resp.CurrentReplicaCount)
-	assert.Equal(t, int32(1), resp.DesiredReplicaCount)
-	assert.Equal(t, int32(1), resp.ApprovedReplicaCount)
-	assert.Equal(t, "Initial state", resp.LastScalingReason)
-}
-
-func TestGRPCServer_HealthCheck(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	state := NewState()
-	mockDecision := &mockDecisionEngine{}
-
-	server := NewGRPCServer(state, mockDecision, lggr)
-
-	resp, err := server.HealthCheck(context.Background(), &pb.HealthCheckRequest{})
-
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, "ok", resp.Status)
-}
-
-func TestGRPCServer_SubmitScaleIntent_WithMetrics(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	state := NewState()
-	mockDecision := &mockDecisionEngine{approvedCount: 3}
-
-	server := NewGRPCServer(state, mockDecision, lggr)
-
-	req := &pb.ScaleIntentRequest{
-		CurrentReplicas: map[string]*pb.ShardReplica{
-			"shard-0": {
-				Status:  pb.ReleaseStatus_RELEASE_STATUS_READY,
-				Message: "Running",
-				Metrics: map[string]float64{
-					"cpu_usage":    0.75,
-					"memory_usage": 0.60,
-				},
-			},
-		},
-		DesiredReplicaCount: 3,
-		Reason:              "metrics-based scaling",
-	}
-
-	resp, err := server.SubmitScaleIntent(context.Background(), req)
-
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, "ok", resp.Status)
-
-	spec := state.GetScalingSpec()
-	assert.Equal(t, 1, spec.CurrentReplicaCount)
-	assert.Equal(t, 3, spec.DesiredReplicaCount)
-	assert.Equal(t, 3, spec.ApprovedReplicaCount)
-}
-
-func TestGRPCServer_SubmitScaleIntent_AllReleaseStatuses(t *testing.T) {
-	lggr := logger.TestLogger(t)
-
-	statuses := []pb.ReleaseStatus{
-		pb.ReleaseStatus_RELEASE_STATUS_INSTALLING,
-		pb.ReleaseStatus_RELEASE_STATUS_INSTALL_SUCCEEDED,
-		pb.ReleaseStatus_RELEASE_STATUS_INSTALL_FAILED,
-		pb.ReleaseStatus_RELEASE_STATUS_READY,
-		pb.ReleaseStatus_RELEASE_STATUS_DEGRADED,
-		pb.ReleaseStatus_RELEASE_STATUS_UNKNOWN,
-	}
-
-	for _, s := range statuses {
-		t.Run(s.String(), func(t *testing.T) {
-			state := NewState()
-			mockDecision := &mockDecisionEngine{approvedCount: 1}
-			server := NewGRPCServer(state, mockDecision, lggr)
-
-			req := &pb.ScaleIntentRequest{
-				CurrentReplicas: map[string]*pb.ShardReplica{
-					"shard-0": {
-						Status:  s,
-						Message: "test",
-					},
-				},
-				DesiredReplicaCount: 1,
-				Reason:              "status test",
-			}
-
-			resp, err := server.SubmitScaleIntent(context.Background(), req)
-
-			require.NoError(t, err)
-			require.NotNil(t, resp)
-			assert.Equal(t, "ok", resp.Status)
-		})
-	}
+	assert.Equal(t, uint32(100), resp.WantShards)
 }

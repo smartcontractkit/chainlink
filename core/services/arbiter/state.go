@@ -4,54 +4,26 @@ import (
 	"sync"
 )
 
-// State holds the current scaling state.
+// State holds the current scaling state for the Arbiter.
 type State struct {
-	currentReplicas       map[string]ShardReplica
-	lastScalingReason     string
-	desiredReplicasCount  int
-	approvedReplicasCount int
-	mu                    sync.RWMutex
+	currentReplicas     map[string]ShardReplica
+	consensusWantShards int // Number of shards the Ring consensus wants
+	mu                  sync.RWMutex
 }
 
 // NewState creates a new State with default values.
 func NewState() *State {
 	return &State{
-		currentReplicas:       make(map[string]ShardReplica),
-		desiredReplicasCount:  1,
-		approvedReplicasCount: 1,
-		lastScalingReason:     "Initial state",
+		currentReplicas: make(map[string]ShardReplica),
 	}
 }
 
-// Update updates the state with new scale intent data.
-func (s *State) Update(currentReplicas map[string]ShardReplica, desiredCount int, reason string) {
+// SetCurrentReplicas updates the current replicas map.
+func (s *State) SetCurrentReplicas(replicas map[string]ShardReplica) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.currentReplicas = currentReplicas
-	s.desiredReplicasCount = desiredCount
-	s.lastScalingReason = reason
-}
-
-// SetApprovedCount sets the approved replica count.
-func (s *State) SetApprovedCount(count int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.approvedReplicasCount = count
-}
-
-// GetScalingSpec returns the current scaling specification.
-func (s *State) GetScalingSpec() ScalingSpecResponse {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return ScalingSpecResponse{
-		CurrentReplicaCount:  len(s.currentReplicas),
-		DesiredReplicaCount:  s.desiredReplicasCount,
-		ApprovedReplicaCount: s.approvedReplicasCount,
-		LastScalingReason:    s.lastScalingReason,
-	}
+	s.currentReplicas = replicas
 }
 
 // GetCurrentReplicaCount returns the current number of replicas.
@@ -62,18 +34,47 @@ func (s *State) GetCurrentReplicaCount() int {
 	return len(s.currentReplicas)
 }
 
-// GetDesiredReplicaCount returns the desired number of replicas.
-func (s *State) GetDesiredReplicaCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+// SetConsensusWantShards sets the number of shards the Ring consensus wants.
+func (s *State) SetConsensusWantShards(count int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	return s.desiredReplicasCount
+	s.consensusWantShards = count
 }
 
-// GetApprovedReplicaCount returns the approved number of replicas.
-func (s *State) GetApprovedReplicaCount() int {
+// GetConsensusWantShards returns the number of shards the Ring consensus wants.
+func (s *State) GetConsensusWantShards() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.approvedReplicasCount
+	return s.consensusWantShards
+}
+
+// GetRoutableShards returns the count and status of shards ready for routing.
+// This is used by Ring OCR to determine which shards can receive traffic.
+// Only shards with Status == READY are counted as routable.
+func (s *State) GetRoutableShards() RoutableShardsInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	readyCount := 0
+	shardInfo := make(map[uint32]ShardHealth)
+
+	// Iterate through current replicas and count READY ones
+	shardID := uint32(0)
+	for _, replica := range s.currentReplicas {
+		isHealthy := replica.Status == StatusReady
+		shardInfo[shardID] = ShardHealth{
+			IsHealthy: isHealthy,
+		}
+		if isHealthy {
+			readyCount++
+		}
+		shardID++
+	}
+
+	return RoutableShardsInfo{
+		ReadyCount: readyCount,
+		ShardInfo:  shardInfo,
+	}
 }

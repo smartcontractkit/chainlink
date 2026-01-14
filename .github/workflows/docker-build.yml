@@ -78,7 +78,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -97,6 +97,7 @@ jobs:
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
+      free-disk-space: "true"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -109,7 +110,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -130,6 +131,7 @@ jobs:
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
+      free-disk-space: "true"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -142,7 +144,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -164,6 +166,7 @@ jobs:
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
+      free-disk-space: "true"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -176,7 +179,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -198,6 +201,7 @@ jobs:
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
+      free-disk-space: "true"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -210,7 +214,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -232,6 +236,7 @@ jobs:
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
+      free-disk-space: "true"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
