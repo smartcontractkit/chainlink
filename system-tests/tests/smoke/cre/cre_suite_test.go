@@ -396,14 +396,73 @@ func Test_EVM_Job_Update_Success(t *testing.T) {
 		return nil
 	}
 
+	fcron := func(don *cre.Don) error {
+		specs := make(map[string][]string)
+		capabilityConfig, ok := creEnv.CapabilityConfigs[cre.CronCapability]
+		if !ok {
+			return fmt.Errorf("%s config not found in capabilities config: %v", cre.CronCapability, creEnv.CapabilityConfigs)
+		}
+
+		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+		if cErr != nil {
+			return errors.Wrap(cErr, "failed to get command for Cron capability")
+		}
+
+		workerInput := cre_jobs.ProposeJobSpecInput{
+			Domain:      offchain.ProductLabel,
+			Environment: cre.EnvironmentName,
+			DONName:     don.Name,
+			JobName:     "cron-worker",
+			ExtraLabels: map[string]string{cre.CapabilityLabelKey: cre.CronCapability},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: don.Name},
+			},
+			Template: job_types.Cron,
+			Inputs: job_types.JobSpecInput{
+				"command": command,
+			},
+		}
+
+		workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+		if workerVerErr != nil {
+			return fmt.Errorf("precondition verification failed for Cron worker job: %w", workerVerErr)
+		}
+
+		workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+		if workerErr != nil {
+			return fmt.Errorf("failed to propose Cron worker job spec: %w", workerErr)
+		}
+		for _, r := range workerReport.Reports {
+			out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+			if !ok {
+				return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+			}
+			mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+			if mErr != nil {
+				return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+			}
+		}
+
+		approveErr := jobs.Approve(t.Context(), creEnv.CldfEnvironment.Offchain, dons, specs)
+		if approveErr != nil {
+			return fmt.Errorf("failed to approve Cron jobs: %w", approveErr)
+		}
+		return nil
+	}
+
 	dd := dons.DonsWithFlags(flag)
 
-	for _, don := range dd {
-		if strings.Contains(don.Name, "capabilities") {
-			err := f(don)
-			require.NoError(t, err)
-		}
+	ddcron := dons.DonsWithFlag(cre.CronCapability)
+	for _, don := range ddcron {
+		err := fcron(don)
+		require.NoError(t, err)
 	}
+
+	for _, don := range dd {
+		err := f(don)
+		require.NoError(t, err)
+	}
+
 }
 
 //////////// V2 TESTS /////////////
@@ -463,12 +522,12 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	t.Run("[v2] EVM LogTrigger - "+topology, func(t *testing.T) {
 		ExecuteEVMLogTriggerTest(t, testEnv)
 	})
-	return
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
 
+	return
 	t.Run("[v2] EVM Read - "+topology, func(t *testing.T) {
 		ExecuteEVMReadTest(t, testEnv)
 	})

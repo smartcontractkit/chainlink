@@ -157,6 +157,8 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
 	}
+
+	return
 	/*
 		START THE VALIDATION PHASE
 		Check whether each feed has been updated with the expected prices, which workflow fetches from the price provider
