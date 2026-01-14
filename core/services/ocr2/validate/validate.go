@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
+	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -133,6 +134,8 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return validateVaultPluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.DonTimePlugin:
 		return validateDonTimePluginSpec(spec.OCR2OracleSpec.PluginConfig)
+	case types.RingPlugin:
+		return validateRingPluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -359,6 +362,14 @@ func validateDonTimePluginSpec(jsonConfig job.JSONConfig) error {
 		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
 	return nil
+}
+
+func validateRingPluginSpec(jsonConfig job.JSONConfig) error {
+	cfg := &ringconfig.PluginConfig{}
+	if err := cfg.Unmarshal(jsonConfig.Bytes()); err != nil {
+		return fmt.Errorf("failed to unmarshal ring plugin config: %w", err)
+	}
+	return cfg.Validate()
 }
 
 func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
