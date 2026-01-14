@@ -1,0 +1,22 @@
+ChainID = '99999'
+ChainType = "zksync"
+FinalityTagEnabled = true
+LogPollInterval = "5s"
+NoNewHeadsThreshold = "45m"
+
+[GasEstimator]
+BumpPercent = 40
+BumpThreshold = 1
+EIP1559DynamicFees = false
+LimitDefault = 100000000
+Mode = "FeeHistory"
+PriceMax = "1000 gwei"
+
+[GasEstimator.FeeHistory]
+CacheTimeout = "5s"
+
+[HeadTracker]
+HistoryDepth = 250
+
+[Transactions]
+ResendAfterThreshold = "5m0s"
