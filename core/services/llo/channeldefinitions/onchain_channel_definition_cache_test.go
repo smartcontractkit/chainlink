@@ -1278,3 +1278,227 @@ func Test_filterName(t *testing.T) {
 	s := types.ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
 	require.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }
+
+func Test_decodePersistedSourceDefinitions(t *testing.T) {
+	t.Run("valid JSON with source 1 (migration case)", func(t *testing.T) {
+		// Create source definition with source 1 that should be migrated to SourceOwner
+		sourceDef := types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   1,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte{1, 2, 3, 4},
+				BlockNum: 1000,
+				LogIndex: 5,
+				Version:  42,
+				TxHash:   [32]byte{5, 6, 7, 8},
+			},
+			Definitions: llotypes.ChannelDefinitions{
+				1: makeChannelDefinition(1, 1),
+				2: makeChannelDefinition(2, 1),
+			},
+		}
+
+		sourceDefinitionsJSON, err := json.Marshal(map[uint32]types.SourceDefinition{
+			1: sourceDef,
+		})
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(sourceDefinitionsJSON)
+		require.NoError(t, err)
+
+		// Source 1 should be migrated to SourceOwner (0)
+		require.NotContains(t, result, uint32(1), "source 1 should be removed")
+		require.Contains(t, result, SourceOwner, "SourceOwner should be present")
+
+		// Verify Trigger.Source is set to SourceOwner
+		require.Equal(t, SourceOwner, result[SourceOwner].Trigger.Source)
+
+		// Verify all channel definitions' Source is set to SourceOwner
+		for channelID, def := range result[SourceOwner].Definitions {
+			require.Equal(t, SourceOwner, def.Source, "channel %d should have SourceOwner", channelID)
+		}
+
+		// Verify other trigger fields are preserved
+		require.Equal(t, "http://example.com/definitions.json", result[SourceOwner].Trigger.URL)
+		require.Equal(t, [32]byte{1, 2, 3, 4}, result[SourceOwner].Trigger.SHA)
+		require.Equal(t, int64(1000), result[SourceOwner].Trigger.BlockNum)
+		require.Equal(t, int64(5), result[SourceOwner].Trigger.LogIndex)
+		require.Equal(t, uint32(42), result[SourceOwner].Trigger.Version)
+		require.Equal(t, [32]byte{5, 6, 7, 8}, result[SourceOwner].Trigger.TxHash)
+	})
+
+	t.Run("valid JSON with non-1 sources", func(t *testing.T) {
+		adderID := uint32(100)
+		sourceDef := types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   adderID,
+				URL:      "http://example.com/adder.json",
+				SHA:      [32]byte{9, 10, 11, 12},
+				BlockNum: 2000,
+				LogIndex: 10,
+				Version:  0,
+				TxHash:   [32]byte{13, 14, 15, 16},
+			},
+			Definitions: llotypes.ChannelDefinitions{
+				3: makeChannelDefinition(3, adderID),
+				4: makeChannelDefinition(4, adderID),
+			},
+		}
+
+		sourceDefinitionsJSON, err := json.Marshal(map[uint32]types.SourceDefinition{
+			adderID: sourceDef,
+		})
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(sourceDefinitionsJSON)
+		require.NoError(t, err)
+
+		// Source should remain unchanged
+		require.Contains(t, result, adderID)
+		require.Equal(t, adderID, result[adderID].Trigger.Source)
+
+		// Channel definitions' Source should remain unchanged
+		for channelID, def := range result[adderID].Definitions {
+			require.Equal(t, adderID, def.Source, "channel %d should have adder source", channelID)
+		}
+
+		// Verify all trigger fields are preserved
+		require.Equal(t, "http://example.com/adder.json", result[adderID].Trigger.URL)
+		require.Equal(t, [32]byte{9, 10, 11, 12}, result[adderID].Trigger.SHA)
+		require.Equal(t, int64(2000), result[adderID].Trigger.BlockNum)
+	})
+
+	t.Run("valid JSON with multiple sources including source 1", func(t *testing.T) {
+		adderID := uint32(200)
+		source1Def := types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   1,
+				URL:      "http://example.com/owner.json",
+				SHA:      [32]byte{1, 1, 1, 1},
+				BlockNum: 3000,
+				LogIndex: 1,
+				Version:  50,
+				TxHash:   [32]byte{1, 1, 1, 1},
+			},
+			Definitions: llotypes.ChannelDefinitions{
+				5: makeChannelDefinition(5, 1),
+			},
+		}
+
+		adderDef := types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   adderID,
+				URL:      "http://example.com/adder2.json",
+				SHA:      [32]byte{2, 2, 2, 2},
+				BlockNum: 3001,
+				LogIndex: 2,
+				Version:  0,
+				TxHash:   [32]byte{2, 2, 2, 2},
+			},
+			Definitions: llotypes.ChannelDefinitions{
+				6: makeChannelDefinition(6, adderID),
+			},
+		}
+
+		sourceDefinitionsJSON, err := json.Marshal(map[uint32]types.SourceDefinition{
+			1:      source1Def,
+			adderID: adderDef,
+		})
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(sourceDefinitionsJSON)
+		require.NoError(t, err)
+
+		// Source 1 should be migrated to SourceOwner
+		require.NotContains(t, result, uint32(1), "source 1 should be removed")
+		require.Contains(t, result, SourceOwner, "SourceOwner should be present")
+		require.Equal(t, SourceOwner, result[SourceOwner].Trigger.Source)
+		require.Equal(t, SourceOwner, result[SourceOwner].Definitions[5].Source)
+
+		// Adder source should remain unchanged
+		require.Contains(t, result, adderID)
+		require.Equal(t, adderID, result[adderID].Trigger.Source)
+		require.Equal(t, adderID, result[adderID].Definitions[6].Source)
+
+		// Should have exactly 2 sources
+		require.Len(t, result, 2)
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		invalidJSON := json.RawMessage(`{"invalid":}`)
+
+		result, err := decodePersistedSourceDefinitions(invalidJSON)
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.Contains(t, err.Error(), "failed to unmarshal source definitions")
+	})
+
+	t.Run("empty JSON object", func(t *testing.T) {
+		emptyJSON := json.RawMessage(`{}`)
+
+		result, err := decodePersistedSourceDefinitions(emptyJSON)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Len(t, result, 0)
+	})
+
+	t.Run("valid JSON with empty definitions", func(t *testing.T) {
+		sourceDef := types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   1,
+				URL:      "http://example.com/empty.json",
+				SHA:      [32]byte{},
+				BlockNum: 4000,
+				LogIndex: 0,
+				Version:  1,
+				TxHash:   [32]byte{},
+			},
+			Definitions: llotypes.ChannelDefinitions{},
+		}
+
+		sourceDefinitionsJSON, err := json.Marshal(map[uint32]types.SourceDefinition{
+			1: sourceDef,
+		})
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(sourceDefinitionsJSON)
+		require.NoError(t, err)
+
+		// Source 1 should be migrated to SourceOwner
+		require.Contains(t, result, SourceOwner)
+		require.Equal(t, SourceOwner, result[SourceOwner].Trigger.Source)
+		require.Empty(t, result[SourceOwner].Definitions, "definitions should be empty")
+	})
+
+	t.Run("valid JSON with source 0 (SourceOwner) remains unchanged", func(t *testing.T) {
+		// Test that SourceOwner (0) doesn't get processed as source 1
+		sourceDef := types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/owner0.json",
+				SHA:      [32]byte{0, 0, 0, 0},
+				BlockNum: 5000,
+				LogIndex: 0,
+				Version:  100,
+				TxHash:   [32]byte{0, 0, 0, 0},
+			},
+			Definitions: llotypes.ChannelDefinitions{
+				7: makeChannelDefinition(7, SourceOwner),
+			},
+		}
+
+		sourceDefinitionsJSON, err := json.Marshal(map[uint32]types.SourceDefinition{
+			SourceOwner: sourceDef,
+		})
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(sourceDefinitionsJSON)
+		require.NoError(t, err)
+
+		// SourceOwner should remain unchanged
+		require.Contains(t, result, SourceOwner)
+		require.Equal(t, SourceOwner, result[SourceOwner].Trigger.Source)
+		require.Equal(t, SourceOwner, result[SourceOwner].Definitions[7].Source)
+		require.Equal(t, uint32(100), result[SourceOwner].Trigger.Version)
+	})
+}
