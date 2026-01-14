@@ -1,0 +1,25 @@
+ChainID = 99999
+ChainType = 'zksync'
+FinalityTagEnabled = true
+LogPollInterval = '5s'
+# set to account for longer times between txs due to periods of low chain activity (no empty blocks produced)
+NoNewHeadsThreshold = '45m'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+EIP1559DynamicFees = false
+PriceMax = '1000 gwei'
+# ADI block gas limit is 100,000,000
+LimitDefault = 100_000_000
+# bump gas aggressively to avoid high amounts of transmit errors
+BumpThreshold = 1
+BumpPercent = 40
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '5s'
+
+[Transactions]
+ResendAfterThreshold = '5m0s'
+
+[HeadTracker]
+HistoryDepth = 250
