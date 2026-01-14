@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/leak"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -125,7 +126,6 @@ func TestLoad(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		pc := framework.NewPrometheusQueryClient(framework.LocalPrometheusBaseURL)
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
 			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(pdConfig.OCR2.DeployedContracts.OCRv2AggregatorAddr), c)
@@ -136,7 +136,18 @@ func TestLoad(t *testing.T) {
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)
 			}
-			checkResourceConsumption(t, pc, in, start, time.Now(), 20.0, 600e6)
+
+			l, err := leak.NewCLNodesLeakDetector(leak.NewResourceLeakChecker())
+			require.NoError(t, err)
+			errs := l.Check(&leak.CLNodesCheck{
+				NumNodes:        in.NodeSets[0].Nodes,
+				Start:           start,
+				End:             time.Now(),
+				WarmUpDuration:  30 * time.Second,
+				CPUThreshold:    20.0,
+				MemoryThreshold: 20.0,
+			})
+			require.NoError(t, errs)
 		})
 	}
 }
