@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.32.1
+
+### Patch Changes
+
+- ccip release from release/2.32.0
+
 ## 2.32.0
 
 ### Minor Changes
