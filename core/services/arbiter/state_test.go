@@ -12,15 +12,11 @@ func TestState_NewState(t *testing.T) {
 	state := NewState()
 
 	require.NotNil(t, state)
-	assert.Equal(t, 1, state.GetDesiredReplicaCount())
-	assert.Equal(t, 1, state.GetApprovedReplicaCount())
 	assert.Equal(t, 0, state.GetCurrentReplicaCount())
-
-	spec := state.GetScalingSpec()
-	assert.Equal(t, "Initial state", spec.LastScalingReason)
+	assert.Equal(t, 0, state.GetConsensusWantShards())
 }
 
-func TestState_Update(t *testing.T) {
+func TestState_SetCurrentReplicas(t *testing.T) {
 	state := NewState()
 
 	replicas := map[string]ShardReplica{
@@ -29,45 +25,43 @@ func TestState_Update(t *testing.T) {
 		"shard-2": {Status: "INSTALLING", Message: "In progress"},
 	}
 
-	state.Update(replicas, 5, "high CPU utilization")
+	state.SetCurrentReplicas(replicas)
 
 	assert.Equal(t, 3, state.GetCurrentReplicaCount())
-	assert.Equal(t, 5, state.GetDesiredReplicaCount())
-
-	spec := state.GetScalingSpec()
-	assert.Equal(t, "high CPU utilization", spec.LastScalingReason)
-	assert.Equal(t, 3, spec.CurrentReplicaCount)
-	assert.Equal(t, 5, spec.DesiredReplicaCount)
 }
 
-func TestState_SetApprovedCount(t *testing.T) {
+func TestState_SetConsensusWantShards(t *testing.T) {
 	state := NewState()
 
-	state.SetApprovedCount(7)
+	state.SetConsensusWantShards(7)
 
-	assert.Equal(t, 7, state.GetApprovedReplicaCount())
-
-	spec := state.GetScalingSpec()
-	assert.Equal(t, 7, spec.ApprovedReplicaCount)
+	assert.Equal(t, 7, state.GetConsensusWantShards())
 }
 
-func TestState_GetScalingSpec(t *testing.T) {
+func TestState_GetRoutableShards(t *testing.T) {
 	state := NewState()
 
 	replicas := map[string]ShardReplica{
-		"shard-0": {Status: "READY", Message: "Running"},
-		"shard-1": {Status: "READY", Message: "Running"},
+		"shard-0": {Status: StatusReady, Message: "Running"},
+		"shard-1": {Status: StatusReady, Message: "Running"},
+		"shard-2": {Status: "INSTALLING", Message: "In progress"},
 	}
 
-	state.Update(replicas, 10, "scale-up request")
-	state.SetApprovedCount(8)
+	state.SetCurrentReplicas(replicas)
 
-	spec := state.GetScalingSpec()
+	routable := state.GetRoutableShards()
 
-	assert.Equal(t, 2, spec.CurrentReplicaCount)
-	assert.Equal(t, 10, spec.DesiredReplicaCount)
-	assert.Equal(t, 8, spec.ApprovedReplicaCount)
-	assert.Equal(t, "scale-up request", spec.LastScalingReason)
+	assert.Equal(t, 2, routable.ReadyCount)
+	assert.Len(t, routable.ShardInfo, 3)
+}
+
+func TestState_GetRoutableShards_Empty(t *testing.T) {
+	state := NewState()
+
+	routable := state.GetRoutableShards()
+
+	assert.Equal(t, 0, routable.ReadyCount)
+	assert.Empty(t, routable.ShardInfo)
 }
 
 func TestState_Concurrency(t *testing.T) {
@@ -78,25 +72,25 @@ func TestState_Concurrency(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		wg.Add(3)
 
-		// Writer goroutine - Update
+		// Writer goroutine - SetCurrentReplicas
 		go func(i int) {
 			defer wg.Done()
 			replicas := map[string]ShardReplica{
-				"shard-0": {Status: "READY", Message: "Running"},
+				"shard-0": {Status: StatusReady, Message: "Running"},
 			}
-			state.Update(replicas, i, "concurrent update")
+			state.SetCurrentReplicas(replicas)
 		}(i)
 
-		// Writer goroutine - SetApprovedCount
+		// Writer goroutine - SetConsensusWantShards
 		go func(i int) {
 			defer wg.Done()
-			state.SetApprovedCount(i)
+			state.SetConsensusWantShards(i)
 		}(i)
 
-		// Reader goroutine - GetScalingSpec
+		// Reader goroutine - GetRoutableShards
 		go func() {
 			defer wg.Done()
-			_ = state.GetScalingSpec()
+			_ = state.GetRoutableShards()
 		}()
 	}
 
@@ -104,32 +98,31 @@ func TestState_Concurrency(t *testing.T) {
 
 	// If we got here without data race, the test passes
 	// The actual values don't matter, we're testing thread safety
-	spec := state.GetScalingSpec()
-	assert.NotNil(t, spec)
+	routable := state.GetRoutableShards()
+	assert.NotNil(t, routable)
 }
 
-func TestState_UpdateWithEmptyReplicas(t *testing.T) {
+func TestState_SetCurrentReplicas_Empty(t *testing.T) {
 	state := NewState()
 
 	// Start with some replicas
 	replicas := map[string]ShardReplica{
-		"shard-0": {Status: "READY", Message: "Running"},
+		"shard-0": {Status: StatusReady, Message: "Running"},
 	}
-	state.Update(replicas, 3, "initial")
+	state.SetCurrentReplicas(replicas)
 	assert.Equal(t, 1, state.GetCurrentReplicaCount())
 
 	// Update with empty replicas
-	state.Update(map[string]ShardReplica{}, 1, "scale-down")
+	state.SetCurrentReplicas(map[string]ShardReplica{})
 	assert.Equal(t, 0, state.GetCurrentReplicaCount())
-	assert.Equal(t, 1, state.GetDesiredReplicaCount())
 }
 
-func TestState_UpdateWithMetrics(t *testing.T) {
+func TestState_SetCurrentReplicas_WithMetrics(t *testing.T) {
 	state := NewState()
 
 	replicas := map[string]ShardReplica{
 		"shard-0": {
-			Status:  "READY",
+			Status:  StatusReady,
 			Message: "Running",
 			Metrics: map[string]float64{
 				"cpu_usage":    0.75,
@@ -138,7 +131,9 @@ func TestState_UpdateWithMetrics(t *testing.T) {
 		},
 	}
 
-	state.Update(replicas, 2, "metrics present")
+	state.SetCurrentReplicas(replicas)
 
 	assert.Equal(t, 1, state.GetCurrentReplicaCount())
+	routable := state.GetRoutableShards()
+	assert.Equal(t, 1, routable.ReadyCount)
 }

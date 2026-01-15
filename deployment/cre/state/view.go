@@ -37,15 +37,26 @@ func ViewCREV2(e deployment.Environment, previousView json.Marshaler) (json.Mars
 	if viewErrs != nil {
 		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
 	}
-	nopsView, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "cre", nil)
+
+	// keeping the old NOPs view for backwards compatibility
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
 	if err != nil {
 		err2 := fmt.Errorf("failed to view nops: %w", err)
 		e.Logger.Error(err2)
 		viewErrs = errors.Join(viewErrs, err2)
 	}
+
+	nopsViewV2, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "cre", nil)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops v2: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
 	return &CREViewV2{
 		Chains: chainViews,
 		Nops:   nopsView,
+		NopsV2: nopsViewV2,
 	}, viewErrs
 }
 
@@ -60,13 +71,13 @@ func generateCREChainsViews(e deployment.Environment, previousView json.Marshale
 	prevViewBytes, err := previousView.MarshalJSON()
 	if err != nil {
 		// just log the error, we don't need to stop the execution since the previous view is optional
-		lggr.Warnf("failed to marshal previous keystone view: %v", err)
+		lggr.Warnf("failed to marshal previous CRE view: %v", err)
 	}
 	var prevView CREView
 	if len(prevViewBytes) == 0 {
 		prevView.Chains = make(map[string]CREChainView)
 	} else if err = json.Unmarshal(prevViewBytes, &prevView); err != nil {
-		lggr.Warnf("failed to unmarshal previous keystone view: %v", err)
+		lggr.Warnf("failed to unmarshal previous CRE view: %v", err)
 		prevView.Chains = make(map[string]CREChainView)
 	}
 

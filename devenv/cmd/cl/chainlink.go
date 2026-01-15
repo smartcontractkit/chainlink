@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	LocalWASPLoadDashboard = "http://localhost:3000/d/WASPLoadTests/wasp-load-test?orgId=1&from=now-5m&to=now&refresh=5s"
-	LocalCLDashboard       = "http://localhost:3000/d/f8a04cef-653f-46d3-86df-87c532300672/cl-load-test?orgId=1&refresh=5s"
+	LocalWASPPerformanceDashboard = "http://localhost:3000/d/WASPLoadTests/wasp-load-test?orgId=1&from=now-5m&to=now&refresh=5s"
+	LocalCLDashboard              = "http://localhost:3000/d/f8a04cef-653f-46d3-86df-87c532300672/cl-load-test?orgId=1&refresh=5s"
 )
 
 var rootCmd = &cobra.Command{
@@ -74,7 +74,7 @@ var upCmd = &cobra.Command{
 		if len(args) > 0 {
 			configFile = args[0]
 		} else {
-			configFile = "env.toml"
+			configFile = "env.toml,products/ocr2/basic.toml"
 		}
 		framework.L.Info().Str("Config", configFile).Msg("Creating development environment")
 		_ = os.Setenv("CTF_CONFIGS", configFile)
@@ -162,7 +162,7 @@ var obsUpCmd = &cobra.Command{
 			return fmt.Errorf("observability up failed: %w", err)
 		}
 		ocr2.L.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
-		ocr2.L.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
+		ocr2.L.Info().Msgf("OCR2 Performance Test Dashboard: %s", LocalWASPPerformanceDashboard)
 		return nil
 	},
 }
@@ -195,7 +195,7 @@ var obsRestartCmd = &cobra.Command{
 			return fmt.Errorf("observability up failed: %w", err)
 		}
 		ocr2.L.Info().Msgf("OCR2 Dashboard: %s", LocalCLDashboard)
-		ocr2.L.Info().Msgf("OCR2 Load Test Dashboard: %s", LocalWASPLoadDashboard)
+		ocr2.L.Info().Msgf("OCR2 Performance Test Dashboard: %s", LocalWASPPerformanceDashboard)
 		return nil
 	},
 }
@@ -206,11 +206,11 @@ var testCmd = &cobra.Command{
 	Short:   "Run the tests",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return errors.New("specify the test suite: smoke or load")
+			return errors.New("specify the test suite: soak, gas or chaos")
 		}
 		var testPattern string
 		switch args[0] {
-		case "load":
+		case "soak":
 			testPattern = "TestLoad/clean"
 		case "gas":
 			testPattern = "TestLoad/gas_spikes"
@@ -220,7 +220,7 @@ var testCmd = &cobra.Command{
 			return fmt.Errorf("test suite %s is unknown, choose between smoke or load", args[0])
 		}
 
-		testCmd := exec.Command("go", "test", "-v", "-run", testPattern, "./...")
+		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", testPattern, "./...")
 		testCmd.Dir = "./tests"
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr

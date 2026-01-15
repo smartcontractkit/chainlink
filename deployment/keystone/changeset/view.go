@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -83,9 +84,14 @@ func generateKeystoneChainsViews(e deployment.Environment, previousView json.Mar
 	var prevView KeystoneView
 	if len(prevViewBytes) == 0 {
 		prevView.Chains = make(map[string]KeystoneChainView)
-	} else if err = json.Unmarshal(prevViewBytes, &prevView); err != nil {
-		lggr.Warnf("failed to unmarshal previous keystone view: %v", err)
-		prevView.Chains = make(map[string]KeystoneChainView)
+	} else {
+		prevViewMigrated, migratedErr := migratePreviousKeystoneView(prevViewBytes)
+		if migratedErr != nil {
+			lggr.Warnf("failed to unmarshal previous keystone view: %v", migratedErr)
+			prevView.Chains = make(map[string]KeystoneChainView)
+		} else {
+			prevView = *prevViewMigrated
+		}
 	}
 
 	var viewErrs error
@@ -105,7 +111,14 @@ func generateKeystoneChainsViews(e deployment.Environment, previousView json.Mar
 			viewErrs = errors.Join(viewErrs, err2)
 			continue
 		}
-		v, err := GenerateKeystoneChainView(e.GetContext(), e.Logger, prevView.Chains[chainName], contracts)
+
+		chain, ok := e.BlockChains.EVMChains()[chainSel]
+		if !ok {
+			e.Logger.Warnf("chain with selector %d not found, skipping chain view generation", chainSel)
+			continue
+		}
+
+		v, err := GenerateKeystoneChainView(e.GetContext(), e.Logger, prevView.Chains[chainName], contracts, chain)
 		if err != nil {
 			err2 := fmt.Errorf("failed to view chain %s: %w", chainName, err)
 			lggr.Error(err2)
@@ -216,4 +229,43 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 	}
 
 	return contracts, errs
+}
+
+func migratePreviousKeystoneView(previousView []byte) (*KeystoneView, error) {
+	prevView := KeystoneView{
+		Chains: make(map[string]KeystoneChainView),
+		Nops:   make(map[string]commonview.NopView),
+	}
+
+	err := json.Unmarshal(previousView, &prevView)
+	if err == nil {
+		// return early if unmarshalling into the current view struct was successful
+		return &prevView, nil
+	}
+
+	if !strings.Contains(err.Error(), "not supported config format detected") {
+		return nil, err
+	}
+
+	// The error indicates that the previous view is in an old format due to OCR3 config changes.
+	// Attempt to unmarshal into the legacy view struct for migration purposes.
+	var oldPrevView KeystoneViewLegacy
+	if marshalErr := json.Unmarshal(previousView, &oldPrevView); marshalErr != nil {
+		return nil, fmt.Errorf("failed to unmarshal previous keystone view into legacy struct: %w", marshalErr)
+	}
+
+	prevView.Nops = oldPrevView.Nops
+
+	for chainName, oldChainView := range oldPrevView.Chains {
+		chainNameCopy := chainName
+
+		migratedChainView, migrateErr := oldChainView.Migrate()
+		if migrateErr != nil {
+			return nil, fmt.Errorf("failed to migrate chain view for chain %s: %w", chainNameCopy, migrateErr)
+		}
+
+		prevView.Chains[chainNameCopy] = migratedChainView
+	}
+
+	return &prevView, nil
 }

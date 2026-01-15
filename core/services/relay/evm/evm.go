@@ -227,8 +227,9 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 		evmService: evmService{
-			chain:  chain,
-			logger: sugared,
+			addressLister: opts.EVMKeystore,
+			chain:         chain,
+			logger:        sugared,
 		},
 	}, nil
 }
