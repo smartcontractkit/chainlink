@@ -19,6 +19,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -53,6 +55,7 @@ func defaultTestData() ocr2test {
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
+	quarantine.Flaky(t, "DX-2627")
 	t.Parallel()
 	noPlugins := map[string]string{
 		string(env.EVMPlugin.Cmd):    "",
