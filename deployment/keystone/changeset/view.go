@@ -35,7 +35,9 @@ type viewContracts struct {
 func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
 	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
 	if viewErrs != nil {
-		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		err2 := fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
 	}
 
 	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
@@ -44,6 +46,7 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 		e.Logger.Error(err2)
 		viewErrs = errors.Join(viewErrs, err2)
 	}
+
 	return &KeystoneView{
 		Chains: chainViews,
 		Nops:   nopsView,
@@ -53,18 +56,30 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
 	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
 	if viewErrs != nil {
-		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		err2 := fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
 	}
 
-	nopsView, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "keystone", nil)
+	// keeping the old NOPs view for backwards compatibility
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
 	if err != nil {
 		err2 := fmt.Errorf("failed to view nops: %w", err)
 		e.Logger.Error(err2)
 		viewErrs = errors.Join(viewErrs, err2)
 	}
+
+	nopsViewV2, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "keystone", nil)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops v2: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
 	return &KeystoneViewV2{
 		Chains: chainViews,
 		Nops:   nopsView,
+		NopsV2: nopsViewV2,
 	}, viewErrs
 }
 
