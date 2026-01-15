@@ -1,6 +1,7 @@
 name: OCR2 Load Test
 
 on:
+  push:
   schedule:
     - cron: "0 6 * * *"  # Run daily at 6 AM
   workflow_dispatch:
@@ -65,7 +66,7 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          cl u env.toml,products/ocr2/basic.toml && cl obs up -f
+          cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml && cl obs up -f
 
       - name: Run Soak tests
         id: soak_test
