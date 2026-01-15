@@ -50,8 +50,9 @@ func (m *mockShardConfigReaderForGRPC) GetDesiredShardCount(ctx context.Context)
 func TestGRPCServer_GetDesiredReplicas_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 5}
+	state := NewState()
 
-	server := NewGRPCServer(mockReader, lggr)
+	server := NewGRPCServer(mockReader, state, lggr)
 
 	req := &ringpb.ShardStatusRequest{
 		Status: map[uint32]*ringpb.ShardStatus{
@@ -71,8 +72,9 @@ func TestGRPCServer_GetDesiredReplicas_Success(t *testing.T) {
 func TestGRPCServer_GetDesiredReplicas_EmptyRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 3}
+	state := NewState()
 
-	server := NewGRPCServer(mockReader, lggr)
+	server := NewGRPCServer(mockReader, state, lggr)
 
 	req := &ringpb.ShardStatusRequest{
 		Status: map[uint32]*ringpb.ShardStatus{},
@@ -90,8 +92,9 @@ func TestGRPCServer_GetDesiredReplicas_ShardConfigError(t *testing.T) {
 	mockReader := &mockShardConfigReaderForGRPC{
 		err: errors.New("contract read failed"),
 	}
+	state := NewState()
 
-	server := NewGRPCServer(mockReader, lggr)
+	server := NewGRPCServer(mockReader, state, lggr)
 
 	req := &ringpb.ShardStatusRequest{
 		Status: map[uint32]*ringpb.ShardStatus{
@@ -112,8 +115,9 @@ func TestGRPCServer_GetDesiredReplicas_ShardConfigError(t *testing.T) {
 func TestGRPCServer_GetDesiredReplicas_ZeroShards(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 0}
+	state := NewState()
 
-	server := NewGRPCServer(mockReader, lggr)
+	server := NewGRPCServer(mockReader, state, lggr)
 
 	req := &ringpb.ShardStatusRequest{
 		Status: map[uint32]*ringpb.ShardStatus{},
@@ -129,8 +133,9 @@ func TestGRPCServer_GetDesiredReplicas_ZeroShards(t *testing.T) {
 func TestGRPCServer_GetDesiredReplicas_LargeShardCount(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 100}
+	state := NewState()
 
-	server := NewGRPCServer(mockReader, lggr)
+	server := NewGRPCServer(mockReader, state, lggr)
 
 	// Simulate many healthy shards
 	status := make(map[uint32]*ringpb.ShardStatus)
