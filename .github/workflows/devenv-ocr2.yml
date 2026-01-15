@@ -1,4 +1,4 @@
-name: OCR2 Load Test
+name: OCR2 Soak Test (Resource leaks)
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e-smoke:
+  soak:
     permissions:
       id-token: write
       contents: read
