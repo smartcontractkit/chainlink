@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -23,12 +24,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
+	"github.com/spf13/cobra"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/spf13/cobra"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -136,6 +139,7 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait 
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
+			"topology": os.Getenv("CTF_CONFIGS"),
 		})
 
 		if tracingErr != nil {
@@ -400,7 +404,7 @@ func startCmd() *cobra.Command {
 			}
 
 			if withDashboards {
-				err := setupDashboards(setupConfig)
+				err := setupDashboards(cmdContext, setupConfig)
 				if err != nil {
 					return errors.Wrap(err, "failed to setup dashboards")
 				}
@@ -473,6 +477,15 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
+			addresses, aErr := output.CreEnvironment.CldfEnvironment.DataStore.Addresses().Fetch()
+			if aErr != nil {
+				return errors.Wrap(aErr, "failed to fetch addresses from datastore")
+			}
+
+			stErr := in.SetAddresses(addresses)
+			if stErr != nil {
+				return errors.Wrap(stErr, "failed to set addresses on Config")
+			}
 			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 			if storeErr != nil {
 				return errors.Wrap(storeErr, "failed to store local CRE state")
@@ -499,7 +512,7 @@ func startCmd() *cobra.Command {
 	return cmd
 }
 
-func setupDashboards(setupCfg SetupConfig) error {
+func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	cfg, cfgErr := readConfig(setupCfg.ConfigPath)
 	if cfgErr != nil {
 		return errors.Wrap(cfgErr, "failed to read config")
@@ -550,7 +563,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 	fmt.Print(libformat.PurpleText("\nDeploying dashboards...") + "\n(watch for potential authorization requests!)\n")
 
-	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
+	deployDashboardsCmd := exec.CommandContext(ctx, "./deploy-cre-local.sh")
 	deployDashboardsCmd.Dir = targetPath
 	deployOutput, err := deployDashboardsCmd.CombinedOutput()
 	if err != nil {
@@ -564,8 +577,9 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
 	metadata := map[string]any{
-		"success": success,
-		"infra":   infraType,
+		"success":  success,
+		"infra":    infraType,
+		"topology": os.Getenv("CTF_CONFIGS"),
 	}
 
 	if errorMessage != nil {
@@ -635,14 +649,6 @@ func stopCmd() *cobra.Command {
 					framework.L.Warn().Msgf("failed to remove local CRE state file: %s", cErr)
 				} else {
 					framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
-				}
-
-				envArtifactFile := creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)
-				eErr := os.Remove(envArtifactFile)
-				if eErr != nil {
-					framework.L.Warn().Msgf("failed to remove local CRE environment artifact file: %s", eErr)
-				} else {
-					framework.L.Info().Msgf("removed local CRE environment artifact file: %s", envArtifactFile)
 				}
 			}
 
@@ -740,26 +746,6 @@ func StartCLIEnvironment(
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
 
-	capabilitiesContractFactoryFunctions := []cre.CapabilityRegistryConfigFn{}
-	for _, cap := range capabilities {
-		capabilitiesContractFactoryFunctions = append(capabilitiesContractFactoryFunctions, cap.CapabilityRegistryV1ConfigFn())
-	}
-
-	artifactPath, artifactErr := creenv.DumpArtifact(
-		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
-		*universalSetupOutput.Dons,
-		universalSetupOutput.CreEnvironment,
-		*in.JD.Out,
-		in.NodeSets,
-		capabilitiesContractFactoryFunctions,
-	)
-
-	if artifactErr != nil {
-		testLogger.Error().Err(artifactErr).Msg("failed to generate env artifact")
-	} else {
-		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
-	}
-
 	return universalSetupOutput, nil
 }
 
@@ -800,7 +786,7 @@ func PrintCRELogo() {
 
 func setDefaultCtfConfigs() error {
 	if os.Getenv("CTF_CONFIGS") == "" {
-		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml"); err != nil {
+		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml"); err != nil {
 			return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", err)
 		}
 
@@ -1123,6 +1109,13 @@ func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
 	stages := 9
 	if in.S3ProviderInput != nil {
 		stages++
+	}
+
+	for _, ns := range in.NodeSets {
+		if slices.Contains(ns.DONTypes, cre.ShardDON) {
+			stages++
+			break
+		}
 	}
 
 	return stagegen.NewStageGen(stages, "STAGE")

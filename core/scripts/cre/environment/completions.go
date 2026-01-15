@@ -537,11 +537,10 @@ func buildCommandTree() *CompletionNode {
 func getWorkflowTomlFiles(commandPath []string) []prompt.Suggest {
 	// Curated list with meaningful descriptions
 	curatedFiles := []prompt.Suggest{
-		{Text: "workflow-don.toml", Description: "Basic DON with 5 Chainlink nodes"},
+		{Text: "workflow-gateway-don.toml", Description: "Workflow DON with Gateway and Bootstrap in a separate node"},
+		{Text: "workflow-gateway-capabilities-don.toml", Description: "Workflow DON and Capabilities DON with Gateway and Bootstrap in a separate node"},
 		{Text: "workflow-don-solana.toml", Description: "Workflow DON with Solana chain support"},
 		{Text: "workflow-don-tron.toml", Description: "Workflow DON with Tron chain support"},
-		{Text: "workflow-gateway-don.toml", Description: "Workflow DON with Gateway connector in a separate node"},
-		{Text: "workflow-gateway-capabilities-don.toml", Description: "Workflow DON and Capabilities DON with Gateway connector in a separate node"},
 	}
 
 	// Try to figure out the configs directory path, since binary could be run from different working directories

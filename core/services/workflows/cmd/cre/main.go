@@ -10,6 +10,9 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/utils"
 )
@@ -23,6 +26,7 @@ func main() {
 		enableBeholder             bool
 		enableBilling              bool
 		enableStandardCapabilities bool
+		enableAllChains            bool
 	)
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
@@ -32,6 +36,7 @@ func main() {
 	flag.BoolVar(&enableBeholder, "beholder", false, "Enable printing beholder messages to standard log")
 	flag.BoolVar(&enableBilling, "billing", false, "Enable to run a faked billing service that prints to the standard log.")
 	flag.BoolVar(&enableStandardCapabilities, "standardCapabilities", true, "Enable to use the latest production standard capability binaries for capabilities. The binaries must be available in local GOBIN.")
+	flag.BoolVar(&enableAllChains, "allChains", false, "Enable all chains in the workflow execution (for testing purposes).")
 	flag.Parse()
 
 	if wasmPath == "" {
@@ -81,5 +86,11 @@ func main() {
 		EnableBeholder:             enableBeholder,
 		EnableStandardCapabilities: enableStandardCapabilities,
 		Lggr:                       lggr,
+		WorkflowSettingsCfgFn: func(cfg *cresettings.Workflows) {
+			cfg.ChainAllowed = settings.PerChainSelector(
+				settings.Bool(enableAllChains),
+				map[string]bool{},
+			)
+		},
 	})
 }

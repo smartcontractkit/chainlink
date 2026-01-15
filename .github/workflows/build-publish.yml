@@ -55,11 +55,6 @@ jobs:
         uses: ./.github/actions/version-file-bump
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Check Tag Signature
-        uses: smartcontractkit/.github/actions/check-if-verified@6319f88a06e307c360dff43c3ac25d0581894a75 # check-if-verified@1.0.0
-        with:
-          tag: ${{ github.ref_name }}
-          assert: true
 
   docker-core:
     needs: [checks]

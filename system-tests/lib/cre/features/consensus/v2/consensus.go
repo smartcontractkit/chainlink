@@ -52,7 +52,9 @@ func (c *Consensus) PreEnvStartup(
 			CapabilityType: 2, // CONSENSUS
 			ResponseType:   0, // REPORT
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -176,11 +178,11 @@ func createJobs(
 	bootInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
-		DONName:     don.Name,
-		JobName:     "consensus-v2-bootstrap",
+		DONName:     bootstrap.DON.Name,
+		JobName:     "consensus-v2-bootstrap-" + don.Name,
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: don.Name},
+			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
 		},
 		Template: job_types.BootstrapOCR3,
 		Inputs: job_types.JobSpecInput{

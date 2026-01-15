@@ -10,7 +10,7 @@ defaults:
 plugins:
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "578e6165e60c14da1bc3b2547e0d175f502fa880"
+      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
       installPath: "."
       flags: "-tags timetzdata"
   kvstore:
@@ -24,7 +24,7 @@ plugins:
       installPath: "."
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "48b980e79256bdeb2fe2ad7cf70ed9fe8ac0d4d2"
+      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
       installPath: "."
   workflowevent:
     - enabled: false
@@ -33,19 +33,19 @@ plugins:
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "578e6165e60c14da1bc3b2547e0d175f502fa880"
+      gitRef: "42560aeb1de46a07a7b79cdbb5543d7bd54129a6"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "578e6165e60c14da1bc3b2547e0d175f502fa880"
+      gitRef: "42560aeb1de46a07a7b79cdbb5543d7bd54129a6"
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "a58bf1a88e6354104831ab442a49ad6df56972f4"
+      gitRef: "2a0f492ca251dc72a742626084644fb7bc4d3ec0"
       installPath: "."
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"
-      gitRef: "cb1309df43755c7280ed5da3f0d79810bf2ff7f6"
+      gitRef: "42560aeb1de46a07a7b79cdbb5543d7bd54129a6"
       installPath: "."
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"

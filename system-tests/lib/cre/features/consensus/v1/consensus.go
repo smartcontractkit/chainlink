@@ -51,7 +51,9 @@ func (c *Consensus) PreEnvStartup(
 			CapabilityType: 2, // CONSENSUS
 			ResponseType:   0, // REPORT
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -151,7 +153,7 @@ func createJobs(
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
 		DONName:     bootstrap.DON.Name,
-		JobName:     "consensus-v1-bootstrap",
+		JobName:     "consensus-v1-bootstrap-" + don.Name,
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},

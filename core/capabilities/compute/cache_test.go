@@ -107,8 +107,6 @@ func TestCache_EvictAfterSize(t *testing.T) {
 }
 
 func TestCache_AddDuplicatedModule(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-574")
-
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second

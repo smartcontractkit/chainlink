@@ -66,6 +66,10 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyCRESettingsSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for CRE settings job spec: %w", err)
 		}
+	case job_types.Ring:
+		if err := verifyRingJobSpecInputs(config.Inputs); err != nil {
+			return fmt.Errorf("invalid inputs for Ring job spec: %w", err)
+		}
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -258,6 +262,41 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 		)
 		if rErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose CRE settings job: %w", rErr)
+		}
+
+		report = r.ToGenericReport()
+	case job_types.Ring:
+		jobInput := pkg.RingJobConfigInput{}
+		err := input.Inputs.UnmarshalTo(&jobInput)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to Ring job input: %w", err)
+		}
+
+		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.ContractQualifier)
+		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get Ring contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
+		}
+
+		r, rErr := operations.ExecuteSequence(
+			e.OperationsBundle,
+			job_ops.ProposeRingJob,
+			job_ops.ProposeRingJobDeps{Env: e},
+			job_ops.ProposeRingJobInput{
+				Domain:           input.Domain,
+				EnvName:          input.Environment,
+				DONName:          input.DONName,
+				JobName:          input.JobName,
+				ContractAddress:  contractAddrRef.Address,
+				ChainSelectorEVM: uint64(jobInput.ChainSelectorEVM),
+				ShardConfigAddr:  jobInput.ShardConfigAddr,
+				BootstrapperUrls: jobInput.BootstrapperRingUrls,
+				DONFilters:       input.DONFilters,
+				ExtraLabels:      input.ExtraLabels,
+			},
+		)
+		if rErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose Ring job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

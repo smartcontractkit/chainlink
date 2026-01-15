@@ -916,3 +916,20 @@ IgnoreJoblessBridges = false # Default
 UseLocalTimeProvider = true # Default
 # EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
 EnableDKGRecipient = false # Default
+
+# Sharding holds settings for node sharding configuration.
+[Sharding]
+# ArbiterPort is the port the Arbiter gRPC server listens on.
+ArbiterPort = 9876 # Default
+# ArbiterPollInterval is how often to poll the ShardConfig contract.
+ArbiterPollInterval = '12s' # Default
+# ArbiterRetryInterval is the retry interval when contract reader is unavailable.
+ArbiterRetryInterval = '12s' # Default
+# ShardIndex is the index of this shard (0-based). If 0, no shard orchestration client is created.
+# If greater than 0, a shard orchestration client is created and connects to ShardOrchestratorAddress.
+ShardIndex = 0 # Default
+# ShardOrchestratorPort is the port for the shard orchestrator gRPC server.
+# When a ring OCR job is created, the shard orchestrator server is spun up on this port.
+ShardOrchestratorPort = 50051 # Default
+# ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
+ShardOrchestratorAddress = '' # Default

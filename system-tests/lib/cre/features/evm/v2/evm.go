@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -20,7 +19,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -31,12 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -50,7 +46,7 @@ import (
 
 const (
 	flag                = cre.EVMCapability
-	configTemplate      = `{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{.}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{.}}{{end}}}`
+	configTemplate      = `{"chainId":{{printf "%d" .ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%d" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%d" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%d" .}}{{end}}}`
 	registrationRefresh = 20 * time.Second
 	registrationExpiry  = 60 * time.Second
 	deltaStage          = 500*time.Millisecond + 1*time.Second // block time + 1 second delta
@@ -98,12 +94,8 @@ func (o *EVM) PreEnvStartup(
 	}
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, don.NodeSets(), currentConfig)
-		if updErr != nil {
-			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
-		}
-
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		currentConfigPtr := ptr.Ptr(currentConfig)
+		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
@@ -125,6 +117,7 @@ func (o *EVM) PreEnvStartup(
 			},
 			Config: &capabilitiespb.CapabilityConfig{
 				MethodConfigs: evmMethodConfigs,
+				LocalOnly:     don.HasOnlyLocalCapabilities(),
 			},
 		})
 	}
@@ -132,43 +125,6 @@ func (o *EVM) PreEnvStartup(
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
 	}, nil
-}
-
-func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.NodeSet, currentConfig string) (*string, error) {
-	chainsFromAddress, err := findNodeAddressPerChain(nodeSet, workerNode)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get chains with from address")
-	}
-
-	var typedConfig corechainlink.Config
-	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
-	if unmarshallErr != nil {
-		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
-	}
-
-	if len(typedConfig.EVM) < len(chainsFromAddress) {
-		return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add evm config. Expected at least %d chains, but found %d", workerNode.Index, len(chainsFromAddress), len(typedConfig.EVM))
-	}
-
-	for idx, evmChain := range typedConfig.EVM {
-		chainID := libc.MustSafeUint64(evmChain.ChainID.Int64())
-		addr, ok := chainsFromAddress[chainID]
-		if ok {
-			// if present means we need fromAddress for this chain
-			address, err := types.NewEIP55Address(addr.Hex())
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to convert fromAddress to EIP55Address for chain %d", chainID)
-			}
-			typedConfig.EVM[idx].Workflow.FromAddress = &address
-		}
-	}
-
-	stringifiedConfig, mErr := toml.Marshal(typedConfig)
-	if mErr != nil {
-		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
-	}
-
-	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
 func (o *EVM) PostEnvStartup(
@@ -362,7 +318,7 @@ func createJobs(
 			Domain:      offchain.ProductLabel,
 			Environment: cre.EnvironmentName,
 			DONName:     bootstrap.DON.Name,
-			JobName:     fmt.Sprintf("evm-v2-bootstrap-%d", chainID),
+			JobName:     fmt.Sprintf("evm-v2-bootstrap-%d-%s", chainID, don.Name),
 			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
@@ -395,11 +351,6 @@ func createJobs(
 			}
 		}
 
-		_, templateData, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
-		if rErr != nil {
-			return errors.Wrap(rErr, "failed to resolve capability config for chain")
-		}
-
 		for _, workerNode := range workerNodes {
 			evmKey, ok := workerNode.Keys.EVM[chainID]
 			if !ok {
@@ -419,6 +370,12 @@ func createJobs(
 			}
 
 			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
+
+			_, templateData, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
+			if rErr != nil {
+				return errors.Wrap(rErr, "failed to resolve capability config for chain")
+			}
+
 			var aErr error
 			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)
 			if aErr != nil {
@@ -457,7 +414,7 @@ func createJobs(
 				Domain:      offchain.ProductLabel,
 				Environment: cre.EnvironmentName,
 				DONName:     don.Name,
-				JobName:     fmt.Sprintf("evm-v2-worker-%d", chainID),
+				JobName:     fmt.Sprintf("evm-capabilities-v2-%d", chainID),
 				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: offchain.FilterKeyDONName, Value: don.Name},

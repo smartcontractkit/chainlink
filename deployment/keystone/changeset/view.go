@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -20,6 +21,7 @@ import (
 )
 
 var _ deployment.ViewStateV2 = ViewKeystone
+var _ deployment.ViewStateV2 = ViewKeystoneV2
 
 type contractsPerChain map[uint64]viewContracts
 
@@ -31,6 +33,57 @@ type viewContracts struct {
 }
 
 func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
+	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
+	if viewErrs != nil {
+		err2 := fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
+	return &KeystoneView{
+		Chains: chainViews,
+		Nops:   nopsView,
+	}, viewErrs
+}
+
+func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
+	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
+	if viewErrs != nil {
+		err2 := fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
+	// keeping the old NOPs view for backwards compatibility
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
+	nopsViewV2, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "keystone", nil)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops v2: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
+	return &KeystoneViewV2{
+		Chains: chainViews,
+		Nops:   nopsView,
+		NopsV2: nopsViewV2,
+	}, viewErrs
+}
+
+func generateKeystoneChainsViews(e deployment.Environment, previousView json.Marshaler) (map[string]KeystoneChainView, error) {
 	lggr := e.Logger
 	contractsMap, err := getContractsPerChain(e)
 	// This is an unrecoverable error
@@ -46,9 +99,14 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 	var prevView KeystoneView
 	if len(prevViewBytes) == 0 {
 		prevView.Chains = make(map[string]KeystoneChainView)
-	} else if err = json.Unmarshal(prevViewBytes, &prevView); err != nil {
-		lggr.Warnf("failed to unmarshal previous keystone view: %v", err)
-		prevView.Chains = make(map[string]KeystoneChainView)
+	} else {
+		prevViewMigrated, migratedErr := migratePreviousKeystoneView(prevViewBytes)
+		if migratedErr != nil {
+			lggr.Warnf("failed to unmarshal previous keystone view: %v", migratedErr)
+			prevView.Chains = make(map[string]KeystoneChainView)
+		} else {
+			prevView = *prevViewMigrated
+		}
 	}
 
 	var viewErrs error
@@ -68,7 +126,14 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 			viewErrs = errors.Join(viewErrs, err2)
 			continue
 		}
-		v, err := GenerateKeystoneChainView(e.GetContext(), e.Logger, prevView.Chains[chainName], contracts)
+
+		chain, ok := e.BlockChains.EVMChains()[chainSel]
+		if !ok {
+			e.Logger.Warnf("chain with selector %d not found, skipping chain view generation", chainSel)
+			continue
+		}
+
+		v, err := GenerateKeystoneChainView(e.GetContext(), e.Logger, prevView.Chains[chainName], contracts, chain)
 		if err != nil {
 			err2 := fmt.Errorf("failed to view chain %s: %w", chainName, err)
 			lggr.Error(err2)
@@ -77,16 +142,8 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 		}
 		chainViews[chainName] = v
 	}
-	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
-	if err != nil {
-		err2 := fmt.Errorf("failed to view nops: %w", err)
-		lggr.Error(err2)
-		viewErrs = errors.Join(viewErrs, err2)
-	}
-	return &KeystoneView{
-		Chains: chainViews,
-		Nops:   nopsView,
-	}, viewErrs
+
+	return chainViews, viewErrs
 }
 
 func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
@@ -187,4 +244,43 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 	}
 
 	return contracts, errs
+}
+
+func migratePreviousKeystoneView(previousView []byte) (*KeystoneView, error) {
+	prevView := KeystoneView{
+		Chains: make(map[string]KeystoneChainView),
+		Nops:   make(map[string]commonview.NopView),
+	}
+
+	err := json.Unmarshal(previousView, &prevView)
+	if err == nil {
+		// return early if unmarshalling into the current view struct was successful
+		return &prevView, nil
+	}
+
+	if !strings.Contains(err.Error(), "not supported config format detected") {
+		return nil, err
+	}
+
+	// The error indicates that the previous view is in an old format due to OCR3 config changes.
+	// Attempt to unmarshal into the legacy view struct for migration purposes.
+	var oldPrevView KeystoneViewLegacy
+	if marshalErr := json.Unmarshal(previousView, &oldPrevView); marshalErr != nil {
+		return nil, fmt.Errorf("failed to unmarshal previous keystone view into legacy struct: %w", marshalErr)
+	}
+
+	prevView.Nops = oldPrevView.Nops
+
+	for chainName, oldChainView := range oldPrevView.Chains {
+		chainNameCopy := chainName
+
+		migratedChainView, migrateErr := oldChainView.Migrate()
+		if migrateErr != nil {
+			return nil, fmt.Errorf("failed to migrate chain view for chain %s: %w", chainNameCopy, migrateErr)
+		}
+
+		prevView.Chains[chainNameCopy] = migratedChainView
+	}
+
+	return &prevView, nil
 }
