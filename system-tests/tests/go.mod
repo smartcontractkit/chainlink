@@ -98,7 +98,7 @@ require (
 	github.com/pressly/goose/v3 v3.26.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260114163016-71296eac66c1 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260115221452-2703e549ee3f // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260115223555-bcaf3799557b // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
