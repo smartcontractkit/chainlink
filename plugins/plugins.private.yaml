@@ -41,7 +41,7 @@ plugins:
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
+      gitRef: "2a0f492ca251dc72a742626084644fb7bc4d3ec0"
       installPath: "."
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"
