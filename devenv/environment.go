@@ -2,6 +2,7 @@ package devenv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -109,7 +110,9 @@ func NewEnvironment(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to setup default product deployment: %w", err)
 			}
-			productConfigurators[productIdx].Store("env-out.toml", productInstance)
+			if err := productConfigurators[productIdx].Store("env-out.toml", productInstance); err != nil {
+				return errors.New("failed to store product config")
+			}
 		}
 	}
 	L.Info().Str("BootstrapNode", in.NodeSets[0].Out.CLNodes[0].Node.ExternalURL).Send()
