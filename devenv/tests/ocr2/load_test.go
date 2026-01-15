@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/leak"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -58,7 +59,7 @@ func TestLoad(t *testing.T) {
 			name:               "clean",
 			roundCheckInterval: 5 * time.Second,
 			roundTimeout:       2 * time.Minute,
-			repeat:             2,
+			repeat:             60,
 			cfg:                productionCfg,
 			roundSettings: []*roundSettings{
 				{value: 1},
@@ -135,7 +136,18 @@ func TestLoad(t *testing.T) {
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)
 			}
-			checkResourceConsumption(t, in, start, time.Now(), 10.0, 400e6)
+
+			l, err := leak.NewCLNodesLeakDetector(leak.NewResourceLeakChecker())
+			require.NoError(t, err)
+			errs := l.Check(&leak.CLNodesCheck{
+				NumNodes:        in.NodeSets[0].Nodes,
+				Start:           start,
+				End:             time.Now(),
+				WarmUpDuration:  10 * time.Minute,
+				CPUThreshold:    20.0,
+				MemoryThreshold: 20.0,
+			})
+			require.NoError(t, errs)
 		})
 	}
 }

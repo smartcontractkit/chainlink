@@ -2,7 +2,7 @@ name: OCR2 Load Test
 
 on:
   schedule:
-    - cron: "0 0 * * *" # Run nightly
+    - cron: "0 6 * * *"  # Run daily at 6 AM
   workflow_dispatch:
 
 defaults:
@@ -72,7 +72,7 @@ jobs:
         working-directory: devenv/tests/ocr2
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: OCR2"
-          go test -v -timeout 20m -run TestLoad/clean
+          go test -v -timeout 4h -run TestLoad/clean
 
       - name: Upload Logs
         if: always()
