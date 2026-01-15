@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -73,6 +74,7 @@ func SetupSharding(input SetupShardingInput) error {
 		return fmt.Errorf("failed to create Ring jobs: %w", err)
 	}
 
+	time.Sleep(60 * time.Second)
 	// 5. Wait for LogPoller to be healthy before configuring OCR3
 	if err := consensus.WaitForLogPollerToBeHealthy(shardLeaderDON); err != nil {
 		return errors.Wrap(err, "failed while waiting for Log Poller to become healthy")
