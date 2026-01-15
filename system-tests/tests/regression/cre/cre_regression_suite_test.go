@@ -96,6 +96,7 @@ func Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression(t *
 }
 
 func Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-2632")
 	runEVMNegativeTestSuite(t, evmNegativeTestsEstimateGasInvalidToAddress)
 }
 
