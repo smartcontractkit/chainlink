@@ -12,7 +12,7 @@ import (
 
 // WaitMinedFast is a method for Anvil's instant blocks mode to ovecrome bind.WaitMined ticker hardcode.
 func WaitMinedFast(ctx context.Context, b bind.DeployBackend, txHash common.Hash) (*types.Receipt, error) {
-	queryTicker := time.NewTicker(5*time.Millisecond)
+	queryTicker := time.NewTicker(5 * time.Millisecond)
 	defer queryTicker.Stop()
 	for {
 		receipt, err := b.TransactionReceipt(ctx, txHash)
