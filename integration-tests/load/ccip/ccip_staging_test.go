@@ -84,6 +84,13 @@ func TestStaging_CCIP_Load(t *testing.T) {
 		lggr.Infow("Chain block time", "chainSelector", cs, "blockTime", blockTimes[cs])
 	}
 
+	// Set block times for TON chains (TON has ~5 second block time)
+	tonChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyTon))
+	for _, cs := range tonChains {
+		blockTimes[cs] = 5 // TON testnet block time ~5 seconds
+		lggr.Infow("TON chain block time", "chainSelector", cs, "blockTime", blockTimes[cs])
+	}
+
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, evmChains[:*userOverrides.NumDestinationChains], *userOverrides.TestnetConfig.FundingAmountEth, userOverrides.TestnetConfig.ChainFundingOverrides)
 	require.NoError(t, err)
@@ -97,6 +104,13 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	tonSourceKeys, initErr := initializeTonSourceKeys(env.GetContext(), lggr, env, *userOverrides.TestnetConfig.TonMnemonic)
 	if initErr != nil {
 		lggr.Warnw("Failed to initialize TON source keys", "error", initErr)
+	}
+
+	// Initialize TON destination managers for execution event tracking
+	// Reuses clients from tonSourceKeys to use the same private endpoint
+	tonDestManagers, initErr := initializeTonDestinationManagers(lggr, env, tonSourceKeys)
+	if initErr != nil {
+		lggr.Warnw("Failed to initialize TON destination managers", "error", initErr)
 	}
 
 	// Initialize MetricsManager for Loki integration
@@ -188,6 +202,29 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			mm.InputChan)
 	}
 
+	// Subscribe to TON execution events for TON destination chains
+	for tonChainSel, tonDestManager := range tonDestManagers {
+		srcChains := laneConfig.GetSourceChainsForDestination(tonChainSel)
+		if len(srcChains) == 0 {
+			lggr.Warnw("No source chains found for TON destination", "chainSelector", tonChainSel)
+			continue
+		}
+
+		lggr.Infow("Setting up TON destination event subscriber",
+			"tonChainSelector", tonChainSel,
+			"sourceChains", srcChains)
+
+		wg.Add(1)
+		go subscribeTonExecutionEvents(
+			ctx,
+			lggr,
+			tonDestManager,
+			srcChains,
+			tonChainSel,
+			&wg,
+			mm.InputChan)
+	}
+
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
 	require.NoError(t, err)
 
@@ -215,7 +252,8 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	// DEBUG BREAKPOINT: Setup complete
 	lggr.Info("=== SETUP COMPLETE ===")
 	lggr.Infow("Discovered lanes summary",
-		"numDestinations", len(gunMap),
+		"numEVMDestinations", len(gunMap),
+		"numTONDestinations", len(tonDestManagers),
 		"tonSourceKeys", len(tonSourceKeys),
 	)
 

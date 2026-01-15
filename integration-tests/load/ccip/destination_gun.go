@@ -219,10 +219,31 @@ func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
 		return fmt.Errorf("failed to send CCIP message: %w", err)
 	}
 
-	_, err = m.env.BlockChains.EVMChains()[src].Confirm(tx)
+	blockNum, err := m.env.BlockChains.EVMChains()[src].Confirm(tx)
 	if err != nil {
 		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", cldf.MaybeDataErr(err))
 		return err
+	}
+
+	// Extract message ID from CCIPMessageSent event using FilterCCIPMessageSent
+	onRamp := m.state.Chains[src].OnRamp
+	iter, err := onRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+		Start:   blockNum,
+		End:     &blockNum,
+		Context: m.env.GetContext(),
+	}, []uint64{m.chainSelector}, nil)
+	if err == nil {
+		for iter.Next() {
+			event := iter.Event
+			m.l.Infow("EVM CCIP message sent",
+				"sourceChain", src,
+				"destChain", m.chainSelector,
+				"seqNum", event.SequenceNumber,
+				"messageId", fmt.Sprintf("%x", event.Message.Header.MessageId),
+				"txHash", tx.Hash().Hex())
+			break
+		}
+		iter.Close()
 	}
 
 	return nil

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,8 +27,15 @@ import (
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
+	ccip_receiver "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/receiver"
 	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
+	tonlogpoller "github.com/smartcontractkit/chainlink-ton/pkg/logpoller"
+	tonlploader "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/loader"
+	tonlpmodels "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/models"
+	tonlpquery "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/query"
+	tonlpstore "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/store/memory"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ton/chain"
+	tonhash "github.com/smartcontractkit/chainlink-ton/pkg/ton/hash"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ton/tvm"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -171,7 +179,21 @@ func (m *TonSourceManager) sendTONMessage(
 	destChainSel uint64,
 	receiver []byte,
 	testConfig *ccip.LoadConfig,
-) (uint64, string, error) {
+) (seqNum uint64, messageID string, err error) {
+	// TODO: Remove this panic recovery once chainlink-ton trace tracking nil pointer issue is fixed.
+	// The issue occurs in tracetracking.WaitForTrace when OutgoingInternalReceivedMessages contains
+	// nil elements, causing a nil pointer dereference. Root cause is still under investigation.
+	// See: chainlink-ton/pkg/ton/tracetracking/message.go WaitForTrace function.
+	defer func() {
+		if r := recover(); r != nil {
+			m.l.Errorw("Panic recovered in sendTONMessage - likely trace tracking nil pointer issue",
+				"panic", r,
+				"sourceChain", m.chainSel,
+				"destChain", destChainSel)
+			err = fmt.Errorf("panic during TON message send (trace tracking issue): %v", r)
+		}
+	}()
+
 	// Lock to prevent concurrent sends from the same wallet
 	// This ensures messages are sent sequentially, avoiding query ID conflicts
 	m.sendMu.Lock()
@@ -253,7 +275,7 @@ func (m *TonSourceManager) sendTONMessage(
 		return seqNum, "", fmt.Errorf("unexpected event type: %T", event)
 	}
 
-	messageID := hex.EncodeToString(ccipEvent.Message.Header.MessageID)
+	messageID = hex.EncodeToString(ccipEvent.Message.Header.MessageID)
 	m.l.Infow("CCIP message sent from TON",
 		"sourceChain", m.chainSel,
 		"destChain", destChainSel,
@@ -331,4 +353,280 @@ func initializeTonSourceKeys(
 	}
 
 	return tonSourceKeys, nil
+}
+
+const (
+	// tonClientRetries is the number of retries for TON API calls
+	tonClientRetries = 3
+	// tonProgressLogInterval is how often to log progress while waiting for events
+	tonProgressLogInterval = 30 * time.Second
+)
+
+// TonDestinationManager manages TON destination chains for execution event tracking
+type TonDestinationManager struct {
+	l          logger.Logger
+	client     *ton.APIClient
+	chainSel   uint64
+	chainState tonstate.CCIPChainState
+}
+
+// NewTonDestinationManagerFromSourceManager creates a TON destination manager
+// that reuses the existing client from a TonSourceManager (for the same chain).
+// This ensures we use the same private endpoint configured for load testing.
+func NewTonDestinationManagerFromSourceManager(
+	l logger.Logger,
+	sourceManager *TonSourceManager,
+) *TonDestinationManager {
+	l.Infow("TON destination manager initialized (reusing source manager client)",
+		"chainSelector", sourceManager.chainSel,
+		"receiver", sourceManager.chainState.ReceiverAddress.String(),
+		"offRamp", sourceManager.chainState.OffRamp.String())
+
+	return &TonDestinationManager{
+		l:          l,
+		client:     sourceManager.client,
+		chainSel:   sourceManager.chainSel,
+		chainState: sourceManager.chainState,
+	}
+}
+
+// NewTonDestinationManager creates a new TON destination manager for event tracking
+// with a custom endpoint. Use NewTonDestinationManagerFromSourceManager when possible
+// to reuse the existing client connection.
+func NewTonDestinationManager(
+	ctx context.Context,
+	l logger.Logger,
+	chainSel uint64,
+	endpoint string,
+	chainState tonstate.CCIPChainState,
+) (*TonDestinationManager, error) {
+	client, err := connectTonClient(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to TON client: %w", err)
+	}
+
+	l.Infow("TON destination manager initialized",
+		"chainSelector", chainSel,
+		"endpoint", endpoint,
+		"receiver", chainState.ReceiverAddress.String(),
+		"offRamp", chainState.OffRamp.String())
+
+	return &TonDestinationManager{
+		l:          l,
+		client:     client,
+		chainSel:   chainSel,
+		chainState: chainState,
+	}, nil
+}
+
+// subscribeTonExecutionEvents watches for CCIPMessageReceived events on TON destination chains
+// This is similar to subscribeExecutionEvents but uses TON's logpoller instead of EVM event subscriptions
+func subscribeTonExecutionEvents(
+	ctx context.Context,
+	lggr logger.Logger,
+	tonManager *TonDestinationManager,
+	srcChains []uint64,
+	chainSelector uint64,
+	wg *sync.WaitGroup,
+	metricPipe chan messageData,
+) {
+	defer wg.Done()
+
+	lggr.Infow("Starting TON execution event subscriber",
+		"destChain", chainSelector,
+		"sourceChains", srcChains,
+		"receiver", tonManager.chainState.ReceiverAddress.String())
+
+	// Setup logpoller service for CCIPMessageReceived events
+	eventName := "Receiver_CCIPMessageReceived"
+	eventSig := tonhash.CRC32(eventName)
+	chainID := strconv.FormatUint(chainSelector, 10)
+
+	clientProvider := func(ctx context.Context) (ton.APIClientWrapped, error) {
+		return tonManager.client.WithRetry(tonClientRetries), nil
+	}
+
+	receiverAddr := &tonManager.chainState.ReceiverAddress
+
+	lp, err := tonlogpoller.NewServiceWith(ctx, lggr, chainID, clientProvider,
+		&tonlogpoller.ServiceOptions{
+			Config:      tonlogpoller.DefaultConfigSet,
+			FilterStore: tonlpstore.NewFilterStore(chainID, lggr),
+			TxLoader:    tonlploader.New(lggr, clientProvider),
+			LogStore:    tonlpstore.NewLogStore(chainID, lggr),
+		},
+		[]tonlpmodels.Filter{{
+			Name:     fmt.Sprintf("%s-%s", receiverAddr.String(), eventName),
+			Address:  receiverAddr,
+			EventSig: eventSig,
+			MsgType:  tlb.MsgTypeExternalOut,
+		}},
+	)
+	if err != nil {
+		lggr.Errorw("Failed to create TON logpoller", "error", err)
+		return
+	}
+	defer lp.Close()
+
+	if err := lp.Start(ctx); err != nil {
+		lggr.Errorw("Failed to start TON logpoller", "error", err)
+		return
+	}
+
+	// Query configuration
+	queryInterval := 500 * time.Millisecond
+	ticker := time.NewTicker(queryInterval)
+	defer ticker.Stop()
+
+	progressTicker := time.NewTicker(tonProgressLogInterval)
+	defer progressTicker.Stop()
+
+	tickerDuration := 3 * time.Minute
+	checkTicker := time.NewTicker(tickerDuration)
+	defer checkTicker.Stop()
+
+	startTime := time.Now()
+	seenEvents := make(map[string]bool)
+	seenMessages := make(map[uint64][]uint64)
+
+	for _, srcChain := range srcChains {
+		seenMessages[srcChain] = make([]uint64, 0)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			lggr.Infow("TON execution subscriber context cancelled",
+				"destChain", chainSelector,
+				"seenMessages", seenMessages)
+			return
+
+		case <-progressTicker.C:
+			lggr.Infow("TON execution subscriber still running",
+				"destChain", chainSelector,
+				"elapsed", time.Since(startTime).Round(time.Second).String(),
+				"seenMessages", seenMessages)
+
+		case <-checkTicker.C:
+			lggr.Infow("TON execution check tick",
+				"destChain", chainSelector,
+				"seenMessages", seenMessages)
+
+		case <-ticker.C:
+			logs, _, _, err := lp.NewQuery().
+				WithSource(receiverAddr).
+				WithEventSig(eventSig).
+				Execute(ctx)
+			if err != nil {
+				lggr.Warnw("Failed to query TON logs", "error", err)
+				continue
+			}
+
+			events, err := tonlpquery.DecodedLogs[ccip_receiver.CCIPMessageReceived](logs)
+			if err != nil {
+				lggr.Warnw("Failed to decode TON logs", "error", err)
+				continue
+			}
+
+			for _, event := range events {
+				// Deduplicate events using tx logical time and message index
+				eventKey := fmt.Sprintf("%d-%d", event.TxLT, event.MsgIndex)
+				if seenEvents[eventKey] {
+					continue
+				}
+				seenEvents[eventKey] = true
+
+				messageID := hex.EncodeToString(event.TypedData.Message.MessageID[:])
+				sourceChainSelector := event.TypedData.Message.SourceChainSelector
+
+				lggr.Infow("TON CCIPMessageReceived event found",
+					"messageID", messageID,
+					"sourceChain", sourceChainSelector,
+					"destChain", chainSelector,
+					"txLT", event.TxLT,
+					"block", event.Block.SeqNo)
+
+				// Track seen sequence numbers (TON uses different sequence numbering)
+				// For now, we use txLT as a proxy for ordering
+				seenMessages[sourceChainSelector] = append(seenMessages[sourceChainSelector], event.TxLT)
+
+				// Push metrics to Loki if channel available
+				if metricPipe != nil {
+					data := messageData{
+						eventType: executed,
+						srcDstSeqNum: srcDstSeqNum{
+							src:    sourceChainSelector,
+							dst:    chainSelector,
+							seqNum: event.TxLT, // Using txLT as sequence number proxy
+						},
+						timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115
+					}
+					metricPipe <- data
+				}
+			}
+		}
+	}
+}
+
+// initializeTonDestinationManagers initializes TON destination managers for all TON chains
+// It reuses the existing clients from tonSourceKeys to use the same private endpoint
+// configured for load testing instead of creating new connections.
+func initializeTonDestinationManagers(
+	l logger.Logger,
+	env *cldf.Environment,
+	tonSourceKeys map[uint64]*TonSourceManager,
+) (map[uint64]*TonDestinationManager, error) {
+	tonDestManagers := make(map[uint64]*TonDestinationManager)
+
+	// Get all TON chain selectors from environment
+	for chainSel := range env.BlockChains.TonChains() {
+		// Check if we have a source manager for this chain (with existing client)
+		sourceManager, hasSourceManager := tonSourceKeys[chainSel]
+		if !hasSourceManager {
+			l.Warnw("No TON source manager available for destination chain, skipping",
+				"chainSelector", chainSel)
+			continue
+		}
+
+		// Load receiver address from address book if not already in chainState
+		if sourceManager.chainState.ReceiverAddress.IsAddrNone() {
+			addresses, err := env.ExistingAddresses.AddressesForChain(chainSel)
+			if err != nil {
+				l.Warnw("Failed to get addresses for TON destination chain from address book",
+					"chainSelector", chainSel,
+					"error", err)
+				continue
+			}
+
+			// Look for TonReceiver in address book
+			for addrStr, tv := range addresses {
+				if tv.Type == shared.TonReceiver {
+					addr, err := address.ParseAddr(addrStr)
+					if err != nil {
+						l.Warnw("Failed to parse TON receiver address", "address", addrStr, "error", err)
+						continue
+					}
+					sourceManager.chainState.ReceiverAddress = *addr
+					break
+				}
+			}
+		}
+
+		// Check if receiver is available
+		if sourceManager.chainState.ReceiverAddress.IsAddrNone() {
+			l.Warnw("TON receiver address not found in address book",
+				"chainSelector", chainSel)
+			continue
+		}
+
+		// Create destination manager reusing the source manager's client
+		manager := NewTonDestinationManagerFromSourceManager(l, sourceManager)
+
+		tonDestManagers[chainSel] = manager
+		l.Infow("Initialized TON destination manager (reusing source client)",
+			"chainSelector", chainSel,
+			"receiver", sourceManager.chainState.ReceiverAddress.String())
+	}
+
+	return tonDestManagers, nil
 }

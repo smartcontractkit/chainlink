@@ -97,10 +97,11 @@ func subscribeTransmitEvents(
 		case <-subscription.Err():
 			return
 		case event := <-sink:
-			lggr.Debugw("received transmit event for",
+			lggr.Infow("received transmit event",
 				"srcChain", srcChainSel,
 				"destChain", event.DestChainSelector,
-				"sequenceNumber", event.SequenceNumber)
+				"sequenceNumber", event.SequenceNumber,
+				"messageId", fmt.Sprintf("%x", event.Message.Header.MessageId))
 
 			blockNum := event.Raw.BlockNumber
 			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
@@ -334,7 +335,7 @@ func subscribeExecutionEvents(
 				"err", subErr)
 			return
 		case event := <-sink:
-			lggr.Debugw("received execution event for",
+			lggr.Infow("received execution event",
 				"sourceChain", event.SourceChainSelector,
 				"destChain", chainSelector,
 				"sequenceNumber", event.SequenceNumber,
