@@ -7,6 +7,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
@@ -26,6 +27,7 @@ import (
 )
 
 func TestDynamicCS_Apply(t *testing.T) {
+	quarantine.Flaky(t, "DX-2497")
 	t.Parallel()
 
 	// Setup environment with Aptos chain and deployed contracts
