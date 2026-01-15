@@ -88,3 +88,5 @@ require (
 	google.golang.org/grpc v1.75.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 )
+
+exclude github.com/gogo/protobuf v1.3.3
