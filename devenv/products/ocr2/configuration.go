@@ -212,6 +212,10 @@ func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *
 	return netConfig, nil
 }
 
+func (m *Configurator) GenerateCLNodesSecrets(_ context.Context) (string, error) {
+	return "", nil
+}
+
 func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
 	fake *fake.Input,
