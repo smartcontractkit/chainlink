@@ -74,7 +74,7 @@ var upCmd = &cobra.Command{
 		if len(args) > 0 {
 			configFile = args[0]
 		} else {
-			configFile = "env.toml"
+			configFile = "env.toml,products/ocr2/basic.toml"
 		}
 		framework.L.Info().Str("Config", configFile).Msg("Creating development environment")
 		_ = os.Setenv("CTF_CONFIGS", configFile)
