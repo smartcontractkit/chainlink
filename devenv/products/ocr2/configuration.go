@@ -300,7 +300,7 @@ func deployLinkAndMint(ctx context.Context, c *ethclient.Client, auth *bind.Tran
 	if err != nil {
 		return nil, fmt.Errorf("could not grant mint role: %w", err)
 	}
-	_, err = bind.WaitMined(ctx, c, tx)
+	_, err = products.WaitMinedFast(ctx, c, tx.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func deployLinkAndMint(ctx context.Context, c *ethclient.Client, auth *bind.Tran
 		if err != nil {
 			return nil, fmt.Errorf("could not transfer link token contract: %w", err)
 		}
-		_, err = bind.WaitMined(ctx, c, tx)
+		_, err = products.WaitMinedFast(ctx, c, tx.Hash())
 		if err != nil {
 			return nil, err
 		}
@@ -383,7 +383,7 @@ func UpdateOCR2ConfigOffChainValues(ctx context.Context, bc *blockchain.Input, o
 	if err != nil {
 		return fmt.Errorf("could not set OCRv2 config: %w", err)
 	}
-	_, err = bind.WaitMined(ctx, c, tx)
+	_, err = products.WaitMinedFast(ctx, c, tx.Hash())
 	if err != nil {
 		return err
 	}
@@ -419,7 +419,7 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to set payees: %w", err)
 	}
-	_, err = bind.WaitMined(ctx, c, tx)
+	_, err = products.WaitMinedFast(ctx, c, tx.Hash())
 	if err != nil {
 		return nil, "", err
 	}
@@ -473,7 +473,7 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	if err != nil {
 		return nil, "", fmt.Errorf("could not set OCRv2 config: %w", err)
 	}
-	_, err = bind.WaitMined(ctx, c, tx)
+	_, err = products.WaitMinedFast(ctx, c, tx.Hash())
 	if err != nil {
 		return nil, "", err
 	}

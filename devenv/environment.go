@@ -22,11 +22,11 @@ type ProductInfo struct {
 }
 
 type Cfg struct {
-	Products    []*ProductInfo      `toml:"products"`
-	Blockchains []*blockchain.Input `toml:"blockchains" validate:"required"`
-	FakeServer  *fake.Input         `toml:"fake_server" validate:"required"`
-	NodeSets    []*ns.Input         `toml:"nodesets"    validate:"required"`
-	JD          *jd.Input           `toml:"jd"`
+	Products            []*ProductInfo      `toml:"products"`
+	Blockchains         []*blockchain.Input `toml:"blockchains" validate:"required"`
+	FakeServer          *fake.Input         `toml:"fake_server" validate:"required"`
+	NodeSets            []*ns.Input         `toml:"nodesets"    validate:"required"`
+	JD                  *jd.Input           `toml:"jd"`
 }
 
 func newProduct(name string) (Product, error) {
