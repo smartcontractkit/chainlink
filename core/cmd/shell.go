@@ -70,10 +70,7 @@ var (
 )
 
 func MetricViews() []sdkmetric.View {
-	views := make([]sdkmetric.View, 0)
-	views = append(views, workflowsmonitoring.MetricViews()...)
-	views = append(views, ccvcommon.MetricViews()...)
-	return views
+	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews())
 }
 
 func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
