@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
 	graphqlClient "github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
@@ -16,6 +18,7 @@ import (
 )
 
 func TestRegisteringMultipleJobDistributor(t *testing.T) {
+	quarantine.Flaky(t, "DX-2151")
 	t.Parallel()
 
 	l := logging.GetTestLogger(t)
