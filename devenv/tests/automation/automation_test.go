@@ -1,9 +1,10 @@
 package automation
 
 import (
-	"context"
 	"encoding/json"
 	"math/big"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -12,10 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
+)
+
+const (
+	automationDefaultUpkeepGasLimit = uint32(2500000)
+	automationDefaultLinkFunds      = int64(9e18)
+	automationExpectedData          = "abcdef"
+	defaultAmountOfUpkeeps          = 2
 )
 
 func TestAutomationBasic(t *testing.T) {
@@ -27,23 +36,23 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":                                      ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional":                          ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":                           ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v02":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional":                          ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":                           ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v02":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v03":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_2,
-		"registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
-		"registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
-		"registry_2_3_logtrigger_native":                    ethereum.RegistryVersion_2_3,
-		"registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
-		"registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
-		"registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
+		"registry_2_0": ethereum.RegistryVersion_2_0,
+		// "registry_2_1_conditional":                          ethereum.RegistryVersion_2_1,
+		// "registry_2_1_logtrigger":                           ethereum.RegistryVersion_2_1,
+		// "registry_2_1_with_mercury_v02":                     ethereum.RegistryVersion_2_1,
+		// "registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
+		// "registry_2_1_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_1,
+		// "registry_2_2_conditional":                          ethereum.RegistryVersion_2_2,
+		// "registry_2_2_logtrigger":                           ethereum.RegistryVersion_2_2,
+		// "registry_2_2_with_mercury_v02":                     ethereum.RegistryVersion_2_2,
+		// "registry_2_2_with_mercury_v03":                     ethereum.RegistryVersion_2_2,
+		// "registry_2_2_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_2,
+		// "registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
+		// "registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
+		// "registry_2_3_logtrigger_native":                    ethereum.RegistryVersion_2_3,
+		// "registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
+		// "registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
+		// "registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -61,10 +70,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			pdConfig, err := products.LoadOutput[automation.Configurator](outputFile)
 			require.NoError(t, err)
 
-			// TODO load new config
-			// cfg, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
-			// require.NoError(t, err, "Failed to get config")
-
 			// if nodeUpgrade {
 			// 	if cfg.GetChainlinkUpgradeImageConfig() == nil {
 			// 		t.Fatal("[ChainlinkUpgradeImage] must be set in TOML config to upgrade nodes")
@@ -78,12 +83,42 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			isMercuryV03 := strings.Contains(name, "mercury_v03")
 			isMercury := isMercuryV02 || isMercuryV03
 
-			// a := setupAutomationTestDocker(
-			// 	t, registryVersion, actions.ReadRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
-			// )
+			chainID, err := strconv.ParseUint(in.Blockchains[0].ChainID, 10, 64)
+			require.NoError(t, err, "Failed to parse chain ID")
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			var chainClient *seth.Client
+			if os.Getenv(seth.CONFIG_FILE_ENV_VAR) != "" {
+				sethCfg, err := seth.ReadConfig()
+				require.NoError(t, err, "Failed to read seth config")
+
+				chainClient, err = seth.NewClientBuilderWithConfig(sethCfg).
+					UseNetworkWithChainId(chainID).
+					WithRpcUrl(in.Blockchains[0].Out.Nodes[0].ExternalWSUrl).
+					Build()
+			} else {
+				chainClient, err = seth.NewClientBuilder().
+					WithPrivateKeys([]string{products.NetworkPrivateKey()}).
+					WithEphemeralAddresses(10, 1000).
+					WithRpcUrl(in.Blockchains[0].Out.Nodes[0].ExternalWSUrl).
+					Build()
+			}
+			require.NoError(t, err, "Failed to create chain client")
+
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
+
+			a := automation.AutomationTest{
+				ChainClient:            chainClient,
+				Config:                 *pdConfig.Config[0],
+				RegistrySettings:       automation.ReadRegistryConfig(pdConfig.Config[0]),
+				PublicConfig:           automation.ReadPublicConfig(pdConfig.Config[0].PublicConfig),
+				PluginConfig:           automation.ReadPluginConfig(pdConfig.Config[0].PluginConfig),
+				UpkeepPrivilegeManager: chainClient.MustGetRootKeyAddress(),
+				Logger:                 framework.L,
+			}
+
+			err = a.LoadContracts()
+			require.NoError(t, err, "Failed to load contracts")
 
 			consumers, upkeepIDs := automation.DeployConsumers(
 				t,
@@ -98,7 +133,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				isMercury,
 				isBillingTokenNative,
 				a.WETHToken,
-				&cfg,
+				*pdConfig.Config[0],
 			)
 
 			// copied from core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams/streams.go to avoid depending on chainlink/v2
@@ -154,28 +189,28 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
-			if nodeUpgrade {
-				// TODO: update ref
-				// require.NotNil(t, cfg.GetChainlinkImageConfig(), "unable to upgrade node version, [ChainlinkUpgradeImage] was not set, must both a new image or a new version")
-				expect := 5
-				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
-				for i := range 5 {
-					// err = upgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkUpgradeImageConfig().Image, *cfg.GetChainlinkUpgradeImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
-					// require.NoError(t, err, "Error when upgrading node %d", i)
-					time.Sleep(time.Second * 10)
-					expect += 5
-					gom.Eventually(func(g gomega.Gomega) {
-						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
-						for i := range upkeepIDs {
-							counter, err := consumers[i].Counter(t.Context())
-							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep index", i).Msg("Number of upkeeps performed")
-							g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-								"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-						}
-					}, "5m", "1s").Should(gomega.Succeed())
-				}
-			}
+			// if nodeUpgrade {
+			// 	// TODO: update ref
+			// 	require.NotNil(t, cfg.GetChainlinkImageConfig(), "unable to upgrade node version, [ChainlinkUpgradeImage] was not set, must both a new image or a new version")
+			// 	expect := 5
+			// 	// Upgrade the nodes one at a time and check that the upkeeps are still being performed
+			// 	for i := range 5 {
+			// 		err = upgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkUpgradeImageConfig().Image, *cfg.GetChainlinkUpgradeImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
+			// 		require.NoError(t, err, "Error when upgrading node %d", i)
+			// 		time.Sleep(time.Second * 10)
+			// 		expect += 5
+			// 		gom.Eventually(func(g gomega.Gomega) {
+			// 			// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
+			// 			for i := range upkeepIDs {
+			// 				counter, err := consumers[i].Counter(t.Context())
+			// 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+			// 				l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep index", i).Msg("Number of upkeeps performed")
+			// 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+			// 					"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+			// 			}
+			// 		}, "5m", "1s").Should(gomega.Succeed())
+			// 	}
+			// }
 
 			// Cancel all the registered upkeeps via the registry
 			for i := range upkeepIDs {

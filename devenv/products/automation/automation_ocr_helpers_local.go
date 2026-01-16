@@ -26,7 +26,8 @@ import (
 	devenv_ocr2 "github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
-func ReadRegistryConfig(registrySettings RegistrySettings) contracts.KeeperRegistrySettings {
+func ReadRegistryConfig(config *Automation) contracts.KeeperRegistrySettings {
+	registrySettings := config.RegistrySettings
 	return contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
 		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
@@ -41,6 +42,7 @@ func ReadRegistryConfig(registrySettings RegistrySettings) contracts.KeeperRegis
 		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
 		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
 		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
+		RegistryVersion:      config.GetRegistryVersion(),
 	}
 }
 

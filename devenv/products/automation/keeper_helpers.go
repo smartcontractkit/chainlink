@@ -448,7 +448,6 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	results, err := executor.ExecuteSimple(concurrency, numberOfContracts, deployContractFn)
 	require.NoError(t, err, "Failed to deploy keeper consumers")
 
-	// require.Equal(t, 0, len(deplymentErrors), "Error deploying consumer contracts")
 	require.Len(t, results, numberOfContracts, "Incorrect number of Keeper Consumer Contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 

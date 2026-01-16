@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
@@ -33,6 +34,8 @@ func newProduct(name string) (Product, error) {
 	switch name {
 	case "ocr2":
 		return ocr2.NewOCR2Configurator(), nil
+	case "automation":
+		return automation.NewConfigurator(), nil
 	default:
 		return nil, fmt.Errorf("unknown product type: %s", name)
 	}
@@ -60,7 +63,8 @@ func NewEnvironment(ctx context.Context) error {
 
 	// get all the product orchestrations, generate product specific overrides
 	productConfigurators := make([]Product, 0)
-	clNodeProductOverrides := make([]string, 0)
+	clNodeProductConfigOverrides := make([]string, 0)
+	clNodeProductSecretsOverrides := make([]string, 0)
 	for _, product := range in.Products {
 		p, err := newProduct(product.Name)
 		if err != nil {
@@ -70,20 +74,28 @@ func NewEnvironment(ctx context.Context) error {
 			return fmt.Errorf("failed to load product config: %w", err)
 		}
 
-		overrides, err := p.GenerateCLNodesBlockchainConfig(ctx, in.Blockchains[0])
+		configOverrides, err := p.GenerateCLNodesBlockchainConfig(ctx, in.Blockchains[0])
+		fmt.Println(configOverrides)
 		if err != nil {
 			return fmt.Errorf("failed to generate CL nodes config: %w", err)
 		}
 
+		secretsOverrides, err := p.GenerateCLNodesSecrets(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to generate CL nodes secrets: %w", err)
+		}
+
 		productConfigurators = append(productConfigurators, p)
-		clNodeProductOverrides = append(clNodeProductOverrides, overrides)
+		clNodeProductConfigOverrides = append(clNodeProductConfigOverrides, configOverrides)
+		clNodeProductSecretsOverrides = append(clNodeProductSecretsOverrides, secretsOverrides)
 	}
 
 	// merge overrides, spin up node sets and write infrastructure outputs
 	// infra is always common for all the products, if it can't be we should fail
 	// user should use different infra layout in env.toml then
 	for _, ns := range in.NodeSets[0].NodeSpecs {
-		ns.Node.TestConfigOverrides = strings.Join(clNodeProductOverrides, "\n")
+		ns.Node.TestConfigOverrides = strings.Join(clNodeProductConfigOverrides, "\n")
+		ns.Node.TestSecretsOverrides = strings.Join(clNodeProductSecretsOverrides, "\n")
 		if os.Getenv("CHAINLINK_IMAGE") != "" {
 			ns.Node.Image = os.Getenv("CHAINLINK_IMAGE")
 		}
@@ -92,7 +104,7 @@ func NewEnvironment(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create new shared db node set: %w", err)
 	}
-	if err := Store[Cfg](in); err != nil {
+	if err := Store(in); err != nil {
 		return err
 	}
 

@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/url"
 	"os"
+	"strconv"
 	"text/template"
 	"time"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 )
 
@@ -33,19 +36,19 @@ type Automation struct {
 	RegistryVersion  string           `toml:"registryVersion"`
 	RegistrySettings RegistrySettings `toml:"RegistrySettings"`
 
-	MercuryVersion *MercurySettings `toml:"MercuryVersion"`
+	MercurySettings *MercurySettings `toml:"MercurySettings"`
 
 	PluginConfig PluginConfig `toml:"PluginConfig"`
 	PublicConfig PublicConfig `toml:"PublicConfig"`
 
-	CLNodesFundingETH  float64 `toml:"cl_nodes_funding_eth"`
-	CLNodesFundingLink float64 `toml:"cl_nodes_funding_link"`
+	CLNodesFundingETH float64 `toml:"cl_nodes_funding_eth"`
+	// CLNodesFundingLink float64 `toml:"cl_nodes_funding_link"`
 
 	GasSettings *products.GasSettings `toml:"gas_settings"`
 
 	DeployedContracts DeployedContracts `toml:"deployed_contracts"`
 
-	//TODO add fields from EVMConfigData
+	EVMNetworkSettings EVMNetworkSettings `toml:"evm_network_settings"`
 }
 
 type DeployedContracts struct {
@@ -64,19 +67,31 @@ type DeployedContracts struct {
 }
 
 type MercurySettings struct {
-	MercuryVersion  *string `toml:"mercuryVersion"`
-	CredentialsName string  `toml:"credentialsName"`
-	FakeEndpoint    string  `toml:"fakeEndpoint"`
-	FakePort        uint    `toml:"fakePort"`
+	Version         string `toml:"version"`
+	CredentialsName string `toml:"credentialsName"`
+	FakeEndpoint    string `toml:"fakeEndpoint"`
+	FakePort        uint   `toml:"fakePort"`
+}
+
+type EVMNetworkSettings struct {
+	FinalityTagEnabled *bool `toml:"finality_tag_enabled"`
+	FinalityDepth      *uint `toml:"finality_depth"`
+	SafeTagSupported   *bool `toml:"safe_tag_supported"`
+
+	BackupLogPollerBlockDelay *uint   `toml:"backup_log_poller_block_delay"`
+	LogPollerInterval         *string `toml:"log_poller_interval"`
+
+	HeadTrackerData  *HeadTrackerData  `toml:"head_tracker"`
+	GasEstimatorData *GasEstimatorData `toml:"gas_estimator"`
 }
 
 type HeadTrackerData struct {
-	HistoryDepth int
+	HistoryDepth int `toml:"history_depth"`
 }
 
 type GasEstimatorData struct {
-	Mode         string
-	LimitDefault int64
+	Mode         string `toml:"mode"`
+	LimitDefault int64  `toml:"limit_default"`
 }
 
 type PluginConfig struct {
@@ -127,7 +142,7 @@ type RegistrySettings struct {
 	MaxRevertDataSize    *uint32  `toml:"max_revert_data_size"`
 }
 
-func NewAutomationConfigurator() *Configurator {
+func NewConfigurator() *Configurator {
 	return &Configurator{}
 }
 
@@ -150,8 +165,7 @@ func (m *Configurator) Store(path string, _ int) error {
 func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *blockchain.Input) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
-	config := `
-	[Feature]
+	config := `[Feature]
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
@@ -184,7 +198,8 @@ Enabled = true
 [P2P.V2]
 Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
-AnnounceAddresses = ['0.0.0.0:6690']`
+AnnounceAddresses = ['0.0.0.0:6690']
+`
 
 	netConfigTemplate := `
 [[EVM]]
@@ -192,10 +207,11 @@ AutoCreateKey = true
 MinContractPayment = 0
 BlockBackfillDepth = 100
 MinIncomingConfirmations = 1
-MinContractPayment = '0.0000001 link'
 
 ChainID = '{{.ChainID}}'
+{{- if .LogPollInterval}}
 LogPollInterval = '{{.LogPollInterval}}'
+{{- end}}
 
 {{- if .BackupLogPollerBlockDelay}}
 BackupLogPollerBlockDelay = {{.BackupLogPollerBlockDelay}}
@@ -236,25 +252,31 @@ HttpUrl = '{{.HttpUrl}}'
 	}
 
 	type data struct {
-		LogPollInterval     string
-		ChainID             string
-		WsUrl               string
-		HttpUrl             string
-		LinkContractAddress *string
-		FinalityDepth       *int
-		FinalityTag         *bool
-		SafeTagSupported    *bool
-		HeadTracker         *HeadTrackerData
-		GasEstimator        *GasEstimatorData
+		LogPollInterval           *string
+		BackupLogPollerBlockDelay *uint
+		ChainID                   string
+		WsUrl                     string
+		HttpUrl                   string
+		LinkContractAddress       *string
+		FinalityDepth             *uint
+		FinalityTag               *bool
+		SafeTagSupported          *bool
+		HeadTracker               *HeadTrackerData
+		GasEstimator              *GasEstimatorData
 	}
 
 	d := data{
-		LinkContractAddress: nil,
-		ChainID:             bc.Out.ChainID,
-		FinalityDepth:       nil, // TODO: set to &value if needed
-		FinalityTag:         nil, // TODO: set to &value if needed
-		WsUrl:               bc.Out.Nodes[0].InternalWSUrl,
-		HttpUrl:             bc.Out.Nodes[0].InternalHTTPUrl,
+		LinkContractAddress:       nil, // TODO think whether we need and how to set if it is deployed later. Is the sequence deterministic enough?
+		ChainID:                   bc.Out.ChainID,
+		FinalityDepth:             m.Config[0].EVMNetworkSettings.FinalityDepth,
+		FinalityTag:               m.Config[0].EVMNetworkSettings.FinalityTagEnabled,
+		SafeTagSupported:          m.Config[0].EVMNetworkSettings.SafeTagSupported,
+		LogPollInterval:           m.Config[0].EVMNetworkSettings.LogPollerInterval,
+		BackupLogPollerBlockDelay: m.Config[0].EVMNetworkSettings.BackupLogPollerBlockDelay,
+		HeadTracker:               m.Config[0].EVMNetworkSettings.HeadTrackerData,
+		GasEstimator:              m.Config[0].EVMNetworkSettings.GasEstimatorData,
+		WsUrl:                     bc.Out.Nodes[0].InternalWSUrl,
+		HttpUrl:                   bc.Out.Nodes[0].InternalHTTPUrl,
 	}
 
 	var buf bytes.Buffer
@@ -267,7 +289,7 @@ HttpUrl = '{{.HttpUrl}}'
 }
 
 func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context) (string, error) {
-	if m.Config[0].MercuryVersion == nil {
+	if m.Config[0].MercurySettings == nil {
 		L.Info().Msg("Skipping CL nodes secrets configuration")
 		return "", nil
 	}
@@ -285,14 +307,14 @@ func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context) (string, erro
 		URL             string
 	}
 
-	u, err := url.JoinPath(framework.HostDockerInternal(), m.Config[0].MercuryVersion.FakeEndpoint)
+	u, err := url.JoinPath(framework.HostDockerInternal(), m.Config[0].MercurySettings.FakeEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to join URL path: %w", err)
 	}
 
 	d := data{
 		URL:             u,
-		CredentialsName: m.Config[0].MercuryVersion.CredentialsName,
+		CredentialsName: m.Config[0].MercurySettings.CredentialsName,
 	}
 
 	tmpl, err := template.New("secrets").Parse(mercurySecretsTemplate)
@@ -341,15 +363,12 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	}
 
 	bcNode := bc.Out.Nodes[0]
-	c, auth, rootAddr, err := products.ETHClient(
+	c, _, _, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
 		m.Config[0].GasSettings.FeeCapMultiplier,
 		m.Config[0].GasSettings.TipCapMultiplier,
 	)
-
-	_ = auth
-	_ = rootAddr
 
 	if err != nil {
 		return fmt.Errorf("could not create basic eth client: %w", err)
@@ -360,18 +379,57 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		}
 	}
 
-	// TODO: create Seth client
-
-	autoTest := &AutomationTest{
-		ChainClient:            chainClient,
-		Config:                 *m.Config[0],
-		ChainlinkNodes:         cl,
-		IsOnk8s:                false,
-		TransmitterKeyIndex:    0,
-		UpkeepPrivilegeManager: chainClient.MustGetRootKeyAddress(),
-		mercuryCredentialName:  "",
-		Logger:                 L,
+	chainID, err := strconv.ParseUint(bc.ChainID, 10, 64)
+	if err != nil {
+		return err
 	}
 
-	return autoTest.setupDeployment(true)
+	var chainClient *seth.Client
+	if os.Getenv(seth.CONFIG_FILE_ENV_VAR) != "" {
+		sethCfg, err := seth.ReadConfig()
+		if err != nil {
+			return err
+		}
+
+		chainClient, err = seth.NewClientBuilderWithConfig(sethCfg).
+			UseNetworkWithChainId(chainID).
+			WithRpcUrl(bc.Out.Nodes[0].ExternalWSUrl).
+			Build()
+	} else {
+		chainClient, err = seth.NewClientBuilder().
+			WithPrivateKeys([]string{products.NetworkPrivateKey()}).
+			WithRpcUrl(bc.Out.Nodes[0].ExternalWSUrl).
+			Build()
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := deployContracts(chainClient, m.Config[0]); err != nil {
+		return err
+	}
+
+	nodeDetails, err := CollectNodeDetails(chainClient.Cfg.Network.ChainID, cl, ns.Out.CLNodes)
+	if err != nil {
+		return fmt.Errorf("error collecting node details: %w", err)
+	}
+
+	if err := SetConfigOnRegistry(nodeDetails, m.Config[0], chainClient); err != nil {
+		return err
+	}
+
+	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[0].GetRegistryVersion(), m.Config[0].DeployedContracts.Registry, m.Config[0].GetMercuryCredentialsName())
+}
+
+func (m *Automation) GetRegistryVersion() ethereum.KeeperRegistryVersion {
+	// TODO from string!
+	return ethereum.RegistryVersion_2_0
+}
+
+func (m *Automation) GetMercuryCredentialsName() string {
+	if m.MercurySettings != nil {
+		return m.MercurySettings.CredentialsName
+	}
+
+	return ""
 }

@@ -2,8 +2,6 @@ package automation
 
 import (
 	"context"
-	"crypto/ed25519"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +9,6 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -24,14 +21,11 @@ import (
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	ctf_concurrency "github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
@@ -41,13 +35,12 @@ import (
 	devenv_ocr2 "github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_registrar_wrapper2_1"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
-type NodeDetails struct {
+type NodeDetail struct {
 	P2PId                 string
 	TransmitterAddresses  []string
 	OCR2ConfigPublicKey   string
@@ -83,7 +76,7 @@ type AutomationTest struct {
 	// ChainlinkNodesk8s []*nodeclient.ChainlinkK8sClient
 	ChainlinkNodes []*clclient.ChainlinkClient
 
-	NodeDetails              []NodeDetails
+	NodeDetails              []NodeDetail
 	DefaultP2Pv2Bootstrapper string
 	mercuryCredentialName    string
 	TransmitterKeyIndex      int
@@ -361,10 +354,10 @@ func (a *AutomationTest) CollectNodeDetails() error {
 		nodes = a.ChainlinkNodes
 	}
 
-	nodeDetails := make([]NodeDetails, 0)
+	nodeDetails := make([]NodeDetail, 0)
 
 	for i, node := range nodes {
-		nodeDetail := NodeDetails{}
+		nodeDetail := NodeDetail{}
 		P2PIds, err := node.MustReadP2PKeys()
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to read P2P keys from node %d", i))
@@ -429,22 +422,22 @@ func ChainlinkNodeAddressesAtIndex(nodes []*clclient.ChainlinkClient, keyIndex i
 }
 
 func (a *AutomationTest) AddBootstrapJob() error {
-	// bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
-	// 	Name:    "ocr2 bootstrap node " + a.Registry.Address(),
-	// 	JobType: "bootstrap",
-	// 	OCR2OracleSpec: job.OCR2OracleSpec{
-	// 		ContractID: a.Registry.Address(),
-	// 		Relay:      "evm",
-	// 		RelayConfig: map[string]any{
-	// 			"chainID": int(a.ChainClient.ChainID),
-	// 		},
-	// 		ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
-	// 	},
-	// }
-	// _, err := a.ChainlinkNodes[0].MustCreateJob(bootstrapSpec)
-	// if err != nil {
-	// 	return errors.Join(err, errors.New("failed to create bootstrap job on bootstrap node"))
-	// }
+	bootstrapSpec := &devenv_ocr2.TaskJobSpec{
+		Name:    "ocr2 bootstrap node " + a.Registry.Address(),
+		JobType: "bootstrap",
+		OCR2OracleSpec: devenv_ocr2.OracleSpec{
+			ContractID: a.Registry.Address(),
+			Relay:      "evm",
+			RelayConfig: map[string]any{
+				"chainID": int(a.ChainClient.ChainID),
+			},
+			ContractConfigTrackerPollInterval: *devenv_ocr2.NewInterval(time.Second * 15),
+		},
+	}
+	_, err := a.ChainlinkNodes[0].MustCreateJob(bootstrapSpec)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to create bootstrap job on bootstrap node"))
+	}
 	return nil
 }
 
@@ -494,153 +487,153 @@ func (a *AutomationTest) AddAutomationJobs() error {
 	return nil
 }
 
-func (a *AutomationTest) SetConfigOnRegistry() error {
-	donNodes := a.NodeDetails[1:]
-	S := make([]int, len(donNodes))
-	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(donNodes))
-	var signerOnchainPublicKeys []types.OnchainPublicKey
-	var transmitterAccounts []types.Account
-	var f uint8
-	var offchainConfigVersion uint64
-	var offchainConfig []byte
-	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(donNodes))
-	eg := &errgroup.Group{}
-	for i, donNode := range donNodes {
-		index, chainlinkNode := i, donNode
-		eg.Go(func() error {
-			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2OffchainPublicKey, "ocr2off_evm_"))
-			if err != nil {
-				return err
-			}
+// func (a *AutomationTest) SetConfigOnRegistry() error {
+// 	donNodes := a.NodeDetails[1:]
+// 	S := make([]int, len(donNodes))
+// 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(donNodes))
+// 	var signerOnchainPublicKeys []types.OnchainPublicKey
+// 	var transmitterAccounts []types.Account
+// 	var f uint8
+// 	var offchainConfigVersion uint64
+// 	var offchainConfig []byte
+// 	sharedSecretEncryptionPublicKeys := make([]types.ConfigEncryptionPublicKey, len(donNodes))
+// 	eg := &errgroup.Group{}
+// 	for i, donNode := range donNodes {
+// 		index, chainlinkNode := i, donNode
+// 		eg.Go(func() error {
+// 			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2OffchainPublicKey, "ocr2off_evm_"))
+// 			if err != nil {
+// 				return err
+// 			}
 
-			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
-			if n != ed25519.PublicKeySize {
-				return errors.New("wrong number of elements copied")
-			}
+// 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
+// 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
+// 			if n != ed25519.PublicKeySize {
+// 				return errors.New("wrong number of elements copied")
+// 			}
 
-			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2ConfigPublicKey, "ocr2cfg_evm_"))
-			if err != nil {
-				return err
-			}
+// 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2ConfigPublicKey, "ocr2cfg_evm_"))
+// 			if err != nil {
+// 				return err
+// 			}
 
-			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
-			n = copy(configPkBytesFixed[:], configPkBytes)
-			if n != ed25519.PublicKeySize {
-				return errors.New("wrong number of elements copied")
-			}
+// 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
+// 			n = copy(configPkBytesFixed[:], configPkBytes)
+// 			if n != ed25519.PublicKeySize {
+// 				return errors.New("wrong number of elements copied")
+// 			}
 
-			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2OnChainPublicKey, "ocr2on_evm_"))
-			if err != nil {
-				return err
-			}
+// 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(chainlinkNode.OCR2OnChainPublicKey, "ocr2on_evm_"))
+// 			if err != nil {
+// 				return err
+// 			}
 
-			sharedSecretEncryptionPublicKeys[index] = configPkBytesFixed
-			oracleIdentities[index] = confighelper.OracleIdentityExtra{
-				OracleIdentity: confighelper.OracleIdentity{
-					OnchainPublicKey:  onchainPkBytes,
-					OffchainPublicKey: offchainPkBytesFixed,
-					PeerID:            chainlinkNode.P2PId,
-					TransmitAccount:   types.Account(chainlinkNode.TransmitterAddresses[a.TransmitterKeyIndex]),
-				},
-				ConfigEncryptionPublicKey: configPkBytesFixed,
-			}
-			S[index] = 1
-			return nil
-		})
-	}
-	err := eg.Wait()
-	if err != nil {
-		return errors.Join(err, errors.New("failed to build oracle identities"))
-	}
+// 			sharedSecretEncryptionPublicKeys[index] = configPkBytesFixed
+// 			oracleIdentities[index] = confighelper.OracleIdentityExtra{
+// 				OracleIdentity: confighelper.OracleIdentity{
+// 					OnchainPublicKey:  onchainPkBytes,
+// 					OffchainPublicKey: offchainPkBytesFixed,
+// 					PeerID:            chainlinkNode.P2PId,
+// 					TransmitAccount:   types.Account(chainlinkNode.TransmitterAddresses[a.TransmitterKeyIndex]),
+// 				},
+// 				ConfigEncryptionPublicKey: configPkBytesFixed,
+// 			}
+// 			S[index] = 1
+// 			return nil
+// 		})
+// 	}
+// 	err := eg.Wait()
+// 	if err != nil {
+// 		return errors.Join(err, errors.New("failed to build oracle identities"))
+// 	}
 
-	switch a.RegistrySettings.RegistryVersion {
-	case ethereum.RegistryVersion_2_0:
-		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR2ConfigArgs(a, S, oracleIdentities)
-		if err != nil {
-			return errors.Join(err, errors.New("failed to build config args"))
-		}
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
-		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR3ConfigArgs(a, S, oracleIdentities)
-		if err != nil {
-			return errors.Join(err, errors.New("failed to build config args"))
-		}
-	default:
-		return errors.New("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
-	}
+// 	switch a.RegistrySettings.RegistryVersion {
+// 	case ethereum.RegistryVersion_2_0:
+// 		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR2ConfigArgs(a, S, oracleIdentities)
+// 		if err != nil {
+// 			return errors.Join(err, errors.New("failed to build config args"))
+// 		}
+// 	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+// 		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR3ConfigArgs(a, S, oracleIdentities)
+// 		if err != nil {
+// 			return errors.Join(err, errors.New("failed to build config args"))
+// 		}
+// 	default:
+// 		return errors.New("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
+// 	}
 
-	var signers []common.Address
-	for _, signer := range signerOnchainPublicKeys {
-		if len(signer) != 20 {
-			return fmt.Errorf("OnChainPublicKey '%v' has wrong length for address", signer)
-		}
-		signers = append(signers, common.BytesToAddress(signer))
-	}
+// 	var signers []common.Address
+// 	for _, signer := range signerOnchainPublicKeys {
+// 		if len(signer) != 20 {
+// 			return fmt.Errorf("OnChainPublicKey '%v' has wrong length for address", signer)
+// 		}
+// 		signers = append(signers, common.BytesToAddress(signer))
+// 	}
 
-	var transmitters []common.Address
-	for _, transmitter := range transmitterAccounts {
-		if !common.IsHexAddress(string(transmitter)) {
-			return fmt.Errorf("TransmitAccount '%s' is not a valid Ethereum address", string(transmitter))
-		}
-		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
-	}
+// 	var transmitters []common.Address
+// 	for _, transmitter := range transmitterAccounts {
+// 		if !common.IsHexAddress(string(transmitter)) {
+// 			return fmt.Errorf("TransmitAccount '%s' is not a valid Ethereum address", string(transmitter))
+// 		}
+// 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
+// 	}
 
-	ocrConfig := contracts.OCRv2Config{
-		Signers:               signers,
-		Transmitters:          transmitters,
-		F:                     f,
-		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        offchainConfig,
-	}
+// 	ocrConfig := contracts.OCRv2Config{
+// 		Signers:               signers,
+// 		Transmitters:          transmitters,
+// 		F:                     f,
+// 		OffchainConfigVersion: offchainConfigVersion,
+// 		OffchainConfig:        offchainConfig,
+// 	}
 
-	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
-		ocrConfig.OnchainConfig = a.RegistrySettings.Encode20OnchainConfig(a.Registrar.Address())
-		err = a.Registry.SetConfig(a.RegistrySettings, ocrConfig)
-		if err != nil {
-			return errors.Join(err, errors.New("failed to set config on registry"))
-		}
-	} else {
-		switch a.RegistrySettings.RegistryVersion {
-		case ethereum.RegistryVersion_2_1:
-			ocrConfig.TypedOnchainConfig21 = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
-		case ethereum.RegistryVersion_2_2:
-			ocrConfig.TypedOnchainConfig22 = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
-		case ethereum.RegistryVersion_2_3:
-			ocrConfig.TypedOnchainConfig23 = a.RegistrySettings.Create23OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
-			ocrConfig.BillingTokens = []common.Address{
-				common.HexToAddress(a.LinkToken.Address()),
-				common.HexToAddress(a.WETHToken.Address()),
-			}
+// 	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
+// 		ocrConfig.OnchainConfig = a.RegistrySettings.Encode20OnchainConfig(a.Registrar.Address())
+// 		err = a.Registry.SetConfig(a.RegistrySettings, ocrConfig)
+// 		if err != nil {
+// 			return errors.Join(err, errors.New("failed to set config on registry"))
+// 		}
+// 	} else {
+// 		switch a.RegistrySettings.RegistryVersion {
+// 		case ethereum.RegistryVersion_2_1:
+// 			ocrConfig.TypedOnchainConfig21 = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
+// 		case ethereum.RegistryVersion_2_2:
+// 			ocrConfig.TypedOnchainConfig22 = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
+// 		case ethereum.RegistryVersion_2_3:
+// 			ocrConfig.TypedOnchainConfig23 = a.RegistrySettings.Create23OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
+// 			ocrConfig.BillingTokens = []common.Address{
+// 				common.HexToAddress(a.LinkToken.Address()),
+// 				common.HexToAddress(a.WETHToken.Address()),
+// 			}
 
-			ocrConfig.BillingConfigs = []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig{
-				{
-					GasFeePPB:         100,
-					FlatFeeMilliCents: big.NewInt(500),
-					PriceFeed:         common.HexToAddress(a.ETHUSDFeed.Address()),
-					Decimals:          18,
-					FallbackPrice:     big.NewInt(1000),
-					MinSpend:          big.NewInt(200),
-				},
-				{
-					GasFeePPB:         100,
-					FlatFeeMilliCents: big.NewInt(500),
-					PriceFeed:         common.HexToAddress(a.LINKUSDFeed.Address()),
-					Decimals:          18,
-					FallbackPrice:     big.NewInt(1000),
-					MinSpend:          big.NewInt(200),
-				},
-			}
-		}
-		a.Logger.Debug().Interface("ocrConfig", ocrConfig).Msg("Setting OCR3 config")
-		err = a.Registry.SetConfigTypeSafe(ocrConfig)
-		if err != nil {
-			return errors.Join(err, errors.New("failed to set config on registry"))
-		}
-	}
-	return nil
-}
+// 			ocrConfig.BillingConfigs = []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig{
+// 				{
+// 					GasFeePPB:         100,
+// 					FlatFeeMilliCents: big.NewInt(500),
+// 					PriceFeed:         common.HexToAddress(a.ETHUSDFeed.Address()),
+// 					Decimals:          18,
+// 					FallbackPrice:     big.NewInt(1000),
+// 					MinSpend:          big.NewInt(200),
+// 				},
+// 				{
+// 					GasFeePPB:         100,
+// 					FlatFeeMilliCents: big.NewInt(500),
+// 					PriceFeed:         common.HexToAddress(a.LINKUSDFeed.Address()),
+// 					Decimals:          18,
+// 					FallbackPrice:     big.NewInt(1000),
+// 					MinSpend:          big.NewInt(200),
+// 				},
+// 			}
+// 		}
+// 		a.Logger.Debug().Interface("ocrConfig", ocrConfig).Msg("Setting OCR3 config")
+// 		err = a.Registry.SetConfigTypeSafe(ocrConfig)
+// 		if err != nil {
+// 			return errors.Join(err, errors.New("failed to set config on registry"))
+// 		}
+// 	}
+// 	return nil
+// }
 
-func calculateOCR2ConfigArgs(a *AutomationTest, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+func calculateOCR2ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
 	signers []types.OnchainPublicKey,
 	transmitters []types.Account,
 	f_ uint8,
@@ -650,35 +643,35 @@ func calculateOCR2ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 	err error,
 ) {
 	offC, _ := json.Marshal(ocr2keepers20config.OffchainConfig{
-		TargetProbability:    a.PluginConfig.TargetProbability,
-		TargetInRounds:       a.PluginConfig.TargetInRounds,
-		PerformLockoutWindow: a.PluginConfig.PerformLockoutWindow,
-		GasLimitPerReport:    a.PluginConfig.GasLimitPerReport,
-		GasOverheadPerUpkeep: a.PluginConfig.GasOverheadPerUpkeep,
-		MinConfirmations:     a.PluginConfig.MinConfirmations,
-		MaxUpkeepBatchSize:   a.PluginConfig.MaxUpkeepBatchSize,
+		TargetProbability:    pluginConfig.TargetProbability,
+		TargetInRounds:       pluginConfig.TargetInRounds,
+		PerformLockoutWindow: pluginConfig.PerformLockoutWindow,
+		GasLimitPerReport:    pluginConfig.GasLimitPerReport,
+		GasOverheadPerUpkeep: pluginConfig.GasOverheadPerUpkeep,
+		MinConfirmations:     pluginConfig.MinConfirmations,
+		MaxUpkeepBatchSize:   pluginConfig.MaxUpkeepBatchSize,
 	})
 
-	rMax := a.PublicConfig.RMax
+	rMax := publicConfig.RMax
 	if rMax > math.MaxUint8 {
 		panic(fmt.Errorf("rmax overflows uint8: %d", rMax))
 	}
 
 	return ocr2.ContractSetConfigArgsForTests(
-		a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend,
-		a.PublicConfig.DeltaRound, a.PublicConfig.DeltaGrace,
-		a.PublicConfig.DeltaStage, uint8(rMax),
+		publicConfig.DeltaProgress, publicConfig.DeltaResend,
+		publicConfig.DeltaRound, publicConfig.DeltaGrace,
+		publicConfig.DeltaStage, uint8(rMax),
 		S, oracleIdentities, offC,
 		nil,
-		a.PublicConfig.MaxDurationQuery, a.PublicConfig.MaxDurationObservation,
+		publicConfig.MaxDurationQuery, publicConfig.MaxDurationObservation,
 		1200*time.Millisecond,
-		a.PublicConfig.MaxDurationShouldAcceptAttestedReport,
-		a.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
-		a.PublicConfig.F, a.PublicConfig.OnchainConfig,
+		publicConfig.MaxDurationShouldAcceptAttestedReport,
+		publicConfig.MaxDurationShouldTransmitAcceptedReport,
+		publicConfig.F, publicConfig.OnchainConfig,
 	)
 }
 
-func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+func calculateOCR3ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
 	signers []types.OnchainPublicKey,
 	transmitters []types.Account,
 	f_ uint8,
@@ -687,17 +680,17 @@ func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 	offchainConfig []byte,
 	err error,
 ) {
-	offC, _ := json.Marshal(a.PluginConfig)
+	offC, _ := json.Marshal(pluginConfig)
 
 	return ocr3.ContractSetConfigArgsForTests(
-		a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend, a.PublicConfig.DeltaInitial,
-		a.PublicConfig.DeltaRound, a.PublicConfig.DeltaGrace, a.PublicConfig.DeltaCertifiedCommitRequest,
-		a.PublicConfig.DeltaStage, a.PublicConfig.RMax,
+		publicConfig.DeltaProgress, publicConfig.DeltaResend, publicConfig.DeltaInitial,
+		publicConfig.DeltaRound, publicConfig.DeltaGrace, publicConfig.DeltaCertifiedCommitRequest,
+		publicConfig.DeltaStage, publicConfig.RMax,
 		S, oracleIdentities, offC,
-		nil, a.PublicConfig.MaxDurationQuery, a.PublicConfig.MaxDurationObservation,
-		a.PublicConfig.MaxDurationShouldAcceptAttestedReport,
-		a.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
-		a.PublicConfig.F, a.PublicConfig.OnchainConfig,
+		nil, publicConfig.MaxDurationQuery, publicConfig.MaxDurationObservation,
+		publicConfig.MaxDurationShouldAcceptAttestedReport,
+		publicConfig.MaxDurationShouldTransmitAcceptedReport,
+		publicConfig.F, publicConfig.OnchainConfig,
 	)
 }
 
@@ -869,197 +862,216 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 	return results, nil
 }
 
-func (a *AutomationTest) AddJobsAndSetConfig(t *testing.T) {
-	l := framework.L
-	err := a.AddBootstrapJob()
-	require.NoError(t, err, "Error adding bootstrap job")
-	err = a.AddAutomationJobs()
-	require.NoError(t, err, "Error adding automation jobs")
+// func (a *AutomationTest) AddJobsAndSetConfig(t *testing.T) {
+// 	l := framework.L
+// 	err := a.AddBootstrapJob()
+// 	require.NoError(t, err, "Error adding bootstrap job")
+// 	err = a.AddAutomationJobs()
+// 	require.NoError(t, err, "Error adding automation jobs")
 
-	l.Info().
-		Interface("Plugin Config", a.PluginConfig).
-		Interface("Public Config", a.PublicConfig).
-		Interface("Registry Settings", a.RegistrySettings).
-		Interface("Registrar Settings", a.RegistrarSettings).
-		Msg("Configuring registry")
-	err = a.SetConfigOnRegistry()
-	require.NoError(t, err, "Error setting config on registry")
-	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
-}
+// 	l.Info().
+// 		Interface("Plugin Config", a.PluginConfig).
+// 		Interface("Public Config", a.PublicConfig).
+// 		Interface("Registry Settings", a.RegistrySettings).
+// 		Interface("Registrar Settings", a.RegistrarSettings).
+// 		Msg("Configuring registry")
+// 	err = a.SetConfigOnRegistry()
+// 	require.NoError(t, err, "Error setting config on registry")
+// 	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
+// }
 
-func (a *AutomationTest) AddJobsAndSetConfigE() error {
-	l := framework.L
-	err := a.AddBootstrapJob()
-	if err != nil {
-		return fmt.Errorf("error adding bootstrap job: %w", err)
-	}
-	err = a.AddAutomationJobs()
-	if err != nil {
-		return fmt.Errorf("error adding automation jobs: %w", err)
-	}
+// func (a *AutomationTest) SetupAutomationDeployment() error {
+// 	return a.setupDeployment(true)
+// }
 
-	l.Info().
-		Interface("Plugin Config", a.PluginConfig).
-		Interface("Public Config", a.PublicConfig).
-		Interface("Registry Settings", a.RegistrySettings).
-		Interface("Registrar Settings", a.RegistrarSettings).
-		Msg("Configuring registry")
-	err = a.SetConfigOnRegistry()
-	if err != nil {
-		return fmt.Errorf("error setting config on registry: %w", err)
-	}
-	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
-	return nil
-}
+// func (a *AutomationTest) SetupAutomationDeploymentWithoutJobs() error {
+// 	return a.setupDeployment(false)
+// }
 
-func (a *AutomationTest) SetupAutomationDeployment() error {
-	return a.setupDeployment(true)
-}
-
-func (a *AutomationTest) SetupAutomationDeploymentWithoutJobs() error {
-	return a.setupDeployment(false)
-}
-
-func (a *AutomationTest) setupDeployment(addJobs bool) error {
-	l := framework.L
-	err := a.CollectNodeDetails()
-	if err != nil {
-		return fmt.Errorf("error collecting node details: %w", err)
-	}
-	l.Info().Msg("Collected Node Details")
-	l.Debug().Interface("Node Details", a.NodeDetails).Msg("Node Details")
-
-	if a.Config.DeployedContracts.LinkToken != "" {
-		linkAddress := a.Config.DeployedContracts.LinkToken
-		err := a.LoadLINK(linkAddress)
-		if err != nil {
-			return fmt.Errorf("error loading link token contract: %w", err)
-		}
-	} else {
-		err = a.DeployLINK()
-		if err != nil {
-			return fmt.Errorf("error deploying link token contract: %w", err)
-		}
+func (a *AutomationTest) LoadContracts() error {
+	if err := a.LoadLINK(a.Config.DeployedContracts.LinkToken); err != nil {
+		return fmt.Errorf("error loading link token contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.Weth != "" {
-		wethAddress := a.Config.DeployedContracts.Weth
-		err := a.LoadWETH(wethAddress)
-		if err != nil {
-			return fmt.Errorf("error loading weth token contract: %w", err)
-		}
-	} else {
-		err = a.DeployWETH()
-		if err != nil {
-			return fmt.Errorf("error deploying weth token contract: %w", err)
-		}
+	if err := a.LoadWETH(a.Config.DeployedContracts.Weth); err != nil {
+		return fmt.Errorf("error loading weth token contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.LinkEthFeed != "" {
-		linkEthFeedAddress := a.Config.DeployedContracts.LinkEthFeed
-		err := a.LoadLinkEthFeed(linkEthFeedAddress)
-		if err != nil {
-			return fmt.Errorf("error loading link eth feed contract: %w", err)
-		}
-	} else {
-		err = a.DeployLinkEthFeed()
-		if err != nil {
-			return fmt.Errorf("error deploying link eth feed contract: %w", err)
-		}
+	if err := a.LoadLinkEthFeed(a.Config.DeployedContracts.LinkEthFeed); err != nil {
+		return fmt.Errorf("error loading link eth feed contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.EthGasFeed != "" {
-		gasFeedAddress := a.Config.DeployedContracts.EthGasFeed
-		err := a.LoadEthGasFeed(gasFeedAddress)
-		if err != nil {
-			return fmt.Errorf("error loading gas feed contract: %w", err)
-		}
-	} else {
-		err = a.DeployGasFeed()
-		if err != nil {
-			return fmt.Errorf("error deploying gas feed contract: %w", err)
-		}
+	if err := a.LoadEthGasFeed(a.Config.DeployedContracts.EthGasFeed); err != nil {
+		return fmt.Errorf("error loading gas feed contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.EthUSDFeed != "" {
-		ethUsdFeedAddress := a.Config.DeployedContracts.EthUSDFeed
-		err := a.LoadEthUSDFeed(ethUsdFeedAddress)
-		if err != nil {
-			return fmt.Errorf("error loading eth usd feed contract: %w", err)
-		}
-	} else {
-		err = a.DeployEthUSDFeed()
-		if err != nil {
-			return fmt.Errorf("error deploying eth usd feed contract: %w", err)
-		}
+	if err := a.LoadEthUSDFeed(a.Config.DeployedContracts.EthUSDFeed); err != nil {
+		return fmt.Errorf("error loading eth usd feed contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.LinkUSDFeed != "" {
-		linkUsdFeedAddress := a.Config.DeployedContracts.LinkUSDFeed
-		err := a.LoadLinkUSDFeed(linkUsdFeedAddress)
-		if err != nil {
-			return fmt.Errorf("error loading link usd feed contract: %w", err)
-		}
-	} else {
-		err = a.DeployLinkUSDFeed()
-		if err != nil {
-			return fmt.Errorf("error deploying link usd feed contract: %w", err)
-		}
+	if err := a.LoadLinkUSDFeed(a.Config.DeployedContracts.LinkUSDFeed); err != nil {
+		return fmt.Errorf("error loading link usd feed contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.Transcoder != "" {
-		transcoderAddress := a.Config.DeployedContracts.Transcoder
-		err := a.LoadTranscoder(transcoderAddress)
-		if err != nil {
-			return fmt.Errorf("error loading transcoder contract: %w", err)
-		}
-	} else {
-		err = a.DeployTranscoder()
-		if err != nil {
-			return fmt.Errorf("error deploying transcoder contract: %w", err)
-		}
+	if err := a.LoadTranscoder(a.Config.DeployedContracts.Transcoder); err != nil {
+		return fmt.Errorf("error loading transcoder contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.Registry != "" && a.Config.DeployedContracts.ChainModule != "" {
-		chainModuleAddress := a.Config.DeployedContracts.ChainModule
-		registryAddress := a.Config.DeployedContracts.Registry
-		err = a.LoadRegistry(registryAddress, chainModuleAddress)
-		if err != nil {
-			return fmt.Errorf("error loading registry contract: %w", err)
-		}
-		if a.Registry.RegistryOwnerAddress().String() != a.ChainClient.MustGetRootKeyAddress().String() {
-			l.Debug().Str("RootKeyAddress", a.ChainClient.MustGetRootKeyAddress().String()).Str("Registry Owner Address", a.Registry.RegistryOwnerAddress().String()).Msg("Registry owner address is not the root key address")
-			return fmt.Errorf("registry owner address is not the root key address")
-		}
-	} else {
-		err = a.DeployRegistry()
-		if err != nil {
-			return fmt.Errorf("error deploying registry contract: %w", err)
-		}
+	if err := a.LoadRegistry(a.Config.DeployedContracts.Registry, a.Config.DeployedContracts.ChainModule); err != nil {
+		return fmt.Errorf("error loading registry contract: %w", err)
 	}
 
-	if a.Config.DeployedContracts.Registrar != "" {
-		registrarAddress := a.Config.DeployedContracts.Registrar
-		err = a.LoadRegistrar(registrarAddress)
-		if err != nil {
-			return fmt.Errorf("error loading registrar contract: %w", err)
-		}
-	} else {
-		err = a.DeployRegistrar()
-		if err != nil {
-			return fmt.Errorf("error deploying registrar contract: %w", err)
-		}
+	if a.Registry.RegistryOwnerAddress().String() != a.ChainClient.MustGetRootKeyAddress().String() {
+		return fmt.Errorf("registry owner address is not the root key address")
 	}
 
-	if addJobs {
-		err = a.AddJobsAndSetConfigE()
-		if err != nil {
-			return fmt.Errorf("error adding jobs and setting config: %w", err)
-		}
+	if err := a.LoadRegistrar(a.Config.DeployedContracts.Registrar); err != nil {
+		return fmt.Errorf("error loading registrar contract: %w", err)
 	}
 
 	return nil
 }
+
+// func (a *AutomationTest) setupDeployment(addJobs bool) error {
+// 	l := framework.L
+// 	err := a.CollectNodeDetails()
+// 	if err != nil {
+// 		return fmt.Errorf("error collecting node details: %w", err)
+// 	}
+// 	l.Info().Msg("Collected Node Details")
+// 	l.Debug().Interface("Node Details", a.NodeDetails).Msg("Node Details")
+
+// 	if a.Config.DeployedContracts.LinkToken != "" {
+// 		linkAddress := a.Config.DeployedContracts.LinkToken
+// 		err := a.LoadLINK(linkAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading link token contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployLINK()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying link token contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.Weth != "" {
+// 		wethAddress := a.Config.DeployedContracts.Weth
+// 		err := a.LoadWETH(wethAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading weth token contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployWETH()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying weth token contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.LinkEthFeed != "" {
+// 		linkEthFeedAddress := a.Config.DeployedContracts.LinkEthFeed
+// 		err := a.LoadLinkEthFeed(linkEthFeedAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading link eth feed contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployLinkEthFeed()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying link eth feed contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.EthGasFeed != "" {
+// 		gasFeedAddress := a.Config.DeployedContracts.EthGasFeed
+// 		err := a.LoadEthGasFeed(gasFeedAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading gas feed contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployGasFeed()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying gas feed contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.EthUSDFeed != "" {
+// 		ethUsdFeedAddress := a.Config.DeployedContracts.EthUSDFeed
+// 		err := a.LoadEthUSDFeed(ethUsdFeedAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading eth usd feed contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployEthUSDFeed()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying eth usd feed contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.LinkUSDFeed != "" {
+// 		linkUsdFeedAddress := a.Config.DeployedContracts.LinkUSDFeed
+// 		err := a.LoadLinkUSDFeed(linkUsdFeedAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading link usd feed contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployLinkUSDFeed()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying link usd feed contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.Transcoder != "" {
+// 		transcoderAddress := a.Config.DeployedContracts.Transcoder
+// 		err := a.LoadTranscoder(transcoderAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading transcoder contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployTranscoder()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying transcoder contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.Registry != "" && a.Config.DeployedContracts.ChainModule != "" {
+// 		chainModuleAddress := a.Config.DeployedContracts.ChainModule
+// 		registryAddress := a.Config.DeployedContracts.Registry
+// 		err = a.LoadRegistry(registryAddress, chainModuleAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading registry contract: %w", err)
+// 		}
+// 		if a.Registry.RegistryOwnerAddress().String() != a.ChainClient.MustGetRootKeyAddress().String() {
+// 			l.Debug().Str("RootKeyAddress", a.ChainClient.MustGetRootKeyAddress().String()).Str("Registry Owner Address", a.Registry.RegistryOwnerAddress().String()).Msg("Registry owner address is not the root key address")
+// 			return fmt.Errorf("registry owner address is not the root key address")
+// 		}
+// 	} else {
+// 		err = a.DeployRegistry()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying registry contract: %w", err)
+// 		}
+// 	}
+
+// 	if a.Config.DeployedContracts.Registrar != "" {
+// 		registrarAddress := a.Config.DeployedContracts.Registrar
+// 		err = a.LoadRegistrar(registrarAddress)
+// 		if err != nil {
+// 			return fmt.Errorf("error loading registrar contract: %w", err)
+// 		}
+// 	} else {
+// 		err = a.DeployRegistrar()
+// 		if err != nil {
+// 			return fmt.Errorf("error deploying registrar contract: %w", err)
+// 		}
+// 	}
+
+// 	if addJobs {
+// 		err = a.AddJobsAndSetConfig()
+// 		if err != nil {
+// 			return fmt.Errorf("error adding jobs and setting config: %w", err)
+// 		}
+// 	}
+
+// 	return nil
+// }
 
 // SendLinkFundsToDeploymentAddresses sends LINK token to all addresses, but the root one, from the root address. It uses
 // Multicall contract to batch all transfers in a single transaction. It also checks if the funds were transferred correctly.
@@ -1096,7 +1108,7 @@ func SendLinkFundsToDeploymentAddresses(
 	if err != nil {
 		return err
 	}
-
+	// TODO: 2:32PM WRN No matching event with valid indexed parameter count found for log Signature=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef Transaction=0xde63b61cb6f22db882cee1f28c7a11159be3f4e5f07c71998eada723ccf9e6cd
 	tx, err := chainClient.Decode(linkInstance.Transfer(chainClient.NewTXOpts(), multicallAddress, toTransferToMultiCallContract))
 	if err != nil {
 		return err
@@ -1147,7 +1159,7 @@ func SendLinkFundsToDeploymentAddresses(
 		return pkg_errors.Wrapf(err, "Error getting Multicall contract ABI")
 	}
 	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
-	// call aggregate3 to group all msg call data and send them in a single transaction
+	// call aggregate3 to group all msg call data and send them in a single transaction // TODO: 2:33PM WRN No matching event with valid indexed parameter count found for log Signature=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef Transaction=0xe277bace889e96bfba919283b6f1bfaaadc89cda0cb254845394704fff5bc2b8
 	ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
 	if err != nil {
 		return pkg_errors.Wrapf(err, "Error calling Multicall contract")
