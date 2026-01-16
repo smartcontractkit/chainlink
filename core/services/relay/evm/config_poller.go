@@ -123,23 +123,71 @@ func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	logBlock, logDigest, hasLogResult, logErr := cp.latestConfigDetailsFromLog(ctx)
+	storeBlock, storeDigest, hasStoreResult, storeErr := cp.latestConfigDetailsFromStore(ctx)
+
+	// Decide which result to return based on what we have
+	switch {
+	case hasLogResult && hasStoreResult:
+		// Both sources have data, return the more recent one
+		if storeBlock > logBlock {
+			return storeBlock, storeDigest, nil
+		}
+		return logBlock, logDigest, nil
+
+	case hasLogResult:
+		return logBlock, logDigest, nil
+
+	case hasStoreResult:
+		return storeBlock, storeDigest, nil
+
+	default:
+		// Neither source has data
+		// Return the most relevant error, preferring log error if both failed
+		if logErr != nil {
+			return 0, ocrtypes.ConfigDigest{}, logErr
+		}
+		if storeErr != nil {
+			return 0, ocrtypes.ConfigDigest{}, storeErr
+		}
+		// No data from either source, but no errors either
+		return 0, ocrtypes.ConfigDigest{}, nil
+	}
+}
+
+// latestConfigDetailsFromLog fetches the latest config details from the log poller.
+// Returns block number, config digest, whether a result was found, and any error.
+func (cp *configPoller) latestConfigDetailsFromLog(ctx context.Context) (block uint64, digest ocrtypes.ConfigDigest, hasResult bool, err error) {
 	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ctx, cp.ld.EventSig(), cp.aggregatorContractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			if cp.isConfigStoreAvailable() {
-				// Fallback to RPC call in case logs have been pruned and configStoreContract is available
-				return cp.callLatestConfigDetails(ctx)
-			}
-			// log not found means return zero config digest
-			return 0, ocrtypes.ConfigDigest{}, nil
+			// No rows is not a fatal error, just means no logs found
+			return 0, ocrtypes.ConfigDigest{}, false, nil
 		}
-		return 0, ocrtypes.ConfigDigest{}, err
+		return 0, ocrtypes.ConfigDigest{}, false, err
 	}
-	latestConfigSet, err := cp.ld.Decode(latest.Data)
+
+	latestConfigSet, decodeErr := cp.ld.Decode(latest.Data)
+	if decodeErr != nil {
+		return 0, ocrtypes.ConfigDigest{}, false, decodeErr
+	}
+
+	return uint64(latest.BlockNumber), latestConfigSet.ConfigDigest, true, nil
+}
+
+// latestConfigDetailsFromStore fetches the latest config details from the config store contract.
+// Returns block number, config digest, whether a result was found, and any error.
+func (cp *configPoller) latestConfigDetailsFromStore(ctx context.Context) (block uint64, digest ocrtypes.ConfigDigest, hasResult bool, err error) {
+	if !cp.isConfigStoreAvailable() {
+		return 0, ocrtypes.ConfigDigest{}, false, nil
+	}
+
+	block, digest, err = cp.callLatestConfigDetails(ctx)
 	if err != nil {
-		return 0, ocrtypes.ConfigDigest{}, err
+		return 0, ocrtypes.ConfigDigest{}, false, err
 	}
-	return uint64(latest.BlockNumber), latestConfigSet.ConfigDigest, nil
+
+	return block, digest, true, nil
 }
 
 // LatestConfig returns the latest config from the logs on a certain block
