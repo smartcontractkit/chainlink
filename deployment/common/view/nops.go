@@ -364,6 +364,7 @@ func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 
 // getNodeNetworks returns the list of networks a node is connected to.
 // This function mimics the logic of the CLD command `jd node inspect`
+// TODO: until https://smartcontract-it.atlassian.net/browse/OPT-334 is done, this networks will be flaky/out-of-sync with all the chains on the nodes.
 func getNodeNetworks(node deployment.Node) ([]string, error) {
 	nodeChainCfgs, nodeErr := node.ChainConfigs()
 	if nodeErr != nil {

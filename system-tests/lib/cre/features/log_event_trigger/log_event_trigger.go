@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -50,7 +50,9 @@ func (o *LogEventTrigger) PreEnvStartup(
 				CapabilityType: 0, // TRIGGER
 				ResponseType:   0, // REPORT
 			},
-			Config: &capabilitiespb.CapabilityConfig{},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		})
 	}
 
@@ -61,10 +63,10 @@ func (o *LogEventTrigger) PreEnvStartup(
 
 const configTemplate = `
 {
-	"chainId": "{{.ChainID}}",
+	"chainId": "{{printf "%d" .ChainID}}",
 	"network": "{{.NetworkFamily}}",
-	"lookbackBlocks": {{.LookbackBlocks}},
-	"pollPeriod": {{.PollPeriod}}
+	"lookbackBlocks": {{printf "%d" .LookbackBlocks}},
+	"pollPeriod": {{printf "%d" .PollPeriod}}
 }
 `
 

@@ -546,6 +546,14 @@ PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
+[Sharding]
+ArbiterPort = 9876
+ArbiterPollInterval = '12s'
+ArbiterRetryInterval = '12s'
+ShardIndex = 0
+ShardOrchestratorPort = 50051
+ShardOrchestratorAddress = ''
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

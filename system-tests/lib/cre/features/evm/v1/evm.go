@@ -113,7 +113,9 @@ func (o *EVM) PreEnvStartup(
 				CapabilityType: 3, // TARGET
 				ResponseType:   1, // OBSERVATION_IDENTICAL
 			},
-			Config: &capabilitiespb.CapabilityConfig{},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		})
 	}
 
@@ -378,8 +380,8 @@ type writeEVMData struct {
 const evmWorkflowConfigTemplate = `
 	FromAddress = '{{.FromAddress}}'
 	ForwarderAddress = '{{.ForwarderAddress}}'
-	GasLimitDefault = {{.GasLimitDefault}}
-	TxAcceptanceState = {{.TxAcceptanceState}}
+	GasLimitDefault = {{printf "%v" .GasLimitDefault}}
+	TxAcceptanceState = {{printf "%v" .TxAcceptanceState}}
 	PollPeriod = '{{.PollPeriod}}'
 	AcceptanceTimeout = '{{.AcceptanceTimeout}}'
 `

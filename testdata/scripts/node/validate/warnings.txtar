@@ -427,6 +427,14 @@ PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
+[Sharding]
+ArbiterPort = 9876
+ArbiterPollInterval = '12s'
+ArbiterRetryInterval = '12s'
+ShardIndex = 0
+ShardOrchestratorPort = 50051
+ShardOrchestratorAddress = ''
+
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'
 Valid configuration.
