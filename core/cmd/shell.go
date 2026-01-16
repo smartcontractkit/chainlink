@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -69,7 +70,7 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-func MetricViews() []sdkmetric.View {
+func metricViews() []sdkmetric.View {
 	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews())
 }
 
@@ -128,7 +129,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
 				// note: due to the OTEL specification, all histogram buckets
 				// must be defined when the beholder client is created
-				MetricViews: MetricViews(),
+				MetricViews: metricViews(),
 			}
 
 			if tracingCfg.Enabled {
