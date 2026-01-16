@@ -84,19 +84,16 @@ func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json
 			nopName = "cl-mercury"
 		default:
 			parts := strings.Split(nodeName, "-")
-			if len(parts) > 0 {
-				lastPart := parts[len(parts)-1]
-				// if the last part is a number, we take the one before it, due to the following naming conventions in
-				// the mainnet state file:
-				// - bootstrap-<nop-name>-0
-				// - readwriter_2-node-<nop-name>
-				if _, err := strconv.Atoi(lastPart); err == nil && len(parts) > 1 {
-					nopName = parts[len(parts)-2]
-				} else {
-					nopName = lastPart
-				}
+			// strings.Split always returns at least one element
+			lastPart := parts[len(parts)-1]
+			// if the last part is a number, we take the one before it, due to the following naming conventions in
+			// the mainnet state file:
+			// - bootstrap-<nop-name>-0
+			// - readwriter_2-node-<nop-name>
+			if _, err := strconv.Atoi(lastPart); err == nil && len(parts) > 1 {
+				nopName = parts[len(parts)-2]
 			} else {
-				nopName = nodeName
+				nopName = lastPart
 			}
 		}
 
