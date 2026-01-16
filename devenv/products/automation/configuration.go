@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -27,7 +26,7 @@ import (
 var L = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel).With().Fields(map[string]any{"component": "automation"}).Logger()
 
 type Configurator struct {
-	Automation *Automation `toml:"automation"`
+	Config []*Automation `toml:"automation"`
 }
 
 type Automation struct {
@@ -39,13 +38,36 @@ type Automation struct {
 	PluginConfig PluginConfig `toml:"PluginConfig"`
 	PublicConfig PublicConfig `toml:"PublicConfig"`
 
+	CLNodesFundingETH  float64 `toml:"cl_nodes_funding_eth"`
+	CLNodesFundingLink float64 `toml:"cl_nodes_funding_link"`
+
+	GasSettings *products.GasSettings `toml:"gas_settings"`
+
+	DeployedContracts DeployedContracts `toml:"deployed_contracts"`
+
 	//TODO add fields from EVMConfigData
 }
 
+type DeployedContracts struct {
+	LinkToken   string   `toml:"link_token"`
+	Weth        string   `toml:"weth"`
+	LinkEthFeed string   `toml:"link_eth_feed"`
+	EthGasFeed  string   `toml:"eth_gas_feed"`
+	EthUSDFeed  string   `toml:"eth_usd_feed"`
+	LinkUSDFeed string   `toml:"link_usd_feed"`
+	Transcoder  string   `toml:"transcoder"`
+	ChainModule string   `toml:"chain_module"`
+	Registry    string   `toml:"registry"`
+	Registrar   string   `toml:"registrar"`
+	MultiCall   string   `toml:"multi_call"`
+	Upkeeps     []string `toml:"upkeeps"`
+}
+
 type MercurySettings struct {
-	MercuryVersion *string `toml:"mercuryVersion"`
-	FakeEndpoint   string  `toml:"fakeEndpoint"`
-	FakePort       uint    `toml:"fakePort"`
+	MercuryVersion  *string `toml:"mercuryVersion"`
+	CredentialsName string  `toml:"credentialsName"`
+	FakeEndpoint    string  `toml:"fakeEndpoint"`
+	FakePort        uint    `toml:"fakePort"`
 }
 
 type HeadTrackerData struct {
@@ -114,7 +136,7 @@ func (m *Configurator) Load() error {
 	if err != nil {
 		return fmt.Errorf("failed to load product config: %w", err)
 	}
-	m.Automation = cfg.Automation
+	m.Config = cfg.Config
 	return nil
 }
 
@@ -245,30 +267,32 @@ HttpUrl = '{{.HttpUrl}}'
 }
 
 func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context) (string, error) {
-	if m.Automation.MercuryVersion == nil {
+	if m.Config[0].MercuryVersion == nil {
 		L.Info().Msg("Skipping CL nodes secrets configuration")
 		return "", nil
 	}
 
 	L.Info().Msg("Applying default CL nodes secrets configuration")
 	mercurySecretsTemplate := `
-	[Mercury.Credentials.cred1]
+	[Mercury.Credentials.{{.CredentialsName}}]
 	LegacyURL = '{{.URL}}'
 	URL = '{{.URL}}'
 	Username = 'node'
 	Password = 'nodepass'`
 
 	type data struct {
-		URL string
+		CredentialsName string
+		URL             string
 	}
 
-	u, err := url.JoinPath(framework.HostDockerInternal(), m.Automation.MercuryVersion.FakeEndpoint)
+	u, err := url.JoinPath(framework.HostDockerInternal(), m.Config[0].MercuryVersion.FakeEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to join URL path: %w", err)
 	}
 
 	d := data{
-		URL: u,
+		URL:             u,
+		CredentialsName: m.Config[0].MercuryVersion.CredentialsName,
 	}
 
 	tmpl, err := template.New("secrets").Parse(mercurySecretsTemplate)
@@ -296,7 +320,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	if err != nil {
 		return err
 	}
-	pkey := getNetworkPrivateKey()
+	pkey := products.NetworkPrivateKey()
 	if pkey == "" {
 		return errors.New("PRIVATE_KEY environment variable not set")
 	}
@@ -315,45 +339,39 @@ func (m *Configurator) ConfigureJobsAndContracts(
 			Str("ETH", addr.Attributes.Address).
 			Msg("Node info")
 	}
+
 	bcNode := bc.Out.Nodes[0]
-	c, auth, rootAddr, err := ETHClient(
+	c, auth, rootAddr, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
 		m.Config[0].GasSettings.FeeCapMultiplier,
 		m.Config[0].GasSettings.TipCapMultiplier,
 	)
+
+	_ = auth
+	_ = rootAddr
+
 	if err != nil {
 		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
 	for _, addr := range ethKeyAddresses {
-		if cErr := FundNodeEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
+		if cErr := products.FundNodeEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
 			return cErr
 		}
 	}
-	ocrv2Config, ocr2Addr, err := m.configureContracts(
-		ctx,
-		c,
-		auth,
-		cl,
-		rootAddr,
-		transmitters,
-		m.Config[0].CLNodesFundingLink,
-	)
-	if err != nil {
-		return err
-	}
-	m.Config[0].OCR2SetConfigOut = ocrv2Config
-	if cErr := m.configureJobs(ctx, fake, bc, ns, cl, ocr2Addr); cErr != nil {
-		return cErr
-	}
-	r := resty.New().SetBaseURL(fake.Out.BaseURLHost)
 
-	_, err = r.R().Post(`/trigger_deviation?result=200`)
-	if err != nil {
-		return fmt.Errorf("could not set ea fake values: %w", err)
+	// TODO: create Seth client
+
+	autoTest := &AutomationTest{
+		ChainClient:            chainClient,
+		Config:                 *m.Config[0],
+		ChainlinkNodes:         cl,
+		IsOnk8s:                false,
+		TransmitterKeyIndex:    0,
+		UpkeepPrivilegeManager: chainClient.MustGetRootKeyAddress(),
+		mercuryCredentialName:  "",
+		Logger:                 L,
 	}
-	L.Info().
-		Msg("Setting fake external adapter (data feed) values")
-	m.Config[0].DeployedContracts = &DeployedContracts{OCRv2AggregatorAddr: ocr2Addr}
-	return nil
+
+	return autoTest.setupDeployment(true)
 }

@@ -1,4 +1,4 @@
-package ocr2
+package products
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,14 +16,29 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
-
-	"github.com/smartcontractkit/chainlink/devenv/products"
 )
 
 const (
 	AnvilKey0                     = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	DefaultNativeTransferGasPrice = 21000
 )
+
+// WaitMinedFast is a method for Anvil's instant blocks mode to ovecrome bind.WaitMined ticker hardcode.
+func WaitMinedFast(ctx context.Context, b bind.DeployBackend, txHash common.Hash) (*types.Receipt, error) {
+	queryTicker := time.NewTicker(5 * time.Millisecond)
+	defer queryTicker.Stop()
+	for {
+		receipt, err := b.TransactionReceipt(ctx, txHash)
+		if err == nil {
+			return receipt, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-queryTicker.C:
+		}
+	}
+}
 
 // FundNodeEIP1559 funds CL node using RPC URL, recipient address and amount of funds to send (ETH).
 // Uses EIP-1559 transaction type.
@@ -78,7 +94,7 @@ func FundNodeEIP1559(ctx context.Context, c *ethclient.Client, pkey, recipientAd
 	if err != nil {
 		return err
 	}
-	if _, err := products.WaitMinedFast(context.Background(), c, signedTx.Hash()); err != nil {
+	if _, err := WaitMinedFast(context.Background(), c, signedTx.Hash()); err != nil {
 		return err
 	}
 	l.Info().Str("Wei", amountWei.String()).Msg("Funded with ETH")
@@ -92,7 +108,7 @@ func ETHClient(ctx context.Context, rpcURL string, feeCapMult int64, tipCapMult 
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("could not connect to eth client: %w", err)
 	}
-	privateKey, err := crypto.HexToECDSA(getNetworkPrivateKey())
+	privateKey, err := crypto.HexToECDSA(NetworkPrivateKey())
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("could not parse private key: %w", err)
 	}
@@ -133,7 +149,7 @@ func multiplyEIP1559GasPrices(client *ethclient.Client, fcMult, tcMult int64) (*
 	return new(big.Int).Mul(feeCap, big.NewInt(fcMult)), new(big.Int).Mul(tipCap, big.NewInt(tcMult)), nil
 }
 
-func getNetworkPrivateKey() string {
+func NetworkPrivateKey() string {
 	pk := os.Getenv("PRIVATE_KEY")
 	if pk == "" {
 		// that's the first Anvil and Geth private key, serves as a fallback for local testing if not overridden

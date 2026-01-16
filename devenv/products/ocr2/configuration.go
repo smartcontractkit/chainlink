@@ -26,7 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/latest/link_token"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -54,17 +54,12 @@ type OCR2 struct {
 	CLNodesFundingLink       float64                `toml:"cl_nodes_funding_link"`
 	ChainFinalityDepth       int64                  `toml:"chain_finality_depth"`
 	VerificationTimeoutSec   int64                  `toml:"verification_timeout_sec"`
-	GasSettings              *GasSettings           `toml:"gas_settings"`
+	GasSettings              *products.GasSettings  `toml:"gas_settings"`
 	DeployedContracts        *DeployedContracts     `toml:"deployed_contracts"`
 }
 
 type DeployedContracts struct {
 	OCRv2AggregatorAddr string `toml:"ocr2_aggregator_address"`
-}
-
-type GasSettings struct {
-	FeeCapMultiplier int64 `toml:"fee_cap_multiplier"`
-	TipCapMultiplier int64 `toml:"tip_cap_multiplier"`
 }
 
 type MedianOffchainConfig struct {
@@ -227,7 +222,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	if err != nil {
 		return err
 	}
-	pkey := getNetworkPrivateKey()
+	pkey := products.NetworkPrivateKey()
 	if pkey == "" {
 		return errors.New("PRIVATE_KEY environment variable not set")
 	}
@@ -247,7 +242,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 			Msg("Node info")
 	}
 	bcNode := bc.Out.Nodes[0]
-	c, auth, rootAddr, err := ETHClient(
+	c, auth, rootAddr, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
 		m.Config[0].GasSettings.FeeCapMultiplier,
@@ -257,7 +252,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
 	for _, addr := range ethKeyAddresses {
-		if cErr := FundNodeEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
+		if cErr := products.FundNodeEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
 			return cErr
 		}
 	}
@@ -329,7 +324,7 @@ func UpdateOCR2ConfigOffChainValues(ctx context.Context, bc *blockchain.Input, o
 	if o2 == nil {
 		return nil
 	}
-	c, auth, _, err := ETHClient(
+	c, auth, _, err := products.ETHClient(
 		ctx,
 		bc.Out.Nodes[0].ExternalHTTPUrl,
 		o.GasSettings.FeeCapMultiplier,
