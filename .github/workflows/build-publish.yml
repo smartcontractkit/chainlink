@@ -55,8 +55,9 @@ jobs:
 
   docker-core:
     needs: [checks]
-    # No need to build the final image as we promote the last RC to use the final tag.
-    if: needs.checks.outputs.git-tag-type == 'core' && needs.checks.outputs.is-release == 'false'
+    # No need to build the final image as we promote the last RC to use the final tag
+    # so we only run the builds for pre-releases.
+    if: needs.checks.outputs.git-tag-type == 'core' && needs.checks.outputs.is-pre-release == 'true'
     permissions:
       contents: read
       id-token: write
@@ -124,7 +125,7 @@ jobs:
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
   slack-notify-prereleases:
-    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success') && needs.checks.outputs.is-release == 'false'
+    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success') && needs.checks.outputs.is-pre-release == 'true'
     needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     with:
