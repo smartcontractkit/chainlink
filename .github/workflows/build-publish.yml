@@ -144,10 +144,10 @@ jobs:
           format(
             'public.ecr.aws/{0}:{1}',
             needs.checks.outputs.ecr-image-name,
-            needs.docker-core.result == 'success' && needs.docker-core.outputs.docker-manifest-tag || needs.docker-ccip.outputs.docker-manifest-tag
+            needs.docker-core.outputs.docker-manifest-tag || needs.docker-ccip.outputs.docker-manifest-tag
           )
         }}
       docker-image-digest: >-
         ${{
-          needs.docker-core.result == 'success' && needs.docker-core.outputs.docker-manifest-digest || needs.docker-ccip.outputs.docker-manifest-digest
+          needs.docker-core.outputs.docker-manifest-digest || needs.docker-ccip.outputs.docker-manifest-digest
         }}
