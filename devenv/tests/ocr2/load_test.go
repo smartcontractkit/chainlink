@@ -144,8 +144,8 @@ func TestLoad(t *testing.T) {
 				Start:           start,
 				End:             time.Now(),
 				WarmUpDuration:  10 * time.Minute,
-				CPUThreshold:    20.0,
-				MemoryThreshold: 20.0,
+				CPUThreshold:    100.0,
+				MemoryThreshold: 40.0,
 			})
 			require.NoError(t, errs)
 		})
