@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	streams "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/streams"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -114,6 +116,9 @@ func (c TransmitterConfig) newTransmitter(lggr logger.Logger) (*transmitter, err
 }
 
 func (t *transmitter) start(ctx context.Context) error {
+	t.eng.Infow("CRETransmitter starting, registering capability",
+		"capabilityID", t.ID,
+		"donID", t.config.DonID)
 	return t.registry.Add(ctx, t)
 }
 
@@ -184,22 +189,49 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	}
 	t.lastReportMs = tsMs
 	alignedTsMs := tsMs - tsMs%uint64(t.config.TriggerTickerMinResolutionMs) //nolint:gosec // disable G115
-	o, err := event.ToMap()
-	if err != nil {
-		return fmt.Errorf("failed to convert OCRTriggerEvent to map: %w", err)
+
+	// Convert OCRTriggerEvent to streams.Report proto (V2 format)
+	// This allows the workflow SDK to properly deserialize the trigger event
+	streamsReport := &streams.Report{
+		ConfigDigest: event.ConfigDigest,
+		SeqNr:        event.SeqNr,
+		Report:       event.Report,
+		Sigs:         make([]*streams.OCRSignature, len(event.Sigs)),
 	}
+	for i, sig := range event.Sigs {
+		streamsReport.Sigs[i] = &streams.OCRSignature{
+			Signer:    sig.Signer,
+			Signature: sig.Signature,
+		}
+	}
+
+	// Wrap in anypb.Any for V2 proto format - this goes in Event.Payload
+	payload, err := anypb.New(streamsReport)
+	if err != nil {
+		return fmt.Errorf("failed to wrap streams.Report in anypb.Any: %w", err)
+	}
+
+	// Also keep backward compatibility with V1 format using Outputs
+	o, mapErr := event.ToMap()
+	if mapErr != nil {
+		t.eng.Warnw("failed to convert OCRTriggerEvent to map (V1 compat)", "error", mapErr)
+	}
+
 	capResponse := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
 			TriggerType: t.ID,
 			ID:          p.EventID,
-			Outputs:     o,
+			Payload:     payload, // V2 format: proto wrapped in anypb.Any
+			Outputs:     o,       // V1 format: values.Map (for backward compat)
 		},
 	}
 
-	t.eng.Debugw("ProcessReport pushing event", "eventID", p.EventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs)
+	t.eng.Debugw("ProcessReport pushing event", "eventID", p.EventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers))
 	nIncludedSubscribers := 0
 	for _, sub := range t.subscribers {
-		if alignedTsMs%sub.config.MaxFrequencyMs == 0 {
+		// Handle case where MaxFrequencyMs is 0 (default/unset) - treat as "include every report"
+		includeByFrequency := sub.config.MaxFrequencyMs == 0 || alignedTsMs%sub.config.MaxFrequencyMs == 0
+		if includeByFrequency {
 			// include this subscriber
 			select {
 			case sub.ch <- capResponse:
@@ -236,6 +268,14 @@ func (t *transmitter) RegisterTrigger(ctx context.Context, req capabilities.Trig
 			workflowID: req.Metadata.WorkflowID,
 			config:     *config,
 		}
+
+	t.eng.Infow("RegisterTrigger: subscriber added",
+		"triggerID", req.TriggerID,
+		"workflowID", req.Metadata.WorkflowID,
+		"streamIDs", config.StreamIDs,
+		"maxFrequencyMs", config.MaxFrequencyMs,
+		"totalSubscribers", len(t.subscribers))
+
 	return ch, nil
 }
 
@@ -260,5 +300,11 @@ func (t *transmitter) UnregisterTrigger(ctx context.Context, req capabilities.Tr
 	}
 	close(subscriber.ch)
 	delete(t.subscribers, req.TriggerID)
+
+	t.eng.Infow("UnregisterTrigger: subscriber removed",
+		"triggerID", req.TriggerID,
+		"workflowID", subscriber.workflowID,
+		"remainingSubscribers", len(t.subscribers))
+
 	return nil
 }

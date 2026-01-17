@@ -15,6 +15,7 @@ import (
 	mock_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/mock"
 	read_contract_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/read_contract"
 	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana"
+	streams_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/streams_trigger"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	web_api_target_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/web_api_target"
 	web_api_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/web_api_trigger"
@@ -34,6 +35,7 @@ func New() cre.Features {
 		&log_event_trigger_feature.LogEventTrigger{},
 		&mock_feature.Mock{},
 		&read_contract_feature.ReadContract{},
+		&streams_trigger_feature.StreamsTrigger{},
 		&web_api_target_feature.WebAPITarget{},
 		&web_api_trigger_feature.WebAPITrigger{},
 		&vault_feature.Vault{},

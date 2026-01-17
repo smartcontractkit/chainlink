@@ -1,0 +1,180 @@
+# ============================================================================
+# STREAMS DON-to-DON E2E Configuration
+# ============================================================================
+#
+# This configuration sets up TWO DONs that communicate via capability registry:
+#
+# 1. WORKFLOW DON - Consumes streams-trigger@2.0.0
+#    - don_types = ["workflow"]
+#    - Runs consumer workflows that subscribe to streams-trigger
+#
+# 2. STREAMS DON (Capabilities) - Produces streams-trigger@2.0.0
+#    - don_types = ["capabilities"]
+#    - exposes_remote_capabilities = true  <-- KEY: This enables cross-DON sharing
+#    - Runs LLO plugin, exposes streams-trigger to other DONs
+#
+# Data Flow:
+#   Mock EA → Streams DON (LLO) → streams-trigger@2.0.0 → Workflow DON
+#
+# The capability registry (on-chain) enables the Workflow DON to discover
+# and subscribe to capabilities exposed by the Streams DON.
+#
+# Usage:
+#   # First start mock EA
+#   docker run -d --name mock-ea -p 8080:8080 mock-ea:latest
+#
+#   # Then start the DON-to-DON environment
+#   CTF_CONFIGS=configs/streams-don-to-don-e2e.toml go run . env start --auto-setup
+#
+# ============================================================================
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.22.1"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+# ============================================================================
+# WORKFLOW DON - Consumes streams-trigger@2.0.0 from Streams DON
+# ============================================================================
+# This DON runs workflows. When a workflow subscribes to streams-trigger@2.0.0,
+# the capability registry routes the request to the Streams DON.
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337]
+
+  env_vars = { CL_EVM_CMD = "" }
+  
+  # Standard workflow capabilities - NOTE: streams-trigger is NOT listed here
+  # because it comes from the remote Streams DON
+  # NOTE: custom-compute removed due to known bug in local CRE framework
+  capabilities = ["ocr3", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+    read-contract = ["1337"]
+    evm = ["1337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+# ============================================================================
+# STREAMS DON (Capabilities) - Exposes streams-trigger@2.0.0
+# ============================================================================
+# This is a CAPABILITIES DON that runs LLO and exposes streams-trigger.
+# The key setting is: exposes_remote_capabilities = true
+# This allows the Workflow DON to discover and use this capability.
+
+[[nodesets]]
+  nodes = 4
+  name = "streams"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true  # <-- KEY: Enables cross-DON capability sharing
+  override_mode = "all"
+  http_port_range_start = 10200
+
+  # Need same chain for capability registry communication
+  supported_evm_chains = [1337]
+
+  env_vars = { CL_EVM_CMD = "" }
+  
+  # This DON exposes the streams-trigger capability
+  # The streams-trigger feature registers it in the on-chain capability registry
+  # The mock capability allows us to create a mock implementation for testing
+  # NOTE: custom-compute removed due to known bug in local CRE framework
+  capabilities = ["ocr3", "streams-trigger", "mock"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+    read-contract = ["1337"]
+    evm = ["1337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  # Per-node configuration to expose unique mock capability ports
+  # Note: override_mode = "each" would be better here, but for simplicity 
+  # we use "all" and the test uses internal Docker network addresses
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+# ============================================================================
+# BOOTSTRAP + GATEWAY NODE
+# ============================================================================
+# Shared bootstrap and gateway for both DONs.
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  supported_evm_chains = [1337]
+
+  env_vars = { CL_EVM_CMD = "" }
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["5002:5002", "15002:15002"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+'''

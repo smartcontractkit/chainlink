@@ -38,3 +38,7 @@ state/
 bun.lock
 package.json
 *.js
+
+# Compiled WASM artifacts
+*.wasm
+*.wasm.br

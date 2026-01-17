@@ -127,3 +127,11 @@
 
 [capability_configs.mock.config]
   Port = 7777  # Default port for mock service
+
+[capability_configs.streams-trigger]
+  # No binary_path needed - this is a built-in capability integrated into the LLO transmitter
+
+[capability_configs.streams-trigger.config]
+  # Streams LLO NoDAG Trigger configuration
+  # This capability is built into the chainlink node and enabled when LLO plugin is configured
+  # No additional config needed - streams are configured via LLO plugin job spec
