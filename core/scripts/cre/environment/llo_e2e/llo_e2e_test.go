@@ -211,8 +211,8 @@ func TestLLOStreamsE2E(t *testing.T) {
 	// Count how many reports have the correct value
 	matchCount := 0
 	for i, report := range reports {
-		t.Logf("  Report %d: SeqNr=%d, Value=%d, Expected=%d, Match=%v",
-			i+1, report.SeqNr, report.Value, report.Expected, report.Match)
+		t.Logf("  Report %d: SeqNr=%d, Value=%d, Expected=%d, Match=%v, Sigs=%d",
+			i+1, report.SeqNr, report.Value, report.Expected, report.Match, report.Sigs)
 		require.Greater(t, report.SeqNr, 0, "SeqNr should be > 0")
 
 		if report.Value == MAGIC_NUMBER {
@@ -262,6 +262,7 @@ type ValueReport struct {
 	Value    int
 	Expected int
 	Match    bool
+	Sigs     int // Number of signatures on the report
 	Raw      string
 }
 
@@ -288,8 +289,8 @@ func waitForValueReports(ctx context.Context, t *testing.T, timeout time.Duratio
 					if !seenSeqNrs[report.SeqNr] {
 						seenSeqNrs[report.SeqNr] = true
 						reports = append(reports, report)
-						t.Logf("Found LLO_E2E_VALUE: SeqNr=%d Value=%d Match=%v",
-							report.SeqNr, report.Value, report.Match)
+						t.Logf("Found LLO_E2E_VALUE: SeqNr=%d Value=%d Match=%v Sigs=%d",
+							report.SeqNr, report.Value, report.Match, report.Sigs)
 					}
 				}
 			}
@@ -317,7 +318,7 @@ func waitForValueReports(ctx context.Context, t *testing.T, timeout time.Duratio
 }
 
 // parseValueReport parses a LLO_E2E_VALUE log line
-// Format: LLO_E2E_VALUE[SeqNr=N]: Value=424242 Expected=424242 Match=true
+// Format: LLO_E2E_VALUE[SeqNr=N]: Value=424242 Expected=424242 Match=true Sigs=3
 func parseValueReport(line string) ValueReport {
 	report := ValueReport{Raw: line}
 
@@ -342,6 +343,11 @@ func parseValueReport(line string) ValueReport {
 	// Extract Match
 	if strings.Contains(line, "Match=true") {
 		report.Match = true
+	}
+
+	// Extract Sigs (signature count)
+	if idx := strings.Index(line, "Sigs="); idx != -1 {
+		fmt.Sscanf(line[idx+5:], "%d", &report.Sigs)
 	}
 
 	return report
@@ -391,7 +397,7 @@ func TestLLOStreamsE2E_QuickVerify(t *testing.T) {
 	showCount := 0
 	for i, report := range reports {
 		if i < 3 || i >= len(reports)-2 {
-			t.Logf("    Report %d: SeqNr=%d, Value=%d, Match=%v", i+1, report.SeqNr, report.Value, report.Match)
+			t.Logf("    Report %d: SeqNr=%d, Value=%d, Match=%v, Sigs=%d", i+1, report.SeqNr, report.Value, report.Match, report.Sigs)
 			showCount++
 		} else if i == 3 && len(reports) > 5 {
 			t.Logf("    ... (%d more reports) ...", len(reports)-5)
