@@ -42,9 +42,14 @@ const (
 	workflowPortStart = 10100
 	streamsDonID      = uint32(2)
 
-	// MAGIC_NUMBER must match the value in mock_ea/main.go
-	// If this number appears in workflow logs, it proves full E2E connectivity
-	MAGIC_NUMBER = 424242
+	// Magic numbers for both report formats - must match mock_ea/main.go
+	// If these numbers appear in workflow logs, it proves full E2E connectivity
+	// MAGIC_NUMBER_FORMAT5 is for ReportFormat 5 (CapabilityTrigger) - Stream 1 (TEST/USD)
+	MAGIC_NUMBER_FORMAT5 = 424242
+	// MAGIC_NUMBER_FORMAT7 is for ReportFormat 7 (EVMABIEncodeUnpackedExpr) - Stream 4 (DATA/USD)
+	MAGIC_NUMBER_FORMAT7 = 555555
+	// MAGIC_NUMBER is an alias for FORMAT5 for backward compatibility
+	MAGIC_NUMBER = MAGIC_NUMBER_FORMAT5
 )
 
 var (
@@ -646,40 +651,67 @@ func createBridges(ctx context.Context, nodeInfos []NodeInfo) error {
 }
 
 func deployStreamJobs(ctx context.Context, nodeInfos []NodeInfo) error {
-	// Stream job that fetches TEST/USD price from mock EA
-	// The EA returns magic_number: 424242 in its response to prove E2E connectivity
-	streamJobSpec := `
+	// Define all stream jobs for both report formats:
+	//
+	// Channel 1 (ReportFormat 5 - CapabilityTrigger):
+	//   - Stream 1: TEST/USD → MAGIC_NUMBER_FORMAT5 (424242)
+	//
+	// Channel 2 (ReportFormat 7 - EVMABIEncodeUnpackedExpr):
+	//   - Stream 2: NATIVE/USD (fee stream for native token)
+	//   - Stream 3: LINK/USD (fee stream for LINK)
+	//   - Stream 4: DATA/USD → MAGIC_NUMBER_FORMAT7 (555555)
+	//
+	streamJobs := []struct {
+		name     string
+		streamID int
+		base     string
+		quote    string
+	}{
+		// Format 5 data stream
+		{"test-usd-stream", 1, "TEST", "USD"},
+		// Format 7 fee streams (required)
+		{"native-usd-stream", 2, "NATIVE", "USD"},
+		{"link-usd-stream", 3, "LINK", "USD"},
+		// Format 7 data stream
+		{"data-usd-stream", 4, "DATA", "USD"},
+	}
+
+	for _, node := range nodeInfos {
+		info("Deploying %d stream jobs on node%d...", len(streamJobs), node.Index)
+
+		for _, job := range streamJobs {
+			// First delete existing stream job to ensure fresh config
+			deleteStreamJob(node, job.name)
+
+			streamJobSpec := fmt.Sprintf(`
 type = "stream"
 schemaVersion = 1
-name = "test-usd-stream"
-streamID = 1
+name = "%s"
+streamID = %d
 observationSource = """
-    price [type=bridge name="mock-ea-bridge" requestData=<{"data": {"base": "TEST", "quote": "USD"}}>]
+    price [type=bridge name="mock-ea-bridge" requestData=<{"data": {"base": "%s", "quote": "%s"}}>]
     parse [type=jsonparse path="result"]
     price -> parse
 """
-`
-	for _, node := range nodeInfos {
-		// First delete existing stream job to ensure fresh config
-		deleteStreamJob(node, "test-usd-stream")
+`, job.name, job.streamID, job.base, job.quote)
 
-		info("Deploying stream job on node%d...", node.Index)
-		jobSpec := map[string]string{"toml": streamJobSpec}
-		jobJSON, _ := json.Marshal(jobSpec)
-		req, _ := http.NewRequest("POST", fmt.Sprintf("http://localhost:%d/v2/jobs", node.Port), bytes.NewReader(jobJSON))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Cookie", "clsession="+node.Cookie)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return err
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		// Check for success or duplicate (already exists, duplicate key)
-		bodyStr := string(body)
-		if resp.StatusCode != 200 && resp.StatusCode != 201 {
-			if !strings.Contains(bodyStr, "already exists") && !strings.Contains(bodyStr, "duplicate key") {
-				return fmt.Errorf("stream job failed on node %d: %s", node.Index, body)
+			jobSpec := map[string]string{"toml": streamJobSpec}
+			jobJSON, _ := json.Marshal(jobSpec)
+			req, _ := http.NewRequest("POST", fmt.Sprintf("http://localhost:%d/v2/jobs", node.Port), bytes.NewReader(jobJSON))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Cookie", "clsession="+node.Cookie)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return err
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			// Check for success or duplicate (already exists, duplicate key)
+			bodyStr := string(body)
+			if resp.StatusCode != 200 && resp.StatusCode != 201 {
+				if !strings.Contains(bodyStr, "already exists") && !strings.Contains(bodyStr, "duplicate key") {
+					return fmt.Errorf("stream job %s failed on node %d: %s", job.name, node.Index, body)
+				}
 			}
 		}
 	}
@@ -798,13 +830,29 @@ pluginType = "llo"
 transmitterID = "%s"
 
 [pluginConfig]
-# ReportFormat 5 = ReportFormatCapabilityTrigger (for CRE)
+# Channel Definitions for E2E test with both report formats:
+# - Channel 1: ReportFormat 5 (CapabilityTrigger) - Stream 1 (TEST/USD) → MAGIC 424242
+# - Channel 2: ReportFormat 7 (EVMABIEncodeUnpackedExpr) - Streams 2,3,4 → MAGIC 555555
 channelDefinitions = """
 {
   "1": {
     "reportFormat": 5,
     "streams": [{"streamId": 1, "aggregator": "median"}],
     "opts": {}
+  },
+  "2": {
+    "reportFormat": 7,
+    "streams": [
+      {"streamId": 2, "aggregator": "median"},
+      {"streamId": 3, "aggregator": "median"},
+      {"streamId": 4, "aggregator": "median"}
+    ],
+    "opts": {
+      "feedId": "0x0001000000000000000000000000000000000000000000000000000000000001",
+      "baseUSDFee": "0.1",
+      "expirationWindow": 3600,
+      "abi": [{"type": "int192"}]
+    }
   }
 }
 """

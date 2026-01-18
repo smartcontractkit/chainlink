@@ -34,8 +34,14 @@ import (
 	"time"
 )
 
-// MAGIC_NUMBER is embedded in every EA response to prove E2E connectivity
-const MAGIC_NUMBER = 424242
+// Magic numbers embedded in EA responses to prove E2E connectivity
+// Different streams return different magic numbers to verify both report formats
+const (
+	// MAGIC_NUMBER_FORMAT5 is returned for Stream 1 (TEST/USD) - ReportFormat 5 (CapabilityTrigger)
+	MAGIC_NUMBER_FORMAT5 = 424242
+	// MAGIC_NUMBER_FORMAT7 is returned for Stream 4 (DATA/USD) - ReportFormat 7 (EVMABIEncodeUnpackedExpr)
+	MAGIC_NUMBER_FORMAT7 = 555555
+)
 
 // Config holds the adapter configuration
 type Config struct {
@@ -112,9 +118,22 @@ func loadConfig() Config {
 	config := Config{
 		Port: getEnv("PORT", "8080"),
 		Prices: map[string]float64{
-			// TEST/USD returns MAGIC_NUMBER (424242) for E2E verification
-			// If this value appears in workflow logs, it proves full end-to-end data flow
-			"TEST/USD": float64(MAGIC_NUMBER),
+			// ============================================================
+			// Format 5 (CapabilityTrigger) - Stream 1
+			// ============================================================
+			// TEST/USD returns MAGIC_NUMBER_FORMAT5 (424242)
+			"TEST/USD": float64(MAGIC_NUMBER_FORMAT5),
+
+			// ============================================================
+			// Format 7 (EVMABIEncodeUnpackedExpr) - Streams 2, 3, 4
+			// ============================================================
+			// Format 7 requires fee streams as first two streams:
+			// - Stream 2: NATIVE/USD (for native fee calculation)
+			// - Stream 3: LINK/USD (for LINK fee calculation)
+			// - Stream 4+: Data streams (DATA/USD returns MAGIC_NUMBER_FORMAT7)
+			"NATIVE/USD": 3000.00,                       // Native token price (e.g., ETH)
+			"LINK/USD":   15.00,                         // LINK price for fees
+			"DATA/USD":   float64(MAGIC_NUMBER_FORMAT7), // Data stream with magic number (555555)
 		},
 		Volatility: 0, // No volatility - exact match required
 		LogLevel:   getEnv("LOG_LEVEL", "info"),
@@ -167,13 +186,22 @@ func (s *PriceServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Log the request
 	s.logRequest(pair, price, req.ID)
 
-	// Send successful response with MAGIC_NUMBER for E2E verification
+	// Send successful response with magic number for E2E verification
+	// Different pairs return different magic numbers to verify both report formats
+	magicNumber := 0
+	switch pair {
+	case "TEST/USD":
+		magicNumber = MAGIC_NUMBER_FORMAT5 // 424242 - for Format 5
+	case "DATA/USD":
+		magicNumber = MAGIC_NUMBER_FORMAT7 // 555555 - for Format 7
+	}
+
 	response := EAResponse{
 		JobRunID: req.ID,
 		Data: map[string]interface{}{
 			"result":       price,
 			"pair":         pair,
-			"magic_number": MAGIC_NUMBER, // This proves E2E connectivity when seen in workflow logs
+			"magic_number": magicNumber, // This proves E2E connectivity when seen in workflow logs
 		},
 		Result:     price,
 		StatusCode: http.StatusOK,
@@ -216,28 +244,36 @@ func (s *PriceServer) extractPair(data map[string]interface{}) string {
 func (s *PriceServer) streamIDToPair(streamID interface{}) string {
 	// Map stream IDs to trading pairs
 	// This matches the channel definitions in the LLO job spec
+	//
+	// Channel 1 (Format 5 - CapabilityTrigger):
+	//   Stream 1: TEST/USD → MAGIC_NUMBER_FORMAT5 (424242)
+	//
+	// Channel 2 (Format 7 - EVMABIEncodeUnpackedExpr):
+	//   Stream 2: NATIVE/USD (fee stream)
+	//   Stream 3: LINK/USD (fee stream)
+	//   Stream 4: DATA/USD → MAGIC_NUMBER_FORMAT7 (555555)
 	switch id := streamID.(type) {
 	case float64:
 		switch int(id) {
 		case 1:
-			return "BTC/USD"
+			return "TEST/USD" // Format 5 data stream
 		case 2:
-			return "ETH/USD"
+			return "NATIVE/USD" // Format 7 fee stream (native)
 		case 3:
-			return "LINK/USD"
+			return "LINK/USD" // Format 7 fee stream (LINK)
 		case 4:
-			return "SOL/USD"
-		case 5:
-			return "AVAX/USD"
+			return "DATA/USD" // Format 7 data stream
 		}
 	case string:
 		switch id {
 		case "1":
-			return "BTC/USD"
+			return "TEST/USD"
 		case "2":
-			return "ETH/USD"
+			return "NATIVE/USD"
 		case "3":
 			return "LINK/USD"
+		case "4":
+			return "DATA/USD"
 		}
 	}
 	return ""

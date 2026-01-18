@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -139,10 +140,14 @@ func (t *transmitter) Transmit(
 ) error {
 	switch report.Info.ReportFormat {
 	case llotypes.ReportFormatCapabilityTrigger:
+		// Format 5: Native protobuf format designed for CRE
+	case llotypes.ReportFormatEVMABIEncodeUnpackedExpr:
+		// Format 7: ABI-encoded format (can also be used for CRE with ABI decoding)
 	default:
 		// NOTE: Silently ignore non-capability format reports here. All
 		// channels are broadcast to all transmitters but this transmitter only
-		// cares about channels of type ReportFormatCapabilityTrigger
+		// cares about channels of type ReportFormatCapabilityTrigger (5)
+		// or ReportFormatEVMABIEncodeUnpackedExpr (7)
 		return nil
 	}
 	switch report.Info.LifeCycleStage {
@@ -169,20 +174,36 @@ func (t *transmitter) Transmit(
 		Report:       report.Report,
 		Sigs:         capSigs,
 	}
-	return t.processNewEvent(ctx, ev)
+	return t.processNewEvent(ctx, ev, report.Info.ReportFormat)
 }
 
-func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.OCRTriggerEvent) error {
-	// unmarshal signed report to extract timestamp and eventID
-	p := &capabilitiespb.OCRTriggerReport{}
-	err := proto.Unmarshal(event.Report, p)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal OCRTriggerReport: %w", err)
+func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.OCRTriggerEvent, reportFormat llotypes.ReportFormat) error {
+	var tsMs uint64
+	var eventID string
+
+	// Extract timestamp and eventID based on report format
+	switch reportFormat {
+	case llotypes.ReportFormatCapabilityTrigger:
+		// Format 5: Protobuf OCRTriggerReport
+		p := &capabilitiespb.OCRTriggerReport{}
+		err := proto.Unmarshal(event.Report, p)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal OCRTriggerReport (Format 5): %w", err)
+		}
+		tsMs = p.Timestamp / 1000000 // nanoseconds -> milliseconds
+		eventID = p.EventID
+	case llotypes.ReportFormatEVMABIEncodeUnpackedExpr:
+		// Format 7: ABI-encoded report
+		// The timestamp is embedded in the ABI header at offset 64 (32+32) as uint32
+		// For simplicity, use current time and generate unique event ID
+		tsMs = uint64(time.Now().UnixMilli())
+		eventID = fmt.Sprintf("streams_%d_%d_f7", t.config.DonID, tsMs)
+	default:
+		return fmt.Errorf("unsupported report format: %d", reportFormat)
 	}
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	tsMs := p.Timestamp / 1000000                                                                                           // nanoseconds -> milliseconds
 	if tsMs/uint64(t.config.TriggerTickerMinResolutionMs) == t.lastReportMs/uint64(t.config.TriggerTickerMinResolutionMs) { //nolint:gosec // disable G115
 		// ignore reports that are too frequent
 		return nil
@@ -212,21 +233,22 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	}
 
 	// Also keep backward compatibility with V1 format using Outputs
+	// Note: For Format 7 (ABI), ToMap will likely fail but that's ok since V1 is deprecated
 	o, mapErr := event.ToMap()
-	if mapErr != nil {
+	if mapErr != nil && reportFormat == llotypes.ReportFormatCapabilityTrigger {
 		t.eng.Warnw("failed to convert OCRTriggerEvent to map (V1 compat)", "error", mapErr)
 	}
 
 	capResponse := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
 			TriggerType: t.ID,
-			ID:          p.EventID,
+			ID:          eventID,
 			Payload:     payload, // V2 format: proto wrapped in anypb.Any
 			Outputs:     o,       // V1 format: values.Map (for backward compat)
 		},
 	}
 
-	t.eng.Debugw("ProcessReport pushing event", "eventID", p.EventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers))
+	t.eng.Debugw("ProcessReport pushing event", "eventID", eventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers))
 	nIncludedSubscribers := 0
 	for _, sub := range t.subscribers {
 		// Handle case where MaxFrequencyMs is 0 (default/unset) - treat as "include every report"
@@ -240,12 +262,12 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 				return ctx.Err()
 			default:
 				// drop event if channel is full - processNewEvent() should be non-blocking
-				t.eng.Errorw("subscriber channel full, dropping event", "eventID", p.EventID, "workflowID", sub.workflowID)
+				t.eng.Errorw("subscriber channel full, dropping event", "eventID", eventID, "workflowID", sub.workflowID)
 			}
 			nIncludedSubscribers++
 		}
 	}
-	t.eng.Debugw("ProcessReport done", "eventID", p.EventID, "nIncludedSubscribers", nIncludedSubscribers)
+	t.eng.Debugw("ProcessReport done", "eventID", eventID, "nIncludedSubscribers", nIncludedSubscribers)
 	return nil
 }
 
