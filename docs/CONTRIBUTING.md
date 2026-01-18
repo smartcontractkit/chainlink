@@ -23,6 +23,7 @@ is stable and maintains a high level of coverage
 (even if that is difficult with Go).
 Please write tests for your code and make sure that the existing suite continues to pass.
 If you run into trouble with this, you can always ask for tips in [our Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby).
+> Tip: For a smoother local setup, we recommend using Node.js v18+ and `pnpm` for faster installs and consistent dependency management.
 
 ## Code Style
 
