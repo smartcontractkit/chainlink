@@ -313,7 +313,7 @@ func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.Tr
 	return nil
 }
 
-func (tr *testTrigger) AckEvent(_ context.Context, eventId string) error {
+func (tr *testTrigger) AckEvent(_ context.Context, triggerId string, eventId string) error {
 	tr.eventAckd = true
 	return nil
 }

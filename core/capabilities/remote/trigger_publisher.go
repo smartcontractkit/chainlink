@@ -286,7 +286,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 
 		ctx, cancel := p.stopCh.NewCtx()
 		defer cancel()
-		err = cfg.underlying.AckEvent(ctx, triggerEventID)
+		err = cfg.underlying.AckEvent(ctx, p.capabilityID, triggerEventID)
 		if err != nil {
 			p.lggr.Errorw("failed to AckEvent on underlying trigger capability", "err", err)
 		}

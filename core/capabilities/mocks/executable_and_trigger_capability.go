@@ -23,17 +23,17 @@ func (_m *ExecutableAndTriggerCapability) EXPECT() *ExecutableAndTriggerCapabili
 	return &ExecutableAndTriggerCapability_Expecter{mock: &_m.Mock}
 }
 
-// AckEvent provides a mock function with given fields: ctx, eventId
-func (_m *ExecutableAndTriggerCapability) AckEvent(ctx context.Context, eventId string) error {
-	ret := _m.Called(ctx, eventId)
+// AckEvent provides a mock function with given fields: ctx, triggerId, eventId
+func (_m *ExecutableAndTriggerCapability) AckEvent(ctx context.Context, triggerId string, eventId string) error {
+	ret := _m.Called(ctx, triggerId, eventId)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AckEvent")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, eventId)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, triggerId, eventId)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -48,14 +48,15 @@ type ExecutableAndTriggerCapability_AckEvent_Call struct {
 
 // AckEvent is a helper method to define mock.On call
 //   - ctx context.Context
+//   - triggerId string
 //   - eventId string
-func (_e *ExecutableAndTriggerCapability_Expecter) AckEvent(ctx interface{}, eventId interface{}) *ExecutableAndTriggerCapability_AckEvent_Call {
-	return &ExecutableAndTriggerCapability_AckEvent_Call{Call: _e.mock.On("AckEvent", ctx, eventId)}
+func (_e *ExecutableAndTriggerCapability_Expecter) AckEvent(ctx interface{}, triggerId interface{}, eventId interface{}) *ExecutableAndTriggerCapability_AckEvent_Call {
+	return &ExecutableAndTriggerCapability_AckEvent_Call{Call: _e.mock.On("AckEvent", ctx, triggerId, eventId)}
 }
 
-func (_c *ExecutableAndTriggerCapability_AckEvent_Call) Run(run func(ctx context.Context, eventId string)) *ExecutableAndTriggerCapability_AckEvent_Call {
+func (_c *ExecutableAndTriggerCapability_AckEvent_Call) Run(run func(ctx context.Context, triggerId string, eventId string)) *ExecutableAndTriggerCapability_AckEvent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -65,7 +66,7 @@ func (_c *ExecutableAndTriggerCapability_AckEvent_Call) Return(_a0 error) *Execu
 	return _c
 }
 
-func (_c *ExecutableAndTriggerCapability_AckEvent_Call) RunAndReturn(run func(context.Context, string) error) *ExecutableAndTriggerCapability_AckEvent_Call {
+func (_c *ExecutableAndTriggerCapability_AckEvent_Call) RunAndReturn(run func(context.Context, string, string) error) *ExecutableAndTriggerCapability_AckEvent_Call {
 	_c.Call.Return(run)
 	return _c
 }
