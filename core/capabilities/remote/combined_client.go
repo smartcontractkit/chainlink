@@ -66,9 +66,10 @@ func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID
 			return err
 		}
 		if info.ID == triggerID {
-			return trigger.AckEvent(ctx, eventID)
+			return trigger.AckEvent(ctx, triggerID, eventID)
 		}
 	}
+	return fmt.Errorf("could not find trigger %q triggerID", triggerID)
 }
 
 func (c *combinedClient) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
