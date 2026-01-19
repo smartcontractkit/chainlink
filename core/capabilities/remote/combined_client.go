@@ -35,11 +35,6 @@ func (c *combinedClient) Info(ctx context.Context) (capabilities.CapabilityInfo,
 	return c.info, nil
 }
 
-func (c *combinedClient) AckEvent(ctx context.Context, eventId string) error {
-	// TODO: Do we need triggerID to match the triggerSubscriber? And then call AckEvent on that?
-	return nil
-}
-
 func (c *combinedClient) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	c.mu.RLock()
 	subscriber, ok := c.triggerSubscribers[request.Method]
@@ -60,6 +55,20 @@ func (c *combinedClient) UnregisterTrigger(ctx context.Context, request capabili
 		return fmt.Errorf("method %s not defined", request.Method)
 	}
 	return subscriber.UnregisterTrigger(ctx, request)
+}
+
+func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, trigger := range c.triggerSubscribers {
+		info, err := trigger.Info(ctx)
+		if err != nil {
+			return err
+		}
+		if info.ID == triggerID {
+			return trigger.AckEvent(ctx, eventID)
+		}
+	}
 }
 
 func (c *combinedClient) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

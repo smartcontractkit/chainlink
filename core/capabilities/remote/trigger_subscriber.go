@@ -129,7 +129,11 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return cfg.capInfo, nil
 }
 
-func (s *triggerSubscriber) AckEvent(ctx context.Context, eventId string) error {
+func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId, eventId string) error {
+	if s.capabilityID != triggerId {
+		return fmt.Errorf("AckEvent invariant violation: triggerId=%q was dispatched to the wrong capability (capabilityID=%q)", triggerId, s.capabilityID)
+	}
+
 	s.mu.RLock()
 	cfg := s.cfg.Load()
 	for _, peerID := range cfg.capDonInfo.Members {
