@@ -63,8 +63,10 @@ import (
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
+
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	"github.com/smartcontractkit/cre-tools/pkg/workflow"
 )
 
 /////////////////////////
@@ -327,7 +329,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
-	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(t.Context(), workflowFileLocation, workflowName)
+	compressedWorkflowWasmPath, compileErr := workflow.CompileWorkflow(workflowFileLocation, workflowName)
 	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
 	testLogger.Info().Msg("Workflow compiled successfully.")
 
