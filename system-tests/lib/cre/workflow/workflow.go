@@ -2,18 +2,14 @@ package workflow
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,9 +17,13 @@ import (
 
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
+	creconfig "github.com/smartcontractkit/cre-tools/pkg/blockchain/config"
+	workflowreg "github.com/smartcontractkit/cre-tools/pkg/blockchain/contracts/workflow_registry"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -104,59 +104,115 @@ func RegisterWithContract(
 	return workflowID, nil
 }
 
-func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
-	switch version.Major() {
-	case 2:
-		validity := time.Now().UTC().Add(time.Hour * 24)
-		validityTimestamp := big.NewInt(validity.Unix())
-		defaultOrgID := 22
-		nonce := uuid.New().String()
-		workflowOwner := sc.MustGetRootKeyAddress().Hex()
-		data := fmt.Sprintf("%s%d%s", workflowOwner, defaultOrgID, nonce)
-		hash := sha256.Sum256([]byte(data))
-		ownershipProof := hex.EncodeToString(hash[:])
-		linkRequestType := uint8(0)
+// LinkOwnerWithCreTools links an owner address using cre-tools workflow registry client.
+// This is the new implementation for Step 2 of the migration plan.
+// It will replace LinkOwner() once validated.
+func LinkOwnerWithCreTools(sc *seth.Client, workflowRegistryAddr common.Address) error {
+	ownerAddr := sc.MustGetRootKeyAddress()
+	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Starting owner linking for address: %s, registry: %s",
+		ownerAddr.Hex(), workflowRegistryAddr.Hex())
 
-		registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
-		if err != nil {
-			return err
-		}
-
-		version, versionErr := registry.TypeAndVersion(sc.NewCallOpts())
-		if versionErr != nil {
-			return versionErr
-		}
-
-		messageDigest, err := PreparePayloadForSigning(
-			OwnershipProofSignaturePayload{
-				RequestType:              linkRequestType,
-				WorkflowOwnerAddress:     common.HexToAddress(workflowOwner),
-				ChainID:                  strconv.FormatInt(sc.ChainID, 10),
-				WorkflowRegistryContract: workflowRegistryAddr,
-				Version:                  version,
-				ValidityTimestamp:        validity,
-				OwnershipProofHash:       common.HexToHash(ownershipProof),
-			})
-		if err != nil {
-			return fmt.Errorf("failed to prepare payload for signing: %w", err)
-		}
-
-		signature, err := crypto.Sign(messageDigest, sc.MustGetRootPrivateKey())
-		if err != nil {
-			return fmt.Errorf("failed to sign ownership proof: %w", err)
-		}
-
-		signature[64] += 27
-
-		_, err = sc.Decode(registry.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
-		if err != nil {
-			return err
-		}
-
-		return nil
-	default:
-		return errors.New("invalid version for linking owner")
+	// Create cre-tools client config
+	clientConfig := creconfig.ClientConfig{
+		SethClient:      sc,
+		ContractAddress: workflowRegistryAddr.Hex(),
 	}
+
+	wrc, err := workflowreg.NewClient(clientConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create workflow registry client: %w", err)
+	}
+	defer wrc.Close()
+
+	// Check if already linked
+	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Checking if owner %s is already linked...", ownerAddr.Hex())
+	isLinked, err := wrc.IsOwnerLinked(ownerAddr)
+	if err != nil {
+		return fmt.Errorf("failed to check if owner linked: %w", err)
+	}
+	if isLinked {
+		framework.L.Info().Msgf("[LinkOwnerWithCreTools] Owner %s is already linked, skipping", ownerAddr.Hex())
+		return nil // Already linked
+	}
+
+	// Generate proof using cre-tools (24 hour validity)
+	framework.L.Info().Msg("[LinkOwnerWithCreTools] Owner not linked, generating proof...")
+	privateKey := sc.MustGetRootPrivateKey()
+	validityDuration := int64(24 * 60 * 60) // 24 hours in seconds
+
+	proof, err := wrc.GenerateLinkOwnerProof(context.Background(), privateKey, ownerAddr, validityDuration)
+	if err != nil {
+		return fmt.Errorf("failed to generate link owner proof: %w", err)
+	}
+	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Proof generated, validity timestamp: %s", proof.ValidityTimestamp.String())
+
+	// Link owner using generated proof
+	framework.L.Info().Msg("[LinkOwnerWithCreTools] Calling LinkOwner on contract...")
+	txOut, err := wrc.LinkOwner(proof.ValidityTimestamp, proof.Proof, proof.Signature)
+	if err != nil {
+		return fmt.Errorf("failed to link owner: %w", err)
+	}
+
+	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Successfully linked owner %s, tx hash: %s",
+		ownerAddr.Hex(), txOut.Hash.Hex())
+	return nil
+}
+
+// upsertWorkflowV2WithCreTools registers a workflow using cre-tools workflow registry client.
+// This is Step 3 of the migration - testing UpsertWorkflow operation.
+// It will replace the direct contract call in registerWorkflowV2() once validated.
+func upsertWorkflowV2WithCreTools(
+	sc *seth.Client,
+	workflowRegistryAddr common.Address,
+	workflowName, workflowID, binaryURL, configURL string,
+) error {
+	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Starting workflow registration for: %s", workflowName)
+
+	// Create cre-tools client config
+	clientConfig := creconfig.ClientConfig{
+		SethClient:      sc,
+		ContractAddress: workflowRegistryAddr.Hex(),
+	}
+
+	wrc, err := workflowreg.NewClient(clientConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create workflow registry client: %w", err)
+	}
+	defer wrc.Close()
+
+	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Created workflow registry client for %s", workflowRegistryAddr.Hex())
+
+	// Prepare workflow ID bytes
+	var workflowIDBytes [32]byte
+	copy(workflowIDBytes[:], common.Hex2Bytes(workflowID))
+
+	// Prepare parameters matching current registerWorkflowV2() call
+	params := workflowreg.RegisterWorkflowParameters{
+		WorkflowName: workflowName,
+		Tag:          defaultWorkflowTag,      // "some-tag"
+		WorkflowID:   workflowIDBytes,
+		Status:       defaultWorkflowStatus,   // 0
+		DonFamily:    contracts.DonFamily,     // from test contracts
+		BinaryURL:    binaryURL,
+		ConfigURL:    configURL,
+		Attributes:   nil,
+		KeepAlive:    false,
+	}
+
+	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Calling UpsertWorkflow with params: name=%s, tag=%s, donFamily=%s",
+		params.WorkflowName, params.Tag, params.DonFamily)
+
+	// Call UpsertWorkflow via cre-tools
+	txOut, err := wrc.UpsertWorkflow(params)
+	if err != nil {
+		framework.L.Error().Err(err).Msg("[upsertWorkflowV2WithCreTools] UpsertWorkflow failed")
+		return fmt.Errorf("failed to upsert workflow: %w", err)
+	}
+
+	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Successfully registered workflow %s, tx hash: %s",
+		workflowName, txOut.Hash.Hex())
+
+	return nil
 }
 
 // GetWorkflowNames retrieves all workflow names for the given registry contract.
@@ -233,12 +289,21 @@ func registerWorkflowV2(
 		return err
 	}
 
-	// Check and link owner if needed using existing helper function
+	// Check and link owner if needed using cre-tools implementation
+	ownerAddr := sc.MustGetRootKeyAddress()
+	framework.L.Info().Msgf("[registerWorkflowV2] Checking if owner %s is linked for workflow %q...", ownerAddr.Hex(), workflowName)
+	
 	if verifyErr := verifyOwnerLinkedWithRegistry(registry, sc, workflowName); verifyErr != nil {
-		// If owner is not linked, try to link them
-		if linkErr := LinkOwner(sc, workflowRegistryAddr, version); linkErr != nil {
+		framework.L.Info().Msgf("[registerWorkflowV2] Owner %s is NOT linked (error: %v), attempting to link...", ownerAddr.Hex(), verifyErr)
+		
+		// If owner is not linked, try to link them using new cre-tools function
+		if linkErr := LinkOwnerWithCreTools(sc, workflowRegistryAddr); linkErr != nil {
+			framework.L.Error().Err(linkErr).Msgf("[registerWorkflowV2] Failed to link owner %s", ownerAddr.Hex())
 			return errors.Wrap(linkErr, "failed to link owner to org")
 		}
+		framework.L.Info().Msgf("[registerWorkflowV2] Successfully linked owner %s", ownerAddr.Hex())
+	} else {
+		framework.L.Info().Msgf("[registerWorkflowV2] Owner %s is already linked, skipping linking step", ownerAddr.Hex())
 	}
 
 	// Register workflow
@@ -417,16 +482,23 @@ func findWorkflowByNameWithRegistry(registry *workflow_registry_wrapper_v2.Workf
 // verifyOwnerLinkedWithRegistry checks if the owner is properly linked using an existing registry instance.
 func verifyOwnerLinkedWithRegistry(registry *workflow_registry_wrapper_v2.WorkflowRegistry, sc *seth.Client, workflowName string) error {
 	ownerAddr := sc.MustGetRootKeyAddress()
+	framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] Calling IsOwnerLinked for owner %s...", ownerAddr.Hex())
+	
 	isLinked, err := registry.IsOwnerLinked(sc.NewCallOpts(), ownerAddr)
 	if err != nil {
+		framework.L.Error().Err(err).Msgf("[verifyOwnerLinkedWithRegistry] Error checking owner link status for %s", ownerAddr.Hex())
 		return errors.Wrapf(err, "failed to check owner link status for workflow %q", workflowName)
 	}
 
+	framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] IsOwnerLinked returned: %v for owner %s", isLinked, ownerAddr.Hex())
+	
 	if !isLinked {
+		framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] Owner %s is NOT linked - will return error to trigger linking", ownerAddr.Hex())
 		return errors.Errorf("owner %s is not linked to an organization, cannot delete workflow %q",
 			ownerAddr.Hex(), workflowName)
 	}
 
+	framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] Owner %s is linked - returning nil (no error)", ownerAddr.Hex())
 	return nil
 }
 
