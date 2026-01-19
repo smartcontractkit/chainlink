@@ -66,7 +66,7 @@ import (
 
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
-	"github.com/smartcontractkit/cre-tools/pkg/workflow"
+	cretoolsworkflow "github.com/smartcontractkit/cre-tools/pkg/workflow"
 )
 
 /////////////////////////
@@ -329,7 +329,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
-	compressedWorkflowWasmPath, compileErr := workflow.CompileWorkflow(workflowFileLocation, workflowName)
+	compressedWorkflowWasmPath, compileErr := cretoolsworkflow.CompileWorkflow(workflowFileLocation, workflowName)
 	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
 	testLogger.Info().Msg("Workflow compiled successfully.")
 
@@ -595,12 +595,12 @@ func deleteWorkflows(
 
 	testLogger := framework.L
 	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
-	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
+	localEnvErr := cretoolsworkflow.RemoveArtifacts(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
 	require.IsType(t, &evm.Blockchain{}, blockchains[0], "expected EVM blockchain type")
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].(*evm.Blockchain).SethClient, workflowRegistryAddress, version, uniqueWorkflowName)
-	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+	require.NoError(t, deleteErr, "failed to delete workflow. Please delete/unregister it manually.")
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
 

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -269,17 +268,6 @@ func deleteWorkflowCmd() *cobra.Command {
 				contractsVersion = addrRef.Version
 			}
 
-			workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
-			if workflowNamesErr != nil {
-				return errors.Wrap(workflowNamesErr, "failed to get workflows from the registry")
-			}
-
-			if !slices.Contains(workflowNames, workflowNameFlag) {
-				fmt.Printf("\n✅ Workflow '%s' not found in the registry %s. Skipping...\n\n", workflowNameFlag, workflowRegistryAddress)
-
-				return nil
-			}
-
 			deleteErr := creworkflow.DeleteWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion, workflowNameFlag)
 			if deleteErr != nil {
 				return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddress)
@@ -456,21 +444,13 @@ func deployWorkflow(
 		fmt.Printf("\n✅ Encrypted workflow secrets file copied to Docker container\n\n")
 	}
 
-	fmt.Printf("\n⚙️ Deleting workflow '%s' from the workflow registry\n\n", workflowNameFlag)
+	fmt.Printf("\n⚙️ Deleting workflow '%s' from the workflow registry (if exists)\n\n", workflowNameFlag)
 
-	workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryVersion)
-	if workflowNamesErr != nil {
-		return errors.Wrap(workflowNamesErr, "failed to get workflows from the registry")
-	}
-
-	if !slices.Contains(workflowNames, workflowNameFlag) {
-		fmt.Printf("\n✅ Workflow '%s' not found in the registry %s. Skipping...\n\n", workflowNameFlag, workflowRegistryAddress)
+	deleteErr := creworkflow.DeleteWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryVersion, workflowNameFlag)
+	if deleteErr != nil {
+		// Ignore error if workflow doesn't exist - we'll create it anyway
+		fmt.Printf("⚠️  Could not delete workflow '%s': %v (continuing with registration)\n\n", workflowNameFlag, deleteErr)
 	} else {
-		deleteErr := creworkflow.DeleteWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryVersion, workflowNameFlag)
-		if deleteErr != nil {
-			return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddress)
-		}
-
 		fmt.Printf("\n✅ Workflow '%s' deleted from the workflow registry\n\n", workflowNameFlag)
 	}
 

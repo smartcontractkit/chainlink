@@ -2,27 +2,21 @@ package workflow
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
-	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
-	creconfig "github.com/smartcontractkit/cre-tools/pkg/blockchain/config"
 	workflowreg "github.com/smartcontractkit/cre-tools/pkg/blockchain/contracts/workflow_registry"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -37,17 +31,17 @@ const (
 	// File URL template for container artifacts
 	fileURLTemplate = "file://%s/%s"
 
-	// Default values for workflow registration
-	defaultWorkflowTag    = "some-tag"
+	// defaultWorkflowTag is the default tag for workflow versioning
+	defaultWorkflowTag    = "latest"
 	defaultWorkflowStatus = uint8(0)
-
-	// Common error message templates
-	errCreateContractInstance  = "failed to create %s %s instance"
-	errCreateRegistryInstance  = "failed to create workflow registry instance"
-	errGetWorkflowMetadataList = "failed to get workflow metadata list"
-	errDeleteWorkflow          = "failed to delete workflow %q"
 )
 
+// ============================================================================
+// V2 Registry - Exported Functions
+// ============================================================================
+
+// RegisterWithContract registers a workflow in the registry.
+// It supports both v1 and v2 workflow registry versions.
 func RegisterWithContract(
 	ctx context.Context,
 	sc *seth.Client,
@@ -60,7 +54,7 @@ func RegisterWithContract(
 	// Download and decode workflow binary
 	workflowData, err := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to download and decode workflow binary")
+		return "", fmt.Errorf("failed to download and decode workflow binary: %w", err)
 	}
 
 	// Construct binary URL for container if needed
@@ -72,7 +66,7 @@ func RegisterWithContract(
 	if configURL != nil && *configURL != "" {
 		configData, err = libnet.Download(ctx, *configURL)
 		if err != nil {
-			return "", errors.Wrap(err, "failed to download workflow config")
+			return "", fmt.Errorf("failed to download workflow config: %w", err)
 		}
 		configURLToUse = constructArtifactURL(*configURL, artifactsDirInContainer)
 	}
@@ -84,16 +78,22 @@ func RegisterWithContract(
 	}
 
 	// Generate workflow ID
-	workflowID, err := generateWorkflowIDFromStrings(sc.MustGetRootKeyAddress().Hex(), workflowName, workflowData, configData, secretsURLToUse)
+	workflowID, err := pkgworkflows.GenerateWorkflowIDFromStrings(sc.MustGetRootKeyAddress().Hex(), workflowName, workflowData, configData, secretsURLToUse)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to generate workflow ID")
+		return "", fmt.Errorf("failed to generate workflow ID: %w", err)
 	}
 
 	// Register workflow based on version
 	switch version.Major() {
 	case 2:
-		if err := registerWorkflowV2(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse); err != nil {
-			return "", err
+		// Ensure owner is linked before registering
+		if err := LinkOwner(sc, workflowRegistryAddr); err != nil {
+			return "", fmt.Errorf("failed to link owner: %w", err)
+		}
+
+		// Register workflow
+		if err := upsertWorkflow(sc, workflowRegistryAddr, workflowName, workflowID, binaryURLToUse, configURLToUse); err != nil {
+			return "", fmt.Errorf("failed to register workflow: %w", err)
 		}
 	default:
 		if err := registerWorkflowV1(sc, workflowRegistryAddr, donID, workflowName, workflowID, binaryURLToUse, configURLToUse, secretsURLToUse); err != nil {
@@ -104,160 +104,168 @@ func RegisterWithContract(
 	return workflowID, nil
 }
 
-// LinkOwnerWithCreTools links an owner address using cre-tools workflow registry client.
-// This is the new implementation for Step 2 of the migration plan.
-// It will replace LinkOwner() once validated.
-func LinkOwnerWithCreTools(sc *seth.Client, workflowRegistryAddr common.Address) error {
-	ownerAddr := sc.MustGetRootKeyAddress()
-	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Starting owner linking for address: %s, registry: %s",
-		ownerAddr.Hex(), workflowRegistryAddr.Hex())
-
-	// Create cre-tools client config
-	clientConfig := creconfig.ClientConfig{
-		SethClient:      sc,
-		ContractAddress: workflowRegistryAddr.Hex(),
+// LinkOwner links a workflow owner address to the registry.
+// Returns nil if owner is already linked.
+func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address) error {
+	if workflowRegistryAddr == (common.Address{}) {
+		return fmt.Errorf("registry address cannot be zero")
 	}
 
-	wrc, err := workflowreg.NewClient(clientConfig)
+	ownerAddr := sc.MustGetRootKeyAddress()
+	framework.L.Info().
+		Str("owner", ownerAddr.Hex()).
+		Str("registry", workflowRegistryAddr.Hex()).
+		Msg("Linking owner to registry")
+
+	wrc, err := NewWorkflowRegistryClient(sc, workflowRegistryAddr)
 	if err != nil {
-		return fmt.Errorf("failed to create workflow registry client: %w", err)
+		return err
 	}
 	defer wrc.Close()
 
-	// Check if already linked
-	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Checking if owner %s is already linked...", ownerAddr.Hex())
 	isLinked, err := wrc.IsOwnerLinked(ownerAddr)
 	if err != nil {
 		return fmt.Errorf("failed to check if owner linked: %w", err)
 	}
 	if isLinked {
-		framework.L.Info().Msgf("[LinkOwnerWithCreTools] Owner %s is already linked, skipping", ownerAddr.Hex())
-		return nil // Already linked
+		framework.L.Info().
+			Str("owner", ownerAddr.Hex()).
+			Msg("Owner already linked")
+		return nil
 	}
 
-	// Generate proof using cre-tools (24 hour validity)
-	framework.L.Info().Msg("[LinkOwnerWithCreTools] Owner not linked, generating proof...")
+	// Generate and submit linking proof (24 hour validity)
 	privateKey := sc.MustGetRootPrivateKey()
-	validityDuration := int64(24 * 60 * 60) // 24 hours in seconds
+	validityDuration := int64(24 * 60 * 60)
 
 	proof, err := wrc.GenerateLinkOwnerProof(context.Background(), privateKey, ownerAddr, validityDuration)
 	if err != nil {
 		return fmt.Errorf("failed to generate link owner proof: %w", err)
 	}
-	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Proof generated, validity timestamp: %s", proof.ValidityTimestamp.String())
 
-	// Link owner using generated proof
-	framework.L.Info().Msg("[LinkOwnerWithCreTools] Calling LinkOwner on contract...")
 	txOut, err := wrc.LinkOwner(proof.ValidityTimestamp, proof.Proof, proof.Signature)
 	if err != nil {
 		return fmt.Errorf("failed to link owner: %w", err)
 	}
 
-	framework.L.Info().Msgf("[LinkOwnerWithCreTools] Successfully linked owner %s, tx hash: %s",
-		ownerAddr.Hex(), txOut.Hash.Hex())
+	framework.L.Info().
+		Str("owner", ownerAddr.Hex()).
+		Str("tx", txOut.Hash.Hex()).
+		Msg("Linked owner")
 	return nil
 }
 
-// upsertWorkflowV2WithCreTools registers a workflow.
-// This is Step 3 of the migration - testing UpsertWorkflow operation.
-// It will replace the direct contract call in registerWorkflowV2() once validated.
-func upsertWorkflowV2WithCreTools(
+// upsertWorkflow registers or updates a workflow in the registry.
+func upsertWorkflow(
 	sc *seth.Client,
 	workflowRegistryAddr common.Address,
 	workflowName, workflowID, binaryURL, configURL string,
 ) error {
-	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Starting workflow registration for: %s", workflowName)
-
-	// Create cre-tools client config
-	clientConfig := creconfig.ClientConfig{
-		SethClient:      sc,
-		ContractAddress: workflowRegistryAddr.Hex(),
+	if workflowName == "" {
+		return fmt.Errorf("workflow name cannot be empty")
+	}
+	if workflowID == "" {
+		return fmt.Errorf("workflow ID cannot be empty")
+	}
+	if workflowRegistryAddr == (common.Address{}) {
+		return fmt.Errorf("registry address cannot be zero")
 	}
 
-	wrc, err := workflowreg.NewClient(clientConfig)
+	framework.L.Info().
+		Str("workflow", workflowName).
+		Str("workflowId", workflowID).
+		Msg("Registering workflow")
+
+	wrc, err := NewWorkflowRegistryClient(sc, workflowRegistryAddr)
 	if err != nil {
-		return fmt.Errorf("failed to create workflow registry client: %w", err)
+		return err
 	}
 	defer wrc.Close()
 
-	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Created workflow registry client for %s", workflowRegistryAddr.Hex())
-
-	// Prepare workflow ID bytes
 	var workflowIDBytes [32]byte
 	copy(workflowIDBytes[:], common.Hex2Bytes(workflowID))
 
-	// Prepare parameters matching current registerWorkflowV2() call
 	params := workflowreg.RegisterWorkflowParameters{
 		WorkflowName: workflowName,
-		Tag:          defaultWorkflowTag, // "some-tag"
+		Tag:          defaultWorkflowTag,
 		WorkflowID:   workflowIDBytes,
-		Status:       defaultWorkflowStatus, // 0
-		DonFamily:    contracts.DonFamily,   // from test contracts
+		Status:       defaultWorkflowStatus,
+		DonFamily:    contracts.DonFamily,
 		BinaryURL:    binaryURL,
 		ConfigURL:    configURL,
 		Attributes:   nil,
 		KeepAlive:    false,
 	}
 
-	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Calling UpsertWorkflow with params: name=%s, tag=%s, donFamily=%s",
-		params.WorkflowName, params.Tag, params.DonFamily)
-
-	// Call UpsertWorkflow via cre-tools
 	txOut, err := wrc.UpsertWorkflow(params)
 	if err != nil {
-		framework.L.Error().Err(err).Msg("[upsertWorkflowV2WithCreTools] UpsertWorkflow failed")
 		return fmt.Errorf("failed to upsert workflow: %w", err)
 	}
 
-	framework.L.Info().Msgf("[upsertWorkflowV2WithCreTools] Successfully registered workflow %s, tx hash: %s",
-		workflowName, txOut.Hash.Hex())
-
+	framework.L.Info().
+		Str("workflow", workflowName).
+		Str("tx", txOut.Hash.Hex()).
+		Msg("Registered workflow")
 	return nil
 }
 
-// deleteWorkflowWithCreTools deletes a workflow using cre-tools workflow registry client.
-// This is the new implementation that will replace the old wrapper-based deletion.
-func deleteWorkflowWithCreTools(sc *seth.Client, workflowRegistryAddr common.Address, workflowName string) error {
-	framework.L.Info().Msgf("[deleteWorkflowWithCreTools] Starting deletion for workflow %q from registry %s",
-		workflowName, workflowRegistryAddr.Hex())
-
-	// Create cre-tools client
-	clientConfig := creconfig.ClientConfig{
-		SethClient:      sc,
-		ContractAddress: workflowRegistryAddr.Hex(),
+// deleteWorkflow deletes a workflow from the registry by name.
+func deleteWorkflow(sc *seth.Client, workflowRegistryAddr common.Address, workflowName string) error {
+	if workflowName == "" {
+		return fmt.Errorf("workflow name cannot be empty")
+	}
+	if workflowRegistryAddr == (common.Address{}) {
+		return fmt.Errorf("registry address cannot be zero")
 	}
 
-	framework.L.Info().Msgf("[deleteWorkflowWithCreTools] Creating workflow registry client...")
-	wrc, err := workflowreg.NewClient(clientConfig)
+	framework.L.Info().
+		Str("workflow", workflowName).
+		Str("registry", workflowRegistryAddr.Hex()).
+		Msg("Deleting workflow")
+
+	wrc, err := NewWorkflowRegistryClient(sc, workflowRegistryAddr)
 	if err != nil {
-		return fmt.Errorf("failed to create workflow registry client: %w", err)
+		return err
 	}
 	defer wrc.Close()
-	framework.L.Info().Msgf("[deleteWorkflowWithCreTools] Workflow registry client created successfully")
 
-	// Delete workflow by name (using default tag)
-	framework.L.Info().Msgf("[deleteWorkflowWithCreTools] Calling DeleteWorkflowByNameAndTag for %q...", workflowName)
-	txOut, err := wrc.DeleteWorkflowByNameAndTag(workflowName, "some-tag")
+	txOut, err := wrc.DeleteWorkflowByNameAndTag(workflowName, defaultWorkflowTag)
 	if err != nil {
-		framework.L.Error().Err(err).Msgf("[deleteWorkflowWithCreTools] Failed to delete workflow %q", workflowName)
 		return fmt.Errorf("failed to delete workflow %q: %w", workflowName, err)
 	}
 
-	framework.L.Info().Msgf("[deleteWorkflowWithCreTools] Successfully deleted workflow %s, tx hash: %s",
-		workflowName, txOut.Hash.Hex())
-
+	framework.L.Info().
+		Str("workflow", workflowName).
+		Str("tx", txOut.Hash.Hex()).
+		Msg("Deleted workflow")
 	return nil
 }
 
-// GetWorkflowNames retrieves all workflow names for the given registry contract.
-// It supports both v1 and v2 workflow registry versions.
-func GetWorkflowNames(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]string, error) {
-	switch version.Major() {
-	case 2:
-		return getWorkflowNamesV2(sc, workflowRegistryAddr, version)
-	default:
-		return getWorkflowNamesV1(sc, workflowRegistryAddr)
+// deleteAllWorkflows deletes all workflows from the registry.
+func deleteAllWorkflows(sc *seth.Client, workflowRegistryAddr common.Address) error {
+	if workflowRegistryAddr == (common.Address{}) {
+		return fmt.Errorf("registry address cannot be zero")
 	}
+
+	framework.L.Info().
+		Str("registry", workflowRegistryAddr.Hex()).
+		Msg("Deleting all workflows")
+
+	wrc, err := NewWorkflowRegistryClient(sc, workflowRegistryAddr)
+	if err != nil {
+		return err
+	}
+	defer wrc.Close()
+
+	deleted, err := wrc.DeleteAllWorkflows(contracts.DonFamily)
+	if err != nil {
+		return fmt.Errorf("failed to delete all workflows: %w", err)
+	}
+
+	framework.L.Info().
+		Int("count", deleted).
+		Msg("Deleted workflows")
+	return nil
 }
 
 // DeleteWithContract removes a workflow from the workflow registry contract.
@@ -271,10 +279,9 @@ func DeleteWithContract(
 ) error {
 	switch version.Major() {
 	case 2:
-		// Use new cre-tools implementation for V2
-		return deleteWorkflowWithCreTools(sc, workflowRegistryAddr, workflowName)
+		return deleteWorkflow(sc, workflowRegistryAddr, workflowName)
 	default:
-		return deleteWorkflowV1(ctx, sc, workflowRegistryAddr, workflowName)
+		return deleteWorkflowV1(sc, workflowRegistryAddr, workflowName)
 	}
 }
 
@@ -283,28 +290,17 @@ func DeleteWithContract(
 func DeleteAllWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
 	switch version.Major() {
 	case 2:
-		return deleteAllWorkflowsV2(ctx, sc, workflowRegistryAddr, version)
+		return deleteAllWorkflows(sc, workflowRegistryAddr)
 	default:
-		return deleteAllWorkflowsV1(ctx, sc, workflowRegistryAddr)
+		return deleteAllWorkflowsV1(sc, workflowRegistryAddr)
 	}
 }
 
-// RemoveWorkflowArtifactsFromLocalEnv removes workflow artifact files from the local filesystem.
-// Empty file paths are silently skipped.
-func RemoveWorkflowArtifactsFromLocalEnv(artifactPaths ...string) error {
-	for _, path := range artifactPaths {
-		if path == "" {
-			continue
-		}
+// ============================================================================
+// V2 Registry - Unexported Functions
+// ============================================================================
 
-		if err := os.Remove(path); err != nil {
-			return errors.Wrapf(err, "failed to remove workflow artifact at %q", path)
-		}
-	}
-	return nil
-}
-
-// constructArtifactURL constructs the appropriate URL based on whether artifacts are in a container
+// constructArtifactURL constructs the appropriate URL based on whether artifacts are in a container.
 func constructArtifactURL(originalURL string, artifactsDirInContainer *string) string {
 	if artifactsDirInContainer != nil {
 		return fmt.Sprintf(fileURLTemplate, *artifactsDirInContainer, filepath.Base(originalURL))
@@ -312,64 +308,9 @@ func constructArtifactURL(originalURL string, artifactsDirInContainer *string) s
 	return originalURL
 }
 
-// registerWorkflowV2 handles workflow registration for v2 registry contracts
-func registerWorkflowV2(
-	sc *seth.Client,
-	workflowRegistryAddr common.Address,
-	version *semver.Version,
-	workflowName, workflowID, binaryURL, configURL string,
-) error {
-	// Check and link owner
-	ownerAddr := sc.MustGetRootKeyAddress()
-	framework.L.Info().Msgf("[registerWorkflowV2] Starting registration for workflow %q, owner: %s, registry: %s",
-		workflowName, ownerAddr.Hex(), workflowRegistryAddr.Hex())
-
-	// Create client for owner verification
-	clientConfig := creconfig.ClientConfig{
-		SethClient:      sc,
-		ContractAddress: workflowRegistryAddr.Hex(),
-	}
-
-	framework.L.Info().Msgf("[registerWorkflowV2] Creating workflow registry client...")
-	wrc, err := workflowreg.NewClient(clientConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create workflow registry client: %w", err)
-	}
-	defer wrc.Close()
-	framework.L.Info().Msgf("[registerWorkflowV2] Workflow registry client created successfully")
-
-	// Check if owner is linked
-	framework.L.Info().Msgf("[registerWorkflowV2] Checking if owner %s is linked...", ownerAddr.Hex())
-	isLinked, err := wrc.IsOwnerLinked(ownerAddr)
-	if err != nil {
-		framework.L.Error().Err(err).Msgf("[registerWorkflowV2] Error checking owner link status")
-		return fmt.Errorf("failed to check if owner linked: %w", err)
-	}
-	framework.L.Info().Msgf("[registerWorkflowV2] IsOwnerLinked returned: %v for owner %s", isLinked, ownerAddr.Hex())
-
-	if !isLinked {
-		framework.L.Info().Msgf("[registerWorkflowV2] Owner %s is NOT linked, attempting to link...", ownerAddr.Hex())
-
-		// If owner is not linked, try to link them using new cre-tools function
-		if linkErr := LinkOwnerWithCreTools(sc, workflowRegistryAddr); linkErr != nil {
-			framework.L.Error().Err(linkErr).Msgf("[registerWorkflowV2] Failed to link owner %s", ownerAddr.Hex())
-			return errors.Wrap(linkErr, "failed to link owner to org")
-		}
-		framework.L.Info().Msgf("[registerWorkflowV2] Successfully linked owner %s", ownerAddr.Hex())
-	} else {
-		framework.L.Info().Msgf("[registerWorkflowV2] Owner %s is already linked, skipping linking step", ownerAddr.Hex())
-	}
-
-	// Register workflow using new cre-tools implementation
-	framework.L.Info().Msgf("[registerWorkflowV2] Calling upsertWorkflowV2WithCreTools for workflow %q...", workflowName)
-	if err := upsertWorkflowV2WithCreTools(sc, workflowRegistryAddr, workflowName, workflowID, binaryURL, configURL); err != nil {
-		framework.L.Error().Err(err).Msgf("[registerWorkflowV2] Failed to register workflow %q", workflowName)
-		return errors.Wrap(err, "failed to register workflow with cre-tools")
-	}
-	framework.L.Info().Msgf("[registerWorkflowV2] Successfully registered workflow %q", workflowName)
-
-	return nil
-}
+// ============================================================================
+// V1 Registry - Unexported Functions
+// ============================================================================
 
 // registerWorkflowV1 handles workflow registration for v1 registry contracts
 func registerWorkflowV1(sc *seth.Client, workflowRegistryAddr common.Address, donID uint64,
@@ -391,60 +332,36 @@ func registerWorkflowV1(sc *seth.Client, workflowRegistryAddr common.Address, do
 		secretsURL,
 	))
 	if err != nil {
-		return errors.Wrap(err, "failed to register workflow")
-	}
-
-	return nil
-}
-
-// deleteAllWorkflowsV2 removes all workflows for v2 registry contracts.
-func deleteAllWorkflowsV2(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
-	// Create registry instance once for all operations
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
-	if err != nil {
-		return err
-	}
-
-	// Verify owner linking before attempting any deletions
-	if verifyErr := verifyOwnerLinkedWithRegistry(registry, sc, ""); verifyErr != nil {
-		return verifyErr
-	}
-
-	// Get list of workflows to delete using the same registry instance
-	workflows, err := getWorkflowListWithRegistryV2(registry, sc)
-	if err != nil {
-		return err
-	}
-
-	// Delete each workflow using the same registry instance
-	for _, workflow := range workflows {
-		if _, err := sc.Decode(registry.DeleteWorkflow(sc.NewTXOpts(), workflow.WorkflowId)); err != nil {
-			return errors.Wrapf(err, errDeleteWorkflow, workflow.WorkflowName)
-		}
+		return fmt.Errorf("failed to register workflow: %w", err)
 	}
 
 	return nil
 }
 
 // deleteAllWorkflowsV1 removes all workflows for v1 registry contracts.
-func deleteAllWorkflowsV1(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address) error {
+func deleteAllWorkflowsV1(sc *seth.Client, workflowRegistryAddr common.Address) error {
 	// Create registry instance once for all operations
 	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
 	if err != nil {
 		return err
 	}
 
-	// Get list of workflows to delete using the same registry instance
-	workflows, err := getWorkflowListWithRegistryV1(registry, sc)
+	// Get list of workflows to delete
+	workflows, err := registry.GetWorkflowMetadataListByOwner(
+		sc.NewCallOpts(),
+		sc.MustGetRootKeyAddress(),
+		big.NewInt(0),
+		big.NewInt(defaultWorkflowQueryLimit),
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get workflow metadata list: %w", err)
 	}
 
 	// Delete each workflow using the same registry instance
 	for _, workflow := range workflows {
 		workflowHashKey := computeHashKey(sc.MustGetRootKeyAddress(), workflow.WorkflowName)
 		if _, err := sc.Decode(registry.DeleteWorkflow(sc.NewTXOpts(), workflowHashKey)); err != nil {
-			return errors.Wrapf(err, errDeleteWorkflow, workflow.WorkflowName)
+			return fmt.Errorf("failed to delete workflow %q: %w", workflow.WorkflowName, err)
 		}
 	}
 
@@ -464,9 +381,7 @@ func computeHashKey(owner common.Address, workflowName string) [32]byte {
 }
 
 // deleteWorkflowV1 handles workflow deletion for v1 registry contracts.
-func deleteWorkflowV1(ctx context.Context, sc *seth.Client,
-	workflowRegistryAddr common.Address, workflowName string,
-) error {
+func deleteWorkflowV1(sc *seth.Client, workflowRegistryAddr common.Address, workflowName string) error {
 	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
 	if err != nil {
 		return err
@@ -474,58 +389,17 @@ func deleteWorkflowV1(ctx context.Context, sc *seth.Client,
 
 	workflowHashKey := computeHashKey(sc.MustGetRootKeyAddress(), workflowName)
 	if _, err := sc.Decode(registry.DeleteWorkflow(sc.NewTXOpts(), workflowHashKey)); err != nil {
-		return errors.Wrapf(err, "failed to delete workflow %q", workflowName)
+		return fmt.Errorf("failed to delete workflow %q: %w", workflowName, err)
 	}
 
 	return nil
-}
-
-// verifyOwnerLinkedWithRegistry checks if the owner is properly linked using an existing registry instance.
-func verifyOwnerLinkedWithRegistry(registry *workflow_registry_wrapper_v2.WorkflowRegistry, sc *seth.Client, workflowName string) error {
-	ownerAddr := sc.MustGetRootKeyAddress()
-	framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] Calling IsOwnerLinked for owner %s...", ownerAddr.Hex())
-
-	isLinked, err := registry.IsOwnerLinked(sc.NewCallOpts(), ownerAddr)
-	if err != nil {
-		framework.L.Error().Err(err).Msgf("[verifyOwnerLinkedWithRegistry] Error checking owner link status for %s", ownerAddr.Hex())
-		return errors.Wrapf(err, "failed to check owner link status for workflow %q", workflowName)
-	}
-
-	framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] IsOwnerLinked returned: %v for owner %s", isLinked, ownerAddr.Hex())
-
-	if !isLinked {
-		framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] Owner %s is NOT linked - will return error to trigger linking", ownerAddr.Hex())
-		return errors.Errorf("owner %s is not linked to an organization, cannot delete workflow %q",
-			ownerAddr.Hex(), workflowName)
-	}
-
-	framework.L.Info().Msgf("[verifyOwnerLinkedWithRegistry] Owner %s is linked - returning nil (no error)", ownerAddr.Hex())
-	return nil
-}
-
-// getRegistryV2Instance creates a new v2 workflow registry instance.
-func getRegistryV2Instance(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) (*workflow_registry_wrapper_v2.WorkflowRegistry, error) {
-	registry, err := workflow_registry_wrapper_v2.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
-	if err != nil {
-		return nil, errors.Wrapf(err, errCreateContractInstance, "WorkflowRegistry", version)
-	}
-
-	// add contract ABI to Seth, so that it can decode transaction errors
-	abi, aErr := workflow_registry_wrapper_v2.WorkflowRegistryMetaData.GetAbi()
-	if aErr != nil {
-		return nil, fmt.Errorf("failed to get WorkflowRegistryV2 ABI: %w", aErr)
-	}
-
-	sc.ABIFinder.ContractStore.AddABI("WorkflowRegistryV2", *abi)
-
-	return registry, nil
 }
 
 // createRegistryV1Instance creates a new v1 workflow registry instance.
 func createRegistryV1Instance(sc *seth.Client, workflowRegistryAddr common.Address) (*workflow_registry_wrapper.WorkflowRegistry, error) {
 	registry, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, errCreateRegistryInstance)
+		return nil, fmt.Errorf("failed to create workflow registry instance: %w", err)
 	}
 
 	// add contract ABI to Seth, so that it can decode transaction errors
@@ -537,103 +411,4 @@ func createRegistryV1Instance(sc *seth.Client, workflowRegistryAddr common.Addre
 	sc.ABIFinder.ContractStore.AddABI("WorkflowRegistryV1", *abi)
 
 	return registry, nil
-}
-
-// getWorkflowListWithRegistryV2 retrieves the full workflow list using an existing v2 registry instance.
-func getWorkflowListWithRegistryV2(registry *workflow_registry_wrapper_v2.WorkflowRegistry, sc *seth.Client) ([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, error) {
-	workflows, err := registry.GetWorkflowListByOwner(
-		sc.NewCallOpts(),
-		sc.MustGetRootKeyAddress(),
-		big.NewInt(0),
-		big.NewInt(defaultWorkflowQueryLimit),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, errGetWorkflowMetadataList)
-	}
-
-	return workflows, nil
-}
-
-// getWorkflowListV2 retrieves the full workflow list for v2 registry contracts.
-func getWorkflowListV2(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, error) {
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
-	if err != nil {
-		return nil, err
-	}
-
-	return getWorkflowListWithRegistryV2(registry, sc)
-}
-
-// getWorkflowNamesV2 retrieves all workflow names for v2 registry contracts.
-func getWorkflowNamesV2(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]string, error) {
-	workflows, err := getWorkflowListV2(sc, workflowRegistryAddr, version)
-	if err != nil {
-		return nil, err
-	}
-
-	workflowNames := make([]string, 0, len(workflows))
-	for _, workflow := range workflows {
-		workflowNames = append(workflowNames, workflow.WorkflowName)
-	}
-
-	return workflowNames, nil
-}
-
-// getWorkflowListWithRegistryV1 retrieves the full workflow list using an existing v1 registry instance.
-func getWorkflowListWithRegistryV1(registry *workflow_registry_wrapper.WorkflowRegistry, sc *seth.Client) ([]workflow_registry_wrapper.WorkflowRegistryWorkflowMetadata, error) {
-	workflows, err := registry.GetWorkflowMetadataListByOwner(
-		sc.NewCallOpts(),
-		sc.MustGetRootKeyAddress(),
-		big.NewInt(0),
-		big.NewInt(defaultWorkflowQueryLimit),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, errGetWorkflowMetadataList)
-	}
-
-	return workflows, nil
-}
-
-// getWorkflowListV1 retrieves the full workflow list for v1 registry contracts.
-func getWorkflowListV1(sc *seth.Client, workflowRegistryAddr common.Address) ([]workflow_registry_wrapper.WorkflowRegistryWorkflowMetadata, error) {
-	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return getWorkflowListWithRegistryV1(registry, sc)
-}
-
-// getWorkflowNamesV1 retrieves all workflow names for v1 registry contracts.
-func getWorkflowNamesV1(sc *seth.Client, workflowRegistryAddr common.Address) ([]string, error) {
-	workflows, err := getWorkflowListV1(sc, workflowRegistryAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	workflowNames := make([]string, 0, len(workflows))
-	for _, workflow := range workflows {
-		workflowNames = append(workflowNames, workflow.WorkflowName)
-	}
-
-	return workflowNames, nil
-}
-
-// generateWorkflowIDFromStrings creates a workflow ID from string inputs.
-// The owner address can be provided with or without the "0x" prefix.
-func generateWorkflowIDFromStrings(owner, name string, workflow, config []byte, secretsURL string) (string, error) {
-	// Remove "0x" prefix if present
-	ownerHex := strings.TrimPrefix(owner, "0x")
-
-	ownerBytes, err := hex.DecodeString(ownerHex)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode owner address")
-	}
-
-	workflowID, err := pkgworkflows.GenerateWorkflowID(ownerBytes, name, workflow, config, secretsURL)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to generate workflow ID")
-	}
-
-	return hex.EncodeToString(workflowID[:]), nil
 }

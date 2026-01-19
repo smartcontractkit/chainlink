@@ -15,6 +15,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	creconfig "github.com/smartcontractkit/cre-tools/pkg/blockchain/config"
+	workflowreg "github.com/smartcontractkit/cre-tools/pkg/blockchain/contracts/workflow_registry"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -36,6 +41,20 @@ import (
 
 // must match nubmer of events we track in core/services/workflows/syncer/handler.go
 const NumberOfTrackedWorkflowRegistryEvents = 6
+
+// NewWorkflowRegistryClient creates a new cre-tools workflow registry client.
+// Caller is responsible for calling Close() on the returned client.
+func NewWorkflowRegistryClient(sc *seth.Client, workflowRegistryAddr common.Address) (*workflowreg.Client, error) {
+	clientConfig := creconfig.ClientConfig{
+		SethClient:      sc,
+		ContractAddress: workflowRegistryAddr.Hex(),
+	}
+	wrc, err := workflowreg.NewClient(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow registry client: %w", err)
+	}
+	return wrc, nil
+}
 
 type OwnershipProofSignaturePayload struct {
 	RequestType              uint8          // should be uint8 in Solidity, 1 byte
