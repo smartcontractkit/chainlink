@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -17,6 +19,11 @@ import (
 
 	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
 	shardorchpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator/pb"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
@@ -129,6 +136,8 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	arbiterAddr := fmt.Sprintf("%s:19876", rpcHost)
 	testArbiterRPC(t, testLogger, arbiterAddr)
 
+	testShardingScaleScenario(t, testEnv, rpcHost)
+
 	testLogger.Info().Msg("Sharding test completed successfully")
 }
 
@@ -182,4 +191,130 @@ func testArbiterRPC(t *testing.T, logger zerolog.Logger, addr string) {
 	}
 
 	logger.Info().Str("address", addr).Msg("Arbiter RPC test passed")
+}
+
+func testShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string) {
+	t.Helper()
+	logger := framework.L
+	ctx := context.Background()
+
+	shardConfigRef := getShardConfigRef(t, testEnv)
+	chainSelector := testEnv.CreEnvironment.RegistryChainSelector
+
+	arbiterClient := newArbiterClient(t, fmt.Sprintf("%s:19876", rpcHost))
+	shardOrchClient := newShardOrchestratorClient(t, fmt.Sprintf("%s:60051", rpcHost))
+
+	workflowIDs := []string{"workflow-A", "workflow-B", "workflow-C", "workflow-D"}
+
+	logger.Info().Msg("Step 1: Set ShardConfig to 1 shard (only shard-zero)")
+	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 1)
+
+	logger.Info().Msg("Step 2: Verify Arbiter returns WantShards=1")
+	waitForArbiterShardCount(t, arbiterClient, 1)
+
+	logger.Info().Msg("Step 3: Register all workflows on shard-zero (the only shard)")
+	_, err := shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &shardorchpb.ReportWorkflowTriggerRegistrationRequest{
+		SourceShardId:        0,
+		RegisteredWorkflows:  map[string]uint32{"workflow-A": 1, "workflow-B": 1, "workflow-C": 1, "workflow-D": 1},
+		TotalActiveWorkflows: 4,
+	})
+	require.NoError(t, err)
+
+	logger.Info().Msg("Step 4: Verify all workflows mapped to shard 0")
+	resp, err := shardOrchClient.GetWorkflowShardMapping(ctx, &shardorchpb.GetWorkflowShardMappingRequest{
+		WorkflowIds: workflowIDs,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	for _, wfID := range workflowIDs {
+		assert.Equal(t, uint32(0), resp.Mappings[wfID], "With 1 shard, workflow %s should map to shard 0", wfID)
+	}
+	logger.Info().Interface("mappings", resp.Mappings).Msg("All workflows on shard-zero")
+
+	logger.Info().Msg("Step 5: Scale up - Set ShardConfig to 2 shards")
+	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 2)
+
+	logger.Info().Msg("Step 6: Verify Arbiter returns WantShards=2")
+	waitForArbiterShardCount(t, arbiterClient, 2)
+
+	logger.Info().Msg("Step 7: Shard 1 reports its workflows after scaling")
+	_, err = shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &shardorchpb.ReportWorkflowTriggerRegistrationRequest{
+		SourceShardId:        1,
+		RegisteredWorkflows:  map[string]uint32{"workflow-C": 1, "workflow-D": 1},
+		TotalActiveWorkflows: 2,
+	})
+	require.NoError(t, err)
+
+	logger.Info().Msg("Step 8: Verify workflow mappings now span 2 shards")
+	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &shardorchpb.GetWorkflowShardMappingRequest{
+		WorkflowIds: workflowIDs,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	shardCounts := map[uint32]int{}
+	for _, shardID := range resp.Mappings {
+		shardCounts[shardID]++
+	}
+	assert.Greater(t, shardCounts[0], 0, "Some workflows should be on shard 0")
+	assert.Greater(t, shardCounts[1], 0, "Some workflows should be on shard 1")
+	logger.Info().
+		Interface("mappings", resp.Mappings).
+		Interface("distribution", shardCounts).
+		Msg("Workflows distributed across 2 shards after scaling")
+}
+
+func getShardConfigRef(t *testing.T, testEnv *ttypes.TestEnvironment) datastore.AddressRefKey {
+	t.Helper()
+	return datastore.NewAddressRefKey(
+		testEnv.CreEnvironment.RegistryChainSelector,
+		datastore.ContractType(deployment_contracts.ShardConfig.String()),
+		semver.MustParse("1"),
+		"",
+	)
+}
+
+func updateShardCount(t *testing.T, testEnv *ttypes.TestEnvironment, chainSelector uint64, shardConfigRef datastore.AddressRefKey, count uint64) {
+	t.Helper()
+	_, err := commonchangeset.RunChangeset(
+		shard_config_changeset.UpdateShardCount{},
+		*testEnv.CreEnvironment.CldfEnvironment,
+		shard_config_changeset.UpdateShardCountInput{
+			ChainSelector:  chainSelector,
+			NewShardCount:  count,
+			ShardConfigRef: shardConfigRef,
+		},
+	)
+	require.NoError(t, err)
+	framework.L.Info().Uint64("count", count).Msg("Updated ShardConfig shard count")
+}
+
+func waitForArbiterShardCount(t *testing.T, client ringpb.ArbiterClient, expected uint32) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		resp, err := client.GetDesiredReplicas(ctx, &ringpb.ShardStatusRequest{})
+		if err != nil {
+			return false
+		}
+		framework.L.Info().Uint32("wantShards", resp.WantShards).Uint32("expected", expected).Msg("Arbiter response")
+		return resp.WantShards == expected
+	}, 30*time.Second, 2*time.Second, "Arbiter did not return expected WantShards=%d", expected)
+}
+
+func newArbiterClient(t *testing.T, addr string) ringpb.ArbiterClient {
+	t.Helper()
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	return ringpb.NewArbiterClient(conn)
+}
+
+func newShardOrchestratorClient(t *testing.T, addr string) shardorchpb.ShardOrchestratorServiceClient {
+	t.Helper()
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	return shardorchpb.NewShardOrchestratorServiceClient(conn)
 }
