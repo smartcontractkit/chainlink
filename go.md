@@ -120,6 +120,7 @@ flowchart LR
 	chainlink-sui --> chainlink-common/pkg/values
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-ton --> chainlink-ccip
+	chainlink-ton --> chainlink-common/pkg/monitoring
 	chainlink-ton --> chainlink-framework/metrics
 	click chainlink-ton href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
@@ -397,10 +398,10 @@ flowchart LR
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-ton --> chainlink-ccip
+	chainlink-ton --> chainlink-common/pkg/monitoring
 	chainlink-ton --> chainlink-framework/metrics
 	click chainlink-ton href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-ton/deployment --> chainlink-ccip/deployment
-	chainlink-ton/deployment --> chainlink-ton
 	click chainlink-ton/deployment href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
@@ -515,6 +516,7 @@ flowchart LR
 	mcms --> chainlink-ccip/chains/solana
 	mcms --> chainlink-sui
 	mcms --> chainlink-testing-framework/framework
+	mcms --> chainlink-ton
 	click mcms href "https://github.com/smartcontractkit/mcms"
 	quarantine
 	click quarantine href "https://github.com/smartcontractkit/quarantine"
