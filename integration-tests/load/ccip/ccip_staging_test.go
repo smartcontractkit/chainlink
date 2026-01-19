@@ -24,6 +24,8 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	toncodec "github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 )
 
 func TestStaging_CCIP_Load(t *testing.T) {
@@ -202,6 +204,56 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			mm.InputChan)
 	}
 
+	// Create DestinationGuns for TON destination chains (EVM → TON)
+	for _, tonChainSel := range tonChains {
+		srcChains := laneConfig.GetSourceChainsForDestination(tonChainSel)
+		if len(srcChains) == 0 {
+			lggr.Warnw("No source chains found for TON destination", "chainSelector", tonChainSel)
+			continue
+		}
+
+		tonState, exists := state.TonChains[tonChainSel]
+		if !exists {
+			lggr.Warnw("No TON state found for chain", "chainSelector", tonChainSel)
+			continue
+		}
+
+		// Get EVM message keys for all EVM source chains
+		messageKeys := make(map[uint64]*bind.TransactOpts)
+		for i, evmChain := range evmChains {
+			if i < len(transmitKeys[evmChain]) {
+				messageKeys[evmChain] = transmitKeys[evmChain][0] // Use first key for TON destinations
+			}
+		}
+
+		// Convert TON receiver address to bytes for the gun
+		addrCodec := toncodec.NewAddressCodec()
+		receiverBytes, err := addrCodec.AddressStringToBytes(tonState.ReceiverAddress.String())
+		if err != nil {
+			lggr.Errorw("Failed to encode TON receiver address", "error", err, "chainSelector", tonChainSel)
+			continue
+		}
+
+		gunMap[tonChainSel], err = NewDestinationGun(
+			env.Logger,
+			tonChainSel,
+			*env,
+			&state,
+			receiverBytes,
+			userOverrides,
+			messageKeys,
+			nil,
+			tonSourceKeys,
+			mm.InputChan,
+			srcChains,
+		)
+		if err != nil {
+			lggr.Errorw("Failed to initialize DestinationGun for TON chain", "chainSelector", tonChainSel, "error", err)
+			continue
+		}
+		lggr.Infow("Created DestinationGun for TON chain", "chainSelector", tonChainSel, "sourceChains", srcChains)
+	}
+
 	// Subscribe to TON execution events for TON destination chains
 	for tonChainSel, tonDestManager := range tonDestManagers {
 		srcChains := laneConfig.GetSourceChainsForDestination(tonChainSel)
@@ -251,9 +303,16 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	// DEBUG BREAKPOINT: Setup complete
 	lggr.Info("=== SETUP COMPLETE ===")
+	numTonDestGuns := 0
+	for _, cs := range tonChains {
+		if _, exists := gunMap[cs]; exists {
+			numTonDestGuns++
+		}
+	}
 	lggr.Infow("Discovered lanes summary",
-		"numEVMDestinations", len(gunMap),
-		"numTONDestinations", len(tonDestManagers),
+		"totalDestinationGuns", len(gunMap),
+		"numEVMDestinations", len(gunMap)-numTonDestGuns,
+		"numTONDestinations", numTonDestGuns,
 		"tonSourceKeys", len(tonSourceKeys),
 	)
 

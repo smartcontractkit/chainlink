@@ -32,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+
+	toncodec "github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 )
 
 type SeqNumRange struct {
@@ -291,6 +293,29 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		if err != nil {
 			m.l.Error("Error encoding extra args for evm dest")
 			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+	case selectors.FamilyTon:
+		// Get TON chain state to retrieve receiver address
+		tonState, exists := m.state.TonChains[m.chainSelector]
+		if !exists {
+			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no TON state available for destination chain %d", m.chainSelector)
+		}
+
+		// Use TON address codec to encode receiver address to bytes
+		addrCodec := toncodec.NewAddressCodec()
+		rcv, err = addrCodec.AddressStringToBytes(tonState.ReceiverAddress.String())
+		if err != nil {
+			m.l.Errorw("Error encoding TON receiver address", "error", err)
+			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to encode TON receiver address: %w", err)
+		}
+
+		// Build extra args for TON destination
+		// Gas limit is in nanoTON (0.1 TON = 100_000_000 nanoTON)
+		tonGasLimit := big.NewInt(100_000_000)
+		extraArgs, err = GetEVMExtraArgsV2(tonGasLimit, true) // OOO always true for TON
+		if err != nil {
+			m.l.Errorw("Error encoding extra args for TON dest", "error", err)
+			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to encode extra args for TON: %w", err)
 		}
 	case selectors.FamilySolana:
 		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, solana.PublicKeyFromBytes(m.receiver))

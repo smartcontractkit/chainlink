@@ -79,7 +79,9 @@ func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig
 }
 
 func (mm *MetricManager) Start(ctx context.Context) {
-	defer close(mm.InputChan)
+	// Note: We intentionally do NOT close InputChan here.
+	// Closing a channel while other goroutines may still be sending causes panic.
+	// The channel will be garbage collected when no longer referenced.
 	for {
 		select {
 		case <-ctx.Done():
