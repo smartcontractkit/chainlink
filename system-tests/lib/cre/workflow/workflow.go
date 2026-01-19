@@ -284,17 +284,36 @@ func registerWorkflowV2(
 	version *semver.Version,
 	workflowName, workflowID, binaryURL, configURL string,
 ) error {
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
-	if err != nil {
-		return err
-	}
-
 	// Check and link owner if needed using cre-tools implementation
 	ownerAddr := sc.MustGetRootKeyAddress()
-	framework.L.Info().Msgf("[registerWorkflowV2] Checking if owner %s is linked for workflow %q...", ownerAddr.Hex(), workflowName)
+	framework.L.Info().Msgf("[registerWorkflowV2] Starting registration for workflow %q, owner: %s, registry: %s",
+		workflowName, ownerAddr.Hex(), workflowRegistryAddr.Hex())
 	
-	if verifyErr := verifyOwnerLinkedWithRegistry(registry, sc, workflowName); verifyErr != nil {
-		framework.L.Info().Msgf("[registerWorkflowV2] Owner %s is NOT linked (error: %v), attempting to link...", ownerAddr.Hex(), verifyErr)
+	// Create cre-tools client for owner verification
+	clientConfig := creconfig.ClientConfig{
+		SethClient:      sc,
+		ContractAddress: workflowRegistryAddr.Hex(),
+	}
+	
+	framework.L.Info().Msgf("[registerWorkflowV2] Creating workflow registry client...")
+	wrc, err := workflowreg.NewClient(clientConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create workflow registry client: %w", err)
+	}
+	defer wrc.Close()
+	framework.L.Info().Msgf("[registerWorkflowV2] Workflow registry client created successfully")
+
+	// Check if owner is linked
+	framework.L.Info().Msgf("[registerWorkflowV2] Checking if owner %s is linked...", ownerAddr.Hex())
+	isLinked, err := wrc.IsOwnerLinked(ownerAddr)
+	if err != nil {
+		framework.L.Error().Err(err).Msgf("[registerWorkflowV2] Error checking owner link status")
+		return fmt.Errorf("failed to check if owner linked: %w", err)
+	}
+	framework.L.Info().Msgf("[registerWorkflowV2] IsOwnerLinked returned: %v for owner %s", isLinked, ownerAddr.Hex())
+
+	if !isLinked {
+		framework.L.Info().Msgf("[registerWorkflowV2] Owner %s is NOT linked, attempting to link...", ownerAddr.Hex())
 		
 		// If owner is not linked, try to link them using new cre-tools function
 		if linkErr := LinkOwnerWithCreTools(sc, workflowRegistryAddr); linkErr != nil {
@@ -306,22 +325,13 @@ func registerWorkflowV2(
 		framework.L.Info().Msgf("[registerWorkflowV2] Owner %s is already linked, skipping linking step", ownerAddr.Hex())
 	}
 
-	// Register workflow
-	_, err = sc.Decode(registry.UpsertWorkflow(
-		sc.NewTXOpts(),
-		workflowName,
-		defaultWorkflowTag,
-		[32]byte(common.Hex2Bytes(workflowID)),
-		defaultWorkflowStatus,
-		contracts.DonFamily,
-		binaryURL,
-		configURL,
-		nil,
-		false,
-	))
-	if err != nil {
-		return errors.Wrap(err, "failed to register workflow")
+	// Register workflow using new cre-tools implementation
+	framework.L.Info().Msgf("[registerWorkflowV2] Calling upsertWorkflowV2WithCreTools for workflow %q...", workflowName)
+	if err := upsertWorkflowV2WithCreTools(sc, workflowRegistryAddr, workflowName, workflowID, binaryURL, configURL); err != nil {
+		framework.L.Error().Err(err).Msgf("[registerWorkflowV2] Failed to register workflow %q", workflowName)
+		return errors.Wrap(err, "failed to register workflow with cre-tools")
 	}
+	framework.L.Info().Msgf("[registerWorkflowV2] Successfully registered workflow %q", workflowName)
 
 	return nil
 }

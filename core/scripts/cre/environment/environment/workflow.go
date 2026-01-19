@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	cretoolsworkflow "github.com/smartcontractkit/cre-tools/pkg/workflow"
 )
 
 const (
@@ -371,7 +372,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 func compileWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag string) (string, error) {
 	fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
 
-	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(ctx, workflowFilePathFlag, workflowNameFlag)
+	compressedWorkflowWasmPath, compileErr := cretoolsworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return "", errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
