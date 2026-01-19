@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	pkgsecrets "github.com/smartcontractkit/cre-tools/pkg/secrets"
 	cretoolsworkflow "github.com/smartcontractkit/cre-tools/pkg/workflow"
 )
 
@@ -421,7 +422,27 @@ func deployWorkflow(
 	if secretsFilePathFlag != "" {
 		fmt.Printf("\n⚙️ Loading and encrypting workflow secrets\n")
 
-		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddress), capabilitiesRegistryVersion, common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag, secretsOutputFilePathFlag)
+		// Get encryption keys from CapabilitiesRegistry contract
+		capClient, capClientErr := creworkflow.NewCapabilityRegistryClient(sethClient, common.HexToAddress(capabilitiesRegistryAddress))
+		if capClientErr != nil {
+			return errors.Wrap(capClientErr, "failed to create capability registry client")
+		}
+		defer capClient.Close()
+
+		encryptionKeys, encryptionKeysErr := capClient.GetEncryptionKeysForDON(ctx, donIDFlag)
+		if encryptionKeysErr != nil {
+			return errors.Wrap(encryptionKeysErr, fmt.Sprintf("failed to get encryption keys for DON %d", donIDFlag))
+		}
+
+		// Prepare encrypted secrets with metadata
+		secretPathAbs, secretsErr := pkgsecrets.PrepareSecretsWithMetadata(pkgsecrets.PrepareSecretsWithMetadataParams{
+			WorkflowOwner:        common.HexToAddress(workflowOwnerAddressFlag),
+			SecretsFilePath:      secretsFilePathFlag,
+			SecretsOutFilePath:   secretsOutputFilePathFlag,
+			EncryptionPublicKeys: encryptionKeys,
+			CapabilitiesRegistry: common.HexToAddress(capabilitiesRegistryAddress),
+			DONId:                donIDFlag,
+		})
 		if secretsErr != nil {
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}
