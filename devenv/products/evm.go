@@ -48,7 +48,7 @@ func FundNodeEIP1559(ctx context.Context, c *ethclient.Client, pkey, recipientAd
 	amountWei, _ := amount.Int(nil)
 	l.Info().Str("Addr", recipientAddress).Str("Wei", amountWei.String()).Msg("Funding Node")
 
-	chainID, err := c.NetworkID(context.Background())
+	chainID, err := c.NetworkID(ctx)
 	if err != nil {
 		return err
 	}
@@ -64,15 +64,15 @@ func FundNodeEIP1559(ctx context.Context, c *ethclient.Client, pkey, recipientAd
 	}
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	nonce, err := c.PendingNonceAt(context.Background(), fromAddress)
+	nonce, err := c.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		return err
 	}
-	feeCap, err := c.SuggestGasPrice(context.Background())
+	feeCap, err := c.SuggestGasPrice(ctx)
 	if err != nil {
 		return err
 	}
-	tipCap, err := c.SuggestGasTipCap(context.Background())
+	tipCap, err := c.SuggestGasTipCap(ctx)
 	if err != nil {
 		return err
 	}
@@ -90,11 +90,11 @@ func FundNodeEIP1559(ctx context.Context, c *ethclient.Client, pkey, recipientAd
 	if err != nil {
 		return err
 	}
-	err = c.SendTransaction(context.Background(), signedTx)
+	err = c.SendTransaction(ctx, signedTx)
 	if err != nil {
 		return err
 	}
-	if _, err := WaitMinedFast(context.Background(), c, signedTx.Hash()); err != nil {
+	if _, err := WaitMinedFast(ctx, c, signedTx.Hash()); err != nil {
 		return err
 	}
 	l.Info().Str("Wei", amountWei.String()).Msg("Funded with ETH")
@@ -156,4 +156,12 @@ func NetworkPrivateKey() string {
 		return AnvilKey0
 	}
 	return pk
+}
+
+func NetworkPrivateKeys() []string {
+	pks := os.Getenv("PRIVATE_KEYS")
+	if pks == "" {
+		return []string{}
+	}
+	return strings.Split(pks, ",")
 }

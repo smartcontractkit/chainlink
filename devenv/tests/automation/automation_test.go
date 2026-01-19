@@ -32,21 +32,21 @@ func TestAutomationBasic(t *testing.T) {
 }
 
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
-	t.Parallel()
+	// t.Parallel()
 
 	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0": ethereum.RegistryVersion_2_0,
-		// "registry_2_1_conditional":                          ethereum.RegistryVersion_2_1,
-		// "registry_2_1_logtrigger":                           ethereum.RegistryVersion_2_1,
-		// "registry_2_1_with_mercury_v02":                     ethereum.RegistryVersion_2_1,
+		// "registry_2_0": ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":      ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":       ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v02": ethereum.RegistryVersion_2_1,
 		// "registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
-		// "registry_2_1_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_1,
-		// "registry_2_2_conditional":                          ethereum.RegistryVersion_2_2,
-		// "registry_2_2_logtrigger":                           ethereum.RegistryVersion_2_2,
-		// "registry_2_2_with_mercury_v02":                     ethereum.RegistryVersion_2_2,
+		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
+		// "registry_2_2_conditional":      ethereum.RegistryVersion_2_2,
+		// "registry_2_2_logtrigger":       ethereum.RegistryVersion_2_2,
+		// "registry_2_2_with_mercury_v02": ethereum.RegistryVersion_2_2,
 		// "registry_2_2_with_mercury_v03":                     ethereum.RegistryVersion_2_2,
-		// "registry_2_2_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_2,
+		// "registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
 		// "registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
 		// "registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
 		// "registry_2_3_logtrigger_native":                    ethereum.RegistryVersion_2_3,
@@ -59,7 +59,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 			l := framework.L
 
 			// TODO run CL node log scanner
@@ -87,18 +87,45 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			require.NoError(t, err, "Failed to parse chain ID")
 
 			var chainClient *seth.Client
+			pks := []string{products.NetworkPrivateKey()}
+
+			bcNode := in.Blockchains[0].Out.Nodes[0]
+			c, _, _, err := products.ETHClient(
+				t.Context(),
+				bcNode.ExternalWSUrl,
+				pdConfig.Config[0].GasSettings.FeeCapMultiplier,
+				pdConfig.Config[0].GasSettings.TipCapMultiplier,
+			)
+
+			// on simulated network create new ephemeral addresses if insufficient private keys were provided
+			// we require +1 private keys, because key at index 0 is the root key, which is not used during the test
+			// for contract deployment and interaction
+			// we create new addresses only on the simulated network to protect against fund loss
+			if chainID == 1337 && len(pks) != defaultAmountOfUpkeeps+1 {
+				for range defaultAmountOfUpkeeps {
+					address, pk, err := seth.NewAddress()
+					require.NoError(t, err, "Failed to generate new address")
+
+					cErr := products.FundNodeEIP1559(t.Context(), c, products.NetworkPrivateKey(), address, pdConfig.Config[0].TestKeysMinFundingEth)
+					require.NoError(t, cErr, "Failed to fund node")
+					pks = append(pks, pk)
+				}
+			}
+
+			require.GreaterOrEqual(t, len(pks), defaultAmountOfUpkeeps+1, "you must provide at least %d private keys", defaultAmountOfUpkeeps+1)
+
 			if os.Getenv(seth.CONFIG_FILE_ENV_VAR) != "" {
 				sethCfg, err := seth.ReadConfig()
 				require.NoError(t, err, "Failed to read seth config")
 
 				chainClient, err = seth.NewClientBuilderWithConfig(sethCfg).
 					UseNetworkWithChainId(chainID).
+					WithPrivateKeys(pks).
 					WithRpcUrl(in.Blockchains[0].Out.Nodes[0].ExternalWSUrl).
 					Build()
 			} else {
 				chainClient, err = seth.NewClientBuilder().
-					WithPrivateKeys([]string{products.NetworkPrivateKey()}).
-					WithEphemeralAddresses(10, 1000).
+					WithPrivateKeys(pks).
 					WithRpcUrl(in.Blockchains[0].Out.Nodes[0].ExternalWSUrl).
 					Build()
 			}
@@ -107,7 +134,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
-			a := automation.AutomationTest{
+			a := AutomationTest{
 				ChainClient:            chainClient,
 				Config:                 *pdConfig.Config[0],
 				RegistrySettings:       automation.ReadRegistryConfig(pdConfig.Config[0]),

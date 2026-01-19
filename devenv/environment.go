@@ -33,7 +33,7 @@ type Cfg struct {
 func newProduct(name string) (Product, error) {
 	switch name {
 	case "ocr2":
-		return ocr2.NewOCR2Configurator(), nil
+		return ocr2.NewConfigurator(), nil
 	case "automation":
 		return automation.NewConfigurator(), nil
 	default:
@@ -80,7 +80,7 @@ func NewEnvironment(ctx context.Context) error {
 			return fmt.Errorf("failed to generate CL nodes config: %w", err)
 		}
 
-		secretsOverrides, err := p.GenerateCLNodesSecrets(ctx)
+		secretsOverrides, err := p.GenerateCLNodesSecrets(ctx, in.FakeServer)
 		if err != nil {
 			return fmt.Errorf("failed to generate CL nodes secrets: %w", err)
 		}

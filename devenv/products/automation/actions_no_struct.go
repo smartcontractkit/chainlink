@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -15,11 +16,16 @@ import (
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/lib/pq"
+	pkg_errors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
@@ -29,11 +35,22 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	devenv_ocr2 "github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 )
+
+type NodeDetail struct {
+	P2PId                 string
+	TransmitterAddresses  []string
+	OCR2ConfigPublicKey   string
+	OCR2OffchainPublicKey string
+	OCR2OnChainPublicKey  string
+	OCR2Id                string
+}
 
 type NodeDetails struct {
 	NodeDetails     []NodeDetail
@@ -79,7 +96,6 @@ func CollectNodeDetails(chainID uint64, nodes []*clclient.ChainlinkClient, clNod
 	L.Info().Msg("Collected Node Details")
 	L.Debug().Interface("Node Details", nodeDetails.NodeDetails).Msg("Node Details")
 
-	// TODO use correct node name
 	nodeDetails.P2PBootstrapper = fmt.Sprintf("%s@%s:%d", nodeDetails.NodeDetails[0].P2PId, clNodes[0].Node.ContainerName, 6690)
 	return &nodeDetails, nil
 }
@@ -143,7 +159,7 @@ func deployContracts(chainClient *seth.Client, config *Automation) error {
 	}
 
 	if config.DeployedContracts.Registry == "" {
-		registryAddr, chainModuleAddr, err := DeployRegistry(chainClient, config.GetRegistryVersion(), config)
+		registryAddr, chainModuleAddr, err := DeployRegistry(chainClient, config.MustGetRegistryVersion(), config)
 		if err != nil {
 			return fmt.Errorf("error deploying registry contract: %w", err)
 		}
@@ -152,7 +168,7 @@ func deployContracts(chainClient *seth.Client, config *Automation) error {
 	}
 
 	if config.DeployedContracts.Registrar == "" {
-		addr, err := DeployRegistrar(chainClient, config.GetRegistryVersion(), config)
+		addr, err := DeployRegistrar(chainClient, config.MustGetRegistryVersion(), config)
 		if err != nil {
 			return fmt.Errorf("error deploying registrar contract: %w", err)
 		}
@@ -492,6 +508,67 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 	return nil
 }
 
+func calculateOCR2ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+	signers []types.OnchainPublicKey,
+	transmitters []types.Account,
+	f_ uint8,
+	onchainConfig_ []byte,
+	offchainConfigVersion uint64,
+	offchainConfig []byte,
+	err error,
+) {
+	offC, _ := json.Marshal(ocr2keepers20config.OffchainConfig{
+		TargetProbability:    pluginConfig.TargetProbability,
+		TargetInRounds:       pluginConfig.TargetInRounds,
+		PerformLockoutWindow: pluginConfig.PerformLockoutWindow,
+		GasLimitPerReport:    pluginConfig.GasLimitPerReport,
+		GasOverheadPerUpkeep: pluginConfig.GasOverheadPerUpkeep,
+		MinConfirmations:     pluginConfig.MinConfirmations,
+		MaxUpkeepBatchSize:   pluginConfig.MaxUpkeepBatchSize,
+	})
+
+	rMax := publicConfig.RMax
+	if rMax > math.MaxUint8 {
+		panic(fmt.Errorf("rmax overflows uint8: %d", rMax))
+	}
+
+	return ocr2.ContractSetConfigArgsForTests(
+		publicConfig.DeltaProgress, publicConfig.DeltaResend,
+		publicConfig.DeltaRound, publicConfig.DeltaGrace,
+		publicConfig.DeltaStage, uint8(rMax),
+		S, oracleIdentities, offC,
+		nil,
+		publicConfig.MaxDurationQuery, publicConfig.MaxDurationObservation,
+		1200*time.Millisecond,
+		publicConfig.MaxDurationShouldAcceptAttestedReport,
+		publicConfig.MaxDurationShouldTransmitAcceptedReport,
+		publicConfig.F, publicConfig.OnchainConfig,
+	)
+}
+
+func calculateOCR3ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+	signers []types.OnchainPublicKey,
+	transmitters []types.Account,
+	f_ uint8,
+	onchainConfig_ []byte,
+	offchainConfigVersion uint64,
+	offchainConfig []byte,
+	err error,
+) {
+	offC, _ := json.Marshal(pluginConfig)
+
+	return ocr3.ContractSetConfigArgsForTests(
+		publicConfig.DeltaProgress, publicConfig.DeltaResend, publicConfig.DeltaInitial,
+		publicConfig.DeltaRound, publicConfig.DeltaGrace, publicConfig.DeltaCertifiedCommitRequest,
+		publicConfig.DeltaStage, publicConfig.RMax,
+		S, oracleIdentities, offC,
+		nil, publicConfig.MaxDurationQuery, publicConfig.MaxDurationObservation,
+		publicConfig.MaxDurationShouldAcceptAttestedReport,
+		publicConfig.MaxDurationShouldTransmitAcceptedReport,
+		publicConfig.F, publicConfig.OnchainConfig,
+	)
+}
+
 // GenerateUpkeepReport generates a report of performed, successful, reverted and stale upkeeps for a given registry contract based on transaction logs. In case of test failure it can help us
 // to triage the issue by providing more context.
 func GenerateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
@@ -590,4 +667,141 @@ func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClien
 			}
 		}
 	}
+}
+
+// SendLinkFundsToDeploymentAddresses sends LINK token to all addresses, but the root one, from the root address. It uses
+// Multicall contract to batch all transfers in a single transaction. It also checks if the funds were transferred correctly.
+// It's primary use case is to fund addresses that will be used for Upkeep registration (as that requires LINK balance) during
+// Automation/Keeper test setup.
+func SendLinkFundsToDeploymentAddresses(
+	chainClient *seth.Client,
+	concurrency,
+	totalUpkeeps,
+	operationsPerAddress int,
+	multicallAddress common.Address,
+	linkAmountPerUpkeep *big.Int,
+	linkToken contracts.LinkToken,
+) error {
+	var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
+		abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+		if err != nil {
+			return nil, err
+		}
+		data, err := abi.Pack("transfer", receiver, amount)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+
+	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
+	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
+
+	// As a hack we use the geth wrapper directly, because we need to access receipt to get block number, which we will use to query the balance
+	// This is needed as querying with 'latest' block number very rarely, but still, return stale balance. That's happening even though we wait for
+	// the transaction to be mined.
+	linkInstance, err := link_token_interface.NewLinkToken(common.HexToAddress(linkToken.Address()), contracts.MustNewWrappedContractBackend(nil, chainClient))
+	if err != nil {
+		return err
+	}
+	// TODO: 2:32PM WRN No matching event with valid indexed parameter count found for log Signature=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef Transaction=0xde63b61cb6f22db882cee1f28c7a11159be3f4e5f07c71998eada723ccf9e6cd
+	tx, err := chainClient.Decode(linkInstance.Transfer(chainClient.NewTXOpts(), multicallAddress, toTransferToMultiCallContract))
+	if err != nil {
+		return err
+	}
+
+	if tx.Receipt == nil {
+		return errors.New("transaction receipt for LINK transfer to multicall contract is nil")
+	}
+
+	multiBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: tx.Receipt.BlockNumber}, multicallAddress)
+	if err != nil {
+		return pkg_errors.Wrapf(err, "Error getting LINK balance of multicall contract")
+	}
+
+	// Old code that's querying latest block
+	// err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+	// if err != nil {
+	//	return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+	//}
+	//
+	// balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	// if err != nil {
+	//	return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
+	//}
+
+	if multiBalance.Cmp(toTransferToMultiCallContract) < 0 {
+		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), multiBalance.String())
+	}
+
+	// Transfer LINK to ephemeral keys
+	multiCallData := make([][]byte, 0)
+	for i := 1; i <= concurrency; i++ {
+		data, err := generateCallData(chainClient.Addresses[i], toTransferPerClient)
+		if err != nil {
+			return pkg_errors.Wrapf(err, "Error generating call data for LINK transfer")
+		}
+		multiCallData = append(multiCallData, data)
+	}
+
+	var call []contracts.Call
+	for _, d := range multiCallData {
+		data := contracts.Call{Target: common.HexToAddress(linkToken.Address()), AllowFailure: false, CallData: d}
+		call = append(call, data)
+	}
+
+	multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
+	if err != nil {
+		return pkg_errors.Wrapf(err, "Error getting Multicall contract ABI")
+	}
+	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
+	// call aggregate3 to group all msg call data and send them in a single transaction // TODO: 2:33PM WRN No matching event with valid indexed parameter count found for log Signature=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef Transaction=0xe277bace889e96bfba919283b6f1bfaaadc89cda0cb254845394704fff5bc2b8
+	ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
+	if err != nil {
+		return pkg_errors.Wrapf(err, "Error calling Multicall contract")
+	}
+
+	if ephemeralTx.Receipt == nil {
+		return pkg_errors.New("transaction receipt for LINK transfer to ephemeral keys is nil")
+	}
+
+	for i := 1; i <= concurrency; i++ {
+		ephemeralBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: ephemeralTx.Receipt.BlockNumber}, chainClient.Addresses[i])
+		// Old code that's querying latest block, for now we prefer to use block number from the transaction receipt
+		// balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
+		if err != nil {
+			return pkg_errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
+		}
+		if ephemeralBalance.Cmp(toTransferPerClient) < 0 {
+			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), ephemeralBalance.String())
+		}
+	}
+
+	return nil
+}
+
+// ChainlinkNodeAddressesAtIndex will return all the on-chain wallet addresses for a set of Chainlink nodes
+func ChainlinkNodeAddressesAtIndex(nodes []*clclient.ChainlinkClient, keyIndex int) ([]common.Address, error) {
+	addresses := make([]common.Address, 0)
+	for _, node := range nodes {
+		nodeAddresses, err := node.EthAddresses()
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, common.HexToAddress(nodeAddresses[keyIndex]))
+	}
+	return addresses, nil
+}
+
+// ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
+func ChainlinkNodeAddresses(nodes []*clclient.ChainlinkClient) ([]common.Address, error) {
+	addresses := make([]common.Address, 0)
+	for _, node := range nodes {
+		primaryAddress, err := node.PrimaryEthAddress()
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, common.HexToAddress(primaryAddress))
+	}
+	return addresses, nil
 }

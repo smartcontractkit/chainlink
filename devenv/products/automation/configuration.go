@@ -6,16 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"os"
 	"strconv"
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -49,6 +48,8 @@ type Automation struct {
 	DeployedContracts DeployedContracts `toml:"deployed_contracts"`
 
 	EVMNetworkSettings EVMNetworkSettings `toml:"evm_network_settings"`
+
+	TestKeysMinFundingEth float64 `toml:"test_keys_min_funding_eth"`
 }
 
 type DeployedContracts struct {
@@ -69,14 +70,13 @@ type DeployedContracts struct {
 type MercurySettings struct {
 	Version         string `toml:"version"`
 	CredentialsName string `toml:"credentialsName"`
-	FakeEndpoint    string `toml:"fakeEndpoint"`
-	FakePort        uint   `toml:"fakePort"`
 }
 
 type EVMNetworkSettings struct {
-	FinalityTagEnabled *bool `toml:"finality_tag_enabled"`
-	FinalityDepth      *uint `toml:"finality_depth"`
-	SafeTagSupported   *bool `toml:"safe_tag_supported"`
+	LinkTokenAddress   *string `toml:"link_token_address"`
+	FinalityTagEnabled *bool   `toml:"finality_tag_enabled"`
+	FinalityDepth      *uint   `toml:"finality_depth"`
+	SafeTagSupported   *bool   `toml:"safe_tag_supported"`
 
 	BackupLogPollerBlockDelay *uint   `toml:"backup_log_poller_block_delay"`
 	LogPollerInterval         *string `toml:"log_poller_interval"`
@@ -266,7 +266,7 @@ HttpUrl = '{{.HttpUrl}}'
 	}
 
 	d := data{
-		LinkContractAddress:       nil, // TODO think whether we need and how to set if it is deployed later. Is the sequence deterministic enough?
+		LinkContractAddress:       m.Config[0].EVMNetworkSettings.LinkTokenAddress, // TODO think whether we need and how to set if it is deployed later. Is the sequence deterministic enough?
 		ChainID:                   bc.Out.ChainID,
 		FinalityDepth:             m.Config[0].EVMNetworkSettings.FinalityDepth,
 		FinalityTag:               m.Config[0].EVMNetworkSettings.FinalityTagEnabled,
@@ -288,7 +288,7 @@ HttpUrl = '{{.HttpUrl}}'
 	return config + buf.String(), nil
 }
 
-func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context) (string, error) {
+func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context, fake *fake.Input) (string, error) {
 	if m.Config[0].MercurySettings == nil {
 		L.Info().Msg("Skipping CL nodes secrets configuration")
 		return "", nil
@@ -307,13 +307,8 @@ func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context) (string, erro
 		URL             string
 	}
 
-	u, err := url.JoinPath(framework.HostDockerInternal(), m.Config[0].MercurySettings.FakeEndpoint)
-	if err != nil {
-		return "", fmt.Errorf("failed to join URL path: %w", err)
-	}
-
 	d := data{
-		URL:             u,
+		URL:             fake.Out.BaseURLDocker,
 		CredentialsName: m.Config[0].MercurySettings.CredentialsName,
 	}
 
@@ -418,12 +413,31 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 
-	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[0].GetRegistryVersion(), m.Config[0].DeployedContracts.Registry, m.Config[0].GetMercuryCredentialsName())
+	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[0].MustGetRegistryVersion(), m.Config[0].DeployedContracts.Registry, m.Config[0].GetMercuryCredentialsName())
 }
 
-func (m *Automation) GetRegistryVersion() ethereum.KeeperRegistryVersion {
-	// TODO from string!
-	return ethereum.RegistryVersion_2_0
+func (m *Automation) MustGetRegistryVersion() ethereum.KeeperRegistryVersion {
+	version := semver.MustParse(m.RegistryVersion)
+	switch {
+	case version.Equal(semver.MustParse("1.0")):
+		return ethereum.RegistryVersion_1_0
+	case version.Equal(semver.MustParse("1.1")):
+		return ethereum.RegistryVersion_1_1
+	case version.Equal(semver.MustParse("1.2")):
+		return ethereum.RegistryVersion_1_2
+	case version.Equal(semver.MustParse("1.3")):
+		return ethereum.RegistryVersion_1_3
+	case version.Equal(semver.MustParse("2.0")):
+		return ethereum.RegistryVersion_2_0
+	case version.Equal(semver.MustParse("2.1")):
+		return ethereum.RegistryVersion_2_1
+	case version.Equal(semver.MustParse("2.2")):
+		return ethereum.RegistryVersion_2_2
+	case version.Equal(semver.MustParse("2.3")):
+		return ethereum.RegistryVersion_2_3
+	default:
+		panic("unsupported registry version: " + m.RegistryVersion)
+	}
 }
 
 func (m *Automation) GetMercuryCredentialsName() string {

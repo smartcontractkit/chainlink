@@ -42,7 +42,7 @@ func ReadRegistryConfig(config *Automation) contracts.KeeperRegistrySettings {
 		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
 		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
 		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
-		RegistryVersion:      config.GetRegistryVersion(),
+		RegistryVersion:      config.MustGetRegistryVersion(),
 	}
 }
 

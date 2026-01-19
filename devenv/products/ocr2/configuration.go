@@ -124,7 +124,7 @@ type Configurator struct {
 	Config []*OCR2 `toml:"ocr2"`
 }
 
-func NewOCR2Configurator() *Configurator {
+func NewConfigurator() *Configurator {
 	return &Configurator{}
 }
 
@@ -207,7 +207,7 @@ func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *
 	return netConfig, nil
 }
 
-func (m *Configurator) GenerateCLNodesSecrets(_ context.Context) (string, error) {
+func (m *Configurator) GenerateCLNodesSecrets(_ context.Context, _ *fake.Input) (string, error) {
 	return "", nil
 }
 

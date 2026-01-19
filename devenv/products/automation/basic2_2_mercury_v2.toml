@@ -1,8 +1,12 @@
 [[automation]]
-registryVersion = "2.0"
+registryVersion = "2.2"
 cl_nodes_funding_eth = 50
-#cl_nodes_funding_link = 50
-#link token = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
+# cl_nodes_funding_link = 50
+test_keys_min_funding_eth = 10
+
+[automation.MercurySettings]
+version = "v2"
+credentialsName = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -11,6 +15,7 @@ fee_cap_multiplier = 2
 tip_cap_multiplier = 2
 
 #[automation.EVMNetworkSettings]
+#link_token_address = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
 #finality_tag_enabled = true
 #finality_depth = 10
 #safe_tag_supported = true

@@ -272,6 +272,8 @@ func RegisterUpkeepContracts(t *testing.T, client *seth.Client, linkToken contra
 		numberOfContracts, upkeepAddresses, checkData, isLogTrigger, isMercury, isBillingTokenNative, wethToken)
 }
 
+type UpkeepId = *big.Int
+
 type upkeepRegistrationResult struct {
 	upkeepID UpkeepId
 }

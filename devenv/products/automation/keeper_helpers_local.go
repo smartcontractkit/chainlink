@@ -21,7 +21,7 @@ func CreateKeeperJobsLocal(
 		l.Error().Err(err).Msg("Reading ETH Keys from Chainlink Client shouldn't fail")
 		return nil, err
 	}
-	nodeAddresses, err := ChainlinkNodeAddressesLocal(chainlinkNodes)
+	nodeAddresses, err := ChainlinkNodeAddresses(chainlinkNodes)
 	if err != nil {
 		l.Error().Err(err).Msg("Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 		return nil, err

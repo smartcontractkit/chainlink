@@ -1861,9 +1861,10 @@ func (v *EthereumKeeperRegistrar) RegisterUpkeepFromKey(keyNum int, name string,
 			OffchainConfig: []byte{},
 		}
 
-		decodedTx, err := v.client.Decode(v.registrar23.RegisterUpkeep(txOpts,
-			params,
-		))
+		decodedTx, err := v.client.Decode(v.registrar23.RegisterUpkeep(txOpts, params))
+		if err != nil {
+			return nil, err
+		}
 		return decodedTx.Transaction, err
 	}
 

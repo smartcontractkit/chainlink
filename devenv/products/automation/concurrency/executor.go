@@ -171,8 +171,7 @@ func (e *ConcurrentExecutor[ResultType, ResultChannelType, TaskType]) Execute(co
 				Int("Tasks to process", len(payloads)).
 				Msg("Started processing tasks")
 
-			for i := 0; i < len(payloads); i++ {
-
+			for i := range payloads {
 				// if context is cancelled and failFast is enabled  mark all remaining tasks as finished
 				if e.failFast && ctx.Err() != nil {
 					e.logger.Trace().

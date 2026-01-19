@@ -25,6 +25,7 @@ type Product interface {
 	// GenerateCLNodesSecrets generates secrets
 	GenerateCLNodesSecrets(
 		ctx context.Context,
+		fake *fake.Input,
 	) (string, error)
 	// ConfigureJobsAndContracts configures both on-chain and off-chain parts of a product
 	ConfigureJobsAndContracts(

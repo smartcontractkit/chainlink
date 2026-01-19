@@ -1,0 +1,1 @@
+- [ ] either expect an array of private keys to be passed in config or craete ephemeral addresses during setup and add them to config? otherwise we can only run 1 test on each env, because seth's ephemeral key funding uses all funds
