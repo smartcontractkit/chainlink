@@ -49,7 +49,7 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 			CaseToTrigger: consensusNegativeTest.caseToTrigger,
 			FeedID:        feedID,
 		}
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		timeout := 90 * time.Second
 		expectedError := consensusNegativeTest.expectedError
