@@ -5,9 +5,6 @@ on:
     tags:
       - "v*"
 
-env:
-  ECR_HOSTNAME: public.ecr.aws
-
 permissions: {}
 
 jobs:
@@ -58,7 +55,9 @@ jobs:
 
   docker-core:
     needs: [checks]
-    if: needs.checks.outputs.git-tag-type == 'core'
+    # No need to build the final image as we promote the last RC to use the final tag
+    # so we only run the builds for pre-releases.
+    if: needs.checks.outputs.git-tag-type == 'core' && needs.checks.outputs.is-pre-release == 'true'
     permissions:
       contents: read
       id-token: write
@@ -87,23 +86,6 @@ jobs:
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_BUILD_PUBLISH_ARN }}
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-
-  # Publish attestations on final release to: https://github.com/smartcontractkit/chainlink/attestations
-  docker-core-attestations:
-    needs: [checks, docker-core]
-    runs-on: ubuntu-latest
-    if: ${{ needs.checks.outputs.is-release == 'true' }}
-    permissions:
-      attestations: write
-      contents: read
-      id-token: write
-    steps:
-      - name: Publish attestation to GitHub
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-name: public.ecr.aws/chainlink/chainlink
-          subject-digest: ${{ needs.docker-core.outputs.docker-manifest-digest }}
-          push-to-registry: false
 
   docker-ccip:
     needs: [checks]
@@ -140,106 +122,32 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-  # Publish attestations on final release to: https://github.com/smartcontractkit/chainlink/attestations
-  docker-ccip-attestations:
-    needs: [checks, docker-ccip]
-    if: ${{ needs.checks.outputs.is-release == 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      attestations: write
-      contents: read
-      id-token: write
-    steps:
-      - name: Publish attestation to GitHub
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-name: public.ecr.aws/chainlink/ccip
-          subject-digest: ${{ needs.docker-ccip.outputs.docker-manifest-digest }}
-          push-to-registry: false
-
-  # Notify Slack channel for new git tags.
-  slack-notify:
-    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success')
+  # Notify Slack channel for new git tags associated with pre-releases.
+  # Final release notifications originate from the release coordinator repo.
+  slack-notify-prereleases:
+    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success') && needs.checks.outputs.is-pre-release == 'true'
     needs: [checks, docker-core, docker-ccip]
-    runs-on: ubuntu-24.04
-    environment: build-publish
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Determine docker outputs
-        id: docker-outputs
-        shell: bash
-        env:
-          DOCKER_CCIP_MANIFEST_DIGEST: ${{ needs.docker-ccip.outputs.docker-manifest-digest }}
-          DOCKER_CCIP_MANIFEST_TAG: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
-          DOCKER_CCIP_RESULT: ${{ needs.docker-ccip.result }}
-          DOCKER_CORE_MANIFEST_TAG: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          DOCKER_CORE_MANIFEST_DIGEST: ${{ needs.docker-core.outputs.docker-manifest-digest }}
-          DOCKER_CORE_RESULT: ${{ needs.docker-core.result }}
-        run: |
-          if [[ "${DOCKER_CORE_RESULT}" == "success" ]]; then
-            echo "tag=${DOCKER_CORE_MANIFEST_TAG}" | tee -a "$GITHUB_OUTPUT"
-            echo "digest=${DOCKER_CORE_MANIFEST_DIGEST}" | tee -a "$GITHUB_OUTPUT"
-          elif [[ "${DOCKER_CCIP_RESULT}" == "success" ]]; then
-            echo "tag=${DOCKER_CCIP_MANIFEST_TAG}" | tee -a "$GITHUB_OUTPUT"
-            echo "digest=${DOCKER_CCIP_MANIFEST_DIGEST}" | tee -a "$GITHUB_OUTPUT"
-          else
-            echo "::error::Neither docker-core nor docker-ccip job succeeded" >&2
-            exit 1
-          fi
-
-      - name: Notify Slack
-        uses: smartcontractkit/.github/actions/slack-notify-git-ref@slack-notify-git-ref/1.0.0
-        with:
-          slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot
-          git-ref: ${{ github.ref_name }}
-          git-ref-type: ${{ github.ref_type }}
-          changelog-url: >-
-            ${{
-              format(
-                'https://github.com/{0}/blob/{1}/CHANGELOG.md',
-                github.repository,
-                github.ref_name
-              )
-            }}
-          docker-image-name: >-
-            ${{
-              format(
-                '{0}/{1}:{2}',
-                env.ECR_HOSTNAME,
-                needs.checks.outputs.ecr-image-name,
-                steps.docker-outputs.outputs.tag
-              )
-            }}
-          docker-image-digest: ${{ steps.docker-outputs.outputs.digest }}
-
-  deploy-core:
-    needs: [checks, docker-core]
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Deploy core
-        # Only deploy if this is a final release (not a prerelease).
-        if: ${{ needs.checks.outputs.is-release == 'true' }}
-        uses: ./.github/actions/deploy-image
-        with:
-          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
-          oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          oci-repository-url: ${{ format('{0}/chainlink/chainlink', env.ECR_HOSTNAME) }}
-          pr-close-enabled: false
-          products: |
-            df1.0
-            automation-mainnet
-            automation-testnet
+    uses: ./.github/workflows/release-notifications.yml
+    with:
+      git-ref: ${{ github.ref_name }}
+      git-ref-type: ${{ github.ref_type }}
+      changelog-url: >-
+        ${{
+          format(
+            'https://github.com/{0}/blob/{1}/CHANGELOG.md',
+            github.repository,
+            github.ref_name
+          )
+        }}
+      docker-image-name: >-
+        ${{
+          format(
+            'public.ecr.aws/{0}:{1}',
+            needs.checks.outputs.ecr-image-name,
+            needs.docker-core.outputs.docker-manifest-tag || needs.docker-ccip.outputs.docker-manifest-tag
+          )
+        }}
+      docker-image-digest: >-
+        ${{
+          needs.docker-core.outputs.docker-manifest-digest || needs.docker-ccip.outputs.docker-manifest-digest
+        }}

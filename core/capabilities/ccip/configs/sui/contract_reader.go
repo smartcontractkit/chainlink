@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 
 	chainreaderConfig "github.com/smartcontractkit/chainlink-sui/relayer/chainreader/config"
 	"github.com/smartcontractkit/chainlink-sui/relayer/client"
