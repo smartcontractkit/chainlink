@@ -81,6 +81,9 @@ jobs:
              ],
             "Test_CRE_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
+             ],
+            "Test_CRE_V2_Sharding": [
+               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
