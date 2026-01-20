@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -149,6 +151,7 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1546")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
