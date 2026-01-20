@@ -34,14 +34,13 @@ const (
 )
 
 type SetupShardingInput struct {
-	Ctx      context.Context
 	Logger   zerolog.Logger
 	CreEnv   *cre.Environment
 	Topology *cre.Topology
 	Dons     *cre.Dons
 }
 
-func SetupSharding(input SetupShardingInput) error {
+func SetupSharding(ctx context.Context, input SetupShardingInput) error {
 	// Get the shard leader DON
 	shardLeaderDON, err := getShardLeaderDON(input.Dons)
 	if err != nil {
@@ -69,15 +68,15 @@ func SetupSharding(input SetupShardingInput) error {
 	}
 
 	// 4. Create Ring jobs on the shard leader DON
-	err = createRingJobs(input.Ctx, input.CreEnv, shardLeaderDON, input.Dons, ringOCR3Addr, shardConfigAddr, bootstrapURLs)
+	err = createRingJobs(ctx, input.CreEnv, shardLeaderDON, input.Dons, ringOCR3Addr, shardConfigAddr, bootstrapURLs)
 	if err != nil {
 		return fmt.Errorf("failed to create Ring jobs: %w", err)
 	}
 
 	time.Sleep(60 * time.Second)
 	// 5. Wait for LogPoller to be healthy before configuring OCR3
-	if err := consensus.WaitForLogPollerToBeHealthy(shardLeaderDON); err != nil {
-		return errors.Wrap(err, "failed while waiting for Log Poller to become healthy")
+	if lpErr := consensus.WaitForLogPollerToBeHealthy(shardLeaderDON); lpErr != nil {
+		return errors.Wrap(lpErr, "failed while waiting for Log Poller to become healthy")
 	}
 
 	// 6. Configure OCR3 contract
@@ -98,7 +97,7 @@ func getShardLeaderDON(dons *cre.Dons) (*cre.Don, error) {
 			return don, nil
 		}
 	}
-	return nil, fmt.Errorf("no shard leader DON found")
+	return nil, errors.New("no shard leader DON found")
 }
 
 // deployShardConfigContract deploys the ShardConfig contract
@@ -168,7 +167,7 @@ func deployRingOCR3Contract(creEnv *cre.Environment, logger zerolog.Logger) (com
 func getBootstrapURLs(dons *cre.Dons) ([]string, error) {
 	bootstrap, ok := dons.Bootstrap()
 	if !ok {
-		return nil, fmt.Errorf("no bootstrap node found in dons")
+		return nil, errors.New("no bootstrap node found in dons")
 	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)

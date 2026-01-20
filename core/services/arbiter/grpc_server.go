@@ -2,7 +2,7 @@ package arbiter
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,7 +73,7 @@ func (s *GRPCServer) convertProtoStatusToReplicas(protoStatus map[uint32]*ringpb
 		if status != nil && status.GetIsHealthy() {
 			replicaStatus = StatusReady
 		}
-		replicas[fmt.Sprintf("%d", shardID)] = ShardReplica{
+		replicas[strconv.FormatUint(uint64(shardID), 10)] = ShardReplica{
 			Status:  replicaStatus,
 			Message: "Reported by external scaler",
 		}

@@ -2,7 +2,6 @@ package cre
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -82,7 +81,7 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	workers, err := shardZero.Workers()
 	require.NoError(t, err, "Expected shard zero to have worker nodes")
-	require.Greater(t, len(workers), 0, "Expected at least one worker node in shard zero DON")
+	require.NotEmpty(t, workers, "Expected at least one worker node in shard zero DON")
 	testLogger.Info().Msgf("Shard zero has %d worker nodes", len(workers))
 
 	for _, don := range shardDONs {
@@ -97,8 +96,7 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}
 
 	testLogger.Info().Msg("Calling SetupSharding to deploy contracts and create Ring jobs...")
-	err = sharding.SetupSharding(sharding.SetupShardingInput{
-		Ctx:      t.Context(),
+	err = sharding.SetupSharding(t.Context(), sharding.SetupShardingInput{
 		Logger:   testLogger,
 		CreEnv:   testEnv.CreEnvironment,
 		Topology: nil,
@@ -130,10 +128,10 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}
 	require.NotEmpty(t, rpcHost, "Failed to find shard0 node set to extract RPC host")
 
-	shardOrchestratorAddr := fmt.Sprintf("%s:60051", rpcHost)
+	shardOrchestratorAddr := rpcHost + ":60051"
 	testShardOrchestratorRPC(t, testLogger, shardOrchestratorAddr)
 
-	arbiterAddr := fmt.Sprintf("%s:19876", rpcHost)
+	arbiterAddr := rpcHost + ":19876"
 	testArbiterRPC(t, testLogger, arbiterAddr)
 
 	testShardingScaleScenario(t, testEnv, rpcHost)
@@ -201,8 +199,8 @@ func testShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rp
 	shardConfigRef := getShardConfigRef(t, testEnv)
 	chainSelector := testEnv.CreEnvironment.RegistryChainSelector
 
-	arbiterClient := newArbiterClient(t, fmt.Sprintf("%s:19876", rpcHost))
-	shardOrchClient := newShardOrchestratorClient(t, fmt.Sprintf("%s:60051", rpcHost))
+	arbiterClient := newArbiterClient(t, rpcHost+":19876")
+	shardOrchClient := newShardOrchestratorClient(t, rpcHost+":60051")
 
 	workflowIDs := []string{"workflow-A", "workflow-B", "workflow-C", "workflow-D"}
 
@@ -256,8 +254,8 @@ func testShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rp
 	for _, shardID := range resp.Mappings {
 		shardCounts[shardID]++
 	}
-	assert.Greater(t, shardCounts[0], 0, "Some workflows should be on shard 0")
-	assert.Greater(t, shardCounts[1], 0, "Some workflows should be on shard 1")
+	assert.Positive(t, shardCounts[0], "Some workflows should be on shard 0")
+	assert.Positive(t, shardCounts[1], "Some workflows should be on shard 1")
 	logger.Info().
 		Interface("mappings", resp.Mappings).
 		Interface("distribution", shardCounts).
