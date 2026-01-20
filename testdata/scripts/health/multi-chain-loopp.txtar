@@ -88,9 +88,7 @@ Name = 'node'
 URL = 'https://sui.rpc'
 
 [[Ton]]
-ChainID = '99'
-NetworkName = 'foo'
-NetworkNameFull = 'ton-foo'
+ChainID = '-217'
 
 [[Ton.Nodes]]
 Name = 'node'
