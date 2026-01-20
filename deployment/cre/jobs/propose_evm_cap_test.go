@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -31,6 +33,74 @@ const (
 	testOCRQualifier          = "OCR3Capability"
 	testForwarderQualifier    = "forwarder-qualifier"
 )
+
+type evmCapTestSetup struct {
+	env          *cldf.Environment
+	nodeIDs      []string
+	evmCapInputs []jobs.EVMCapabilityInput
+	baseInput    jobs.ProposeEVMCapJobSpecInput
+}
+
+func setupEVMCapTest(t *testing.T) evmCapTestSetup {
+	t.Helper()
+	testEnv := test.SetupEnvV2(t, false)
+
+	selector := testEnv.RegistrySelector
+	ds := datastore.NewMemoryDataStore()
+	seedAddressesForSelector(t, ds, selector, "0xocr...", "0xfwd...")
+	env := testEnv.Env
+	env.DataStore = ds.Seal()
+
+	nodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+	require.NoError(t, err)
+
+	var nodeIDs []string
+	var evmCapInputs []jobs.EVMCapabilityInput
+	mockGetter := &tenv.MockJobApproverGetter{JobApprovers: make(map[string]*tenv.MockJobApprover)}
+	for _, n := range nodes.GetNodes() {
+		if strings.Contains(n.Id, "bootstrap") {
+			continue
+		}
+		nodeIDs = append(nodeIDs, n.Id)
+		mockGetter.JobApprovers[n.Id] = &tenv.MockJobApprover{}
+		evmCapInputs = append(evmCapInputs, minimalEVMCapInput(n.Id))
+	}
+
+	client := tenv.NewJobServiceClient(mockGetter)
+
+	testEnv.TestJD.JobServiceClient = client
+
+	env.Offchain = struct {
+		jobv1.JobServiceClient
+		node.NodeServiceClient
+		csav1.CSAServiceClient
+	}{
+		JobServiceClient:  client,
+		NodeServiceClient: env.Offchain,
+		CSAServiceClient:  env.Offchain,
+	}
+
+	baseInput := jobs.ProposeEVMCapJobSpecInput{
+		Environment:             "test",
+		Zone:                    test.Zone,
+		Domain:                  "cre",
+		DONName:                 test.DONName,
+		ChainSelector:           selector,
+		OCRChainSelector:        selector,
+		BootstrapperOCR3Urls:    []string{"12D3KooWabc@127.0.0.1:5001"},
+		OCRContractQualifier:    testOCRQualifier,
+		ForwardersQualifier:     testForwarderQualifier,
+		ForwarderLookbackBlocks: 123,
+		EVMCapabilityInputs:     evmCapInputs,
+	}
+
+	return evmCapTestSetup{
+		env:          env,
+		nodeIDs:      nodeIDs,
+		evmCapInputs: evmCapInputs,
+		baseInput:    baseInput,
+	}
+}
 
 func minimalEVMCapInput(nodeID string) jobs.EVMCapabilityInput {
 	return jobs.EVMCapabilityInput{
@@ -261,41 +331,20 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 }
 
 func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
-	env := testEnv.Env
-
-	_, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
-	require.NoError(t, err)
-
-	selector := testEnv.RegistrySelector // use the test environment's selector
-	ds := datastore.NewMemoryDataStore()
-
-	seedAddressesForSelector(t, ds, selector, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0")
-	env.DataStore = ds.Seal()
+	setup := setupEVMCapTest(t)
+	env := setup.env
 
 	const (
 		inputLookback  int64 = 123 // non-zero input-level default
 		overrideCustom int64 = 999 // per-node explicit override
 	)
 
-	input := jobs.ProposeEVMCapJobSpecInput{
-		Environment:             "test",
-		Zone:                    test.Zone,
-		Domain:                  "cre",
-		DONName:                 test.DONName,
-		ChainSelector:           selector,
-		OCRChainSelector:        selector,
-		BootstrapperOCR3Urls:    []string{"12D3KooWabc@127.0.0.1:5001"},
-		OCRContractQualifier:    testOCRQualifier,
-		ForwardersQualifier:     testForwarderQualifier,
-		ForwarderLookbackBlocks: inputLookback,
-		EVMCapabilityInputs: []jobs.EVMCapabilityInput{
-			minimalEVMCapInput("node_test-don-0"),
-			minimalEVMCapInput("node_test-don-1"),
-			minimalEVMCapInput("node_test-don-2"),
-			minimalEVMCapInput("node_test-don-3"),
-		},
-	}
+	input := setup.baseInput
+	input.ForwarderLookbackBlocks = inputLookback
+
+	// Use the nodes from setup but ensure we have at least 4 nodes for this test
+	require.GreaterOrEqual(t, len(setup.evmCapInputs), 4, "need at least 4 nodes for this test")
+	input.EVMCapabilityInputs = setup.evmCapInputs[:4]
 
 	// Explicit per-node override on first node (should be preserved).
 	input.EVMCapabilityInputs[0].OverrideDefaultCfg.ForwarderLookbackBlocks = overrideCustom
@@ -313,24 +362,18 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	count123 := strings.Count(outputStr, `"forwarderLookbackBlocks":123`)
 	assert.Equal(t, 1, count999, "expected exactly one override lookbackBlocks=999")
 	assert.Equal(t, 3, count123, "expected exactly three defaulted lookbackBlocks=123")
-
 }
 
 func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
-	env := testEnv.Env
+	setup := setupEVMCapTest(t)
+	env := setup.env
 
-	selector := testEnv.RegistrySelector
-	ds := datastore.NewMemoryDataStore()
-	seedAddressesForSelector(t, ds, selector, "0xocr...", "0xfwd...")
-	env.DataStore = ds.Seal()
-
-	input := freshBase(selector)
-	input.OCRChainSelector = selector
+	input := setup.baseInput
 	// duplicate
+	require.GreaterOrEqual(t, len(setup.evmCapInputs), 1, "need at least 1 node for this test")
 	input.EVMCapabilityInputs = []jobs.EVMCapabilityInput{
-		minimalEVMCapInput("node_test-don-0"),
-		minimalEVMCapInput("node_test-don-0"),
+		setup.evmCapInputs[0],
+		setup.evmCapInputs[0],
 	}
 
 	_, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
@@ -339,63 +382,13 @@ func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_ReusesUUIDForEvmCapabilitiesV2(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
+	setup := setupEVMCapTest(t)
+	env := setup.env
+	nodeIDs := setup.nodeIDs
+	baseInput := setup.baseInput
 
-	selector := testEnv.RegistrySelector
-	ds := datastore.NewMemoryDataStore()
-	seedAddressesForSelector(t, ds, selector, "0xocr...", "0xfwd...")
-	env := testEnv.Env
-	env.DataStore = ds.Seal()
-
-	nodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
-	require.NoError(t, err)
-
-	var nodeIDs []string
-	var evmCapInputs []jobs.EVMCapabilityInput
-	mockGetter := &tenv.MockJobApproverGetter{JobApprovers: make(map[string]*tenv.MockJobApprover)}
-	for _, n := range nodes.GetNodes() {
-		if strings.Contains(n.Id, "bootstrap") {
-			continue
-		}
-		nodeIDs = append(nodeIDs, n.Id)
-		mockGetter.JobApprovers[n.Id] = &tenv.MockJobApprover{}
-		evmCapInputs = append(evmCapInputs, minimalEVMCapInput(n.Id))
-	}
-
-	client := tenv.NewJobServiceClient(mockGetter)
-
-	testEnv.TestJD.JobServiceClient = client
-
-	env.Offchain = struct {
-		jobv1.JobServiceClient
-		node.NodeServiceClient
-		csav1.CSAServiceClient
-	}{
-		JobServiceClient:  client,
-		NodeServiceClient: env.Offchain,
-		CSAServiceClient:  env.Offchain,
-	}
-
-	input := jobs.ProposeEVMCapJobSpecInput{
-		Environment:             "test",
-		Zone:                    test.Zone,
-		Domain:                  "cre",
-		DONName:                 test.DONName,
-		ChainSelector:           selector,
-		OCRChainSelector:        selector,
-		BootstrapperOCR3Urls:    []string{"12D3KooWabc@127.0.0.1:5001"},
-		OCRContractQualifier:    testOCRQualifier,
-		ForwardersQualifier:     testForwarderQualifier,
-		ForwarderLookbackBlocks: 123,
-		EVMCapabilityInputs:     evmCapInputs,
-	}
-	_, err = jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
-	require.NoError(t, err)
-
-	// verify that the jobs have been distributed and accepted
 	verifyJobProposal := func(revision int64) {
 		jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
-
 		require.NoError(t, err)
 
 		jobsList, err := env.Offchain.ListJobs(t.Context(), &jobv1.ListJobsRequest{Filter: &jobv1.ListJobsRequest_Filter{NodeIds: nodeIDs}})
@@ -413,6 +406,12 @@ func TestProposeStandardCapabilityJob_ReusesUUIDForEvmCapabilitiesV2(t *testing.
 		require.Len(t, jobProposals.GetProposals(), len(nodeIDs)*int(revision))
 		require.Equal(t, len(nodeIDs), proposalsAtRevision)
 	}
+
+	// verify that the jobs have been distributed and accepted
+	input := baseInput
+	_, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+	require.NoError(t, err)
+
 	verifyJobProposal(1)
 
 	// different config generates different uuid, but evm cap jobs should lookup the old id and reuse it
@@ -420,4 +419,90 @@ func TestProposeStandardCapabilityJob_ReusesUUIDForEvmCapabilitiesV2(t *testing.
 	_, err = jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
 	require.NoError(t, err)
 	verifyJobProposal(2)
+
+	// Verify that jobs use the new name format (evm-cap-v2)
+	jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+	require.NoError(t, err)
+
+	hasNewFormat := false
+	for _, jp := range jobProposals.GetProposals() {
+		if jp.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED {
+			if strings.Contains(jp.Spec, `name = "evm-cap-v2`) {
+				hasNewFormat = true
+				break
+			}
+		}
+	}
+	assert.True(t, hasNewFormat, "should find job with new name format (evm-cap-v2)")
+}
+
+func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.T) {
+	setup := setupEVMCapTest(t)
+	env := setup.env
+	nodeIDs := setup.nodeIDs
+	baseInput := setup.baseInput
+
+	// First create a job with legacy name format using ProposeStandardCapabilityJob
+	// This simulates an existing job that was created with the old name format
+	legacyJobInput := jobs.ProposeStandardCapabilityJobInput{
+		JobName: "evm-capabilities-v2--test-zone-1",
+		Command: "/usr/local/bin/evm",
+		DONName: test.DONName,
+		Domain:  "cre",
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: "zone", Value: test.Zone},
+		},
+		GenerateOracleFactory: true,
+		ContractQualifier:     testOCRQualifier,
+		ChainSelectorEVM:      pkg.ChainSelector(baseInput.ChainSelector),
+		BootstrapPeers:        baseInput.BootstrapperOCR3Urls,
+	}
+
+	_, err := jobs.ProposeStandardCapabilityJob{}.Apply(*env, legacyJobInput)
+	require.NoError(t, err)
+
+	// Get initial proposal count after creating legacy job
+	initialProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+	require.NoError(t, err)
+	initialCount := len(initialProposals.GetProposals())
+
+	verifyJobProposal := func(expectedNewProposals int) {
+		jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+		require.NoError(t, err)
+
+		jobsList, err := env.Offchain.ListJobs(t.Context(), &jobv1.ListJobsRequest{Filter: &jobv1.ListJobsRequest_Filter{NodeIds: nodeIDs}})
+		require.NoError(t, err)
+
+		require.Len(t, jobsList.GetJobs(), len(nodeIDs))
+		require.Len(t, jobProposals.GetProposals(), initialCount+expectedNewProposals)
+	}
+
+	// Now propose again with ProposeEVMCapJobSpec (which uses new format evm-cap-v2)
+	// The system should detect the existing legacy job and handle it correctly
+	input := baseInput
+	_, err = jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+	require.NoError(t, err)
+
+	verifyJobProposal(len(nodeIDs))
+
+	// different config generates different uuid, but evm cap jobs should lookup the old id and reuse it
+	input.ForwarderLookbackBlocks = 999
+	_, err = jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+	require.NoError(t, err)
+	verifyJobProposal(len(nodeIDs) * 2)
+
+	// Verify that jobs use the legacy name format (evm-capabilities-v2) when UUIDs are reused
+	jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+	require.NoError(t, err)
+
+	hasLegacyFormat := false
+	for _, jp := range jobProposals.GetProposals() {
+		if jp.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED {
+			if strings.Contains(jp.Spec, `name = "evm-capabilities-v2`) {
+				hasLegacyFormat = true
+				break
+			}
+		}
+	}
+	assert.True(t, hasLegacyFormat, "should find job with legacy name format (evm-capabilities-v2) when UUIDs are reused")
 }
