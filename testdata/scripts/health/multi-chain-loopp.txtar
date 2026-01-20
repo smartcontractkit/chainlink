@@ -89,6 +89,8 @@ URL = 'https://sui.rpc'
 
 [[Ton]]
 ChainID = '99'
+NetworkName = 'foo'
+NetworkNameFull = 'ton-foo'
 
 [[Ton.Nodes]]
 Name = 'node'
