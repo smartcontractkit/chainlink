@@ -229,7 +229,7 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 
 // getEVMExternalJobIDByName returns an empty string if id is not found.
 func getEVMExternalJobIDByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, error) {
-	if !strings.Contains(jobName, "evm-capabilities-v2") {
+	if !strings.Contains(jobName, "evm-cap-v2") {
 		return "", nil
 	}
 
