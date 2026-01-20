@@ -79,5 +79,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke
-          path: devenv/tests/e2e/logs
-          retention-days: 1
+          path: devenv/tests/ocr2/logs
+          retention-days: 3
+      - name: Upload Pprof (Alloc)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alloc.pprof
+          path: devenv/tests/ocr2/alloc.pprof
+          retention-days: 3
