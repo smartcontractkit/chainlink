@@ -163,6 +163,7 @@ ok Sui.67.RelayerService.PluginRelayerClient.SuiRelayer
 ok TON.-217.RelayerService
 ok TON.-217.RelayerService.PluginRelayerClient
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON
+ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.BalanceMonitor
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.Chain
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.Relayer
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.TONLogPoller
@@ -704,6 +705,15 @@ ok WorkflowStore
       "id": "TON.-217.RelayerService.PluginRelayerClient.PluginTON",
       "attributes": {
         "name": "TON.-217.RelayerService.PluginRelayerClient.PluginTON",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.-217.RelayerService.PluginRelayerClient.PluginTON.BalanceMonitor",
+      "attributes": {
+        "name": "TON.-217.RelayerService.PluginRelayerClient.PluginTON.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
