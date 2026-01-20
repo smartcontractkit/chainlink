@@ -1,10 +1,10 @@
 module main
 
-go 1.24.5
+go 1.25.3
 
 require (
-	github.com/smartcontractkit/cre-sdk-go v0.6.1-0.20250903144116-0a9868cc6b9d
-	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.6.1-0.20250904162734-378791a6a0d6
+	github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.10.0
 )
 
 require (

@@ -3,14 +3,14 @@ module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/exampl
 go 1.25.5
 
 require (
-	github.com/ethereum/go-ethereum v1.16.2
+	github.com/ethereum/go-ethereum v1.16.4
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251028192540-2ac3c24aa883
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022073203-7d8ae8cf67c1
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8
-	github.com/smartcontractkit/cre-sdk-go v0.8.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.8.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.8.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
+	github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.10.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -24,12 +24,12 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/consensys/gnark-crypto v0.18.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
-	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
+	github.com/crate-crypto/go-eth-kzg v1.4.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
-	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
+	github.com/ethereum/c-kzg-4844/v2 v2.1.3 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -60,7 +60,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250912173940-f3ab0246e23d // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	github.com/supranational/blst v0.3.14 // indirect
+	github.com/supranational/blst v0.3.16-0.20250831170142-f48500c1fdbe // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
@@ -72,7 +72,7 @@ require (
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5 // indirect
 	google.golang.org/grpc v1.75.0 // indirect
