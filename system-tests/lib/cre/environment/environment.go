@@ -425,8 +425,7 @@ func SetupTestEnvironment(
 	// Sharding setup moved AFTER PostEnvStartup to ensure OCR3 configs work properly
 	if topology.DonsMetadata.ShardingEnabled() {
 		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Setting up Sharding")))
-		err := sharding.SetupSharding(sharding.SetupShardingInput{
-			Ctx:      ctx,
+		err := sharding.SetupSharding(ctx, sharding.SetupShardingInput{
 			Logger:   testLogger,
 			CreEnv:   creEnvironment,
 			Topology: topology,
