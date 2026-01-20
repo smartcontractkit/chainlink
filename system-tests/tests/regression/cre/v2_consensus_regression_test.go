@@ -31,6 +31,7 @@ var consensusNegativeTestsGenerateReport = []consensusNegativeTest{
 	{"random timestamps", "Consensus - random timestamps", expectedConsensusError},
 	{"inconsistent feedIDs", "Consensus - inconsistent feedIDs", expectedConsensusError},
 	{"inconsistent prices", "Consensus - inconsistent prices", expectedConsensusError},
+	{"oversized payload", "Consensus - oversized payload", "bytes exceeds maximum allowed size"},
 }
 
 func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensusNegativeTest consensusNegativeTest) {
@@ -48,6 +49,7 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 		workflowConfig := consensus_negative_config.Config{
 			CaseToTrigger: consensusNegativeTest.caseToTrigger,
 			FeedID:        feedID,
+			PayloadSizeKB: 101, // only used for oversized payload test
 		}
 		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
