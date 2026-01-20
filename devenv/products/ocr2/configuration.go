@@ -213,6 +213,7 @@ func (m *Configurator) GenerateCLNodesSecrets(_ context.Context, _ *fake.Input) 
 
 func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
+	_ int,
 	fake *fake.Input,
 	bc *blockchain.Input,
 	ns *nodeset.Input,

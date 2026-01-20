@@ -155,8 +155,8 @@ func (m *Configurator) Load() error {
 	return nil
 }
 
-func (m *Configurator) Store(path string, _ int) error {
-	if err := products.Store(".", m); err != nil {
+func (m *Configurator) Store(path string, instanceIdx int) error {
+	if err := products.Store(".", &Configurator{Config: []*Automation{m.Config[instanceIdx]}}); err != nil {
 		return fmt.Errorf("failed to store product config: %w", err)
 	}
 	return nil
@@ -328,6 +328,7 @@ func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context, fake *fake.In
 
 func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
+	instanceIdx int,
 	fake *fake.Input,
 	bc *blockchain.Input,
 	ns *nodeset.Input,
@@ -361,15 +362,15 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	c, _, _, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
-		m.Config[0].GasSettings.FeeCapMultiplier,
-		m.Config[0].GasSettings.TipCapMultiplier,
+		m.Config[instanceIdx].GasSettings.FeeCapMultiplier,
+		m.Config[instanceIdx].GasSettings.TipCapMultiplier,
 	)
 
 	if err != nil {
 		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
 	for _, addr := range ethKeyAddresses {
-		if cErr := products.FundNodeEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
+		if cErr := products.FundNodeEIP1559(ctx, c, pkey, addr, m.Config[instanceIdx].CLNodesFundingETH); cErr != nil {
 			return cErr
 		}
 	}
@@ -400,7 +401,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 
-	if err := deployContracts(chainClient, m.Config[0]); err != nil {
+	if err := deployContracts(chainClient, m.Config[instanceIdx]); err != nil {
 		return err
 	}
 
@@ -409,11 +410,11 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("error collecting node details: %w", err)
 	}
 
-	if err := SetConfigOnRegistry(nodeDetails, m.Config[0], chainClient); err != nil {
+	if err := SetConfigOnRegistry(nodeDetails, m.Config[instanceIdx], chainClient); err != nil {
 		return err
 	}
 
-	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[0].MustGetRegistryVersion(), m.Config[0].DeployedContracts.Registry, m.Config[0].GetMercuryCredentialsName())
+	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[instanceIdx].MustGetRegistryVersion(), m.Config[instanceIdx].DeployedContracts.Registry, m.Config[instanceIdx].GetMercuryCredentialsName())
 }
 
 func (m *Automation) MustGetRegistryVersion() ethereum.KeeperRegistryVersion {

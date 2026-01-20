@@ -260,12 +260,12 @@ func DeployRegistrar(chainClient *seth.Client, registryVersion ethereum.KeeperRe
 	}
 	registrarSettings := contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
-		AutoApproveMaxAllowed: 1000,
+		AutoApproveMaxAllowed: math.MaxUint16,
 		MinLinkJuels:          big.NewInt(0),
+		RegistryAddr:          config.DeployedContracts.Registry,
+		WETHTokenAddr:         config.DeployedContracts.Weth,
 	}
 
-	registrarSettings.RegistryAddr = config.DeployedContracts.Registry
-	registrarSettings.WETHTokenAddr = config.DeployedContracts.Weth
 	registrar, err := contracts.DeployKeeperRegistrar(chainClient, registryVersion, config.DeployedContracts.LinkToken, registrarSettings)
 	if err != nil {
 		return "", err

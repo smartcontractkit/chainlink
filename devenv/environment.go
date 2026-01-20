@@ -115,6 +115,7 @@ func NewEnvironment(ctx context.Context) error {
 		for productInstance := range productInfo.Instances {
 			err = productConfigurators[productIdx].ConfigureJobsAndContracts(
 				ctx,
+				productInstance,
 				in.FakeServer,
 				in.Blockchains[0],
 				in.NodeSets[0],

@@ -42,7 +42,6 @@ import (
 	iregistry22 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	iregistry23 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
-	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_chain_module"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -1643,17 +1642,15 @@ func loadRegistry2_0(client *seth.Client, address common.Address) (*EthereumKeep
 }
 
 func loadRegistry2_1(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
-	abi, err := ac.IAutomationV21PlusCommonMetaData.GetAbi()
+	abi, err := iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistry2_1 ABI: %w", err)
 	}
 
 	client.ContractStore.AddABI("KeeperRegistry2_1", *abi)
-	client.ContractStore.AddBIN("KeeperRegistry2_1", common.FromHex(ac.IAutomationV21PlusCommonMetaData.Bin))
+	client.ContractStore.AddBIN("KeeperRegistry2_1", common.FromHex(iregistry21.IKeeperRegistryMasterMetaData.Bin))
 
-	var instance any
-
-	instance, err = ac.NewIAutomationV21PlusCommon(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	instance, err := iregistry21.NewIKeeperRegistryMaster(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate KeeperRegistry2_1 instance: %w", err)
 	}
@@ -1661,7 +1658,7 @@ func loadRegistry2_1(client *seth.Client, address common.Address) (*EthereumKeep
 	return &EthereumKeeperRegistry{
 		address:     &address,
 		client:      client,
-		registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
+		registry2_1: instance,
 	}, nil
 }
 

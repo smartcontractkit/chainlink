@@ -30,6 +30,7 @@ type Product interface {
 	// ConfigureJobsAndContracts configures both on-chain and off-chain parts of a product
 	ConfigureJobsAndContracts(
 		ctx context.Context,
+		instanceIdx int,
 		fs *fake.Input,
 		bc *blockchain.Input,
 		ns *nodeset.Input,
