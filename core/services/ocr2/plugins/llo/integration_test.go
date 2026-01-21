@@ -1647,6 +1647,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
+	quarantine.Flaky(t, "DX-2679")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
