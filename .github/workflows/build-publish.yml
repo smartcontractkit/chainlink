@@ -125,6 +125,8 @@ jobs:
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
   slack-notify-prereleases:
+    permissions:
+      contents: read
     if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success') && needs.checks.outputs.is-pre-release == 'true'
     needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
