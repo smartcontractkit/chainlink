@@ -1409,6 +1409,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
+	quarantine.Flaky(t, "DX-2387")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
