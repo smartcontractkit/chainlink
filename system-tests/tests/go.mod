@@ -105,7 +105,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260121171742-f93fb73246aa // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260121203939-ba588dd90bee // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 )
 
