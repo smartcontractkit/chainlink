@@ -273,7 +273,7 @@ func (s *shardConfigSyncer) fetchAndCache(ctx context.Context) {
 		ctx,
 		bc.ReadIdentifier(GetDesiredShardCountMethod),
 		primitives.Unconfirmed,
-		nil,                  // No input params
+		nil, // No input params
 		&result,
 	)
 	if err != nil {

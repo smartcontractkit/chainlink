@@ -11,9 +11,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator/pb"
-	shardorchestratorservice "github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator/pb"
 )
 
 // setupShardOrchestrator creates a test ShardOrchestrator and returns the store, client, and cleanup function
@@ -22,7 +21,7 @@ func setupShardOrchestrator(t *testing.T) (*shardorchestrator.Store, pb.ShardOrc
 	store := shardorchestrator.NewStore(lggr)
 
 	ctx := context.Background()
-	orchestrator := shardorchestratorservice.New(0, store, lggr)
+	orchestrator := shardorchestrator.New(0, store, lggr)
 
 	err := orchestrator.Start(ctx)
 	require.NoError(t, err)

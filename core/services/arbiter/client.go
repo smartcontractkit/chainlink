@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	pb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
+	pb "github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
 )
 
 // RingArbiterClient implements pb.ArbiterScalerClient by calling

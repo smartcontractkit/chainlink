@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	pb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
+	pb "github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )

@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
-	shardorchpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator/pb"
+	ringpb "github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	shardorchpb "github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator/pb"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"

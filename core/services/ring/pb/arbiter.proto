@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package ring;
+
+import "google/protobuf/empty.proto";
+import "shared.proto";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/ring/pb";
+
+message ShardStatusRequest {
+  map<uint32, ShardStatus> status = 1; // shard_id -> status
+}
+
+message ArbiterResponse {
+  uint32 want_shards = 1;
+}
+
+service Arbiter {
+  rpc GetDesiredReplicas(ShardStatusRequest) returns (ArbiterResponse); // called periodically by Scaler
+}
+
+message ReplicaStatus {
+  uint32 want_shards = 1;
+  map<uint32, ShardStatus> status = 2;
+}
+
+message ConsensusWantShardsRequest {
+  uint32 n_shards = 1;
+}
+
+service ArbiterScaler {
+  rpc Status(google.protobuf.Empty) returns (ReplicaStatus); // called to collect current status of shards by Ring plugin
+  rpc ConsensusWantShards(ConsensusWantShardsRequest) returns (google.protobuf.Empty); // called at the end of the round with consensus shard count by Ring plugin
+}
+

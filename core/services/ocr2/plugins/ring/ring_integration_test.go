@@ -10,9 +10,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
 // mockArbiterScalerClient implements pb.ArbiterScalerClient for testing.
