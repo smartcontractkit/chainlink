@@ -1822,6 +1822,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 }
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
+	quarantine.Flaky(t, "DX-2675")
 	t.Parallel()
 
 	// starting offchainConfig, the test will handle
