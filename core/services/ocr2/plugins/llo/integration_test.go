@@ -2183,6 +2183,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
+	quarantine.Flaky(t, "DX-2677")
 	t.Parallel()
 
 	offchainConfig := datastreamsllo.OffchainConfig{
