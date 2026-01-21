@@ -26,7 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
-	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -47,16 +46,6 @@ Prerequisites:
 - Run the test:
   go test -timeout 20m -run "^Test_CRE_V2_Sharding$" -v
 */
-
-func Test_CRE_V2_Sharding(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
-		t,
-		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
-		"--with-contracts-version", "v2",
-	)
-
-	ExecuteShardingTest(t, testEnv)
-}
 
 func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
@@ -129,17 +118,17 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.NotEmpty(t, rpcHost, "Failed to find shard0 node set to extract RPC host")
 
 	shardOrchestratorAddr := rpcHost + ":60051"
-	testShardOrchestratorRPC(t, testLogger, shardOrchestratorAddr)
+	validateShardOrchestratorRPC(t, testLogger, shardOrchestratorAddr)
 
 	arbiterAddr := rpcHost + ":19876"
-	testArbiterRPC(t, testLogger, arbiterAddr)
+	validateArbiterRPC(t, testLogger, arbiterAddr)
 
-	testShardingScaleScenario(t, testEnv, rpcHost)
+	validateShardingScaleScenario(t, testEnv, rpcHost)
 
 	testLogger.Info().Msg("Sharding test completed successfully")
 }
 
-func testShardOrchestratorRPC(t *testing.T, logger zerolog.Logger, addr string) {
+func validateShardOrchestratorRPC(t *testing.T, logger zerolog.Logger, addr string) {
 	t.Helper()
 
 	logger.Info().Str("address", addr).Msg("Testing ShardOrchestrator RPC connectivity")
@@ -161,7 +150,7 @@ func testShardOrchestratorRPC(t *testing.T, logger zerolog.Logger, addr string) 
 	logger.Info().Int("mappingsCount", len(resp.Mappings)).Msg("ShardOrchestrator RPC responded successfully")
 }
 
-func testArbiterRPC(t *testing.T, logger zerolog.Logger, addr string) {
+func validateArbiterRPC(t *testing.T, logger zerolog.Logger, addr string) {
 	t.Helper()
 
 	logger.Info().Str("address", addr).Msg("Testing Arbiter RPC connectivity")
@@ -191,7 +180,7 @@ func testArbiterRPC(t *testing.T, logger zerolog.Logger, addr string) {
 	logger.Info().Str("address", addr).Msg("Arbiter RPC test passed")
 }
 
-func testShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string) {
+func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string) {
 	t.Helper()
 	logger := framework.L
 	ctx := context.Background()
