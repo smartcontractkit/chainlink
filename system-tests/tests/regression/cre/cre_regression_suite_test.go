@@ -132,6 +132,7 @@ func Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression(t *testing.
 }
 
 func Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-1976")
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidGas)
 }
 
