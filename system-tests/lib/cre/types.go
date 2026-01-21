@@ -67,9 +67,9 @@ const (
 	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
 	MockCapability            CapabilityFlag = "mock"
 	VaultCapability           CapabilityFlag = "vault"
-	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
-	HTTPActionCapability      CapabilityFlag = "http-action"
-	StreamsTriggerCapability  CapabilityFlag = "streams-trigger" // LLO Streams NoDAG Trigger
+	HTTPTriggerCapability    CapabilityFlag = "http-trigger"
+	HTTPActionCapability     CapabilityFlag = "http-action"
+	StreamsTriggerCapability CapabilityFlag = "streams-trigger" // LLO Streams NoDAG Trigger
 	// Add more capabilities as needed
 )
 

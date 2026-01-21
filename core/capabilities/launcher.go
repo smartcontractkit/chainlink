@@ -492,14 +492,15 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 						w.lggr,
 					)
 				case 2: // LLO
-					// TODO: add a flag in capability onchain config to indicate whether it's OCR based
-					// the "SignedReport" aggregator is generic
+					// LLO reports are cryptographically signed by the LLO DON nodes as part of the OCR protocol.
+					// The CRE transmitter sends these pre-signed reports to the workflow DON.
+					// We verify signatures using the LLO DON's OCR keys (which should match the capabilities DON's keys).
 					signers, err := signersFor(remoteDON, localRegistry)
 					if err != nil {
 						return nil, fmt.Errorf("failed to get signers for llo-trigger: %w", err)
 					}
 
-					const maxAgeSec = 120 // TODO move to capability onchain config
+					const maxAgeSec = 120 // TODO: move to capability onchain config
 					aggregator = aggregation.NewSignedReportRemoteAggregator(
 						signers,
 						int(remoteDON.F+1),

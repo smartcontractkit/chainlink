@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/llo-consumer
+module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/llo_consumer
 
 go 1.25.3
 
@@ -40,7 +40,7 @@ require (
 	google.golang.org/grpc v1.75.0 // indirect
 )
 
-// Use local dependencies
-replace github.com/smartcontractkit/chainlink-common => ../../../../../../../../../chainlink-common
-
-replace github.com/smartcontractkit/chainlink-protos/cre/go => ../../../../../../../../../chainlink-protos/cre/go
+// Note: For local WASM development with uncommitted chainlink-common changes,
+// temporarily add:
+// replace github.com/smartcontractkit/chainlink-common => ../../../../../../../../chainlink-common
+// replace github.com/smartcontractkit/chainlink-protos/cre/go => ../../../../../../../../chainlink-protos/cre/go

@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/environment"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/llo_e2e"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/minio"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/mock"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/root"
@@ -22,7 +21,6 @@ func init() {
 	root.RootCmd.AddCommand(environment.ObsCmd)
 	root.RootCmd.AddCommand(deploy.DeployCmd)
 	root.RootCmd.AddCommand(deploy.ConfigureCmd)
-	root.RootCmd.AddCommand(llo_e2e.LLOe2eCmd)
 }
 
 var (

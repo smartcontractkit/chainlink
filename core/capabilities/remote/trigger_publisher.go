@@ -310,7 +310,12 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 			}
 
 			triggerEvent := response.Event
-			p.lggr.Debugw("received trigger event", "workflowId", key.workflowID, "triggerEventID", triggerEvent.ID)
+			hasPayload := triggerEvent.Payload != nil
+			payloadType := "nil"
+			if hasPayload {
+				payloadType = triggerEvent.Payload.TypeUrl
+			}
+			p.lggr.Infow("TriggerPublisher received trigger event from underlying capability", "workflowId", key.workflowID, "triggerEventID", triggerEvent.ID, "hasPayload", hasPayload, "payloadType", payloadType)
 			marshaledResponse, err := pb.MarshalTriggerResponse(response)
 			if err != nil {
 				p.lggr.Debugw("can't marshal trigger event", "err", err)

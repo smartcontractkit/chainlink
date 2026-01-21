@@ -80,15 +80,37 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 		}
 		rawReport := ocrEvent.Report
 
+		// Log Payload presence for debugging
+		hasPayload := triggerResp.Event.Payload != nil
+		payloadType := "nil"
+		if hasPayload {
+			payloadType = triggerResp.Event.Payload.TypeUrl
+		}
+		a.lggr.Infow("Aggregating trigger response", "eventID", triggerResp.Event.ID, "hasPayload", hasPayload, "payloadType", payloadType, "hasOutputs", triggerResp.Event.Outputs != nil)
+
 		// Try Format 5 (protobuf) first
 		rep := &capabilitiespb.OCRTriggerReport{}
 		err = proto.Unmarshal(rawReport, rep)
-		if err == nil {
+		// Check for valid protobuf parse: Unmarshal can succeed on non-protobuf data
+		// but will leave all fields at default values. We require EventID and Timestamp
+		// to be populated for a valid Format 5 report.
+		if err == nil && rep.EventID != "" && rep.Timestamp != 0 {
 			// Format 5: Protobuf OCRTriggerReport
 			result, err := a.aggregateFormat5(triggerEventID, triggerResp, ocrEvent, rep)
 			if err != nil {
 				a.lggr.Debugw("Format 5 aggregation failed", "id", triggerResp.Event.ID, "err", err)
 				continue
+			}
+			// Verify Payload is preserved
+			resultHasPayload := result.Event.Payload != nil
+			resultPayloadType := "nil"
+			if resultHasPayload {
+				resultPayloadType = result.Event.Payload.TypeUrl
+			}
+			if !resultHasPayload {
+				a.lggr.Errorw("Payload lost during Format 5 aggregation", "eventID", triggerEventID, "originalHasPayload", hasPayload)
+			} else {
+				a.lggr.Infow("Format 5 aggregation successful, Payload preserved", "eventID", triggerEventID, "payloadType", resultPayloadType)
 			}
 			return result, nil
 		}
@@ -99,6 +121,17 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			if err != nil {
 				a.lggr.Debugw("Format 7 aggregation failed", "id", triggerResp.Event.ID, "err", err)
 				continue
+			}
+			// Verify Payload is preserved
+			resultHasPayload := result.Event.Payload != nil
+			resultPayloadType := "nil"
+			if resultHasPayload {
+				resultPayloadType = result.Event.Payload.TypeUrl
+			}
+			if !resultHasPayload {
+				a.lggr.Errorw("Payload lost during Format 7 aggregation", "eventID", triggerEventID, "originalHasPayload", hasPayload)
+			} else {
+				a.lggr.Infow("Format 7 aggregation successful, Payload preserved", "eventID", triggerEventID, "payloadType", resultPayloadType)
 			}
 			return result, nil
 		}
@@ -135,6 +168,8 @@ func (a *signedReportRemoteAggregator) aggregateFormat5(
 		return capabilities.TriggerResponse{}, fmt.Errorf("failed to parse OCR report outputs: %w", err)
 	}
 	triggerResp.Event.Outputs = outputsMap
+	// Preserve Payload field (V2 format) - contains streams.Report wrapped in anypb.Any
+	// This is set by the CRE transmitter and is needed by the workflow SDK
 	return triggerResp, nil
 }
 
@@ -196,7 +231,8 @@ func (a *signedReportRemoteAggregator) aggregateFormat7(
 	if err != nil {
 		return capabilities.TriggerResponse{}, fmt.Errorf("failed to create outputs map: %w", err)
 	}
-
+	// Preserve Payload field (V2 format) - contains streams.Report wrapped in anypb.Any
+	// This is set by the CRE transmitter and is needed by the workflow SDK
 	a.lggr.Debugw("Format 7 report aggregated with verified signatures", "eventID", triggerEventID, "timestamp", timestamp, "reportLen", len(rawReport), "sigCount", len(ocrEvent.Sigs), "donID", donID)
 	return triggerResp, nil
 }

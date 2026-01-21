@@ -495,7 +495,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					}
 					triggerID := subs.Subscriptions[idx].Id
 					eventID := event.Event.ID
-					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
+					hasPayload := event.Event.Payload != nil
+					payloadType := "nil"
+					if hasPayload {
+						payloadType = event.Event.Payload.TypeUrl
+					}
+					e.logger().Infow("Processing trigger event from channel", "triggerID", triggerID, "eventID", eventID, "hasPayload", hasPayload, "payloadType", payloadType)
 					if event.Err != nil {
 						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
@@ -634,7 +639,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	startTime := e.cfg.Clock.Now()
-	executionLogger.Infow("Workflow execution starting ...")
+	hasPayload := triggerEvent.Payload != nil
+	payloadType := "nil"
+	if hasPayload {
+		payloadType = triggerEvent.Payload.TypeUrl
+	}
+	executionLogger.Infow("Workflow execution starting ...", "triggerEventID", triggerEvent.ID, "hasPayload", hasPayload, "payloadType", payloadType, "triggerType", triggerEvent.TriggerType)
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 	var executionStatus string // store.StatusStarted
@@ -658,6 +668,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
+	hasPayloadForSDK := triggerEvent.Payload != nil
+	payloadTypeForSDK := "nil"
+	if hasPayloadForSDK {
+		payloadTypeForSDK = triggerEvent.Payload.TypeUrl
+	}
+	executionLogger.Debugw("Calling SDK Execute with trigger", "triggerID", tid, "hasPayload", hasPayloadForSDK, "payloadType", payloadTypeForSDK)
 	result, execErr := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{

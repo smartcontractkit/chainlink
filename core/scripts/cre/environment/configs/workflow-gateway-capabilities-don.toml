@@ -78,17 +78,21 @@
   override_mode = "all"
   http_port_range_start = 10200
 
-  # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
-  # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
-  supported_evm_chains = [1337, 2337]
+  # Need same chain for capability registry communication
+  supported_evm_chains = [1337]
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["web-api-target", "vault"]
+  
+  # This DON exposes the streams-trigger capability
+  # The streams-trigger feature registers it in the on-chain capability registry
+  # The mock capability allows us to create a mock implementation for testing
+  # NOTE: custom-compute removed due to known bug in local CRE framework
+  capabilities = ["ocr3", "streams-trigger", "mock"]
 
   [nodesets.chain_capabilities]
-  write-evm = ["2337"]
-  read-contract = ["2337"]
-  evm = ["2337"]
+    write-evm = ["1337"]
+    read-contract = ["1337"]
+    evm = ["1337"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -100,8 +104,14 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
 
 [[nodesets]]
   nodes = 1

@@ -248,7 +248,12 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 		},
 	}
 
-	t.eng.Debugw("ProcessReport pushing event", "eventID", eventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers))
+	hasPayload := capResponse.Event.Payload != nil
+	payloadType := "nil"
+	if hasPayload {
+		payloadType = capResponse.Event.Payload.TypeUrl
+	}
+	t.eng.Infow("ProcessReport pushing event", "eventID", eventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers), "hasPayload", hasPayload, "payloadType", payloadType)
 	nIncludedSubscribers := 0
 	for _, sub := range t.subscribers {
 		// Handle case where MaxFrequencyMs is 0 (default/unset) - treat as "include every report"
@@ -257,6 +262,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 			// include this subscriber
 			select {
 			case sub.ch <- capResponse:
+				t.eng.Debugw("Sent TriggerResponse to subscriber", "eventID", eventID, "workflowID", sub.workflowID, "hasPayload", hasPayload)
 			case <-ctx.Done():
 				t.eng.Error("context done, dropping event")
 				return ctx.Err()
@@ -265,9 +271,11 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 				t.eng.Errorw("subscriber channel full, dropping event", "eventID", eventID, "workflowID", sub.workflowID)
 			}
 			nIncludedSubscribers++
+		} else {
+			t.eng.Debugw("Skipping subscriber due to frequency filter", "eventID", eventID, "workflowID", sub.workflowID, "alignedTsMs", alignedTsMs, "maxFrequencyMs", sub.config.MaxFrequencyMs)
 		}
 	}
-	t.eng.Debugw("ProcessReport done", "eventID", eventID, "nIncludedSubscribers", nIncludedSubscribers)
+	t.eng.Infow("ProcessReport done", "eventID", eventID, "nIncludedSubscribers", nIncludedSubscribers)
 	return nil
 }
 

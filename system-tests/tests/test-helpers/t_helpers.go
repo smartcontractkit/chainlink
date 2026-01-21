@@ -65,6 +65,7 @@ import (
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	llo_consumer_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/llo_streams_trigger/config"
 )
 
 /////////////////////////
@@ -168,18 +169,26 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
 
+	// Create a context with timeout that will cancel the goroutine when timeout occurs
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel() // Ensure cleanup
+
 	// Start message processor goroutine
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-timeoutCtx.Done():
+				// Timeout occurred or parent context cancelled - exit goroutine
 				return
 			case msg := <-messageChan:
 				// Process received messages
 				switch typedMsg := msg.(type) {
 				case *commonevents.BaseMessage:
 					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
-						foundErrorLog <- true
+						select {
+						case foundErrorLog <- true:
+						default: // Channel might already have a value
+						}
 					}
 				case *workflowevents.UserLogs:
 					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
@@ -225,7 +234,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	case <-foundErrorLog:
 		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
 		return errors.New("beholder message validation completed with error: found engine initialization failure message")
-	case <-time.After(timeout):
+	case <-timeoutCtx.Done():
 		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
 			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
@@ -233,11 +242,12 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 			testLogger.Warn().Msg("Did not receive any UserLogs messages")
 		}
 		require.Failf(t, "Timed out waiting for the expected user log message (or error)", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
+		return errors.New("timeout waiting for expected log message")
 	case err := <-kafkaErrChan:
 		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
 		require.Fail(t, "Kafka listener failed", err.Error())
+		return err
 	}
-	return nil
 }
 
 //////////////////////////////
@@ -286,7 +296,8 @@ type WorkflowConfig interface {
 		evmwrite_negative_config.Config |
 		http_config.Config |
 		httpaction_smoke_config.Config |
-		httpaction_negative_config.Config
+		httpaction_negative_config.Config |
+		llo_consumer_config.LLOConsumerConfig
 }
 
 // None represents an empty workflow configuration
@@ -423,6 +434,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create httpaction negative workflow config file")
 			testLogger.Info().Msg("HTTP Action negative workflow config file created.")
+
+		case *llo_consumer_config.LLOConsumerConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create llo-consumer workflow config file")
+			testLogger.Info().Msg("LLO Consumer workflow config file created.")
 
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
