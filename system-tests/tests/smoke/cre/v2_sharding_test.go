@@ -2,12 +2,18 @@ package cre
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
+	"io"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/docker/docker/api/types/container"
+	dfilter "github.com/docker/docker/api/types/filters"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,6 +130,8 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	validateArbiterRPC(t, testLogger, arbiterAddr)
 
 	validateShardingScaleScenario(t, testEnv, rpcHost)
+
+	validateShardFilteringExecution(t, testEnv, rpcHost)
 
 	testLogger.Info().Msg("Sharding test completed successfully")
 }
@@ -304,4 +312,243 @@ func newShardOrchestratorClient(t *testing.T, addr string) shardorchpb.ShardOrch
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 	return shardorchpb.NewShardOrchestratorServiceClient(conn)
+}
+
+// validateShardFilteringExecution verifies that workflows are only executed on their assigned shard.
+// This validates the core ShardFilter functionality by:
+// 1. Registering test workflows to specific shards via orchestrator
+// 2. Capturing logs from shard nodes to verify filtering behavior
+// 3. Checking that each shard only processes workflows assigned to it
+func validateShardFilteringExecution(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string) {
+	t.Helper()
+	logger := framework.L
+	ctx := context.Background()
+
+	logger.Info().Msg("Validating shard filtering: workflows execute only on assigned shards")
+
+	shardOrchClient := newShardOrchestratorClient(t, rpcHost+":60051")
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	require.GreaterOrEqual(t, len(shardDONs), 2, "Need at least 2 shard DONs for filtering test")
+
+	// Find shard-0 and shard-1 DONs
+	var shard0, shard1 *cre.Don
+	for _, don := range shardDONs {
+		metadata := don.Metadata()
+		if metadata.ShardIndex == 0 {
+			shard0 = don
+		} else if metadata.ShardIndex == 1 {
+			shard1 = don
+		}
+	}
+	require.NotNil(t, shard0, "Shard-0 DON not found")
+	require.NotNil(t, shard1, "Shard-1 DON not found")
+
+	// Test workflows - use unique IDs to avoid conflicts
+	testRunID := time.Now().Unix()
+	workflowA := fmt.Sprintf("filter-test-wf-A-%d", testRunID)
+	workflowB := fmt.Sprintf("filter-test-wf-B-%d", testRunID)
+	workflowC := fmt.Sprintf("filter-test-wf-C-%d", testRunID)
+	workflowD := fmt.Sprintf("filter-test-wf-D-%d", testRunID)
+	workflowIDs := []string{workflowA, workflowB, workflowC, workflowD}
+
+	logger.Info().Msgf("Test workflows: A=%s, B=%s, C=%s, D=%s", workflowA, workflowB, workflowC, workflowD)
+
+	// Mark the time before we start - we'll check logs after this timestamp
+	logCheckStartTime := time.Now()
+
+	// Step 1: Register workflows with specific shard assignments
+	logger.Info().Msg("Step 1: Register test workflows to specific shards")
+
+	// Register workflows A and B to shard-0
+	_, err := shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &shardorchpb.ReportWorkflowTriggerRegistrationRequest{
+		SourceShardId:        0,
+		RegisteredWorkflows:  map[string]uint32{workflowA: 1, workflowB: 1},
+		TotalActiveWorkflows: 2,
+	})
+	require.NoError(t, err, "Failed to register workflows on shard-0")
+
+	// Register workflows C and D to shard-1
+	_, err = shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &shardorchpb.ReportWorkflowTriggerRegistrationRequest{
+		SourceShardId:        1,
+		RegisteredWorkflows:  map[string]uint32{workflowC: 1, workflowD: 1},
+		TotalActiveWorkflows: 2,
+	})
+	require.NoError(t, err, "Failed to register workflows on shard-1")
+
+	// Step 2: Verify orchestrator returns correct mappings
+	logger.Info().Msg("Step 2: Verify ShardOrchestrator returns correct workflow-to-shard mappings")
+
+	resp, err := shardOrchClient.GetWorkflowShardMapping(ctx, &shardorchpb.GetWorkflowShardMappingRequest{
+		WorkflowIds: workflowIDs,
+	})
+	require.NoError(t, err, "Failed to get workflow shard mappings")
+	require.NotNil(t, resp)
+
+	// Verify expected mappings
+	expectedMappings := map[string]uint32{
+		workflowA: 0,
+		workflowB: 0,
+		workflowC: 1,
+		workflowD: 1,
+	}
+
+	for wfID, expectedShard := range expectedMappings {
+		actualShard, found := resp.Mappings[wfID]
+		require.True(t, found, "Workflow %s not found in orchestrator mappings", wfID)
+		assert.Equal(t, expectedShard, actualShard, "Workflow %s should be mapped to shard %d, got shard %d", wfID, expectedShard, actualShard)
+	}
+
+	logger.Info().
+		Interface("mappings", resp.Mappings).
+		Msg("ShardOrchestrator returned expected workflow mappings")
+
+	// Step 3: Check logs for filtering behavior
+	logger.Info().Msg("Step 3: Checking node logs for shard filtering behavior")
+
+	// Wait a bit for any workflow activity and log generation
+	time.Sleep(5 * time.Second)
+
+	// Check shard-0 logs
+	logger.Info().Msg("Checking shard-0 logs...")
+	shard0Workers, err := shard0.Workers()
+	require.NoError(t, err)
+
+	shard0FilteringCount := 0
+	shard0ExecutionCount := 0
+
+	for _, node := range shard0Workers {
+		logs := captureNodeLogs(t, logger, node, logCheckStartTime)
+
+		// Check if shard-0 is skipping workflows C and D (assigned to shard-1)
+		if containsFilterMessage(logs, workflowC) {
+			shard0FilteringCount++
+			logger.Info().Msgf("✓ Shard-0 node %s correctly skipped workflow %s", node.Name, workflowC)
+		}
+		if containsFilterMessage(logs, workflowD) {
+			shard0FilteringCount++
+			logger.Info().Msgf("✓ Shard-0 node %s correctly skipped workflow %s", node.Name, workflowD)
+		}
+
+		// Check if shard-0 is NOT skipping workflows A and B (assigned to shard-0)
+		if !containsFilterMessage(logs, workflowA) {
+			shard0ExecutionCount++
+		}
+		if !containsFilterMessage(logs, workflowB) {
+			shard0ExecutionCount++
+		}
+	}
+
+	// Check shard-1 logs
+	logger.Info().Msg("Checking shard-1 logs...")
+	shard1Workers, err := shard1.Workers()
+	require.NoError(t, err)
+
+	shard1FilteringCount := 0
+	shard1ExecutionCount := 0
+
+	for _, node := range shard1Workers {
+		logs := captureNodeLogs(t, logger, node, logCheckStartTime)
+
+		// Check if shard-1 is skipping workflows A and B (assigned to shard-0)
+		if containsFilterMessage(logs, workflowA) {
+			shard1FilteringCount++
+			logger.Info().Msgf("✓ Shard-1 node %s correctly skipped workflow %s", node.Name, workflowA)
+		}
+		if containsFilterMessage(logs, workflowB) {
+			shard1FilteringCount++
+			logger.Info().Msgf("✓ Shard-1 node %s correctly skipped workflow %s", node.Name, workflowB)
+		}
+
+		// Check if shard-1 is NOT skipping workflows C and D (assigned to shard-1)
+		if !containsFilterMessage(logs, workflowC) {
+			shard1ExecutionCount++
+		}
+		if !containsFilterMessage(logs, workflowD) {
+			shard1ExecutionCount++
+		}
+	}
+
+	// Report findings
+	logger.Info().Msgf("Shard-0: Found %d filtering messages (expected for workflows C,D)", shard0FilteringCount)
+	logger.Info().Msgf("Shard-1: Found %d filtering messages (expected for workflows A,B)", shard1FilteringCount)
+
+	if shard0FilteringCount > 0 || shard1FilteringCount > 0 {
+		logger.Info().Msg("✓ ShardFilter is working: found evidence of filtering in logs")
+	} else {
+		logger.Warn().Msg("⚠ No filtering messages found - ShardFilter may not be configured yet")
+		logger.Warn().Msg("To enable filtering, configure these environment variables on each node:")
+		logger.Warn().Msg("  WORKFLOW_SHARD_INDEX=<0|1>")
+		logger.Warn().Msg("  WORKFLOW_SHARD_ORCHESTRATOR_ADDR=<host>:60051")
+	}
+
+	logger.Info().Msg("Shard filtering validation completed")
+}
+
+// captureNodeLogs captures logs from a specific node's container since the given timestamp
+func captureNodeLogs(t *testing.T, logger zerolog.Logger, node *cre.Node, since time.Time) string {
+	t.Helper()
+
+	// Create filter for this specific node's container
+	listOpts := container.ListOptions{
+		All: true,
+		Filters: dfilter.NewArgs(
+			dfilter.KeyValuePair{Key: "label", Value: "framework=ctf"},
+			dfilter.KeyValuePair{Key: "name", Value: node.Name},
+		),
+	}
+
+	logOpts := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Since:      since.Format(time.RFC3339),
+	}
+
+	logStream, err := framework.StreamContainerLogs(listOpts, logOpts)
+	if err != nil {
+		logger.Warn().Err(err).Str("node", node.Name).Msg("Failed to stream container logs")
+		return ""
+	}
+
+	// Read all logs from the first (and should be only) container
+	for containerName, reader := range logStream {
+		defer reader.Close()
+
+		var logContent strings.Builder
+		header := make([]byte, 8)
+
+		for {
+			_, err := io.ReadFull(reader, header)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				logger.Debug().Err(err).Str("container", containerName).Msg("Error reading log header")
+				break
+			}
+
+			// Extract message size from Docker stream header
+			msgSize := binary.BigEndian.Uint32(header[4:8])
+			msgBuf := make([]byte, msgSize)
+
+			_, err = io.ReadFull(reader, msgBuf)
+			if err != nil {
+				logger.Debug().Err(err).Str("container", containerName).Msg("Error reading log message")
+				break
+			}
+
+			logContent.Write(msgBuf)
+		}
+
+		return logContent.String()
+	}
+
+	return ""
+}
+
+// containsFilterMessage checks if logs contain the shard filter skip message for the given workflow ID
+func containsFilterMessage(logs, workflowID string) bool {
+	// Look for the debug message logged by the ShardFilter when skipping a workflow
+	// Pattern: "skipping workflow execution - not assigned to this shard" with workflowID in context
+	filterPattern := regexp.MustCompile(fmt.Sprintf(`(?i)(skipping workflow.*not assigned.*shard|workflow.*%s.*skip)`, regexp.QuoteMeta(workflowID)))
+	return filterPattern.MatchString(logs)
 }

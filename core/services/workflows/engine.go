@@ -147,6 +147,13 @@ type Engine struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits limits.ResourceLimiter[int]
 	meterReports   *metering.Reports
+	shardFilter    ShardFilter
+}
+
+// ShardFilter determines if a workflow should be executed on this shard.
+type ShardFilter interface {
+	ShouldExecute(ctx context.Context, workflowID string) bool
+	MyShardIndex() uint32
 }
 
 func (e *Engine) Start(ctx context.Context) error {
@@ -743,6 +750,17 @@ func (e *Engine) worker(ctx context.Context) {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
 			}
+
+			// Check shard filter if configured
+			if e.shardFilter != nil && !e.shardFilter.ShouldExecute(ctx, e.workflow.id) {
+				e.logger.With(
+					platform.KeyWorkflowID, e.workflow.id,
+					platform.KeyWorkflowExecutionID, executionID,
+					"myShardIndex", e.shardFilter.MyShardIndex(),
+				).Debugf("skipping workflow execution - not assigned to this shard")
+				continue
+			}
+
 			senderAllowed, globalAllowed := e.ratelimiter.Allow(e.workflow.owner)
 			if !senderAllowed {
 				e.onRateLimit(executionID)
@@ -1329,6 +1347,10 @@ type Config struct {
 	// running globally and per workflow owner.
 	WorkflowLimits limits.ResourceLimiter[int]
 
+	// ShardFilter filters workflows based on shard assignment.
+	// Optional - if nil, no shard filtering is applied.
+	ShardFilter ShardFilter
+
 	// For testing purposes only
 	maxRetries          int
 	retryMs             int
@@ -1525,6 +1547,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
 		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV1),
+		shardFilter:          cfg.ShardFilter,
 	}
 
 	return engine, nil
