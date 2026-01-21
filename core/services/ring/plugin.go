@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -22,8 +21,6 @@ import (
 )
 
 type Plugin struct {
-	mu sync.RWMutex
-
 	store         *Store
 	arbiterScaler pb.ArbiterScalerClient
 	config        ocr3types.ReportingPluginConfig
@@ -236,7 +233,7 @@ func (p *Plugin) Reports(_ context.Context, _ uint64, outcome ocr3types.Outcome)
 	}
 
 	for i := 0; i < p.config.N; i++ {
-		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i)
+		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i) //nolint:gosec // G115: i bounded by config.N
 	}
 
 	info, err := structpb.NewStruct(map[string]any{

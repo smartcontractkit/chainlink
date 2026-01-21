@@ -105,19 +105,19 @@ func TestPlugin_Outcome(t *testing.T) {
 
 		// Build attributed observations
 		aos := make([]types.AttributedObservation, 0)
-		for _, obs := range observations {
+		for idx, obs := range observations {
 			pbObs := &pb.Observation{
 				ShardStatus: obs.shardStatus,
 				WorkflowIds: obs.workflows,
 				Now:         timestamppb.Now(),
 				WantShards:  obs.wantShards,
 			}
-			rawObs, err := proto.Marshal(pbObs)
-			require.NoError(t, err)
+			rawObs, marshalErr := proto.Marshal(pbObs)
+			require.NoError(t, marshalErr)
 
 			aos = append(aos, types.AttributedObservation{
 				Observation: rawObs,
-				Observer:    commontypes.OracleID(len(aos)),
+				Observer:    commontypes.OracleID(idx), //nolint:gosec // G115: idx bounded by observations slice
 			})
 		}
 
@@ -141,11 +141,11 @@ func TestPlugin_Outcome(t *testing.T) {
 
 		// Verify all workflows are assigned
 		expectedWorkflows := map[string]bool{"wf-A": true, "wf-B": true, "wf-C": true, "wf-D": true}
-		require.Equal(t, len(expectedWorkflows), len(outcomeProto.Routes))
+		require.Len(t, outcomeProto.Routes, len(expectedWorkflows))
 		for wf := range expectedWorkflows {
 			route, exists := outcomeProto.Routes[wf]
 			require.True(t, exists, "workflow %s should be assigned", wf)
-			require.True(t, route.Shard <= 2, "shard should be healthy (0-2)")
+			require.LessOrEqual(t, route.Shard, uint32(2), "shard should be healthy (0-2)")
 			t.Logf("  %s → shard %d", wf, route.Shard)
 		}
 
@@ -368,10 +368,6 @@ func TestPlugin_StateTransitions(t *testing.T) {
 	})
 }
 
-func makeObservations(t *testing.T, shardStatuses []map[uint32]*pb.ShardStatus, workflows []string, now time.Time) []types.AttributedObservation {
-	return makeObservationsWithWantShards(t, shardStatuses, workflows, now, 0)
-}
-
 func makeObservationsWithWantShards(t *testing.T, shardStatuses []map[uint32]*pb.ShardStatus, workflows []string, now time.Time, wantShards uint32) []types.AttributedObservation {
 	aos := make([]types.AttributedObservation, 0, len(shardStatuses))
 	for i, status := range shardStatuses {
@@ -381,12 +377,12 @@ func makeObservationsWithWantShards(t *testing.T, shardStatuses []map[uint32]*pb
 			Now:         timestamppb.New(now),
 			WantShards:  wantShards,
 		}
-		rawObs, err := proto.Marshal(pbObs)
-		require.NoError(t, err)
+		rawObs, marshalErr := proto.Marshal(pbObs)
+		require.NoError(t, marshalErr)
 
 		aos = append(aos, types.AttributedObservation{
 			Observation: rawObs,
-			Observer:    commontypes.OracleID(i),
+			Observer:    commontypes.OracleID(i), //nolint:gosec // G115: i bounded by shardStatuses slice
 		})
 	}
 	return aos
@@ -422,7 +418,7 @@ func TestPlugin_getHealthyShards(t *testing.T) {
 				config: ocr3types.ReportingPluginConfig{F: tc.f},
 			}
 			got := plugin.getHealthyShards(tc.votes)
-			require.Equal(t, tc.want, len(got))
+			require.Len(t, got, tc.want)
 		})
 	}
 }
@@ -454,9 +450,9 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	resultCh := make(chan uint32)
 	errCh := make(chan error, 1)
 	go func() {
-		shard, err := store.GetShardForWorkflow(ctx, "workflow-123")
-		if err != nil {
-			errCh <- err
+		shard, shardErr := store.GetShardForWorkflow(ctx, "workflow-123")
+		if shardErr != nil {
+			errCh <- shardErr
 			return
 		}
 		resultCh <- shard
@@ -479,11 +475,11 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 			WorkflowIds: []string{"workflow-123"},
 			Now:         timestamppb.New(now),
 		}
-		rawObs, err := proto.Marshal(pbObs)
-		require.NoError(t, err)
+		rawObs, marshalErr := proto.Marshal(pbObs)
+		require.NoError(t, marshalErr)
 		aos[i] = types.AttributedObservation{
 			Observation: rawObs,
-			Observer:    commontypes.OracleID(i),
+			Observer:    commontypes.OracleID(i), //nolint:gosec // G115: i bounded by loop
 		}
 	}
 
@@ -519,8 +515,8 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	select {
 	case shard := <-resultCh:
 		require.Equal(t, uint32(0), shard, "should fallback to shard 0 when no healthy shards")
-	case err := <-errCh:
-		t.Fatalf("unexpected error: %v", err)
+	case recvErr := <-errCh:
+		t.Fatalf("unexpected error: %v", recvErr)
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("allocation was not fulfilled by OCR")
 	}
@@ -549,11 +545,11 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// Need 2F+1 = 3 observations for quorum with N=4, F=1
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
-		quorum, err := plugin.ObservationQuorum(ctx, outctx, nil, aos)
-		require.NoError(t, err)
+		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)
+		require.NoError(t, qErr)
 		require.True(t, quorum)
 	})
 
@@ -561,11 +557,11 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// Only 2 observations - not enough for quorum
 		aos := make([]types.AttributedObservation, 2)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
-		quorum, err := plugin.ObservationQuorum(ctx, outctx, nil, aos)
-		require.NoError(t, err)
+		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)
+		require.NoError(t, qErr)
 		require.False(t, quorum)
 	})
 
@@ -573,11 +569,11 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// Exactly 2F+1 = 3 observations
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
-		quorum, err := plugin.ObservationQuorum(ctx, outctx, nil, aos)
-		require.NoError(t, err)
+		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)
+		require.NoError(t, qErr)
 		require.True(t, quorum)
 	})
 
@@ -585,11 +581,11 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// All N=4 observations
 		aos := make([]types.AttributedObservation, 4)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
-		quorum, err := plugin.ObservationQuorum(ctx, outctx, nil, aos)
-		require.NoError(t, err)
+		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)
+		require.NoError(t, qErr)
 		require.True(t, quorum)
 	})
 }

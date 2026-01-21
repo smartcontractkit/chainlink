@@ -2,6 +2,7 @@ package shardorchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"google.golang.org/grpc"
@@ -37,7 +38,7 @@ func (s *Server) GetWorkflowShardMapping(ctx context.Context, req *pb.GetWorkflo
 	s.logger.Debugw("GetWorkflowShardMapping called", "workflowCount", len(req.WorkflowIds))
 
 	if len(req.WorkflowIds) == 0 {
-		return nil, fmt.Errorf("workflow_ids is required and must not be empty")
+		return nil, errors.New("workflow_ids is required and must not be empty")
 	}
 
 	// Retrieve batch from store

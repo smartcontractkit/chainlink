@@ -37,12 +37,12 @@ func NewTransmitter(lggr logger.Logger, ringStore *Store, shardOrchestratorStore
 func (t *Transmitter) Transmit(ctx context.Context, _ types.ConfigDigest, _ uint64, r ocr3types.ReportWithInfo[[]byte], _ []types.AttributedOnchainSignature) error {
 	outcome := &pb.Outcome{}
 	if err := proto.Unmarshal(r.Report, outcome); err != nil {
-		t.lggr.Errorf("failed to unmarshal report")
+		t.lggr.Error("failed to unmarshal report")
 		return err
 	}
 
 	if err := t.notifyArbiter(ctx, outcome.State); err != nil {
-		t.lggr.Errorf("failed to notify arbiter", "err", err)
+		t.lggr.Errorw("failed to notify arbiter", "err", err)
 		return err
 	}
 
@@ -66,15 +66,16 @@ func (t *Transmitter) Transmit(ctx context.Context, _ types.ConfigDigest, _ uint
 			var transitionState shardorchestrator.TransitionState
 
 			existingMapping, err := t.shardOrchestratorStore.GetWorkflowMapping(ctx, workflowID)
-			if err != nil {
+			switch {
+			case err != nil:
 				// New workflow - no previous assignment
 				oldShardID = 0
 				transitionState = shardorchestrator.StateSteady
-			} else if existingMapping.NewShardID != route.Shard {
+			case existingMapping.NewShardID != route.Shard:
 				// Workflow is moving to a different shard
 				oldShardID = existingMapping.NewShardID
 				transitionState = shardorchestrator.StateTransitioning
-			} else {
+			default:
 				// Same shard - but might be in system transition
 				oldShardID = existingMapping.NewShardID
 				if systemInTransition {

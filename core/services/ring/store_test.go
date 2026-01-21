@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
 )
 
 func TestStore_DeterministicHashing(t *testing.T) {
@@ -35,7 +36,7 @@ func TestStore_DeterministicHashing(t *testing.T) {
 
 	require.Equal(t, shard1, shard2, "Same workflow should get same shard (call 2)")
 	require.Equal(t, shard2, shard3, "Same workflow should get same shard (call 3)")
-	require.True(t, shard1 >= 0 && shard1 <= 2, "Shard should be in healthy set")
+	require.LessOrEqual(t, shard1, uint32(2), "Shard should be in healthy set")
 }
 
 func TestStore_ConsistentRingConsistency(t *testing.T) {
@@ -101,7 +102,7 @@ func TestStore_Rebalancing(t *testing.T) {
 
 	// Check that rebalancing occurred (some workflows moved)
 	healthyShards := store.GetHealthyShards()
-	require.Equal(t, 2, len(healthyShards), "Should have 2 healthy shards")
+	require.Len(t, healthyShards, 2, "Should have 2 healthy shards")
 	require.NotContains(t, healthyShards, uint32(1), "Shard 1 should not be healthy")
 
 	// Verify that workflows on healthy shards did not move

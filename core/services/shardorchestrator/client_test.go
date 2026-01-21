@@ -184,7 +184,7 @@ func TestClient_Close(t *testing.T) {
 	client := createTestClient(t, lis)
 
 	err := client.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify connection is closed by attempting to use it
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
