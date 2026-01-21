@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log/slog"
+	"math/big"
 
 	solgo "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -60,6 +61,9 @@ func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload)
 		Receiver:          config.Receiver.Bytes(),
 		Report:            report,
 		RemainingAccounts: remaining,
+		ComputeConfig: &solana.ComputeConfig{
+			ComputeLimit: 300_000,
+		},
 	}).Await()
 	if err != nil {
 		runtime.Logger().Error(fmt.Sprintf("[logger] failed to write report on-chain: %v", err))
@@ -166,11 +170,13 @@ type ForwarderReport struct {
 func encodeReport(accHash [32]byte, cfg config.Config) ([]byte, error) {
 	var payloadBuf bytes.Buffer
 	payloadEnc := ag_binary.NewBorshEncoder(&payloadBuf)
+	var answer [16]byte
+	copy(answer[:], big.NewInt(15).Bytes())
 
 	reports := []ReceivedDecimalReport{
 		{
 			Timestamp: 1,
-			Answer:    [16]byte{1, 2, 3},
+			Answer:    answer,
 			DataID:    cfg.FeedID,
 		},
 	}
