@@ -47,7 +47,7 @@ type Automation struct {
 
 	DeployedContracts DeployedContracts `toml:"deployed_contracts"`
 
-	EVMNetworkSettings EVMNetworkSettings `toml:"evm_network_settings"`
+	EVMNetworkSettings EVMNetworkSettings `toml:"EVMNetworkSettings"`
 
 	TestKeysMinFundingEth float64 `toml:"test_keys_min_funding_eth"`
 }
@@ -223,8 +223,8 @@ LinkContractAddress = '{{.LinkContractAddress}}'
 {{- if .FinalityDepth}}
 FinalityDepth = {{.FinalityDepth}}
 {{- end}}
-{{- if .FinalityTag}}
-FinalityTag = {{.FinalityTag}}
+{{- if .FinalityTagEnabled}}
+FinalityTagEnabled = {{.FinalityTagEnabled}}
 {{- end}}
 {{- if .SafeTagSupported}}
 SafeTagSupported = {{.SafeTagSupported}}
@@ -259,7 +259,7 @@ HttpUrl = '{{.HttpUrl}}'
 		HttpUrl                   string
 		LinkContractAddress       *string
 		FinalityDepth             *uint
-		FinalityTag               *bool
+		FinalityTagEnabled        *bool
 		SafeTagSupported          *bool
 		HeadTracker               *HeadTrackerData
 		GasEstimator              *GasEstimatorData
@@ -269,7 +269,7 @@ HttpUrl = '{{.HttpUrl}}'
 		LinkContractAddress:       m.Config[0].EVMNetworkSettings.LinkTokenAddress, // TODO think whether we need and how to set if it is deployed later. Is the sequence deterministic enough?
 		ChainID:                   bc.Out.ChainID,
 		FinalityDepth:             m.Config[0].EVMNetworkSettings.FinalityDepth,
-		FinalityTag:               m.Config[0].EVMNetworkSettings.FinalityTagEnabled,
+		FinalityTagEnabled:        m.Config[0].EVMNetworkSettings.FinalityTagEnabled,
 		SafeTagSupported:          m.Config[0].EVMNetworkSettings.SafeTagSupported,
 		LogPollInterval:           m.Config[0].EVMNetworkSettings.LogPollerInterval,
 		BackupLogPollerBlockDelay: m.Config[0].EVMNetworkSettings.BackupLogPollerBlockDelay,
