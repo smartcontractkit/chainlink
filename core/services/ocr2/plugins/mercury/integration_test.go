@@ -29,6 +29,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -705,6 +706,7 @@ func integration_MercuryV3(t *testing.T) {
 }
 
 func TestIntegration_MercuryV4(t *testing.T) {
+	quarantine.Flaky(t, "DX-2383")
 	t.Parallel()
 
 	integration_MercuryV4(t)
