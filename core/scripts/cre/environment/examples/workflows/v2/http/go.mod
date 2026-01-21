@@ -1,11 +1,11 @@
 module main
 
-go 1.25.3
+go 1.25.5
 
 require (
 	github.com/smartcontractkit/cre-sdk-go v0.9.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.9.0
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -13,7 +13,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect

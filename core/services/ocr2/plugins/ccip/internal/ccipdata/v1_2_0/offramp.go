@@ -480,7 +480,7 @@ func (o *OffRamp) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, se
 	res := make([]cciptypes.ExecutionStateChangedWithTxMeta, 0, len(parsedLogs))
 	for _, log := range parsedLogs {
 		res = append(res, cciptypes.ExecutionStateChangedWithTxMeta{
-			TxMeta:                log.TxMeta.WithFinalityStatus(uint64(latestBlock.FinalizedBlockNumber)),
+			TxMeta:                log.WithFinalityStatus(uint64(latestBlock.FinalizedBlockNumber)),
 			ExecutionStateChanged: log.Data,
 		})
 	}

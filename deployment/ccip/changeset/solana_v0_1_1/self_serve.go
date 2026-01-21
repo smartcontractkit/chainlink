@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 var _ cldf.ChangeSet[OnboardTokenPoolsForSelfServeConfig] = OnboardTokenPoolsForSelfServe
@@ -357,11 +358,11 @@ func loadTokenPoolSolanaState(cfg OnboardTokenPoolConfig, state globalState) (to
 	if err != nil {
 		return tokenPoolSolanaState{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
 	}
-	progDataAddr, err := deployment.GetProgramDataAddress(state.chain.Client, tokenPoolProgramID)
+	progDataAddr, err := solutils.GetProgramDataAddress(state.chain.Client, tokenPoolProgramID)
 	if err != nil {
 		return tokenPoolSolanaState{}, fmt.Errorf("failed to get program data address for program %s: %w", tokenPoolProgramID.String(), err)
 	}
-	upgradeAuthority, _, err := deployment.GetUpgradeAuthority(state.chain.Client, progDataAddr)
+	upgradeAuthority, _, err := solutils.GetUpgradeAuthority(state.chain.Client, progDataAddr)
 	if err != nil {
 		return tokenPoolSolanaState{}, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}

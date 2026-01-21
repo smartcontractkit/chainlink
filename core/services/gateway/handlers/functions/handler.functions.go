@@ -339,13 +339,14 @@ func newSecretsResponse(request *api.Message, success bool, responses []*api.Mes
 		return nil, err
 	}
 
-	if request.Body.Method == MethodSecretsSet {
+	switch request.Body.Method {
+	case MethodSecretsSet:
 		if success {
 			promSecretsSetSuccess.WithLabelValues(request.Body.DonId).Inc()
 		} else {
 			promSecretsSetFailure.WithLabelValues(request.Body.DonId).Inc()
 		}
-	} else if request.Body.Method == MethodSecretsList {
+	case MethodSecretsList:
 		if success {
 			promSecretsListSuccess.WithLabelValues(request.Body.DonId).Inc()
 		} else {

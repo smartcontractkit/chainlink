@@ -11,12 +11,12 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 )
 
@@ -36,7 +36,7 @@ type BaseIDLConfig struct {
 
 // resolve artifacts based on workflow run and write anchor.toml file to simulate anchor workspace
 func repoSetup(e cldf.Environment, chain cldf_solana.Chain, run string, artifactID string) error {
-	programName := deployment.BaseSignerRegistryProgramName
+	programName := solutils.ProgBaseSignerRegistry
 	idlFileName := programName + ".json"
 	idlFilePath := filepath.Join(chain.ProgramsPath, idlFileName)
 	if _, err := os.Stat(idlFilePath); err != nil {
@@ -91,12 +91,12 @@ func BaseUploadIDLChangeset(e cldf.Environment, c BaseIDLConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up repo: %w", err)
 	}
 
-	idlFile := filepath.Join(chain.ProgramsPath, deployment.BaseSignerRegistryProgramName+".json")
+	idlFile := filepath.Join(chain.ProgramsPath, solutils.ProgBaseSignerRegistry+".json")
 	if _, err := os.Stat(idlFile); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("idl file not found: %w", err)
 	}
 
-	e.Logger.Infow("Uploading IDL", "programName", deployment.BaseSignerRegistryProgramName)
+	e.Logger.Infow("Uploading IDL", "programName", solutils.ProgBaseSignerRegistry)
 	args := []string{"idl", "init", "--filepath", idlFile, signer_registry.ProgramID.String()}
 	e.Logger.Info(args)
 	output, err := cs_solana.RunCommand("anchor", args, chain.ProgramsPath)
@@ -105,7 +105,7 @@ func BaseUploadIDLChangeset(e cldf.Environment, c BaseIDLConfig) (cldf.Changeset
 		e.Logger.Debugw("IDL init error", "error", err)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error uploading idl: %w", err)
 	}
-	e.Logger.Infow("IDL uploaded", "programName", deployment.BaseSignerRegistryProgramName)
+	e.Logger.Infow("IDL uploaded", "programName", solutils.ProgBaseSignerRegistry)
 	return cldf.ChangesetOutput{}, nil
 }
 
@@ -120,7 +120,7 @@ func BaseSetAuthorityIDLChangeset(e cldf.Environment, c BaseIDLConfig) (cldf.Cha
 		return cldf.ChangesetOutput{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
 	}
 
-	err = cs_solana.SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, signer_registry.ProgramID.String(), deployment.BaseSignerRegistryProgramName, "")
+	err = cs_solana.SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, signer_registry.ProgramID.String(), solutils.ProgBaseSignerRegistry, "")
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

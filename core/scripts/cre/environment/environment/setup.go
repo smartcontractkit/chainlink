@@ -70,12 +70,13 @@ func init() {
 }
 
 type config struct {
-	General        generalConfig        `toml:"general"`
-	JobDistributor jobDistributorConfig `toml:"job_distributor"`
-	ChipIngress    chipIngressConfig    `toml:"chip_ingress"`
-	BillingService billingServiceConfig `toml:"billing_platform_service"`
-	Capabilities   capabilitiesConfig   `toml:"capabilities"`
-	Observability  observabilityConfig  `toml:"observability"`
+	General        generalConfig         `toml:"general"`
+	JobDistributor jobDistributorConfig  `toml:"job_distributor"`
+	ChipIngress    *chipIngressConfig    `toml:"chip_ingress"`
+	ChipConfig     *chipConfigConfig     `toml:"chip_config"`
+	BillingService *billingServiceConfig `toml:"billing_platform_service"`
+	Capabilities   capabilitiesConfig    `toml:"capabilities"`
+	Observability  observabilityConfig   `toml:"observability"`
 }
 
 type generalConfig struct {
@@ -89,6 +90,11 @@ type jobDistributorConfig struct {
 }
 
 type chipIngressConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
+type chipConfigConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
@@ -115,6 +121,13 @@ var (
 
 const DefaultSetupConfigPath = "configs/setup.toml"
 const DefaultCapabilityBinariesPath = ".binaries"
+
+type EnsureOption = string
+
+const (
+	PullOption  EnsureOption = "p"
+	BuildOption EnsureOption = "b"
+)
 
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
@@ -319,7 +332,7 @@ type ImageConfig struct {
 	PullConfig  PullConfig
 }
 
-func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, purge bool) (localImage string, err error) {
+func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
 	// If purge flag is set, remove existing images first
 	if purge {
 		logger := framework.L
@@ -352,9 +365,9 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		name := strings.ReplaceAll(strings.Split(c.BuildConfig.LocalImage, ":")[0], "-", " ")
 		name = cases.Title(language.English).String(name)
 		logger.Info().Msgf("🔍 %s image not found.", name)
-		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [P]", name)
+		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [B]", name)
 
-		var input = "b" // Default to Build; TODO default to Pull when AWS access is sorted
+		var input = PullOption // Default to Pull
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {
@@ -366,12 +379,12 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		}
 		// check that input is valid
 		input = strings.TrimSpace(strings.ToLower(input))
-		if input != "p" && input != "b" {
+		if input != PullOption && input != BuildOption {
 			logger.Warn().Msg("Invalid input. Please enter 'p' or 'b'.")
 			return "", fmt.Errorf("invalid input: %s", input)
 		}
 
-		if strings.ToLower(input) == "b" {
+		if strings.ToLower(input) == BuildOption {
 			return c.BuildConfig.Build(ctx)
 		}
 
@@ -481,36 +494,71 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		PullConfig:  cfg.JobDistributor.PullConfig,
 	}
 
-	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
 	if jdErr != nil {
 		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
 		return
 	}
 
-	chipConfig := ImageConfig{
-		BuildConfig: cfg.ChipIngress.BuildConfig,
-		PullConfig:  cfg.ChipIngress.PullConfig,
+	var chipIngressLocalImage string
+	if cfg.ChipIngress != nil {
+		chipConfig := ImageConfig{
+			BuildConfig: cfg.ChipIngress.BuildConfig,
+			PullConfig:  cfg.ChipIngress.PullConfig,
+		}
+
+		var err error
+		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Ingress setup, because configuration is not provided in the config file")
 	}
 
-	chipLocalImage, chipErr := chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
-	if chipErr != nil {
-		setupErr = errors.Wrap(chipErr, "failed to ensure Atlas Chip Ingress image")
-		return
+	var chipConfigLocalImage string
+	if cfg.ChipConfig != nil {
+		chipConfig := ImageConfig{
+			BuildConfig: cfg.ChipConfig.BuildConfig,
+			PullConfig:  cfg.ChipConfig.PullConfig,
+		}
+
+		var err error
+		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Config image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Config setup, because configuration is not provided in the config file")
 	}
 
 	var billingLocalImage string
 	if withBilling {
+		if cfg.BillingService == nil {
+			setupErr = errors.New("billing service configuration is required when using --with-billing flag")
+			return
+		}
+
 		billingConfig := ImageConfig{
 			BuildConfig: cfg.BillingService.BuildConfig,
 			PullConfig:  cfg.BillingService.PullConfig,
 		}
 
 		var billingErr error
-		billingLocalImage, billingErr = billingConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+		// Try to build Billing service since almost noone has access the ECR that stores the image
+		billingLocalImage, billingErr = billingConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, BuildOption, purge)
 		if billingErr != nil {
 			setupErr = errors.Wrap(billingErr, "failed to ensure Billing Platform Service image")
 			return
 		}
+	} else {
+		logger.Warn().Msgf("Skipping Billing Platform Service setup, because the --with-billing flag was not provided")
+	}
+
+	if err := runGHSetupGit(ctx); err != nil {
+		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
 	}
 
 	observabilityRepoPath, _, err := setupRepo(ctx, logger, cfg.Observability.RepoURL, cfg.Observability.Branch,
@@ -518,10 +566,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	if err != nil {
 		setupErr = errors.Wrap(err, "failed to clone observability repo")
 		return
-	}
-
-	if err := runGHSetupGit(ctx); err != nil {
-		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
 	}
 
 	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
@@ -534,9 +578,14 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("✅ Setup Summary:")
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
-	logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	if chipIngressLocalImage != "" {
+		logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipIngressLocalImage)
+	}
+	if chipConfigLocalImage != "" {
+		logger.Info().Msgf("   ✓ Atlas Chip Config image %s is available", chipConfigLocalImage)
+	}
 	logger.Info().Msgf("   ✓ Observability repo cloned to %s", observabilityRepoPath)
-	if withBilling {
+	if billingLocalImage != "" {
 		logger.Info().Msgf("   ✓ Billing Platform Service image %s is available", billingLocalImage)
 	}
 	if ghCli {
@@ -859,61 +908,68 @@ func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage stri
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
 
-	// Check if AWS profile exists
-	configureCmd := exec.Command("aws", "configure", "list-profiles")
-	output, configureCmdErr := configureCmd.Output()
-	if configureCmdErr != nil {
-		return "", errors.Wrap(configureCmdErr, "failed to list AWS profiles")
-	}
-
-	if !strings.Contains(string(output), awsProfile) {
-		return "", fmt.Errorf("AWS profile '%s' not found. Please ensure you have the correct AWS profile configured. Please see https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI", awsProfile)
-	}
-
-	// Get ECR login password
-	// Check if we already have a valid AWS SSO session
-	logger.Info().Msgf("Checking for valid AWS SSO session for profile %s...", awsProfile)
-	checkCmd := exec.CommandContext(ctx, "aws", "sts", "get-caller-identity", "--profile", awsProfile)
-	if err := checkCmd.Run(); err == nil {
-		logger.Info().Msgf("  ✓ Valid AWS SSO session exists for profile %s", awsProfile)
-	} else {
-		// No valid session, need to log in
-		logger.Info().Msgf("AWS SSO Login required for profile %s...", awsProfile)
-		loginCmd := exec.CommandContext(ctx, "aws", "sso", "login", "--profile", awsProfile)
-		loginCmd.Stdout = os.Stdout
-		loginCmd.Stderr = os.Stderr
-
-		if err := loginCmd.Run(); err != nil {
-			return "", errors.Wrap(err, "failed to complete AWS SSO login")
-		}
-		logger.Info().Msgf("  ✓ AWS SSO login successful for profile %s", awsProfile)
-	}
-
-	// Get ECR login password after successful SSO login
-	ecrHostname := strings.Split(ecrImage, "/")[0]
-	ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile)
-	password, passErr := ecrLoginCmd.Output()
-	if passErr != nil {
-		return "", errors.Wrap(passErr, "failed to get ECR login password")
-	}
-
-	// Login to ECR
-	dockerLoginCmd := exec.CommandContext(ctx, "docker", "login", "--username", "AWS", "--password-stdin", ecrHostname)
-	dockerLoginCmd.Stdin = bytes.NewBuffer(password)
-	dockerLoginCmd.Stdout = os.Stdout
-	dockerLoginCmd.Stderr = os.Stderr
-	if err := dockerLoginCmd.Run(); err != nil {
-		return "", errors.Wrap(err, "docker login to ECR failed")
-	}
-	logger.Info().Msg("  ✓ Docker login to ECR successful")
-	// Pull image
-	logger.Info().Msgf("🔍 Pulling %s image from ECR...", name)
-
+	// Try pulling the image we need and login only if it doesn't succeed
+	logger.Info().Msgf("Trying to pull Docker image %s...", ecrImage)
 	pullCmd := exec.CommandContext(ctx, "docker", "pull", ecrImage)
 	pullCmd.Stdout = os.Stdout
 	pullCmd.Stderr = os.Stderr
 	if err := pullCmd.Run(); err != nil {
-		return "", errors.Wrapf(err, "failed to pull %s image", name)
+		// Check if AWS profile exists
+		configureCmd := exec.CommandContext(ctx, "aws", "configure", "list-profiles")
+		output, configureCmdErr := configureCmd.Output()
+		if configureCmdErr != nil {
+			return "", errors.Wrap(configureCmdErr, "failed to list AWS profiles")
+		}
+
+		if !strings.Contains(string(output), awsProfile) {
+			return "", fmt.Errorf("AWS profile '%s' not found. Please ensure you have the correct AWS profile configured. Please see https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI", awsProfile)
+		}
+
+		// Get ECR login password
+		// Check if we already have a valid AWS SSO session
+		logger.Info().Msgf("Checking for valid AWS SSO session for profile %s...", awsProfile)
+		checkCmd := exec.CommandContext(ctx, "aws", "sts", "get-caller-identity", "--profile", awsProfile)
+		if err := checkCmd.Run(); err == nil {
+			logger.Info().Msgf("  ✓ Valid AWS SSO session exists for profile %s", awsProfile)
+		} else {
+			// No valid session, need to log in
+			logger.Info().Msgf("AWS SSO Login required for profile %s...", awsProfile)
+			loginCmd := exec.CommandContext(ctx, "aws", "sso", "login", "--profile", awsProfile)
+			loginCmd.Stdout = os.Stdout
+			loginCmd.Stderr = os.Stderr
+
+			if err := loginCmd.Run(); err != nil {
+				return "", errors.Wrap(err, "failed to complete AWS SSO login")
+			}
+			logger.Info().Msgf("  ✓ AWS SSO login successful for profile %s", awsProfile)
+		}
+
+		// Get ECR login password after successful SSO login
+		ecrHostname := strings.Split(ecrImage, "/")[0]
+		ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile)
+		password, passErr := ecrLoginCmd.Output()
+		if passErr != nil {
+			return "", errors.Wrap(passErr, "failed to get ECR login password")
+		}
+
+		// Login to ECR
+		dockerLoginCmd := exec.CommandContext(ctx, "docker", "login", "--username", "AWS", "--password-stdin", ecrHostname)
+		dockerLoginCmd.Stdin = bytes.NewBuffer(password)
+		dockerLoginCmd.Stdout = os.Stdout
+		dockerLoginCmd.Stderr = os.Stderr
+		if err := dockerLoginCmd.Run(); err != nil {
+			return "", errors.Wrap(err, "docker login to ECR failed")
+		}
+		logger.Info().Msg("  ✓ Docker login to ECR successful")
+		// Pull image
+		logger.Info().Msgf("🔍 Pulling %s image from ECR...", name)
+
+		pullCmd = exec.CommandContext(ctx, "docker", "pull", ecrImage)
+		pullCmd.Stdout = os.Stdout
+		pullCmd.Stderr = os.Stderr
+		if err := pullCmd.Run(); err != nil {
+			return "", errors.Wrapf(err, "failed to pull %s image", name)
+		}
 	}
 
 	// Tag image
@@ -934,7 +990,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 	if isCommandAvailable("gh") {
 		logger.Info().Msg("✓ GitHub CLI is already installed")
 
-		ghVersionCmd := exec.Command("gh", "--version")
+		ghVersionCmd := exec.CommandContext(ctx, "gh", "--version")
 		output, outputErr := ghVersionCmd.Output()
 		if outputErr != nil {
 			logger.Warn().Msgf("failed to get GH CLI version: %s", outputErr.Error())
@@ -961,7 +1017,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 		}
 
 		logger.Info().Msg("  ✗ GitHub CLI is outdated, upgrading to latest via Homebrew")
-		brewInfoCmd := exec.Command("brew", "info", "gh")
+		brewInfoCmd := exec.CommandContext(ctx, "brew", "info", "gh")
 		brewInfoOutput, brewInfoErr := brewInfoCmd.Output()
 		if brewInfoErr != nil {
 			fmt.Fprint(os.Stderr, string(brewInfoOutput))
@@ -969,7 +1025,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 			return false, nil
 		}
 
-		brewUpgradeCmd := exec.Command("brew", "upgrade", "gh")
+		brewUpgradeCmd := exec.CommandContext(ctx, "brew", "upgrade", "gh")
 		brewUpdateOutput, brewUpdateErr := brewUpgradeCmd.Output()
 		if brewUpdateErr != nil {
 			fmt.Fprint(os.Stderr, string(brewUpdateOutput))

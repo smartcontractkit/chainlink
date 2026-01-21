@@ -48,11 +48,11 @@ func TestFilterStore_CRUD(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := NewUpkeepFilterStore()
 			s.AddActiveUpkeeps(tc.initial...)
-			require.Equal(t, len(tc.initial), len(s.GetIDs(nil)))
+			require.Len(t, s.GetIDs(nil), len(tc.initial))
 			s.AddActiveUpkeeps(tc.toAdd...)
 			require.Equal(t, len(tc.expectedPostAdd), s.Size())
 			filters := s.GetFilters(func(f upkeepFilter) bool { return true })
-			require.Equal(t, len(tc.expectedPostAdd), len(filters))
+			require.Len(t, filters, len(tc.expectedPostAdd))
 			if len(filters) > 0 {
 				sort.Slice(filters, func(i, j int) bool {
 					return filters[i].upkeepID.Cmp(filters[j].upkeepID) < 0
@@ -62,7 +62,7 @@ func TestFilterStore_CRUD(t *testing.T) {
 				}
 			}
 			s.RemoveActiveUpkeeps(tc.toRemove...)
-			require.Equal(t, len(tc.expectedPostRemove), len(s.GetIDs(func(upkeepFilter) bool { return true })))
+			require.Len(t, s.GetIDs(func(upkeepFilter) bool { return true }), len(tc.expectedPostRemove))
 		})
 	}
 }

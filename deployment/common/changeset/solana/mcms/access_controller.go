@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 func deployAccessControllerProgram(
@@ -36,8 +37,8 @@ func deployAccessControllerProgram(
 
 	if programID.IsZero() {
 		deployedProgramID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
-			Name:  deployment.AccessControllerProgramName,
-			Bytes: deployment.SolanaProgramBytes[deployment.AccessControllerProgramName],
+			Name:  solutils.ProgAccessController,
+			Bytes: solutils.GetProgramBufferBytes(solutils.ProgAccessController),
 		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy access controller program: %w", err)

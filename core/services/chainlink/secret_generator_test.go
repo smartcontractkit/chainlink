@@ -13,7 +13,7 @@ func TestFilePersistedSecretGenerator(t *testing.T) {
 
 	initial, err := secretGenerator.Generate(rootDir)
 	require.NoError(t, err)
-	require.NotEqual(t, "", initial)
+	require.NotEmpty(t, initial)
 	require.NotEqual(t, "clsession_test_secret", initial)
 
 	second, err := secretGenerator.Generate(rootDir)

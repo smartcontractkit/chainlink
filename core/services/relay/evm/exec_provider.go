@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -124,7 +124,7 @@ func (s *SrcExecProvider) Close() error {
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(ctx); err != nil {
-			multiErr = stderrors.Join(multiErr, err)
+			multiErr = errors.Join(multiErr, err)
 		}
 	}
 	return multiErr
@@ -165,7 +165,7 @@ func (s *SrcExecProvider) Codec() commontypes.Codec {
 }
 
 func (s *SrcExecProvider) GetTransactionStatus(ctx context.Context, transactionID string) (types.TransactionStatus, error) {
-	return 0, fmt.Errorf("invalid: GetTransactionStatus called on SrcExecProvider. It should only be called on DstExecProvider")
+	return 0, errors.New("invalid: GetTransactionStatus called on SrcExecProvider. It should only be called on DstExecProvider")
 }
 
 func (s *SrcExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
@@ -174,7 +174,7 @@ func (s *SrcExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptyp
 }
 
 func (s *SrcExecProvider) NewOffRampReader(ctx context.Context, addr cciptypes.Address) (cciptypes.OffRampReader, error) {
-	return nil, fmt.Errorf("invalid: NewOffRampReader called on SrcExecProvider. Valid on DstExecProvider")
+	return nil, errors.New("invalid: NewOffRampReader called on SrcExecProvider. Valid on DstExecProvider")
 }
 
 func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {
@@ -235,7 +235,7 @@ func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress c
 }
 
 func (s *SrcExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddr cciptypes.Address, sourceChainSelector uint64) (cciptypes.TokenPoolBatchedReader, error) {
-	return nil, fmt.Errorf("invalid: NewTokenPoolBatchedReader called on SrcExecProvider. It should only be called on DstExecProvdier")
+	return nil, errors.New("invalid: NewTokenPoolBatchedReader called on SrcExecProvider. It should only be called on DstExecProvdier")
 }
 
 func (s *SrcExecProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
@@ -337,7 +337,7 @@ func (d *DstExecProvider) Close() error {
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(ctx); err != nil {
-			multiErr = stderrors.Join(multiErr, err)
+			multiErr = errors.Join(multiErr, err)
 		}
 	}
 
@@ -390,7 +390,7 @@ func (d *DstExecProvider) NewOffRampReader(ctx context.Context, offRampAddress c
 }
 
 func (d *DstExecProvider) NewOnRampReader(ctx context.Context, addr cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (cciptypes.OnRampReader, error) {
-	return nil, fmt.Errorf("invalid: NewOnRampReader called on DstExecProvider. It should only be called on SrcExecProvider")
+	return nil, errors.New("invalid: NewOnRampReader called on DstExecProvider. It should only be called on SrcExecProvider")
 }
 
 func (d *DstExecProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
@@ -400,7 +400,7 @@ func (d *DstExecProvider) NewPriceRegistryReader(ctx context.Context, addr ccipt
 }
 
 func (d *DstExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress cciptypes.Address) (cciptypes.TokenDataReader, error) {
-	return nil, fmt.Errorf("invalid: NewTokenDataReader called on DstExecProvider. It should only be called on SrcExecProvider")
+	return nil, errors.New("invalid: NewTokenDataReader called on DstExecProvider. It should only be called on SrcExecProvider")
 }
 
 func (d *DstExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddress cciptypes.Address, sourceChainSelector uint64) (tokenPoolBatchedReader cciptypes.TokenPoolBatchedReader, err error) {
@@ -420,5 +420,5 @@ func (d *DstExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRamp
 }
 
 func (d *DstExecProvider) SourceNativeToken(ctx context.Context, addr cciptypes.Address) (cciptypes.Address, error) {
-	return "", fmt.Errorf("invalid: SourceNativeToken called on DstExecProvider. It should only be called on SrcExecProvider")
+	return "", errors.New("invalid: SourceNativeToken called on DstExecProvider. It should only be called on SrcExecProvider")
 }

@@ -3,7 +3,7 @@ package mercury
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"encoding/hex"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -62,7 +62,7 @@ func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range unpacked.OffchainTransmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("%x", addr)))
+		transmitAccounts = append(transmitAccounts, ocrtypes.Account(hex.EncodeToString(addr[:])))
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {

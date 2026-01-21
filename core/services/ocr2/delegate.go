@@ -34,6 +34,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -52,6 +53,8 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -61,6 +64,7 @@ import (
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -79,8 +83,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -88,6 +94,7 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	localshardorch "github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -157,6 +164,7 @@ type DelegateConfig interface {
 	Insecure() insecureConfig
 	Mercury() coreconfig.Mercury
 	Threshold() coreconfig.Threshold
+	Sharding() coreconfig.Sharding
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -167,6 +175,7 @@ type delegateConfig struct {
 	insecure    insecureConfig
 	mercury     mercuryConfig
 	threshold   thresholdConfig
+	sharding    coreconfig.Sharding
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -189,6 +198,10 @@ func (d *delegateConfig) OCR2() ocr2Config {
 	return d.ocr2
 }
 
+func (d *delegateConfig) Sharding() coreconfig.Sharding {
+	return d.sharding
+}
+
 type ocr2Config interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
@@ -200,6 +213,7 @@ type ocr2Config interface {
 	KeyBundleID() (string, error)
 	SimulateTransactions() bool
 	TraceLogging() bool
+	SampleTelemetry() bool
 	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
 	KeyValueStoreRootDir() string
@@ -226,7 +240,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -234,6 +248,7 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 		insecure:        i,
 		mercury:         m,
 		threshold:       t,
+		sharding:        s,
 	}
 }
 
@@ -589,6 +604,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
+	case types.RingPlugin:
+		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -786,7 +804,12 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}
-	oracleArgs.ReportingPluginFactory = rpf
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory(
+		rpf,
+		lggr,
+		"vault",
+	)
+	oracleArgs.ReportingPluginFactory = wrappedRpf
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
 	if err != nil {
@@ -967,6 +990,168 @@ func (d *Delegate) newDonTimePlugin(
 	return srvs, nil
 }
 
+func (d *Delegate) newServicesRing(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{PluginName: "ring", Err: err}
+	}
+
+	relayer, err := d.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ring"}
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.RingPlugin),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.RingPlugin),
+	)
+
+	// Get sharding config
+	shardingCfg := d.cfg.Sharding()
+
+	// Ring jobs only run on shard 0, where the Arbiter and ShardOrchestrator are created
+	if shardingCfg.ShardIndex() != 0 {
+		return nil, fmt.Errorf("ring jobs can only run on shard 0, current shard index: %d", shardingCfg.ShardIndex())
+	}
+
+	// Get ContractReaderFactory from relayer for shard config reading
+	contractReaderFactory := func(ctx context.Context, cfg []byte) (types.ContractReader, error) {
+		return relayer.NewContractReader(ctx, cfg)
+	}
+
+	// Parse and validate Ring plugin configuration
+	var ringPluginConfig ringconfig.PluginConfig
+	if err = ringPluginConfig.Unmarshal(spec.PluginConfig.Bytes()); err != nil {
+		return nil, fmt.Errorf("failed to parse Ring plugin config: %w", err)
+	}
+	if err = ringPluginConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid Ring plugin config: %w", err)
+	}
+	shardConfigAddr := ringPluginConfig.ShardConfigAddr
+
+	arbiterSvc, arbiterErr := arbiter.New(
+		lggr,
+		contractReaderFactory,
+		shardConfigAddr,
+		shardingCfg.ArbiterPort(),
+		shardingCfg.ArbiterPollInterval(),
+		shardingCfg.ArbiterRetryInterval(),
+	)
+	if arbiterErr != nil {
+		return nil, fmt.Errorf("failed to create arbiter: %w", arbiterErr)
+	}
+	srvs = append(srvs, arbiterSvc)
+	lggr.Info("Arbiter service created")
+
+	ringStore := ring.NewStore()
+	shardOrchestratorStore := shardorchestrator.NewStore(lggr)
+	// Start ShardOrchestrator
+	orchestratorSvc := localshardorch.New(
+		int(shardingCfg.ShardOrchestratorPort()),
+		shardOrchestratorStore,
+		lggr,
+	)
+	srvs = append(srvs, orchestratorSvc)
+	lggr.Infow("ShardOrchestrator service created", "shardIndex", shardingCfg.ShardIndex())
+
+	// Create RingArbiterClient that calls the Arbiter directly (no gRPC network)
+	arbiterScalerClient := arbiter.NewRingArbiterClient(arbiterSvc.ArbiterScalerServer(), lggr)
+
+	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchestratorStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	onchainSigningStrategy := validate.OCR2OnchainSigningStrategy{}
+	err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
+	if err != nil {
+		return nil, err
+	}
+
+	var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
+	if onchainSigningStrategy.IsMultiChain() {
+		keyBundles := map[string]ocr2key.KeyBundle{}
+		for name := range onchainSigningStrategy.ConfigCopy() {
+			kbID, ostErr := onchainSigningStrategy.KeyBundleID(name)
+			if ostErr != nil {
+				return nil, ostErr
+			}
+			os, ostErr := d.ks.Get(kbID)
+			if ostErr != nil {
+				return nil, ostErr
+			}
+			keyBundles[name] = os
+		}
+		onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
+	}
+
+	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractTransmitter:          transmitter,
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               onchainKeyringAdapter,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, shardOrchestratorStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
+		BatchSize:  100,         // Default batch size
+		TimeToSync: time.Second, // Default sync time
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+	return srvs, nil
+}
+
 func (d *Delegate) newServicesGenericPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -1017,7 +1202,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
 	}
@@ -1240,7 +1425,7 @@ func (d *Delegate) newServicesMercury(
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("mercury services: expected EVM relayer got %q", rid.Network)
 	}
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
@@ -1343,7 +1528,7 @@ func (d *Delegate) newServicesLLO(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
 	}
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "streams"}
 	}
@@ -1447,6 +1632,7 @@ func (d *Delegate) newServicesLLO(
 		ChainID:                  rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
+		SampleTelemetry:              d.cfg.OCR2().SampleTelemetry(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),
@@ -1511,7 +1697,7 @@ func (d *Delegate) newServicesMedian(
 		d.cfg,
 	)
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
@@ -1588,7 +1774,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	transmitterID := spec.TransmitterID.String
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
@@ -2107,7 +2293,7 @@ func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, plu
 	}
 
 	// Get provider from dest chain
-	dstRelayer, err := d.RelayGetter.Get(dstRid)
+	dstRelayer, err := d.Get(dstRid)
 	if err != nil {
 		return nil, err
 	}
@@ -2164,7 +2350,7 @@ func (d *Delegate) ccipCommitGetSrcProvider(ctx context.Context, jb job.Job, plu
 	srcChainIDstr := strconv.FormatUint(srcChainID, 10)
 
 	// Get provider from source chain
-	srcRelayer, err := d.RelayGetter.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
+	srcRelayer, err := d.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2269,7 +2455,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 	}
 
 	// Get provider from dest chain
-	dstRelayer, err := d.RelayGetter.Get(dstRid)
+	dstRelayer, err := d.Get(dstRid)
 	if err != nil {
 		return nil, err
 	}
@@ -2320,7 +2506,7 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	srcChainIDstr := strconv.FormatUint(srcChainID, 10)
 
 	// Get provider from source chain
-	srcRelayer, err := d.RelayGetter.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
+	srcRelayer, err := d.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get relayer: %w", err)
 	}

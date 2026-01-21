@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
 	solanago "github.com/gagliardetto/solana-go"
@@ -33,7 +33,6 @@ import (
 
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -104,7 +103,9 @@ func (o *Solana) PreEnvStartup(
 			CapabilityType: 3, // TARGET
 			ResponseType:   1, // OBSERVATION_IDENTICAL
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -142,7 +143,7 @@ func DeployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 		},
 		ks_sol_seq.DeployForwarderSeqInput{
 			ChainSel:     solChain.ChainSelector(),
-			ProgramName:  deployment.KeystoneForwarderProgramName,
+			ProgramName:  solutils.ProgKeystoneForwarder,
 			Qualifier:    ks_sol.DefaultForwarderQualifier,
 			ContractType: ks_sol.ForwarderContract,
 			Version:      version,
@@ -258,7 +259,7 @@ const solWorkflowConfigTemplate = `
 		ForwarderState   = '{{.ForwarderState}}'
 		PollPeriod = '{{.PollPeriod}}'
 		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
-		TxAcceptanceState = {{.TxAcceptanceState}}
+		TxAcceptanceState = {{printf "%d" .TxAcceptanceState}}
 		Local = {{.Local}}
 	`
 

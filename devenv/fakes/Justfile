@@ -1,0 +1,16 @@
+IMAGE_NAME := "ocr2-fakes"
+
+run:
+    docker run --rm -it -v $(pwd):/app -p 9111:9111 {{IMAGE_NAME}}:latest
+
+build:
+    docker build -f Dockerfile -t {{IMAGE_NAME}}:latest .
+
+push registry:
+    docker build --platform linux/amd64 -f Dockerfile -t {{IMAGE_NAME}}:latest .
+    aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin {{registry}}
+    docker tag {{IMAGE_NAME}}:latest {{registry}}/{{IMAGE_NAME}}
+    docker push {{registry}}/{{IMAGE_NAME}}
+
+clean:
+    docker rmi {{IMAGE_NAME}}:latest

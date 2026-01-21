@@ -5,6 +5,7 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -100,7 +101,7 @@ func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmE
 	actualHash, err := evmMsgHasher.Hash(ctx, ccipMsg)
 	require.NoError(t, err)
 
-	require.Equal(t, fmt.Sprintf("%x", expectedHash), strings.TrimPrefix(actualHash.String(), "0x"))
+	require.Equal(t, hex.EncodeToString(expectedHash[:]), strings.TrimPrefix(actualHash.String(), "0x"))
 }
 
 type evmExtraArgs struct {
@@ -123,18 +124,19 @@ func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHas
 	destChain := rand.Uint64()
 
 	var extraArgsBytes []byte
-	if evmExtraArgs.version == "v1" {
+	switch evmExtraArgs.version {
+	case "v1":
 		extraArgsBytes, err = messageHasher.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
 			GasLimit: evmExtraArgs.gasLimit,
 		})
 		require.NoError(t, err)
-	} else if evmExtraArgs.version == "v2" {
+	case "v2":
 		extraArgsBytes, err = messageHasher.EncodeEVMExtraArgsV2(nil, message_hasher.ClientGenericExtraArgsV2{
 			GasLimit:                 evmExtraArgs.gasLimit,
 			AllowOutOfOrderExecution: evmExtraArgs.allowOOO,
 		})
 		require.NoError(t, err)
-	} else {
+	default:
 		require.FailNowf(t, "unknown extra args version", "version: %s", evmExtraArgs.version)
 	}
 
@@ -433,7 +435,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg, sourceChainSelector)
 		)
 
-		//const (
+		// const (
 		//	rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
 		//)
 
@@ -446,9 +448,9 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		}, any2EVMMessage, onRampAddress)
 		require.NoError(t, err)
 
-		//t.Logf("rmn hash: %s, onchain hash: %s, my hash: %s", rmnMsgHash, hexutil.Encode(msgHashOnchain[:]), msgH.String())
+		// t.Logf("rmn hash: %s, onchain hash: %s, my hash: %s", rmnMsgHash, hexutil.Encode(msgHashOnchain[:]), msgH.String())
 		require.Equal(t, msgHashOnchain, [32]byte(msgH), "my hash and onchain hash should match")
-		//require.Equal(t, rmnMsgHash, msgH.String(), "rmn hash and my hash should match")
+		// require.Equal(t, rmnMsgHash, msgH.String(), "rmn hash and my hash should match")
 	})
 
 	t.Run("other vectors", func(t *testing.T) {

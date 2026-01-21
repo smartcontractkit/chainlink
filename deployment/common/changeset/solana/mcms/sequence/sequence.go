@@ -18,6 +18,7 @@ import (
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 var (
@@ -96,9 +97,9 @@ func deployAccessController(b operations.Bundle, deps operation.Deps) error {
 
 	opOut, err := operations.ExecuteOperation(b, operation.DeployAccessControllerOp, commonOps.Deps{Chain: deps.Chain},
 		commonOps.DeployInput{
-			ProgramName:  deployment.AccessControllerProgramName,
+			ProgramName:  solutils.ProgAccessController,
 			Overallocate: true,
-			Size:         deployment.SolanaProgramBytes[deployment.AccessControllerProgramName],
+			Size:         solutils.GetProgramBufferBytes(solutils.ProgAccessController),
 			ChainSel:     deps.Chain.ChainSelector(),
 		},
 	)
@@ -159,9 +160,9 @@ func deployMCM(b operations.Bundle, deps operation.Deps) error {
 
 	opOut, err := operations.ExecuteOperation(b, operation.DeployMCMProgramOp, commonOps.Deps{Chain: deps.Chain},
 		commonOps.DeployInput{
-			ProgramName:  deployment.McmProgramName,
+			ProgramName:  solutils.ProgMCM,
 			Overallocate: true,
-			Size:         deployment.SolanaProgramBytes[deployment.McmProgramName],
+			Size:         solutils.GetProgramBufferBytes(solutils.ProgMCM),
 			ChainSel:     deps.Chain.ChainSelector(),
 		},
 	)
@@ -235,9 +236,9 @@ func deployTimelock(b operations.Bundle, deps operation.Deps) error {
 
 	opOut, err := operations.ExecuteOperation(b, operation.DeployTimelockOp, commonOps.Deps{Chain: deps.Chain},
 		commonOps.DeployInput{
-			ProgramName:  deployment.TimelockProgramName,
+			ProgramName:  solutils.ProgTimelock,
 			Overallocate: true,
-			Size:         deployment.SolanaProgramBytes[deployment.TimelockProgramName],
+			Size:         solutils.GetProgramBufferBytes(solutils.ProgTimelock),
 			ChainSel:     deps.Chain.ChainSelector(),
 		},
 	)

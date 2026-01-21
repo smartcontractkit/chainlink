@@ -254,7 +254,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(nil, errors.New("failure ABC")).Once()
 		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 		servicetest.Run(t, engine)
-		require.ErrorContains(t, <-initDoneCh, "failed to register trigger: failure ABC")
+		require.ErrorContains(t, <-initDoneCh, "failed to register trigger id_1: failure ABC")
 	})
 }
 
@@ -2198,7 +2198,6 @@ func createTestEngineForDonVersionTest(
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     defaultTestConfig(t, nil).LocalLimiters,
 		GlobalExecutionConcurrencyLimiter: sLimiter,
-		GlobalExecutionRateLimiter:        defaultTestConfig(t, nil).GlobalExecutionRateLimiter,
 		BeholderEmitter:                   emitter,
 		WorkflowRegistryAddress:           "0xWorkflowRegistry",
 		WorkflowRegistryChainSelector:     "11155111",

@@ -142,7 +142,7 @@ func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
 
 			gasPrice, err := g.DenoteInUSD(ctx, tc.gasPrice, tc.nativePrice)
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expPrice.Cmp(gasPrice), 0)
+			assert.Equal(t, 0, tc.expPrice.Cmp(gasPrice))
 		})
 	}
 }
@@ -194,7 +194,7 @@ func TestExecPriceEstimator_Median(t *testing.T) {
 
 			gasPrice, err := g.Median(ctx, tc.gasPrices)
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expMedian.Cmp(gasPrice), 0)
+			assert.Equal(t, 0, tc.expMedian.Cmp(gasPrice))
 		})
 	}
 }

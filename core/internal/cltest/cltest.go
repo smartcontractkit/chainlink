@@ -712,7 +712,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *clienttest.Cli
 func (ta *TestApplication) Start(ctx context.Context) error {
 	ta.t.Helper()
 	ta.Started = true
-	err := ta.ChainlinkApplication.KeyStore.Unlock(ctx, Password)
+	err := ta.KeyStore.Unlock(ctx, Password)
 	if err != nil {
 		return err
 	}
@@ -737,7 +737,7 @@ func (ta *TestApplication) Stop() error {
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
 	// FIXME: TestApplication probably needs to simply be removed
-	err := ta.ChainlinkApplication.StopIfStarted()
+	err := ta.StopIfStarted()
 	if ta.Server != nil {
 		ta.Server.Close()
 	}

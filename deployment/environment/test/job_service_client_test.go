@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -14,17 +13,16 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
-	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
 func TestNewJobServiceClient(t *testing.T) {
 	t.Parallel()
 
 	// Create a mock JobApprover getter
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
 
 	// Create a new JobServiceClient
 	client := NewJobServiceClient(mockGetter)
@@ -44,11 +42,11 @@ func TestBatchProposeJob(t *testing.T) {
 	ctx := t.Context()
 
 	// Create mock job approvers
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
-	mockGetter.jobApprovers["node-2"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
+	mockGetter.JobApprovers["node-2"] = &MockJobApprover{}
 
 	client := NewJobServiceClient(mockGetter)
 
@@ -74,7 +72,7 @@ func TestBatchProposeJob(t *testing.T) {
 	})
 
 	t.Run("one node fails", func(t *testing.T) {
-		mockGetter.jobApprovers["node-2"].shouldFail = true
+		mockGetter.JobApprovers["node-2"].shouldFail = true
 
 		req := &jobv1.BatchProposeJobRequest{
 			NodeIds: []string{"node-1", "node-2"},
@@ -91,7 +89,7 @@ func TestBatchProposeJob(t *testing.T) {
 		require.Contains(t, resp.FailedResponses, "node-2")
 
 		// Reset for next tests
-		mockGetter.jobApprovers["node-2"].shouldFail = false
+		mockGetter.JobApprovers["node-2"].shouldFail = false
 	})
 
 	t.Run("node not found", func(t *testing.T) {
@@ -124,10 +122,10 @@ func TestProposeJob(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock job approvers
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
 
 	client := NewJobServiceClient(mockGetter)
 
@@ -217,7 +215,7 @@ name = "Test Job"
 	})
 
 	t.Run("approval failure", func(t *testing.T) {
-		mockGetter.jobApprovers["node-1"].shouldFail = true
+		mockGetter.JobApprovers["node-1"].shouldFail = true
 
 		externalJobID := uuid.NewString()
 		jobSpec := createValidJobSpec(externalJobID)
@@ -233,17 +231,17 @@ name = "Test Job"
 		require.Contains(t, err.Error(), "failed to auto approve job")
 
 		// Reset for next tests
-		mockGetter.jobApprovers["node-1"].shouldFail = false
+		mockGetter.JobApprovers["node-1"].shouldFail = false
 	})
 }
 
 func TestRevokeJob(t *testing.T) {
 	t.Parallel()
 
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
 	client := NewJobServiceClient(mockGetter)
 
 	proposeJob := func(autoApprove bool) *jobv1.Proposal {
@@ -319,10 +317,10 @@ func TestGetJob(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock job approvers
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
 
 	client := NewJobServiceClient(mockGetter)
 
@@ -372,10 +370,10 @@ func TestGetProposal(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock job approvers
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
 
 	client := NewJobServiceClient(mockGetter)
 
@@ -424,11 +422,11 @@ func TestListJobs(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock job approvers
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
-	mockGetter.jobApprovers["node-2"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
+	mockGetter.JobApprovers["node-2"] = &MockJobApprover{}
 
 	client := NewJobServiceClient(mockGetter)
 
@@ -536,10 +534,10 @@ func TestListProposals(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock job approvers
-	mockGetter := &mockJobApproverGetter{
-		jobApprovers: make(map[string]*mockJobApprover),
+	mockGetter := &MockJobApproverGetter{
+		JobApprovers: make(map[string]*MockJobApprover),
 	}
-	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	mockGetter.JobApprovers["node-1"] = &MockJobApprover{}
 
 	client := NewJobServiceClient(mockGetter)
 
@@ -1066,29 +1064,4 @@ command = "/home/capabilities/nowhere"
 config = ""
 `
 	return fmt.Sprintf(tomlString, externalJobID, externalJobID)
-}
-
-// mockJobApprover is a mock implementation of the JobApprover interface
-type mockJobApprover struct {
-	shouldFail bool
-}
-
-func (m *mockJobApprover) AutoApproveJob(ctx context.Context, p *feeds.ProposeJobArgs) error {
-	if m.shouldFail {
-		return errors.New("mock approval failure")
-	}
-	return nil
-}
-
-// mockJobApproverGetter is a mock implementation of the getter[JobApprover] interface
-type mockJobApproverGetter struct {
-	jobApprovers map[string]*mockJobApprover
-}
-
-func (m *mockJobApproverGetter) Get(id string) (JobApprover, error) {
-	approver, ok := m.jobApprovers[id]
-	if !ok {
-		return nil, errors.New("job approver not found")
-	}
-	return approver, nil
 }

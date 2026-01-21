@@ -328,13 +328,14 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Public key requests don't require authorization,
 	// Let's process this request right away.
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
-	if req.Method == vaulttypes.MethodPublicKeyGet {
+	switch req.Method {
+	case vaulttypes.MethodPublicKeyGet:
 		ar, err := h.newActiveRequest(req, callback)
 		if err != nil {
 			return err
 		}
 		return h.handlePublicKeyGet(ctx, ar)
-	} else if req.Method == vaulttypes.MethodSecretsGet {
+	case vaulttypes.MethodSecretsGet:
 		// Secrets get is only allowed in non-production builds for testing purposes
 		// So no authorization is required
 		ar, err := h.newActiveRequest(req, callback)
@@ -407,12 +408,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	ar := h.getActiveRequest(resp.ID)
 	if ar == nil {
 		// Request is not found, so we don't need to send a response to the user
-		// This might happen if the response is stale
-		l.Errorw("no pending request found for ID")
-		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
-			attribute.String("error", api.StaleNodeResponseError.String()),
-		))
+		// This can happen if a slow node responds after the request has already been completed
+		l.Debugw("no pending request found for ID")
 		return nil
 	}
 

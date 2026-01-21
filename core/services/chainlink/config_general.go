@@ -133,11 +133,11 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := commonconfig.MultiErrorList(o.Config.warnings())
+	_, warning := commonconfig.MultiErrorList(o.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		err = o.Secrets.setEnv()
+		err = o.setEnv()
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +165,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		secrets:       &o.Secrets,
 		warning:       warning,
 	}
-	if lvl := o.Config.Log.Level; lvl != nil {
+	if lvl := o.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
 	}
 
@@ -443,7 +443,7 @@ func (g *generalConfig) Workflows() config.Workflows {
 }
 
 func (g *generalConfig) Database() coreconfig.Database {
-	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Database, logSQL: g.logSQL}
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -594,6 +594,10 @@ func (g *generalConfig) Billing() coreconfig.Billing {
 
 func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
 	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
+}
+
+func (g *generalConfig) Sharding() coreconfig.Sharding {
+	return &shardingConfig{s: g.c.Sharding}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}

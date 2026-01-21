@@ -68,3 +68,14 @@ updates:
     labels:
       - "dependencies"
       - "ctf"
+  - package-ecosystem: gomod
+    directories:
+      - "**/*"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-name: "cre-sdk-go"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"

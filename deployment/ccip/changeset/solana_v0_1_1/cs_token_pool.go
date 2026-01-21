@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 // use this changeset to add a token pool and lookup table
@@ -223,11 +224,11 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		tokenPubKey := tokenPoolCfg.TokenPubKey
 		tokenPool := chainState.GetActiveTokenPool(tokenPoolCfg.PoolType, tokenPoolCfg.Metadata)
 
-		progDataAddr, err := deployment.GetProgramDataAddress(chain.Client, tokenPool)
+		progDataAddr, err := solutils.GetProgramDataAddress(chain.Client, tokenPool)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get program data address for program %s: %w", tokenPool.String(), err)
 		}
-		authority, _, err := deployment.GetUpgradeAuthority(chain.Client, progDataAddr)
+		authority, _, err := solutils.GetUpgradeAuthority(chain.Client, progDataAddr)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 		}

@@ -1742,13 +1742,14 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
 	if len(destChainSelector) > 0 {
 		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
-		if destFamily == chain_selectors.FamilySolana {
+		switch destFamily {
+		case chain_selectors.FamilySolana:
 			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
-		} else if destFamily == chain_selectors.FamilyAptos {
+		case chain_selectors.FamilyAptos:
 			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
-		} else if destFamily == chain_selectors.FamilyTon {
+		case chain_selectors.FamilyTon:
 			familySelector, _ = hex.DecodeString(TVMFamilySelector) // ton
-		} else if destFamily == chain_selectors.FamilySui {
+		case chain_selectors.FamilySui:
 			familySelector, _ = hex.DecodeString(SuiFamilySelector) // Sui
 		}
 	}

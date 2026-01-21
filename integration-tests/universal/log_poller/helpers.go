@@ -3,6 +3,7 @@ package logpoller
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -273,7 +274,6 @@ func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.L
 					hasFinalised:   latestBlock.FinalizedBlockNumber > endBlock,
 					err:            nil,
 				}
-
 			}
 		}(nodes.Nodes[i], endBlockCh)
 	}
@@ -578,7 +578,7 @@ func GetMissingLogs(
 				}
 				for _, logPollerLog := range allLogPollerLogs[nodeName] {
 					if logPollerLog.BlockNumber == int64(evmLog.BlockNumber) && logPollerLog.TxHash == evmLog.TxHash && bytes.Equal(logPollerLog.Data, evmLog.Data) && logPollerLog.LogIndex == int64(evmLog.Index) &&
-						logPollerLog.Address == evmLog.Address && logPollerLog.BlockHash == evmLog.BlockHash && bytes.Equal(logPollerLog.Topics[0][:], evmLog.Topics[0].Bytes()) {
+						logPollerLog.Address == evmLog.Address && logPollerLog.BlockHash == evmLog.BlockHash && bytes.Equal(logPollerLog.Topics[0], evmLog.Topics[0].Bytes()) {
 						logFound = true
 						continue
 					}
@@ -727,7 +727,7 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 		RPSprime = *cfg.Wasp.LPS / int64(*cfg.General.Contracts) / int64(*cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
 
 		if RPSprime < 1 {
-			return 0, fmt.Errorf("invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
+			return 0, errors.New("invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
 		}
 	}
 
@@ -747,7 +747,7 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 		g, err := wasp.NewGenerator(&wasp.Config{
 			T:                     t,
 			LoadType:              wasp.RPS,
-			GenName:               fmt.Sprintf("log_poller_gen_%s", (*logEmitter).Address().String()),
+			GenName:               "log_poller_gen_" + (*logEmitter).Address().String(),
 			RateLimitUnitDuration: cfg.Wasp.RateLimitUnitDuration.Duration,
 			CallTimeout:           cfg.Wasp.CallTimeout.Duration,
 			Schedule: wasp.Plain(
@@ -865,7 +865,7 @@ func GetExpectedLogCount(cfg *lp_config.Config) int64 {
 		if *cfg.Wasp.RPS != 0 {
 			return *cfg.Wasp.RPS * int64(cfg.Wasp.Duration.Seconds()) * int64(*cfg.General.EventsPerTx)
 		}
-		return *cfg.Wasp.LPS * int64(cfg.Wasp.Duration.Duration.Seconds())
+		return *cfg.Wasp.LPS * int64(cfg.Wasp.Duration.Seconds())
 	}
 
 	return int64(len(cfg.General.EventsToEmit) * *cfg.LoopedConfig.ExecutionCount * *cfg.General.Contracts * *cfg.General.EventsPerTx)
@@ -1045,7 +1045,7 @@ func SetupLogPollerTestDocker(
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 
-	//launch the environment
+	// launch the environment
 	var env *test_env.CLClusterTestEnv
 	chainlinkNodeFunding := 0.5
 	l.Debug().Msgf("Funding amount: %f", chainlinkNodeFunding)

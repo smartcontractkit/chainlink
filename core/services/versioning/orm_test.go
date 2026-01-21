@@ -123,7 +123,6 @@ func Test_Version_CheckVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "9.9.9", appv.String())
 	assert.Equal(t, "9.9.8", dbv.String())
-
 }
 
 func TestORM_CheckVersion_CCIP(t *testing.T) {

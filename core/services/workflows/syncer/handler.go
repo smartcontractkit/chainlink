@@ -14,6 +14,7 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -125,7 +126,7 @@ type eventHandler struct {
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
 	engineLimiters         *v2.EngineLimiters
-	ratelimiter            limits.RateLimiter
+	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
@@ -203,7 +204,7 @@ func NewEventHandler(
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
-	ratelimiter limits.RateLimiter,
+	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	workflowEncryptionKey workflowkey.Key,
@@ -581,7 +582,6 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		LocalLimits:                       v2.EngineLimits{}, // all defaults
 		LocalLimiters:                     h.engineLimiters,
 		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
-		GlobalExecutionRateLimiter:        h.ratelimiter,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,

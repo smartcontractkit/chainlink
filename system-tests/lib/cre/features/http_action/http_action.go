@@ -67,7 +67,9 @@ func (o *HTTPAction) PreEnvStartup(
 			Version:        "1.0.0-alpha",
 			CapabilityType: 1, // ACTION
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -79,16 +81,16 @@ const configTemplate = `
 {
 	"proxyMode": "{{.ProxyMode}}",
 	"incomingRateLimiter": {
-		"globalBurst": {{.IncomingGlobalBurst}},
-		"globalRPS": {{.IncomingGlobalRPS}},
-		"perSenderBurst": {{.IncomingPerSenderBurst}},
-		"perSenderRPS": {{.IncomingPerSenderRPS}}
+		"globalBurst": {{printf "%v" .IncomingGlobalBurst}},
+		"globalRPS": {{printf "%v" .IncomingGlobalRPS}},
+		"perSenderBurst": {{printf "%v" .IncomingPerSenderBurst}},
+		"perSenderRPS": {{printf "%v" .IncomingPerSenderRPS}}
 	},
 	"outgoingRateLimiter": {
-		"globalBurst": {{.OutgoingGlobalBurst}},
-		"globalRPS": {{.OutgoingGlobalRPS}},
-		"perSenderBurst": {{.OutgoingPerSenderBurst}},
-		"perSenderRPS": {{.OutgoingPerSenderRPS}}
+		"globalBurst": {{printf "%v" .OutgoingGlobalBurst}},
+		"globalRPS": {{printf "%v" .OutgoingGlobalRPS}},
+		"perSenderBurst": {{printf "%v" .OutgoingPerSenderBurst}},
+		"perSenderRPS": {{printf "%v" .OutgoingPerSenderRPS}}
 	}
 }
 `

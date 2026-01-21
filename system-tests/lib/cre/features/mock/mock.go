@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -46,7 +46,9 @@ func (o *Mock) PreEnvStartup(
 			Version:        "1.0.0",
 			CapabilityType: 0, // TRIGGER
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -55,7 +57,7 @@ func (o *Mock) PreEnvStartup(
 }
 
 const configTemplate = `
-port={{.Port}}
+port={{printf "%d" .Port}}
 {{- range .DefaultMocks }}
 [[DefaultMocks]]
 id = "{{ .Id }}"

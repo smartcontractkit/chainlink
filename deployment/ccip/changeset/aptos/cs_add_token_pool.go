@@ -13,7 +13,7 @@ import (
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -116,7 +116,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	proposals := make([]mcms.TimelockProposal, 0)
 	var mcmsOperations []mcmstypes.BatchOperation
 
-	deps := operation.AptosDeps{
+	deps := dependency.AptosDeps{
 		AB:               ab,
 		AptosChain:       aptosChain,
 		CCIPOnChainState: state,
@@ -225,7 +225,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	}, nil
 }
 
-func isTokenOwnedByMCMS(deps operation.AptosDeps, cfgTokenAddress aptos.AccountAddress) (bool, error) {
+func isTokenOwnedByMCMS(deps dependency.AptosDeps, cfgTokenAddress aptos.AccountAddress) (bool, error) {
 	if cfgTokenAddress == (aptos.AccountAddress{}) {
 		// Token cfg not provided, so token is newly deployed and owned by MCMS
 		return true, nil

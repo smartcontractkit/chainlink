@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/grafana/pyroscope-go"
 	"github.com/jonboulle/clockwork"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
@@ -45,16 +46,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -205,6 +209,7 @@ type ChainlinkApplication struct {
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
 	capabilitiesRegistry     *capabilities.Registry
+	shardOrchestratorClient  *shardorchestrator.Client
 
 	started     bool
 	startStopMu sync.Mutex
@@ -265,6 +270,34 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
 	}
+
+	var shardOrchestratorClient *shardorchestrator.Client
+	shardIdx := cfg.Sharding().ShardIndex()
+
+	shardID := shardIdx // TODO: confirm these are the same or if its going to be derived from it + CSAKey
+	// Shard 1+ runs the gRPC client
+	if shardID > 0 {
+		address := cfg.Sharding().ShardOrchestratorAddress()
+		if address == nil {
+			return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
+		}
+		client, err := shardorchestrator.NewClient(
+			ctx,
+			address.String(),
+			globalLogger.Named("ShardOrchestratorClient"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+		}
+		shardOrchestratorClient = client
+		globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
+	}
+
+	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal cre settings TOML: %w", err)
+	}
+	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
 	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
 	limitsFactory := limits.Factory{
 		Meter:    beholder.GetMeter(),
@@ -411,6 +444,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		StorageClient:           storageClient,
 		UseLocalTimeProvider:    opts.UseLocalTimeProvider,
 		JWTGenerator:            jwtGenerator,
+		ShardOrchestratorClient: shardOrchestratorClient,
 	}, opts.DonTimeStore, limitsFactory, peerWrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
@@ -618,6 +652,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			),
 			job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
 				globalLogger,
+				opts.DS,
 				cfg.CCV(),
 				keyStore.OCR2(),
 				relayChainInterops.LegacyEVMChains().Slice(),
@@ -701,7 +736,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig, cfg.Sharding())
 
 		ocr2Delegate := ocr2.NewDelegate(
 			ocr2.DelegateOpts{
@@ -847,6 +882,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		loopRegistry:             loopRegistry,
 		loopRegistrarConfig:      loopRegistrarConfig,
 		capabilitiesRegistry:     opts.CapabilitiesRegistry,
+		shardOrchestratorClient:  shardOrchestratorClient,
 
 		ds: opts.DS,
 
@@ -879,12 +915,16 @@ type CREOpts struct {
 	UseLocalTimeProvider bool // Set this to true if the DON Time Plugin is not running
 
 	JWTGenerator nodeauthjwt.JWTGenerator // JWT generator for authenticated services
+
+	// ShardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
+	// This is nil for shard 0.
+	ShardOrchestratorClient *shardorchestrator.Client
 }
 
 type CREServices struct {
 	// workflowRateLimiter is the rate limiter for workflows
 	// it is exposed because there are contingent services in the application
-	workflowRateLimiter limits.RateLimiter
+	workflowRateLimiter *ratelimiter.RateLimiter
 
 	// workflowLimits is the syncer limiter for workflows
 	// it will specify the amount of global and per owner workflows that can be registered
@@ -934,11 +974,10 @@ func newCREServices(
 		GlobalBurst:    capCfg.RateLimit().GlobalBurst(),
 		PerSenderRPS:   capCfg.RateLimit().PerSenderRPS(),
 		PerSenderBurst: capCfg.RateLimit().PerSenderBurst(),
-	}, lf)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
-	srvcs = append(srvcs, closerService{name: "WorkflowRateLimiter", Closer: workflowRateLimiter})
 
 	if len(wCfg.Limits().PerOwnerOverrides()) > 0 {
 		globalLogger.Debugw("loaded per owner overrides", "overrides", wCfg.Limits().PerOwnerOverrides())
@@ -1297,6 +1336,7 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
+						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
@@ -1437,6 +1477,11 @@ func (app *ChainlinkApplication) stop() (err error) {
 		if app.FeedsService != nil {
 			app.logger.Debug("Closing Feeds Service...")
 			err = stderrors.Join(err, app.FeedsService.Close())
+		}
+
+		if app.shardOrchestratorClient != nil {
+			app.logger.Debug("Closing ShardOrchestrator gRPC client...")
+			err = stderrors.Join(err, app.shardOrchestratorClient.Close())
 		}
 
 		if app.profiler != nil {

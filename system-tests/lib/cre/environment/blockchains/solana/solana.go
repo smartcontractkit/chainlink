@@ -129,14 +129,28 @@ func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		return nil, errors.New("CRIB deployment for Solana is not supported yet")
 	}
 
-	err := initSolanaInput(input)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to init Solana input")
-	}
+	var bcOut *blockchain.Output
+	var err error
 
-	bcOut, err := blockchain.NewWithContext(ctx, input)
-	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
+	if s.provider.IsKubernetes() {
+		// For Kubernetes, use the blockchain output from config (no deployment)
+		if err = blockchains.ValidateKubernetesBlockchainOutput(input); err != nil {
+			return nil, err
+		}
+
+		s.testLogger.Info().Msgf("Using configured Kubernetes blockchain URLs for %s (chain_id: %s)", input.Type, input.ChainID)
+		bcOut = input.Out
+	} else {
+		// Docker deployment
+		err = initSolanaInput(input)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to init Solana input")
+		}
+
+		bcOut, err = blockchain.NewWithContext(ctx, input)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
+		}
 	}
 
 	sel, ok := chainselectors.SolanaChainIdToChainSelector()[input.ChainID]

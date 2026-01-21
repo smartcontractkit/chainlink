@@ -180,7 +180,7 @@ type General struct {
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
 	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
 
-	//VRF Job Config
+	// VRF Job Config
 	VRFJobForwardingAllowed             *bool                   `toml:"vrf_job_forwarding_allowed"`
 	VRFJobEstimateGasMultiplier         *float64                `toml:"vrf_job_estimate_gas_multiplier"`
 	VRFJobBatchFulfillmentEnabled       *bool                   `toml:"vrf_job_batch_fulfillment_enabled"`
@@ -189,13 +189,13 @@ type General struct {
 	VRFJobRequestTimeout                *blockchain.StrDuration `toml:"vrf_job_request_timeout"`
 	VRFJobSimulationBlock               *string                 `toml:"vrf_job_simulation_block"`
 
-	//BHS Job Config
+	// BHS Job Config
 	BHSJobWaitBlocks     *int                    `toml:"bhs_job_wait_blocks"`
 	BHSJobLookBackBlocks *int                    `toml:"bhs_job_lookback_blocks"`
 	BHSJobPollPeriod     *blockchain.StrDuration `toml:"bhs_job_poll_period"`
 	BHSJobRunTimeout     *blockchain.StrDuration `toml:"bhs_job_run_timeout"`
 
-	//BHF Job Config
+	// BHF Job Config
 	BHFJobWaitBlocks     *int                    `toml:"bhf_job_wait_blocks"`
 	BHFJobLookBackBlocks *int                    `toml:"bhf_job_lookback_blocks"`
 	BHFJobPollPeriod     *blockchain.StrDuration `toml:"bhf_job_poll_period"`

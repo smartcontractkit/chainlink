@@ -2,9 +2,7 @@ package utils
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -21,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -62,6 +61,7 @@ func NewStandaloneEngine(
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
 	workflowName string,
+	workflowSettingsCfgFn func(*cresettings.Workflows),
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
 	labeler := custmsg.NewLabeler()
@@ -88,7 +88,7 @@ func NewStandaloneEngine(
 	}
 
 	lf := limits.Factory{Logger: logger.Named(lggr, "Limits")}
-	limiters, err := v2.NewLimiters(lf, nil)
+	limiters, err := v2.NewLimiters(lf, workflowSettingsCfgFn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -97,7 +97,7 @@ func NewStandaloneEngine(
 		GlobalBurst:    defaultBurst,
 		PerSenderRPS:   defaultRPS,
 		PerSenderBurst: defaultBurst,
-	}, lf)
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -173,7 +173,6 @@ func NewStandaloneEngine(
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     limiters,
 		GlobalExecutionConcurrencyLimiter: workflowLimits,
-		GlobalExecutionRateLimiter:        rl,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 
@@ -209,16 +208,7 @@ func NewStandaloneEngine(
 	}
 	triggerSubscriptions := result.GetTriggerSubscriptions()
 
-	return &serviceWithClosers{engine, []io.Closer{limiters, workflowLimits, rl}}, triggerSubscriptions.GetSubscriptions(), nil
-}
-
-type serviceWithClosers struct {
-	services.Service
-	closers []io.Closer
-}
-
-func (s *serviceWithClosers) Close() error {
-	return errors.Join(s.Service.Close(), services.MultiCloser(s.closers).Close())
+	return engine, triggerSubscriptions.GetSubscriptions(), nil
 }
 
 // yamlConfig represents the structure of your secrets.yaml file.

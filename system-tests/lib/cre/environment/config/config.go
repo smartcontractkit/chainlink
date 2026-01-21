@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
@@ -27,6 +29,33 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
+// GetAddresses returns the addresses as datastore.AddressRef slice
+func (c *Config) GetAddresses() ([]datastore.AddressRef, error) {
+	addresses := make([]datastore.AddressRef, len(c.Addresses))
+	for i, addr := range c.Addresses {
+		in := []byte(addr)
+		var addrRef datastore.AddressRef
+		if err := json.Unmarshal(in, &addrRef); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal address at index %d: %w", i, err)
+		}
+		addresses[i] = addrRef
+	}
+	return addresses, nil
+}
+
+// SetAddresses sets the addresses from datastore.AddressRef slice
+func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
+	c.Addresses = make([]string, len(refs))
+	for i, ref := range refs {
+		asBytes, err := json.Marshal(ref)
+		if err != nil {
+			return fmt.Errorf("failed to marshal address at index %d: %w", i, err)
+		}
+		c.Addresses[i] = string(asBytes)
+	}
+	return nil
+}
+
 type Config struct {
 	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
@@ -36,6 +65,7 @@ type Config struct {
 	FakeHTTP          *fake.Input                     `toml:"fake_http" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
+	Addresses         []string                        `toml:"addresses"`
 
 	mu     sync.Mutex
 	loaded bool

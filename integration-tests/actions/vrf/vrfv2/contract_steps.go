@@ -2,6 +2,7 @@ package vrfv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -238,7 +239,7 @@ func CreateFundSubsAndAddConsumers(
 	}
 	subToConsumersMap := map[uint64][]contracts.VRFv2LoadTestConsumer{}
 
-	//each subscription will have the same consumers
+	// each subscription will have the same consumers
 	for _, subID := range subIDs {
 		subToConsumersMap[subID] = consumers
 	}
@@ -306,7 +307,7 @@ func CreateSubAndFindSubID(coordinator contracts.VRFCoordinatorV2) (uint64, erro
 	if err != nil {
 		return 0, fmt.Errorf("%s, err %w", vrfcommon.ErrCreateVRFSubscription, err)
 	}
-	//SubscriptionsCreated Log should be emitted with the subscription ID
+	// SubscriptionsCreated Log should be emitted with the subscription ID
 	subID := receipt.Logs[0].Topics[1].Big().Uint64()
 
 	return subID, nil
@@ -319,7 +320,7 @@ func FundSubscriptions(
 	subIDs []uint64,
 ) error {
 	for _, subID := range subIDs {
-		//Link Billing
+		// Link Billing
 		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
 		err := FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
 		if err != nil {
@@ -568,7 +569,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		case randomWordsForcedEvent = <-randWordsForcedEventChannel:
 			vrfcommon.LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
 		case <-time.After(randomWordsFulfilledEventTimeout):
-			err = fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
+			err = errors.New("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
 		}
 	}
 	return configSetEvent, randomWordsFulfilledEvent, randomWordsForcedEvent, err

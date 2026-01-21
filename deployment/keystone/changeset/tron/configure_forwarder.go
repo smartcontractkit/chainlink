@@ -7,6 +7,7 @@ import (
 
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"

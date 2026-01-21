@@ -2,11 +2,13 @@ package ccipevm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
@@ -26,7 +28,7 @@ type ExecutePluginCodecV1 struct {
 func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodecBundle) *ExecutePluginCodecV1 {
 	abiParsed, err := abi.JSON(strings.NewReader(offramp.OffRampABI))
 	if err != nil {
-		panic(fmt.Errorf("parse multi offramp abi: %s", err))
+		panic(fmt.Errorf("parse multi offramp abi: %w", err))
 	}
 	methodInputs := abihelpers.MustGetMethodInputs("manuallyExecute", abiParsed)
 	if len(methodInputs) == 0 {
@@ -49,7 +51,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 		}
 
 		if chainReport.ProofFlagBits.IsEmpty() {
-			return nil, fmt.Errorf("proof flag bits are empty")
+			return nil, errors.New("proof flag bits are empty")
 		}
 
 		evmProofs := make([][32]byte, 0, len(chainReport.Proofs))
@@ -66,7 +68,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
-				if tokenAmount.Amount.Int.Sign() < 0 {
+				if tokenAmount.Amount.Sign() < 0 {
 					return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
@@ -146,7 +148,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
 	}
 	if len(unpacked) != 1 {
-		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpacked report is empty")
+		return cciptypes.ExecutePluginReport{}, errors.New("unpacked report is empty")
 	}
 
 	evmReportRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalExecutionReport))
@@ -155,7 +157,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("got an unexpected report type %T", unpacked[0])
 	}
 	if evmReportPtr == nil {
-		return cciptypes.ExecutePluginReport{}, fmt.Errorf("evm report is nil")
+		return cciptypes.ExecutePluginReport{}, errors.New("evm report is nil")
 	}
 
 	evmReport := *evmReportPtr

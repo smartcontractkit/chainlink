@@ -987,9 +987,8 @@ This pattern allows for efficient resource usage and enables running the same te
 
 #### Supported DON Topologies
 
-Each test is automatically run with these three topologies:
+Each test is automatically run with these two topologies:
 
-- **workflow**: Uses `configs/workflow-don.toml,configs/ci-config.toml`
 - **workflow-gateway**: Uses `configs/workflow-gateway-don.toml,configs/ci-config.toml`
 - **workflow-gateway-capabilities**: Uses `configs/workflow-gateway-capabilities-don.toml,configs/ci-config.toml`
 
@@ -1052,7 +1051,7 @@ The auto-discovery process works as follows:
 # From .github/workflows/cre-system-tests.yaml
 - name: Define test matrix
   run: |
-    tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml,configs/ci-config.toml"}]) | flatten')
+    tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml,configs/ci-config.toml"}]) | flatten')
 ```
 
 ### Environment Setup
@@ -1087,7 +1086,7 @@ go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre \
 ### Important Notes
 
 - **No Manual Registration**: You don't need to add your test to any CI configuration files
-- **Automatic Matrix**: Each test runs with all three DON topologies automatically
+- **Automatic Matrix**: Each test runs with all two DON topologies automatically
 - **Standard Configurations**: Uses the existing TOML configuration files
 - **Dependency Management**: Capabilities and dependencies are handled automatically
 - **Logging**: Test logs are automatically captured and uploaded on failure

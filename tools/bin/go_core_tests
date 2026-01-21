@@ -14,6 +14,8 @@ export PATH
 
 echo "Running go_core_tests for event: $GITHUB_EVENT_NAME"
 GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
+# Temporary reduction in concurrent packages to reduce RAM usage
+GO_TEST_FLAGS="$GO_TEST_FLAGS -p=4"
 if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then

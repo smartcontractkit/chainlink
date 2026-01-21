@@ -273,7 +273,6 @@ func (c *PluginConfig) Validate() error {
 		return errors.New("max_upkeep_batch_size must be set to a positive integer")
 	}
 	return nil
-
 }
 
 func (c *LogProviderConfig) Validate() error {
@@ -284,7 +283,6 @@ func (c *LogProviderConfig) Validate() error {
 		return errors.New("log_limit must be set to a positive integer")
 	}
 	return nil
-
 }
 
 type PublicConfig struct {
@@ -344,7 +342,6 @@ func (c *PublicConfig) Validate() error {
 		return errors.New("max_duration_should_transmit_accepted_report must be set to a non-negative duration")
 	}
 	return nil
-
 }
 
 type RegistrySettings struct {

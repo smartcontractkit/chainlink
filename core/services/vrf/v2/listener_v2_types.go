@@ -182,7 +182,8 @@ func (lsn *listenerV2) processBatch(
 		txMetaGlobalSubID *string
 	)
 
-	if batch.version == vrfcommon.V2 {
+	switch batch.version {
+	case vrfcommon.V2:
 		payload, err = batchCoordinatorV2ABI.Pack("fulfillRandomWords", ToV2Proofs(batch.proofs), ToV2Commitments(batch.commitments))
 		if err != nil {
 			// should never happen
@@ -191,7 +192,7 @@ func (lsn *listenerV2) processBatch(
 			return
 		}
 		txMetaSubID = ptr(subID.Uint64())
-	} else if batch.version == vrfcommon.V2Plus {
+	case vrfcommon.V2Plus:
 		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", ToV2PlusProofs(batch.proofs), ToV2PlusCommitments(batch.commitments))
 		if err != nil {
 			// should never happen
@@ -200,7 +201,7 @@ func (lsn *listenerV2) processBatch(
 			return
 		}
 		txMetaGlobalSubID = ptr(subID.String())
-	} else {
+	default:
 		panic("batch version should be v2 or v2plus")
 	}
 

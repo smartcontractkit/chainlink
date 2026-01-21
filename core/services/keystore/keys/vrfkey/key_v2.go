@@ -63,7 +63,7 @@ func (key KeyV2) Raw() internal.Raw {
 // instead.
 func (key KeyV2) GenerateProofWithNonce(seed, nonce *big.Int) (Proof, error) {
 	secretKey := secp256k1.ScalarToHash(*key.k).Big()
-	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
+	if !secp256k1.RepresentsScalar(secretKey) || seed.BitLen() > 256 {
 		return Proof{}, errors.New("badly-formatted key or seed")
 	}
 	skAsScalar := secp256k1.IntToScalar(secretKey)
