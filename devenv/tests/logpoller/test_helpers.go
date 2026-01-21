@@ -1,13 +1,16 @@
 package logpoller
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"math/rand"
+	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -20,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
+	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
@@ -28,25 +32,21 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
+	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	de "github.com/smartcontractkit/chainlink/devenv"
 
-	// "github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
-	ctf_concurrency "github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
-
-	// ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
-	// "github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
 
 	common_logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
-	// "github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	// tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	// lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 )
 
 var (
@@ -166,8 +166,8 @@ type ExpectedFilter struct {
 	topic          common.Hash
 }
 
-// GetExpectedFilters returns a slice of ExpectedFilter structs based on the provided log emitters and config
-func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []ExpectedFilter {
+// getExpectedFilters returns a slice of ExpectedFilter structs based on the provided log emitters and config
+func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []ExpectedFilter {
 	expectedFilters := make([]ExpectedFilter, 0)
 	for _, emitter := range logEmitters {
 		for _, event := range cfg.General.EventsToEmit {
@@ -181,8 +181,8 @@ func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []Expe
 	return expectedFilters
 }
 
-// NodeHasExpectedFilters returns true if the provided node has all the expected filters registered
-func NodeHasExpectedFilters(ctx context.Context, expectedFilters []ExpectedFilter, logger common_logger.SugaredLogger, chainID *big.Int, nodeIndex, dbExternalPort int) (bool, string, error) {
+// nodeHasExpectedFilters returns true if the provided node has all the expected filters registered
+func nodeHasExpectedFilters(ctx context.Context, expectedFilters []ExpectedFilter, logger common_logger.SugaredLogger, chainID *big.Int, nodeIndex, dbExternalPort int) (bool, string, error) {
 	orm, db, err := newORM(logger, chainID, nodeIndex, dbExternalPort)
 	if err != nil {
 		return false, "", err
@@ -238,8 +238,8 @@ func getStringSlice(length int) []string {
 	return result
 }
 
-// LogPollerHasFinalisedEndBlock returns true if all CL nodes have finalised processing the provided end block
-func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger common_logger.SugaredLogger, testEnv logPollerEnvironment) (bool, error) {
+// logPollerHasFinalisedEndBlock returns true if all CL nodes have finalised processing the provided end block
+func logPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger common_logger.SugaredLogger, testEnv *logPollerEnvironment) (bool, error) {
 	wg := &sync.WaitGroup{}
 
 	type boolQueryResult struct {
@@ -331,8 +331,8 @@ func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.L
 	return <-allFinalisedCh, err
 }
 
-// ClNodesHaveExpectedLogCount returns true if all CL nodes have the expected log count in the provided block range and matching the provided filters
-func ClNodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger common_logger.SugaredLogger, testEnv logPollerEnvironment) (bool, error) {
+// nodesHaveExpectedLogCount returns true if all CL nodes have the expected log count in the provided block range and matching the provided filters
+func nodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger common_logger.SugaredLogger, testEnv *logPollerEnvironment) (bool, error) {
 	wg := &sync.WaitGroup{}
 
 	type logQueryResult struct {
@@ -451,10 +451,10 @@ func (m *MissingLogs) IsEmpty() bool {
 	return true
 }
 
-// GetMissingLogs returns a map of CL node name to missing logs in that node compared to EVM node to which the provided evm client is connected
-func GetMissingLogs(
+// missingLogs returns a map of CL node name to missing logs in that node compared to EVM node to which the provided evm client is connected
+func missingLogs(
 	startBlock, endBlock int64,
-	testEnv logPollerEnvironment,
+	testEnv *logPollerEnvironment,
 	l zerolog.Logger,
 	coreLogger common_logger.SugaredLogger,
 	cfg *Config,
@@ -626,7 +626,7 @@ func GetMissingLogs(
 		}
 	}
 
-	expectedTotalLogsEmitted := GetExpectedLogCount(cfg)
+	expectedTotalLogsEmitted := getExpectedLogCount(cfg)
 	if int64(len(allLogsInEVMNode)) != expectedTotalLogsEmitted {
 		l.Warn().
 			Str("Actual/Expected", fmt.Sprintf("%d/%d", expectedTotalLogsEmitted, len(allLogsInEVMNode))).
@@ -636,8 +636,8 @@ func GetMissingLogs(
 	return missingLogs, nil
 }
 
-// PrintMissingLogsInfo prints various useful information about the missing logs
-func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
+// printMissingLogsInfo prints various useful information about the missing logs
+func printMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
 	var findHumanName = func(topic common.Hash) string {
 		for _, event := range cfg.General.EventsToEmit {
 			if event.ID == topic {
@@ -718,13 +718,13 @@ func getEVMLogs(ctx context.Context, startBlock, endBlock int64, logEmitters []*
 	return allLogsInEVMNode, nil
 }
 
-// ExecuteGenerator executes the configured generator and returns the total number of logs emitted
-func ExecuteGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
-	if *cfg.General.Generator == GeneratorType_WASP {
+// executeGenerator executes the configured generator and returns the total number of logs emitted
+func executeGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
+	if cfg.General.Generator == GeneratorType_WASP {
 		return runWaspGenerator(t, cfg, logEmitters)
 	}
 
-	return runLoopedGenerator(t, cfg, client, logEmitters)
+	return runLoopedGenerator(cfg, client, logEmitters)
 }
 
 // runWaspGenerator runs the wasp generator and returns the total number of logs emitted
@@ -735,7 +735,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 
 	// if LPS is set, we need to calculate based on countract count and events per transaction
 	if cfg.Wasp.LPS > 0 {
-		RPSprime = cfg.Wasp.LPS / int64(*cfg.General.Contracts) / int64(*cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
+		RPSprime = cfg.Wasp.LPS / int64(cfg.General.Contracts) / int64(cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
 
 		if RPSprime < 1 {
 			return 0, errors.New("invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
@@ -744,7 +744,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 
 	// if RPS is set simply split it between contracts
 	if cfg.Wasp.RPS > 0 {
-		RPSprime = cfg.Wasp.RPS / int64(*cfg.General.Contracts)
+		RPSprime = cfg.Wasp.RPS / int64(cfg.General.Contracts)
 	}
 
 	counter := &Counter{
@@ -768,7 +768,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 			Gun: NewLogEmitterGun(
 				logEmitter,
 				cfg.General.EventsToEmit,
-				*cfg.General.EventsPerTx,
+				cfg.General.EventsPerTx,
 				l,
 			),
 			SharedData: counter,
@@ -800,16 +800,16 @@ func (d emittedLogsData) GetResult() emittedLogsData {
 }
 
 // runLoopedGenerator runs the looped generator and returns the total number of logs emitted
-func runLoopedGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
+func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := framework.L
 
 	tasks := make([]logEmissionTask, 0)
-	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
+	for i := 0; i < cfg.LoopedConfig.ExecutionCount; i++ {
 		for _, logEmitter := range logEmitters {
 			tasks = append(tasks, logEmissionTask{
 				emitter:      logEmitter,
 				eventsToEmit: cfg.General.EventsToEmit,
-				eventsPerTx:  *cfg.General.EventsPerTx,
+				eventsPerTx:  cfg.General.EventsPerTx,
 			})
 		}
 	}
@@ -829,17 +829,17 @@ func runLoopedGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitt
 		address := (*task.emitter).Address().String()
 
 		for _, event := range cfg.General.EventsToEmit {
-			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
+			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
 			var err error
 			switch event.Name {
 			case "Log1":
-				_, err = client.Decode((*task.emitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode((*task.emitter).EmitLogIntsFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log2":
-				_, err = client.Decode((*task.emitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode((*task.emitter).EmitLogIntsIndexedFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log3":
-				_, err = client.Decode((*task.emitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode((*task.emitter).EmitLogStringsFromKey(getStringSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log4":
-				_, err = client.Decode((*task.emitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
+				_, err = client.Decode((*task.emitter).EmitLogIntMultiIndexedFromKey(1, 1, cfg.General.EventsPerTx, client.AnySyncedKey()))
 			default:
 				err = fmt.Errorf("unknown event name: %s", event.Name)
 			}
@@ -848,19 +848,19 @@ func runLoopedGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitt
 				errorCh <- err
 				return
 			}
-			randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
+			randomWait(cfg.LoopedConfig.MinEmitWaitTimeMs, cfg.LoopedConfig.MaxEmitWaitTimeMs)
 
 			if (current)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
+				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
 			}
 		}
 
 		resultCh <- emittedLogsData{
-			*cfg.General.EventsPerTx * len(cfg.General.EventsToEmit),
+			cfg.General.EventsPerTx * len(cfg.General.EventsToEmit),
 		}
 	}
 
-	executor := ctf_concurrency.NewConcurrentExecutor[emittedLogsData, emittedLogsData, logEmissionTask](l)
+	executor := concurrency.NewConcurrentExecutor[emittedLogsData, emittedLogsData, logEmissionTask](l)
 	r, err := executor.Execute(len(client.Cfg.Network.PrivateKeys)-1, tasks, emitAllEventsFn)
 
 	if err != nil {
@@ -875,16 +875,16 @@ func runLoopedGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitt
 	return total, nil
 }
 
-// GetExpectedLogCount returns the expected number of logs to be emitted based on the provided config
-func GetExpectedLogCount(cfg *Config) int64 {
-	if *cfg.General.Generator == GeneratorType_WASP {
+// getExpectedLogCount returns the expected number of logs to be emitted based on the provided config
+func getExpectedLogCount(cfg *Config) int64 {
+	if cfg.General.Generator == GeneratorType_WASP {
 		if cfg.Wasp.RPS != 0 {
-			return cfg.Wasp.RPS * int64(cfg.Wasp.Duration.Seconds()) * int64(*cfg.General.EventsPerTx)
+			return cfg.Wasp.RPS * int64(cfg.Wasp.Duration.Seconds()) * int64(cfg.General.EventsPerTx)
 		}
 		return cfg.Wasp.LPS * int64(cfg.Wasp.Duration.Seconds())
 	}
 
-	return int64(len(cfg.General.EventsToEmit) * *cfg.LoopedConfig.ExecutionCount * *cfg.General.Contracts * *cfg.General.EventsPerTx)
+	return int64(len(cfg.General.EventsToEmit) * cfg.LoopedConfig.ExecutionCount * cfg.General.Contracts * cfg.General.EventsPerTx)
 }
 
 type PauseData struct {
@@ -897,120 +897,166 @@ type PauseData struct {
 var ChaosPauses = []PauseData{}
 
 // chaosPauseSyncFn pauses ranom container of the provided type for a random amount of time between 5 and 20 seconds
-// func chaosPauseSyncFn(l zerolog.Logger, client *seth.Client, nodesOut *ns.NodeInput.Out, targetComponent string) ChaosPauseData {
-// 	rand.New(rand.NewSource(time.Now().UnixNano()))
+func chaosPauseSyncFn(ctx context.Context, l zerolog.Logger, client *seth.Client, nodes *nodeset.Input, targetComponent string) ChaosPauseData {
+	// var component ctf_test_env.EnvComponent
+	var containerName string
 
-// 	randomNode := cluster.Nodes[rand.Intn(len(cluster.Nodes)-1)+1]
-// 	var component ctf_test_env.EnvComponent
+	switch strings.ToLower(targetComponent) {
+	case "chainlink":
+		// component = randomNode.EnvComponent
+		rand.New(rand.NewSource(time.Now().UnixNano()))
+		randomNode := nodes.Out.CLNodes[rand.Intn(len(nodes.Out.CLNodes)-1)+1]
+		containerName = randomNode.Node.ContainerName
+	case "postgres":
+		containerName = nodes.DbInput.Name
+		// component = randomNode.PostgresDb.EnvComponent
+	default:
+		return ChaosPauseData{Err: fmt.Errorf("unknown component %s", targetComponent)}
+	}
 
-// 	switch strings.ToLower(targetComponent) {
-// 	case "chainlink":
-// 		component = randomNode.EnvComponent
-// 	case "postgres":
-// 		component = randomNode.PostgresDb.EnvComponent
-// 	default:
-// 		return ChaosPauseData{Err: fmt.Errorf("unknown component %s", targetComponent)}
-// 	}
+	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	pauseStartBlock, err := client.Client.BlockNumber(callCtx)
+	cancel()
+	if err != nil {
+		return ChaosPauseData{Err: err}
+	}
+	pauseTimeSec := rand.Intn(20-5) + 5
+	l.Info().Str("Container", containerName).Int("Pause time", pauseTimeSec).Msg("Pausing component")
+	pauseTimeDur := time.Duration(pauseTimeSec) * time.Second
 
-// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-// 	defer cancel()
-// 	pauseStartBlock, err := client.Client.BlockNumber(ctx)
-// 	if err != nil {
-// 		return ChaosPauseData{Err: err}
-// 	}
-// 	pauseTimeSec := rand.Intn(20-5) + 5
-// 	l.Info().Str("Container", component.ContainerName).Int("Pause time", pauseTimeSec).Msg("Pausing component")
-// 	pauseTimeDur := time.Duration(pauseTimeSec) * time.Second
-// 	err = component.ChaosPause(l, pauseTimeDur)
-// 	if err != nil {
-// 		return ChaosPauseData{Err: err}
-// 	}
-// 	l.Info().Str("Container", component.ContainerName).Msg("Component unpaused")
+	if err := pauseContainer(ctx, l, containerName, pauseTimeDur); err != nil {
+		return ChaosPauseData{Err: err}
+	}
+	l.Info().Str("Container", containerName).Msg("Component unpaused")
 
-// 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-// 	defer cancel()
+	callCtx, cancel = context.WithTimeout(ctx, 10*time.Second)
+	pauseEndBlock, err := client.Client.BlockNumber(callCtx)
+	cancel()
+	if err != nil {
+		return ChaosPauseData{Err: err}
+	}
 
-// 	pauseEndBlock, err := client.Client.BlockNumber(ctx)
-// 	if err != nil {
-// 		return ChaosPauseData{Err: err}
-// 	}
+	return ChaosPauseData{PauseData: PauseData{
+		StartBlock:      pauseStartBlock,
+		EndBlock:        pauseEndBlock,
+		TargetComponent: targetComponent,
+		ContaineName:    containerName,
+	}}
+}
 
-// 	return ChaosPauseData{PauseData: PauseData{
-// 		StartBlock:      pauseStartBlock,
-// 		EndBlock:        pauseEndBlock,
-// 		TargetComponent: targetComponent,
-// 		ContaineName:    component.ContainerName,
-// 	}}
-// }
+func pauseContainer(ctx context.Context, l zerolog.Logger, containerName string, pauseTimeDur time.Duration) error {
+	command := fmt.Sprintf(`docker run -i --rm -v /var/run/docker.sock:/var/run/docker.sock --network %s gaiaadm/pumba --log-level=info pause --duration=%s %s`, framework.DefaultNetworkName, pauseTimeDur.String(), containerName)
+
+	fmt.Println("command: ", command)
+
+	c := strings.Split(command, " ")
+	l.Info().Interface("Command", c).Msg("Executing command")
+	cmd := exec.CommandContext(ctx, c[0], c[1:]...) // #nosec: G204
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	outputFunction := func(m string) {
+		l.Debug().Str("Text", m).Msg("Std Pipe")
+	}
+	go readStdPipe(stderr, outputFunction)
+	go readStdPipe(stdout, outputFunction)
+
+	err = cmd.Wait()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// readStdPipe continuously read a pipe from the command
+func readStdPipe(pipe io.ReadCloser, outputFunction func(string)) {
+	scanner := bufio.NewScanner(pipe)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		m := scanner.Text()
+		if outputFunction != nil {
+			outputFunction(m)
+		}
+	}
+}
 
 type ChaosPauseData struct {
 	Err       error
 	PauseData PauseData
 }
 
-// ExecuteChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
-// func ExecuteChaosExperiment(l zerolog.Logger, nodesOut *ns.NodeInput.Out, sethClient *seth.Client, config *Config, errorCh chan error) {
-// 	if config == nil || config.ChaosConfig == nil || *config.ChaosConfig.ExperimentCount == 0 {
-// 		errorCh <- nil
-// 		return
-// 	}
+// executeChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
+func executeChaosExperiment(ctx context.Context, l zerolog.Logger, nodes *nodeset.Input, sethClient *seth.Client, config *Config, errorCh chan error) {
+	if config == nil || config.ChaosConfig == nil || config.ChaosConfig.ExperimentCount == 0 {
+		errorCh <- nil
+		return
+	}
 
-// 	chaosChan := make(chan ChaosPauseData, *config.ChaosConfig.ExperimentCount)
-// 	wg := &sync.WaitGroup{}
+	chaosChan := make(chan ChaosPauseData, config.ChaosConfig.ExperimentCount)
+	wg := &sync.WaitGroup{}
 
-// 	go func() {
-// 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
-// 		guardChan := make(chan struct{}, 1)
+	go func() {
+		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
+		guardChan := make(chan struct{}, 1)
 
-// 		for i := 0; i < *config.ChaosConfig.ExperimentCount; i++ {
-// 			i := i
-// 			wg.Add(1)
-// 			guardChan <- struct{}{}
-// 			go func() {
-// 				defer func() {
-// 					<-guardChan
-// 					wg.Done()
-// 					current := i + 1
-// 					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, *config.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
-// 				}()
-// 				chaosChan <- chaosPauseSyncFn(l, sethClient, nodesOut, *config.ChaosConfig.TargetComponent)
-// 				time.Sleep(10 * time.Second)
-// 			}()
-// 		}
+		for i := 0; i < config.ChaosConfig.ExperimentCount; i++ {
+			i := i
+			wg.Add(1)
+			guardChan <- struct{}{}
+			go func() {
+				defer func() {
+					<-guardChan
+					wg.Done()
+					current := i + 1
+					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, config.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
+				}()
+				chaosChan <- chaosPauseSyncFn(ctx, l, sethClient, nodes, config.ChaosConfig.TargetComponent)
+				time.Sleep(10 * time.Second)
+			}()
+		}
 
-// 		wg.Wait()
+		wg.Wait()
 
-// 		close(chaosChan)
-// 	}()
+		close(chaosChan)
+	}()
 
-// 	go func() {
-// 		var pauseData []PauseData
-// 		for result := range chaosChan {
-// 			if result.Err != nil {
-// 				l.Err(result.Err).Msg("Error encountered during chaos experiment")
-// 				errorCh <- result.Err
-// 				return // Return on actual error
-// 			}
+	go func() {
+		var pauseData []PauseData
+		for result := range chaosChan {
+			if result.Err != nil {
+				l.Err(result.Err).Msg("Error encountered during chaos experiment")
+				errorCh <- result.Err
+				return // Return on actual error
+			}
 
-// 			pauseData = append(pauseData, result.PauseData)
-// 		}
+			pauseData = append(pauseData, result.PauseData)
+		}
 
-// 		l.Info().Msg("All chaos experiments finished")
-// 		errorCh <- nil // Only send nil once, after all errors have been handled and the channel is closed
+		l.Info().Msg("All chaos experiments finished")
+		errorCh <- nil // Only send nil once, after all errors have been handled and the channel is closed
 
-// 		for _, p := range pauseData {
-// 			l.Debug().Str("Target component", p.TargetComponent).Str("Container", p.ContaineName).Str("Block range", fmt.Sprintf("%d - %d", p.StartBlock, p.EndBlock)).Msgf("Details of executed chaos pause")
-// 		}
-// 	}()
-// }
+		for _, p := range pauseData {
+			l.Debug().Str("Target component", p.TargetComponent).Str("Container", p.ContaineName).Str("Block range", fmt.Sprintf("%d - %d", p.StartBlock, p.EndBlock)).Msgf("Details of executed chaos pause")
+		}
+	}()
+}
 
-// GetEndBlockToWaitFor returns the end block to wait for based on chain id and finality tag provided in config
-func GetEndBlockToWaitFor(endBlock int64, finalyDepth int64, config automation.Automation) (int64, error) {
+// getEndBlockToWaitFor returns the end block to wait for based on chain id and finality tag provided in config
+func getEndBlockToWaitFor(endBlock int64, config *automation.Automation) (int64, error) {
 	if config.EVMNetworkSettings.FinalityTagEnabled != nil && *config.EVMNetworkSettings.FinalityTagEnabled {
 		return endBlock + 1, nil
 	}
 
-	return endBlock + finalyDepth, nil
+	return endBlock + int64(*config.EVMNetworkSettings.FinalityDepth), nil
 }
 
 const (
@@ -1143,10 +1189,10 @@ var (
 // 	return chainClient, nodeClients, linkToken, registry, registrar, env, &network
 // }
 
-// UploadLogEmitterContracts uploads the configured number of log emitter contracts
-func UploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Client, config *Config) []*contracts.LogEmitter {
+// uploadLogEmitterContracts uploads the configured number of log emitter contracts
+func uploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Client, config *Config) []*contracts.LogEmitter {
 	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < *config.General.Contracts; i++ {
+	for i := 0; i < config.General.Contracts; i++ {
 		logEmitter, err := contracts.DeployLogEmitterContract(l, client)
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
@@ -1157,8 +1203,8 @@ func UploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Clie
 	return logEmitters
 }
 
-// AssertUpkeepIdsUniqueness asserts that the provided upkeep IDs are unique
-func AssertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
+// assertUpkeepIdsUniqueness asserts that the provided upkeep IDs are unique
+func assertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
 	upKeepIdSeen := make(map[int64]bool)
 	for _, upkeepID := range upkeepIDs {
 		if _, ok := upKeepIdSeen[upkeepID.Int64()]; ok {
@@ -1170,8 +1216,8 @@ func AssertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
 	return nil
 }
 
-// AssertContractAddressUniquneness asserts that the provided contract addresses are unique
-func AssertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error {
+// assertContractAddressUniquneness asserts that the provided contract addresses are unique
+func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error {
 	contractAddressSeen := make(map[string]bool)
 	for _, logEmitter := range logEmitters {
 		address := (*logEmitter).Address().String()
@@ -1184,9 +1230,9 @@ func AssertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error
 	return nil
 }
 
-// RegisterFiltersAndAssertUniquness registers the configured log filters and asserts that the filters are unique
+// registerFiltersAndAssertUniquness registers the configured log filters and asserts that the filters are unique
 // meaning that for each log emitter address and topic there is only one filter
-func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
+func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
 	uniqueFilters := make(map[string]bool)
 
 	upkeepIdIndex := 0
@@ -1204,7 +1250,7 @@ func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 			}
 
 			if i%10 == 0 {
-				l.Info().Msgf("Registered log trigger for topic %d for log emitter %d/%d", j, i, len(logEmitters))
+				l.Info().Msgf("Registered log trigger for topic %d for log emitter %d/%d", j, i+1, len(logEmitters))
 			}
 
 			key := fmt.Sprintf("%s-%s", emitterAddress.String(), topicId.Hex())
@@ -1223,9 +1269,9 @@ func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 	return nil
 }
 
-// FluentlyCheckIfAllNodesHaveLogCount checks if all CL nodes have the expected log count for the provided block range and expected filters
+// checkIfAllNodesHaveLogCount checks if all CL nodes have the expected log count for the provided block range and expected filters
 // It will retry until the provided duration is reached or until all nodes have the expected log count
-func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock int64, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger common_logger.SugaredLogger, testEnv logPollerEnvironment) (bool, error) {
+func checkIfAllNodesHaveLogCount(duration string, startBlock, endBlock int64, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger common_logger.SugaredLogger, testEnv *logPollerEnvironment) (bool, error) {
 	logCountWaitDuration, err := time.ParseDuration(duration)
 	if err != nil {
 		return false, err
@@ -1235,7 +1281,7 @@ func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock i
 	// not using gomega here, because I want to see which logs were missing
 	allNodesLogCountMatches := false
 	for time.Now().Before(endTime) {
-		logCountMatches, clErr := ClNodesHaveExpectedLogCount(startBlock, endBlock, big.NewInt(testEnv.chainClient.ChainID), expectedLogCount, expectedFilters, l, coreLogger, testEnv)
+		logCountMatches, clErr := nodesHaveExpectedLogCount(startBlock, endBlock, big.NewInt(testEnv.chainClient.ChainID), expectedLogCount, expectedFilters, l, coreLogger, testEnv)
 		if clErr != nil {
 			l.Warn().
 				Err(clErr).
@@ -1251,4 +1297,180 @@ func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock i
 	}
 
 	return allNodesLogCountMatches, nil
+}
+
+type logPollerEnvironment struct {
+	logger zerolog.Logger
+	nodes  *nodeset.Input
+
+	chainClient *seth.Client
+
+	config *automation.Automation
+
+	logEmitters   []*contracts.LogEmitter
+	upkeepIDs     []*big.Int
+	upKeepsNeeded int
+
+	registry  contracts.KeeperRegistry
+	registrar contracts.KeeperRegistrar
+	linkToken contracts.LinkToken
+}
+
+func newLpTestEnvironment(chainClient *seth.Client, config *automation.Automation, in *de.Cfg) (*logPollerEnvironment, error) {
+	lpTestEnv := &logPollerEnvironment{
+		chainClient: chainClient,
+		config:      config,
+		nodes:       in.NodeSets[0],
+	}
+
+	if err := lpTestEnv.loadContracts(); err != nil {
+		return nil, err
+	}
+
+	return lpTestEnv, nil
+}
+
+func (l *logPollerEnvironment) dbPort() int {
+	if l.nodes.DbInput.Port != 0 {
+		return l.nodes.DbInput.Port
+	}
+
+	return postgres.ExposedStaticPort
+}
+
+func (l *logPollerEnvironment) loadContracts() error {
+	if err := l.loadLINK(l.config.DeployedContracts.LinkToken); err != nil {
+		return fmt.Errorf("error loading link token contract: %w", err)
+	}
+
+	if err := l.loadRegistry(l.config.DeployedContracts.Registry, l.config.DeployedContracts.ChainModule); err != nil {
+		return fmt.Errorf("error loading registry contract: %w", err)
+	}
+
+	if l.registry.RegistryOwnerAddress().String() != l.chainClient.MustGetRootKeyAddress().String() {
+		return fmt.Errorf("registry owner address is not the root key address")
+	}
+
+	if err := l.loadRegistrar(l.config.DeployedContracts.Registrar); err != nil {
+		return fmt.Errorf("error loading registrar contract: %w", err)
+	}
+
+	return nil
+}
+
+func (l *logPollerEnvironment) loadLINK(address string) error {
+	linkToken, err := contracts.LoadLinkTokenContract(l.logger, l.chainClient, common.HexToAddress(address))
+	if err != nil {
+		return err
+	}
+	l.linkToken = linkToken
+	l.logger.Info().Str("LINK Token Address", l.linkToken.Address()).Msg("Successfully loaded LINK Token")
+	return nil
+}
+
+func (l *logPollerEnvironment) loadRegistry(registryAddress, chainModuleAddress string) error {
+	registry, err := contracts.LoadKeeperRegistry(l.logger, l.chainClient, common.HexToAddress(registryAddress), ethereum.RegistryVersion_2_1, common.HexToAddress(chainModuleAddress))
+	if err != nil {
+		return err
+	}
+	l.registry = registry
+	l.logger.Info().Str("ChainModule Address", chainModuleAddress).Str("Registry Address", l.registry.Address()).Msg("Successfully loaded Registry")
+	return nil
+}
+
+func (l *logPollerEnvironment) loadRegistrar(address string) error {
+	if l.registry == nil {
+		return errors.New("registry must be deployed or loaded before registrar")
+	}
+	// l.RegistrarSettings.RegistryAddr = l.registry.Address()
+	registrar, err := contracts.LoadKeeperRegistrar(l.chainClient, common.HexToAddress(address), ethereum.RegistryVersion_2_1)
+	if err != nil {
+		return err
+	}
+	l.logger.Info().Str("Registrar Address", registrar.Address()).Msg("Successfully loaded Registrar")
+	l.registrar = registrar
+	return nil
+}
+
+// waitForAllNodesToHaveExpectedFiltersRegisteredOrFail waits until all nodes have expected filters registered until timeout
+func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx context.Context, l zerolog.Logger, coreLogger common_logger.SugaredLogger, t *testing.T, testEnv *logPollerEnvironment, expectedFilters []ExpectedFilter) {
+	// Make sure that all nodes have expected filters registered before starting to emit events
+
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		hasFilters := false
+		for i := 1; i < len(testEnv.nodes.NodeSpecs); i++ {
+			nodeName := testEnv.nodes.Out.CLNodes[i].Node.ContainerName
+			l.Info().
+				Str("Node name", nodeName).
+				Msg("Fetching filters from log poller's DB")
+			var message string
+			var err error
+
+			hasFilters, message, err = nodeHasExpectedFilters(ctx, expectedFilters, coreLogger, big.NewInt(testEnv.chainClient.ChainID), i, testEnv.dbPort())
+			if !hasFilters || err != nil {
+				if message == "" {
+					message = err.Error()
+				}
+				l.Warn().
+					Str("Details", message).
+					Msg("Some filters were missing, but we will retry")
+				break
+			}
+		}
+		g.Expect(hasFilters).To(gomega.BeTrue(), "Not all expected filters were found in the DB")
+	}, "5m", "10s").Should(gomega.Succeed())
+
+	l.Info().
+		Msg("All nodes have expected filters registered")
+	l.Info().
+		Int("Count", len(expectedFilters)).
+		Msg("Expected filters count")
+}
+
+// waitUntilNodesHaveTheSameLogsAsEvm checks whether all CL nodes have the same number of logs as EVM node
+// if not, then it prints missing logs and wait for some time and checks again
+func waitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogger common_logger.SugaredLogger, t *testing.T, allNodesLogCountMatches bool, lpTestEnv *logPollerEnvironment, config *Config, startBlock, endBlock int64, waitDuration string) {
+	logCountWaitDuration, err := time.ParseDuration(waitDuration)
+	require.NoError(t, err, "Error parsing log count wait duration")
+
+	allNodesHaveAllExpectedLogs := false
+	if !allNodesLogCountMatches {
+		missingLogs, err := missingLogs(startBlock, endBlock, lpTestEnv, l, coreLogger, config)
+		if err == nil {
+			if !missingLogs.IsEmpty() {
+				printMissingLogsInfo(missingLogs, l, config)
+			} else {
+				allNodesHaveAllExpectedLogs = true
+				l.Info().Msg("All CL nodes have all the logs that EVM node has")
+			}
+		}
+	}
+
+	require.True(t, allNodesLogCountMatches, "Not all CL nodes had expected log count after %s", logCountWaitDuration)
+
+	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
+	// but only in the rare case that first attempt to do it failed (basically here want to know not only
+	// if log count matches, but whether details of every single log match)
+	if !allNodesHaveAllExpectedLogs {
+		logConsistencyWaitDuration := "5m"
+		l.Info().
+			Str("Duration", logConsistencyWaitDuration).
+			Msg("Waiting for CL nodes to have all the logs that EVM node has")
+
+		gom := gomega.NewGomegaWithT(t)
+		gom.Eventually(func(g gomega.Gomega) {
+			missingLogs, err := missingLogs(startBlock, endBlock, lpTestEnv, l, coreLogger, config)
+			if err != nil {
+				l.Warn().
+					Err(err).
+					Msg("Error getting missing logs. Retrying...")
+			}
+
+			if !missingLogs.IsEmpty() {
+				printMissingLogsInfo(missingLogs, l, config)
+			}
+			g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
+		}, logConsistencyWaitDuration, "10s").Should(gomega.Succeed())
+	}
 }

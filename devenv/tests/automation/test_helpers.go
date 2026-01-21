@@ -67,7 +67,7 @@ type UpkeepConfig struct {
 	FundingAmount  *big.Int
 }
 
-func NewAutomationTestDocker(
+func NewAutomationTest(
 	l zerolog.Logger,
 	chainClient *seth.Client,
 	chainlinkNodes []*clclient.ChainlinkClient,

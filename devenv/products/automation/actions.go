@@ -682,6 +682,7 @@ func SendLinkFundsToDeploymentAddresses(
 	linkAmountPerUpkeep *big.Int,
 	linkToken contracts.LinkToken,
 ) error {
+	const maxBatchSize = 75 // keep multicall tx gas comfortably below the block limit
 	var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
 		abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
 		if err != nil {
@@ -755,18 +756,31 @@ func SendLinkFundsToDeploymentAddresses(
 		return pkg_errors.Wrapf(err, "Error getting Multicall contract ABI")
 	}
 	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
-	// call aggregate3 to group all msg call data and send them in a single transaction // TODO: 2:33PM WRN No matching event with valid indexed parameter count found for log Signature=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef Transaction=0xe277bace889e96bfba919283b6f1bfaaadc89cda0cb254845394704fff5bc2b8
-	ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
-	if err != nil {
-		return pkg_errors.Wrapf(err, "Error calling Multicall contract")
+	var lastReceipt *gethtypes.Receipt
+	for start := 0; start < len(call); start += maxBatchSize {
+		end := start + maxBatchSize
+		if end > len(call) {
+			end = len(call)
+		}
+		chunk := make([]contracts.Call, end-start)
+		copy(chunk, call[start:end])
+		// call aggregate3 to group a safe number of transfers per transaction
+		ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", chunk))
+		if err != nil {
+			return pkg_errors.Wrapf(err, "Error calling Multicall contract")
+		}
+		if ephemeralTx.Receipt == nil {
+			return pkg_errors.New("transaction receipt for LINK transfer to ephemeral keys is nil")
+		}
+		lastReceipt = ephemeralTx.Receipt
 	}
 
-	if ephemeralTx.Receipt == nil {
-		return pkg_errors.New("transaction receipt for LINK transfer to ephemeral keys is nil")
+	if lastReceipt == nil {
+		return pkg_errors.New("multicall transfer batch did not execute")
 	}
 
 	for i := 1; i <= concurrency; i++ {
-		ephemeralBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: ephemeralTx.Receipt.BlockNumber}, chainClient.Addresses[i])
+		ephemeralBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: lastReceipt.BlockNumber}, chainClient.Addresses[i])
 		// Old code that's querying latest block, for now we prefer to use block number from the transaction receipt
 		// balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
 		if err != nil {

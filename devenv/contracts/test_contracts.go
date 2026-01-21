@@ -46,7 +46,8 @@ func (e *LogEmitterContract) EmitLogIntsIndexedFromKey(ints []int, keyNum int) (
 	for i, v := range ints {
 		bigInts[i] = big.NewInt(int64(v))
 	}
-	tx, err := e.client.Decode(e.instance.EmitLog2(e.client.NewTXKeyOpts(keyNum), bigInts))
+	// send tx with gas limit higher than expected to avoid estimation errors like: Out of gas: gas required exceeds allowance: 28669
+	tx, err := e.client.Decode(e.instance.EmitLog2(e.client.NewTXKeyOpts(keyNum, seth.WithGasLimit(100_000)), bigInts))
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +60,8 @@ func (e *LogEmitterContract) EmitLogIntsIndexed(ints []int) (*types.Transaction,
 }
 
 func (e *LogEmitterContract) EmitLogIntMultiIndexedFromKey(ints int, ints2 int, count int, keyNum int) (*types.Transaction, error) {
-	tx, err := e.client.Decode(e.instance.EmitLog4(e.client.NewTXKeyOpts(keyNum), big.NewInt(int64(ints)), big.NewInt(int64(ints2)), big.NewInt(int64(count))))
+	// send tx with gas limit higher than expected to avoid estimation errors like: Out of gas: gas required exceeds allowance: 28669
+	tx, err := e.client.Decode(e.instance.EmitLog4(e.client.NewTXKeyOpts(keyNum, seth.WithGasLimit(100_000)), big.NewInt(int64(ints)), big.NewInt(int64(ints2)), big.NewInt(int64(count))))
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +74,8 @@ func (e *LogEmitterContract) EmitLogIntMultiIndexed(ints int, ints2 int, count i
 }
 
 func (e *LogEmitterContract) EmitLogStringsFromKey(strings []string, keyNum int) (*types.Transaction, error) {
-	tx, err := e.client.Decode(e.instance.EmitLog3(e.client.NewTXKeyOpts(keyNum), strings))
+	// send tx with gas limit higher than expected to avoid estimation errors like: Out of gas: gas required exceeds allowance: 28669
+	tx, err := e.client.Decode(e.instance.EmitLog3(e.client.NewTXKeyOpts(keyNum, seth.WithGasLimit(100_000)), strings))
 	if err != nil {
 		return nil, err
 	}

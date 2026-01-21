@@ -253,7 +253,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
 	for _, addr := range ethKeyAddresses {
-		if cErr := products.FundNodeEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
+		if cErr := products.FundAddressEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
 			return cErr
 		}
 	}

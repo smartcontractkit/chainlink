@@ -10,12 +10,17 @@ import (
 	"strings"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/rs/zerolog"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
 
 const (
@@ -40,13 +45,31 @@ func WaitMinedFast(ctx context.Context, b bind.DeployBackend, txHash common.Hash
 	}
 }
 
-// FundNodeEIP1559 funds CL node using RPC URL, recipient address and amount of funds to send (ETH).
+func FundNewAddresses(ctx context.Context, keysRequired int, c *ethclient.Client, fundingAmountEth float64) ([]string, error) {
+	pks := []string{}
+	for range keysRequired - 1 {
+		address, pk, err := seth.NewAddress()
+		if err != nil {
+			return nil, err
+		}
+
+		cErr := FundAddressEIP1559(ctx, c, NetworkPrivateKey(), address, fundingAmountEth)
+		if cErr != nil {
+			return nil, cErr
+		}
+		pks = append(pks, pk)
+	}
+
+	return pks, nil
+}
+
+// FundAddressEIP1559 funds an address using RPC URL, recipient address and amount of funds to send (ETH).
 // Uses EIP-1559 transaction type.
-func FundNodeEIP1559(ctx context.Context, c *ethclient.Client, pkey, recipientAddress string, amountOfFundsInETH float64) error {
+func FundAddressEIP1559(ctx context.Context, c *ethclient.Client, pkey, recipientAddress string, amountOfFundsInETH float64) error {
 	l := zerolog.Ctx(ctx)
 	amount := new(big.Float).Mul(big.NewFloat(amountOfFundsInETH), big.NewFloat(1e18))
 	amountWei, _ := amount.Int(nil)
-	l.Info().Str("Addr", recipientAddress).Str("Wei", amountWei.String()).Msg("Funding Node")
+	l.Info().Str("Addr", recipientAddress).Str("Wei", amountWei.String()).Msg("Funding Address")
 
 	chainID, err := c.NetworkID(ctx)
 	if err != nil {
@@ -158,10 +181,222 @@ func NetworkPrivateKey() string {
 	return pk
 }
 
-func NetworkPrivateKeys() []string {
-	pks := os.Getenv("PRIVATE_KEYS")
-	if pks == "" {
-		return []string{}
+type FundsToSendPayload struct {
+	ToAddress  common.Address
+	Amount     *big.Int
+	PrivateKey *ecdsa.PrivateKey
+	GasLimit   *int64
+	GasPrice   *big.Int
+	GasFeeCap  *big.Int
+	GasTipCap  *big.Int
+	TxTimeout  *time.Duration
+}
+
+// TODO: move to CTF?
+// SendFunds sends native token amount (expressed in human-scale) from address controlled by private key
+// to given address. You can override any or none of the following: gas limit, gas price, gas fee cap, gas tip cap.
+// Values that are not set will be estimated or taken from config.
+func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) (*types.Receipt, error) {
+	fromAddress, err := PrivateKeyToAddress(payload.PrivateKey)
+	if err != nil {
+		return nil, err
 	}
-	return strings.Split(pks, ",")
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
+	nonce, err := client.Client.PendingNonceAt(ctx, fromAddress)
+	defer cancel()
+	if err != nil {
+		return nil, err
+	}
+
+	gasLimit, err := client.EstimateGasLimitForFundTransfer(fromAddress, payload.ToAddress, payload.Amount)
+	if err != nil {
+		transferGasFee := client.Cfg.Network.TransferGasFee
+		if transferGasFee < 0 {
+			return nil, fmt.Errorf("negative transfer gas fee: %d", transferGasFee)
+		}
+		gasLimit = uint64(transferGasFee)
+	}
+
+	gasPrice := big.NewInt(0)
+	gasFeeCap := big.NewInt(0)
+	gasTipCap := big.NewInt(0)
+
+	if payload.GasLimit != nil {
+		if *payload.GasLimit < 0 {
+			return nil, fmt.Errorf("negative gas limit: %d", *payload.GasLimit)
+		}
+		gasLimit = uint64(*payload.GasLimit)
+	}
+
+	if client.Cfg.Network.EIP1559DynamicFees {
+		// if any of the dynamic fees are not set, we need to either estimate them or read them from config
+		if payload.GasFeeCap == nil || payload.GasTipCap == nil {
+			// estimation or config reading happens here
+			txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
+			gasFeeCap = txOptions.GasFeeCap
+			gasTipCap = txOptions.GasTipCap
+		}
+
+		// override with payload values if they are set
+		if payload.GasFeeCap != nil {
+			gasFeeCap = payload.GasFeeCap
+		}
+
+		if payload.GasTipCap != nil {
+			gasTipCap = payload.GasTipCap
+		}
+	} else {
+		if payload.GasPrice == nil {
+			txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
+			gasPrice = txOptions.GasPrice
+		} else {
+			gasPrice = payload.GasPrice
+		}
+	}
+
+	var rawTx types.TxData
+
+	if client.Cfg.Network.EIP1559DynamicFees {
+		rawTx = &types.DynamicFeeTx{
+			Nonce:     nonce,
+			To:        &payload.ToAddress,
+			Value:     payload.Amount,
+			Gas:       gasLimit,
+			GasFeeCap: gasFeeCap,
+			GasTipCap: gasTipCap,
+		}
+	} else {
+		rawTx = &types.LegacyTx{
+			Nonce:    nonce,
+			To:       &payload.ToAddress,
+			Value:    payload.Amount,
+			Gas:      gasLimit,
+			GasPrice: gasPrice,
+		}
+	}
+
+	signedTx, err := types.SignNewTx(payload.PrivateKey, types.LatestSignerForChainID(big.NewInt(client.ChainID)), rawTx)
+
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to sign tx")
+	}
+
+	txTimeout := client.Cfg.Network.TxnTimeout.Duration()
+	if payload.TxTimeout != nil {
+		txTimeout = *payload.TxTimeout
+	}
+
+	logger.Debug().
+		Str("From", fromAddress.Hex()).
+		Str("To", payload.ToAddress.Hex()).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, WeiToEther(payload.Amount).Text('f', -1))).
+		Uint64("Nonce", nonce).
+		Uint64("Gas Limit", gasLimit).
+		Str("Gas Price", gasPrice.String()).
+		Str("Gas Fee Cap", gasFeeCap.String()).
+		Str("Gas Tip Cap", gasTipCap.String()).
+		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
+		Msg("About to send funds")
+
+	ctx, cancel = context.WithTimeout(ctx, txTimeout)
+	defer cancel()
+	err = client.Client.SendTransaction(ctx, signedTx)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to send transaction")
+	}
+
+	logger.Debug().
+		Str("From", fromAddress.Hex()).
+		Str("To", payload.ToAddress.Hex()).
+		Str("TxHash", signedTx.Hash().String()).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, WeiToEther(payload.Amount).Text('f', -1))).
+		Uint64("Nonce", nonce).
+		Uint64("Gas Limit", gasLimit).
+		Str("Gas Price", gasPrice.String()).
+		Str("Gas Fee Cap", gasFeeCap.String()).
+		Str("Gas Tip Cap", gasTipCap.String()).
+		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
+		Msg("Sent funds")
+
+	receipt, receiptErr := client.WaitMined(ctx, logger, client.Client, signedTx)
+	if receiptErr != nil {
+		return nil, pkgerrors.Wrap(receiptErr, "failed to wait for transaction to be mined")
+	}
+
+	if receipt.Status == 1 {
+		return receipt, nil
+	}
+
+	tx, _, err := client.Client.TransactionByHash(ctx, signedTx.Hash())
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to get transaction by hash ")
+	}
+
+	_, err = client.Decode(tx, receiptErr)
+	if err != nil {
+		return nil, err
+	}
+
+	return receipt, nil
+}
+
+func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, errors.New("error casting public key to ECDSA")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
+}
+
+// EtherToWei converts an ETH float amount to wei
+func EtherToWei(eth *big.Float) *big.Int {
+	truncInt, _ := eth.Int(nil)
+	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
+	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
+	fracStr += strings.Repeat("0", 18-len(fracStr))
+	fracInt, _ := new(big.Int).SetString(fracStr, 10)
+	wei := new(big.Int).Add(truncInt, fracInt)
+	return wei
+}
+
+// WeiToEther converts a wei amount to eth float
+func WeiToEther(wei *big.Int) *big.Float {
+	f := new(big.Float)
+	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	f.SetMode(big.ToNearestEven)
+	fWei := new(big.Float)
+	fWei.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	fWei.SetMode(big.ToNearestEven)
+	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
+}
+
+func InitSeth(rpcURL string, privateKeys []string, chainID *uint64) (*seth.Client, error) {
+	var chainClient *seth.Client
+	var err error
+
+	if os.Getenv(seth.CONFIG_FILE_ENV_VAR) != "" {
+		sethCfg, err := seth.ReadConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		if chainID == nil {
+			return nil, errors.New("chainID of the network to use must be provided, when initialising Seth from TOML config file")
+		}
+
+		chainClient, err = seth.NewClientBuilderWithConfig(sethCfg).
+			UseNetworkWithChainId(*chainID).
+			WithPrivateKeys(privateKeys).
+			WithRpcUrl(rpcURL).
+			Build()
+	} else {
+		chainClient, err = seth.NewClientBuilder().
+			WithPrivateKeys(privateKeys).
+			WithRpcUrl(rpcURL).
+			Build()
+	}
+
+	return chainClient, err
 }

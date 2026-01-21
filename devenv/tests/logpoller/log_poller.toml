@@ -1,9 +1,0 @@
-[General]
-generator = "looped"
-contracts = 2
-events_per_tx = 4
-
-[Looped]
-execution_count = 100
-min_emit_wait_time_ms = 400
-max_emit_wait_time_ms = 600

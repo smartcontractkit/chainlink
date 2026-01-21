@@ -3,7 +3,6 @@ package automation
 import (
 	"encoding/json"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -104,52 +102,31 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			}
 			require.NotNil(t, config, "failed to find matching config with registry version %v; mercury v2: %b, mercury v3: %b", registryVersion, isMercuryV02, isMercuryV03)
 
-			chainID, err := strconv.ParseUint(in.Blockchains[0].ChainID, 10, 64)
-			require.NoError(t, err, "Failed to parse chain ID")
-
-			var chainClient *seth.Client
 			pks := []string{products.NetworkPrivateKey()}
-
-			bcNode := in.Blockchains[0].Out.Nodes[0]
-			c, _, _, err := products.ETHClient(
-				t.Context(),
-				bcNode.ExternalWSUrl,
-				config.GasSettings.FeeCapMultiplier,
-				config.GasSettings.TipCapMultiplier,
-			)
 
 			// on simulated network create new ephemeral addresses if insufficient private keys were provided
 			// we require +1 private keys, because key at index 0 is the root key, which is not used during the test
 			// for contract deployment and interaction
 			// we create new addresses only on the simulated network to protect against fund loss
-			if chainID == 1337 && len(pks) != defaultAmountOfUpkeeps+1 {
-				for range defaultAmountOfUpkeeps {
-					address, pk, err := seth.NewAddress()
-					require.NoError(t, err, "Failed to generate new address")
+			if in.Blockchains[0].ChainID == "1337" && len(pks) != defaultAmountOfUpkeeps+1 {
+				bcNode := in.Blockchains[0].Out.Nodes[0]
+				c, _, _, err := products.ETHClient(
+					t.Context(),
+					bcNode.ExternalWSUrl,
+					config.GasSettings.FeeCapMultiplier,
+					config.GasSettings.TipCapMultiplier,
+				)
 
-					cErr := products.FundNodeEIP1559(t.Context(), c, products.NetworkPrivateKey(), address, config.TestKeysMinFundingEth)
-					require.NoError(t, cErr, "Failed to fund node")
-					pks = append(pks, pk)
-				}
+				newPks, err := products.FundNewAddresses(t.Context(), defaultAmountOfUpkeeps, c, config.TestKeysMinFundingEth)
+				require.NoError(t, err, "Failed to fund new addresses")
+				pks = append(pks, newPks...)
 			}
-
 			require.GreaterOrEqual(t, len(pks), defaultAmountOfUpkeeps+1, "you must provide at least %d private keys", defaultAmountOfUpkeeps+1)
 
-			if os.Getenv(seth.CONFIG_FILE_ENV_VAR) != "" {
-				sethCfg, err := seth.ReadConfig()
-				require.NoError(t, err, "Failed to read seth config")
+			chainID, err := strconv.ParseUint(in.Blockchains[0].ChainID, 10, 64)
+			require.NoError(t, err, "Failed to parse chain ID")
 
-				chainClient, err = seth.NewClientBuilderWithConfig(sethCfg).
-					UseNetworkWithChainId(chainID).
-					WithPrivateKeys(pks).
-					WithRpcUrl(in.Blockchains[0].Out.Nodes[0].ExternalWSUrl).
-					Build()
-			} else {
-				chainClient, err = seth.NewClientBuilder().
-					WithPrivateKeys(pks).
-					WithRpcUrl(in.Blockchains[0].Out.Nodes[0].ExternalWSUrl).
-					Build()
-			}
+			chainClient, err := products.InitSeth(in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pks, &chainID)
 			require.NoError(t, err, "Failed to create chain client")
 
 			sb, err := chainClient.Client.BlockNumber(t.Context())
