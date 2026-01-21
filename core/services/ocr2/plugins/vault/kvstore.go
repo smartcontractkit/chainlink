@@ -3,6 +3,7 @@ package vault
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"google.golang.org/protobuf/proto"
@@ -12,19 +13,22 @@ import (
 )
 
 const (
-	keyPrefix      = "Key::"
-	metadataPrefix = "Metadata::"
+	keyPrefix              = "Key::"
+	metadataPrefix         = "Metadata::"
+	pendingQueueIndex      = "PendingQueue::Index"
+	pendingQueueItemPrefix = "PendingQueue::Item::"
 )
 
 type KVStore struct {
-	reader ocr3_1types.KeyValueReader
-	writer ocr3_1types.KeyValueReadWriter
+	reader ocr3_1types.KeyValueStateReader
+	writer ocr3_1types.KeyValueStateReadWriter
 }
 
 type ReadKVStore interface {
 	GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error)
 	GetMetadata(owner string) (*vault.StoredMetadata, error)
 	GetSecretIdentifiersCountForOwner(owner string) (int, error)
+	GetPendingQueue() ([]*vault.StoredPendingQueueItem, error)
 }
 
 type WriteKVStore interface {
@@ -32,13 +36,14 @@ type WriteKVStore interface {
 	WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error
 	WriteMetadata(owner string, metadata *vault.StoredMetadata) error
 	DeleteSecret(id *vault.SecretIdentifier) error
+	WritePendingQueue(pending []*vault.StoredPendingQueueItem) error
 }
 
-func NewReadStore(reader ocr3_1types.KeyValueReader) *KVStore {
+func NewReadStore(reader ocr3_1types.KeyValueStateReader) *KVStore {
 	return &KVStore{reader: reader}
 }
 
-func NewWriteStore(writer ocr3_1types.KeyValueReadWriter) *KVStore {
+func NewWriteStore(writer ocr3_1types.KeyValueStateReadWriter) *KVStore {
 	return &KVStore{reader: writer, writer: writer}
 }
 
@@ -245,6 +250,103 @@ func (s *KVStore) DeleteSecret(id *vault.SecretIdentifier) error {
 	err = s.writer.Delete([]byte(keyPrefix + vaulttypes.KeyFor(id)))
 	if err != nil {
 		return fmt.Errorf("failed to delete secret: %w", err)
+	}
+
+	return nil
+}
+
+func (s *KVStore) GetPendingQueue() ([]*vault.StoredPendingQueueItem, error) {
+	indexBytes, err := s.reader.Read([]byte(pendingQueueIndex))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read pending queue index: %w", err)
+	}
+
+	if indexBytes == nil {
+		return nil, nil
+	}
+
+	index := &vault.StoredPendingQueueIndex{}
+	err = proto.Unmarshal(indexBytes, index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal pending queue index: %w", err)
+	}
+
+	items := make([]*vault.StoredPendingQueueItem, 0, index.Length)
+	for i := range index.Length {
+		itemBytes, err := s.reader.Read([]byte(pendingQueueItemPrefix + strconv.Itoa(int(i))))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read pending queue item at index %d: %w", i, err)
+		}
+
+		if itemBytes == nil {
+			return nil, fmt.Errorf("pending queue item at index %d not found", i)
+		}
+
+		item := &vault.StoredPendingQueueItem{}
+		err = proto.Unmarshal(itemBytes, item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal pending queue item at index %d: %w", i, err)
+		}
+
+		if item.Item == nil {
+			return nil, fmt.Errorf("pending queue item at index %d has nil Item", i)
+		}
+
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+func (s *KVStore) deletePendingQueue() error {
+	indexBytes, err := s.reader.Read([]byte(pendingQueueIndex))
+	if err != nil {
+		return fmt.Errorf("failed to read existing pending queue index: %w", err)
+	}
+
+	if indexBytes != nil {
+		index := &vault.StoredPendingQueueIndex{}
+		if err = proto.Unmarshal(indexBytes, index); err != nil {
+			return fmt.Errorf("failed to unmarshal existing pending queue index: %w", err)
+		}
+
+		for i := 0; i < int(index.Length); i++ {
+			if err := s.writer.Delete([]byte(pendingQueueItemPrefix + strconv.Itoa(i))); err != nil {
+				return fmt.Errorf("failed to delete pending queue item at index %d: %w", i, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *KVStore) WritePendingQueue(pending []*vault.StoredPendingQueueItem) error {
+	err := s.deletePendingQueue()
+	if err != nil {
+		return fmt.Errorf("failed to delete pending requests: %w", err)
+	}
+
+	for i, item := range pending {
+		itemBytes, ierr := proto.Marshal(item)
+		if ierr != nil {
+			return fmt.Errorf("failed to marshal pending queue item at index %d: %w", i, ierr)
+		}
+
+		if ierr = s.writer.Write([]byte(pendingQueueItemPrefix+strconv.Itoa(i)), itemBytes); ierr != nil {
+			return fmt.Errorf("failed to write pending queue item at index %d: %w", i, ierr)
+		}
+	}
+
+	newIndex := &vault.StoredPendingQueueIndex{
+		Length: int64(len(pending)),
+	}
+	newIndexBytes, err := proto.Marshal(newIndex)
+	if err != nil {
+		return fmt.Errorf("failed to marshal new pending queue index: %w", err)
+	}
+
+	if err := s.writer.Write([]byte(pendingQueueIndex), newIndexBytes); err != nil {
+		return fmt.Errorf("failed to write new pending queue index: %w", err)
 	}
 
 	return nil
