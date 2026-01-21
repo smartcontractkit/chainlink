@@ -376,9 +376,6 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 
 	for _, listener := range s.listeners {
 		lrCopy := registrysyncer.DeepCopyLocalRegistry(latestRegistry)
-		for _, c := range lrCopy.IDsToCapabilities {
-			fmt.Println("there is capability: ", c.ID)
-		}
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)

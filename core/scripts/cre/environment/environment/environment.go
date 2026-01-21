@@ -725,7 +725,6 @@ func StartCLIEnvironment(
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
-	fmt.Println("featureset", features)
 
 	capabilitiesContractFactoryFunctions := []cre.CapabilityRegistryConfigFn{}
 	for _, cap := range capabilities {

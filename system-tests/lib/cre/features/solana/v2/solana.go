@@ -94,7 +94,7 @@ func (s *Solana) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	// TODO 1. Deploy & Configure OCR3 Contracts (once solana consensus reads are supported)
+	// 1. Deploy & Configure OCR3 Contracts (once solana consensus reads are supported)
 	// 2. Create & Approve Solana Standard capability jobs for the DON
 	jobErr := createJobs(ctx, don, dons, creEnv)
 	if jobErr != nil {
@@ -147,7 +147,7 @@ func createJobs(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	// TODO propose bootstrap job once consensus reads are enabled
+	// propose bootstrap job once consensus reads are enabled
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")

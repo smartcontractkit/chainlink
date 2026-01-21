@@ -175,7 +175,6 @@ func initSolanaInput(bi *blockchain.Input) error {
 	}
 	bi.PublicKey = DefaultSolanaPrivateKey.PublicKey().String()
 	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
-	framework.L.Log().Msg(fmt.Sprint("coint", bi.ContractsDir))
 	if bi.SolanaPrograms != nil {
 		var err2 error
 		once.Do(func() {

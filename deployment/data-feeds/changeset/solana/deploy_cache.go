@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
@@ -337,7 +336,6 @@ func createPermissionFlagAccounts(programID, state solana.PublicKey, dataIDs [][
 
 	for _, dataID := range dataIDs {
 		repHash := createReportHash(dataID, sender, owner, name)
-		log.Printf("~~repHash: %x, dataID: %x, sender: %x, owner: %x, name: %x", repHash, dataID, sender, owner, name)
 		flagPDA, _, err := solana.FindProgramAddress([][]byte{
 			[]byte("permission_flag"),
 			state.Bytes(),
@@ -346,7 +344,6 @@ func createPermissionFlagAccounts(programID, state solana.PublicKey, dataIDs [][
 		if err != nil {
 			return nil, fmt.Errorf("failed to derive permission_flag PDA: %w", err)
 		}
-		log.Printf("flagPDA: %s", flagPDA.String())
 
 		ret = append(ret, *solana.Meta(flagPDA).WRITE())
 	}
