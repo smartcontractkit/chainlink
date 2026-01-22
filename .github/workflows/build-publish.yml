@@ -130,6 +130,7 @@ jobs:
     if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success') && needs.checks.outputs.is-pre-release == 'true'
     needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
+    secrets: inherit
     with:
       git-ref: ${{ github.ref_name }}
       git-ref-type: ${{ github.ref_type }}
