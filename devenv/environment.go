@@ -75,7 +75,6 @@ func NewEnvironment(ctx context.Context) error {
 		}
 
 		configOverrides, err := p.GenerateCLNodesBlockchainConfig(ctx, in.Blockchains[0])
-		fmt.Println(configOverrides)
 		if err != nil {
 			return fmt.Errorf("failed to generate CL nodes config: %w", err)
 		}
