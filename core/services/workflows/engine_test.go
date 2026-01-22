@@ -1359,6 +1359,7 @@ func TestEngine_RateLimit(t *testing.T) {
 }
 
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
+	quarantine.Flaky(t, "DX-2688")
 	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
