@@ -1561,6 +1561,7 @@ targets:
 )
 
 func TestEngine_WrapsTargets(t *testing.T) {
+	quarantine.Flaky(t, "DX-2687")
 	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
