@@ -127,3 +127,6 @@
 
 [capability_configs.mock.config]
   Port = 7777  # Default port for mock service
+
+[capability_configs.vault.config]
+  EnableDeterministicPendingQueue = true
