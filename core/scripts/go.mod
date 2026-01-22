@@ -46,7 +46,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260107192940-0be702ef3ff5
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260119161343-499241536dea
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260120124124-33cb8e0bd2c5
 	github.com/smartcontractkit/chainlink-data-streams v0.1.11
 	github.com/smartcontractkit/chainlink-deployments-framework v0.75.0
@@ -257,7 +257,7 @@ require (
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
-	github.com/gagliardetto/anchor-go v0.3.2 // indirect
+	github.com/gagliardetto/anchor-go v1.0.0 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
 	github.com/gagliardetto/metaplex-go v0.2.1 // indirect
 	github.com/gagliardetto/solana-go v1.13.0 // indirect
@@ -491,7 +491,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.90 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251212131933-e5e85d6fa4d3 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260116110203-68d767f52164 // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5 // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260119161343-499241536dea // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260122132406-0ada7a3fe04a // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20251211140724-319861e514c4 // indirect
@@ -511,7 +511,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260106052706-6dd937cb5ec6 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260115213541-c4ca2e53370b // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260121103211-89fe83165431 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251205161630-88314452254c // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
@@ -624,8 +624,8 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gonum.org/v1/gonum v0.17.0 // indirect
 	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251029180050-ab9386a59fda // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260114163908-3f89685c29c3 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251222181119-0a764e51fe1b // indirect
 	google.golang.org/grpc v1.78.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/guregu/null.v4 v4.0.0 // indirect
