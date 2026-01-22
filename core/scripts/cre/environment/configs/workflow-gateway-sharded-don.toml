@@ -42,7 +42,7 @@
   override_mode = "each"
   http_port_range_start = 10100
 
-  env_vars = { CL_EVM_CMD = "" }
+  env_vars = { CL_EVM_CMD = "", WORKFLOW_SHARD_INDEX = "0", WORKFLOW_SHARD_ORCHESTRATOR_ADDR = "shard0-node0:50051" }
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
    [nodesets.chain_capabilities]
@@ -102,7 +102,7 @@
   override_mode = "all"
   http_port_range_start = 10400
 
-  env_vars = { CL_EVM_CMD = "" }
+  env_vars = { CL_EVM_CMD = "", WORKFLOW_SHARD_INDEX = "1", WORKFLOW_SHARD_ORCHESTRATOR_ADDR = "shard0-node0:50051" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["ocr3", "custom-compute",  "web-api-target", "web-api-trigger", "cron", "consensus", "don-time"]
 

@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -29,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shard"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -514,6 +517,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			WorkflowLimits: h.workflowLimits,
 
 			BillingClient: h.billingClient,
+			ShardFilter:   h.createShardFilter(ctx),
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -562,6 +566,39 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	return v2.NewEngine(cfg)
+}
+
+// createShardFilter reads environment variables and creates a ShardFilter if configured.
+// Returns nil if sharding is not enabled (environment variables not set).
+func (h *eventHandler) createShardFilter(ctx context.Context) workflows.ShardFilter {
+	shardIndexStr := os.Getenv("WORKFLOW_SHARD_INDEX")
+	orchestratorAddr := os.Getenv("WORKFLOW_SHARD_ORCHESTRATOR_ADDR")
+
+	// If either variable is not set, sharding is disabled
+	if shardIndexStr == "" || orchestratorAddr == "" {
+		h.lggr.Debug("Shard filtering disabled: environment variables not configured")
+		return nil
+	}
+
+	shardIndex, err := strconv.ParseUint(shardIndexStr, 10, 32)
+	if err != nil {
+		h.lggr.Warnw("Invalid WORKFLOW_SHARD_INDEX, shard filtering disabled", "value", shardIndexStr, "error", err)
+		return nil
+	}
+
+	shardFilter, err := shard.NewFilter(shard.Config{
+		ShardIndex:          uint32(shardIndex),
+		OrchestratorAddress: orchestratorAddr,
+		CacheTTL:            5 * time.Second,
+		Logger:              h.lggr,
+	})
+	if err != nil {
+		h.lggr.Errorw("Failed to create ShardFilter, shard filtering disabled", "error", err, "shardIndex", shardIndex, "orchestratorAddr", orchestratorAddr)
+		return nil
+	}
+
+	h.lggr.Infow("Shard filtering enabled", "shardIndex", shardIndex, "orchestratorAddr", orchestratorAddr)
+	return shardFilter
 }
 
 // workflowPausedEvent handles the WorkflowPausedEvent event type. This method must remain idempotent.

@@ -330,18 +330,20 @@ func validateShardFilteringExecution(t *testing.T, testEnv *ttypes.TestEnvironme
 	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
 	require.GreaterOrEqual(t, len(shardDONs), 2, "Need at least 2 shard DONs for filtering test")
 
-	// Find shard-0 and shard-1 DONs
+	// Find shard-0 and shard-1 DONs by name (since shardIndex might not be set correctly yet)
 	var shard0, shard1 *cre.Don
 	for _, don := range shardDONs {
-		metadata := don.Metadata()
-		if metadata.ShardIndex == 0 {
+		if strings.Contains(strings.ToLower(don.Name), "shard0") {
 			shard0 = don
-		} else if metadata.ShardIndex == 1 {
+		} else if strings.Contains(strings.ToLower(don.Name), "shard1") {
 			shard1 = don
 		}
 	}
-	require.NotNil(t, shard0, "Shard-0 DON not found")
-	require.NotNil(t, shard1, "Shard-1 DON not found")
+	require.NotNil(t, shard0, "Shard-0 DON not found (expected DON with 'shard0' in name)")
+	require.NotNil(t, shard1, "Shard-1 DON not found (expected DON with 'shard1' in name)")
+
+	logger.Info().Msgf("Found shard DONs: shard-0=%s (ID:%d), shard-1=%s (ID:%d)",
+		shard0.Name, shard0.ID, shard1.Name, shard1.ID)
 
 	// Test workflows - use unique IDs to avoid conflicts
 	testRunID := time.Now().Unix()
@@ -417,7 +419,23 @@ func validateShardFilteringExecution(t *testing.T, testEnv *ttypes.TestEnvironme
 	shard0ExecutionCount := 0
 
 	for _, node := range shard0Workers {
+		t.Logf("About to capture logs from shard-0 node: %s", node.Name)
 		logs := captureNodeLogs(t, logger, node, logCheckStartTime)
+		t.Logf("Captured %d bytes from %s", len(logs), node.Name)
+
+		// Print captured logs for debugging
+		logger.Info().Msgf("=== Logs from %s (length: %d) ===", node.Name, len(logs))
+		if len(logs) > 0 {
+			// Print first 5000 chars of logs to see what we captured
+			previewLen := 5000
+			if len(logs) < previewLen {
+				previewLen = len(logs)
+			}
+			logger.Info().Msgf("Log preview:\n%s", logs[:previewLen])
+		} else {
+			logger.Warn().Msgf("No logs captured from %s", node.Name)
+			t.Logf("WARNING: No logs captured from %s", node.Name)
+		}
 
 		// Check if shard-0 is skipping workflows C and D (assigned to shard-1)
 		if containsFilterMessage(logs, workflowC) {
@@ -448,6 +466,19 @@ func validateShardFilteringExecution(t *testing.T, testEnv *ttypes.TestEnvironme
 
 	for _, node := range shard1Workers {
 		logs := captureNodeLogs(t, logger, node, logCheckStartTime)
+
+		// Print captured logs for debugging
+		logger.Info().Msgf("=== Logs from %s (length: %d) ===", node.Name, len(logs))
+		if len(logs) > 0 {
+			// Print first 5000 chars of logs to see what we captured
+			previewLen := 5000
+			if len(logs) < previewLen {
+				previewLen = len(logs)
+			}
+			logger.Info().Msgf("Log preview:\n%s", logs[:previewLen])
+		} else {
+			logger.Warn().Msgf("No logs captured from %s", node.Name)
+		}
 
 		// Check if shard-1 is skipping workflows A and B (assigned to shard-0)
 		if containsFilterMessage(logs, workflowA) {
@@ -488,6 +519,9 @@ func validateShardFilteringExecution(t *testing.T, testEnv *ttypes.TestEnvironme
 func captureNodeLogs(t *testing.T, logger zerolog.Logger, node *cre.Node, since time.Time) string {
 	t.Helper()
 
+	t.Logf("captureNodeLogs called for node: %s (since: %s)", node.Name, since.Format(time.RFC3339))
+	logger.Info().Msgf("Attempting to capture logs from node: %s (since: %s)", node.Name, since.Format(time.RFC3339))
+
 	// Create filter for this specific node's container
 	listOpts := container.ListOptions{
 		All: true,
@@ -509,20 +543,26 @@ func captureNodeLogs(t *testing.T, logger zerolog.Logger, node *cre.Node, since 
 		return ""
 	}
 
+	logger.Info().Msgf("Got %d containers in log stream for node %s", len(logStream), node.Name)
+
 	// Read all logs from the first (and should be only) container
 	for containerName, reader := range logStream {
 		defer reader.Close()
 
+		logger.Info().Msgf("Reading logs from container: %s", containerName)
+
 		var logContent strings.Builder
 		header := make([]byte, 8)
+		linesRead := 0
 
 		for {
 			_, err := io.ReadFull(reader, header)
 			if err == io.EOF {
+				logger.Info().Msgf("Reached EOF after reading %d lines from %s", linesRead, containerName)
 				break
 			}
 			if err != nil {
-				logger.Debug().Err(err).Str("container", containerName).Msg("Error reading log header")
+				logger.Warn().Err(err).Str("container", containerName).Msg("Error reading log header")
 				break
 			}
 
@@ -532,16 +572,30 @@ func captureNodeLogs(t *testing.T, logger zerolog.Logger, node *cre.Node, since 
 
 			_, err = io.ReadFull(reader, msgBuf)
 			if err != nil {
-				logger.Debug().Err(err).Str("container", containerName).Msg("Error reading log message")
+				logger.Warn().Err(err).Str("container", containerName).Msg("Error reading log message")
 				break
 			}
 
 			logContent.Write(msgBuf)
+			linesRead++
 		}
 
-		return logContent.String()
+		result := logContent.String()
+		logger.Info().Msgf("Captured %d bytes from container %s", len(result), containerName)
+		
+		// Print a sample of the logs
+		if len(result) > 0 {
+			previewLen := 2000
+			if len(result) < previewLen {
+				previewLen = len(result)
+			}
+			logger.Info().Msgf("Log sample from %s:\n%s", containerName, result[:previewLen])
+		}
+		
+		return result
 	}
 
+	logger.Warn().Msgf("No containers found in log stream for node %s", node.Name)
 	return ""
 }
 
