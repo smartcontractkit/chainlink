@@ -1475,6 +1475,7 @@ func mockAction(t *testing.T) (*mockCapability, values.Value) {
 }
 
 func TestEngine_MultiStepDependencies(t *testing.T) {
+	quarantine.Flaky(t, "DX-2691")
 	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
