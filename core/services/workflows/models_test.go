@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -13,6 +15,7 @@ import (
 )
 
 func TestParse_Graph(t *testing.T) {
+	quarantine.Flaky(t, "DX-2685")
 	t.Parallel()
 	testCases := []struct {
 		name   string
