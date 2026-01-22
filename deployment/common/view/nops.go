@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
@@ -364,6 +365,7 @@ func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 
 // getNodeNetworks returns the list of networks a node is connected to.
 // This function mimics the logic of the CLD command `jd node inspect`
+// TODO: until https://smartcontract-it.atlassian.net/browse/OPT-334 is done, this networks will be flaky/out-of-sync with all the chains on the nodes.
 func getNodeNetworks(node deployment.Node) ([]string, error) {
 	nodeChainCfgs, nodeErr := node.ChainConfigs()
 	if nodeErr != nil {
@@ -372,26 +374,9 @@ func getNodeNetworks(node deployment.Node) ([]string, error) {
 
 	var networks []string
 	for _, cfg := range nodeChainCfgs {
-		var family string
-		switch cfg.Chain.Type {
-		case nodev1.ChainType_CHAIN_TYPE_EVM:
-			family = chain_selectors.FamilyEVM
-		case nodev1.ChainType_CHAIN_TYPE_APTOS:
-			family = chain_selectors.FamilyAptos
-		case nodev1.ChainType_CHAIN_TYPE_SOLANA:
-			family = chain_selectors.FamilySolana
-		case nodev1.ChainType_CHAIN_TYPE_STARKNET:
-			family = chain_selectors.FamilyStarknet
-		case nodev1.ChainType_CHAIN_TYPE_TRON:
-			family = chain_selectors.FamilyTron
-		case nodev1.ChainType_CHAIN_TYPE_TON:
-			family = chain_selectors.FamilyTon
-		case nodev1.ChainType_CHAIN_TYPE_SUI:
-			family = chain_selectors.FamilySui
-		case nodev1.ChainType_CHAIN_TYPE_UNSPECIFIED:
-			return nil, errors.New("chain type must be specified")
-		default:
-			return nil, fmt.Errorf("unsupported chain type %s", cfg.Chain.Type)
+		family, err := jd.ChainTypeToFamily(cfg.Chain.Type)
+		if err != nil {
+			return nil, err
 		}
 
 		chainDetails, chainErr := chain_selectors.GetChainDetailsByChainIDAndFamily(cfg.Chain.Id, family)

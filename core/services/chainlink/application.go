@@ -444,6 +444,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		StorageClient:           storageClient,
 		UseLocalTimeProvider:    opts.UseLocalTimeProvider,
 		JWTGenerator:            jwtGenerator,
+		ShardOrchestratorClient: shardOrchestratorClient,
 	}, opts.DonTimeStore, limitsFactory, peerWrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
@@ -735,7 +736,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig, cfg.Sharding())
 
 		ocr2Delegate := ocr2.NewDelegate(
 			ocr2.DelegateOpts{
@@ -914,6 +915,10 @@ type CREOpts struct {
 	UseLocalTimeProvider bool // Set this to true if the DON Time Plugin is not running
 
 	JWTGenerator nodeauthjwt.JWTGenerator // JWT generator for authenticated services
+
+	// ShardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
+	// This is nil for shard 0.
+	ShardOrchestratorClient *shardorchestrator.Client
 }
 
 type CREServices struct {
@@ -1331,6 +1336,7 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
+						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)

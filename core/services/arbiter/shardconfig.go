@@ -87,7 +87,7 @@ func (s *shardConfigSyncer) Start(ctx context.Context) error {
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
-			s.run(ctx)
+			s.run()
 		}()
 
 		return nil
@@ -142,7 +142,10 @@ func (s *shardConfigSyncer) GetDesiredShardCount(ctx context.Context) (uint64, e
 }
 
 // run handles initialization and polling loop.
-func (s *shardConfigSyncer) run(ctx context.Context) {
+func (s *shardConfigSyncer) run() {
+	ctx, cancel := s.stopCh.NewCtx()
+	defer cancel()
+
 	// Phase 1: Initialize contract reader with retries
 	if err := s.initContractReader(ctx); err != nil {
 		s.lggr.Errorw("Failed to initialize contract reader", "error", err)
@@ -170,8 +173,6 @@ func (s *shardConfigSyncer) initContractReader(ctx context.Context) error {
 
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
 		case <-s.stopCh:
 			return nil
 		case <-ticker.C:
@@ -248,8 +249,6 @@ func (s *shardConfigSyncer) pollLoop(ctx context.Context) {
 
 	for {
 		select {
-		case <-ctx.Done():
-			return
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
@@ -264,7 +263,7 @@ func (s *shardConfigSyncer) fetchAndCache(ctx context.Context) {
 		return
 	}
 
-	var result *big.Int
+	result := new(big.Int)
 	bc := types.BoundContract{
 		Address: s.shardConfigAddress,
 		Name:    ShardConfigContractName,
@@ -273,7 +272,7 @@ func (s *shardConfigSyncer) fetchAndCache(ctx context.Context) {
 	err := s.contractReader.GetLatestValue(
 		ctx,
 		bc.ReadIdentifier(GetDesiredShardCountMethod),
-		primitives.Finalized, // Use finalized for governance data
+		primitives.Unconfirmed,
 		nil,                  // No input params
 		&result,
 	)
@@ -281,6 +280,14 @@ func (s *shardConfigSyncer) fetchAndCache(ctx context.Context) {
 		s.lggr.Errorw("Failed to fetch shard count from on-chain",
 			"error", err,
 			"contract", s.shardConfigAddress,
+		)
+		return
+	}
+
+	if result == nil {
+		s.lggr.Errorw("Failed to decode shard count from contract response",
+			"contract", s.shardConfigAddress,
+			"method", GetDesiredShardCountMethod,
 		)
 		return
 	}

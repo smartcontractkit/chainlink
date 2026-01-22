@@ -449,7 +449,7 @@ type GenerateConfigsInput struct {
 	NodeSet                 *NodeSet
 	CapabilityConfigs       CapabilityConfigs
 	ContractVersions        map[ContractType]*semver.Version
-	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
+	Topology                *Topology
 	Provider                infra.Provider
 }
 
@@ -1011,6 +1011,10 @@ func (n *NodeMetadata) GetHost() string {
 
 func (n *NodeMetadata) PeerID() string {
 	return strings.TrimPrefix(n.Keys.PeerID(), "p2p_")
+}
+
+func (n *NodeMetadata) ShardOrchestratorAddress() string {
+	return fmt.Sprintf("%s:%d", n.Host, 50051)
 }
 
 type NodeMetadataConfig struct {

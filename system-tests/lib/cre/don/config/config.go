@@ -112,7 +112,7 @@ func PrepareNodeTOMLs(
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
 					RegistryChainSelector:   creEnv.RegistryChainSelector,
-					GatewayConnectorOutput:  topology.GatewayConnectors,
+					Topology:                topology,
 					NodeSet:                 localNodeSets[i],
 					CapabilityConfigs:       creEnv.CapabilityConfigs,
 					Provider:                creEnv.Provider,
@@ -208,7 +208,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs, input.GatewayConnectorOutput, input.DonMetadata, nodeMetadata)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, commonInputs, input.DonMetadata, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -361,9 +361,9 @@ func addBootstrapNodeConfig(
 
 func addWorkerNodeConfig(
 	existingConfig corechainlink.Config,
+	topology *cre.Topology,
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
-	gatewayConnector *cre.GatewayConnectors,
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
@@ -443,6 +443,22 @@ func addWorkerNodeConfig(
 		}
 	}
 
+	if donMetadata.IsShardDON() {
+		existingConfig.Sharding.ShardIndex = ptr.Ptr(uint16(donMetadata.ShardIndex)) //nolint:gosec // disable G115 overflow is unrealistic
+
+		// all shards apart from the leader need to connect to shard orchestrators running on shard leader DON (shard0)
+		if !donMetadata.IsShardLeader() {
+			shard0, sErr := topology.DonsMetadata.ShardLeaderDON()
+			if sErr != nil {
+				return existingConfig, fmt.Errorf("failed to fetch shard leader DON: %w", sErr)
+			}
+
+			// all shards have the same amount of nodes, we can use current node index to select
+			// shard0 node it should connect to. We connect corresponding nodes to spread the load.
+			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddress()))
+		}
+	}
+
 	// Add only gateway connector only to workflow DON
 	// Capabilities that require gateways should add gateway connector themselves
 	if donMetadata.HasFlag(cre.WorkflowDON) {
@@ -452,8 +468,8 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		if gatewayConnector != nil && len(gatewayConnector.Configurations) > 0 {
-			for _, gateway := range gatewayConnector.Configurations {
+		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
+			for _, gateway := range topology.GatewayConnectors.Configurations {
 				gateways = append(gateways, coretoml.ConnectorGateway{
 					ID: ptr.Ptr(gateway.AuthGatewayID),
 					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",

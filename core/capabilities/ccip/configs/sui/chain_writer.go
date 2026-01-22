@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 
 	_ "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter" // Register Sui chainwriter
 	chainwriter "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/config"

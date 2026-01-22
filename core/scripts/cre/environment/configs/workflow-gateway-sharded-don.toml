@@ -39,7 +39,7 @@
   nodes = 4
   name = "shard0"
   don_types = ["workflow", "shard"]
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "" }
@@ -56,13 +56,42 @@
     image = "postgres:12.0"
     port = 13000
 
-[[nodesets.node_specs]]
+  # Node 0 - expose ShardOrchestrator and Arbiter ports for testing
+  # Using high ports (60051, 19876) to avoid conflicts with other services
+  [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
+      custom_ports = ["60051:50051", "19876:9876"]
+      user_config_overrides = ""
+
+  # Node 1
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+  # Node 2
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+  # Node 3
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       user_config_overrides = ""
 
 [[nodesets]]

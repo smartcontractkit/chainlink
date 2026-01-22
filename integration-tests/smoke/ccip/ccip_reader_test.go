@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -39,7 +40,6 @@ import (
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
