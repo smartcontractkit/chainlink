@@ -100,6 +100,7 @@ func SetupAutomationBasic(t *testing.T, registryVersion ethereum.KeeperRegistryV
 	// 		for _, name := range names {
 	// 			t.Run(name, func(t *testing.T) {
 	l := framework.L
+	l.Info().Msg("Running test " + testName + " with registry version " + registryVersion.String())
 
 	t.Cleanup(func() {
 		err := products.ScanLogs(l, products.DefaultSettings())
