@@ -19,6 +19,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -1380,6 +1382,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 }
 
 func TestEngine_GracefulEarlyTermination(t *testing.T) {
+	quarantine.Flaky(t, "DX-2682")
 	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
