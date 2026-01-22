@@ -86,7 +86,7 @@ func TestExecute(t *testing.T) {
 			expectedErrors:  1,
 			errorFn: func(integer *big.Int) error {
 				if integer.Int64()%2 == 0 {
-					return fmt.Errorf("even number error")
+					return errors.New("even number error")
 				}
 				return nil
 			},
@@ -215,7 +215,7 @@ func TestExecuteSimple(t *testing.T) {
 			expectedErrors:  1,
 			errorFn: func(integer *big.Int) error {
 				if integer.Int64()%2 == 0 {
-					return fmt.Errorf("even number error")
+					return errors.New("even number error")
 				}
 				return nil
 			},

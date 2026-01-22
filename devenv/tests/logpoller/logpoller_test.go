@@ -33,8 +33,8 @@ import (
 type GeneratorType = string
 
 const (
-	GeneratorType_WASP   = "wasp"
-	GeneratorType_Looped = "looped"
+	GeneratorType_WASP   = "wasp"   //nolint: revive //we feel like using underscores
+	GeneratorType_Looped = "looped" //nolint: revive //we feel like using underscores
 )
 
 type Config struct {
@@ -321,7 +321,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	pdConfig, err := products.LoadOutput[automation.Configurator](outputFile)
 	require.NoError(t, err)
 
-	var eventsToEmit []abi.Event
+	eventsToEmit := []abi.Event{}
 	for _, event := range EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
@@ -476,7 +476,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 	})
 
-	var eventsToEmit []abi.Event
+	eventsToEmit := []abi.Event{}
 	for _, event := range EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}

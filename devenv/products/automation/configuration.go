@@ -14,17 +14,18 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 )
 
 var L = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel).With().Fields(map[string]any{"component": "automation"}).Logger()
@@ -251,8 +252,8 @@ HttpUrl = '{{.HttpUrl}}'
 		LogPollInterval           *string
 		BackupLogPollerBlockDelay *uint
 		ChainID                   string
-		WsUrl                     string
-		HttpUrl                   string
+		WsURL                     string
+		HTTPURL                   string
 		LinkContractAddress       *string
 		FinalityDepth             *uint
 		FinalityTagEnabled        *bool
@@ -271,8 +272,8 @@ HttpUrl = '{{.HttpUrl}}'
 		BackupLogPollerBlockDelay: m.Config[0].EVMNetworkSettings.BackupLogPollerBlockDelay,
 		HeadTracker:               m.Config[0].EVMNetworkSettings.HeadTrackerData,
 		GasEstimator:              m.Config[0].EVMNetworkSettings.GasEstimatorData,
-		WsUrl:                     bc.Out.Nodes[0].InternalWSUrl,
-		HttpUrl:                   bc.Out.Nodes[0].InternalHTTPUrl,
+		WsURL:                     bc.Out.Nodes[0].InternalWSUrl,
+		HTTPURL:                   bc.Out.Nodes[0].InternalHTTPUrl,
 	}
 
 	var buf bytes.Buffer
@@ -374,23 +375,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 
-	var chainClient *seth.Client
-	if os.Getenv(seth.CONFIG_FILE_ENV_VAR) != "" {
-		sethCfg, err := seth.ReadConfig()
-		if err != nil {
-			return err
-		}
-
-		chainClient, err = seth.NewClientBuilderWithConfig(sethCfg).
-			UseNetworkWithChainId(chainID).
-			WithRpcUrl(bc.Out.Nodes[0].ExternalWSUrl).
-			Build()
-	} else {
-		chainClient, err = seth.NewClientBuilder().
-			WithPrivateKeys([]string{products.NetworkPrivateKey()}).
-			WithRpcUrl(bc.Out.Nodes[0].ExternalWSUrl).
-			Build()
-	}
+	chainClient, err := products.InitSeth(bcNode.ExternalWSUrl, []string{products.NetworkPrivateKey()}, &chainID)
 	if err != nil {
 		return err
 	}
@@ -408,7 +393,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 
-	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[instanceIdx].MustGetRegistryVersion(), m.Config[instanceIdx].DeployedContracts.Registry, m.Config[instanceIdx].GetMercuryCredentialsName())
+	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[instanceIdx].MustGetRegistryVersion(), m.Config[instanceIdx].DeployedContracts.Registry, m.Config[instanceIdx].GetMercuryCredentialsName()) //nolint:gosec // disable G115
 }
 
 func (m *Automation) MustGetRegistryVersion() ethereum.KeeperRegistryVersion {

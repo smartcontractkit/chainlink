@@ -264,7 +264,7 @@ func (e *EthereumAuthorizedForwarder) GetAuthorizedSenders(ctx context.Context) 
 	if err != nil {
 		return nil, err
 	}
-	var sendersAddrs []string
+	sendersAddrs := []string{}
 	for _, o := range authorizedSenders {
 		sendersAddrs = append(sendersAddrs, o.Hex())
 	}
@@ -363,7 +363,7 @@ func (e *EthereumOffchainAggregatorV2) GetLatestRound(ctx context.Context) (*Rou
 		return nil, err
 	}
 	return &RoundData{
-		RoundId:         data.RoundId,
+		RoundID:         data.RoundId,
 		StartedAt:       data.StartedAt,
 		UpdatedAt:       data.UpdatedAt,
 		AnsweredInRound: data.AnsweredInRound,
@@ -380,7 +380,7 @@ func (e *EthereumOffchainAggregatorV2) GetRound(ctx context.Context, roundID *bi
 		return nil, err
 	}
 	return &RoundData{
-		RoundId:         data.RoundId,
+		RoundID:         data.RoundId,
 		StartedAt:       data.StartedAt,
 		UpdatedAt:       data.UpdatedAt,
 		AnsweredInRound: data.AnsweredInRound,
@@ -395,7 +395,8 @@ func (e *EthereumOffchainAggregatorV2) SetPayees(transmitters, payees []string) 
 		Str("OCRv2 Address", e.Address()).
 		Msg("Setting OCRv2 Payees")
 
-	var addTransmitters, addrPayees []common.Address
+	addTransmitters := []common.Address{}
+	addrPayees := []common.Address{}
 	for _, t := range transmitters {
 		addTransmitters = append(addTransmitters, common.HexToAddress(t))
 	}
@@ -993,13 +994,13 @@ func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
 	return err
 }
 
-func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
-	_, err := e.client.Decode(e.instance.SendRequest(e.client.NewTXOpts(), times, source, encryptedSecretsReferences, args, subscriptionId, jobId))
+func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionID uint64, jobID [32]byte) error {
+	_, err := e.client.Decode(e.instance.SendRequest(e.client.NewTXOpts(), times, source, encryptedSecretsReferences, args, subscriptionID, jobID))
 	return err
 }
 
-func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
-	_, err := e.client.Decode(e.instance.SendRequestWithDONHostedSecrets(e.client.NewTXOpts(), times, source, slotID, slotVersion, args, subscriptionId, donID))
+func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionID uint64, donID [32]byte) error {
+	_, err := e.client.Decode(e.instance.SendRequestWithDONHostedSecrets(e.client.NewTXOpts(), times, source, slotID, slotVersion, args, subscriptionID, donID))
 	return err
 }
 

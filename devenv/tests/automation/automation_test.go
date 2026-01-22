@@ -153,6 +153,7 @@ func SetupAutomationBasic(t *testing.T, registryVersion ethereum.KeeperRegistryV
 			config.GasSettings.FeeCapMultiplier,
 			config.GasSettings.TipCapMultiplier,
 		)
+		require.NoError(t, err, "Failed to create ETH client")
 
 		newPks, err := products.FundNewAddresses(t.Context(), defaultAmountOfUpkeeps, c, config.TestKeysMinFundingEth)
 		require.NoError(t, err, "Failed to fund new addresses")
@@ -169,7 +170,7 @@ func SetupAutomationBasic(t *testing.T, registryVersion ethereum.KeeperRegistryV
 	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
-	a := AutomationTest{
+	a := Test{
 		ChainClient:            chainClient,
 		Config:                 *config,
 		RegistrySettings:       config.GetRegistryConfig(),

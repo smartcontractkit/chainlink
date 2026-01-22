@@ -15,6 +15,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
+	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/sync/errgroup"
+	"gopkg.in/guregu/null.v4"
+
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
@@ -26,11 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	devenv_ocr2 "github.com/smartcontractkit/chainlink/devenv/products/ocr2"
-	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"golang.org/x/sync/errgroup"
-	"gopkg.in/guregu/null.v4"
 )
 
 type NodeDetail struct {
@@ -422,7 +423,7 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 		return errors.New("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
 	}
 
-	var signers []common.Address
+	signers := []common.Address{}
 	for _, signer := range signerOnchainPublicKeys {
 		if len(signer) != 20 {
 			return fmt.Errorf("OnChainPublicKey '%v' has wrong length for address", signer)
@@ -430,7 +431,7 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 		signers = append(signers, common.BytesToAddress(signer))
 	}
 
-	var transmitters []common.Address
+	transmitters := []common.Address{}
 	for _, transmitter := range transmitterAccounts {
 		if !common.IsHexAddress(string(transmitter)) {
 			return fmt.Errorf("TransmitAccount '%s' is not a valid Ethereum address", string(transmitter))
@@ -488,6 +489,8 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 					MinSpend:          big.NewInt(200),
 				},
 			}
+		default:
+			return fmt.Errorf("unsupported registry version: %s", registrySettings.RegistryVersion.String())
 		}
 		L.Debug().Interface("ocrConfig", ocrConfig).Msg("Setting OCR3 config")
 		err = registry.SetConfigTypeSafe(ocrConfig)
@@ -498,11 +501,16 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 	return nil
 }
 
-func calculateOCR2ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []ocr2.OracleIdentityExtra) (
+func calculateOCR2ConfigArgs(
+	pluginConfig ocr2keepers30config.OffchainConfig,
+	publicConfig ocr3.PublicConfig,
+	S []int, //nolint:gocritic //S param name is capitalised on purpose
+	oracleIdentities []ocr2.OracleIdentityExtra,
+) (
 	signers []types.OnchainPublicKey,
 	transmitters []types.Account,
-	f_ uint8,
-	onchainConfig_ []byte,
+	f_ uint8, //nolint:revive //we want to
+	onchainConfig_ []byte, //nolint:revive //we want to
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
 	err error,
@@ -536,11 +544,17 @@ func calculateOCR2ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, pu
 	)
 }
 
-func calculateOCR3ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []ocr2.OracleIdentityExtra) (
+//nolint:gocritic // S is capitalized intentionally
+func calculateOCR3ConfigArgs(
+	pluginConfig ocr2keepers30config.OffchainConfig,
+	publicConfig ocr3.PublicConfig,
+	S []int,
+	oracleIdentities []ocr2.OracleIdentityExtra,
+) (
 	signers []types.OnchainPublicKey,
 	transmitters []types.Account,
-	f_ uint8,
-	onchainConfig_ []byte,
+	f_ uint8, //nolint:revive //we want to use underscores
+	onchainConfig_ []byte, //nolint:revive //we want to use underscores
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
 	err error,

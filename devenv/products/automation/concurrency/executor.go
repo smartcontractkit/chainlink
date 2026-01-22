@@ -20,7 +20,7 @@ type ConcurrentExecutor[ResultType any, ResultChannelType ChannelWithResult[Resu
 	errors   []error
 	logger   zerolog.Logger
 	failFast bool
-	context  context.Context
+	context  context.Context //nolint: containedctx // won't fix for now
 }
 
 // NewConcurrentExecutor creates a new ConcurrentExecutor

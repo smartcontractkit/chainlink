@@ -1056,7 +1056,7 @@ func getEndBlockToWaitFor(endBlock int64, config *automation.Automation) (int64,
 		return endBlock + 1, nil
 	}
 
-	return endBlock + int64(*config.EVMNetworkSettings.FinalityDepth), nil
+	return endBlock + int64(*config.EVMNetworkSettings.FinalityDepth), nil //nolint:gosec // disable G115
 }
 
 const (
@@ -1205,12 +1205,12 @@ func uploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Clie
 
 // assertUpkeepIDsUniqueness asserts that the provided upkeep IDs are unique
 func assertUpkeepIDsUniqueness(upkeepIDs []*big.Int) error {
-	upKeepIdSeen := make(map[int64]bool)
+	upKeepIDSeen := make(map[int64]bool)
 	for _, upkeepID := range upkeepIDs {
-		if _, ok := upKeepIdSeen[upkeepID.Int64()]; ok {
+		if _, ok := upKeepIDSeen[upkeepID.Int64()]; ok {
 			return fmt.Errorf("duplicate upkeep ID %d", upkeepID.Int64())
 		}
-		upKeepIdSeen[upkeepID.Int64()] = true
+		upKeepIDSeen[upkeepID.Int64()] = true
 	}
 
 	return nil
@@ -1235,15 +1235,15 @@ func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error
 func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
 	uniqueFilters := make(map[string]bool)
 
-	upkeepIdIndex := 0
+	upkeepIDIndex := 0
 	for i := range logEmitters {
 		for j := 0; j < len(cfg.General.EventsToEmit); j++ {
 			emitterAddress := (*logEmitters[i]).Address()
-			topicId := cfg.General.EventsToEmit[j].ID
+			topicID := cfg.General.EventsToEmit[j].ID
 
-			upkeepID := upkeepIDs[upkeepIdIndex]
-			l.Debug().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicId.Hex()).Msg("Registering log trigger for log emitter")
-			err := registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
+			upkeepID := upkeepIDs[upkeepIDIndex]
+			l.Debug().Int("Upkeep id", int(upkeepID.Int64())).Str("Emitter address", emitterAddress.String()).Str("Topic", topicID.Hex()).Msg("Registering log trigger for log emitter")
+			err := registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicID)
 			randomWait(150, 300)
 			if err != nil {
 				return fmt.Errorf("%w: Error registering log trigger for log emitter %s", err, emitterAddress.String())
@@ -1253,12 +1253,12 @@ func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 				l.Info().Msgf("Registered log trigger for topic %d for log emitter %d/%d", j, i+1, len(logEmitters))
 			}
 
-			key := fmt.Sprintf("%s-%s", emitterAddress.String(), topicId.Hex())
+			key := fmt.Sprintf("%s-%s", emitterAddress.String(), topicID.Hex())
 			if _, ok := uniqueFilters[key]; ok {
 				return fmt.Errorf("duplicate filter %s", key)
 			}
 			uniqueFilters[key] = true
-			upkeepIdIndex++
+			upkeepIDIndex++
 		}
 	}
 
@@ -1348,7 +1348,7 @@ func (l *logPollerEnvironment) loadContracts() error {
 	}
 
 	if l.registry.RegistryOwnerAddress().String() != l.chainClient.MustGetRootKeyAddress().String() {
-		return fmt.Errorf("registry owner address is not the root key address")
+		return errors.New("registry owner address is not the root key address")
 	}
 
 	if err := l.loadRegistrar(l.config.DeployedContracts.Registrar); err != nil {

@@ -49,7 +49,7 @@ func MultiCallLogTriggerLoadGen(
 	wrapper := MustNewWrappedContractBackend(nil, client)
 	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, wrapper, wrapper, wrapper)
 
-	var call []Call
+	call := []Call{}
 	for i, d := range logTriggerData {
 		data := Call{Target: common.HexToAddress(logTriggerAddress[i]), AllowFailure: false, CallData: d}
 		call = append(call, data)

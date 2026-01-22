@@ -21,8 +21,8 @@ import (
 type WarnAboutAllowedMsgs = bool
 
 const (
-	WarnAboutAllowedMsgs_Yes WarnAboutAllowedMsgs = true
-	WarnAboutAllowedMsgs_No  WarnAboutAllowedMsgs = false
+	WarnAboutAllowedMsgs_Yes WarnAboutAllowedMsgs = true  //nolint: revive //we feel like using underscores
+	WarnAboutAllowedMsgs_No  WarnAboutAllowedMsgs = false //nolint: revive //we feel like using underscores
 )
 
 // AllowedLogMessage is a log message that might be thrown by a Chainlink node during a test, but is not a concern
@@ -98,7 +98,7 @@ func ScanLogs(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings) error 
 	}
 
 	if logVerificationErr := verifyLogsGroup.Wait(); logVerificationErr != nil {
-		return fmt.Errorf("Found a concerning log in Chainlink Node logs: %v", logVerificationErr)
+		return fmt.Errorf("found a concerning log in Chainlink Node logs: %w", logVerificationErr)
 	}
 
 	l.Info().Msg("Found no concerning entries in Chainlink Node logs")
@@ -124,7 +124,8 @@ func verifyLogStream(stream io.ReadCloser, failingLogLevel zapcore.Level, failur
 	scanner := bufio.NewScanner(stream)
 	scanner.Split(bufio.ScanLines)
 
-	allAllowedMessages := append(defaultAllowedLogMessages, allowedMessages...)
+	allAllowedMessages := append([]AllowedLogMessage{}, defaultAllowedLogMessages...)
+	allAllowedMessages = append(allAllowedMessages, allowedMessages...)
 
 	var logsFound uint
 
@@ -231,7 +232,8 @@ var defaulSettings = ChainlinkNodeLogScannerSettings{
 }
 
 func DefaultSettings(extraAllowedMessages ...AllowedLogMessage) ChainlinkNodeLogScannerSettings {
-	allowedMessages := append(defaultAllowedMessages, extraAllowedMessages...)
+	allowedMessages := append([]AllowedLogMessage{}, defaultAllowedMessages...)
+	allowedMessages = append(allowedMessages, extraAllowedMessages...)
 	return ChainlinkNodeLogScannerSettings{
 		FailingLogLevel: defaulSettings.FailingLogLevel,
 		Threshold:       defaulSettings.Threshold,

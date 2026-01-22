@@ -31,15 +31,15 @@ func DeployLegacyConsumers(t *testing.T, chainClient *seth.Client, registry cont
 
 	upkeeps := DeployKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury)
 	require.Len(t, upkeeps, numberOfUpkeeps, "Number of upkeeps should match")
-	var upkeepsAddresses []string
+	upkeepsAddresses := []string{}
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(
+	upkeepIDs := RegisterUpkeepContracts(
 		t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury, isBillingTokenNative, wethToken,
 	)
-	require.Len(t, upkeepIds, numberOfUpkeeps, "Number of upkeepIds should match")
-	return upkeeps, upkeepIds
+	require.Len(t, upkeepIDs, numberOfUpkeeps, "Number of upkeepIds should match")
+	return upkeeps, upkeepIDs
 }
 
 // DeployConsumers deploys and registers keeper consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin. Which means
@@ -53,15 +53,15 @@ func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.
 
 	upkeeps := SetupKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury, config)
 	require.Len(t, upkeeps, numberOfUpkeeps, "Number of upkeeps should match")
-	var upkeepsAddresses []string
+	upkeepsAddresses := []string{}
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(
+	upkeepIDs := RegisterUpkeepContracts(
 		t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury, isBillingTokenNative, wethToken,
 	)
-	require.Len(t, upkeepIds, numberOfUpkeeps, "Number of upkeepIds should match")
-	return upkeeps, upkeepIds
+	require.Len(t, upkeepIDs, numberOfUpkeeps, "Number of upkeepIDs should match")
+	return upkeeps, upkeepIDs
 }
 
 func SetupMultiCallAddress(chainClient *seth.Client, config Automation) (common.Address, error) {
@@ -197,7 +197,7 @@ func SendLinkFundsToDeploymentAddresses(
 		multiCallData = append(multiCallData, data)
 	}
 
-	var call []contracts.Call
+	call := []contracts.Call{}
 	for _, d := range multiCallData {
 		data := contracts.Call{Target: common.HexToAddress(linkToken.Address()), AllowFailure: false, CallData: d}
 		call = append(call, data)

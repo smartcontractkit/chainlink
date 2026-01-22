@@ -53,7 +53,7 @@ type KeeperRegistry interface {
 	SetUpkeepGasLimit(id *big.Int, gas uint32) error
 	ParseUpkeepPerformedLog(log *types.Log) (*UpkeepPerformedLog, error)
 	ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error)
-	ParseUpkeepIdFromRegisteredLog(log *types.Log) (*big.Int, error)
+	ParseUpkeepIDFromRegisteredLog(log *types.Log) (*big.Int, error)
 	Pause() error
 	Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error
 	SetMigrationPermissions(peerAddress common.Address, permission uint8) error
@@ -116,13 +116,13 @@ type KeeperPerformDataChecker interface {
 }
 
 type UpkeepPerformedLog struct {
-	Id      *big.Int
+	ID      *big.Int
 	Success bool
 	From    common.Address
 }
 
 type StaleUpkeepReportLog struct {
-	Id *big.Int
+	ID *big.Int
 }
 
 // KeeperRegistryOpts opts to deploy keeper registry version

@@ -64,16 +64,16 @@ func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.Response {
 	}
 
 	// I don't think that will work as expected, I should atomically read the value and save it, so maybe just a mutex?
-	if counter, ok := l.InputSharedData().(*Counter); ok {
-		counter.mu.Lock()
-		defer counter.mu.Unlock()
-		counter.value += localCounter
-	} else {
+	counter, ok := l.InputSharedData().(*Counter)
+	if !ok {
 		return &wasp.Response{
 			Error:  "SharedData did not contain a Counter",
 			Failed: true,
 		}
 	}
+	counter.mu.Lock()
+	defer counter.mu.Unlock()
+	counter.value += localCounter
 
 	return &wasp.Response{}
 }

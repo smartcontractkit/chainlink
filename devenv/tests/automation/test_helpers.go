@@ -17,8 +17,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
@@ -33,7 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper2_0"
 )
 
-type AutomationTest struct {
+type Test struct {
 	ChainClient *seth.Client
 
 	Config automation.Automation
@@ -80,8 +81,8 @@ func NewAutomationTest(
 	chainClient *seth.Client,
 	chainlinkNodes []*clclient.ChainlinkClient,
 	config automation.Automation,
-) *AutomationTest {
-	return &AutomationTest{
+) *Test {
+	return &Test{
 		ChainClient:            chainClient,
 		Config:                 config,
 		ChainlinkNodes:         chainlinkNodes,
@@ -91,7 +92,7 @@ func NewAutomationTest(
 	}
 }
 
-func (a *AutomationTest) LoadLINK(address string) error {
+func (a *Test) LoadLINK(address string) error {
 	linkToken, err := contracts.LoadLinkTokenContract(a.Logger, a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
@@ -101,7 +102,7 @@ func (a *AutomationTest) LoadLINK(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) LoadTranscoder(address string) error {
+func (a *Test) LoadTranscoder(address string) error {
 	transcoder, err := contracts.LoadUpkeepTranscoder(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
@@ -111,7 +112,7 @@ func (a *AutomationTest) LoadTranscoder(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) LoadLinkEthFeed(address string) error {
+func (a *Test) LoadLinkEthFeed(address string) error {
 	ethLinkFeed, err := contracts.LoadMockLINKETHFeed(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
@@ -121,7 +122,7 @@ func (a *AutomationTest) LoadLinkEthFeed(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) LoadEthUSDFeed(address string) error {
+func (a *Test) LoadEthUSDFeed(address string) error {
 	ethUSDFeed, err := contracts.LoadMockETHUSDFeed(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
@@ -131,7 +132,7 @@ func (a *AutomationTest) LoadEthUSDFeed(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) LoadLinkUSDFeed(address string) error {
+func (a *Test) LoadLinkUSDFeed(address string) error {
 	linkUSDFeed, err := contracts.LoadMockETHUSDFeed(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
@@ -141,7 +142,7 @@ func (a *AutomationTest) LoadLinkUSDFeed(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) LoadWETH(address string) error {
+func (a *Test) LoadWETH(address string) error {
 	wethToken, err := contracts.LoadWETHTokenContract(a.Logger, a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
@@ -151,7 +152,7 @@ func (a *AutomationTest) LoadWETH(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) LoadEthGasFeed(address string) error {
+func (a *Test) LoadEthGasFeed(address string) error {
 	gasFeed, err := contracts.LoadMockGASFeed(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
@@ -161,7 +162,7 @@ func (a *AutomationTest) LoadEthGasFeed(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) LoadRegistry(registryAddress, chainModuleAddress string) error {
+func (a *Test) LoadRegistry(registryAddress, chainModuleAddress string) error {
 	registry, err := contracts.LoadKeeperRegistry(a.Logger, a.ChainClient, common.HexToAddress(registryAddress), a.RegistrySettings.RegistryVersion, common.HexToAddress(chainModuleAddress))
 	if err != nil {
 		return err
@@ -171,7 +172,7 @@ func (a *AutomationTest) LoadRegistry(registryAddress, chainModuleAddress string
 	return nil
 }
 
-func (a *AutomationTest) LoadRegistrar(address string) error {
+func (a *Test) LoadRegistrar(address string) error {
 	if a.Registry == nil {
 		return errors.New("registry must be deployed or loaded before registrar")
 	}
@@ -193,7 +194,7 @@ func (r registrationResult) GetResult() common.Hash {
 	return r.txHash
 }
 
-func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcurrency int) ([]common.Hash, error) {
+func (a *Test) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcurrency int) ([]common.Hash, error) {
 	concurrency, err := automation.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
@@ -285,14 +286,14 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcur
 }
 
 type confirmationResult struct {
-	upkeepID automation.UpkeepId
+	upkeepID automation.UpkeepID
 }
 
-func (c confirmationResult) GetResult() automation.UpkeepId {
+func (c confirmationResult) GetResult() automation.UpkeepID {
 	return c.upkeepID
 }
 
-func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash, maxConcurrency int) ([]*big.Int, error) {
+func (a *Test) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash, maxConcurrency int) ([]*big.Int, error) {
 	concurrency, err := automation.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
@@ -311,22 +312,22 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 			return
 		}
 
-		var upkeepId *big.Int
+		var upkeepID *big.Int
 		for _, rawLog := range receipt.Logs {
-			parsedUpkeepId, err := a.Registry.ParseUpkeepIdFromRegisteredLog(rawLog)
+			parsedUpkeepID, err := a.Registry.ParseUpkeepIDFromRegisteredLog(rawLog)
 			if err == nil {
-				upkeepId = parsedUpkeepId
+				upkeepID = parsedUpkeepID
 				break
 			}
 		}
-		if upkeepId == nil {
+		if upkeepID == nil {
 			errorCh <- errors.New("failed to parse upkeep id from registration receipt")
 			return
 		}
-		resultCh <- confirmationResult{upkeepID: upkeepId}
+		resultCh <- confirmationResult{upkeepID: upkeepID}
 	}
 
-	executor := ctf_concurrency.NewConcurrentExecutor[automation.UpkeepId, confirmationResult, common.Hash](a.Logger)
+	executor := ctf_concurrency.NewConcurrentExecutor[automation.UpkeepID, confirmationResult, common.Hash](a.Logger)
 	results, err := executor.Execute(concurrency, registrationTxHashes, confirmUpkeep)
 
 	if err != nil {
@@ -338,11 +339,11 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 	}
 
 	seen := make(map[*big.Int]bool)
-	for _, upkeepId := range results {
-		if seen[upkeepId] {
-			return nil, fmt.Errorf("duplicate upkeep id: %s. Something went wrong during upkeep confirmation. Please check the test code", upkeepId.String())
+	for _, upkeepID := range results {
+		if seen[upkeepID] {
+			return nil, fmt.Errorf("duplicate upkeep id: %s. Something went wrong during upkeep confirmation. Please check the test code", upkeepID.String())
 		}
-		seen[upkeepId] = true
+		seen[upkeepID] = true
 	}
 
 	a.Logger.Info().Msg("Successfully confirmed all upkeeps")
@@ -351,7 +352,7 @@ func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.
 	return results, nil
 }
 
-func (a *AutomationTest) LoadContracts() error {
+func (a *Test) LoadContracts() error {
 	if err := a.LoadLINK(a.Config.DeployedContracts.LinkToken); err != nil {
 		return fmt.Errorf("error loading link token contract: %w", err)
 	}
@@ -385,7 +386,7 @@ func (a *AutomationTest) LoadContracts() error {
 	}
 
 	if a.Registry.RegistryOwnerAddress().String() != a.ChainClient.MustGetRootKeyAddress().String() {
-		return fmt.Errorf("registry owner address is not the root key address")
+		return errors.New("registry owner address is not the root key address")
 	}
 
 	if err := a.LoadRegistrar(a.Config.DeployedContracts.Registrar); err != nil {

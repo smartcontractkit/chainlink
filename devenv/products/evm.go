@@ -377,9 +377,9 @@ func InitSeth(rpcURL string, privateKeys []string, chainID *uint64) (*seth.Clien
 	var err error
 
 	if os.Getenv(seth.CONFIG_FILE_ENV_VAR) != "" {
-		sethCfg, err := seth.ReadConfig()
-		if err != nil {
-			return nil, err
+		sethCfg, sErr := seth.ReadConfig()
+		if sErr != nil {
+			return nil, sErr
 		}
 
 		if chainID == nil {

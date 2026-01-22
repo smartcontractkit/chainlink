@@ -177,7 +177,7 @@ type BlockHashStore interface {
 type OffchainAggregatorEventsMock interface {
 	Address() string
 	ConfigSet(previousConfigBlockNumber uint32, configCount uint64, signers []common.Address, transmitters []common.Address, threshold uint8, encodedConfigVersion uint64, encoded []byte) error
-	NewTransmission(aggregatorRoundId uint32, answer *big.Int, transmitter common.Address, observations []*big.Int, observers []byte, rawReportContext [32]byte) error
+	NewTransmission(aggregatorRoundID uint32, answer *big.Int, transmitter common.Address, observations []*big.Int, observers []byte, rawReportContext [32]byte) error
 }
 
 type KeeperRegistry11Mock interface {
@@ -201,7 +201,7 @@ type KeeperRegistry11Mock interface {
 type KeeperRegistrar12Mock interface {
 	Address() string
 	EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) error
-	EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) error
+	EmitRegistrationApproved(hash [32]byte, displayName string, upkeepID *big.Int) error
 	SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) error
 }
 
@@ -212,16 +212,16 @@ type KeeperGasWrapperMock interface {
 
 type FunctionsV1EventsMock interface {
 	Address() string
-	EmitRequestProcessed(requestId [32]byte, subscriptionId uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error
-	EmitRequestStart(requestId [32]byte, donId [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error
-	EmitSubscriptionCanceled(subscriptionId uint64, fundsRecipient common.Address, fundsAmount *big.Int) error
-	EmitSubscriptionConsumerAdded(subscriptionId uint64, consumer common.Address) error
-	EmitSubscriptionConsumerRemoved(subscriptionId uint64, consumer common.Address) error
-	EmitSubscriptionCreated(subscriptionId uint64, owner common.Address) error
-	EmitSubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
-	EmitSubscriptionOwnerTransferred(subscriptionId uint64, from common.Address, to common.Address) error
-	EmitSubscriptionOwnerTransferRequested(subscriptionId uint64, from common.Address, to common.Address) error
-	EmitRequestNotProcessed(requestId [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error
+	EmitRequestProcessed(requestID [32]byte, subscriptionID uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error
+	EmitRequestStart(requestID [32]byte, donID [32]byte, subscriptionID uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error
+	EmitSubscriptionCanceled(subscriptionID uint64, fundsRecipient common.Address, fundsAmount *big.Int) error
+	EmitSubscriptionConsumerAdded(subscriptionID uint64, consumer common.Address) error
+	EmitSubscriptionConsumerRemoved(subscriptionID uint64, consumer common.Address) error
+	EmitSubscriptionCreated(subscriptionID uint64, owner common.Address) error
+	EmitSubscriptionFunded(subscriptionID uint64, oldBalance *big.Int, newBalance *big.Int) error
+	EmitSubscriptionOwnerTransferred(subscriptionID uint64, from common.Address, to common.Address) error
+	EmitSubscriptionOwnerTransferRequested(subscriptionID uint64, from common.Address, to common.Address) error
+	EmitRequestNotProcessed(requestID [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error
 	EmitContractUpdated(id [32]byte, from common.Address, to common.Address) error
 }
 
@@ -232,7 +232,7 @@ type MockAggregatorProxy interface {
 }
 
 type RoundData struct {
-	RoundId         *big.Int
+	RoundID         *big.Int
 	Answer          *big.Int
 	StartedAt       *big.Int
 	UpdatedAt       *big.Int
@@ -288,15 +288,15 @@ type FunctionsLoadTestClient interface {
 	Address() string
 	ResetStats() error
 	GetStats() (*EthereumFunctionsLoadStats, error)
-	SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
-	SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error
+	SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionID uint64, jobID [32]byte) error
+	SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionID uint64, donID [32]byte) error
 }
 
 type MercuryVerifier interface {
 	Address() common.Address
 	Verify(signedReport []byte, sender common.Address) error
-	SetConfig(feedId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error)
-	LatestConfigDetails(ctx context.Context, feedId [32]byte) (verifier.LatestConfigDetails, error)
+	SetConfig(feedID [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error)
+	LatestConfigDetails(ctx context.Context, feedID [32]byte) (verifier.LatestConfigDetails, error)
 }
 
 type MercuryVerifierProxy interface {
@@ -309,7 +309,7 @@ type MercuryVerifierProxy interface {
 
 type MercuryFeeManager interface {
 	Address() common.Address
-	UpdateSubscriberDiscount(subscriber common.Address, feedId [32]byte, token common.Address, discount uint64) (*types.Transaction, error)
+	UpdateSubscriberDiscount(subscriber common.Address, feedID [32]byte, token common.Address, discount uint64) (*types.Transaction, error)
 }
 
 type MercuryRewardManager interface {

@@ -31,10 +31,10 @@ func RegisterUpkeepContracts(t *testing.T, client *seth.Client, linkToken contra
 		numberOfContracts, upkeepAddresses, checkData, isLogTrigger, isMercury, isBillingTokenNative, wethToken)
 }
 
-type UpkeepId = *big.Int
+type UpkeepID = *big.Int
 
 type upkeepRegistrationResult struct {
-	upkeepID UpkeepId
+	upkeepID UpkeepID
 }
 
 func (r upkeepRegistrationResult) GetResult() *big.Int {
@@ -52,7 +52,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	concurrency, err := GetAndAssertCorrectConcurrency(client, 1)
 	require.NoError(t, err, "Insufficient concurrency to execute action")
 
-	executor := ctf_concurrency.NewConcurrentExecutor[UpkeepId, upkeepRegistrationResult, upkeepConfig](l)
+	executor := ctf_concurrency.NewConcurrentExecutor[UpkeepID, upkeepRegistrationResult, upkeepConfig](l)
 
 	configs := make([]upkeepConfig, 0)
 	for i := range upkeepAddresses {
@@ -131,35 +131,35 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			return
 		}
 
-		var upkeepId *big.Int
+		var upkeepID *big.Int
 		for _, rawLog := range receipt.Logs {
-			parsedUpkeepId, err := registry.ParseUpkeepIdFromRegisteredLog(rawLog)
+			parsedUpkeepID, err := registry.ParseUpkeepIDFromRegisteredLog(rawLog)
 			if err == nil {
-				upkeepId = parsedUpkeepId
+				upkeepID = parsedUpkeepID
 				break
 			}
 		}
 
-		if upkeepId == nil {
+		if upkeepID == nil {
 			errorCh <- errors.Wrapf(err, "[id: %s] Failed find upkeep ID for upkeep at %s in logs of tx with hash %s", id, config.address, tx.Hash())
 			return
 		}
 
 		l.Debug().
 			Str("TxHash", tx.Hash().String()).
-			Str("Upkeep ID", upkeepId.String()).
+			Str("Upkeep ID", upkeepID.String()).
 			Msg("Found upkeepId in tx hash")
 
-		resultCh <- upkeepRegistrationResult{upkeepID: upkeepId}
+		resultCh <- upkeepRegistrationResult{upkeepID: upkeepID}
 	}
 
-	upkeepIds, err := executor.Execute(concurrency, configs, registerUpkeepFn)
+	upkeepIDs, err := executor.Execute(concurrency, configs, registerUpkeepFn)
 	require.NoError(t, err, "Failed to register upkeeps using executor")
 
-	require.Len(t, upkeepIds, numberOfContracts, "Incorrect number of Keeper Consumer Contracts registered")
+	require.Len(t, upkeepIDs, numberOfContracts, "Incorrect number of Keeper Consumer Contracts registered")
 	l.Info().Msg("Successfully registered all Keeper Consumer Contracts")
 
-	return upkeepIds
+	return upkeepIDs
 }
 
 type keeperConsumerResult struct {
@@ -184,16 +184,17 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 		var keeperConsumerInstance contracts.KeeperConsumer
 		var err error
 
-		if isMercury && isLogTrigger {
+		switch {
+		case isMercury && isLogTrigger:
 			// v2.1 only: Log triggered based contract with Mercury enabled
 			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumerFromKey(client, keyNum)
-		} else if isMercury {
+		case isMercury:
 			// v2.1 only: Conditional based contract with Mercury enabled
 			keeperConsumerInstance, err = contracts.DeployAutomationStreamsLookupUpkeepConsumerFromKey(client, keyNum, big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
-		} else if isLogTrigger {
+		case isLogTrigger:
 			// v2.1+: Log triggered based contract without Mercury
 			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggerConsumerFromKey(client, keyNum, big.NewInt(1000)) // 1000 block test range
-		} else {
+		default:
 			// v2.0+: Conditional based contract without Mercury
 			keeperConsumerInstance, err = contracts.DeployUpkeepCounterFromKey(client, keyNum, big.NewInt(999999), big.NewInt(5))
 		}
@@ -219,27 +220,27 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 func SetupKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts int, isLogTrigger bool, isMercury bool, config Automation) []contracts.KeeperConsumer {
 	l := framework.L
 
-	var results []contracts.KeeperConsumer
+	results := []contracts.KeeperConsumer{}
 
-	if len(config.DeployedContracts.Upkeeps) > 0 {
-		require.Len(t, len(config.DeployedContracts.Upkeeps), numberOfContracts, "Incorrect number of Keeper Consumer Contracts loaded")
-		l.Info().Int("Number of Contracts", numberOfContracts).Msg("Loading upkeep contracts from config")
-		// Load existing contracts
-		for i := range numberOfContracts {
-			contract, err := contracts.LoadKeeperConsumer(client, common.HexToAddress(config.DeployedContracts.Upkeeps[i]))
-			require.NoError(t, err, "Failed to load keeper consumer contract")
-			l.Info().Str("Contract Address", contract.Address()).Int("Number", i+1).Int("Out Of", numberOfContracts).Msg("Loaded Keeper Consumer Contract")
-			results = append(results, contract)
-		}
-	} else {
+	if len(config.DeployedContracts.Upkeeps) == 0 {
 		// Deploy new contracts
 		return DeployKeeperConsumers(t, client, numberOfContracts, isLogTrigger, isMercury)
+	}
+
+	require.Len(t, len(config.DeployedContracts.Upkeeps), numberOfContracts, "Incorrect number of Keeper Consumer Contracts loaded")
+	l.Info().Int("Number of Contracts", numberOfContracts).Msg("Loading upkeep contracts from config")
+	// Load existing contracts
+	for i := range numberOfContracts {
+		contract, err := contracts.LoadKeeperConsumer(client, common.HexToAddress(config.DeployedContracts.Upkeeps[i]))
+		require.NoError(t, err, "Failed to load keeper consumer contract")
+		l.Info().Str("Contract Address", contract.Address()).Int("Number", i+1).Int("Out Of", numberOfContracts).Msg("Loaded Keeper Consumer Contract")
+		results = append(results, contract)
 	}
 
 	return results
 }
 
-var INSUFFICIENT_STATIC_KEYS = `
+var InsufficientStaticKeys = `
 Error: Insufficient Private Keys for Live Network
 
 To run this test on a live network, you must either:
@@ -261,7 +262,7 @@ func GetAndAssertCorrectConcurrency(client *seth.Client, minConcurrency int) (in
 	concurrency := client.Cfg.GetMaxConcurrency()
 
 	if concurrency < minConcurrency {
-		return 0, fmt.Errorf(INSUFFICIENT_STATIC_KEYS, concurrency)
+		return 0, fmt.Errorf(InsufficientStaticKeys, concurrency)
 	}
 
 	return concurrency, nil

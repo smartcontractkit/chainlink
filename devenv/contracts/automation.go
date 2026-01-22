@@ -135,9 +135,9 @@ type EthereumKeeperRegistry struct {
 }
 
 func (v *EthereumKeeperRegistry) ReorgProtectionEnabled() bool {
-	chainId := v.client.ChainID
+	chainID := v.client.ChainID
 	// reorg protection is disabled in polygon zkEVM and Scroll bc currently there is no way to get the block hash onchain
-	return v.version < ethereum.RegistryVersion_2_2 || (chainId != 1101 && chainId != 1442 && chainId != 2442 && chainId != 534352 && chainId != 534351)
+	return v.version < ethereum.RegistryVersion_2_2 || (chainID != 1101 && chainID != 1442 && chainID != 2442 && chainID != 534352 && chainID != 534351)
 }
 
 func (v *EthereumKeeperRegistry) ChainModuleAddress() common.Address {
@@ -908,7 +908,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			return nil, err
 		}
 		return &UpkeepPerformedLog{
-			Id:      parsedLog.Id,
+			ID:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
 		}, nil
@@ -918,7 +918,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			return nil, err
 		}
 		return &UpkeepPerformedLog{
-			Id:      parsedLog.Id,
+			ID:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
 		}, nil
@@ -928,7 +928,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			return nil, err
 		}
 		return &UpkeepPerformedLog{
-			Id:      parsedLog.Id,
+			ID:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
 		}, nil
@@ -938,7 +938,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			return nil, err
 		}
 		return &UpkeepPerformedLog{
-			Id:      parsedLog.Id,
+			ID:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
@@ -948,7 +948,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			return nil, err
 		}
 		return &UpkeepPerformedLog{
-			Id:      parsedLog.Id,
+			ID:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
@@ -958,7 +958,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			return nil, err
 		}
 		return &UpkeepPerformedLog{
-			Id:      parsedLog.Id,
+			ID:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
@@ -968,7 +968,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			return nil, err
 		}
 		return &UpkeepPerformedLog{
-			Id:      parsedLog.Id,
+			ID:      parsedLog.Id,
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
@@ -978,7 +978,6 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 
 // ParseStaleUpkeepReportLog Parses Stale upkeep report log
 func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error) {
-	//nolint:exhaustive
 	switch v.version {
 	case ethereum.RegistryVersion_2_0:
 		parsedLog, err := v.registry2_0.ParseStaleUpkeepReport(*log)
@@ -986,7 +985,7 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 			return nil, err
 		}
 		return &StaleUpkeepReportLog{
-			Id: parsedLog.Id,
+			ID: parsedLog.Id,
 		}, nil
 	case ethereum.RegistryVersion_2_1:
 		parsedLog, err := v.registry2_1.ParseStaleUpkeepReport(*log)
@@ -994,7 +993,7 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 			return nil, err
 		}
 		return &StaleUpkeepReportLog{
-			Id: parsedLog.Id,
+			ID: parsedLog.Id,
 		}, nil
 	case ethereum.RegistryVersion_2_2:
 		parsedLog, err := v.registry2_2.ParseStaleUpkeepReport(*log)
@@ -1002,7 +1001,7 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 			return nil, err
 		}
 		return &StaleUpkeepReportLog{
-			Id: parsedLog.Id,
+			ID: parsedLog.Id,
 		}, nil
 	case ethereum.RegistryVersion_2_3:
 		parsedLog, err := v.registry2_3.ParseStaleUpkeepReport(*log)
@@ -1010,14 +1009,15 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 			return nil, err
 		}
 		return &StaleUpkeepReportLog{
-			Id: parsedLog.Id,
+			ID: parsedLog.Id,
 		}, nil
+	default:
+		return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
-	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
 
 // Parses the upkeep ID from an 'UpkeepRegistered' log, returns error on any other log
-func (v *EthereumKeeperRegistry) ParseUpkeepIdFromRegisteredLog(log *types.Log) (*big.Int, error) {
+func (v *EthereumKeeperRegistry) ParseUpkeepIDFromRegisteredLog(log *types.Log) (*big.Int, error) {
 	switch v.version {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
 		parsedLog, err := v.registry1_1.ParseUpkeepRegistered(*log)
@@ -1339,9 +1339,9 @@ func deployRegistry21(client *seth.Client, opts *KeeperRegistryOpts, mode uint8)
 func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegistry, error) {
 	var chainModuleAddr common.Address
 	var err error
-	chainId := uint64(client.ChainID)
+	chainID := uint64(client.ChainID) //nolint:gosec // disable G115
 
-	switch chainId {
+	switch chainID {
 	case cs.ETHEREUM_MAINNET_SCROLL_1.EvmChainID, cs.ETHEREUM_TESTNET_SEPOLIA_SCROLL_1.EvmChainID:
 		chainModuleAddr, err = deployScrollModule(client)
 	case cs.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID, cs.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.EvmChainID:
@@ -1423,9 +1423,9 @@ func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegistry, error) {
 	var chainModuleAddr common.Address
 	var err error
-	chainId := uint64(client.ChainID)
+	chainID := uint64(client.ChainID) //nolint:gosec // disable G115
 
-	switch chainId {
+	switch chainID {
 	case cs.ETHEREUM_MAINNET_SCROLL_1.EvmChainID, cs.ETHEREUM_TESTNET_SEPOLIA_SCROLL_1.EvmChainID:
 		chainModuleAddr, err = deployScrollModule(client)
 	case cs.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID, cs.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.EvmChainID:
@@ -1883,7 +1883,8 @@ func (v *EthereumKeeperRegistrar) RegisterUpkeepFromKey(keyNum int, name string,
 
 // EncodeRegisterRequest encodes register request to call it through link token TransferAndCall
 func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool, linkTokenAddr string) ([]byte, error) {
-	if v.registrar20 != nil {
+	switch {
+	case v.registrar20 != nil:
 		registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.ABI))
 		if err != nil {
 			return nil, err
@@ -1905,7 +1906,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 			return nil, err
 		}
 		return req, nil
-	} else if v.registrar21 != nil {
+	case v.registrar21 != nil:
 		if isLogTrigger {
 			var topic0InBytes [32]byte
 			// bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
@@ -1970,7 +1971,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 			common.HexToAddress(senderAddr),
 		)
 		return req, err
-	} else if v.registrar23 != nil {
+	case v.registrar23 != nil:
 		registrarABI = cltypes.MustGetABI(registrar23.AutomationRegistrarABI)
 
 		if isLogTrigger {
@@ -2040,7 +2041,10 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 		encodedRegistrationParamsStruct, err := registrarABI.Methods["registerUpkeep"].Inputs.Pack(&params)
 
 		return encodedRegistrationParamsStruct, err
+	default:
+		// ok, nothing to do
 	}
+
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.ABI))
 	if err != nil {
 		return nil, err
@@ -2168,6 +2172,8 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion ethereum.KeeperR
 			registrar23: instance,
 			address:     &data.Address,
 		}, nil
+	default:
+		// ok, nothing to do
 	}
 
 	// non OCR registrar
@@ -2250,8 +2256,9 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:      client,
 			registrar23: instance,
 		}, nil
+	default:
+		return &EthereumKeeperRegistrar{}, fmt.Errorf("unsupported registry version: %v", registryVersion)
 	}
-	return &EthereumKeeperRegistrar{}, fmt.Errorf("unsupported registry version: %v", registryVersion)
 }
 
 type EthereumAutomationKeeperConsumer struct {
