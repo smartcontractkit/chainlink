@@ -1,9 +1,9 @@
 -- +goose Up
--- Add verifier_id column as VARCHAR(255) to store verifier ID
-ALTER TABLE ccv_chain_statuses ADD COLUMN verifier_id VARCHAR(255);
+-- Add verifier_id column as TEXT to store verifier ID
+ALTER TABLE ccv_chain_statuses ADD COLUMN verifier_id TEXT;
 
--- For existing rows, set a default empty string value (this should be temporary)
-UPDATE ccv_chain_statuses SET verifier_id = '' WHERE verifier_id IS NULL;
+-- For existing rows, set a default value for backwards compatibility
+UPDATE ccv_chain_statuses SET verifier_id = 'UNDEFINED_VERIFIER' WHERE verifier_id IS NULL;
 
 -- Make verifier_id NOT NULL
 ALTER TABLE ccv_chain_statuses ALTER COLUMN verifier_id SET NOT NULL;
