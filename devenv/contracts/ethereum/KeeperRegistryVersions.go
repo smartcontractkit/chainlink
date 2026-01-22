@@ -11,7 +11,7 @@ type AbigenLog interface {
 
 type KeeperRegistryVersion int32
 
-// nolint: revive // we want to use underscores
+// nolint: revive //we want to use underscores
 const (
 	RegistryVersion_1_0 KeeperRegistryVersion = iota
 	RegistryVersion_1_1
