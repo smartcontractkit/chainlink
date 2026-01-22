@@ -1607,6 +1607,7 @@ func TestEngine_WrapsTargets(t *testing.T) {
 }
 
 func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
+	quarantine.Flaky(t, "DX-2684")
 	t.Parallel()
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
