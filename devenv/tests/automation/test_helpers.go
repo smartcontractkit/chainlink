@@ -4,15 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
+	"testing"
+	"time"
 
+	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/rs/zerolog"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/stretchr/testify/require"
 
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	ctf_concurrency "github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
@@ -385,4 +393,104 @@ func (a *AutomationTest) LoadContracts() error {
 	}
 
 	return nil
+}
+
+// GenerateUpkeepReport generates a report of performed, successful, reverted and stale upkeeps for a given registry contract based on transaction logs. In case of test failure it can help us
+// to triage the issue by providing more context.
+func generateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
+	registryLogs := []gethtypes.Log{}
+	l := framework.L
+
+	var (
+		blockBatchSize  int64 = 100
+		logs            []gethtypes.Log
+		timeout         = 5 * time.Second
+		addr            = common.HexToAddress(instance.Address())
+		queryStartBlock = startBlock
+	)
+
+	// Gather logs from the registry in 100 block chunks to avoid read limits
+	for queryStartBlock.Cmp(endBlock) < 0 {
+		filterQuery := geth.FilterQuery{
+			Addresses: []common.Address{addr},
+			FromBlock: queryStartBlock,
+			ToBlock:   big.NewInt(0).Add(queryStartBlock, big.NewInt(blockBatchSize)),
+		}
+
+		// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
+		err = errors.New("initial error") // to ensure our for loop runs at least once
+		for err != nil {
+			ctx, cancel := context.WithTimeout(t.Context(), timeout)
+			logs, err = chainClient.Client.FilterLogs(ctx, filterQuery)
+			cancel()
+			if err != nil {
+				l.Error().
+					Err(err).
+					Interface("Filter Query", filterQuery).
+					Str("Timeout", timeout.String()).
+					Msg("Error getting logs from chain, trying again")
+				timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
+				continue
+			}
+			l.Info().
+				Uint64("From Block", queryStartBlock.Uint64()).
+				Uint64("To Block", filterQuery.ToBlock.Uint64()).
+				Int("Log Count", len(logs)).
+				Str("Registry Address", addr.Hex()).
+				Msg("Collected logs")
+			queryStartBlock.Add(queryStartBlock, big.NewInt(blockBatchSize))
+			registryLogs = append(registryLogs, logs...)
+		}
+	}
+
+	var contractABI *abi.ABI
+	contractABI, err = contracts.GetRegistryContractABI(registryVersion)
+	if err != nil {
+		return
+	}
+
+	for _, allLogs := range registryLogs {
+		log := allLogs
+		var eventDetails *abi.Event
+		eventDetails, err = contractABI.EventByID(log.Topics[0])
+		if err != nil {
+			l.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error getting event details for log, report data inaccurate")
+			break
+		}
+		if eventDetails.Name == "UpkeepPerformed" {
+			performedUpkeeps++
+			var parsedLog *contracts.UpkeepPerformedLog
+			parsedLog, err = instance.ParseUpkeepPerformedLog(&log)
+			if err != nil {
+				l.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error parsing upkeep performed log, report data inaccurate")
+				break
+			}
+			if !parsedLog.Success {
+				revertedUpkeeps++
+			} else {
+				successfulUpkeeps++
+			}
+		} else if eventDetails.Name == "StaleUpkeepReport" {
+			staleUpkeeps++
+		}
+	}
+
+	return
+}
+
+func getStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) func() {
+	return func() {
+		if t.Failed() {
+			endBlock, err := chainClient.Client.BlockNumber(t.Context())
+			require.NoError(t, err, "Failed to get end block")
+
+			total, ok, reverted, stale, err := generateUpkeepReport(t, chainClient, new(big.Int).SetUint64(startBlock), new(big.Int).SetUint64(endBlock), registry, registryVersion)
+			require.NoError(t, err, "Failed to get staleness data")
+			if stale > 0 || reverted > 0 {
+				logger.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			} else {
+				logger.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
+			}
+		}
+	}
 }

@@ -1,7 +1,6 @@
 package automation
 
 import (
-	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
@@ -11,21 +10,14 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 
-	geth "github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/lib/pq"
-	pkg_errors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
@@ -38,7 +30,6 @@ import (
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 )
@@ -567,255 +558,4 @@ func calculateOCR3ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, pu
 		publicConfig.MaxDurationShouldTransmitAcceptedReport,
 		publicConfig.F, publicConfig.OnchainConfig,
 	)
-}
-
-// GenerateUpkeepReport generates a report of performed, successful, reverted and stale upkeeps for a given registry contract based on transaction logs. In case of test failure it can help us
-// to triage the issue by providing more context.
-func GenerateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
-	registryLogs := []gethtypes.Log{}
-	l := framework.L
-
-	var (
-		blockBatchSize  int64 = 100
-		logs            []gethtypes.Log
-		timeout         = 5 * time.Second
-		addr            = common.HexToAddress(instance.Address())
-		queryStartBlock = startBlock
-	)
-
-	// Gather logs from the registry in 100 block chunks to avoid read limits
-	for queryStartBlock.Cmp(endBlock) < 0 {
-		filterQuery := geth.FilterQuery{
-			Addresses: []common.Address{addr},
-			FromBlock: queryStartBlock,
-			ToBlock:   big.NewInt(0).Add(queryStartBlock, big.NewInt(blockBatchSize)),
-		}
-
-		// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
-		err = errors.New("initial error") // to ensure our for loop runs at least once
-		for err != nil {
-			ctx, cancel := context.WithTimeout(t.Context(), timeout)
-			logs, err = chainClient.Client.FilterLogs(ctx, filterQuery)
-			cancel()
-			if err != nil {
-				l.Error().
-					Err(err).
-					Interface("Filter Query", filterQuery).
-					Str("Timeout", timeout.String()).
-					Msg("Error getting logs from chain, trying again")
-				timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
-				continue
-			}
-			l.Info().
-				Uint64("From Block", queryStartBlock.Uint64()).
-				Uint64("To Block", filterQuery.ToBlock.Uint64()).
-				Int("Log Count", len(logs)).
-				Str("Registry Address", addr.Hex()).
-				Msg("Collected logs")
-			queryStartBlock.Add(queryStartBlock, big.NewInt(blockBatchSize))
-			registryLogs = append(registryLogs, logs...)
-		}
-	}
-
-	var contractABI *abi.ABI
-	contractABI, err = contracts.GetRegistryContractABI(registryVersion)
-	if err != nil {
-		return
-	}
-
-	for _, allLogs := range registryLogs {
-		log := allLogs
-		var eventDetails *abi.Event
-		eventDetails, err = contractABI.EventByID(log.Topics[0])
-		if err != nil {
-			l.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error getting event details for log, report data inaccurate")
-			break
-		}
-		if eventDetails.Name == "UpkeepPerformed" {
-			performedUpkeeps++
-			var parsedLog *contracts.UpkeepPerformedLog
-			parsedLog, err = instance.ParseUpkeepPerformedLog(&log)
-			if err != nil {
-				l.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error parsing upkeep performed log, report data inaccurate")
-				break
-			}
-			if !parsedLog.Success {
-				revertedUpkeeps++
-			} else {
-				successfulUpkeeps++
-			}
-		} else if eventDetails.Name == "StaleUpkeepReport" {
-			staleUpkeeps++
-		}
-	}
-
-	return
-}
-
-func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) func() {
-	return func() {
-		if t.Failed() {
-			endBlock, err := chainClient.Client.BlockNumber(t.Context())
-			require.NoError(t, err, "Failed to get end block")
-
-			total, ok, reverted, stale, err := GenerateUpkeepReport(t, chainClient, new(big.Int).SetUint64(startBlock), new(big.Int).SetUint64(endBlock), registry, registryVersion)
-			require.NoError(t, err, "Failed to get staleness data")
-			if stale > 0 || reverted > 0 {
-				logger.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			} else {
-				logger.Info().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")
-			}
-		}
-	}
-}
-
-// SendLinkFundsToDeploymentAddresses sends LINK token to all addresses, but the root one, from the root address. It uses
-// Multicall contract to batch all transfers in a single transaction. It also checks if the funds were transferred correctly.
-// It's primary use case is to fund addresses that will be used for Upkeep registration (as that requires LINK balance) during
-// Automation/Keeper test setup.
-func SendLinkFundsToDeploymentAddresses(
-	chainClient *seth.Client,
-	concurrency,
-	totalUpkeeps,
-	operationsPerAddress int,
-	multicallAddress common.Address,
-	linkAmountPerUpkeep *big.Int,
-	linkToken contracts.LinkToken,
-) error {
-	const maxBatchSize = 75 // keep multicall tx gas comfortably below the block limit
-	var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
-		abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
-		if err != nil {
-			return nil, err
-		}
-		data, err := abi.Pack("transfer", receiver, amount)
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	}
-
-	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
-	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
-
-	// As a hack we use the geth wrapper directly, because we need to access receipt to get block number, which we will use to query the balance
-	// This is needed as querying with 'latest' block number very rarely, but still, return stale balance. That's happening even though we wait for
-	// the transaction to be mined.
-	linkInstance, err := link_token_interface.NewLinkToken(common.HexToAddress(linkToken.Address()), contracts.MustNewWrappedContractBackend(nil, chainClient))
-	if err != nil {
-		return err
-	}
-	// TODO: 2:32PM WRN No matching event with valid indexed parameter count found for log Signature=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef Transaction=0xde63b61cb6f22db882cee1f28c7a11159be3f4e5f07c71998eada723ccf9e6cd
-	tx, err := chainClient.Decode(linkInstance.Transfer(chainClient.NewTXOpts(), multicallAddress, toTransferToMultiCallContract))
-	if err != nil {
-		return err
-	}
-
-	if tx.Receipt == nil {
-		return errors.New("transaction receipt for LINK transfer to multicall contract is nil")
-	}
-
-	multiBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: tx.Receipt.BlockNumber}, multicallAddress)
-	if err != nil {
-		return pkg_errors.Wrapf(err, "Error getting LINK balance of multicall contract")
-	}
-
-	// Old code that's querying latest block
-	// err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
-	// if err != nil {
-	//	return errors.Wrapf(err, "Error transferring LINK to multicall contract")
-	//}
-	//
-	// balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
-	// if err != nil {
-	//	return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
-	//}
-
-	if multiBalance.Cmp(toTransferToMultiCallContract) < 0 {
-		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), multiBalance.String())
-	}
-
-	// Transfer LINK to ephemeral keys
-	multiCallData := make([][]byte, 0)
-	for i := 1; i <= concurrency; i++ {
-		data, err := generateCallData(chainClient.Addresses[i], toTransferPerClient)
-		if err != nil {
-			return pkg_errors.Wrapf(err, "Error generating call data for LINK transfer")
-		}
-		multiCallData = append(multiCallData, data)
-	}
-
-	var call []contracts.Call
-	for _, d := range multiCallData {
-		data := contracts.Call{Target: common.HexToAddress(linkToken.Address()), AllowFailure: false, CallData: d}
-		call = append(call, data)
-	}
-
-	multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
-	if err != nil {
-		return pkg_errors.Wrapf(err, "Error getting Multicall contract ABI")
-	}
-	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
-	var lastReceipt *gethtypes.Receipt
-	for start := 0; start < len(call); start += maxBatchSize {
-		end := start + maxBatchSize
-		if end > len(call) {
-			end = len(call)
-		}
-		chunk := make([]contracts.Call, end-start)
-		copy(chunk, call[start:end])
-		// call aggregate3 to group a safe number of transfers per transaction
-		ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", chunk))
-		if err != nil {
-			return pkg_errors.Wrapf(err, "Error calling Multicall contract")
-		}
-		if ephemeralTx.Receipt == nil {
-			return pkg_errors.New("transaction receipt for LINK transfer to ephemeral keys is nil")
-		}
-		lastReceipt = ephemeralTx.Receipt
-	}
-
-	if lastReceipt == nil {
-		return pkg_errors.New("multicall transfer batch did not execute")
-	}
-
-	for i := 1; i <= concurrency; i++ {
-		ephemeralBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: lastReceipt.BlockNumber}, chainClient.Addresses[i])
-		// Old code that's querying latest block, for now we prefer to use block number from the transaction receipt
-		// balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
-		if err != nil {
-			return pkg_errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
-		}
-		if ephemeralBalance.Cmp(toTransferPerClient) < 0 {
-			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), ephemeralBalance.String())
-		}
-	}
-
-	return nil
-}
-
-// ChainlinkNodeAddressesAtIndex will return all the on-chain wallet addresses for a set of Chainlink nodes
-func ChainlinkNodeAddressesAtIndex(nodes []*clclient.ChainlinkClient, keyIndex int) ([]common.Address, error) {
-	addresses := make([]common.Address, 0)
-	for _, node := range nodes {
-		nodeAddresses, err := node.EthAddresses()
-		if err != nil {
-			return nil, err
-		}
-		addresses = append(addresses, common.HexToAddress(nodeAddresses[keyIndex]))
-	}
-	return addresses, nil
-}
-
-// ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
-func ChainlinkNodeAddresses(nodes []*clclient.ChainlinkClient) ([]common.Address, error) {
-	addresses := make([]common.Address, 0)
-	for _, node := range nodes {
-		primaryAddress, err := node.PrimaryEthAddress()
-		if err != nil {
-			return nil, err
-		}
-		addresses = append(addresses, common.HexToAddress(primaryAddress))
-	}
-	return addresses, nil
 }

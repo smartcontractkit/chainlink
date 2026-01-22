@@ -43,14 +43,14 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		// "registry_2_2_conditional":      ethereum.RegistryVersion_2_2,
 		// "registry_2_2_logtrigger":       ethereum.RegistryVersion_2_2,
 		// "registry_2_2_with_mercury_v02": ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v03": ethereum.RegistryVersion_2_2,
+		// "registry_2_2_with_mercury_v03": ethereum.RegistryVersion_2_2,
 		// "registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
 		// "registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
 		// "registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
 		// "registry_2_3_logtrigger_native": ethereum.RegistryVersion_2_3,
 		// "registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
 		// "registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
-		// "registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
+		"registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -197,7 +197,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			startTime := time.Now()
 
 			t.Cleanup(func() {
-				automation.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				getStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom.Eventually(func(g gomega.Gomega) {

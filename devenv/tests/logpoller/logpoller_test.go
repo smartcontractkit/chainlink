@@ -358,9 +358,9 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		checkRequiredBalance(t, keysRequired, c, config)
+		checkRequiredBalance(t, keysRequired-1, c, config)
 
-		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, config.TestKeysMinFundingEth)
+		newPks, err := products.FundNewAddresses(ctx, keysRequired-1, c, config.TestKeysMinFundingEth)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
 	}

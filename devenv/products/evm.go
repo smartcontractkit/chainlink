@@ -47,7 +47,7 @@ func WaitMinedFast(ctx context.Context, b bind.DeployBackend, txHash common.Hash
 
 func FundNewAddresses(ctx context.Context, keysRequired int, c *ethclient.Client, fundingAmountEth float64) ([]string, error) {
 	pks := []string{}
-	for range keysRequired - 1 {
+	for range keysRequired {
 		address, pk, err := seth.NewAddress()
 		if err != nil {
 			return nil, err
