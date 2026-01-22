@@ -467,7 +467,14 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	pdConfig, err := products.LoadOutput[automation.Configurator](outputFile)
 	require.NoError(t, err)
 	require.NotNil(t, pdConfig.Config[0].EVMNetworkSettings, "EVMNetworkSettings must not be nil in log poller tests")
-	require.True(t, *pdConfig.Config[0].EVMNetworkSettings.FinalityTagEnabled || *pdConfig.Config[0].EVMNetworkSettings.FinalityDepth > 0, "Either FinalityTagEnabled must be true or FinalityDepth must be greater than 0")
+	finalitySet := false
+	if pdConfig.Config[0].EVMNetworkSettings.FinalityTagEnabled != nil && *pdConfig.Config[0].EVMNetworkSettings.FinalityTagEnabled {
+		finalitySet = true
+	}
+	if pdConfig.Config[0].EVMNetworkSettings.FinalityDepth != nil && *pdConfig.Config[0].EVMNetworkSettings.FinalityDepth > 0 {
+		finalitySet = true
+	}
+	require.True(t, finalitySet, "Either FinalityTagEnabled must be true or FinalityDepth must be greater than 0")
 
 	l := framework.L
 	ctx := t.Context()
