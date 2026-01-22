@@ -743,8 +743,8 @@ func (h *handler) errorResponse(
 		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
 		err = errors.New("invalid params error: " + err.Error())
 	case api.UnsupportedMethodError:
-		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method)
-		err = errors.New("unsupported method: " + req.Method)
+		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
+		err = errors.New("unsupported method(" + req.Method + "): " + err.Error())
 	case api.UserMessageParseError:
 		h.lggr.Errorw("user message parse error", "requestID", req.ID, "error", err.Error())
 		err = errors.New("user message parse error: " + err.Error())
