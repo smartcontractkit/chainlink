@@ -515,9 +515,12 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
 	err := h.writeMethodsEnabled.AllowErr(ctx)
-	if err != nil {
+	if errors.Is(err, limits.ErrorNotAllowed{}) {
 		l.Warnw("secrets write method called but write methods are disabled", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UnsupportedMethodError, errors.New("vault write methods(create/update/delete) are disabled: "+err.Error()), nil))
+	} else if err != nil {
+		l.Errorw("error checking if write methods are enabled", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
 	createSecretsRequest := &vaultcommon.CreateSecretsRequest{}
@@ -552,9 +555,12 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
 	err := h.writeMethodsEnabled.AllowErr(ctx)
-	if err != nil {
+	if errors.Is(err, limits.ErrorNotAllowed{}) {
 		l.Warnw("secrets write method called but write methods are disabled", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UnsupportedMethodError, errors.New("vault write methods(create/update/delete) are disabled: "+err.Error()), nil))
+	} else if err != nil {
+		l.Errorw("error checking if write methods are enabled", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
 	updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{}
@@ -589,9 +595,12 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
 	err := h.writeMethodsEnabled.AllowErr(ctx)
-	if err != nil {
+	if errors.Is(err, limits.ErrorNotAllowed{}) {
 		l.Warnw("secrets write method called but write methods are disabled", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UnsupportedMethodError, errors.New("vault write methods(create/update/delete) are disabled: "+err.Error()), nil))
+	} else if err != nil {
+		l.Errorw("error checking if write methods are enabled", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
 	deleteSecretsRequest := &vaultcommon.DeleteSecretsRequest{}
