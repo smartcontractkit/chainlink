@@ -591,7 +591,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, unsupportedMethodRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "unsupported method: "+unsupportedMethodRequest.Method, secretsResponse.Error.Message, "Error message should match")
+			assert.Contains(t, secretsResponse.Error.Message, "unsupported method("+unsupportedMethodRequest.Method+"): ", "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
