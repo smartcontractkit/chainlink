@@ -1,13 +1,13 @@
 module main
 
-go 1.24.5
+go 1.25.3
 
 toolchain go1.25.5
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818141131-0b979c98bab0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.5.1-0.20250818141131-0b979c98bab0
+	github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 )
 
 require (
