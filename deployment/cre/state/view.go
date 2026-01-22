@@ -18,7 +18,9 @@ var _ deployment.ViewStateV2 = ViewCREV2
 func ViewCRE(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
 	chainViews, viewErrs := generateCREChainsViews(e, previousView)
 	if viewErrs != nil {
-		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
+		err2 := fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
 	}
 	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
 	if err != nil {
@@ -35,7 +37,9 @@ func ViewCRE(e deployment.Environment, previousView json.Marshaler) (json.Marsha
 func ViewCREV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
 	chainViews, viewErrs := generateCREChainsViews(e, previousView)
 	if viewErrs != nil {
-		return nil, fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
+		err2 := fmt.Errorf("failed to generate CRE chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
 	}
 
 	// keeping the old NOPs view for backwards compatibility

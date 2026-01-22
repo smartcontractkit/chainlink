@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -35,7 +36,9 @@ type viewContracts struct {
 func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
 	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
 	if viewErrs != nil {
-		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		err2 := fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
 	}
 
 	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
@@ -44,6 +47,7 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 		e.Logger.Error(err2)
 		viewErrs = errors.Join(viewErrs, err2)
 	}
+
 	return &KeystoneView{
 		Chains: chainViews,
 		Nops:   nopsView,
@@ -53,18 +57,60 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 func ViewKeystoneV2(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
 	chainViews, viewErrs := generateKeystoneChainsViews(e, previousView)
 	if viewErrs != nil {
-		return nil, fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		err2 := fmt.Errorf("failed to generate Keystone chain views: %w", viewErrs)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
 	}
 
-	nopsView, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "keystone", nil)
+	// keeping the old NOPs view for backwards compatibility
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
 	if err != nil {
 		err2 := fmt.Errorf("failed to view nops: %w", err)
 		e.Logger.Error(err2)
 		viewErrs = errors.Join(viewErrs, err2)
 	}
+
+	remapper := func(nodeName string) string {
+		var nopName string
+
+		switch {
+		case strings.HasPrefix(nodeName, "cl-df-asset-don"):
+			nopName = "cl-df-asset-don"
+		case strings.HasPrefix(nodeName, "cl-keystone"):
+			nopName = "cl-keystone"
+		case strings.HasPrefix(nodeName, "clp-keystone"):
+			nopName = "clp-keystone"
+		case strings.HasPrefix(nodeName, "cl-mercury"):
+			nopName = "cl-mercury"
+		default:
+			parts := strings.Split(nodeName, "-")
+			// strings.Split always returns at least one element
+			lastPart := parts[len(parts)-1]
+			// if the last part is a number, we take the one before it, due to the following naming conventions in
+			// the mainnet state file:
+			// - bootstrap-<nop-name>-0
+			// - readwriter_2-node-<nop-name>
+			if _, err := strconv.Atoi(lastPart); err == nil && len(parts) > 1 {
+				nopName = parts[len(parts)-2]
+			} else {
+				nopName = lastPart
+			}
+		}
+
+		return nopName
+	}
+
+	nopsViewV2, err := commonview.GenerateNOPsViewV2(e.GetContext(), e.Logger, e.NodeIDs, e.Offchain, "keystone", remapper)
+	if err != nil {
+		err2 := fmt.Errorf("failed to view nops v2: %w", err)
+		e.Logger.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
+	}
+
 	return &KeystoneViewV2{
 		Chains: chainViews,
 		Nops:   nopsView,
+		NopsV2: nopsViewV2,
 	}, viewErrs
 }
 

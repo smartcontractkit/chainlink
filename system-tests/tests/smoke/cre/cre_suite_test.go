@@ -159,3 +159,13 @@ func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 
 	ExecuteLogStreamingTest(t, testEnv)
 }
+
+func Test_CRE_V2_Sharding(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
+		v2RegistriesFlags...,
+	)
+
+	ExecuteShardingTest(t, testEnv)
+}
