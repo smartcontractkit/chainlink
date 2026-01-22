@@ -34,8 +34,8 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260120124124-33cb8e0bd2c5
 	github.com/smartcontractkit/chainlink-deployments-framework v0.75.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260114162311-d591d75b908f
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251211123524-f0c4fe7cfc0a
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260115212037-5e3a1db0e079
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.13.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.7
@@ -102,12 +102,12 @@ require (
 	github.com/avast/retry-go/v4 v4.6.1 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.55.7 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.41.0 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.41.1 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.6 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.6 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.16 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.16 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.16 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.57.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.4 // indirect
@@ -483,9 +483,9 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251229170147-e243de8c69ad // indirect
+	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260116110203-68d767f52164 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20251222203705-84e93cab86b5 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260106165728-3d896e87cc56 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260122132406-0ada7a3fe04a // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.11 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3 // indirect
@@ -506,7 +506,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260106052706-6dd937cb5ec6 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260112124110-73087fb3ec15 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260115213541-c4ca2e53370b // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251205161630-88314452254c // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect

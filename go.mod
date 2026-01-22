@@ -85,13 +85,13 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260107192940-0be702ef3ff5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260106165728-3d896e87cc56
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260122132406-0ada7a3fe04a
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260120124124-33cb8e0bd2c5
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
 	github.com/smartcontractkit/chainlink-data-streams v0.1.11
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260114162311-d591d75b908f
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260115212037-5e3a1db0e079
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251211123524-f0c4fe7cfc0a
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250818175541-3389ac08a563
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20251210101658-1c5c8e4c4f15
@@ -102,7 +102,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260106052706-6dd937cb5ec6
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260112124110-73087fb3ec15
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260115213541-c4ca2e53370b
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260119210543-276a92092771
 	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81
@@ -219,7 +219,7 @@ require (
 	github.com/cosmos/gogoproto v1.7.0 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.4.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/danieljoos/wincred v1.2.1 // indirect
@@ -307,7 +307,7 @@ require (
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.1 // indirect
+	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -359,7 +359,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v4 v4.25.9 // indirect
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
-	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251229170147-e243de8c69ad // indirect
+	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260116110203-68d767f52164 // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20251210101658-1c5c8e4c4f15 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
@@ -385,7 +385,7 @@ require (
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
-	github.com/urfave/cli/v2 v2.27.6 // indirect
+	github.com/urfave/cli/v2 v2.27.7 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
