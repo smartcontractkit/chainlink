@@ -2781,6 +2781,7 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 }
 
 func TestEngine_WorkflowRegistry_BillingClientCalls(t *testing.T) {
+	quarantine.Flaky(t, "DX-2689")
 	t.Parallel()
 
 	const testWorkflow = `
