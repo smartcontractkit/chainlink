@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
@@ -62,6 +63,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
@@ -644,7 +646,7 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 		managers, err := f.ListManagers(ctx)
 		require.NoError(t, err)
 		require.Len(t, managers, 1, "expected exactly one feeds manager")
-
+		sourceMessageTransmitterAddress := jobParams.USDCConfig.SourceMessageTransmitterAddress.String()
 		execSpec := c.jobSpecProposal(
 			t,
 			execSpecTemplate,
@@ -653,7 +655,7 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 			1,
 			node.KeyBundle.ID(),
 			node.Transmitter.Hex(),
-			utils.RandomAddress().String(),
+			sourceMessageTransmitterAddress,
 			utils.RandomAddress().String(),
 		)
 		execId, err := f.ProposeJob(ctx, &execSpec)
@@ -978,6 +980,28 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 }
 
 func (c *CCIPIntegrationTestHarness) SetUpJobs(t *testing.T, bootstrapNode Node, configBlock uint64, jobParams CCIPJobSpecParams) {
+	if jobParams.USDCAttestationAPI != "" && (jobParams.USDCConfig == nil || jobParams.USDCConfig.SourceMessageTransmitterAddress == (common.Address{})) {
+		// required because LogPoller now validates that addresses are actually contracts
+		minimalContractCode := []byte{0x60, 0x00, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3}
+		nonce, err := c.Source.Chain.Client().PendingNonceAt(context.Background(), c.Source.User.From)
+		require.NoError(t, err)
+		auth := *c.Source.User
+		auth.Nonce = big.NewInt(0).SetUint64(nonce)
+		_, tx, _, err := bind.DeployContract(&auth, abi.ABI{}, minimalContractCode, c.Source.Chain.Client())
+		require.NoError(t, err)
+		c.Source.Chain.Commit()
+		receipt, err := c.Source.Chain.Client().TransactionReceipt(context.Background(), tx.Hash())
+		require.NoError(t, err)
+		require.Equal(t, types3.ReceiptStatusSuccessful, receipt.Status)
+		require.NotNil(t, receipt.ContractAddress)
+		if jobParams.USDCConfig == nil {
+			jobParams.USDCConfig = &ccipconfig.USDCConfig{
+				AttestationAPI:               jobParams.USDCAttestationAPI,
+				AttestationAPITimeoutSeconds: 5,
+			}
+		}
+		jobParams.USDCConfig.SourceMessageTransmitterAddress = receipt.ContractAddress
+	}
 	// Add the bootstrap job
 	c.Bootstrap.AddBootstrapJob(t, jobParams.BootstrapJob(c.Dest.CommitStore.Address().Hex()))
 	c.AddAllJobs(t, jobParams)
