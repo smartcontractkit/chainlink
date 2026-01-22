@@ -12,17 +12,19 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 )
 
 var L = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel).With().Fields(map[string]any{"component": "automation"}).Logger()
@@ -34,22 +36,16 @@ type Configurator struct {
 type Automation struct {
 	RegistryVersion  string           `toml:"registryVersion"`
 	RegistrySettings RegistrySettings `toml:"RegistrySettings"`
-
-	MercurySettings *MercurySettings `toml:"MercurySettings"`
+	MercurySettings  *MercurySettings `toml:"MercurySettings"`
 
 	PluginConfig PluginConfig `toml:"PluginConfig"`
 	PublicConfig PublicConfig `toml:"PublicConfig"`
 
-	CLNodesFundingETH float64 `toml:"cl_nodes_funding_eth"`
-	// CLNodesFundingLink float64 `toml:"cl_nodes_funding_link"`
-
-	GasSettings *products.GasSettings `toml:"gas_settings"`
-
-	DeployedContracts DeployedContracts `toml:"deployed_contracts"`
-
-	EVMNetworkSettings EVMNetworkSettings `toml:"EVMNetworkSettings"`
-
-	TestKeysMinFundingEth float64 `toml:"test_keys_min_funding_eth"`
+	CLNodesFundingETH     float64               `toml:"cl_nodes_funding_eth"`
+	GasSettings           *products.GasSettings `toml:"gas_settings"`
+	DeployedContracts     DeployedContracts     `toml:"deployed_contracts"`
+	EVMNetworkSettings    EVMNetworkSettings    `toml:"EVMNetworkSettings"`
+	TestKeysMinFundingEth float64               `toml:"test_keys_min_funding_eth"`
 }
 
 type DeployedContracts struct {
@@ -343,7 +339,6 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return errors.New("PRIVATE_KEY environment variable not set")
 	}
 
-	transmitters := make([]common.Address, 0)
 	ethKeyAddresses := make([]string, 0)
 	for i, nc := range cl {
 		addr, cErr := nc.ReadPrimaryETHKey(bc.Out.ChainID)
@@ -351,7 +346,6 @@ func (m *Configurator) ConfigureJobsAndContracts(
 			return cErr
 		}
 		ethKeyAddresses = append(ethKeyAddresses, addr.Attributes.Address)
-		transmitters = append(transmitters, common.HexToAddress(addr.Attributes.Address))
 		L.Info().
 			Int("Idx", i).
 			Str("ETH", addr.Attributes.Address).
@@ -447,4 +441,60 @@ func (m *Automation) GetMercuryCredentialsName() string {
 	}
 
 	return ""
+}
+
+func (m *Automation) GetRegistryConfig() contracts.KeeperRegistrySettings {
+	registrySettings := m.RegistrySettings
+	return contracts.KeeperRegistrySettings{
+		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
+		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
+		CheckGasLimit:        *registrySettings.CheckGasLimit,
+		StalenessSeconds:     registrySettings.StalenessSeconds,
+		GasCeilingMultiplier: *registrySettings.GasCeilingMultiplier,
+		MinUpkeepSpend:       registrySettings.MinUpkeepSpend,
+		MaxPerformGas:        *registrySettings.MaxPerformGas,
+		FallbackGasPrice:     registrySettings.FallbackGasPrice,
+		FallbackLinkPrice:    registrySettings.FallbackLinkPrice,
+		FallbackNativePrice:  registrySettings.FallbackNativePrice,
+		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
+		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
+		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
+		RegistryVersion:      m.MustGetRegistryVersion(),
+	}
+}
+
+func (m *Automation) GetPluginConfig() ocr2keepers30config.OffchainConfig {
+	plCfg := m.PluginConfig
+	return ocr2keepers30config.OffchainConfig{
+		TargetProbability:    *plCfg.TargetProbability,
+		TargetInRounds:       *plCfg.TargetInRounds,
+		PerformLockoutWindow: *plCfg.PerformLockoutWindow,
+		GasLimitPerReport:    *plCfg.GasLimitPerReport,
+		GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
+		MinConfirmations:     *plCfg.MinConfirmations,
+		MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
+		LogProviderConfig: ocr2keepers30config.LogProviderConfig{
+			BlockRate: *plCfg.LogProviderConfig.BlockRate,
+			LogLimit:  *plCfg.LogProviderConfig.LogLimit,
+		},
+	}
+}
+
+func (m *Automation) GetPublicConfig() ocr3.PublicConfig {
+	pubCfg := m.PublicConfig
+	return ocr3.PublicConfig{
+		DeltaProgress:                           *pubCfg.DeltaProgress,
+		DeltaResend:                             *pubCfg.DeltaResend,
+		DeltaInitial:                            *pubCfg.DeltaInitial,
+		DeltaRound:                              *pubCfg.DeltaRound,
+		DeltaGrace:                              *pubCfg.DeltaGrace,
+		DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
+		DeltaStage:                              *pubCfg.DeltaStage,
+		RMax:                                    *pubCfg.RMax,
+		MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
+		MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
+		MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
+		MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
+		F:                                       *pubCfg.F,
+	}
 }

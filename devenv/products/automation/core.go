@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	devenv_ocr2 "github.com/smartcontractkit/chainlink/devenv/products/ocr2"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -233,7 +232,7 @@ func DeployRegistry(chainClient *seth.Client, registryVersion ethereum.KeeperReg
 		GasFeedAddr:       config.DeployedContracts.EthGasFeed,
 		TranscoderAddr:    config.DeployedContracts.Transcoder,
 		RegistrarAddr:     utils.ZeroAddress.Hex(),
-		Settings:          ReadRegistryConfig(config),
+		Settings:          config.GetRegistryConfig(),
 		LinkUSDFeedAddr:   config.DeployedContracts.EthUSDFeed,
 		NativeUSDFeedAddr: config.DeployedContracts.LinkUSDFeed,
 		WrappedNativeAddr: config.DeployedContracts.Weth,
@@ -350,7 +349,7 @@ func AddAutomationJobs(nodes []*clclient.ChainlinkClient, nodeDetails *NodeDetai
 func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClient *seth.Client) error {
 	donNodes := nodeDetails.NodeDetails[1:]
 	S := make([]int, len(donNodes))
-	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(donNodes))
+	oracleIdentities := make([]ocr2.OracleIdentityExtra, len(donNodes))
 	var signerOnchainPublicKeys []types.OnchainPublicKey
 	var transmitterAccounts []types.Account
 	var f uint8
@@ -389,8 +388,8 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 			}
 
 			sharedSecretEncryptionPublicKeys[index] = configPkBytesFixed
-			oracleIdentities[index] = confighelper.OracleIdentityExtra{
-				OracleIdentity: confighelper.OracleIdentity{
+			oracleIdentities[index] = ocr2.OracleIdentityExtra{
+				OracleIdentity: ocr2.OracleIdentity{
 					OnchainPublicKey:  onchainPkBytes,
 					OffchainPublicKey: offchainPkBytesFixed,
 					PeerID:            chainlinkNode.P2PId,
@@ -407,15 +406,15 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 		return errors.Join(err, errors.New("failed to build oracle identities"))
 	}
 
-	registrySettings := ReadRegistryConfig(config)
+	registrySettings := config.GetRegistryConfig()
 	switch registrySettings.RegistryVersion {
 	case ethereum.RegistryVersion_2_0:
-		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR2ConfigArgs(ReadPluginConfig(config.PluginConfig), ReadPublicConfig(config.PublicConfig), S, oracleIdentities)
+		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR2ConfigArgs(config.GetPluginConfig(), config.GetPublicConfig(), S, oracleIdentities)
 		if err != nil {
 			return errors.Join(err, errors.New("failed to build config args"))
 		}
 	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
-		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR3ConfigArgs(ReadPluginConfig(config.PluginConfig), ReadPublicConfig(config.PublicConfig), S, oracleIdentities)
+		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR3ConfigArgs(config.GetPluginConfig(), config.GetPublicConfig(), S, oracleIdentities)
 		if err != nil {
 			return errors.Join(err, errors.New("failed to build config args"))
 		}
@@ -499,7 +498,7 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 	return nil
 }
 
-func calculateOCR2ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+func calculateOCR2ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []ocr2.OracleIdentityExtra) (
 	signers []types.OnchainPublicKey,
 	transmitters []types.Account,
 	f_ uint8,
@@ -537,7 +536,7 @@ func calculateOCR2ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, pu
 	)
 }
 
-func calculateOCR3ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+func calculateOCR3ConfigArgs(pluginConfig ocr2keepers30config.OffchainConfig, publicConfig ocr3.PublicConfig, S []int, oracleIdentities []ocr2.OracleIdentityExtra) (
 	signers []types.OnchainPublicKey,
 	transmitters []types.Account,
 	f_ uint8,

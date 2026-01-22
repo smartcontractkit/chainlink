@@ -321,7 +321,7 @@ func returnAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromP
 
 	if sethClient.Cfg.IsExperimentEnabled(seth.Experiment_SlowFundsReturn) {
 		txPriority = "slow"
-		thirtyMinutes := time.Duration(30 * time.Minute)
+		thirtyMinutes := 30 * time.Minute
 		txTimeout = thirtyMinutes
 	}
 

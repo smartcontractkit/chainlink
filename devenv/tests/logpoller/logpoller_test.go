@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 
@@ -179,7 +178,7 @@ func TestLogPoller(t *testing.T) {
 			EventsPerTx: 4,
 		},
 		LoopedConfig: &LoopedConfig{
-			ExecutionCount:    1,
+			ExecutionCount:    30,
 			MinEmitWaitTimeMs: 400,
 			MaxEmitWaitTimeMs: 600,
 		},
@@ -215,7 +214,7 @@ func TestLogPollerReplay(t *testing.T) {
 // 900 filters are registered
 
 // Execute both on environment with finalityTagEnabled and with finalityDepth
-func TestLogPollerHeavyLoad(t *testing.T) {
+func XTestLogPollerHeavyLoad(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time, remove the X from the test name to run it")
 	cfg := &Config{
 		General: General{
@@ -281,7 +280,7 @@ func TestLogPollerChaosChainlinkNodes(t *testing.T) {
 
 // Execute both on environment with finalityTagEnabled and with finalityDepth
 func TestLogPollerChaosPostgres(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-563")
+	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-563")
 	cfg := &Config{
 		General: General{
 			Generator:   "looped",
@@ -341,14 +340,13 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	pks := []string{products.NetworkPrivateKey()}
 
 	// assuming we need to have at least 2x more keys than upkeeps in order to generate the amount of events we need
-	// +1 because we won't be using the root key at index 0
-	keysRequired := upKeepsNeeded*2 + 1
+	keysRequired := upKeepsNeeded * 2
 
 	// on simulated network create new ephemeral addresses if insufficient private keys were provided
-	// we require +1 private keys, because key at index 0 is the root key, which is not used during the test
+	// we ignore key at index 0, because it is the root key, which is not used during the test
 	// for contract deployment and interaction
 	// we create new addresses only on the simulated network to protect against fund loss
-	if in.Blockchains[0].ChainID == "1337" && len(pks) != keysRequired {
+	if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != keysRequired {
 		bcNode := in.Blockchains[0].Out.Nodes[0]
 		c, _, _, err := products.ETHClient(
 			ctx,
@@ -358,13 +356,12 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		checkRequiredBalance(t, keysRequired-1, c, config)
-
-		newPks, err := products.FundNewAddresses(ctx, keysRequired-1, c, config.TestKeysMinFundingEth)
+		checkRequiredBalance(t, keysRequired, c, config)
+		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, 10)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
 	}
-	require.GreaterOrEqual(t, len(pks), defaultAmountOfUpkeeps+1, "you must provide at least %d private keys", defaultAmountOfUpkeeps+1)
+	require.GreaterOrEqual(t, len(pks), keysRequired+1, "you must provide at least %d private keys", keysRequired+1)
 
 	chainID, err := strconv.ParseUint(in.Blockchains[0].ChainID, 10, 64)
 	require.NoError(t, err, "Failed to parse chain ID")
@@ -380,7 +377,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 
 	_, upkeepIDs := automation.DeployLegacyConsumers(t, lpTestEnv.chainClient, lpTestEnv.registry, lpTestEnv.registrar, lpTestEnv.linkToken, upKeepsNeeded, big.NewInt(int64(9e18)), uint32(2500000), true, false, false, nil)
 
-	err = assertUpkeepIdsUniqueness(upkeepIDs)
+	err = assertUpkeepIDsUniqueness(upkeepIDs)
 	require.NoError(t, err, "Error asserting upkeep ids uniqueness")
 	l.Info().Msg("No duplicate upkeep IDs found. OK!")
 
@@ -517,7 +514,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 		checkRequiredBalance(t, keysRequired, c, config)
 
-		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, config.TestKeysMinFundingEth)
+		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, 20)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
 	}
@@ -537,7 +534,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	_, upkeepIDs := automation.DeployLegacyConsumers(t, lpTestEnv.chainClient, lpTestEnv.registry, lpTestEnv.registrar, lpTestEnv.linkToken, upKeepsNeeded, big.NewInt(int64(9e18)), uint32(2500000), true, false, false, nil)
 
-	err = assertUpkeepIdsUniqueness(upkeepIDs)
+	err = assertUpkeepIDsUniqueness(upkeepIDs)
 	require.NoError(t, err, "Error asserting upkeep ids uniqueness")
 	l.Info().Msg("No duplicate upkeep IDs found. OK!")
 
@@ -719,5 +716,5 @@ func checkRequiredBalance(t *testing.T, keysRequired int, c *ethclient.Client, c
 
 	balanceAt, bErr := c.BalanceAt(t.Context(), fromAddress, nil)
 	require.NoError(t, bErr, "Failed to get balance")
-	require.True(t, balanceAt.Cmp(requiredBalanceWei) >= 0, "Insufficient balance. Need %s wei but have %s", requiredBalanceWei.String(), balanceAt.String())
+	require.GreaterOrEqual(t, balanceAt.Cmp(requiredBalanceWei), 0, "Insufficient balance. Need %s wei but have %s", requiredBalanceWei.String(), balanceAt.String())
 }

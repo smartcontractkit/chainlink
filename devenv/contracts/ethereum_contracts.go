@@ -23,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
-	iregistry22 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/oracle_wrapper"
@@ -126,9 +124,9 @@ func GetRegistryContractABI(version eth_contracts.KeeperRegistryVersion) (*abi.A
 	case eth_contracts.RegistryVersion_2_0:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	case eth_contracts.RegistryVersion_2_1:
-		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
+		contractABI, err = i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterMetaData.GetAbi()
 	case eth_contracts.RegistryVersion_2_2:
-		contractABI, err = iregistry22.IAutomationRegistryMasterMetaData.GetAbi()
+		contractABI, err = i_automation_registry_master_wrapper_2_2.IAutomationRegistryMasterMetaData.GetAbi()
 	default:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	}

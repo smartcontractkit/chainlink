@@ -203,7 +203,7 @@ func (e *ConcurrentExecutor[ResultType, ResultChannelType, TaskType]) Execute(co
 	<-canSafelyContinueCh
 
 	if len(e.errors) > 0 {
-		return []ResultType{}, fmt.Errorf("Failed to process %d task(s). Check logs for more details. Look for 'Error processing a task'", len(e.errors))
+		return []ResultType{}, fmt.Errorf("failed to process %d task(s). Check logs for more details. Look for 'Error processing a task'", len(e.errors))
 	}
 
 	return e.results, nil

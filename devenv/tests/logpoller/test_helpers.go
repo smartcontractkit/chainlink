@@ -1203,12 +1203,12 @@ func uploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Clie
 	return logEmitters
 }
 
-// assertUpkeepIdsUniqueness asserts that the provided upkeep IDs are unique
-func assertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
+// assertUpkeepIDsUniqueness asserts that the provided upkeep IDs are unique
+func assertUpkeepIDsUniqueness(upkeepIDs []*big.Int) error {
 	upKeepIdSeen := make(map[int64]bool)
 	for _, upkeepID := range upkeepIDs {
 		if _, ok := upKeepIdSeen[upkeepID.Int64()]; ok {
-			return fmt.Errorf("Duplicate upkeep ID %d", upkeepID.Int64())
+			return fmt.Errorf("duplicate upkeep ID %d", upkeepID.Int64())
 		}
 		upKeepIdSeen[upkeepID.Int64()] = true
 	}
@@ -1222,7 +1222,7 @@ func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error
 	for _, logEmitter := range logEmitters {
 		address := (*logEmitter).Address().String()
 		if _, ok := contractAddressSeen[address]; ok {
-			return fmt.Errorf("Duplicate contract address %s", address)
+			return fmt.Errorf("duplicate contract address %s", address)
 		}
 		contractAddressSeen[address] = true
 	}
@@ -1255,7 +1255,7 @@ func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 
 			key := fmt.Sprintf("%s-%s", emitterAddress.String(), topicId.Hex())
 			if _, ok := uniqueFilters[key]; ok {
-				return fmt.Errorf("Duplicate filter %s", key)
+				return fmt.Errorf("duplicate filter %s", key)
 			}
 			uniqueFilters[key] = true
 			upkeepIdIndex++
@@ -1263,7 +1263,7 @@ func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 	}
 
 	if upKeepsNeeded != len(uniqueFilters) {
-		return fmt.Errorf("Number of unique filters should be equal to number of upkeeps. Expected %d. Got %d", upKeepsNeeded, len(uniqueFilters))
+		return fmt.Errorf("number of unique filters should be equal to number of upkeeps. Expected %d. Got %d", upKeepsNeeded, len(uniqueFilters))
 	}
 
 	return nil

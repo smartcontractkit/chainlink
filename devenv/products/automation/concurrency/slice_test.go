@@ -85,9 +85,8 @@ func TestDivideSlice(t *testing.T) {
 			got := concurrency.DivideSlice(tt.slice, tt.parts)
 
 			if !tt.wantErr {
-				require.EqualValues(t, tt.want, got, "DivideSlice() = %v, want %v", got, tt.want)
+				require.Equal(t, tt.want, got, "DivideSlice() = %v, want %v", got, tt.want)
 			}
-
 		})
 	}
 }

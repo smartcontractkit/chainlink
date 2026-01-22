@@ -26,7 +26,6 @@ func (r result) GetResult() int {
 type config struct{}
 
 func TestExecute(t *testing.T) {
-
 	type tc struct {
 		name            string
 		concurrency     int
@@ -130,7 +129,7 @@ func TestExecute(t *testing.T) {
 				require.Len(t, results, tc.expectedResults, "Wrong result number")
 			} else {
 				require.Error(t, err, "No error returned when executing concurrently")
-				require.Len(t, results, 0, "Expected no results")
+				require.Empty(t, results, "Expected no results")
 				require.GreaterOrEqual(t, len(executor.GetErrors()), tc.expectedErrors, "Wrong error number")
 			}
 		})
@@ -138,7 +137,6 @@ func TestExecute(t *testing.T) {
 }
 
 func TestExecuteFailFast(t *testing.T) {
-
 	type tc struct {
 		name        string
 		executor    *concurrency.ConcurrentExecutor[int, result, config]
@@ -180,19 +178,18 @@ func TestExecuteFailFast(t *testing.T) {
 
 			results, err := tc.executor.Execute(100, configs, tc.processorFn)
 			require.Error(t, err, "No error returned when executing concurrently")
-			require.Len(t, results, 0, "Expected no results")
+			require.Empty(t, results, "Expected no results")
 			if tc.failFast {
 				fmt.Println(len(tc.executor.GetErrors()))
 				require.Less(t, len(tc.executor.GetErrors()), expectedExecutions, "With fail fast enabled not all tasks should be executed")
 			} else {
-				require.Equal(t, len(tc.executor.GetErrors()), expectedExecutions, "With fail fast disabled all tasks should be executed")
+				require.Len(t, tc.executor.GetErrors(), expectedExecutions, "With fail fast disabled all tasks should be executed")
 			}
 		})
 	}
 }
 
 func TestExecuteSimple(t *testing.T) {
-
 	type tc struct {
 		name            string
 		concurrency     int
@@ -256,7 +253,7 @@ func TestExecuteSimple(t *testing.T) {
 				require.Len(t, results, tc.expectedResults, "Wrong result number")
 			} else {
 				require.Error(t, err, "No error returned when executing concurrently")
-				require.Len(t, results, 0, "Expected no results")
+				require.Empty(t, results, "Expected no results")
 				require.GreaterOrEqual(t, len(executor.GetErrors()), tc.expectedErrors, "Wrong error number")
 			}
 		})
@@ -294,5 +291,5 @@ func TestParentContext(t *testing.T) {
 
 	require.NoError(t, err, "Error executing concurrently")
 	require.GreaterOrEqual(t, len(results), 1, "Wrong result number")
-	require.Equal(t, 0, len(executor.GetErrors()), "No errors expected")
+	require.Empty(t, executor.GetErrors(), "No errors expected")
 }

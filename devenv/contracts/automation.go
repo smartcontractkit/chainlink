@@ -18,7 +18,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
-	eth_contracts "github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 
 	cs "github.com/smartcontractkit/chain-selectors"
 
@@ -35,12 +34,9 @@ import (
 	registry23 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_registry_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/chain_module_base"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	iregistry22 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
-	iregistry23 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_chain_module"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper2_0"
@@ -1090,19 +1086,19 @@ func DeployKeeperRegistry(
 	// }
 	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
-	case eth_contracts.RegistryVersion_1_0, eth_contracts.RegistryVersion_1_1:
+	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
 		return deployRegistry10_11(client, opts)
-	case eth_contracts.RegistryVersion_1_2:
+	case ethereum.RegistryVersion_1_2:
 		return deployRegistry12(client, opts)
-	case eth_contracts.RegistryVersion_1_3:
+	case ethereum.RegistryVersion_1_3:
 		return deployRegistry13(client, opts, mode, registryGasOverhead)
-	case eth_contracts.RegistryVersion_2_0:
+	case ethereum.RegistryVersion_2_0:
 		return deployRegistry20(client, opts, mode)
-	case eth_contracts.RegistryVersion_2_1:
+	case ethereum.RegistryVersion_2_1:
 		return deployRegistry21(client, opts, mode)
-	case eth_contracts.RegistryVersion_2_2:
+	case ethereum.RegistryVersion_2_2:
 		return deployRegistry22(client, opts)
-	case eth_contracts.RegistryVersion_2_3:
+	case ethereum.RegistryVersion_2_3:
 		return deployRegistry23(client, opts)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
@@ -1138,7 +1134,7 @@ func deployRegistry10_11(client *seth.Client, opts *KeeperRegistryOpts) (KeeperR
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     eth_contracts.RegistryVersion_1_1,
+		version:     ethereum.RegistryVersion_1_1,
 		registry1_1: instance,
 		registry1_2: nil,
 		registry1_3: nil,
@@ -1180,7 +1176,7 @@ func deployRegistry12(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 	}
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     eth_contracts.RegistryVersion_1_2,
+		version:     ethereum.RegistryVersion_1_2,
 		registry1_1: nil,
 		registry1_2: instance,
 		registry1_3: nil,
@@ -1236,7 +1232,7 @@ func deployRegistry13(client *seth.Client, opts *KeeperRegistryOpts, mode uint8,
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     eth_contracts.RegistryVersion_1_3,
+		version:     ethereum.RegistryVersion_1_3,
 		registry1_1: nil,
 		registry1_2: nil,
 		registry1_3: instance,
@@ -1277,7 +1273,7 @@ func deployRegistry20(client *seth.Client, opts *KeeperRegistryOpts, mode uint8)
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     eth_contracts.RegistryVersion_2_0,
+		version:     ethereum.RegistryVersion_2_0,
 		registry2_0: instance,
 		address:     &data.Address,
 	}, err
@@ -1327,14 +1323,14 @@ func deployRegistry21(client *seth.Client, opts *KeeperRegistryOpts, mode uint8)
 		return &EthereumKeeperRegistry{}, fmt.Errorf("KeeperRegistry2_1 instance deployment have failed: %w", err)
 	}
 
-	instance, err := iregistry21.NewIKeeperRegistryMaster(data.Address, MustNewWrappedContractBackend(nil, client))
+	instance, err := i_keeper_registry_master_wrapper_2_1.NewIKeeperRegistryMaster(data.Address, MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate KeeperRegistry2_1 instance: %w", err)
 	}
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     eth_contracts.RegistryVersion_2_1,
+		version:     ethereum.RegistryVersion_2_1,
 		registry2_1: instance,
 		address:     &data.Address,
 	}, err
@@ -1405,7 +1401,7 @@ func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		return &EthereumKeeperRegistry{}, fmt.Errorf("AutomationRegistry2_2 instance deployment have failed: %w", err)
 	}
 
-	instance, err := iregistry22.NewIAutomationRegistryMaster(data.Address, MustNewWrappedContractBackend(nil, client))
+	instance, err := i_automation_registry_master_wrapper_2_2.NewIAutomationRegistryMaster(data.Address, MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate AutomationRegistry2_2 instance: %w", err)
 	}
@@ -1417,7 +1413,7 @@ func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     eth_contracts.RegistryVersion_2_2,
+		version:     ethereum.RegistryVersion_2_2,
 		registry2_2: instance,
 		chainModule: chainModule,
 		address:     &data.Address,
@@ -1504,7 +1500,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		return &EthereumKeeperRegistry{}, fmt.Errorf("AutomationRegistry2_3 instance deployment have failed: %w", err)
 	}
 
-	instance, err := iregistry23.NewIAutomationRegistryMaster23(data.Address, MustNewWrappedContractBackend(nil, client))
+	instance, err := i_automation_registry_master_wrapper_2_3.NewIAutomationRegistryMaster23(data.Address, MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate AutomationRegistry2_3 instance: %w", err)
 	}
@@ -1516,7 +1512,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     eth_contracts.RegistryVersion_2_3,
+		version:     ethereum.RegistryVersion_2_3,
 		registry2_3: instance,
 		chainModule: chainModule,
 		address:     &data.Address,
@@ -1524,23 +1520,23 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 }
 
 // LoadKeeperRegistry returns deployed on given address EthereumKeeperRegistry
-func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion eth_contracts.KeeperRegistryVersion, chainModuleAddress common.Address) (KeeperRegistry, error) {
+func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion ethereum.KeeperRegistryVersion, chainModuleAddress common.Address) (KeeperRegistry, error) {
 	var keeper *EthereumKeeperRegistry
 	var err error
 	switch registryVersion {
-	case eth_contracts.RegistryVersion_1_1:
+	case ethereum.RegistryVersion_1_1:
 		keeper, err = loadRegistry1_1(client, address)
-	case eth_contracts.RegistryVersion_1_2:
+	case ethereum.RegistryVersion_1_2:
 		keeper, err = loadRegistry1_2(client, address)
-	case eth_contracts.RegistryVersion_1_3:
+	case ethereum.RegistryVersion_1_3:
 		keeper, err = loadRegistry1_3(client, address)
-	case eth_contracts.RegistryVersion_2_0:
+	case ethereum.RegistryVersion_2_0:
 		keeper, err = loadRegistry2_0(client, address)
-	case eth_contracts.RegistryVersion_2_1:
+	case ethereum.RegistryVersion_2_1:
 		keeper, err = loadRegistry2_1(client, address)
-	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
+	case ethereum.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
 		keeper, err = loadRegistry2_2(client, address)
-	case eth_contracts.RegistryVersion_2_3:
+	case ethereum.RegistryVersion_2_3:
 		keeper, err = loadRegistry2_3(client, address, chainModuleAddress)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
@@ -1638,15 +1634,15 @@ func loadRegistry2_0(client *seth.Client, address common.Address) (*EthereumKeep
 }
 
 func loadRegistry2_1(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
-	abi, err := iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
+	abi, err := i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterMetaData.GetAbi()
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistry2_1 ABI: %w", err)
 	}
 
 	client.ContractStore.AddABI("KeeperRegistry2_1", *abi)
-	client.ContractStore.AddBIN("KeeperRegistry2_1", common.FromHex(iregistry21.IKeeperRegistryMasterMetaData.Bin))
+	client.ContractStore.AddBIN("KeeperRegistry2_1", common.FromHex(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterMetaData.Bin))
 
-	instance, err := iregistry21.NewIKeeperRegistryMaster(address, MustNewWrappedContractBackend(nil, client))
+	instance, err := i_keeper_registry_master_wrapper_2_1.NewIKeeperRegistryMaster(address, MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate KeeperRegistry2_1 instance: %w", err)
 	}
@@ -1659,15 +1655,15 @@ func loadRegistry2_1(client *seth.Client, address common.Address) (*EthereumKeep
 }
 
 func loadRegistry2_2(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
-	abi, err := iregistry22.IAutomationRegistryMasterMetaData.GetAbi()
+	abi, err := i_automation_registry_master_wrapper_2_2.IAutomationRegistryMasterMetaData.GetAbi()
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistry2_2 ABI: %w", err)
 	}
 
 	client.ContractStore.AddABI("AutomationRegistry2_2", *abi)
-	client.ContractStore.AddBIN("AutomationRegistry2_2", common.FromHex(iregistry22.IAutomationRegistryMasterMetaData.Bin))
+	client.ContractStore.AddBIN("AutomationRegistry2_2", common.FromHex(i_automation_registry_master_wrapper_2_2.IAutomationRegistryMasterMetaData.Bin))
 
-	instance, err := iregistry22.NewIAutomationRegistryMaster(address, MustNewWrappedContractBackend(nil, client))
+	instance, err := i_automation_registry_master_wrapper_2_2.NewIAutomationRegistryMaster(address, MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate AutomationRegistry2_2 instance: %w", err)
 	}
@@ -1680,8 +1676,8 @@ func loadRegistry2_2(client *seth.Client, address common.Address) (*EthereumKeep
 }
 
 func loadRegistry2_3(client *seth.Client, address, chainModuleAddress common.Address) (*EthereumKeeperRegistry, error) {
-	loader := seth.NewContractLoader[iregistry23.IAutomationRegistryMaster23](client)
-	instance, err := loader.LoadContract("AutomationRegistry2_3", address, iregistry23.IAutomationRegistryMaster23MetaData.GetAbi, iregistry23.NewIAutomationRegistryMaster23)
+	loader := seth.NewContractLoader[i_automation_registry_master_wrapper_2_3.IAutomationRegistryMaster23](client)
+	instance, err := loader.LoadContract("AutomationRegistry2_3", address, i_automation_registry_master_wrapper_2_3.IAutomationRegistryMaster23MetaData.GetAbi, i_automation_registry_master_wrapper_2_3.NewIAutomationRegistryMaster23)
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to load AutomationRegistry2_3 instance: %w", err)
 	}
@@ -2067,9 +2063,9 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 	return req, nil
 }
 
-func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
+func DeployKeeperRegistrar(client *seth.Client, registryVersion ethereum.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 	switch registryVersion {
-	case eth_contracts.RegistryVersion_2_0:
+	case ethereum.RegistryVersion_2_0:
 		abi, err := keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
 		if err != nil {
 			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_0 ABI: %w", err)
@@ -2095,7 +2091,7 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 			registrar20: instance,
 			address:     &data.Address,
 		}, nil
-	case eth_contracts.RegistryVersion_2_1, eth_contracts.RegistryVersion_2_2: // both 2.1 and 2.2 registry use registrar 2.1
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // both 2.1 and 2.2 registry use registrar 2.1
 		abi, err := registrar21.AutomationRegistrarMetaData.GetAbi()
 		if err != nil {
 			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_1 ABI: %w", err)
@@ -2128,7 +2124,7 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 			registrar21: instance,
 			address:     &data.Address,
 		}, nil
-	case eth_contracts.RegistryVersion_2_3:
+	case ethereum.RegistryVersion_2_3:
 		abi, err := registrar23.AutomationRegistrarMetaData.GetAbi()
 		if err != nil {
 			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_3 ABI: %w", err)
@@ -2204,9 +2200,9 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 }
 
 // LoadKeeperRegistrar returns deployed on given address EthereumKeeperRegistrar
-func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistrar, error) {
+func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVersion ethereum.KeeperRegistryVersion) (KeeperRegistrar, error) {
 	switch registryVersion {
-	case eth_contracts.RegistryVersion_1_1, eth_contracts.RegistryVersion_1_2, eth_contracts.RegistryVersion_1_3:
+	case ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2, ethereum.RegistryVersion_1_3:
 		loader := seth.NewContractLoader[keeper_registrar_wrapper1_2.KeeperRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar1_2", address, keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.GetAbi, keeper_registrar_wrapper1_2.NewKeeperRegistrar)
 		if err != nil {
@@ -2218,7 +2214,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:    client,
 			registrar: instance,
 		}, err
-	case eth_contracts.RegistryVersion_2_0:
+	case ethereum.RegistryVersion_2_0:
 		loader := seth.NewContractLoader[keeper_registrar_wrapper2_0.KeeperRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar2_0", address, keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi, keeper_registrar_wrapper2_0.NewKeeperRegistrar)
 		if err != nil {
@@ -2230,7 +2226,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:      client,
 			registrar20: instance,
 		}, nil
-	case eth_contracts.RegistryVersion_2_1, eth_contracts.RegistryVersion_2_2:
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
 		loader := seth.NewContractLoader[registrar21.AutomationRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar2_1", address, registrar21.AutomationRegistrarMetaData.GetAbi, registrar21.NewAutomationRegistrar)
 		if err != nil {
@@ -2242,7 +2238,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:      client,
 			registrar21: instance,
 		}, nil
-	case eth_contracts.RegistryVersion_2_3:
+	case ethereum.RegistryVersion_2_3:
 		loader := seth.NewContractLoader[registrar23.AutomationRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar2_3", address, registrar23.AutomationRegistrarMetaData.GetAbi, registrar23.NewAutomationRegistrar)
 		if err != nil {

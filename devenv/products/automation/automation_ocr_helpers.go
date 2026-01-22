@@ -14,10 +14,8 @@ import (
 	pkg_errors "github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
 )
@@ -171,7 +169,7 @@ func SendLinkFundsToDeploymentAddresses(
 
 	multiBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: tx.Receipt.BlockNumber}, multicallAddress)
 	if err != nil {
-		return pkg_errors.Wrapf(err, "Error getting LINK balance of multicall contract")
+		return pkg_errors.Wrapf(err, "error getting LINK balance of multicall contract")
 	}
 
 	// Old code that's querying latest block
@@ -186,7 +184,7 @@ func SendLinkFundsToDeploymentAddresses(
 	//}
 
 	if multiBalance.Cmp(toTransferToMultiCallContract) < 0 {
-		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), multiBalance.String())
+		return fmt.Errorf("incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), multiBalance.String())
 	}
 
 	// Transfer LINK to ephemeral keys
@@ -194,7 +192,7 @@ func SendLinkFundsToDeploymentAddresses(
 	for i := 1; i <= concurrency; i++ {
 		data, err := generateCallData(chainClient.Addresses[i], toTransferPerClient)
 		if err != nil {
-			return pkg_errors.Wrapf(err, "Error generating call data for LINK transfer")
+			return pkg_errors.Wrapf(err, "error generating call data for LINK transfer")
 		}
 		multiCallData = append(multiCallData, data)
 	}
@@ -207,7 +205,7 @@ func SendLinkFundsToDeploymentAddresses(
 
 	multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
 	if err != nil {
-		return pkg_errors.Wrapf(err, "Error getting Multicall contract ABI")
+		return pkg_errors.Wrapf(err, "error getting Multicall contract ABI")
 	}
 	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
 	var lastReceipt *gethtypes.Receipt
@@ -221,7 +219,7 @@ func SendLinkFundsToDeploymentAddresses(
 		// call aggregate3 to group a safe number of transfers per transaction
 		ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", chunk))
 		if err != nil {
-			return pkg_errors.Wrapf(err, "Error calling Multicall contract")
+			return pkg_errors.Wrapf(err, "error calling Multicall contract")
 		}
 		if ephemeralTx.Receipt == nil {
 			return pkg_errors.New("transaction receipt for LINK transfer to ephemeral keys is nil")
@@ -238,66 +236,12 @@ func SendLinkFundsToDeploymentAddresses(
 		// Old code that's querying latest block, for now we prefer to use block number from the transaction receipt
 		// balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
 		if err != nil {
-			return pkg_errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
+			return pkg_errors.Wrapf(err, "error getting LINK balance of ephemeral key %d", i)
 		}
 		if ephemeralBalance.Cmp(toTransferPerClient) < 0 {
-			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), ephemeralBalance.String())
+			return fmt.Errorf("incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), ephemeralBalance.String())
 		}
 	}
 
 	return nil
-}
-
-func ReadRegistryConfig(config *Automation) contracts.KeeperRegistrySettings {
-	registrySettings := config.RegistrySettings
-	return contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
-		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
-		CheckGasLimit:        *registrySettings.CheckGasLimit,
-		StalenessSeconds:     registrySettings.StalenessSeconds,
-		GasCeilingMultiplier: *registrySettings.GasCeilingMultiplier,
-		MinUpkeepSpend:       registrySettings.MinUpkeepSpend,
-		MaxPerformGas:        *registrySettings.MaxPerformGas,
-		FallbackGasPrice:     registrySettings.FallbackGasPrice,
-		FallbackLinkPrice:    registrySettings.FallbackLinkPrice,
-		FallbackNativePrice:  registrySettings.FallbackNativePrice,
-		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
-		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
-		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
-		RegistryVersion:      config.MustGetRegistryVersion(),
-	}
-}
-
-func ReadPluginConfig(plCfg PluginConfig) ocr2keepers30config.OffchainConfig {
-	return ocr2keepers30config.OffchainConfig{
-		TargetProbability:    *plCfg.TargetProbability,
-		TargetInRounds:       *plCfg.TargetInRounds,
-		PerformLockoutWindow: *plCfg.PerformLockoutWindow,
-		GasLimitPerReport:    *plCfg.GasLimitPerReport,
-		GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
-		MinConfirmations:     *plCfg.MinConfirmations,
-		MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
-		LogProviderConfig: ocr2keepers30config.LogProviderConfig{
-			BlockRate: *plCfg.LogProviderConfig.BlockRate,
-			LogLimit:  *plCfg.LogProviderConfig.LogLimit,
-		},
-	}
-}
-
-func ReadPublicConfig(pubCfg PublicConfig) ocr3.PublicConfig {
-	return ocr3.PublicConfig{
-		DeltaProgress:                           *pubCfg.DeltaProgress,
-		DeltaResend:                             *pubCfg.DeltaResend,
-		DeltaInitial:                            *pubCfg.DeltaInitial,
-		DeltaRound:                              *pubCfg.DeltaRound,
-		DeltaGrace:                              *pubCfg.DeltaGrace,
-		DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
-		DeltaStage:                              *pubCfg.DeltaStage,
-		RMax:                                    *pubCfg.RMax,
-		MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
-		MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
-		MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
-		MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
-		F:                                       *pubCfg.F,
-	}
 }

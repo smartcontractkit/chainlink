@@ -39,7 +39,7 @@ func (k contractResult) GetResult() ContractIntstance {
 func TestExampleContractsWithConfiguration(t *testing.T) {
 	instances, err := DeployContractsWithConfiguration(&client{}, []contractConfiguration{{}, {}})
 	require.NoError(t, err, "failed to deploy contract instances")
-	require.Equal(t, 2, len(instances), "expected 2 contract instances")
+	require.Len(t, instances, 2, "expected 2 contract instances")
 }
 
 // DeployContractsWithConfiguration shows a very simplified method that deploys concurrently contract instances with given configurations
@@ -75,7 +75,7 @@ func DeployContractsWithConfiguration(client *client, contractConfigs []contract
 func TestExampleContractsWithoutConfiguration(t *testing.T) {
 	instances, err := DeployIdenticalContracts(&client{}, 2)
 	require.NoError(t, err, "failed to deploy contract instances")
-	require.Equal(t, 2, len(instances), "expected 2 contract instances")
+	require.Len(t, instances, 2, "expected 2 contract instances")
 }
 
 // DeployIdenticalContracts shows a very simplified method that deploys concurrently identical contract instances
