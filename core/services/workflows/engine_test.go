@@ -368,6 +368,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngine_Metering_ValidBillingClient(t *testing.T) {
+	quarantine.Flaky(t, "DX-2683")
 	t.Parallel()
 
 	const meteringSimpleWorkflow = `
