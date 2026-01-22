@@ -239,8 +239,8 @@ LimitDefault = {{.GasEstimator.LimitDefault}}
 
 [[EVM.Nodes]]
 Name = 'default'
-WsUrl = '{{.WsUrl}}'
-HttpUrl = '{{.HttpUrl}}'
+WsUrl = '{{.WsURL}}'
+HttpUrl = '{{.HTTPURL}}'
 `
 
 	tmpl, err := template.New("config").Parse(netConfigTemplate)

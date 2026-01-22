@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 )
 
@@ -19,26 +20,23 @@ const (
 var result = "200"
 
 func RegisterRoutes() error {
-	err := fake.Func("POST", "/juelsPerFeeCoinSource", func(ctx *gin.Context) {
+	if err := fake.Func("POST", "/juelsPerFeeCoinSource", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
 			"data": map[string]any{
 				"result": DefaultJuelsPerLinkRatio,
 			},
 		})
-	})
-	if err != nil {
-
+	}); err != nil {
+		return err
 	}
 
-	err = fake.Func("POST", "/trigger_deviation", func(ctx *gin.Context) {
+	if err := fake.Func("POST", "/trigger_deviation", func(ctx *gin.Context) {
 		result = ctx.Query("result")
 		L.Info().Str("Result", result).Msg("Changing returned result")
 		ctx.JSON(200, gin.H{
 			"result": "ok",
 		})
-	})
-
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
