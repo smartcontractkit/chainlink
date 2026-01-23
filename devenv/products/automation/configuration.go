@@ -34,17 +34,17 @@ type Configurator struct {
 }
 
 type Automation struct {
-	RegistryVersion  string           `toml:"registryVersion"`
-	RegistrySettings RegistrySettings `toml:"RegistrySettings"`
-	MercurySettings  *MercurySettings `toml:"MercurySettings"`
+	RegistryVersion  string           `toml:"registry_version"`
+	RegistrySettings RegistrySettings `toml:"registry_settings"`
+	MercurySettings  *MercurySettings `toml:"mercury_settings"`
 
-	PluginConfig PluginConfig `toml:"PluginConfig"`
-	PublicConfig PublicConfig `toml:"PublicConfig"`
+	PluginConfig PluginConfig `toml:"plugin_config"`
+	PublicConfig PublicConfig `toml:"public_config"`
 
 	CLNodesFundingETH  float64              `toml:"cl_nodes_funding_eth"`
 	GasSettings        products.GasSettings `toml:"gas_settings"`
 	DeployedContracts  DeployedContracts    `toml:"deployed_contracts"`
-	EVMNetworkSettings EVMNetworkSettings   `toml:"EVMNetworkSettings"`
+	EVMNetworkSettings EVMNetworkSettings   `toml:"evm_network_settings"`
 }
 
 type DeployedContracts struct {
@@ -64,7 +64,7 @@ type DeployedContracts struct {
 
 type MercurySettings struct {
 	Version         string `toml:"version"`
-	CredentialsName string `toml:"credentialsName"`
+	CredentialsName string `toml:"credentials_name"`
 }
 
 type EVMNetworkSettings struct {
@@ -96,7 +96,7 @@ type PluginConfig struct {
 	GasLimitPerReport    *uint32            `toml:"gas_limit_per_report"`
 	GasOverheadPerUpkeep *uint32            `toml:"gas_overhead_per_upkeep"`
 	MaxUpkeepBatchSize   *int               `toml:"max_upkeep_batch_size"`
-	LogProviderConfig    *LogProviderConfig `toml:"LogProviderConfig"`
+	LogProviderConfig    *LogProviderConfig `toml:"log_provider_config"`
 }
 
 type LogProviderConfig struct {
@@ -156,7 +156,12 @@ func (m *Configurator) Store(path string, instanceIdx int) error {
 	return nil
 }
 
-func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *blockchain.Input) (string, error) {
+func (m *Configurator) GenerateNodesConfig(
+	ctx context.Context,
+	fs *fake.Input,
+	bc *blockchain.Input,
+	ns *nodeset.Input,
+) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
 	config := `[Feature]
@@ -277,7 +282,12 @@ HttpUrl = '{{.HTTPURL}}'
 	return config + buf.String(), nil
 }
 
-func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context, fake *fake.Input) (string, error) {
+func (m *Configurator) GenerateNodesSecrets(
+	ctx context.Context,
+	fs *fake.Input,
+	_ *blockchain.Input,
+	_ *nodeset.Input,
+) (string, error) {
 	if m.Config[0].MercurySettings == nil {
 		L.Info().Msg("Product doesn't use Mercury. Skipping CL nodes secrets configuration")
 		return "", nil
@@ -297,7 +307,7 @@ func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context, fake *fake.In
 	}
 
 	d := data{
-		URL:             fake.Out.BaseURLDocker,
+		URL:             fs.Out.BaseURLDocker,
 		CredentialsName: m.Config[0].MercurySettings.CredentialsName,
 	}
 
@@ -318,7 +328,7 @@ func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context, fake *fake.In
 func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
 	instanceIdx int,
-	fake *fake.Input,
+	fs *fake.Input,
 	bc *blockchain.Input,
 	ns *nodeset.Input,
 ) error {

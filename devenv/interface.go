@@ -17,15 +17,19 @@ type Product interface {
 	// since product may have multiple "instances" which configure on-chain part and jobs
 	// here we also provide an instance index
 	Store(path string, instanceIdx int) error
-	// GenerateCLNodesBlockchainConfig generates configuration for CL nodes for blockchain connection
-	GenerateCLNodesBlockchainConfig(
+	// GenerateNodesConfig generates configuration for CL nodes for blockchain connection
+	GenerateNodesConfig(
 		ctx context.Context,
+		fs *fake.Input,
 		bc *blockchain.Input,
+		ns *nodeset.Input,
 	) (string, error)
 	// GenerateCLNodesSecrets generates secrets
-	GenerateCLNodesSecrets(
+	GenerateNodesSecrets(
 		ctx context.Context,
-		fake *fake.Input,
+		fs *fake.Input,
+		bc *blockchain.Input,
+		ns *nodeset.Input,
 	) (string, error)
 	// ConfigureJobsAndContracts configures both on-chain and off-chain parts of a product
 	ConfigureJobsAndContracts(

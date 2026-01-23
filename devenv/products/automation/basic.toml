@@ -3,12 +3,12 @@ name = "automation"
 instances = 7
 
 [[automation]]
-registryVersion = "2.0"
+registry_version = "2.0"
 cl_nodes_funding_eth = 50
 
-[automation.MercurySettings]
+[automation.mercury_settings]
 version = "v2"
-credentialsName = "creds0"
+credentials_name = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -16,7 +16,7 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -31,7 +31,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -40,11 +40,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000
@@ -60,14 +60,12 @@ max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 [[automation]]
-registryVersion = "2.1"
+registry_version = "2.1"
 cl_nodes_funding_eth = 50
-# cl_nodes_funding_link = 50
-test_keys_min_funding_eth = 10
 
-[automation.MercurySettings]
+[automation.mercury_settings]
 version = "v2"
-credentialsName = "creds0"
+credentials_name = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -75,19 +73,7 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-#[automation.EVMNetworkSettings]
-#link_token_address = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
-#finality_tag_enabled = true
-#finality_depth = 10
-#safe_tag_supported = true
-#log_poller_interval = '1s'
-#[automation.EVMNetworkSettings.head_tracker]
-#history_depth = 100
-#[automation.EVMNetworkSettings.gas_estimator]
-#mode = 'FixedPrice'
-#limit_default = 5_000_000
-
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -102,7 +88,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -111,11 +97,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000
@@ -131,14 +117,12 @@ max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 [[automation]]
-registryVersion = "2.1"
+registry_version = "2.1"
 cl_nodes_funding_eth = 50
-# cl_nodes_funding_link = 50
-test_keys_min_funding_eth = 10
 
-[automation.MercurySettings]
+[automation.mercury_settings]
 version = "v3"
-credentialsName = "creds0"
+credentials_name = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -146,19 +130,7 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-#[automation.EVMNetworkSettings]
-#link_token_address = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
-#finality_tag_enabled = true
-#finality_depth = 10
-#safe_tag_supported = true
-#log_poller_interval = '1s'
-#[automation.EVMNetworkSettings.head_tracker]
-#history_depth = 100
-#[automation.EVMNetworkSettings.gas_estimator]
-#mode = 'FixedPrice'
-#limit_default = 5_000_000
-
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -173,7 +145,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -182,11 +154,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000
@@ -202,14 +174,12 @@ max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 [[automation]]
-registryVersion = "2.2"
+registry_version = "2.2"
 cl_nodes_funding_eth = 50
-# cl_nodes_funding_link = 50
-test_keys_min_funding_eth = 10
 
-[automation.MercurySettings]
+[automation.mercury_settings]
 version = "v2"
-credentialsName = "creds0"
+credentials_name = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -217,19 +187,7 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-#[automation.EVMNetworkSettings]
-#link_token_address = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
-#finality_tag_enabled = true
-#finality_depth = 10
-#safe_tag_supported = true
-#log_poller_interval = '1s'
-#[automation.EVMNetworkSettings.head_tracker]
-#history_depth = 100
-#[automation.EVMNetworkSettings.gas_estimator]
-#mode = 'FixedPrice'
-#limit_default = 5_000_000
-
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -244,7 +202,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -253,11 +211,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000
@@ -273,14 +231,12 @@ max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 [[automation]]
-registryVersion = "2.2"
+registry_version = "2.2"
 cl_nodes_funding_eth = 50
-# cl_nodes_funding_link = 50
-test_keys_min_funding_eth = 10
 
-[automation.MercurySettings]
+[automation.mercury_settings]
 version = "v3"
-credentialsName = "creds0"
+credentials_name = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -288,19 +244,7 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-#[automation.EVMNetworkSettings]
-#link_token_address = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
-#finality_tag_enabled = true
-#finality_depth = 10
-#safe_tag_supported = true
-#log_poller_interval = '1s'
-#[automation.EVMNetworkSettings.head_tracker]
-#history_depth = 100
-#[automation.EVMNetworkSettings.gas_estimator]
-#mode = 'FixedPrice'
-#limit_default = 5_000_000
-
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -315,7 +259,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -324,11 +268,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000
@@ -344,14 +288,12 @@ max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 [[automation]]
-registryVersion = "2.3"
+registry_version = "2.3"
 cl_nodes_funding_eth = 50
-# cl_nodes_funding_link = 50
-test_keys_min_funding_eth = 10
 
-[automation.MercurySettings]
+[automation.mercury_settings]
 version = "v2"
-credentialsName = "creds0"
+credentials_name = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -359,19 +301,7 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-#[automation.EVMNetworkSettings]
-#link_token_address = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
-#finality_tag_enabled = true
-#finality_depth = 10
-#safe_tag_supported = true
-#log_poller_interval = '1s'
-#[automation.EVMNetworkSettings.head_tracker]
-#history_depth = 100
-#[automation.EVMNetworkSettings.gas_estimator]
-#mode = 'FixedPrice'
-#limit_default = 5_000_000
-
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -386,7 +316,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -395,11 +325,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000
@@ -415,14 +345,12 @@ max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 [[automation]]
-registryVersion = "2.3"
+registry_version = "2.3"
 cl_nodes_funding_eth = 50
-# cl_nodes_funding_link = 50
-test_keys_min_funding_eth = 10
 
-[automation.MercurySettings]
+[automation.mercury_settings]
 version = "v3"
-credentialsName = "creds0"
+credentials_name = "creds0"
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
@@ -430,19 +358,7 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-#[automation.EVMNetworkSettings]
-#link_token_address = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
-#finality_tag_enabled = true
-#finality_depth = 10
-#safe_tag_supported = true
-#log_poller_interval = '1s'
-#[automation.EVMNetworkSettings.head_tracker]
-#history_depth = 100
-#[automation.EVMNetworkSettings.gas_estimator]
-#mode = 'FixedPrice'
-#limit_default = 5_000_000
-
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -457,7 +373,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -466,11 +382,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000

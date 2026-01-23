@@ -5,7 +5,7 @@ name = "automation"
 instances = 1
 
 [[automation]]
-registryVersion = "2.1"
+registry_version = "2.1"
 cl_nodes_funding_eth = 50
 
 [automation.gas_settings]
@@ -14,13 +14,13 @@ fee_cap_multiplier = 2
 # EIP1159 fee cap multiplier (default, for all transactions)
 tip_cap_multiplier = 2
 
-[automation.EVMNetworkSettings]
+[automation.evm_network_settings]
 finality_tag_enabled = true
 safe_tag_supported = true
 log_poller_interval = '500ms'
 backup_log_poller_block_delay = 0
 
-[automation.PublicConfig]
+[automation.public_config]
 delta_progress=10_000_000_000
 delta_resend=15_000_000_000
 delta_initial=500_000_000
@@ -35,7 +35,7 @@ max_duration_observation=20_000_000
 max_duration_should_accept_attested_report=1_200_000_000
 max_duration_should_transmit_accepted_report=20_000_000
 
-[automation.PluginConfig]
+[automation.plugin_config]
 perform_lockout_window=3_600_000
 target_probability="0.999"
 target_in_rounds=1
@@ -44,11 +44,11 @@ gas_limit_per_report=10_300_000
 gas_overhead_per_upkeep=300_000
 max_upkeep_batch_size=10
 
-[automation.PluginConfig.LogProviderConfig]
+[automation.plugin_config.log_provider_config]
 block_rate=1
 log_limit=2
 
-[automation.RegistrySettings]
+[automation.registry_settings]
 payment_premium_ppb=200_000_000
 flat_fee_micro_link=0
 check_gas_limit=2_500_000

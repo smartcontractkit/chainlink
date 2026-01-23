@@ -74,12 +74,12 @@ func NewEnvironment(ctx context.Context) error {
 			return fmt.Errorf("failed to load product config: %w", err)
 		}
 
-		configOverrides, err := p.GenerateCLNodesBlockchainConfig(ctx, in.Blockchains[0])
+		configOverrides, err := p.GenerateNodesConfig(ctx, in.FakeServer, in.Blockchains[0], in.NodeSets[0])
 		if err != nil {
 			return fmt.Errorf("failed to generate CL nodes config: %w", err)
 		}
 
-		secretsOverrides, err := p.GenerateCLNodesSecrets(ctx, in.FakeServer)
+		secretsOverrides, err := p.GenerateNodesSecrets(ctx, in.FakeServer, in.Blockchains[0], in.NodeSets[0])
 		if err != nil {
 			return fmt.Errorf("failed to generate CL nodes secrets: %w", err)
 		}

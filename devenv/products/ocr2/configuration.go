@@ -144,7 +144,12 @@ func (m *Configurator) Store(path string, idx int) error {
 	return nil
 }
 
-func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *blockchain.Input) (string, error) {
+func (m *Configurator) GenerateNodesConfig(
+	ctx context.Context,
+	_ *fake.Input,
+	bc *blockchain.Input,
+	_ *nodeset.Input,
+) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
 	node := bc.Out.Nodes[0]
@@ -207,7 +212,12 @@ func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *
 	return netConfig, nil
 }
 
-func (m *Configurator) GenerateCLNodesSecrets(_ context.Context, _ *fake.Input) (string, error) {
+func (m *Configurator) GenerateNodesSecrets(
+	_ context.Context,
+	_ *fake.Input,
+	_ *blockchain.Input,
+	_ *nodeset.Input,
+) (string, error) {
 	return "", nil
 }
 
