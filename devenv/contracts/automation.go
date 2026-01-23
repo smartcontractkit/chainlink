@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_chain_module"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic1_3"
@@ -52,12 +51,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/optimism_module"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/perform_data_checker_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/scroll_module"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_transcoder"
 	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -2483,218 +2479,6 @@ func DeployUpkeepCounterFromKey(client *seth.Client, keyNum int, testRange *big.
 	}
 
 	return &EthereumUpkeepCounter{
-		client:   client,
-		consumer: instance,
-		address:  &data.Address,
-	}, nil
-}
-
-func DeployUpkeepCounter(client *seth.Client, testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
-	return DeployUpkeepCounterFromKey(client, 0, testRange, interval)
-}
-
-// EthereumUpkeepPerformCounterRestrictive represents keeper consumer (upkeep) counter contract
-type EthereumUpkeepPerformCounterRestrictive struct {
-	client   *seth.Client
-	consumer *upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictive
-	address  *common.Address
-}
-
-func (v *EthereumUpkeepPerformCounterRestrictive) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumUpkeepPerformCounterRestrictive) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions.SendFunds instead")
-}
-func (v *EthereumUpkeepPerformCounterRestrictive) Counter(ctx context.Context) (*big.Int, error) {
-	return v.consumer.GetCountPerforms(&bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: ctx,
-	})
-}
-
-func (v *EthereumUpkeepPerformCounterRestrictive) SetSpread(testRange *big.Int, interval *big.Int) error {
-	_, err := v.client.Decode(v.consumer.SetSpread(v.client.NewTXOpts(), testRange, interval))
-	return err
-}
-
-func DeployUpkeepPerformCounterRestrictive(client *seth.Client, testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error) {
-	abi, err := upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictiveMetaData.GetAbi()
-	if err != nil {
-		return &EthereumUpkeepCounter{}, fmt.Errorf("failed to get UpkeepPerformCounterRestrictive ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXOpts(), "UpkeepPerformCounterRestrictive", *abi, common.FromHex(upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictiveMetaData.Bin), testRange, averageEligibilityCadence)
-	if err != nil {
-		return &EthereumUpkeepCounter{}, fmt.Errorf("UpkeepPerformCounterRestrictive instance deployment have failed: %w", err)
-	}
-
-	instance, err := upkeep_perform_counter_restrictive_wrapper.NewUpkeepPerformCounterRestrictive(data.Address, MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumUpkeepCounter{}, fmt.Errorf("failed to instantiate UpkeepPerformCounterRestrictive instance: %w", err)
-	}
-
-	return &EthereumUpkeepPerformCounterRestrictive{
-		client:   client,
-		consumer: instance,
-		address:  &data.Address,
-	}, nil
-}
-
-// EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
-type EthereumKeeperPerformDataCheckerConsumer struct {
-	client             *seth.Client
-	performDataChecker *perform_data_checker_wrapper.PerformDataChecker
-	address            *common.Address
-}
-
-func (v *EthereumKeeperPerformDataCheckerConsumer) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumKeeperPerformDataCheckerConsumer) Counter(ctx context.Context) (*big.Int, error) {
-	return v.performDataChecker.Counter(&bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: ctx,
-	})
-}
-
-func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(_ context.Context, expectedData []byte) error {
-	_, err := v.client.Decode(v.performDataChecker.SetExpectedData(v.client.NewTXOpts(), expectedData))
-	return err
-}
-
-func DeployKeeperPerformDataChecker(client *seth.Client, expectedData []byte) (KeeperPerformDataChecker, error) {
-	abi, err := perform_data_checker_wrapper.PerformDataCheckerMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperPerformDataCheckerConsumer{}, fmt.Errorf("failed to get PerformDataChecker ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXOpts(), "PerformDataChecker", *abi, common.FromHex(perform_data_checker_wrapper.PerformDataCheckerMetaData.Bin), expectedData)
-	if err != nil {
-		return &EthereumKeeperPerformDataCheckerConsumer{}, fmt.Errorf("PerformDataChecker instance deployment have failed: %w", err)
-	}
-
-	instance, err := perform_data_checker_wrapper.NewPerformDataChecker(data.Address, MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperPerformDataCheckerConsumer{}, fmt.Errorf("failed to instantiate PerformDataChecker instance: %w", err)
-	}
-
-	return &EthereumKeeperPerformDataCheckerConsumer{
-		client:             client,
-		performDataChecker: instance,
-		address:            &data.Address,
-	}, nil
-}
-
-// EthereumKeeperConsumerPerformance represents a more complicated keeper consumer contract, one intended only for
-// performance tests.
-type EthereumKeeperConsumerPerformance struct {
-	client   *seth.Client
-	consumer *keeper_consumer_performance_wrapper.KeeperConsumerPerformance
-	address  *common.Address
-}
-
-func (v *EthereumKeeperConsumerPerformance) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumKeeperConsumerPerformance) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions.SendFunds instead")
-}
-
-func (v *EthereumKeeperConsumerPerformance) CheckEligible(ctx context.Context) (bool, error) {
-	return v.consumer.CheckEligible(&bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: ctx,
-	})
-}
-
-func (v *EthereumKeeperConsumerPerformance) GetUpkeepCount(ctx context.Context) (*big.Int, error) {
-	return v.consumer.GetCountPerforms(&bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: ctx,
-	})
-}
-
-func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(_ context.Context, gas *big.Int) error {
-	_, err := v.client.Decode(v.consumer.SetCheckGasToBurn(v.client.NewTXOpts(), gas))
-	return err
-}
-
-func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(_ context.Context, gas *big.Int) error {
-	_, err := v.client.Decode(v.consumer.SetPerformGasToBurn(v.client.NewTXOpts(), gas))
-	return err
-}
-
-func DeployKeeperConsumerPerformance(
-	client *seth.Client,
-	testBlockRange,
-	averageCadence,
-	checkGasToBurn,
-	performGasToBurn *big.Int,
-) (KeeperConsumerPerformance, error) {
-	abi, err := keeper_consumer_performance_wrapper.KeeperConsumerPerformanceMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperConsumerPerformance{}, fmt.Errorf("failed to get KeeperConsumerPerformance ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXOpts(), "KeeperConsumerPerformance", *abi, common.FromHex(keeper_consumer_performance_wrapper.KeeperConsumerPerformanceMetaData.Bin),
-		testBlockRange,
-		averageCadence,
-		checkGasToBurn,
-		performGasToBurn)
-	if err != nil {
-		return &EthereumKeeperConsumerPerformance{}, fmt.Errorf("KeeperConsumerPerformance instance deployment have failed: %w", err)
-	}
-
-	instance, err := keeper_consumer_performance_wrapper.NewKeeperConsumerPerformance(data.Address, MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperConsumerPerformance{}, fmt.Errorf("failed to instantiate KeeperConsumerPerformance instance: %w", err)
-	}
-
-	return &EthereumKeeperConsumerPerformance{
-		client:   client,
-		consumer: instance,
-		address:  &data.Address,
-	}, nil
-}
-
-type EthereumAutomationSimpleLogCounterConsumer struct {
-	client   *seth.Client
-	consumer *simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter
-	address  *common.Address
-}
-
-func (v *EthereumAutomationSimpleLogCounterConsumer) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumAutomationSimpleLogCounterConsumer) Start() error {
-	return nil
-}
-
-func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
-	return v.consumer.Counter(&bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: ctx,
-	})
-}
-
-func DeployAutomationSimpleLogTriggerConsumerFromKey(client *seth.Client, isStreamsLookup bool, keyNum int) (KeeperConsumer, error) {
-	abi, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
-	if err != nil {
-		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to get SimpleLogUpkeepCounter ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "SimpleLogUpkeepCounter", *abi, common.FromHex(simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.Bin), isStreamsLookup)
-	if err != nil {
-		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("SimpleLogUpkeepCounter instance deployment have failed: %w", err)
-	}
-
-	instance, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(data.Address, MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to instantiate SimpleLogUpkeepCounter instance: %w", err)
-	}
-
-	return &EthereumAutomationSimpleLogCounterConsumer{
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,

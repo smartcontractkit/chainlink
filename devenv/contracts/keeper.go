@@ -82,39 +82,6 @@ type UpkeepCounter interface {
 	Start() error
 }
 
-type UpkeepPerformCounterRestrictive interface {
-	Address() string
-	Fund(ethAmount *big.Float) error
-	Counter(ctx context.Context) (*big.Int, error)
-	SetSpread(testRange *big.Int, interval *big.Int) error
-}
-
-// KeeperConsumerPerformance is a keeper consumer contract that is more complicated than the typical consumer,
-// it's intended to only be used for performance tests.
-type KeeperConsumerPerformance interface {
-	Address() string
-	Fund(ethAmount *big.Float) error
-	CheckEligible(ctx context.Context) (bool, error)
-	GetUpkeepCount(ctx context.Context) (*big.Int, error)
-	SetCheckGasToBurn(ctx context.Context, gas *big.Int) error
-	SetPerformGasToBurn(ctx context.Context, gas *big.Int) error
-}
-
-// AutomationConsumerBenchmark is a keeper consumer contract that is more complicated than the typical consumer,
-// it's intended to only be used for benchmark tests.
-type AutomationConsumerBenchmark interface {
-	Address() string
-	Fund(ethAmount *big.Float) error
-	CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error)
-	GetUpkeepCount(ctx context.Context, id *big.Int) (*big.Int, error)
-}
-
-type KeeperPerformDataChecker interface {
-	Address() string
-	Counter(ctx context.Context) (*big.Int, error)
-	SetExpectedData(ctx context.Context, expectedData []byte) error
-}
-
 type UpkeepPerformedLog struct {
 	ID      *big.Int
 	Success bool
