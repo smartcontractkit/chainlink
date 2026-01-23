@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"net/http"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -362,7 +360,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		checkRequiredBalance(t, keysRequired, c, config, cfg.General.FundingAmountEth)
+		checkRequiredBalance(t, keysRequired, c, cfg.General.FundingAmountEth)
 		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, cfg.General.FundingAmountEth)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
@@ -520,7 +518,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		checkRequiredBalance(t, keysRequired, c, config, cfg.General.FundingAmountEth)
+		checkRequiredBalance(t, keysRequired, c, cfg.General.FundingAmountEth)
 
 		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, cfg.General.FundingAmountEth)
 		require.NoError(t, err, "Failed to fund new addresses")
@@ -623,7 +621,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l.Info().Msg("Triggering log poller's replay")
 	for i := 1; i < len(lpTestEnv.nodes.NodeSpecs); i++ {
 		nodeName := lpTestEnv.nodes.Out.CLNodes[i].Node.ContainerName
-		response, _, err := ReplayLogPollerFromBlock(l, cl[i], startBlock, chainClient.ChainID)
+		response, _, err := cl[i].ReplayLogPollerFromBlock(startBlock, chainClient.ChainID)
 		require.NoError(t, err, "Error triggering log poller's replay on node %s", nodeName)
 		require.Equal(t, "Replay started", response.Data.Attributes.Message, "Unexpected response message from log poller's replay")
 	}
@@ -639,67 +637,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	waitUntilNodesHaveTheSameLogsAsEvm(l, nil, t, allNodesLogCountMatches, lpTestEnv, cfg, startBlock, endBlock, "5m")
 }
 
-// TODO: move to CTF
-func ReplayLogPollerFromBlock(l zerolog.Logger, c *clclient.ChainlinkClient, fromBlock, evmChainID int64) (*ReplayResponse, *http.Response, error) {
-	specObj := &ReplayResponse{}
-	l.Info().Str("NodeURL", c.Config.URL).Int64("From block", fromBlock).Int64("EVM chain ID", evmChainID).Msg("Replaying Log Poller from block")
-	resp, err := c.APIClient.R().
-		SetResult(&specObj).
-		SetQueryParams(map[string]string{
-			"family":  "evm",
-			"ChainID": strconv.FormatInt(evmChainID, 10),
-		}).
-		SetPathParams(map[string]string{
-			"fromBlock": strconv.FormatInt(fromBlock, 10),
-		}).
-		Post("/v2/replay_from_block/{fromBlock}")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return specObj, resp.RawResponse, err
-}
-
-type ReplayResponse struct {
-	Data ReplayResponseData `json:"data"`
-}
-
-type ReplayResponseData struct {
-	Attributes ReplayResponseAttributes `json:"attributes"`
-}
-
-type ReplayResponseAttributes struct {
-	Message    string   `json:"message"`
-	EVMChainID *big.Int `json:"evmChainID"`
-}
-
-// OCR2ExportKey is the model that represents the exported VRF key
-type OCR2ExportKey struct {
-	KeyType           string `json:"keyType"`
-	ChainType         string `json:"chainType"`
-	ID                string `json:"id"`
-	OnchainPublicKey  string `json:"onchainPublicKey"`
-	OffchainPublicKey string `json:"offchainPublicKey"`
-	ConfigPublicKey   string `json:"configPublicKey"`
-	Crypto            struct {
-		Cipher       string `json:"cipher"`
-		Ciphertext   string `json:"ciphertext"`
-		Cipherparams struct {
-			Iv string `json:"iv"`
-		} `json:"cipherparams"`
-		Kdf       string `json:"kdf"`
-		Kdfparams struct {
-			Dklen int    `json:"dklen"`
-			N     int    `json:"n"`
-			P     int    `json:"p"`
-			R     int    `json:"r"`
-			Salt  string `json:"salt"`
-		} `json:"kdfparams"`
-		Mac string `json:"mac"`
-	} `json:"crypto"`
-}
-
-func checkRequiredBalance(t *testing.T, keysRequired int, c *ethclient.Client, config *automation.Automation, fundingAmountEth float64) {
+func checkRequiredBalance(t *testing.T, keysRequired int, c *ethclient.Client, fundingAmountEth float64) {
 	fundingTxCount := keysRequired - 1
 	requiredBalanceEth := new(big.Float).Mul(big.NewFloat(float64(fundingTxCount)), big.NewFloat(fundingAmountEth))
 	requiredBalanceWeiFloat := new(big.Float).Mul(requiredBalanceEth, big.NewFloat(1e18))

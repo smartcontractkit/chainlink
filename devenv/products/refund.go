@@ -346,9 +346,20 @@ func returnAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromP
 
 	var maxTotalGasCost *big.Int
 	if sethClient.Cfg.Network.EIP1559DynamicFees {
-		maxTotalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(gasLimit), estimations.GasFeeCap)
+		if estimations.GasFeeCap != nil {
+			maxTotalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(gasLimit), estimations.GasFeeCap)
+		} else {
+			maxTotalGasCost = big.NewInt(0)
+		}
 	} else {
-		maxTotalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(gasLimit), estimations.GasPrice)
+		if estimations.GasPrice != nil {
+			maxTotalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(gasLimit), estimations.GasPrice)
+		} else {
+			maxTotalGasCost, err = sethClient.Client.SuggestGasPrice(context.Background())
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	toSend := new(big.Int).Sub(balance, maxTotalGasCost)

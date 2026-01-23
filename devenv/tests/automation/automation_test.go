@@ -246,9 +246,4 @@ func SetupAutomationBasic(t *testing.T, registryVersion contracts.KeeperRegistry
 				countersAfterCancellation[i].Int64()+1, latestCounter.Int64())
 		}
 	}, "1m", "1s").Should(gomega.Succeed())
-	// 				})
 }
-
-// 		})
-// 	}
-// }
