@@ -63,8 +63,11 @@ type ProposeEVMCapJobSpecInput struct {
 	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
 	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 	// ForwarderLookbackBlocks defines how many blocks back to search for the ReportProcessed event (default 100)
-	ForwarderLookbackBlocks int64                `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
-	EVMCapabilityInputs     []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
+	ForwarderLookbackBlocks int64 `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
+	// DeltaStage is the time delay between sequential transmissions in staggered transmission scheduling.
+	// If set to 0 or omitted, transmission scheduling is treated as disabled and the capability will expect the transmission to be controlled in the wf engine.
+	DeltaStage          time.Duration        `json:"deltaStage,omitempty" yaml:"deltaStage,omitempty"`
+	EVMCapabilityInputs []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
 }
 
 type ProposeEVMCapJobSpec struct{}
@@ -188,7 +191,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to parse chain ID %s: %w", chainIDStr, err)
 	}
 
-	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s", chainName, input.Zone)
+	jobName := fmt.Sprintf("evm-cap-v2-%s-%s", chainName, input.Zone)
 	job := pkg.StandardCapabilityJob{
 		JobName:               jobName,
 		Command:               "/usr/local/bin/evm",
