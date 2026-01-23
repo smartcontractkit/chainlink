@@ -194,10 +194,22 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 						panic(fmt.Errorf("failed to decode csa key: %w", err))
 					}
 
+					// Extract the 20-byte signer address from OnchainPublicKey
+					// OnchainPublicKey is a 23-byte slice: [1 20 0 <20-byte address>]
+					// Extract the last 20 bytes to get the Ethereum address
+					var signer [32]byte
+					if len(ocrCfg.OnchainPublicKey) >= 20 {
+						// Use common.BytesToAddress to extract the 20-byte address (takes last 20 bytes)
+						addr := common.BytesToAddress(ocrCfg.OnchainPublicKey)
+						copy(signer[0:20], addr.Bytes())
+					} else {
+						panic(fmt.Errorf("OnchainPublicKey too short: %d bytes", len(ocrCfg.OnchainPublicKey)))
+					}
+
 					nodes = append(nodes, contracts.NodesInput{
 						NOP:                 nopName,
 						P2pID:               n.PeerID,
-						Signer:              ocrCfg.OffchainPublicKey,
+						Signer:              signer,
 						EncryptionPublicKey: [32]byte(wfKey),
 						CsaKey:              [32]byte(csKey),
 						CapabilityIDs:       capIDs,

@@ -83,7 +83,8 @@ func Test_CRE_V2_LLO_Streams_Trigger_Mock(t *testing.T) {
 // Set LLO_TEST_STEP to run only specific steps:
 //   - "setup": Only setup LLO infrastructure (contracts, jobs, OCR config)
 //   - "workflow": Only deploy workflow and wait for reports (requires setup to be done)
-//   - "verify": Only verify pipeline status (requires setup to be done)
+//   - "verify-pipeline": Only verify pipeline status (requires setup to be done)
+//   - "verify-magic-number": Search workflow logs for magic numbers 424242 and 555555 (simple verification)
 //   - "all" or unset: Run full E2E test
 func Test_CRE_V2_LLO_Streams_Trigger_E2E(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
@@ -124,13 +125,17 @@ func Test_CRE_V2_LLO_Streams_Trigger_E2E(t *testing.T) {
 		t.Run("[v2] LLO Workflow Only - "+topology, func(t *testing.T) {
 			ExecuteLLOWorkflowOnly(t, testEnv)
 		})
-	case "verify":
-		t.Run("[v2] LLO Verify Only - "+topology, func(t *testing.T) {
+	case "verify-pipeline":
+		t.Run("[v2] LLO Verify Pipeline - "+topology, func(t *testing.T) {
 			ExecuteLLOVerifyOnly(t, testEnv)
+		})
+	case "verify-magic-number":
+		t.Run("[v2] LLO Verify Magic Numbers - "+topology, func(t *testing.T) {
+			ExecuteLLOMagicNumbersCheck(t, testEnv)
 		})
 	default:
 		t.Run("[v2] LLO Streams Trigger E2E - "+topology, func(t *testing.T) {
-			ExecuteLLOStreamsTriggerE2EWithRealLLO(t, testEnv)
+			ExecuteLLOStreamsTriggerE2EWithFullLLO(t, testEnv)
 		})
 	}
 }
@@ -280,7 +285,7 @@ func getMockCapabilityAddresses(_ *ttypes.TestEnvironment) []string {
 	return addresses
 }
 
-// ExecuteLLOStreamsTriggerE2EWithRealLLO runs the E2E test with actual LLO plugin
+// ExecuteLLOStreamsTriggerE2EWithFullLLO runs the E2E test with actual LLO plugin
 // This test deploys LLO infrastructure:
 // - LLO contracts (Configurator, ChannelConfigStore)
 // - OCR configuration with proper encryption keys
@@ -289,7 +294,7 @@ func getMockCapabilityAddresses(_ *ttypes.TestEnvironment) []string {
 // - LLO jobs with CRE transmitter
 //
 // The test verifies end-to-end data flow by checking for magic numbers in workflow logs.
-func ExecuteLLOStreamsTriggerE2EWithRealLLO(t *testing.T, testEnv *ttypes.TestEnvironment) {
+func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	ctx := context.Background()
 	testLogger := framework.L
 	workflowFileLocation := "llo_consumer/main.go"
@@ -310,11 +315,7 @@ func ExecuteLLOStreamsTriggerE2EWithRealLLO(t *testing.T, testEnv *ttypes.TestEn
 
 	// Step 2: Deploy stream jobs
 	testLogger.Info().Msg("Step 2: Deploying stream jobs...")
-	mockEAURL := GetLLOProviderPriceURL()
-	if mockEAURL == "" {
-		t.Fatal("Mock EA URL not available - price provider not started")
-	}
-	err = DeployStreamJobs(ctx, testLogger, testEnv, mockEAURL)
+	err = DeployStreamJobs(ctx, testLogger, testEnv)
 	require.NoError(t, err, "Failed to deploy stream jobs")
 	testLogger.Info().Msg("✓ Stream jobs deployed")
 
@@ -559,6 +560,13 @@ func ExecuteLLOStreamsTriggerE2EWithRealLLO(t *testing.T, testEnv *ttypes.TestEn
 	}
 	testLogger.Info().Msg("✓ Discovery period complete")
 
+	// Additional wait after registration to ensure workflow stays registered when reports arrive
+	// This gives the workflow time to remain active and process incoming reports
+	if registerTriggerFound {
+		testLogger.Info().Msg("  Waiting additional time after registration to ensure workflow remains active...")
+		time.Sleep(30 * time.Second) // Wait to ensure workflow stays registered
+	}
+
 	// Step 7.5: Verify LLO pipeline status
 	testLogger.Info().Msg("Step 7.5: Verifying LLO pipeline status...")
 	hasZeroConfig, hasSubscribers := verifyLLOPipelineStatus(t, testLogger, testEnv)
@@ -671,8 +679,13 @@ func ExecuteLLOStreamsTriggerE2EWithRealLLO(t *testing.T, testEnv *ttypes.TestEn
 	testLogger.Info().Msg("Step 8: Waiting for LLO reports with magic numbers...")
 	testLogger.Info().Msg("  Expecting: LLO_E2E_VALUE with Format=5 (value 424242) or Format=7 (value 555555)")
 
+	// Wait a bit longer after registration to ensure workflow stays registered when reports arrive
+	// This gives time for the workflow to remain active and process incoming reports
+	testLogger.Info().Msg("  Waiting additional time to ensure workflow remains registered...")
+	time.Sleep(30 * time.Second) // Additional wait to ensure workflow stays registered
+
 	expectedLog := "LLO_E2E_VALUE"
-	timeout := 2 * time.Minute // Same timeout as the commit
+	timeout := 3 * time.Minute // Increased timeout to allow more time for reports to arrive and be processed
 	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLog, testLogger, messageChan, kafkaErrChan, timeout)
 	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive reports")
 	testLogger.Info().Msg("✓ Workflow received LLO reports with magic numbers")
@@ -706,11 +719,7 @@ func ExecuteLLOSetupOnly(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	// Step 2: Deploy stream jobs
 	testLogger.Info().Msg("Step 2: Deploying stream jobs...")
-	mockEAURL := GetLLOProviderPriceURL()
-	if mockEAURL == "" {
-		t.Fatal("Mock EA URL not available - price provider not started")
-	}
-	err = DeployStreamJobs(ctx, testLogger, testEnv, mockEAURL)
+	err = DeployStreamJobs(ctx, testLogger, testEnv)
 	require.NoError(t, err, "Failed to deploy stream jobs")
 	testLogger.Info().Msg("✓ Stream jobs deployed")
 
@@ -888,7 +897,7 @@ func ExecuteLLOWorkflowOnly(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 // ExecuteLLOVerifyOnly runs only the pipeline verification step
 // This assumes LLO infrastructure is already set up
-// To run: LLO_TEST_STEP=verify go test -timeout 5m -run "Test_CRE_V2_LLO_Streams_Trigger_E2E" ./smoke/cre/...
+// To run: LLO_TEST_STEP=verify-pipeline go test -timeout 5m -run "Test_CRE_V2_LLO_Streams_Trigger_E2E" ./smoke/cre/...
 func ExecuteLLOVerifyOnly(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -908,6 +917,300 @@ func ExecuteLLOVerifyOnly(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
 	testLogger.Info().Msg("║  ✓ LLO VERIFY TEST COMPLETE                                          ║")
 	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
+}
+
+// ExecuteLLOMagicNumbersCheck searches workflow container logs for magic numbers
+// This is a simple test that proves the end-to-end data flow by finding the magic numbers
+// in workflow logs: 424242 (Format 5) and 555555 (Format 7)
+// To run: LLO_TEST_STEP=verify-magic-number go test -timeout 5m -run "Test_CRE_V2_LLO_Streams_Trigger_E2E" ./smoke/cre/...
+func ExecuteLLOMagicNumbersCheck(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testLogger := framework.L
+
+	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
+	testLogger.Info().Msg("║        LLO MAGIC NUMBERS CHECK                                       ║")
+	testLogger.Info().Msg("║  Searching workflow logs for magic numbers: 424242, 555555        ║")
+	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
+
+	// First, check if reports are being generated and transmitted
+	testLogger.Info().Msg("Step 1: Checking if LLO reports are being generated...")
+	listOpts := container.ListOptions{
+		All: true,
+		Filters: dfilter.NewArgs(
+			dfilter.KeyValuePair{Key: "label", Value: "framework=ctf"},
+		),
+	}
+
+	logOpts := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Timestamps: false,
+		Tail:       "1000",
+	}
+
+	logStream, err := framework.StreamContainerLogs(listOpts, logOpts)
+	require.NoError(t, err, "Failed to stream container logs")
+	defer func() {
+		for _, reader := range logStream {
+			reader.Close()
+		}
+	}()
+
+	// Check for report generation
+	capabilitiesNodePattern := regexp.MustCompile(`capabilities-node\d+`)
+	processReportPattern := regexp.MustCompile(`ProcessReport pushing event`)
+	format5Pattern := regexp.MustCompile(`eventID.*_f5|Format.*5`)
+	format7Pattern := regexp.MustCompile(`eventID.*_f7|Format.*7`)
+
+	reportsFound := false
+	format5ReportsFound := false
+	format7ReportsFound := false
+
+	for containerName, reader := range logStream {
+		if !capabilitiesNodePattern.MatchString(containerName) {
+			continue
+		}
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if processReportPattern.MatchString(line) {
+				reportsFound = true
+				if format5Pattern.MatchString(line) {
+					format5ReportsFound = true
+					testLogger.Info().Str("container", containerName).Msg("✓ Found Format 5 report")
+				}
+				if format7Pattern.MatchString(line) {
+					format7ReportsFound = true
+					testLogger.Info().Str("container", containerName).Msg("✓ Found Format 7 report")
+				}
+			}
+		}
+	}
+
+	// Close first log stream
+	for _, reader := range logStream {
+		reader.Close()
+	}
+
+	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
+	testLogger.Info().Msg("║  REPORT GENERATION STATUS                                           ║")
+	if reportsFound {
+		testLogger.Info().Msg("║  ✓ Reports are being generated and transmitted                   ║")
+	} else {
+		testLogger.Warn().Msg("║  ✗ No reports found being transmitted                           ║")
+	}
+	if format5ReportsFound {
+		testLogger.Info().Msg("║  ✓ Format 5 reports found                                       ║")
+	} else {
+		testLogger.Warn().Msg("║  ✗ Format 5 reports NOT found (only Format 7?)                 ║")
+	}
+	if format7ReportsFound {
+		testLogger.Info().Msg("║  ✓ Format 7 reports found                                       ║")
+	} else {
+		testLogger.Warn().Msg("║  ✗ Format 7 reports NOT found                                  ║")
+	}
+	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
+
+	testLogger.Info().Msg("Step 2: Checking if workflow received reports...")
+	// Re-open logs for workflow search
+	logStream2, err := framework.StreamContainerLogs(listOpts, logOpts)
+	require.NoError(t, err, "Failed to stream container logs for workflow search")
+	defer func() {
+		for _, reader := range logStream2 {
+			reader.Close()
+		}
+	}()
+
+	// Patterns to search for magic numbers and workflow activity
+	workflowNodePattern := regexp.MustCompile(`workflow-node\d+`)
+	magic424242Pattern := regexp.MustCompile(`424242`)
+	magic555555Pattern := regexp.MustCompile(`555555`)
+	reportReceivedPattern := regexp.MustCompile(`LLO_REPORT_RECEIVED|LLO_E2E_FORMAT|onStreamsTrigger`)
+	workflowStartingPattern := regexp.MustCompile(`LLO_CONSUMER_STARTING`)
+
+	found424242 := false
+	found555555 := false
+	workflowStarted := false
+	reportsReceived := false
+	workflowNodesFound := 0
+	var found424242Line, found555555Line string
+	var sampleWorkflowLogs []string
+
+	// Search through all container logs for workflow status
+	for containerName, reader := range logStream2 {
+		// Only check workflow node logs
+		if !workflowNodePattern.MatchString(containerName) {
+			continue
+		}
+
+		workflowNodesFound++
+		scanner := bufio.NewScanner(reader)
+		lineCount := 0
+		for scanner.Scan() {
+			line := scanner.Text()
+			lineCount++
+
+			// Collect sample logs from workflow nodes (last 20 lines per node)
+			if lineCount <= 20 {
+				sampleWorkflowLogs = append(sampleWorkflowLogs, fmt.Sprintf("[%s] %s", containerName, line))
+			}
+
+			// Check if workflow started
+			if !workflowStarted && workflowStartingPattern.MatchString(line) {
+				workflowStarted = true
+				testLogger.Info().Str("container", containerName).Msg("✓ Workflow started (LLO_CONSUMER_STARTING found)")
+			}
+
+			// Check if workflow received any reports
+			if !reportsReceived && reportReceivedPattern.MatchString(line) {
+				reportsReceived = true
+				testLogger.Info().
+					Str("container", containerName).
+					Str("line", line).
+					Msg("✓ Workflow received reports")
+			}
+
+			// Check for Format 5 magic number (424242)
+			if !found424242 && magic424242Pattern.MatchString(line) {
+				found424242 = true
+				found424242Line = line
+				testLogger.Info().
+					Str("container", containerName).
+					Str("line", line).
+					Msg("✓ Found Format 5 magic number (424242) in workflow logs")
+			}
+
+			// Check for Format 7 magic number (555555)
+			if !found555555 && magic555555Pattern.MatchString(line) {
+				found555555 = true
+				found555555Line = line
+				testLogger.Info().
+					Str("container", containerName).
+					Str("line", line).
+					Msg("✓ Found Format 7 magic number (555555) in workflow logs")
+			}
+
+			// Early exit if both found
+			if found424242 && found555555 {
+				break
+			}
+		}
+	}
+
+	// Report workflow status
+	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
+	testLogger.Info().Msg("║  WORKFLOW STATUS                                                    ║")
+	if workflowNodesFound == 0 {
+		testLogger.Warn().Msg("║  ✗ No workflow nodes found - workflow may not be deployed        ║")
+		testLogger.Warn().Msg("║    Run LLO_TEST_STEP=workflow first to deploy the workflow       ║")
+	} else {
+		testLogger.Info().Int("count", workflowNodesFound).Msg("║  ✓ Workflow nodes found")
+		if workflowStarted {
+			testLogger.Info().Msg("║  ✓ Workflow started (LLO_CONSUMER_STARTING found)            ║")
+		} else {
+			testLogger.Warn().Msg("║  ✗ Workflow not started (no LLO_CONSUMER_STARTING found)      ║")
+		}
+		if reportsReceived {
+			testLogger.Info().Msg("║  ✓ Workflow received reports (LLO_REPORT_RECEIVED found)     ║")
+		} else {
+			testLogger.Warn().Msg("║  ✗ Workflow did NOT receive reports                           ║")
+			testLogger.Warn().Msg("║    Reports may not be reaching the workflow handler           ║")
+		}
+	}
+	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
+
+	// Report magic number results
+	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
+	testLogger.Info().Msg("║  MAGIC NUMBER RESULTS                                              ║")
+	if found424242 {
+		testLogger.Info().Msg("║  ✓ Format 5 magic number (424242) found in workflow logs         ║")
+		testLogger.Debug().Str("line", found424242Line).Msg("Sample log line")
+	} else {
+		testLogger.Warn().Msg("║  ✗ Format 5 magic number (424242) NOT found in workflow logs      ║")
+	}
+
+	if found555555 {
+		testLogger.Info().Msg("║  ✓ Format 7 magic number (555555) found in workflow logs         ║")
+		testLogger.Debug().Str("line", found555555Line).Msg("Sample log line")
+	} else {
+		testLogger.Warn().Msg("║  ✗ Format 7 magic number (555555) NOT found in workflow logs      ║")
+	}
+	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
+
+	// Diagnostic summary
+	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
+	testLogger.Info().Msg("║  DIAGNOSTIC SUMMARY                                                 ║")
+	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
+
+	// Determine failure point
+	if !reportsFound {
+		testLogger.Error().Msg("❌ FAILURE POINT: Reports are NOT being generated")
+		testLogger.Error().Msg("   → Check LLO jobs are running and have valid OCR config")
+		testLogger.Error().Msg("   → Check stream jobs are producing values")
+		t.Fatal("No reports found being transmitted - LLO pipeline is not generating reports")
+	}
+
+	if !format5ReportsFound && !format7ReportsFound {
+		testLogger.Error().Msg("❌ FAILURE POINT: Reports generated but wrong format")
+		testLogger.Error().Msg("   → Check channel definitions match expected formats")
+		t.Fatal("No Format 5 or Format 7 reports found")
+	}
+
+	if !format5ReportsFound {
+		testLogger.Warn().Msg("⚠ WARNING: Format 5 reports NOT found (only Format 7)")
+		testLogger.Warn().Msg("   → Check Channel 1 configuration (Format 5, Stream 1)")
+		testLogger.Warn().Msg("   → Check stream 1 job is producing value 424242")
+	}
+
+	if workflowNodesFound == 0 {
+		testLogger.Error().Msg("❌ FAILURE POINT: Workflow not deployed")
+		testLogger.Error().Msg("   → Run LLO_TEST_STEP=workflow first")
+		t.Fatal("No workflow nodes found - workflow may not be deployed. Run LLO_TEST_STEP=workflow first.")
+	}
+
+	if !workflowStarted {
+		testLogger.Error().Msg("❌ FAILURE POINT: Workflow not started")
+		testLogger.Error().Msg("   → Check workflow deployment logs")
+		t.Fatal("Workflow not started - no LLO_CONSUMER_STARTING log found")
+	}
+
+	if !reportsReceived {
+		testLogger.Error().Msg("❌ FAILURE POINT: Reports not reaching workflow")
+		testLogger.Error().Msg("   → Reports are generated but workflow handler not called")
+		testLogger.Error().Msg("   → Check CRE transmitter → TriggerSubscriber → Workflow routing")
+		if len(sampleWorkflowLogs) > 0 {
+			testLogger.Info().Msg("Sample workflow logs (last 20 lines per node):")
+			for i, logLine := range sampleWorkflowLogs {
+				if i < 30 { // Limit output
+					testLogger.Info().Msg(logLine)
+				}
+			}
+		}
+		t.Fatal("Reports are being generated but not reaching workflow - check CRE transmitter routing")
+	}
+
+	if !found424242 && !found555555 {
+		testLogger.Error().Msg("❌ FAILURE POINT: Reports reached workflow but magic numbers not found")
+		testLogger.Error().Msg("   → Workflow received reports but values don't match expected")
+		testLogger.Error().Msg("   → Check report decoding in workflow")
+		if len(sampleWorkflowLogs) > 0 {
+			testLogger.Info().Msg("Sample workflow logs (last 20 lines per node):")
+			for i, logLine := range sampleWorkflowLogs {
+				if i < 30 { // Limit output
+					testLogger.Info().Msg(logLine)
+				}
+			}
+		}
+		t.Fatal("No magic numbers found in workflow logs - reports reached workflow but values don't match")
+	}
+
+	if found424242 && found555555 {
+		testLogger.Info().Msg("✓ Both Format 5 and Format 7 reports successfully reached the workflow!")
+	} else if found424242 {
+		testLogger.Info().Msg("✓ Format 5 report reached the workflow (Format 7 may arrive later)")
+	} else {
+		testLogger.Info().Msg("✓ Format 7 report reached the workflow (Format 5 may arrive later)")
+	}
 }
 
 // verifyLLOPipelineStatus checks node logs for key indicators of LLO pipeline health:

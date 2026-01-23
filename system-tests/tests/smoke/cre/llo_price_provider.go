@@ -3,9 +3,10 @@ package cre
 import (
 	"encoding/json"
 	"fmt"
-
 	"io"
 	"os"
+	"os/exec"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -110,8 +111,19 @@ func SetupLLOPriceProvider(testLogger zerolog.Logger, input *fake.Input, config 
 	}
 
 	lloAPIPath := "/llo/price"
-	// Use the Docker URL for container-to-container communication (host.docker.internal)
-	lloFinalURL := lloFakeProviderOutput.BaseURLDocker + lloAPIPath
+	// Use the Docker URL for container-to-container communication
+	// Try to use gateway IP if host.docker.internal might not work
+	baseURL := lloFakeProviderOutput.BaseURLDocker
+	if gatewayIP := getDockerGatewayIP(); gatewayIP != "" {
+		// Replace host.docker.internal with gateway IP for better reliability
+		baseURL = strings.Replace(baseURL, "host.docker.internal", gatewayIP, 1)
+		testLogger.Info().
+			Str("originalURL", lloFakeProviderOutput.BaseURLDocker).
+			Str("gatewayIP", gatewayIP).
+			Str("updatedURL", baseURL).
+			Msg("Using Docker gateway IP for price provider access")
+	}
+	lloFinalURL := baseURL + lloAPIPath
 
 	// Price lookup table
 	prices := map[string]float64{
@@ -175,7 +187,11 @@ func SetupLLOPriceProvider(testLogger zerolog.Logger, input *fake.Input, config 
 
 	// Also serve channel definitions on this provider (needed for LLO)
 	channelDefsPath := "/channel-definitions.json"
-	channelDefsURL := lloFakeProviderOutput.BaseURLDocker + channelDefsPath
+	channelDefsBaseURL := lloFakeProviderOutput.BaseURLDocker
+	if gatewayIP := getDockerGatewayIP(); gatewayIP != "" {
+		channelDefsBaseURL = strings.Replace(channelDefsBaseURL, "host.docker.internal", gatewayIP, 1)
+	}
+	channelDefsURL := channelDefsBaseURL + channelDefsPath
 
 	channelDefs := llotypes.ChannelDefinitions{
 		// Channel 1: Format 5 (Capability Trigger) for TEST/USD - magic number 424242
@@ -221,11 +237,16 @@ func SetupLLOPriceProvider(testLogger zerolog.Logger, input *fake.Input, config 
 
 // GetLLOProviderDockerURL returns the Docker URL of the LLO fake provider
 // This URL should be used by Docker containers to reach the provider
+// Uses gateway IP if available for better reliability
 func GetLLOProviderDockerURL() string {
 	if lloFakeProviderOutput == nil {
 		return ""
 	}
-	return lloFakeProviderOutput.BaseURLDocker
+	baseURL := lloFakeProviderOutput.BaseURLDocker
+	if gatewayIP := getDockerGatewayIP(); gatewayIP != "" {
+		baseURL = strings.Replace(baseURL, "host.docker.internal", gatewayIP, 1)
+	}
+	return baseURL
 }
 
 // GetLLOProviderPriceURL returns the full URL for the price endpoint
@@ -233,7 +254,7 @@ func GetLLOProviderPriceURL() string {
 	if lloFakeProviderOutput == nil {
 		return ""
 	}
-	return lloFakeProviderOutput.BaseURLDocker + "/llo/price"
+	return GetLLOProviderDockerURL() + "/llo/price"
 }
 
 // GetLLOProviderChannelDefsURL returns the full URL for the channel definitions endpoint
@@ -241,7 +262,23 @@ func GetLLOProviderChannelDefsURL() string {
 	if lloFakeProviderOutput == nil {
 		return ""
 	}
-	return lloFakeProviderOutput.BaseURLDocker + "/channel-definitions.json"
+	return GetLLOProviderDockerURL() + "/channel-definitions.json"
+}
+
+// getDockerGatewayIP attempts to get the Docker bridge network gateway IP
+// which containers can use to reach the host when host.docker.internal doesn't work
+func getDockerGatewayIP() string {
+	// Try to get gateway IP from Docker bridge network
+	cmd := exec.Command("docker", "network", "inspect", "bridge", "--format", "{{range .IPAM.Config}}{{.Gateway}}{{end}}")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	gatewayIP := strings.TrimSpace(string(output))
+	if gatewayIP != "" && gatewayIP != "<no value>" {
+		return gatewayIP
+	}
+	return ""
 }
 
 // extractLLOPair extracts the trading pair from an LLO price request

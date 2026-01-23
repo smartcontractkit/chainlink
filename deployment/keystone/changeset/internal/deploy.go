@@ -634,7 +634,12 @@ func ExtractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32
 	if !exists {
 		return signer, enc, fmt.Errorf("config for selector %v not found on node (id: %s, name: %s)", chainSel, n.NodeID, n.Name)
 	}
-	copy(signer[:], evmCC.OnchainPublicKey)
+	// Extract the 20-byte address from OnchainPublicKey using common.BytesToAddress
+	// (which takes the last 20 bytes of the slice). This matches the working commit
+	// 73215a5bfda90af7892fc6eb27b3501720ebf9a3 where signersFor uses node.Signer[0:20].
+	// Store just the 20-byte address at the beginning of the [32]byte array.
+	addr := common.BytesToAddress(evmCC.OnchainPublicKey)
+	copy(signer[0:20], addr.Bytes())
 	copy(enc[:], wfKey)
 	return signer, enc, nil
 }

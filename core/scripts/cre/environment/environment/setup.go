@@ -283,6 +283,10 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 
 	// Build Docker image
 	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
+	if os.Getenv("FORCE_DOCKER_REBUILD") == "true" {
+		args = append(args, "--no-cache")
+		logger.Info().Msg("FORCE_DOCKER_REBUILD=true: building without cache")
+	}
 	if c.RequireGithubToken {
 		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
 	}

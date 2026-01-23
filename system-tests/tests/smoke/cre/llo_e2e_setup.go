@@ -6,7 +6,6 @@ package cre
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -14,9 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -45,17 +42,6 @@ import (
 type LLOContracts struct {
 	ConfiguratorAddress common.Address
 	Configurator        *configurator.Configurator
-}
-
-// OCRConfig holds the OCR configuration to set on the Configurator
-type OCRConfig struct {
-	DonID                 uint32
-	Signers               [][]byte   // OCR signing key public keys
-	Transmitters          [][32]byte // CSA public keys
-	F                     uint8
-	OnchainConfig         []byte
-	OffchainConfigVersion uint64
-	OffchainConfig        []byte
 }
 
 // LLOInfrastructure holds all the deployed LLO infrastructure components
@@ -234,61 +220,6 @@ func deployLLOContractsWithChangesets(
 		ConfiguratorAddress: configuratorAddr,
 		Configurator:        nil, // Will be created on-demand if needed
 	}, nil
-}
-
-// setProductionConfig sets the OCR production configuration on the Configurator
-func setProductionConfig(
-	ctx context.Context,
-	rpcURL string,
-	auth *bind.TransactOpts,
-	contracts *LLOContracts,
-	cfg OCRConfig,
-	logger zerolog.Logger,
-) error {
-	client, err := ethclient.Dial(rpcURL)
-	if err != nil {
-		return fmt.Errorf("failed to connect to RPC: %w", err)
-	}
-
-	// Convert DON ID to bytes32 (configId)
-	var configID [32]byte
-	big.NewInt(int64(cfg.DonID)).FillBytes(configID[:])
-
-	tx, err := contracts.Configurator.SetProductionConfig(
-		auth,
-		configID,
-		cfg.Signers,
-		cfg.Transmitters,
-		cfg.F,
-		cfg.OnchainConfig,
-		cfg.OffchainConfigVersion,
-		cfg.OffchainConfig,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to set production config: %w", err)
-	}
-
-	_, err = bind.WaitMined(ctx, client, tx)
-	if err != nil {
-		return fmt.Errorf("failed to wait for SetProductionConfig tx: %w", err)
-	}
-
-	return nil
-}
-
-// getTransactorFromPrivateKey creates a transactor from a private key
-func getTransactorFromPrivateKey(privateKeyHex string, chainID *big.Int) (*bind.TransactOpts, *ecdsa.PrivateKey, error) {
-	privateKey, err := crypto.HexToECDSA(privateKeyHex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse private key: %w", err)
-	}
-
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create transactor: %w", err)
-	}
-
-	return auth, privateKey, nil
 }
 
 // setOCRConfigurationWithChangesets gathers node keys and sets the OCR configuration on the Configurator using CLD changesets
@@ -485,11 +416,11 @@ func mineBlocksAndWait(ctx context.Context, rpcURL string, numBlocks int, logger
 }
 
 // DeployStreamJobs deploys stream jobs to the capabilities DON nodes via Job Distributor
+// Stream jobs use hardcoded values (via memo task) to avoid bridge connectivity issues
 func DeployStreamJobs(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	testEnv *ttypes.TestEnvironment,
-	mockEAURL string,
 ) error {
 	testLogger.Info().Msg("Deploying stream jobs via Job Distributor...")
 
@@ -505,7 +436,7 @@ func DeployStreamJobs(
 		return fmt.Errorf("capabilities DON not found")
 	}
 
-	// Stream job specs for each stream - using HTTP task directly (no bridge needed)
+	// Stream job specs for each stream - using hardcoded values
 	// Stream 1: For ReportFormat 5 (CapabilityTrigger) - TEST/USD
 	// Streams 2,3,4: For ReportFormat 7 (requires at least 3 streams) - NATIVE/USD, LINK/USD, DATA/USD
 	streamJobs := []struct {
@@ -531,20 +462,13 @@ func DeployStreamJobs(
 			// Generate unique external job ID using a proper UUID
 			externalJobID := uuid.New().String()
 
-			// Use HTTP task directly to fetch from mock EA (no bridge required)
+			// Make job name unique per node to avoid conflicts
+			// Format: stream-{pair}-{node-name} (e.g., "stream-test-usd-capabilities-node0")
+			uniqueJobName := fmt.Sprintf("%s-%s", sj.name, node.Name)
+
+			// Build job spec with hardcoded values (bridgeName parameter is ignored by BuildStreamJobSpec)
 			// Note: streamID must be a top-level field, not under [streamSpec]
-			jobSpec := fmt.Sprintf(`type = "stream"
-schemaVersion = 1
-name = "%s"
-streamID = %d
-externalJobID = "%s"
-observationSource = """
-    ds         [type=http method=POST url="%s" requestData="{\\"data\\": {\\"pair\\": \\"%s\\"}}"];
-    ds_parse   [type=jsonparse path="result"];
-    ds_multiply [type=multiply times=100000000];
-    ds         -> ds_parse -> ds_multiply;
-"""
-`, sj.name, sj.streamID, externalJobID, mockEAURL, sj.pair)
+			jobSpec := BuildStreamJobSpec(uniqueJobName, sj.streamID, "", externalJobID)
 
 			jobSpecs = append(jobSpecs, &jobv1.ProposeJobRequest{
 				NodeId: node.JobDistributorDetails.NodeID,
@@ -555,7 +479,8 @@ observationSource = """
 				Str("node", node.Name).
 				Str("nodeId", node.JobDistributorDetails.NodeID).
 				Uint32("streamID", sj.streamID).
-				Msg("Prepared stream job spec")
+				Str("jobName", uniqueJobName).
+				Msg("Prepared stream job spec with hardcoded values")
 		}
 	}
 
@@ -697,7 +622,7 @@ channelDefinitions = """
       "baseUSDFee": "0.1",
       "expirationWindow": 3600,
       "abi": [
-        {"type": "int192", "expression": "s4", "expressionStreamId": 5}
+        {"type": "int192"}
       ]
     }
   }

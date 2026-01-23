@@ -255,6 +255,9 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	}
 	t.eng.Infow("ProcessReport pushing event", "eventID", eventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers), "hasPayload", hasPayload, "payloadType", payloadType)
 	nIncludedSubscribers := 0
+	nSent := 0
+	nDropped := 0
+	nFiltered := 0
 	for _, sub := range t.subscribers {
 		// Handle case where MaxFrequencyMs is 0 (default/unset) - treat as "include every report"
 		includeByFrequency := sub.config.MaxFrequencyMs == 0 || alignedTsMs%sub.config.MaxFrequencyMs == 0
@@ -262,20 +265,23 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 			// include this subscriber
 			select {
 			case sub.ch <- capResponse:
-				t.eng.Debugw("Sent TriggerResponse to subscriber", "eventID", eventID, "workflowID", sub.workflowID, "hasPayload", hasPayload)
+				nSent++
+				t.eng.Infow("CRETransmitter: Sent TriggerResponse to subscriber channel", "eventID", eventID, "workflowID", sub.workflowID, "hasPayload", hasPayload, "payloadType", payloadType)
 			case <-ctx.Done():
 				t.eng.Error("context done, dropping event")
 				return ctx.Err()
 			default:
 				// drop event if channel is full - processNewEvent() should be non-blocking
-				t.eng.Errorw("subscriber channel full, dropping event", "eventID", eventID, "workflowID", sub.workflowID)
+				nDropped++
+				t.eng.Errorw("CRETransmitter: subscriber channel full, dropping event", "eventID", eventID, "workflowID", sub.workflowID, "channelBufferSize", defaultSendChannelBufferSize)
 			}
 			nIncludedSubscribers++
 		} else {
+			nFiltered++
 			t.eng.Debugw("Skipping subscriber due to frequency filter", "eventID", eventID, "workflowID", sub.workflowID, "alignedTsMs", alignedTsMs, "maxFrequencyMs", sub.config.MaxFrequencyMs)
 		}
 	}
-	t.eng.Infow("ProcessReport done", "eventID", eventID, "nIncludedSubscribers", nIncludedSubscribers)
+	t.eng.Infow("ProcessReport done", "eventID", eventID, "nIncludedSubscribers", nIncludedSubscribers, "nTotalSubscribers", len(t.subscribers), "nSent", nSent, "nDropped", nDropped, "nFiltered", nFiltered)
 	return nil
 }
 

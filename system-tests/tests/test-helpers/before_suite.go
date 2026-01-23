@@ -139,6 +139,15 @@ func createEnvironmentIfNotExists(relativePathToRepoRoot, environmentDir string,
 		stopCmd.Stderr = os.Stderr
 		_ = stopCmd.Run() // Ignore errors - environment might not be running
 
+		// Remove all test containers (including Anvil/blockchain containers) to ensure fresh state
+		// This is critical to avoid reusing old blockchain state with incorrect contract data
+		removeErr := framework.RemoveTestContainers()
+		if removeErr != nil {
+			framework.L.Warn().Msgf("Failed to remove test containers (this may be expected if containers don't exist): %s", removeErr)
+		} else {
+			framework.L.Info().Msg("Removed all test containers (including blockchain/Anvil) to ensure fresh state")
+		}
+
 		// Delete state directory
 		stateDir := filepath.Join(relativePathToRepoRoot, envconfig.StateDirname)
 		if err := os.RemoveAll(stateDir); err != nil {

@@ -241,6 +241,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			s.lggr.Errorw("received message with invalid trigger metadata", "sender", sender)
 			return
 		}
+		s.lggr.Infow("TriggerSubscriber: received P2P trigger event message", "triggerEventID", meta.TriggerEventId, "sender", sender, "nWorkflows", len(meta.WorkflowIds), "workflowIDs", meta.WorkflowIds)
 		if len(meta.WorkflowIds) > maxBatchedWorkflowIDs {
 			s.lggr.Errorw("received message with too many workflow IDs - truncating", "nWorkflows", len(meta.WorkflowIds), "sender", sender)
 			meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
@@ -262,11 +263,12 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
 			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
 			s.mu.Unlock()
-			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
+			s.lggr.Infow("TriggerSubscriber: trigger event cached", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "sender", sender, "ready", ready, "nPayloads", len(payloads), "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate, "creationTs", creationTs, "nowMs", nowMs)
 			if ready {
+				s.lggr.Infow("TriggerSubscriber: aggregation threshold met, aggregating", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "nPayloads", len(payloads))
 				aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, payloads)
 				if err != nil {
-					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "err", err)
+					s.lggr.Errorw("TriggerSubscriber: aggregation failed", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "err", err, "nPayloads", len(payloads))
 					continue
 				}
 				hasPayload := aggregatedResponse.Event.Payload != nil
@@ -274,8 +276,15 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				if hasPayload {
 					payloadType = aggregatedResponse.Event.Payload.TypeUrl
 				}
-				s.lggr.Infow("remote trigger event aggregated, sending to workflow", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "hasPayload", hasPayload, "payloadType", payloadType)
-				registration.callback <- aggregatedResponse
+				s.lggr.Infow("TriggerSubscriber: event aggregated successfully, sending to workflow engine", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "hasPayload", hasPayload, "payloadType", payloadType)
+				select {
+				case registration.callback <- aggregatedResponse:
+					s.lggr.Debugw("TriggerSubscriber: event delivered to workflow callback channel", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID)
+				default:
+					s.lggr.Errorw("TriggerSubscriber: workflow callback channel full, dropping event", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID)
+				}
+			} else {
+				s.lggr.Debugw("TriggerSubscriber: waiting for more responses before aggregation", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "nPayloads", len(payloads), "minRequired", cfg.remoteConfig.MinResponsesToAggregate)
 			}
 		}
 	} else {

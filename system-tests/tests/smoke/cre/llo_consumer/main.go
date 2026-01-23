@@ -136,8 +136,10 @@ func onStreamsTrigger(config WorkflowConfig, runtime cre.Runtime, report *stream
 			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, isMatch, sigCount)
 		logger.Info(result)
 		results = append(results, result)
-	} else {
-		logger.Info(fmt.Sprintf("LLO_E2E_FORMAT5_SKIP[SeqNr=%d]: %v", report.SeqNr, errF5))
+		// Log LLO_E2E_VALUE here so it's captured by Beholder before we return
+		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=5 Value=%d Expected=%d Match=%v Sigs=%d",
+			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, isMatch, sigCount)
+		logger.Info(msg)
 	}
 
 	// Try Format 7 (EVMABIEncodeUnpackedExpr - ABI)
@@ -148,23 +150,48 @@ func onStreamsTrigger(config WorkflowConfig, runtime cre.Runtime, report *stream
 			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, isMatch, sigCount)
 		logger.Info(result)
 		results = append(results, result)
-	} else {
+		// Log LLO_E2E_VALUE here so it's captured by Beholder before we return
+		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=7 Value=%d Expected=%d Match=%v Sigs=%d",
+			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, isMatch, sigCount)
+		logger.Info(msg)
+	}
+
+	// Only log skip messages if BOTH formats failed (to reduce noise)
+	// If one format succeeds, we don't need to log that the other failed
+	if errF5 != nil && errF7 != nil {
+		logger.Info(fmt.Sprintf("LLO_E2E_FORMAT5_SKIP[SeqNr=%d]: %v", report.SeqNr, errF5))
 		logger.Info(fmt.Sprintf("LLO_E2E_FORMAT7_SKIP[SeqNr=%d]: %v", report.SeqNr, errF7))
 	}
 
 	// Return results based on which format was decoded successfully
 	// Format 5 (protobuf) takes priority if both decode (shouldn't happen in practice)
+	// Return success (nil error) when Match=true, error when Match=false
+	// LLO_E2E_VALUE is already logged above so Beholder can capture it
 	if errF5 == nil {
 		valueInt := decF5.IntPart()
 		isMatch := valueInt == MAGIC_NUMBER_FORMAT5
-		return "", fmt.Errorf("LLO_E2E_VALUE[SeqNr=%d]: Format=5 Value=%d Expected=%d Match=%v Sigs=%d",
+		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=5 Value=%d Expected=%d Match=%v Sigs=%d",
 			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, isMatch, sigCount)
+		if isMatch {
+			// Success: return message in string, nil error
+			return msg, nil
+		}
+		// Failure: value doesn't match expected
+		return "", fmt.Errorf("LLO_E2E_MISMATCH[SeqNr=%d]: Format=5 Value=%d Expected=%d Match=false Sigs=%d",
+			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, sigCount)
 	}
 
 	if errF7 == nil {
 		isMatch := valueF7 == MAGIC_NUMBER_FORMAT7
-		return "", fmt.Errorf("LLO_E2E_VALUE[SeqNr=%d]: Format=7 Value=%d Expected=%d Match=%v Sigs=%d",
+		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=7 Value=%d Expected=%d Match=%v Sigs=%d",
 			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, isMatch, sigCount)
+		if isMatch {
+			// Success: return message in string, nil error
+			return msg, nil
+		}
+		// Failure: value doesn't match expected
+		return "", fmt.Errorf("LLO_E2E_MISMATCH[SeqNr=%d]: Format=7 Value=%d Expected=%d Match=false Sigs=%d",
+			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, sigCount)
 	}
 
 	// Neither format decoded successfully
