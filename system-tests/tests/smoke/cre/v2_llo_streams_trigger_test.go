@@ -264,7 +264,7 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 
 	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
 	testLogger.Info().Msg("║        LLO STREAMS TRIGGER E2E TEST (FULL LLO)                       ║")
-	testLogger.Info().Msg("║  Magic Numbers: Format5=424242, Format7=555555                       ║")
+	testLogger.Info().Msg("║  Magic Numbers: Format5=424242, Format7=555555 (111111*5 calculated) ║")
 	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
 
 	// Step 1: Setup LLO Infrastructure (deploy contracts only)
@@ -323,13 +323,30 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	testLogger.Info().Msg("✓ Workflow deployed")
 
 	// Step 9: Wait for LLO reports with magic numbers
+	// We need to verify both Format 5 (424242) and Format 7 (555555 from calculated stream)
 	testLogger.Info().Msg("Step 9: Waiting for LLO reports with magic numbers...")
 
-	expectedLog := "LLO_E2E_VALUE"
+	// First, wait for Format 5 (424242)
+	expectedLogFormat5 := "LLO_E2E_VALUE"
 	timeout := 3 * time.Minute
-	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLog, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive reports")
-	testLogger.Info().Msg("✓ Workflow received LLO reports with magic numbers")
+	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat5, testLogger, messageChan, kafkaErrChan, timeout)
+	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive Format 5 reports")
+	testLogger.Info().Msg("✓ Workflow received Format 5 reports (424242)")
+
+	// Then, wait for Format 7 (555555 from calculated stream: 111111 * 5)
+	// Check for Format=7 specifically to verify calculated streams are working
+	expectedLogFormat7 := "Format=7"
+	testLogger.Info().Msg("Waiting for Format 7 reports with calculated stream (555555 = 111111 * 5)...")
+	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat7, testLogger, messageChan, kafkaErrChan, timeout)
+	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive Format 7 reports with calculated stream")
+	
+	// Also verify the calculated value is correct (555555)
+	expectedLogFormat7Value := "Value=555555"
+	testLogger.Info().Msg("Verifying calculated stream value (555555)...")
+	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat7Value, testLogger, messageChan, kafkaErrChan, timeout)
+	require.NoError(t, err, "LLO Streams Trigger E2E test failed - calculated stream value is not 555555")
+	
+	testLogger.Info().Msg("✓ Workflow received LLO reports with magic numbers (both Format 5 and Format 7 with calculated stream)")
 
 	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
 	testLogger.Info().Msg("║  ✓ LLO STREAMS TRIGGER E2E TEST PASSED                               ║")

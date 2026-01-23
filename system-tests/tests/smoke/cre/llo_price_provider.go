@@ -42,7 +42,10 @@ func init() {
 const (
 	// MAGIC_NUMBER_FORMAT5 is for ReportFormat 5 (CapabilityTrigger) - Stream 1 (TEST/USD)
 	LLOMagicNumberFormat5 = 424242
-	// MAGIC_NUMBER_FORMAT7 is for ReportFormat 7 (EVMABIEncodeUnpackedExpr) - Stream 4 (DATA/USD)
+	// MAGIC_NUMBER_FORMAT7 is for ReportFormat 7 (EVMABIEncodeUnpackedExpr) - Stream 4 (DATA/USD) base value
+	// This value (111111) is multiplied by 5 via calculated stream expression to get 555555
+	LLOMagicNumberFormat7Base = 111111
+	// MAGIC_NUMBER_FORMAT7 is the expected final value after calculated stream expression (111111 * 5 = 555555)
 	LLOMagicNumberFormat7 = 555555
 )
 
@@ -64,7 +67,7 @@ func DefaultLLOPriceConfig() LLOPriceConfig {
 		TestUSD:   float64(LLOMagicNumberFormat5), // 424242
 		NativeUSD: 3000.00,
 		LinkUSD:   15.00,
-		DataUSD:   float64(LLOMagicNumberFormat7), // 555555
+		DataUSD:   float64(LLOMagicNumberFormat7Base), // 111111 (will be multiplied by 5 via calculated stream)
 	}
 }
 
@@ -201,11 +204,13 @@ func SetupLLOPriceProvider(testLogger zerolog.Logger, input *fake.Input, config 
 				{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
 			},
 		},
-		// Channel 2: Format 7 (EVM ABI Encode Unpacked) for DATA/USD - magic number 555555
+		// Channel 2: Format 7 (EVM ABI Encode Unpacked) for DATA/USD
+		// Stream 4 has base value 111111, calculated stream 5 multiplies by 5 to get 555555
 		2: {
 			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpackedExpr,
 			Streams: []llotypes.Stream{
 				{StreamID: 4, Aggregator: llotypes.AggregatorMedian},
+				{StreamID: 5, Aggregator: llotypes.AggregatorCalculated},
 			},
 		},
 	}

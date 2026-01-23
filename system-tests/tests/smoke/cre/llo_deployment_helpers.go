@@ -209,7 +209,7 @@ func BuildLLOJobSpec(
 // - Stream 1 (TEST/USD): 424242 for Format 5 magic number
 // - Stream 2 (NATIVE/USD): 3000
 // - Stream 3 (LINK/USD): 15
-// - Stream 4 (DATA/USD): 555555 for Format 7 magic number
+// - Stream 4 (DATA/USD): 111111 (base value, multiplied by 5 via calculated stream to get 555555)
 func BuildStreamJobSpec(
 	name string,
 	streamID uint32,
@@ -225,8 +225,8 @@ func BuildStreamJobSpec(
 		hardcodedValue = 3000
 	case 3: // LINK/USD
 		hardcodedValue = 15
-	case 4: // DATA/USD - Format 7 magic number
-		hardcodedValue = 555555
+	case 4: // DATA/USD - base value 111111 (multiplied by 5 via calculated stream to get 555555)
+		hardcodedValue = 111111
 	default:
 		// Default fallback value
 		hardcodedValue = 1000

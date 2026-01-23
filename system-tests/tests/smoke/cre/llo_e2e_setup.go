@@ -619,7 +619,8 @@ providerType = "llo"
 
 		// Use inline channelDefinitions - much more reliable than fetching from URL
 		// Channel 1: ReportFormat 5 (CapabilityTrigger) - Stream 1 (TEST/USD) → MAGIC 424242
-		// Channel 2: ReportFormat 7 (EVMABIEncodeUnpackedExpr) - Stream 4 (DATA/USD) → MAGIC 555555
+		// Channel 2: ReportFormat 7 (EVMABIEncodeUnpackedExpr) - Stream 4 (DATA/USD) base value 111111
+		//   Calculated stream 5 multiplies stream 4 by 5: Mul(s4, 5) → 555555
 		// Job spec matches the working version from commit 73215a5
 		jobSpec := fmt.Sprintf(`type = "offchainreporting2"
 schemaVersion = 1
@@ -638,6 +639,7 @@ transmitterID = "%s"
 [pluginConfig]
 # Channel Definitions for E2E test with both report formats
 # Note: ReportFormat 7 requires at least 3 streams
+# Stream 4 has base value 111111, calculated stream 5 multiplies by 5 to get 555555
 channelDefinitions = """
 {
   "1": {
@@ -650,14 +652,15 @@ channelDefinitions = """
     "streams": [
       {"streamId": 2, "aggregator": "median"},
       {"streamId": 3, "aggregator": "median"},
-      {"streamId": 4, "aggregator": "median"}
+      {"streamId": 4, "aggregator": "median"},
+      {"streamId": 5, "aggregator": "calculated"}
     ],
     "opts": {
       "feedId": "0x0001000000000000000000000000000000000000000000000000000000000001",
       "baseUSDFee": "0.1",
       "expirationWindow": 3600,
       "abi": [
-        {"type": "int192"}
+        {"type": "int192", "expression": "Mul(s4, 5)", "expressionStreamId": 5}
       ]
     }
   }

@@ -140,14 +140,14 @@ func (t *transmitter) Transmit(
 ) error {
 	switch report.Info.ReportFormat {
 	case llotypes.ReportFormatCapabilityTrigger:
-		// Format 5: Native protobuf format designed for CRE
+		// Protobuf-encoded reports (Streams DON format type)
 	case llotypes.ReportFormatEVMABIEncodeUnpackedExpr:
-		// Format 7: ABI-encoded format (can also be used for CRE with ABI decoding)
+		// ABI-encoded reports (Streams DON format type)
 	default:
 		// NOTE: Silently ignore non-capability format reports here. All
 		// channels are broadcast to all transmitters but this transmitter only
-		// cares about channels of type ReportFormatCapabilityTrigger (5)
-		// or ReportFormatEVMABIEncodeUnpackedExpr (7)
+		// cares about channels of type ReportFormatCapabilityTrigger (protobuf)
+		// or ReportFormatEVMABIEncodeUnpackedExpr (ABI-encoded)
 		return nil
 	}
 	switch report.Info.LifeCycleStage {
@@ -184,16 +184,16 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	// Extract timestamp and eventID based on report format
 	switch reportFormat {
 	case llotypes.ReportFormatCapabilityTrigger:
-		// Format 5: Protobuf OCRTriggerReport
+		// Protobuf-encoded OCRTriggerReport (Streams DON format type)
 		p := &capabilitiespb.OCRTriggerReport{}
 		err := proto.Unmarshal(event.Report, p)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal OCRTriggerReport (Format 5): %w", err)
+			return fmt.Errorf("failed to unmarshal protobuf-encoded OCRTriggerReport: %w", err)
 		}
 		tsMs = p.Timestamp / 1000000 // nanoseconds -> milliseconds
 		eventID = p.EventID
 	case llotypes.ReportFormatEVMABIEncodeUnpackedExpr:
-		// Format 7: ABI-encoded report
+		// ABI-encoded report (Streams DON format type)
 		// The timestamp is embedded in the ABI header at offset 64 (32+32) as uint32
 		// For simplicity, use current time and generate unique event ID
 		tsMs = uint64(time.Now().UnixMilli())
@@ -233,7 +233,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	}
 
 	// Also keep backward compatibility with V1 format using Outputs
-	// Note: For Format 7 (ABI), ToMap will likely fail but that's ok since V1 is deprecated
+	// Note: For ABI-encoded reports, ToMap will likely fail but that's ok since V1 is deprecated
 	o, mapErr := event.ToMap()
 	if mapErr != nil && reportFormat == llotypes.ReportFormatCapabilityTrigger {
 		t.eng.Warnw("failed to convert OCRTriggerEvent to map (V1 compat)", "error", mapErr)

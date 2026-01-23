@@ -59,9 +59,9 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 // and for each of them, we expect the [capabilitypb.TriggerResponse.Event.Outputs] field
 // to be the [values.Map] representation a [capabilities.OCRTriggerEvent] (see [capabilities.OCRTriggerEvent.ToMap])
 //
-// Supports two report formats:
-// - Format 5 (ReportFormatCapabilityTrigger): Protobuf-encoded OCRTriggerReport
-// - Format 7 (ReportFormatEVMABIEncodeUnpackedExpr): ABI-encoded report with calculated streams
+// Supports two report encodings:
+// - Protobuf-encoded (Streams DON ReportFormatCapabilityTrigger): Protobuf-encoded OCRTriggerReport
+// - ABI-encoded (Streams DON ReportFormatEVMABIEncodeUnpackedExpr): ABI-encoded report with calculated streams
 func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, responses [][]byte) (capabilities.TriggerResponse, error) {
 	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
@@ -77,36 +77,36 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 		}
 		rawReport := ocrEvent.Report
 
-		// Check Format 7 first (can be identified by event ID suffix) to avoid unnecessary Format 5 parsing
-		if isFormat7EventID(triggerEventID) {
-			result, err := a.aggregateFormat7(triggerEventID, triggerResp, ocrEvent, rawReport)
+		// Check ABI-encoded first (can be identified by event ID suffix) to avoid unnecessary protobuf parsing
+		if isABIEncodedEventID(triggerEventID) {
+			result, err := a.aggregateABI(triggerEventID, triggerResp, ocrEvent, rawReport)
 			if err != nil {
 				continue
 			}
 			return result, nil
 		}
 
-		// Try Format 5 (protobuf) if not Format 7
+		// Try protobuf-encoded if not ABI-encoded
 		rep := &capabilitiespb.OCRTriggerReport{}
 		err = proto.Unmarshal(rawReport, rep)
 		// Check for valid protobuf parse: Unmarshal can succeed on non-protobuf data
 		// but will leave all fields at default values. We require EventID and Timestamp
-		// to be populated for a valid Format 5 report.
+		// to be populated for a valid protobuf-encoded report.
 		if err == nil && rep.EventID != "" && rep.Timestamp != 0 {
-			result, err := a.aggregateFormat5(triggerEventID, triggerResp, ocrEvent, rep)
+			result, err := a.aggregateProtobuf(triggerEventID, triggerResp, ocrEvent, rep)
 			if err != nil {
 				continue
 			}
 			return result, nil
 		}
 
-		a.lggr.Errorw("failed to parse OCR report as Format 5 or Format 7", "id", triggerResp.Event.ID)
+		a.lggr.Errorw("failed to parse OCR report as protobuf or ABI-encoded", "id", triggerResp.Event.ID)
 	}
 	return capabilities.TriggerResponse{}, fmt.Errorf("%w: %s", ErrMissingResponse, triggerEventID)
 }
 
-// aggregateFormat5 handles Format 5 (ReportFormatCapabilityTrigger) - protobuf encoded
-func (a *signedReportRemoteAggregator) aggregateFormat5(
+// aggregateProtobuf handles protobuf-encoded reports (Streams DON ReportFormatCapabilityTrigger)
+func (a *signedReportRemoteAggregator) aggregateProtobuf(
 	triggerEventID string,
 	triggerResp capabilities.TriggerResponse,
 	ocrEvent *capabilities.OCRTriggerEvent,
@@ -137,7 +137,7 @@ func (a *signedReportRemoteAggregator) aggregateFormat5(
 	return triggerResp, nil
 }
 
-// aggregateFormat7 handles Format 7 (ReportFormatEVMABIEncodeUnpackedExpr) - ABI encoded
+// aggregateABI handles ABI-encoded reports (Streams DON ReportFormatEVMABIEncodeUnpackedExpr)
 // ABI header structure:
 //   - bytes 0-31: feedId (bytes32)
 //   - bytes 32-63: validFromTimestamp (uint32, right-aligned)
@@ -147,9 +147,9 @@ func (a *signedReportRemoteAggregator) aggregateFormat5(
 //   - bytes 160-191: expiresAt (uint32)
 //   - bytes 192+: custom ABI fields (calculated streams)
 //
-// Format 7 uses the legacy Mercury signing scheme (LegacyReportContext) which includes
-// the donID in the ExtraHash. This is different from Format 5 which uses Sign3.
-func (a *signedReportRemoteAggregator) aggregateFormat7(
+// ABI-encoded reports use the legacy Mercury signing scheme (LegacyReportContext) which includes
+// the donID in the ExtraHash. This is different from protobuf-encoded reports which use Sign3.
+func (a *signedReportRemoteAggregator) aggregateABI(
 	triggerEventID string,
 	triggerResp capabilities.TriggerResponse,
 	ocrEvent *capabilities.OCRTriggerEvent,
@@ -176,10 +176,10 @@ func (a *signedReportRemoteAggregator) aggregateFormat7(
 
 		// Validate signatures using legacy signing scheme (includes donID in ExtraHash)
 		if err := a.validateSignaturesLegacy(ocrEvent, donID); err != nil {
-			return capabilities.TriggerResponse{}, fmt.Errorf("Format 7 signature verification failed: %w", err)
+			return capabilities.TriggerResponse{}, fmt.Errorf("ABI-encoded report signature verification failed: %w", err)
 		}
 
-	// For Format 7, keep the raw report bytes as Outputs
+	// For ABI-encoded reports, keep the raw report bytes as Outputs
 	// The workflow can decode the ABI payload
 	outputsMap := &valuespb.Map{
 		Fields: map[string]*valuespb.Value{
@@ -214,18 +214,19 @@ func extractDonIDFromEventID(eventID string) (uint32, error) {
 	return uint32(donID), nil
 }
 
-// isFormat7EventID checks if the event ID indicates a Format 7 report
-// Format 7 event IDs have "_f7" suffix (generated by the CRE transmitter)
-func isFormat7EventID(eventID string) bool {
+// isABIEncodedEventID checks if the event ID indicates an ABI-encoded report
+// ABI-encoded report event IDs have "_f7" suffix (generated by the CRE transmitter)
+// This is a Streams DON convention for identifying ABI-encoded reports
+func isABIEncodedEventID(eventID string) bool {
 	return strings.HasSuffix(eventID, "_f7")
 }
 
-// extractABITimestamp extracts the timestamp from a Format 7 ABI-encoded report
+// extractABITimestamp extracts the timestamp from an ABI-encoded report
 // The timestamp is at offset 64-95 (uint32 right-aligned in a 32-byte word)
 func extractABITimestamp(report []byte) (uint32, error) {
 	// Minimum size: 192 bytes for the base header
 	if len(report) < 192 {
-		return 0, fmt.Errorf("report too short for Format 7: %d bytes", len(report))
+		return 0, fmt.Errorf("ABI-encoded report too short: %d bytes", len(report))
 	}
 	// Timestamp is at offset 64, stored as uint32 in the last 4 bytes of the 32-byte word
 	timestampWord := report[64:96]
@@ -264,7 +265,7 @@ func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OC
 }
 
 // validateSignaturesLegacy validates signatures using the legacy Mercury/LLO signing scheme.
-// This is used for Format 7 (EVMABIEncodeUnpackedExpr) and other legacy formats.
+// This is used for ABI-encoded reports (Streams DON ReportFormatEVMABIEncodeUnpackedExpr) and other legacy formats.
 // The legacy scheme uses LegacyReportContext which includes donID in the ExtraHash.
 func (a *signedReportRemoteAggregator) validateSignaturesLegacy(event *capabilities.OCRTriggerEvent, donID uint32) error {
 	digest, err := ocr2types.BytesToConfigDigest(event.ConfigDigest)
