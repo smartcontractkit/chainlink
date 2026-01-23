@@ -26,7 +26,7 @@ func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *", // every 30 seconds
 	}
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedBeholderLog := "Amazing workflow user log"
 	timeout := 2 * time.Minute

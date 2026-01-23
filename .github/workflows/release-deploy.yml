@@ -1,0 +1,47 @@
+name: "Release Deploy"
+##
+# GitOps style deploys via pull requests.
+##
+on:
+  workflow_dispatch:
+    inputs:
+      oci-repository-url:
+        description: "Base OCI repository URL (e.g. public.ecr.aws/chainlink/chainlink)"
+        required: true
+        type: string
+      oci-image-tag:
+        description: "OCI image tag to deploy"
+        required: true
+        type: string
+      is-release:
+        description: "Whether the upstream workflow determined this ref is a final release"
+        required: false
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  deploy-core:
+    name: "Deploy Core"
+    if: ${{ inputs.is-release }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Deploy core
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ inputs.oci-image-tag }}
+          oci-repository-url: ${{ inputs.oci-repository-url }}
+          pr-close-enabled: false
+          products: |
+            df1.0
+            automation-mainnet
+            automation-testnet

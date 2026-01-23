@@ -91,7 +91,6 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 		OCRContractQualifier:    testOCRQualifier,
 		ForwardersQualifier:     testForwarderQualifier,
 		ForwarderLookbackBlocks: 123,
-		DeltaStage:              time.Second, // Default to zero (disabled)
 		EVMCapabilityInputs:     evmCapInputs,
 	}
 
@@ -129,7 +128,6 @@ func freshBase(selector uint64) jobs.ProposeEVMCapJobSpecInput {
 		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
 		OCRContractQualifier: testOCRQualifier,
 		ForwardersQualifier:  testForwarderQualifier,
-		DeltaStage:           time.Second,
 		EVMCapabilityInputs:  []jobs.EVMCapabilityInput{minimalEVMCapInput("peer-1")},
 	}
 }
@@ -381,140 +379,6 @@ func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 	_, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate nodeID")
-}
-
-func TestProposeEVMCapJobSpec_Apply_deltaStage(t *testing.T) {
-	setup := setupEVMCapTest(t)
-	env := setup.env
-
-	const deltaStageSet = 5 * time.Second
-
-	input := setup.baseInput
-	require.GreaterOrEqual(t, len(setup.evmCapInputs), 2, "need at least 2 nodes for this test")
-	input.EVMCapabilityInputs = setup.evmCapInputs
-
-	// Set deltaStage at top level (applies to all nodes)
-	input.DeltaStage = deltaStageSet
-
-	require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(*env, input))
-
-	out, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
-	require.NoError(t, err)
-	assert.Len(t, out.Reports, 1)
-
-	// Validate deltaStage is included in all configs when set
-	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
-
-	// All nodes should have deltaStage set from top-level config
-	deltaStageCount := strings.Count(outputStr, `"deltaStage":5000000000`)
-	assert.Equal(t, len(input.EVMCapabilityInputs), deltaStageCount, "expected deltaStage to appear for all nodes")
-}
-
-func TestProposeEVMCapJobSpec_Apply_deltaStageZero(t *testing.T) {
-	setup := setupEVMCapTest(t)
-	env := setup.env
-
-	input := setup.baseInput
-	require.GreaterOrEqual(t, len(setup.evmCapInputs), 2, "need at least 2 nodes for this test")
-	input.EVMCapabilityInputs = setup.evmCapInputs
-
-	// Leave deltaStage unset (zero value) on all nodes
-	require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(*env, input))
-
-	out, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
-	require.NoError(t, err)
-	assert.Len(t, out.Reports, 1)
-
-	// Validate deltaStage is omitted when zero (due to omitempty)
-	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
-	deltaStageCount := strings.Count(outputStr, `"deltaStage"`)
-	assert.Equal(t, 0, deltaStageCount, "expected deltaStage to be omitted when zero/unset")
-}
-
-func TestProposeEVMCapJobSpec_VerifyPreconditions_deltaStageOptional(t *testing.T) {
-	var env cldf.Environment
-	ds := datastore.NewMemoryDataStore()
-	chain := chainsel.ETHEREUM_TESTNET_SEPOLIA
-	seedAddressesForSelector(t, ds, chain.Selector, "0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222")
-	env.DataStore = ds.Seal()
-
-	base := freshBase(chain.Selector)
-
-	t.Run("deltaStage zero value is allowed", func(t *testing.T) {
-		in := deepCloneInput(base)
-		in.EVMCapabilityInputs[0].OverrideDefaultCfg.DeltaStage = 0
-		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
-		require.NoError(t, err, "zero deltaStage should be allowed")
-	})
-
-	t.Run("deltaStage unset is allowed", func(t *testing.T) {
-		in := deepCloneInput(base)
-		// Don't set DeltaStage at all - should use zero value
-		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
-		require.NoError(t, err, "unset deltaStage should be allowed")
-	})
-
-	t.Run("deltaStage positive value is allowed", func(t *testing.T) {
-		in := deepCloneInput(base)
-		in.EVMCapabilityInputs[0].OverrideDefaultCfg.DeltaStage = 10 * time.Second
-		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
-		require.NoError(t, err, "positive deltaStage should be allowed")
-	})
-
-	t.Run("deltaStage must be the same across all nodes", func(t *testing.T) {
-		in := deepCloneInput(base)
-		// Add a second node
-		in.EVMCapabilityInputs = append(in.EVMCapabilityInputs, minimalEVMCapInput("peer-2"))
-
-		// Set different deltaStage values for each node - should fail
-		in.EVMCapabilityInputs[0].OverrideDefaultCfg.DeltaStage = 5 * time.Second
-		in.EVMCapabilityInputs[1].OverrideDefaultCfg.DeltaStage = 10 * time.Second
-
-		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
-		require.Error(t, err, "different deltaStage values per node should be rejected")
-		assert.Contains(t, err.Error(), "deltaStage must be the same across all nodes")
-	})
-
-	t.Run("deltaStage can be set at top level", func(t *testing.T) {
-		in := deepCloneInput(base)
-		// Add a second node
-		in.EVMCapabilityInputs = append(in.EVMCapabilityInputs, minimalEVMCapInput("peer-2"))
-
-		// Set deltaStage at top level - should pass
-		in.DeltaStage = 5 * time.Second
-
-		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
-		require.NoError(t, err, "top-level deltaStage should be allowed")
-	})
-
-	t.Run("deltaStage top-level and node-level conflict is rejected", func(t *testing.T) {
-		in := deepCloneInput(base)
-		// Add a second node
-		in.EVMCapabilityInputs = append(in.EVMCapabilityInputs, minimalEVMCapInput("peer-2"))
-
-		// Set top-level deltaStage
-		in.DeltaStage = 5 * time.Second
-		// Set different node-level override - should fail
-		in.EVMCapabilityInputs[0].OverrideDefaultCfg.DeltaStage = 10 * time.Second
-
-		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
-		require.Error(t, err, "conflicting top-level and node-level deltaStage should be rejected")
-		assert.Contains(t, err.Error(), "conflicts with node-level override")
-	})
-
-	t.Run("deltaStage can be set to same value on all nodes via override", func(t *testing.T) {
-		in := deepCloneInput(base)
-		// Add a second node
-		in.EVMCapabilityInputs = append(in.EVMCapabilityInputs, minimalEVMCapInput("peer-2"))
-
-		// Set same deltaStage value for all nodes - should pass
-		deltaStage := 5 * time.Second
-		in.EVMCapabilityInputs[0].OverrideDefaultCfg.DeltaStage = deltaStage
-		in.EVMCapabilityInputs[1].OverrideDefaultCfg.DeltaStage = deltaStage
-
-		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
-		require.NoError(t, err, "same deltaStage values across nodes should be allowed")
-	})
 }
 
 func TestProposeStandardCapabilityJob_ReusesUUIDForEvmCapabilitiesV2(t *testing.T) {

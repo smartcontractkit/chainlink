@@ -202,6 +202,12 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		return ProposeStandardCapabilityJobOutput{Specs: specs}, nil
 	})
 
+const (
+	evmCapJobNamePrefix = "evm-cap-v2"
+	// evmCapJobNamePrefixOld had to be shortened because of job name character limit
+	evmCapJobNamePrefixOld = "evm-capabilities-v2"
+)
+
 func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabilityJob, setPerNodeCfg bool, nodeID string, nodeIDToConfig map[string]string, oc cldf_offchain.Client) (string, error) {
 	if setPerNodeCfg {
 		customCfg, ok := nodeIDToConfig[nodeID]
@@ -211,12 +217,17 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 		job.Config = customCfg
 	}
 
-	externalJobID, err := getEVMExternalJobIDByName(ctx, lggr, job.JobName, nodeID, oc)
+	externalJobID, isLegacy, err := lookupEVMJobByName(ctx, lggr, job.JobName, nodeID, oc)
 	if err != nil {
 		return "", err
 	}
+
 	if externalJobID != "" {
 		job.ExternalJobID = externalJobID
+		// some of the already existing jobs have longer names so we need to resolve them here without burdening the pipeline input
+		if isLegacy {
+			job.JobName = strings.Replace(job.JobName, evmCapJobNamePrefix, evmCapJobNamePrefixOld, 1)
+		}
 	}
 
 	spec, err := job.Resolve()
@@ -227,39 +238,44 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 	return spec, nil
 }
 
-// getEVMExternalJobIDByName returns an empty string if id is not found.
-func getEVMExternalJobIDByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, error) {
-	if !strings.Contains(jobName, "evm-capabilities-v2") {
-		return "", nil
+// lookupEVMJobByName looks up an EVM job by name and returns the external job ID and whether the job was found with a legacy name.
+// Returns empty string and false if no job is found.
+func lookupEVMJobByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, bool, error) {
+	if !strings.Contains(jobName, evmCapJobNamePrefix) {
+		return "", false, nil
 	}
 
 	nodesJobs, _, err := view.ApprovedJobspecs(ctx, lggr, []string{nodeID}, oc)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch approved jobs for node %s: %w", nodeID, err)
+		return "", false, fmt.Errorf("failed to fetch approved jobs for node %s: %w", nodeID, err)
 	}
 
 	nodeJobs, ok := nodesJobs[nodeID]
 	if !ok || len(nodeJobs) == 0 {
-		return "", nil
+		return "", false, nil
 	}
 
 	specFormattedJobName := `name = "` + jobName + `"`
+	legacyFormattedJobName := `name = "` + strings.Replace(jobName, evmCapJobNamePrefix, evmCapJobNamePrefixOld, 1) + `"`
 	for _, j := range nodeJobs {
-		if !strings.Contains(j.Spec, specFormattedJobName) {
+		hasPrefix := strings.Contains(j.Spec, specFormattedJobName)
+		hasOldPrefix := strings.Contains(j.Spec, legacyFormattedJobName)
+
+		if !hasPrefix && !hasOldPrefix {
 			continue
 		}
 
 		ji := make(job_types.JobSpecInput)
 		if err = toml.Unmarshal([]byte(j.Spec), &ji); err != nil {
-			return "", fmt.Errorf("failed to unmarshal job spec toml for job %s on node %s: %w", jobName, nodeID, err)
+			return "", false, fmt.Errorf("failed to unmarshal job spec toml for job %s on node %s: %w", jobName, nodeID, err)
 		}
 
 		if s, _ := ji["externalJobID"].(string); s != "" {
-			return s, nil
+			return s, hasOldPrefix, nil
 		}
 	}
 
-	return "", nil
+	return "", false, nil
 }
 
 func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, job pkg.StandardCapabilityJob) (*pkg.OracleFactory, error) {

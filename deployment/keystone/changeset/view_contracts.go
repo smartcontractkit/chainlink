@@ -35,12 +35,13 @@ type KeystoneChainView struct {
 }
 
 type ForwarderView struct {
-	DonID         uint32   `json:"donId"`
-	ConfigVersion uint32   `json:"configVersion"`
-	F             uint8    `json:"f"`
-	Signers       []string `json:"signers"`
-	TxHash        string   `json:"txHash,omitempty"`
-	BlockNumber   uint64   `json:"blockNumber,omitempty"`
+	DonID                   uint32   `json:"donId"`
+	ConfigVersion           uint32   `json:"configVersion"`
+	F                       uint8    `json:"f"`
+	Signers                 []string `json:"signers"`
+	TxHash                  string   `json:"txHash,omitempty"`
+	BlockNumber             uint64   `json:"blockNumber,omitempty"`
+	LatestViewedBlockNumber uint64   `json:"latestViewedBlockNumber,omitempty"`
 }
 
 var (
@@ -218,11 +219,18 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, 
 	if len(prevViews) > 0 {
 		// Sort `prevViews` by block number in ascending order, we make sure the last item has the highest block number
 		sort.Slice(prevViews, func(i, j int) bool {
+			// having `LatestViewedBlockNumber` means all prev views have it, so we use it for sorting
+			if prevViews[i].LatestViewedBlockNumber > 0 {
+				return prevViews[i].LatestViewedBlockNumber < prevViews[j].LatestViewedBlockNumber
+			}
 			return prevViews[i].BlockNumber < prevViews[j].BlockNumber
 		})
 
 		// If we have previous views, we will start from the last block number +1 of the previous views
 		startBlock = prevViews[len(prevViews)-1].BlockNumber + 1
+		if prevViews[len(prevViews)-1].LatestViewedBlockNumber > 0 {
+			startBlock = prevViews[len(prevViews)-1].LatestViewedBlockNumber + 1
+		}
 	} else {
 		// If we don't have previous views, we will start from the deployment block number
 		// which is stored in the forwarder's type and version labels.
@@ -293,30 +301,38 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, 
 			configSets = append(configSets, configIterator.Event)
 		}
 	}
+	updatedPrevViews := make([]ForwarderView, 0, len(prevViews)+len(configSets))
+	for _, prevView := range prevViews {
+		// Let's set the LatestViewedBlockNumber to the previous views
+		prevView.LatestViewedBlockNumber = latestBlock
+		updatedPrevViews = append(updatedPrevViews, prevView)
+	}
+
 	if len(configSets) == 0 {
 		// Forwarder is not configured only if we don't have any previous configuration events.
-		if len(prevViews) == 0 {
+		if len(updatedPrevViews) == 0 {
 			return nil, ErrForwarderNotConfigured
 		}
 
 		// If we don't have any new config sets, we return the previous views as is.
-		return prevViews, nil
+		return updatedPrevViews, nil
 	}
 
 	// We now create a slice with all previous views and the new views, so they get all added to the final view.
-	forwarderViews := append([]ForwarderView{}, prevViews...)
+	forwarderViews := updatedPrevViews
 	for _, configSet := range configSets {
 		var readableSigners []string
 		for _, s := range configSet.Signers {
 			readableSigners = append(readableSigners, s.String())
 		}
 		forwarderViews = append(forwarderViews, ForwarderView{
-			DonID:         configSet.DonId,
-			ConfigVersion: configSet.ConfigVersion,
-			F:             configSet.F,
-			Signers:       readableSigners,
-			TxHash:        configSet.Raw.TxHash.String(),
-			BlockNumber:   configSet.Raw.BlockNumber,
+			DonID:                   configSet.DonId,
+			ConfigVersion:           configSet.ConfigVersion,
+			F:                       configSet.F,
+			Signers:                 readableSigners,
+			TxHash:                  configSet.Raw.TxHash.String(),
+			BlockNumber:             configSet.Raw.BlockNumber,
+			LatestViewedBlockNumber: latestBlock,
 		})
 	}
 
@@ -345,7 +361,13 @@ func (v KeystoneView) MarshalJSON() ([]byte, error) {
 
 type KeystoneViewV2 struct {
 	Chains map[string]KeystoneChainView `json:"chains,omitempty"`
-	Nops   map[string]view.NopViewV2    `json:"nops,omitempty"`
+
+	// Nops will be DEPRECATED, but needs to stay here so we don't break downstream consumers, as tracking all the
+	// consumers is not straightforward. We would need to list them for the rdd monster Kafka topic and BQ table, but
+	// also list all the consumers who read the state.json file directly (are there any? we don't know).
+	// The best way to go about it is to add a `nops_v2` entry and announce depreciation of the `nops` entry.
+	Nops   map[string]view.NopView   `json:"nops,omitempty"`
+	NopsV2 map[string]view.NopViewV2 `json:"nops_v2,omitempty"`
 }
 
 func (v KeystoneViewV2) MarshalJSON() ([]byte, error) {
