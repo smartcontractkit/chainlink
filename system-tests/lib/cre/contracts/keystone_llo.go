@@ -1,6 +1,24 @@
 // This file overrides the signer extraction in keystone.go to use OnchainPublicKey
 // for LLO tests. It's always compiled and checks an environment variable to determine
 // whether to apply the override.
+//
+// Why this override is necessary:
+//
+// LLO (Low-Latency Oracle) reports are cryptographically signed by LLO DON nodes using
+// their OnchainPublicKey (a 20-byte Ethereum address). The signature verification in
+// SignedReportRemoteAggregator validates signatures against signer addresses stored in
+// the capability registry.
+//
+// The default signer extraction in keystone.go uses OffchainPublicKey, which is correct
+// for most OCR jobs. However, for LLO reports, we must use OnchainPublicKey because:
+// 1. LLO reports are signed with OnchainPublicKey as part of the OCR protocol
+// 2. The capability registry stores signers as OnchainPublicKey addresses
+// 3. Signature verification compares recovered signer addresses against registry entries
+//
+// This override ensures that the capability registry uses the correct signer addresses
+// for LLO signature verification, enabling the end-to-end test to work correctly.
+//
+// NOTE: Set USE_LLO_ONCHAIN_SIGNER=true when running LLO tests to enable this override.
 
 package contracts
 
@@ -12,14 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-// Override the signer extraction for LLO tests to use OnchainPublicKey.
-// This is required because LLO reports are signed with OnchainPublicKey,
-// and the signature verification checks against the signer address in the registry.
-//
-// This file overrides extractSignerAddressFromOCRConfig to use OnchainPublicKey
-// instead of OffchainPublicKey when the USE_LLO_ONCHAIN_SIGNER environment variable is set.
-//
-// NOTE: Set USE_LLO_ONCHAIN_SIGNER=true when running LLO tests to enable this override.
 func init() {
 	if os.Getenv("USE_LLO_ONCHAIN_SIGNER") == "true" {
 		extractSignerAddressFromOCRConfig = func(ocrCfg deployment.OCRConfig) [32]byte {

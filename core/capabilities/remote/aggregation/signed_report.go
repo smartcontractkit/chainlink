@@ -45,8 +45,6 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 	for _, signer := range allowedSigners {
 		signersMap[common.BytesToAddress(signer)] = struct{}{}
 	}
-	lggr = logger.Named(lggr, "SignedReportRemoteAggregator")
-	lggr.Infow("created", "allowedSigners", signersMap, "minRequiredSignatures", minRequiredSignatures, "maxAgeSec", maxAgeSec, "capID", capID)
 	return &signedReportRemoteAggregator{
 		allowedSigners:        signersMap,
 		minRequiredSignatures: minRequiredSignatures,
@@ -68,7 +66,7 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
 		if err != nil {
-			a.lggr.Errorw("could not unmarshal one of capability responses (faulty sender?)", "err", err)
+			a.lggr.Errorw("could not unmarshal capability response", "err", err)
 			continue
 		}
 		ocrEvent := &capabilities.OCRTriggerEvent{}
@@ -83,7 +81,6 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 		if isFormat7EventID(triggerEventID) {
 			result, err := a.aggregateFormat7(triggerEventID, triggerResp, ocrEvent, rawReport)
 			if err != nil {
-				a.lggr.Errorw("Format 7 aggregation failed", "id", triggerResp.Event.ID, "err", err)
 				continue
 			}
 			return result, nil
@@ -177,11 +174,10 @@ func (a *signedReportRemoteAggregator) aggregateFormat7(
 		donID = 2 // Default for E2E test
 	}
 
-	// Validate signatures using legacy signing scheme (includes donID in ExtraHash)
-	if err := a.validateSignaturesLegacy(ocrEvent, donID); err != nil {
-		a.lggr.Errorw("Format 7 signature verification failed", "err", err)
-		return capabilities.TriggerResponse{}, fmt.Errorf("Format 7 signature verification failed: %w", err)
-	}
+		// Validate signatures using legacy signing scheme (includes donID in ExtraHash)
+		if err := a.validateSignaturesLegacy(ocrEvent, donID); err != nil {
+			return capabilities.TriggerResponse{}, fmt.Errorf("Format 7 signature verification failed: %w", err)
+		}
 
 	// For Format 7, keep the raw report bytes as Outputs
 	// The workflow can decode the ABI payload
@@ -254,7 +250,6 @@ func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OC
 		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
 
 		if _, ok := a.allowedSigners[signerAddr]; !ok {
-			a.lggr.Warnw("invalid signer", "signerAddr", signerAddr)
 			continue
 		}
 		validated[signerAddr] = struct{}{}
@@ -287,20 +282,14 @@ func (a *signedReportRemoteAggregator) validateSignaturesLegacy(event *capabilit
 	fullHash := reportToSigDataLegacy(reportCtx, event.Report)
 
 	validated := map[common.Address]struct{}{}
-	recoveryErrors := []error{}
-	for i, sig := range event.Sigs {
+	for _, sig := range event.Sigs {
 		signerPubkey, err2 := crypto.SigToPub(fullHash, sig.Signature)
 		if err2 != nil {
-			recoveryErr := fmt.Errorf("signature %d recovery failed: %w", i, err2)
-			recoveryErrors = append(recoveryErrors, recoveryErr)
-			a.lggr.Errorw("Signature recovery failed", "err", err2)
 			continue
 		}
 		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
-		_, isInMap := a.allowedSigners[signerAddr]
 
-		if !isInMap {
-			a.lggr.Warnw("invalid signer (legacy)", "signerAddr", signerAddr.Hex())
+		if _, ok := a.allowedSigners[signerAddr]; !ok {
 			continue
 		}
 		validated[signerAddr] = struct{}{}
@@ -308,13 +297,7 @@ func (a *signedReportRemoteAggregator) validateSignaturesLegacy(event *capabilit
 			break // early exit
 		}
 	}
-	
-	if len(recoveryErrors) > 0 {
-		a.lggr.Warnw("Some signatures failed recovery", "recoveryErrorCount", len(recoveryErrors))
-	}
-	
 	if len(validated) < a.minRequiredSignatures {
-		a.lggr.Errorw("Insufficient valid signatures", "validatedCount", len(validated), "minRequired", a.minRequiredSignatures)
 		return fmt.Errorf("%w (legacy): got %d, needed %d", ErrInsufficientSignatures, len(validated), a.minRequiredSignatures)
 	}
 	return nil

@@ -894,7 +894,6 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 
 	cc, isNewCC := w.getCombinedClient(info)
 	for method, config := range methodConfig {
-		w.lggr.Infow("addRemoteCapabilityV2", "capID", capID, "method", method)
 		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
 			// TODO CRE-1021 metrics
 			w.lggr.Errorw("no remote config found", "method", method, "capID", capID)
@@ -976,7 +975,6 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 					continue
 				}
 				w.cachedShims.executableClients[shimKey] = client
-				w.lggr.Infow("added new remote executable client", "capID", capID, "method", method)
 			}
 		}
 	}
@@ -1045,7 +1043,6 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 					continue
 				}
 				w.cachedShims.triggerPublishers[shimKey] = publisher
-				w.lggr.Infow("added new remote trigger publisher", "capID", capID, "method", method)
 			}
 		} else { // executable
 			underlyingExecutableCapability, ok := (underlying).(capabilities.ExecutableCapability)
@@ -1095,7 +1092,6 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 					continue
 				}
 				w.cachedShims.executableServers[shimKey] = server
-				w.lggr.Infow("added new remote execcutable server", "capID", capID, "method", method)
 			}
 		}
 	}
