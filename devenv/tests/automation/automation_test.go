@@ -3,6 +3,7 @@ package automation
 import (
 	"encoding/json"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -25,27 +26,27 @@ const (
 )
 
 func TestRegistry_2_0(t *testing.T) {
-	SetupAutomationBasic(t, contracts.RegistryVersion_2_0, "registry_2_0", "")
+	SetupAutomationBasic(t, contracts.RegistryVersion_2_0, "registry_2_0", os.Getenv("CHAINLINK_UPGRADE_IMAGE"))
 }
 
 func TestRegistry_2_1(t *testing.T) {
 	testCases := []string{"registry_2_1_conditional", "registry_2_1_logtrigger", "registry_2_1_with_mercury_v02", "registry_2_1_with_mercury_v03"}
 	for _, tc := range testCases {
-		SetupAutomationBasic(t, contracts.RegistryVersion_2_1, tc, "")
+		SetupAutomationBasic(t, contracts.RegistryVersion_2_1, tc, os.Getenv("CHAINLINK_UPGRADE_IMAGE"))
 	}
 }
 
 func TestRegistry_2_2(t *testing.T) {
 	testCases := []string{"registry_2_2_conditional", "registry_2_2_logtrigger", "registry_2_2_with_mercury_v02", "registry_2_2_with_mercury_v03", "registry_2_1_with_logtrigger_and_mercury_v02"}
 	for _, tc := range testCases {
-		SetupAutomationBasic(t, contracts.RegistryVersion_2_2, tc, "")
+		SetupAutomationBasic(t, contracts.RegistryVersion_2_2, tc, os.Getenv("CHAINLINK_UPGRADE_IMAGE"))
 	}
 }
 
 func TestRegistry_2_3(t *testing.T) {
 	testCases := []string{"registry_2_3_conditional_native", "registry_2_3_conditional_link", "registry_2_3_logtrigger_native", "registry_2_3_logtrigger_link", "registry_2_3_with_logtrigger_and_mercury_v02_link"}
 	for _, tc := range testCases {
-		SetupAutomationBasic(t, contracts.RegistryVersion_2_3, tc, "")
+		SetupAutomationBasic(t, contracts.RegistryVersion_2_3, tc, os.Getenv("CHAINLINK_UPGRADE_IMAGE"))
 	}
 }
 

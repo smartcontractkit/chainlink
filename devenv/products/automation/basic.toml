@@ -5,7 +5,6 @@ instances = 7
 [[automation]]
 registryVersion = "2.0"
 cl_nodes_funding_eth = 50
-test_keys_min_funding_eth = 10
 
 [automation.MercurySettings]
 version = "v2"
