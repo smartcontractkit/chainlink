@@ -6,12 +6,14 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk"
+
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -61,7 +63,7 @@ var SeqEVMDeployMCMWithConfig = operations.NewSequence(
 		}
 
 		// Set config
-		groupQuorums, groupParents, signerAddresses, signerGroups, err := evm.ExtractSetConfigInputs(&in.MCMConfig)
+		groupQuorums, groupParents, signerAddresses, signerGroups, err := sdk.ExtractSetConfigInputs(&in.MCMConfig)
 		if err != nil {
 			return opsutils.EVMDeployOutput{}, err
 		}
