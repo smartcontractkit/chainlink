@@ -26,7 +26,8 @@ import (
 )
 
 // LLO Streams Trigger config path - uses the capabilities DON topology with LLO feature
-const lloStreamsConfigPath = "/configs/workflow-gateway-capabilities-don.toml"
+// Uses a test-specific config without gateway DON and with streams-trigger capability
+const lloStreamsConfigPath = "/configs/workflow-capabilities-llo-don.toml"
 
 // To run with debug log level (shows nSubscribers and other debug logs), set:
 // CTF_LOG_LEVEL=debug go test -timeout 10m -run "Test_CRE_V2_LLO_Streams_Trigger_E2E" ./smoke/cre/...
@@ -303,21 +304,23 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	testLogger.Info().Msg("Step 6: Waiting for CRE Transmitter to register...")
 	time.Sleep(10 * time.Second)
 
+	// Step 7: Wait for capability discovery BEFORE deploying workflow
+	// The workflow engine initialization happens immediately when the workflow is deployed,
+	// so we need to ensure the streams-trigger capability is registered and discoverable first.
+	testLogger.Info().Msg("Step 7: Waiting for capability discovery (streams-trigger must be registered)...")
+	time.Sleep(40 * time.Second) // Allow time for cross-DON capability discovery
+
 	// Start Beholder listener to capture workflow logs
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
-	// Step 7: Deploy the LLO consumer workflow
-	testLogger.Info().Msg("Step 7: Deploying LLO consumer workflow...")
+	// Step 8: Deploy the LLO consumer workflow
+	testLogger.Info().Msg("Step 8: Deploying LLO consumer workflow...")
 	workflowConfig := llo_consumer_config.LLOConsumerConfig{
 		StreamIDs:      []uint32{1, 4}, // Subscribe to both Format 5 and Format 7 streams
 		MaxFrequencyMs: 1000,
 	}
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 	testLogger.Info().Msg("✓ Workflow deployed")
-
-	// Step 8: Wait for capability discovery
-	testLogger.Info().Msg("Step 8: Waiting for capability discovery...")
-	time.Sleep(40 * time.Second) // Allow time for cross-DON capability discovery
 
 	// Step 9: Wait for LLO reports with magic numbers
 	testLogger.Info().Msg("Step 9: Waiting for LLO reports with magic numbers...")

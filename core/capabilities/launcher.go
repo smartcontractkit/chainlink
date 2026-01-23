@@ -499,13 +499,6 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 					if err != nil {
 						return nil, fmt.Errorf("failed to get signers for llo-trigger: %w", err)
 					}
-					// Log extracted signers for debugging
-					signerAddrs := make([]string, 0, len(signers))
-					for _, signer := range signers {
-						signerAddrs = append(signerAddrs, fmt.Sprintf("0x%x", signer))
-					}
-					w.lggr.Infow("Extracted signers for LLO trigger", "donID", remoteDON.ID, "donName", remoteDON.Name, "numSigners", len(signers), "signerAddresses", signerAddrs)
-
 					const maxAgeSec = 120 // TODO: move to capability onchain config
 					aggregator = aggregation.NewSignedReportRemoteAggregator(
 						signers,
@@ -879,13 +872,9 @@ func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegis
 			return nil, fmt.Errorf("could not find node for id %s", nodeID)
 		}
 
-		// NOTE: the capability registry stores signers as [32]byte.
-		// ExtractSignerEncryptionKeys now extracts the 20-byte address from OnchainPublicKey
-		// using common.BytesToAddress and stores it at the beginning of the [32]byte array.
-		// The working commit 73215a5bfda90af7892fc6eb27b3501720ebf9a3 uses node.Signer[0:20]
-		// (first 20 bytes), which matches this storage format.
-		signerAddr := node.Signer[0:20]
-		s = append(s, signerAddr)
+		// NOTE: the capability registry stores signers as [32]byte,
+		// but we only need the first [20], as the rest is padded.
+		s = append(s, node.Signer[0:20])
 	}
 
 	return s, nil
@@ -944,8 +933,6 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 					maxAgeSec,
 					w.lggr,
 				)
-				w.lggr.Infow("using SignedReportRemoteAggregator",
-					"capID", capID, "method", method, "numSigners", len(signers), "minSigs", remoteDON.F+1)
 			default:
 				// Default MODE aggregator for triggers without signed reports
 				agg = aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)

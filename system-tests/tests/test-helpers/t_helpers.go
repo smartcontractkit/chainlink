@@ -169,26 +169,18 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
 
-	// Create a context with timeout that will cancel the goroutine when timeout occurs
-	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel() // Ensure cleanup
-
 	// Start message processor goroutine
 	go func() {
 		for {
 			select {
-			case <-timeoutCtx.Done():
-				// Timeout occurred or parent context cancelled - exit goroutine
+			case <-ctx.Done():
 				return
 			case msg := <-messageChan:
 				// Process received messages
 				switch typedMsg := msg.(type) {
 				case *commonevents.BaseMessage:
 					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
-						select {
-						case foundErrorLog <- true:
-						default: // Channel might already have a value
-						}
+						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
 					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
@@ -234,7 +226,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	case <-foundErrorLog:
 		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
 		return errors.New("beholder message validation completed with error: found engine initialization failure message")
-	case <-timeoutCtx.Done():
+	case <-time.After(timeout):
 		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
 			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
@@ -242,12 +234,11 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 			testLogger.Warn().Msg("Did not receive any UserLogs messages")
 		}
 		require.Failf(t, "Timed out waiting for the expected user log message (or error)", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
-		return errors.New("timeout waiting for expected log message")
 	case err := <-kafkaErrChan:
 		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
 		require.Fail(t, "Kafka listener failed", err.Error())
-		return err
 	}
+	return nil
 }
 
 //////////////////////////////

@@ -40,37 +40,13 @@ type signedReportRemoteAggregator struct {
 	lggr                  logger.Logger
 }
 
-// getAllowedSignersList returns a list of allowed signer addresses for logging
-func (a *signedReportRemoteAggregator) getAllowedSignersList() []string {
-	signers := make([]string, 0, len(a.allowedSigners))
-	for addr := range a.allowedSigners {
-		signers = append(signers, addr.Hex())
-	}
-	return signers
-}
-
-// getValidatedAddressesList returns a list of validated addresses for logging
-func (a *signedReportRemoteAggregator) getValidatedAddressesList(validated map[common.Address]struct{}) []string {
-	addrs := make([]string, 0, len(validated))
-	for addr := range validated {
-		addrs = append(addrs, addr.Hex())
-	}
-	return addrs
-}
-
 func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatures int, capID string, maxAgeSec int, lggr logger.Logger) *signedReportRemoteAggregator {
 	signersMap := make(map[common.Address]struct{})
 	for _, signer := range allowedSigners {
 		signersMap[common.BytesToAddress(signer)] = struct{}{}
 	}
 	lggr = logger.Named(lggr, "SignedReportRemoteAggregator")
-
-	// Log allowed signers as hex addresses for easier debugging
-	allowedSignerAddrs := make([]string, 0, len(signersMap))
-	for addr := range signersMap {
-		allowedSignerAddrs = append(allowedSignerAddrs, addr.Hex())
-	}
-	lggr.Infow("created", "allowedSigners", signersMap, "allowedSignerAddresses", allowedSignerAddrs, "minRequiredSignatures", minRequiredSignatures, "maxAgeSec", maxAgeSec, "capID", capID)
+	lggr.Infow("created", "allowedSigners", signersMap, "minRequiredSignatures", minRequiredSignatures, "maxAgeSec", maxAgeSec, "capID", capID)
 	return &signedReportRemoteAggregator{
 		allowedSigners:        signersMap,
 		minRequiredSignatures: minRequiredSignatures,
@@ -89,41 +65,25 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 // - Format 5 (ReportFormatCapabilityTrigger): Protobuf-encoded OCRTriggerReport
 // - Format 7 (ReportFormatEVMABIEncodeUnpackedExpr): ABI-encoded report with calculated streams
 func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, responses [][]byte) (capabilities.TriggerResponse, error) {
-	a.lggr.Infow("Aggregate called", "triggerEventID", triggerEventID, "numResponses", len(responses))
-	for i, response := range responses {
-		a.lggr.Debugw("Processing response", "index", i, "responseLen", len(response), "triggerEventID", triggerEventID)
+	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
 		if err != nil {
-			a.lggr.Errorw("could not unmarshal one of capability responses (faulty sender?)", "err", err, "index", i, "responseLen", len(response), "triggerEventID", triggerEventID)
+			a.lggr.Errorw("could not unmarshal one of capability responses (faulty sender?)", "err", err)
 			continue
 		}
-		hasOutputs := triggerResp.Event.Outputs != nil
-		outputsStr := "nil"
-		if hasOutputs {
-			outputsStr = "present"
-		}
-		a.lggr.Debugw("Unmarshaled trigger response", "eventID", triggerResp.Event.ID, "hasOutputs", hasOutputs, "outputs", outputsStr, "triggerEventID", triggerEventID)
-		
 		ocrEvent := &capabilities.OCRTriggerEvent{}
 		err = ocrEvent.FromMap(triggerResp.Event.Outputs)
 		if err != nil {
-			a.lggr.Errorw("trigger response does not contain an OCR report", "id", triggerResp.Event.ID, "err", err, "hasOutputs", hasOutputs, "triggerEventID", triggerEventID)
+			a.lggr.Errorw("trigger response does not contain an OCR report", "id", triggerResp.Event.ID, "err", err)
 			continue
 		}
 		rawReport := ocrEvent.Report
-		a.lggr.Debugw("Extracted OCR event", 
-			"eventID", triggerResp.Event.ID, 
-			"reportLen", len(rawReport),
-			"seqNr", ocrEvent.SeqNr,
-			"numSigs", len(ocrEvent.Sigs),
-			"triggerEventID", triggerEventID,
-		)
 
 		// Check Format 7 first (can be identified by event ID suffix) to avoid unnecessary Format 5 parsing
 		if isFormat7EventID(triggerEventID) {
 			result, err := a.aggregateFormat7(triggerEventID, triggerResp, ocrEvent, rawReport)
 			if err != nil {
-				a.lggr.Errorw("Format 7 aggregation failed", "id", triggerResp.Event.ID, "err", err, "triggerEventID", triggerEventID)
+				a.lggr.Errorw("Format 7 aggregation failed", "id", triggerResp.Event.ID, "err", err)
 				continue
 			}
 			return result, nil
@@ -138,15 +98,13 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 		if err == nil && rep.EventID != "" && rep.Timestamp != 0 {
 			result, err := a.aggregateFormat5(triggerEventID, triggerResp, ocrEvent, rep)
 			if err != nil {
-				a.lggr.Debugw("Format 5 aggregation failed", "id", triggerResp.Event.ID, "err", err, "triggerEventID", triggerEventID)
 				continue
 			}
 			return result, nil
 		}
 
-		a.lggr.Errorw("failed to parse OCR report as Format 5 or Format 7", "id", triggerResp.Event.ID, "triggerEventID", triggerEventID, "reportLen", len(rawReport))
+		a.lggr.Errorw("failed to parse OCR report as Format 5 or Format 7", "id", triggerResp.Event.ID)
 	}
-	a.lggr.Errorw("All responses failed to aggregate", "triggerEventID", triggerEventID, "numResponses", len(responses))
 	return capabilities.TriggerResponse{}, fmt.Errorf("%w: %s", ErrMissingResponse, triggerEventID)
 }
 
@@ -221,7 +179,7 @@ func (a *signedReportRemoteAggregator) aggregateFormat7(
 
 	// Validate signatures using legacy signing scheme (includes donID in ExtraHash)
 	if err := a.validateSignaturesLegacy(ocrEvent, donID); err != nil {
-		a.lggr.Errorw("Format 7 signature verification failed", "eventID", triggerEventID, "donID", donID, "numSigs", len(ocrEvent.Sigs), "minRequired", a.minRequiredSignatures, "allowedSigners", a.getAllowedSignersList(), "err", err)
+		a.lggr.Errorw("Format 7 signature verification failed", "err", err)
 		return capabilities.TriggerResponse{}, fmt.Errorf("Format 7 signature verification failed: %w", err)
 	}
 
@@ -335,28 +293,14 @@ func (a *signedReportRemoteAggregator) validateSignaturesLegacy(event *capabilit
 		if err2 != nil {
 			recoveryErr := fmt.Errorf("signature %d recovery failed: %w", i, err2)
 			recoveryErrors = append(recoveryErrors, recoveryErr)
-			a.lggr.Errorw("Signature recovery failed", 
-				"sigIndex", i,
-				"sigLen", len(sig.Signature),
-				"err", err2,
-			)
+			a.lggr.Errorw("Signature recovery failed", "err", err2)
 			continue
 		}
 		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
 		_, isInMap := a.allowedSigners[signerAddr]
 
-		a.lggr.Debugw("Signature recovery result",
-			"sigIndex", i,
-			"signerAttr", sig.Signer,
-			"recoveredAddr", signerAddr.Hex(),
-			"isAllowed", isInMap,
-		)
-
 		if !isInMap {
-			a.lggr.Warnw("invalid signer (legacy) - recovered address not in allowed list", 
-				"signerAddr", signerAddr.Hex(),
-				"sigIndex", i,
-			)
+			a.lggr.Warnw("invalid signer (legacy)", "signerAddr", signerAddr.Hex())
 			continue
 		}
 		validated[signerAddr] = struct{}{}
@@ -370,13 +314,7 @@ func (a *signedReportRemoteAggregator) validateSignaturesLegacy(event *capabilit
 	}
 	
 	if len(validated) < a.minRequiredSignatures {
-		a.lggr.Errorw("Insufficient valid signatures",
-			"validatedCount", len(validated),
-			"minRequired", a.minRequiredSignatures,
-			"totalSigs", len(event.Sigs),
-			"validatedAddresses", a.getValidatedAddressesList(validated),
-			"allowedSigners", a.getAllowedSignersList(),
-		)
+		a.lggr.Errorw("Insufficient valid signatures", "validatedCount", len(validated), "minRequired", a.minRequiredSignatures)
 		return fmt.Errorf("%w (legacy): got %d, needed %d", ErrInsufficientSignatures, len(validated), a.minRequiredSignatures)
 	}
 	return nil
