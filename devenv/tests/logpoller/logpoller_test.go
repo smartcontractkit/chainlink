@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 
 	de "github.com/smartcontractkit/chainlink/devenv"
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 )
@@ -177,7 +177,7 @@ func TestLogPoller(t *testing.T) {
 			Generator:        "looped",
 			Contracts:        2,
 			EventsPerTx:      4,
-			FundingAmountEth: 10,
+			FundingAmountEth: 100,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    30,
@@ -201,7 +201,7 @@ func TestLogPollerReplay(t *testing.T) {
 			Generator:        "looped",
 			Contracts:        2,
 			EventsPerTx:      4,
-			FundingAmountEth: 20,
+			FundingAmountEth: 100,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    100,
@@ -224,7 +224,7 @@ func XTestLogPollerHeavyLoad(t *testing.T) {
 			Generator:        "looped",
 			Contracts:        20,
 			EventsPerTx:      30,
-			FundingAmountEth: 40,
+			FundingAmountEth: 100,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    30,
@@ -255,7 +255,7 @@ func TestLogPollerChaosChainlinkNodes(t *testing.T) {
 			Generator:        "looped",
 			Contracts:        2,
 			EventsPerTx:      4,
-			FundingAmountEth: 15,
+			FundingAmountEth: 100,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    50,
@@ -291,7 +291,7 @@ func TestLogPollerChaosPostgres(t *testing.T) {
 			Generator:        "looped",
 			Contracts:        2,
 			EventsPerTx:      4,
-			FundingAmountEth: 15,
+			FundingAmountEth: 25,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    50,
@@ -324,6 +324,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
+	require.Equal(t, "1337", in.Blockchains[0].ChainID, "log poller tests can only run on simulated network with chain ID 1337")
 	pdConfig, err := products.LoadOutput[automation.Configurator](outputFile)
 	require.NoError(t, err)
 
@@ -336,7 +337,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 
 	var config *automation.Automation
 	for _, candidate := range pdConfig.Config {
-		if candidate.MustGetRegistryVersion() == ethereum.RegistryVersion_2_1 {
+		if candidate.MustGetRegistryVersion() == contracts.RegistryVersion_2_1 {
 			config = candidate
 			break
 		}
@@ -351,8 +352,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	// on simulated network create new ephemeral addresses if insufficient private keys were provided
 	// we ignore key at index 0, because it is the root key, which is not used during the test
 	// for contract deployment and interaction
-	// we create new addresses only on the simulated network to protect against fund loss
-	if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != keysRequired {
+	if len(pks)-1 != keysRequired {
 		bcNode := in.Blockchains[0].Out.Nodes[0]
 		c, _, _, err := products.ETHClient(
 			ctx,
@@ -362,7 +362,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		checkRequiredBalance(t, keysRequired, c, config)
+		checkRequiredBalance(t, keysRequired, c, config, cfg.General.FundingAmountEth)
 		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, cfg.General.FundingAmountEth)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
@@ -470,6 +470,8 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
+	require.Equal(t, "1337", in.Blockchains[0].ChainID, "log poller tests can only run on simulated network with chain ID 1337")
+
 	pdConfig, err := products.LoadOutput[automation.Configurator](outputFile)
 	require.NoError(t, err)
 	require.NotNil(t, pdConfig.Config[0].EVMNetworkSettings, "EVMNetworkSettings must not be nil in log poller tests")
@@ -492,7 +494,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	var config *automation.Automation
 	for _, candidate := range pdConfig.Config {
-		if candidate.MustGetRegistryVersion() == ethereum.RegistryVersion_2_1 {
+		if candidate.MustGetRegistryVersion() == contracts.RegistryVersion_2_1 {
 			config = candidate
 			break
 		}
@@ -508,8 +510,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	// on simulated network create new ephemeral addresses if insufficient private keys were provided
 	// we require +1 private keys, because key at index 0 is the root key, which is not used during the test
 	// for contract deployment and interaction
-	// we create new addresses only on the simulated network to protect against fund loss
-	if in.Blockchains[0].ChainID == "1337" && len(pks) != keysRequired {
+	if len(pks) != keysRequired {
 		bcNode := in.Blockchains[0].Out.Nodes[0]
 		c, _, _, err := products.ETHClient(
 			ctx,
@@ -519,7 +520,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		checkRequiredBalance(t, keysRequired, c, config)
+		checkRequiredBalance(t, keysRequired, c, config, cfg.General.FundingAmountEth)
 
 		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, cfg.General.FundingAmountEth)
 		require.NoError(t, err, "Failed to fund new addresses")
@@ -698,9 +699,9 @@ type OCR2ExportKey struct {
 	} `json:"crypto"`
 }
 
-func checkRequiredBalance(t *testing.T, keysRequired int, c *ethclient.Client, config *automation.Automation) {
+func checkRequiredBalance(t *testing.T, keysRequired int, c *ethclient.Client, config *automation.Automation, fundingAmountEth float64) {
 	fundingTxCount := keysRequired - 1
-	requiredBalanceEth := new(big.Float).Mul(big.NewFloat(float64(fundingTxCount)), big.NewFloat(config.TestKeysMinFundingEth))
+	requiredBalanceEth := new(big.Float).Mul(big.NewFloat(float64(fundingTxCount)), big.NewFloat(fundingAmountEth))
 	requiredBalanceWeiFloat := new(big.Float).Mul(requiredBalanceEth, big.NewFloat(1e18))
 	requiredBalanceWei, _ := requiredBalanceWeiFloat.Int(nil)
 

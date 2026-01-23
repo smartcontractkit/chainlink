@@ -13,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	de "github.com/smartcontractkit/chainlink/devenv"
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 )
@@ -21,84 +21,35 @@ import (
 const (
 	automationDefaultUpkeepGasLimit = uint32(2500000)
 	automationDefaultLinkFunds      = int64(9e18)
-	automationExpectedData          = "abcdef"
 	defaultAmountOfUpkeeps          = 2
 )
 
-// func TestAutomationBasic(t *testing.T) {
-// 	SetupAutomationBasic(t, "")
-// }
-
 func TestRegistry_2_0(t *testing.T) {
-	SetupAutomationBasic(t, ethereum.RegistryVersion_2_0, "registry_2_0", "")
+	SetupAutomationBasic(t, contracts.RegistryVersion_2_0, "registry_2_0", "")
 }
 
 func TestRegistry_2_1(t *testing.T) {
 	testCases := []string{"registry_2_1_conditional", "registry_2_1_logtrigger", "registry_2_1_with_mercury_v02", "registry_2_1_with_mercury_v03"}
 	for _, tc := range testCases {
-		SetupAutomationBasic(t, ethereum.RegistryVersion_2_1, tc, "")
+		SetupAutomationBasic(t, contracts.RegistryVersion_2_1, tc, "")
 	}
 }
 
 func TestRegistry_2_2(t *testing.T) {
 	testCases := []string{"registry_2_2_conditional", "registry_2_2_logtrigger", "registry_2_2_with_mercury_v02", "registry_2_2_with_mercury_v03", "registry_2_1_with_logtrigger_and_mercury_v02"}
 	for _, tc := range testCases {
-		SetupAutomationBasic(t, ethereum.RegistryVersion_2_2, tc, "")
+		SetupAutomationBasic(t, contracts.RegistryVersion_2_2, tc, "")
 	}
 }
 
 func TestRegistry_2_3(t *testing.T) {
 	testCases := []string{"registry_2_3_conditional_native", "registry_2_3_conditional_link", "registry_2_3_logtrigger_native", "registry_2_3_logtrigger_link", "registry_2_3_with_logtrigger_and_mercury_v02_link"}
 	for _, tc := range testCases {
-		SetupAutomationBasic(t, ethereum.RegistryVersion_2_3, tc, "")
+		SetupAutomationBasic(t, contracts.RegistryVersion_2_3, tc, "")
 	}
 }
 
-func SetupAutomationBasic(t *testing.T, registryVersion ethereum.KeeperRegistryVersion, testName, upgradeImage string) {
-	// t.Parallel()
-
-	// TODO:
-	// enable parallel
-	// but split tests by registry and mercury verions and run these sequentially
-
-	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
-	// registryVersions := map[ethereum.KeeperRegistryVersion][]string{
-	// 	ethereum.RegistryVersion_2_0: []string{"registry_2_0"},
-	// 	ethereum.RegistryVersion_2_1: []string{"registry_2_1_conditional", "registry_2_1_logtrigger", "registry_2_1_with_mercury_v02", "registry_2_1_with_mercury_v03"},
-	// 	ethereum.RegistryVersion_2_2: []string{"registry_2_2_conditional", "registry_2_2_logtrigger", "registry_2_2_with_mercury_v02", "registry_2_2_with_mercury_v03", "registry_2_1_with_logtrigger_and_mercury_v02"},
-	// 	ethereum.RegistryVersion_2_3: []string{"registry_2_3_conditional_native", "registry_2_3_conditional_link", "registry_2_3_logtrigger_native", "registry_2_3_logtrigger_link", "registry_2_3_with_logtrigger_and_mercury_v02_link"},
-	// }
-
-	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
-	// registryVersions := map[string]ethereum.KeeperRegistryVersion{
-	// 	// "registry_2_0": ethereum.RegistryVersion_2_0,
-	// 	// "registry_2_1_conditional":      ethereum.RegistryVersion_2_1,
-	// 	// "registry_2_1_logtrigger":       ethereum.RegistryVersion_2_1,
-	// 	// "registry_2_1_with_mercury_v02": ethereum.RegistryVersion_2_1,
-	// 	// "registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
-	// 	// "registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
-	// 	// "registry_2_2_conditional":      ethereum.RegistryVersion_2_2,
-	// 	// "registry_2_2_logtrigger":       ethereum.RegistryVersion_2_2,
-	// 	// "registry_2_2_with_mercury_v02": ethereum.RegistryVersion_2_2,
-	// 	// "registry_2_2_with_mercury_v03": ethereum.RegistryVersion_2_2,
-	// 	// "registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
-	// 	// "registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
-	// 	// "registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
-	// 	// "registry_2_3_logtrigger_native": ethereum.RegistryVersion_2_3,
-	// 	// "registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
-	// 	// "registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
-	// 	"registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
-	// }
-
-	// for rv, n := range registryVersions {
-	// 	names := n
-	// 	registryVersion := rv
-
-	// 	t.Run(registryVersion.String(), func(t *testing.T) {
-	// 		t.Parallel()
-
-	// 		for _, name := range names {
-	// 			t.Run(name, func(t *testing.T) {
+func SetupAutomationBasic(t *testing.T, registryVersion contracts.KeeperRegistryVersion, testName, upgradeImage string) {
 	l := framework.L
 	l.Info().Msg("Running test " + testName + " with registry version " + registryVersion.String())
 
@@ -142,6 +93,8 @@ func SetupAutomationBasic(t *testing.T, registryVersion ethereum.KeeperRegistryV
 
 	pks := []string{products.NetworkPrivateKey()}
 
+	require.Equal(t, "1337", in.Blockchains[0].ChainID, "automation smoke tests can only be run on simulated network. If do want to run on a live network, please read the code, understand the implications (e.g. potential fund loss) and adjust the test accordingly")
+
 	// on simulated network create new ephemeral addresses if insufficient private keys were provided
 	// we ignore key at index 0, because it is the root key, which is not used during the test
 	// for contract deployment and interaction
@@ -156,7 +109,7 @@ func SetupAutomationBasic(t *testing.T, registryVersion ethereum.KeeperRegistryV
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		newPks, err := products.FundNewAddresses(t.Context(), defaultAmountOfUpkeeps, c, config.TestKeysMinFundingEth)
+		newPks, err := products.FundNewAddresses(t.Context(), defaultAmountOfUpkeeps, c, 10)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
 	}
@@ -171,18 +124,8 @@ func SetupAutomationBasic(t *testing.T, registryVersion ethereum.KeeperRegistryV
 	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
-	a := Test{
-		ChainClient:            chainClient,
-		Config:                 *config,
-		RegistrySettings:       config.GetRegistryConfig(),
-		PublicConfig:           config.GetPublicConfig(),
-		PluginConfig:           config.GetPluginConfig(),
-		UpkeepPrivilegeManager: chainClient.MustGetRootKeyAddress(),
-		Logger:                 framework.L,
-	}
-
-	err = a.LoadContracts()
-	require.NoError(t, err, "Failed to load contracts")
+	a, err := NewTest(chainClient, config)
+	require.NoError(t, err, "Failed to create automation test")
 
 	consumers, upkeepIDs := automation.DeployConsumers(
 		t,

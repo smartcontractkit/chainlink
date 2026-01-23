@@ -28,7 +28,10 @@ import (
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
 
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
+	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
@@ -36,17 +39,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
-	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
-	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
-	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	de "github.com/smartcontractkit/chainlink/devenv"
+	common_logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
+	de "github.com/smartcontractkit/chainlink/devenv"
+	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
-
-	common_logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/devenv/contracts"
 )
 
 var (
@@ -1083,7 +1081,7 @@ var (
 // SetupLogPollerTestDocker starts the DON and private Ethereum network
 // func SetupLogPollerTestDocker(
 // 	t *testing.T,
-// 	registryVersion ethereum.KeeperRegistryVersion,
+// 	registryVersion contracts.KeeperRegistryVersion,
 // 	registryConfig contracts.KeeperRegistrySettings,
 // 	upkeepsNeeded int,
 // 	finalityTagEnabled bool,
@@ -1369,7 +1367,7 @@ func (l *logPollerEnvironment) loadLINK(address string) error {
 }
 
 func (l *logPollerEnvironment) loadRegistry(registryAddress, chainModuleAddress string) error {
-	registry, err := contracts.LoadKeeperRegistry(l.logger, l.chainClient, common.HexToAddress(registryAddress), ethereum.RegistryVersion_2_1, common.HexToAddress(chainModuleAddress))
+	registry, err := contracts.LoadKeeperRegistry(l.logger, l.chainClient, common.HexToAddress(registryAddress), contracts.RegistryVersion_2_1, common.HexToAddress(chainModuleAddress))
 	if err != nil {
 		return err
 	}
@@ -1383,7 +1381,7 @@ func (l *logPollerEnvironment) loadRegistrar(address string) error {
 		return errors.New("registry must be deployed or loaded before registrar")
 	}
 	// l.RegistrarSettings.RegistryAddr = l.registry.Address()
-	registrar, err := contracts.LoadKeeperRegistrar(l.chainClient, common.HexToAddress(address), ethereum.RegistryVersion_2_1)
+	registrar, err := contracts.LoadKeeperRegistrar(l.chainClient, common.HexToAddress(address), contracts.RegistryVersion_2_1)
 	if err != nil {
 		return err
 	}

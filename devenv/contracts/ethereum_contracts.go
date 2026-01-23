@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	eth_contracts "github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 )
 
 // OCRv2Config represents the config for the OCRv2 contract
@@ -52,23 +51,23 @@ func Bytes32ToSlice(a [32]byte) (r []byte) {
 	return
 }
 
-func GetRegistryContractABI(version eth_contracts.KeeperRegistryVersion) (*abi.ABI, error) {
+func GetRegistryContractABI(version KeeperRegistryVersion) (*abi.ABI, error) {
 	var (
 		contractABI *abi.ABI
 		err         error
 	)
 	switch version {
-	case eth_contracts.RegistryVersion_1_0, eth_contracts.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
-	case eth_contracts.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
-	case eth_contracts.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
-	case eth_contracts.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	case eth_contracts.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		contractABI, err = i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterMetaData.GetAbi()
-	case eth_contracts.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		contractABI, err = i_automation_registry_master_wrapper_2_2.IAutomationRegistryMasterMetaData.GetAbi()
 	default:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()

@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	devenv_ocr2 "github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
@@ -48,7 +47,7 @@ type NodeDetails struct {
 	P2PBootstrapper string
 }
 
-func CollectNodeDetails(chainID uint64, nodes []*clclient.ChainlinkClient, clNodes []*clnode.Output) (*NodeDetails, error) {
+func collectNodeDetails(chainID uint64, nodes []*clclient.ChainlinkClient, clNodes []*clnode.Output) (*NodeDetails, error) {
 	nodeDetails := NodeDetails{
 		NodeDetails: make([]NodeDetail, 0),
 	}
@@ -225,7 +224,7 @@ func DeployGasFeed(chainClient *seth.Client, fallbackGasPrice *big.Int) (string,
 	return gasFeed.Address(), nil
 }
 
-func DeployRegistry(chainClient *seth.Client, registryVersion ethereum.KeeperRegistryVersion, config *Automation) (registryAddr, chainModuleAddr string, err error) {
+func DeployRegistry(chainClient *seth.Client, registryVersion contracts.KeeperRegistryVersion, config *Automation) (registryAddr, chainModuleAddr string, err error) {
 	registryOpts := &contracts.KeeperRegistryOpts{
 		RegistryVersion:   registryVersion,
 		LinkAddr:          config.DeployedContracts.LinkToken,
@@ -245,7 +244,7 @@ func DeployRegistry(chainClient *seth.Client, registryVersion ethereum.KeeperReg
 	return registry.Address(), registry.ChainModuleAddress().Hex(), nil
 }
 
-func DeployRegistrar(chainClient *seth.Client, registryVersion ethereum.KeeperRegistryVersion, config *Automation) (string, error) {
+func DeployRegistrar(chainClient *seth.Client, registryVersion contracts.KeeperRegistryVersion, config *Automation) (string, error) {
 	if config.DeployedContracts.Registry == "" {
 		return "", errors.New("registry must be deployed before registrar")
 	}
@@ -264,7 +263,7 @@ func DeployRegistrar(chainClient *seth.Client, registryVersion ethereum.KeeperRe
 	return registrar.Address(), nil
 }
 
-func LoadRegistry(chainClient *seth.Client, registryAddress, chainModuleAddress string, registryVersion ethereum.KeeperRegistryVersion) (contracts.KeeperRegistry, error) {
+func LoadRegistry(chainClient *seth.Client, registryAddress, chainModuleAddress string, registryVersion contracts.KeeperRegistryVersion) (contracts.KeeperRegistry, error) {
 	registry, err := contracts.LoadKeeperRegistry(L, chainClient, common.HexToAddress(registryAddress), registryVersion, common.HexToAddress(chainModuleAddress))
 	if err != nil {
 		return nil, err
@@ -273,15 +272,15 @@ func LoadRegistry(chainClient *seth.Client, registryAddress, chainModuleAddress 
 	return registry, nil
 }
 
-func createJobs(nodes []*clclient.ChainlinkClient, nodeDetails *NodeDetails, chainID int, registryVersion ethereum.KeeperRegistryVersion, registryAddress string, mercuryCredentialName string) error {
-	if err := AddBootstrapJob(nodes[0], chainID, registryAddress); err != nil {
+func createJobs(nodes []*clclient.ChainlinkClient, nodeDetails *NodeDetails, chainID int, registryVersion contracts.KeeperRegistryVersion, registryAddress string, mercuryCredentialName string) error {
+	if err := addBootstrapJob(nodes[0], chainID, registryAddress); err != nil {
 		return err
 	}
 
-	return AddAutomationJobs(nodes, nodeDetails, chainID, registryVersion, registryAddress, mercuryCredentialName)
+	return addAutomationJobs(nodes, nodeDetails, chainID, registryVersion, registryAddress, mercuryCredentialName)
 }
 
-func AddBootstrapJob(bootstrapNode *clclient.ChainlinkClient, chainID int, registryAddress string) error {
+func addBootstrapJob(bootstrapNode *clclient.ChainlinkClient, chainID int, registryAddress string) error {
 	bootstrapSpec := &devenv_ocr2.TaskJobSpec{
 		Name:    "ocr2 bootstrap node " + registryAddress,
 		JobType: "bootstrap",
@@ -301,14 +300,14 @@ func AddBootstrapJob(bootstrapNode *clclient.ChainlinkClient, chainID int, regis
 	return nil
 }
 
-func AddAutomationJobs(nodes []*clclient.ChainlinkClient, nodeDetails *NodeDetails, chainID int, registryVersion ethereum.KeeperRegistryVersion, registryAddress string, mercuryCredentialName string) error {
+func addAutomationJobs(nodes []*clclient.ChainlinkClient, nodeDetails *NodeDetails, chainID int, registryVersion contracts.KeeperRegistryVersion, registryAddress string, mercuryCredentialName string) error {
 	var contractVersion string
 	switch registryVersion {
-	case ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+	case contracts.RegistryVersion_2_2, contracts.RegistryVersion_2_3:
 		contractVersion = "v2.1+"
-	case ethereum.RegistryVersion_2_1:
+	case contracts.RegistryVersion_2_1:
 		contractVersion = "v2.1"
-	case ethereum.RegistryVersion_2_0:
+	case contracts.RegistryVersion_2_0:
 		contractVersion = "v2.0"
 	default:
 		return errors.New("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
@@ -347,7 +346,7 @@ func AddAutomationJobs(nodes []*clclient.ChainlinkClient, nodeDetails *NodeDetai
 	return nil
 }
 
-func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClient *seth.Client) error {
+func setConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClient *seth.Client) error {
 	donNodes := nodeDetails.NodeDetails[1:]
 	S := make([]int, len(donNodes))
 	oracleIdentities := make([]ocr2.OracleIdentityExtra, len(donNodes))
@@ -409,12 +408,12 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 
 	registrySettings := config.GetRegistryConfig()
 	switch registrySettings.RegistryVersion {
-	case ethereum.RegistryVersion_2_0:
+	case contracts.RegistryVersion_2_0:
 		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR2ConfigArgs(config.GetPluginConfig(), config.GetPublicConfig(), S, oracleIdentities)
 		if err != nil {
 			return errors.Join(err, errors.New("failed to build config args"))
 		}
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+	case contracts.RegistryVersion_2_1, contracts.RegistryVersion_2_2, contracts.RegistryVersion_2_3:
 		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR3ConfigArgs(config.GetPluginConfig(), config.GetPublicConfig(), S, oracleIdentities)
 		if err != nil {
 			return errors.Join(err, errors.New("failed to build config args"))
@@ -452,7 +451,7 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 		return errors.Join(err, errors.New("failed to load registry"))
 	}
 
-	if registrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
+	if registrySettings.RegistryVersion == contracts.RegistryVersion_2_0 {
 		ocrConfig.OnchainConfig = registrySettings.Encode20OnchainConfig(config.DeployedContracts.Registrar)
 		err = registry.SetConfig(registrySettings, ocrConfig)
 		if err != nil {
@@ -460,11 +459,11 @@ func SetConfigOnRegistry(nodeDetails *NodeDetails, config *Automation, chainClie
 		}
 	} else {
 		switch registrySettings.RegistryVersion {
-		case ethereum.RegistryVersion_2_1:
+		case contracts.RegistryVersion_2_1:
 			ocrConfig.TypedOnchainConfig21 = registrySettings.Create21OnchainConfig(config.DeployedContracts.Registrar, chainClient.MustGetRootKeyAddress())
-		case ethereum.RegistryVersion_2_2:
+		case contracts.RegistryVersion_2_2:
 			ocrConfig.TypedOnchainConfig22 = registrySettings.Create22OnchainConfig(config.DeployedContracts.Registrar, chainClient.MustGetRootKeyAddress(), common.HexToAddress(config.DeployedContracts.ChainModule), registry.ReorgProtectionEnabled())
-		case ethereum.RegistryVersion_2_3:
+		case contracts.RegistryVersion_2_3:
 			ocrConfig.TypedOnchainConfig23 = registrySettings.Create23OnchainConfig(config.DeployedContracts.Registrar, chainClient.MustGetRootKeyAddress(), common.HexToAddress(config.DeployedContracts.ChainModule), registry.ReorgProtectionEnabled())
 			ocrConfig.BillingTokens = []common.Address{
 				common.HexToAddress(config.DeployedContracts.LinkToken),

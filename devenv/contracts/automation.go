@@ -17,7 +17,6 @@ import (
 	registrylogicc23 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_registry_logic_c_wrapper_2_3"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 
 	cs "github.com/smartcontractkit/chain-selectors"
 
@@ -117,7 +116,7 @@ func LoadUpkeepTranscoder(client *seth.Client, address common.Address) (*Ethereu
 // EthereumKeeperRegistry represents keeper registry contract
 type EthereumKeeperRegistry struct {
 	client      *seth.Client
-	version     ethereum.KeeperRegistryVersion
+	version     KeeperRegistryVersion
 	registry1_1 *keeper_registry_wrapper1_1.KeeperRegistry
 	registry1_2 *keeper_registry_wrapper1_2.KeeperRegistry
 	registry1_3 *keeper_registry_wrapper1_3.KeeperRegistry
@@ -133,11 +132,11 @@ type EthereumKeeperRegistry struct {
 func (v *EthereumKeeperRegistry) ReorgProtectionEnabled() bool {
 	chainID := v.client.ChainID
 	// reorg protection is disabled in polygon zkEVM and Scroll bc currently there is no way to get the block hash onchain
-	return v.version < ethereum.RegistryVersion_2_2 || (chainID != 1101 && chainID != 1442 && chainID != 2442 && chainID != 534352 && chainID != 534351)
+	return v.version < RegistryVersion_2_2 || (chainID != 1101 && chainID != 1442 && chainID != 2442 && chainID != 534352 && chainID != 534351)
 }
 
 func (v *EthereumKeeperRegistry) ChainModuleAddress() common.Address {
-	if v.version >= ethereum.RegistryVersion_2_2 {
+	if v.version >= RegistryVersion_2_2 {
 		return v.chainModule.Address()
 	}
 	return common.Address{}
@@ -157,19 +156,19 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 	}
 
 	switch v.version {
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		ownerAddress, _ := v.registry2_3.Owner(callOpts)
 		return ownerAddress
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		ownerAddress, _ := v.registry2_2.Owner(callOpts)
 		return ownerAddress
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		ownerAddress, _ := v.registry2_1.Owner(callOpts)
 		return ownerAddress
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		ownerAddress, _ := v.registry2_0.Owner(callOpts)
 		return ownerAddress
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2, ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_0, RegistryVersion_1_1, RegistryVersion_1_2, RegistryVersion_1_3:
 		return v.client.MustGetRootKeyAddress()
 	default:
 		return v.client.MustGetRootKeyAddress()
@@ -182,7 +181,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 	var decodedTx *seth.DecodedTransaction
 
 	switch v.version {
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		decodedTx, err = v.client.Decode(v.registry2_1.SetConfigTypeSafe(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
@@ -191,7 +190,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		decodedTx, err = v.client.Decode(v.registry2_2.SetConfigTypeSafe(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
@@ -200,7 +199,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		decodedTx, err = v.client.Decode(v.registry2_3.SetConfigTypeSafe(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
@@ -226,7 +225,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 	}
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		_, err := v.client.Decode(v.registry1_1.SetConfig(
 			txOpts,
 			config.PaymentPremiumPPB,
@@ -239,7 +238,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			config.FallbackLinkPrice,
 		))
 		return err
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		state, err := v.registry1_2.GetState(&callOpts)
 		if err != nil {
 			return err
@@ -261,7 +260,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			Registrar:  state.Config.Registrar,
 		}))
 		return err
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		state, err := v.registry1_3.GetState(&callOpts)
 		if err != nil {
 			return err
@@ -283,7 +282,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			Registrar:  state.Config.Registrar,
 		}))
 		return err
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err := v.client.Decode(v.registry2_0.SetConfig(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
@@ -293,7 +292,7 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			ocrConfig.OffchainConfig,
 		))
 		return err
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_1, RegistryVersion_2_2, RegistryVersion_2_3:
 		return errors.New("registry version 2.1 2.2 and 2.3 must use setConfigTypeSafe function")
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -302,16 +301,16 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 
 func (v *EthereumKeeperRegistry) SetUpkeepOffchainConfig(id *big.Int, offchainConfig []byte) error {
 	switch v.version {
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err := v.client.Decode(v.registry2_0.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
 		return err
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err := v.client.Decode(v.registry2_1.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
 		return err
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err := v.client.Decode(v.registry2_2.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
 		return err
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err := v.client.Decode(v.registry2_3.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
 		return err
 	default:
@@ -325,19 +324,19 @@ func (v *EthereumKeeperRegistry) Pause() error {
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		_, err = v.client.Decode(v.registry1_1.Pause(txOpts))
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		_, err = v.client.Decode(v.registry1_2.Pause(txOpts))
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.Pause(txOpts))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.Pause(txOpts))
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.Pause(txOpts))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.Pause(txOpts))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.Pause(txOpts))
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -348,7 +347,7 @@ func (v *EthereumKeeperRegistry) Pause() error {
 
 // Migrate performs a migration of the given upkeep ids to the specific destination passed as parameter.
 func (v *EthereumKeeperRegistry) Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error {
-	if v.version != ethereum.RegistryVersion_1_2 {
+	if v.version != RegistryVersion_1_2 {
 		return errors.New("migration of upkeeps is only available for version 1.2 of the registries")
 	}
 
@@ -358,7 +357,7 @@ func (v *EthereumKeeperRegistry) Migrate(upkeepIDs []*big.Int, destinationAddres
 
 // SetMigrationPermissions sets the permissions of another registry to allow migrations between the two.
 func (v *EthereumKeeperRegistry) SetMigrationPermissions(peerAddress common.Address, permission uint8) error {
-	if v.version != ethereum.RegistryVersion_1_2 {
+	if v.version != RegistryVersion_1_2 {
 		return errors.New("migration of upkeeps is only available for version 1.2 of the registries")
 	}
 
@@ -367,7 +366,7 @@ func (v *EthereumKeeperRegistry) SetMigrationPermissions(peerAddress common.Addr
 }
 
 func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
-	if v.version == ethereum.RegistryVersion_2_0 {
+	if v.version == RegistryVersion_2_0 {
 		// we short circuit and exit, so we don't create a new txs messing up the nonce before exiting
 		return errors.New("please use set config")
 	}
@@ -379,10 +378,10 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 	}
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		_, err := v.client.Decode(v.registry1_1.SetRegistrar(txOpts, common.HexToAddress(registrarAddr)))
 		return err
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		state, err := v.registry1_2.GetState(&callOpts)
 		if err != nil {
 			return err
@@ -391,7 +390,7 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 		newConfig.Registrar = common.HexToAddress(registrarAddr)
 		_, err = v.client.Decode(v.registry1_2.SetConfig(txOpts, newConfig))
 		return err
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		state, err := v.registry1_3.GetState(&callOpts)
 		if err != nil {
 			return err
@@ -411,19 +410,19 @@ func (v *EthereumKeeperRegistry) AddUpkeepFundsFromKey(id *big.Int, amount *big.
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		_, err = v.client.Decode(v.registry1_1.AddFunds(opts, id, amount))
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		_, err = v.client.Decode(v.registry1_2.AddFunds(opts, id, amount))
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.AddFunds(opts, id, amount))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.AddFunds(opts, id, amount))
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.AddFunds(opts, id, amount))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.AddFunds(opts, id, amount))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.AddFunds(opts, id, amount))
 	}
 
@@ -443,7 +442,7 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 	}
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		uk, err := v.registry1_1.GetUpkeep(opts, id)
 		if err != nil {
 			return nil, err
@@ -457,7 +456,7 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Admin:               uk.Admin.Hex(),
 			MaxValidBlocknumber: uk.MaxValidBlocknumber,
 		}, nil
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		uk, err := v.registry1_2.GetUpkeep(opts, id)
 		if err != nil {
 			return nil, err
@@ -471,7 +470,7 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Admin:               uk.Admin.Hex(),
 			MaxValidBlocknumber: uk.MaxValidBlocknumber,
 		}, nil
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		uk, err := v.registry1_3.GetUpkeep(opts, id)
 		if err != nil {
 			return nil, err
@@ -485,7 +484,7 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Admin:               uk.Admin.Hex(),
 			MaxValidBlocknumber: uk.MaxValidBlocknumber,
 		}, nil
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		uk, err := v.registry2_0.GetUpkeep(opts, id)
 		if err != nil {
 			return nil, err
@@ -502,7 +501,7 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Paused:                 uk.Paused,
 			OffchainConfig:         uk.OffchainConfig,
 		}, nil
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		uk, err := v.registry2_1.GetUpkeep(opts, id)
 		if err != nil {
 			return nil, err
@@ -519,9 +518,9 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Paused:                 uk.Paused,
 			OffchainConfig:         uk.OffchainConfig,
 		}, nil
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		return v.getUpkeepInfo22(opts, id)
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		return v.getUpkeepInfo23(opts, id)
 	}
 
@@ -579,13 +578,13 @@ func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr s
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		info, err = v.registry1_1.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		info, err = v.registry1_2.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		info, err = v.registry1_3.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
-	case ethereum.RegistryVersion_2_0, ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_0, RegistryVersion_2_1, RegistryVersion_2_2, RegistryVersion_2_3:
 		// this is not used anywhere
 		return nil, errors.New("not supported")
 	}
@@ -614,13 +613,13 @@ func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, o
 	}
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		_, err = v.client.Decode(v.registry1_1.SetKeepers(opts, keepersAddresses, payeesAddresses))
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		_, err = v.client.Decode(v.registry1_2.SetKeepers(opts, keepersAddresses, payeesAddresses))
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.SetKeepers(opts, keepersAddresses, payeesAddresses))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.SetConfig(opts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
@@ -629,7 +628,7 @@ func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, o
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		))
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_1, RegistryVersion_2_2, RegistryVersion_2_3:
 		return errors.New("not supported")
 	}
 
@@ -642,7 +641,7 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		_, err = v.client.Decode(v.registry1_1.RegisterUpkeep(
 			opts,
 			common.HexToAddress(target),
@@ -650,7 +649,7 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			common.HexToAddress(admin),
 			checkData,
 		))
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		_, err = v.client.Decode(v.registry1_2.RegisterUpkeep(
 			opts,
 			common.HexToAddress(target),
@@ -658,7 +657,7 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			common.HexToAddress(admin),
 			checkData,
 		))
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.RegisterUpkeep(
 			opts,
 			common.HexToAddress(target),
@@ -666,7 +665,7 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			common.HexToAddress(admin),
 			checkData,
 		))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.RegisterUpkeep(
 			opts,
 			common.HexToAddress(target),
@@ -675,7 +674,7 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			checkData,
 			nil, // offchain config
 		))
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_1, RegistryVersion_2_2, RegistryVersion_2_3:
 		return errors.New("not supported")
 	}
 
@@ -689,19 +688,19 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 	var tx *seth.DecodedTransaction
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		tx, err = v.client.Decode(v.registry1_1.CancelUpkeep(opts, id))
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		tx, err = v.client.Decode(v.registry1_2.CancelUpkeep(opts, id))
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		tx, err = v.client.Decode(v.registry1_3.CancelUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		tx, err = v.client.Decode(v.registry2_0.CancelUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		tx, err = v.client.Decode(v.registry2_1.CancelUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		tx, err = v.client.Decode(v.registry2_2.CancelUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		tx, err = v.client.Decode(v.registry2_3.CancelUpkeep(opts, id))
 	}
 
@@ -725,17 +724,17 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		_, err = v.client.Decode(v.registry1_2.SetUpkeepGasLimit(opts, id, gas))
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.SetUpkeepGasLimit(opts, id, gas))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.SetUpkeepGasLimit(opts, id, gas))
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepGasLimit(opts, id, gas))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepGasLimit(opts, id, gas))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.SetUpkeepGasLimit(opts, id, gas))
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported for SetUpkeepGasLimit", v.version)
@@ -754,27 +753,27 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		list, err = v.registry1_1.GetKeeperList(opts)
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		state, err := v.registry1_2.GetState(opts)
 		if err != nil {
 			return []string{}, err
 		}
 		list = state.Keepers
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		state, err := v.registry1_3.GetState(opts)
 		if err != nil {
 			return []string{}, err
 		}
 		list = state.Keepers
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		state, err := v.registry2_0.GetState(opts)
 		if err != nil {
 			return []string{}, err
 		}
 		list = state.Transmitters
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_1, RegistryVersion_2_2, RegistryVersion_2_3:
 		return nil, errors.New("not supported")
 	}
 
@@ -794,15 +793,15 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.UpdateCheckData(opts, id, newCheckData))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.UpdateCheckData(opts, id, newCheckData))
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepCheckData(opts, id, newCheckData))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepCheckData(opts, id, newCheckData))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.SetUpkeepCheckData(opts, id, newCheckData))
 	default:
 		return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
@@ -817,11 +816,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepTriggerConfig(id *big.Int, triggerConf
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepTriggerConfig(opts, id, triggerConfig))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepTriggerConfig(opts, id, triggerConfig))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.SetUpkeepTriggerConfig(opts, id, triggerConfig))
 	default:
 		return fmt.Errorf("SetUpkeepTriggerConfig is not supported by keeper registry version %d", v.version)
@@ -836,11 +835,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepPrivilegeConfig(id *big.Int, privilege
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig))
 	default:
 		return fmt.Errorf("SetUpkeepPrivilegeConfig is not supported by keeper registry version %d", v.version)
@@ -855,15 +854,15 @@ func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.PauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.PauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.PauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.PauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.PauseUpkeep(opts, id))
 	default:
 		return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
@@ -878,15 +877,15 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 	var err error
 
 	switch v.version {
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		_, err = v.client.Decode(v.registry1_3.UnpauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.UnpauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.UnpauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.UnpauseUpkeep(opts, id))
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		_, err = v.client.Decode(v.registry2_3.UnpauseUpkeep(opts, id))
 	default:
 		return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
@@ -898,7 +897,7 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 // Parses upkeep performed log
 func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*UpkeepPerformedLog, error) {
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		parsedLog, err := v.registry1_1.ParseUpkeepPerformed(*log)
 		if err != nil {
 			return nil, err
@@ -908,7 +907,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
 		}, nil
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		parsedLog, err := v.registry1_2.ParseUpkeepPerformed(*log)
 		if err != nil {
 			return nil, err
@@ -918,7 +917,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
 		}, nil
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		parsedLog, err := v.registry1_3.ParseUpkeepPerformed(*log)
 		if err != nil {
 			return nil, err
@@ -928,7 +927,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    parsedLog.From,
 		}, nil
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		parsedLog, err := v.registry2_0.ParseUpkeepPerformed(*log)
 		if err != nil {
 			return nil, err
@@ -938,7 +937,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		parsedLog, err := v.registry2_1.ParseUpkeepPerformed(*log)
 		if err != nil {
 			return nil, err
@@ -948,7 +947,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		parsedLog, err := v.registry2_2.ParseUpkeepPerformed(*log)
 		if err != nil {
 			return nil, err
@@ -958,7 +957,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		parsedLog, err := v.registry2_3.ParseUpkeepPerformed(*log)
 		if err != nil {
 			return nil, err
@@ -975,7 +974,7 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 // ParseStaleUpkeepReportLog Parses Stale upkeep report log
 func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error) {
 	switch v.version {
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		parsedLog, err := v.registry2_0.ParseStaleUpkeepReport(*log)
 		if err != nil {
 			return nil, err
@@ -983,7 +982,7 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 		return &StaleUpkeepReportLog{
 			ID: parsedLog.Id,
 		}, nil
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		parsedLog, err := v.registry2_1.ParseStaleUpkeepReport(*log)
 		if err != nil {
 			return nil, err
@@ -991,7 +990,7 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 		return &StaleUpkeepReportLog{
 			ID: parsedLog.Id,
 		}, nil
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		parsedLog, err := v.registry2_2.ParseStaleUpkeepReport(*log)
 		if err != nil {
 			return nil, err
@@ -999,7 +998,7 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 		return &StaleUpkeepReportLog{
 			ID: parsedLog.Id,
 		}, nil
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		parsedLog, err := v.registry2_3.ParseStaleUpkeepReport(*log)
 		if err != nil {
 			return nil, err
@@ -1015,43 +1014,43 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 // Parses the upkeep ID from an 'UpkeepRegistered' log, returns error on any other log
 func (v *EthereumKeeperRegistry) ParseUpkeepIDFromRegisteredLog(log *types.Log) (*big.Int, error) {
 	switch v.version {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		parsedLog, err := v.registry1_1.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
 		}
 		return parsedLog.Id, nil
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		parsedLog, err := v.registry1_2.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
 		}
 		return parsedLog.Id, nil
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		parsedLog, err := v.registry1_3.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
 		}
 		return parsedLog.Id, nil
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		parsedLog, err := v.registry2_0.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
 		}
 		return parsedLog.Id, nil
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		parsedLog, err := v.registry2_1.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
 		}
 		return parsedLog.Id, nil
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		parsedLog, err := v.registry2_2.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
 		}
 		return parsedLog.Id, nil
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		parsedLog, err := v.registry2_3.ParseUpkeepRegistered(*log)
 		if err != nil {
 			return nil, err
@@ -1082,19 +1081,19 @@ func DeployKeeperRegistry(
 	// }
 	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return deployRegistry10_11(client, opts)
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		return deployRegistry12(client, opts)
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		return deployRegistry13(client, opts, mode, registryGasOverhead)
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		return deployRegistry20(client, opts, mode)
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		return deployRegistry21(client, opts, mode)
-	case ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_2:
 		return deployRegistry22(client, opts)
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		return deployRegistry23(client, opts)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
@@ -1130,7 +1129,7 @@ func deployRegistry10_11(client *seth.Client, opts *KeeperRegistryOpts) (KeeperR
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     ethereum.RegistryVersion_1_1,
+		version:     RegistryVersion_1_1,
 		registry1_1: instance,
 		registry1_2: nil,
 		registry1_3: nil,
@@ -1172,7 +1171,7 @@ func deployRegistry12(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 	}
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     ethereum.RegistryVersion_1_2,
+		version:     RegistryVersion_1_2,
 		registry1_1: nil,
 		registry1_2: instance,
 		registry1_3: nil,
@@ -1228,7 +1227,7 @@ func deployRegistry13(client *seth.Client, opts *KeeperRegistryOpts, mode uint8,
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     ethereum.RegistryVersion_1_3,
+		version:     RegistryVersion_1_3,
 		registry1_1: nil,
 		registry1_2: nil,
 		registry1_3: instance,
@@ -1269,7 +1268,7 @@ func deployRegistry20(client *seth.Client, opts *KeeperRegistryOpts, mode uint8)
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     ethereum.RegistryVersion_2_0,
+		version:     RegistryVersion_2_0,
 		registry2_0: instance,
 		address:     &data.Address,
 	}, err
@@ -1326,7 +1325,7 @@ func deployRegistry21(client *seth.Client, opts *KeeperRegistryOpts, mode uint8)
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     ethereum.RegistryVersion_2_1,
+		version:     RegistryVersion_2_1,
 		registry2_1: instance,
 		address:     &data.Address,
 	}, err
@@ -1409,7 +1408,7 @@ func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     ethereum.RegistryVersion_2_2,
+		version:     RegistryVersion_2_2,
 		registry2_2: instance,
 		chainModule: chainModule,
 		address:     &data.Address,
@@ -1508,7 +1507,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 
 	return &EthereumKeeperRegistry{
 		client:      client,
-		version:     ethereum.RegistryVersion_2_3,
+		version:     RegistryVersion_2_3,
 		registry2_3: instance,
 		chainModule: chainModule,
 		address:     &data.Address,
@@ -1516,23 +1515,23 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 }
 
 // LoadKeeperRegistry returns deployed on given address EthereumKeeperRegistry
-func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion ethereum.KeeperRegistryVersion, chainModuleAddress common.Address) (KeeperRegistry, error) {
+func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion KeeperRegistryVersion, chainModuleAddress common.Address) (KeeperRegistry, error) {
 	var keeper *EthereumKeeperRegistry
 	var err error
 	switch registryVersion {
-	case ethereum.RegistryVersion_1_1:
+	case RegistryVersion_1_1:
 		keeper, err = loadRegistry1_1(client, address)
-	case ethereum.RegistryVersion_1_2:
+	case RegistryVersion_1_2:
 		keeper, err = loadRegistry1_2(client, address)
-	case ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_3:
 		keeper, err = loadRegistry1_3(client, address)
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		keeper, err = loadRegistry2_0(client, address)
-	case ethereum.RegistryVersion_2_1:
+	case RegistryVersion_2_1:
 		keeper, err = loadRegistry2_1(client, address)
-	case ethereum.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
+	case RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
 		keeper, err = loadRegistry2_2(client, address)
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		keeper, err = loadRegistry2_3(client, address, chainModuleAddress)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
@@ -2063,9 +2062,9 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 	return req, nil
 }
 
-func DeployKeeperRegistrar(client *seth.Client, registryVersion ethereum.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
+func DeployKeeperRegistrar(client *seth.Client, registryVersion KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 	switch registryVersion {
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		abi, err := keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
 		if err != nil {
 			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_0 ABI: %w", err)
@@ -2091,7 +2090,7 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion ethereum.KeeperR
 			registrar20: instance,
 			address:     &data.Address,
 		}, nil
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // both 2.1 and 2.2 registry use registrar 2.1
+	case RegistryVersion_2_1, RegistryVersion_2_2: // both 2.1 and 2.2 registry use registrar 2.1
 		abi, err := registrar21.AutomationRegistrarMetaData.GetAbi()
 		if err != nil {
 			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_1 ABI: %w", err)
@@ -2124,7 +2123,7 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion ethereum.KeeperR
 			registrar21: instance,
 			address:     &data.Address,
 		}, nil
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		abi, err := registrar23.AutomationRegistrarMetaData.GetAbi()
 		if err != nil {
 			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_3 ABI: %w", err)
@@ -2202,9 +2201,9 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion ethereum.KeeperR
 }
 
 // LoadKeeperRegistrar returns deployed on given address EthereumKeeperRegistrar
-func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVersion ethereum.KeeperRegistryVersion) (KeeperRegistrar, error) {
+func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVersion KeeperRegistryVersion) (KeeperRegistrar, error) {
 	switch registryVersion {
-	case ethereum.RegistryVersion_1_1, ethereum.RegistryVersion_1_2, ethereum.RegistryVersion_1_3:
+	case RegistryVersion_1_1, RegistryVersion_1_2, RegistryVersion_1_3:
 		loader := seth.NewContractLoader[keeper_registrar_wrapper1_2.KeeperRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar1_2", address, keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.GetAbi, keeper_registrar_wrapper1_2.NewKeeperRegistrar)
 		if err != nil {
@@ -2216,7 +2215,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:    client,
 			registrar: instance,
 		}, err
-	case ethereum.RegistryVersion_2_0:
+	case RegistryVersion_2_0:
 		loader := seth.NewContractLoader[keeper_registrar_wrapper2_0.KeeperRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar2_0", address, keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi, keeper_registrar_wrapper2_0.NewKeeperRegistrar)
 		if err != nil {
@@ -2228,7 +2227,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:      client,
 			registrar20: instance,
 		}, nil
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
+	case RegistryVersion_2_1, RegistryVersion_2_2:
 		loader := seth.NewContractLoader[registrar21.AutomationRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar2_1", address, registrar21.AutomationRegistrarMetaData.GetAbi, registrar21.NewAutomationRegistrar)
 		if err != nil {
@@ -2240,7 +2239,7 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:      client,
 			registrar21: instance,
 		}, nil
-	case ethereum.RegistryVersion_2_3:
+	case RegistryVersion_2_3:
 		loader := seth.NewContractLoader[registrar23.AutomationRegistrar](client)
 		instance, err := loader.LoadContract("KeeperRegistrar2_3", address, registrar23.AutomationRegistrarMetaData.GetAbi, registrar23.NewAutomationRegistrar)
 		if err != nil {

@@ -22,12 +22,10 @@ import (
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	ctf_concurrency "github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
 
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_registrar_wrapper2_1"
@@ -37,7 +35,7 @@ import (
 type Test struct {
 	ChainClient *seth.Client
 
-	Config automation.Automation
+	Config *automation.Automation
 
 	LinkToken   contracts.LinkToken
 	Transcoder  contracts.UpkeepTranscoder
@@ -55,8 +53,6 @@ type Test struct {
 	PublicConfig           ocr3.PublicConfig
 	UpkeepPrivilegeManager common.Address
 	UpkeepIDs              []*big.Int
-
-	ChainlinkNodes []*clclient.ChainlinkClient
 
 	TransmitterKeyIndex int
 
@@ -76,20 +72,25 @@ type UpkeepConfig struct {
 	FundingAmount  *big.Int
 }
 
-func NewAutomationTest(
-	l zerolog.Logger,
+func NewTest(
 	chainClient *seth.Client,
-	chainlinkNodes []*clclient.ChainlinkClient,
-	config automation.Automation,
-) *Test {
-	return &Test{
+	config *automation.Automation,
+) (*Test, error) {
+	t := &Test{
 		ChainClient:            chainClient,
 		Config:                 config,
-		ChainlinkNodes:         chainlinkNodes,
-		TransmitterKeyIndex:    0,
 		UpkeepPrivilegeManager: chainClient.MustGetRootKeyAddress(),
-		Logger:                 l,
+		RegistrySettings:       config.GetRegistryConfig(),
+		PublicConfig:           config.GetPublicConfig(),
+		PluginConfig:           config.GetPluginConfig(),
+		Logger:                 framework.L,
 	}
+
+	if err := t.LoadContracts(); err != nil {
+		return nil, err
+	}
+
+	return t, nil
 }
 
 func (a *Test) LoadLINK(address string) error {
@@ -212,7 +213,7 @@ func (a *Test) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcurrency int)
 		var registrarABI *abi.ABI
 		var err error
 		switch a.RegistrySettings.RegistryVersion {
-		case ethereum.RegistryVersion_2_0:
+		case contracts.RegistryVersion_2_0:
 			registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
 			if err != nil {
 				errorCh <- errors.Join(err, errors.New("failed to get registrar abi"))
@@ -233,7 +234,7 @@ func (a *Test) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcurrency int)
 				errorCh <- errors.Join(err, errors.New("failed to pack registrar request"))
 				return
 			}
-		case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
+		case contracts.RegistryVersion_2_1, contracts.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
 			registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
 			if err != nil {
 				errorCh <- errors.Join(err, errors.New("failed to get registrar abi"))
@@ -398,7 +399,7 @@ func (a *Test) LoadContracts() error {
 
 // GenerateUpkeepReport generates a report of performed, successful, reverted and stale upkeeps for a given registry contract based on transaction logs. In case of test failure it can help us
 // to triage the issue by providing more context.
-func generateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
+func generateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion contracts.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
 	registryLogs := []gethtypes.Log{}
 	l := framework.L
 
@@ -479,7 +480,7 @@ func generateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, en
 	return
 }
 
-func getStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) func() {
+func getStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion contracts.KeeperRegistryVersion) func() {
 	return func() {
 		if t.Failed() {
 			endBlock, err := chainClient.Client.BlockNumber(t.Context())

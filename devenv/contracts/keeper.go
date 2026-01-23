@@ -8,8 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	goabi "github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
-
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	registrar21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_registrar_wrapper2_1"
 	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -18,6 +16,48 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
+
+// AbigenLog is an interface for abigen generated log topics
+type AbigenLog interface {
+	Topic() common.Hash
+}
+
+type KeeperRegistryVersion int32
+
+//nolint:revive // we want to use underscores
+const (
+	RegistryVersion_1_0 KeeperRegistryVersion = iota
+	RegistryVersion_1_1
+	RegistryVersion_1_2
+	RegistryVersion_1_3
+	RegistryVersion_2_0
+	RegistryVersion_2_1
+	RegistryVersion_2_2
+	RegistryVersion_2_3
+)
+
+func (k KeeperRegistryVersion) String() string {
+	switch k {
+	case RegistryVersion_1_0:
+		return "1.0"
+	case RegistryVersion_1_1:
+		return "1.1"
+	case RegistryVersion_1_2:
+		return "1.2"
+	case RegistryVersion_1_3:
+		return "1.3"
+	case RegistryVersion_2_0:
+		return "2.0"
+	case RegistryVersion_2_1:
+		return "2.1"
+	case RegistryVersion_2_2:
+		return "2.2"
+	case RegistryVersion_2_3:
+		return "2.3"
+	default:
+		return "unknown"
+	}
+}
 
 var compatibleUtils = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)
 var registrarABI = cltypes.MustGetABI(registrar21.AutomationRegistrarABI)
@@ -94,7 +134,7 @@ type StaleUpkeepReportLog struct {
 
 // KeeperRegistryOpts opts to deploy keeper registry version
 type KeeperRegistryOpts struct {
-	RegistryVersion   ethereum.KeeperRegistryVersion
+	RegistryVersion   KeeperRegistryVersion
 	LinkAddr          string
 	ETHFeedAddr       string
 	GasFeedAddr       string
@@ -122,7 +162,7 @@ type KeeperRegistrySettings struct {
 	MaxCheckDataSize     uint32
 	MaxPerformDataSize   uint32
 	MaxRevertDataSize    uint32
-	RegistryVersion      ethereum.KeeperRegistryVersion
+	RegistryVersion      KeeperRegistryVersion
 }
 
 func (rcs *KeeperRegistrySettings) Create23OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig {

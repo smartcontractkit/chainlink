@@ -24,7 +24,6 @@ import (
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
-	"github.com/smartcontractkit/chainlink/devenv/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 )
 
@@ -42,11 +41,10 @@ type Automation struct {
 	PluginConfig PluginConfig `toml:"PluginConfig"`
 	PublicConfig PublicConfig `toml:"PublicConfig"`
 
-	CLNodesFundingETH     float64               `toml:"cl_nodes_funding_eth"`
-	GasSettings           *products.GasSettings `toml:"gas_settings"`
-	DeployedContracts     DeployedContracts     `toml:"deployed_contracts"`
-	EVMNetworkSettings    EVMNetworkSettings    `toml:"EVMNetworkSettings"`
-	TestKeysMinFundingEth float64               `toml:"test_keys_min_funding_eth"`
+	CLNodesFundingETH  float64              `toml:"cl_nodes_funding_eth"`
+	GasSettings        products.GasSettings `toml:"gas_settings"`
+	DeployedContracts  DeployedContracts    `toml:"deployed_contracts"`
+	EVMNetworkSettings EVMNetworkSettings   `toml:"EVMNetworkSettings"`
 }
 
 type DeployedContracts struct {
@@ -70,10 +68,9 @@ type MercurySettings struct {
 }
 
 type EVMNetworkSettings struct {
-	LinkTokenAddress   *string `toml:"link_token_address"`
-	FinalityTagEnabled *bool   `toml:"finality_tag_enabled"`
-	FinalityDepth      *uint   `toml:"finality_depth"`
-	SafeTagSupported   *bool   `toml:"safe_tag_supported"`
+	FinalityTagEnabled *bool `toml:"finality_tag_enabled"`
+	FinalityDepth      *uint `toml:"finality_depth"`
+	SafeTagSupported   *bool `toml:"safe_tag_supported"`
 
 	BackupLogPollerBlockDelay *uint   `toml:"backup_log_poller_block_delay"`
 	LogPollerInterval         *string `toml:"log_poller_interval"`
@@ -213,9 +210,6 @@ LogPollInterval = '{{.LogPollInterval}}'
 {{- if .BackupLogPollerBlockDelay}}
 BackupLogPollerBlockDelay = {{.BackupLogPollerBlockDelay}}
 {{- end}}
-{{- if .LinkContractAddress}}
-LinkContractAddress = '{{.LinkContractAddress}}'
-{{- end}}
 
 {{- if .FinalityDepth}}
 FinalityDepth = {{.FinalityDepth}}
@@ -254,7 +248,6 @@ HttpUrl = '{{.HTTPURL}}'
 		ChainID                   string
 		WsURL                     string
 		HTTPURL                   string
-		LinkContractAddress       *string
 		FinalityDepth             *uint
 		FinalityTagEnabled        *bool
 		SafeTagSupported          *bool
@@ -263,7 +256,6 @@ HttpUrl = '{{.HTTPURL}}'
 	}
 
 	d := data{
-		LinkContractAddress:       m.Config[0].EVMNetworkSettings.LinkTokenAddress, // TODO think whether we need and how to set if it is deployed later. Is the sequence deterministic enough?
 		ChainID:                   bc.Out.ChainID,
 		FinalityDepth:             m.Config[0].EVMNetworkSettings.FinalityDepth,
 		FinalityTagEnabled:        m.Config[0].EVMNetworkSettings.FinalityTagEnabled,
@@ -287,7 +279,7 @@ HttpUrl = '{{.HTTPURL}}'
 
 func (m *Configurator) GenerateCLNodesSecrets(ctx context.Context, fake *fake.Input) (string, error) {
 	if m.Config[0].MercurySettings == nil {
-		L.Info().Msg("Skipping CL nodes secrets configuration")
+		L.Info().Msg("Product doesn't use Mercury. Skipping CL nodes secrets configuration")
 		return "", nil
 	}
 
@@ -384,37 +376,37 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 
-	nodeDetails, err := CollectNodeDetails(chainClient.Cfg.Network.ChainID, cl, ns.Out.CLNodes)
+	nodeDetails, err := collectNodeDetails(chainClient.Cfg.Network.ChainID, cl, ns.Out.CLNodes)
 	if err != nil {
 		return fmt.Errorf("error collecting node details: %w", err)
 	}
 
-	if err := SetConfigOnRegistry(nodeDetails, m.Config[instanceIdx], chainClient); err != nil {
+	if err := setConfigOnRegistry(nodeDetails, m.Config[instanceIdx], chainClient); err != nil {
 		return err
 	}
 
 	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[instanceIdx].MustGetRegistryVersion(), m.Config[instanceIdx].DeployedContracts.Registry, m.Config[instanceIdx].GetMercuryCredentialsName()) //nolint:gosec // disable G115
 }
 
-func (m *Automation) MustGetRegistryVersion() ethereum.KeeperRegistryVersion {
+func (m *Automation) MustGetRegistryVersion() contracts.KeeperRegistryVersion {
 	version := semver.MustParse(m.RegistryVersion)
 	switch {
 	case version.Equal(semver.MustParse("1.0")):
-		return ethereum.RegistryVersion_1_0
+		return contracts.RegistryVersion_1_0
 	case version.Equal(semver.MustParse("1.1")):
-		return ethereum.RegistryVersion_1_1
+		return contracts.RegistryVersion_1_1
 	case version.Equal(semver.MustParse("1.2")):
-		return ethereum.RegistryVersion_1_2
+		return contracts.RegistryVersion_1_2
 	case version.Equal(semver.MustParse("1.3")):
-		return ethereum.RegistryVersion_1_3
+		return contracts.RegistryVersion_1_3
 	case version.Equal(semver.MustParse("2.0")):
-		return ethereum.RegistryVersion_2_0
+		return contracts.RegistryVersion_2_0
 	case version.Equal(semver.MustParse("2.1")):
-		return ethereum.RegistryVersion_2_1
+		return contracts.RegistryVersion_2_1
 	case version.Equal(semver.MustParse("2.2")):
-		return ethereum.RegistryVersion_2_2
+		return contracts.RegistryVersion_2_2
 	case version.Equal(semver.MustParse("2.3")):
-		return ethereum.RegistryVersion_2_3
+		return contracts.RegistryVersion_2_3
 	default:
 		panic("unsupported registry version: " + m.RegistryVersion)
 	}

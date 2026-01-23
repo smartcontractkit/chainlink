@@ -7,8 +7,6 @@ instances = 1
 [[automation]]
 registryVersion = "2.1"
 cl_nodes_funding_eth = 50
-# cl_nodes_funding_link = 50
-# test_keys_min_funding_eth = 15
 
 [automation.gas_settings]
 # EIP1159 fee cap multiplier (default, for all transactions)
