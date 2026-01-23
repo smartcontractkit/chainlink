@@ -31,7 +31,7 @@ var consensusNegativeTestsGenerateReport = []consensusNegativeTest{
 	{"random timestamps", "Consensus - random timestamps", expectedConsensusError},
 	{"inconsistent feedIDs", "Consensus - inconsistent feedIDs", expectedConsensusError},
 	{"inconsistent prices", "Consensus - inconsistent prices", expectedConsensusError},
-	{"oversized payload", "Consensus - oversized payload", "Failed to generate report due to payload size"},
+	{"oversized payload", "Consensus - oversized payload", expectedConsensusError},
 }
 
 func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensusNegativeTest consensusNegativeTest) {
