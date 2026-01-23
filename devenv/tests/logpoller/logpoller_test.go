@@ -38,10 +38,10 @@ const (
 )
 
 type Config struct {
-	General      General       `toml:"General"`
-	ChaosConfig  *ChaosConfig  `toml:"Chaos"`
-	Wasp         *WaspConfig   `toml:"Wasp"`
-	LoopedConfig *LoopedConfig `toml:"Looped"`
+	General      General
+	ChaosConfig  *ChaosConfig
+	Wasp         *WaspConfig
+	LoopedConfig *LoopedConfig
 }
 
 func (c *Config) Validate() error {
@@ -81,9 +81,9 @@ func (c *Config) Validate() error {
 }
 
 type LoopedConfig struct {
-	ExecutionCount    int `toml:"execution_count"`
-	MinEmitWaitTimeMs int `toml:"min_emit_wait_time_ms"`
-	MaxEmitWaitTimeMs int `toml:"max_emit_wait_time_ms"`
+	ExecutionCount    int
+	MinEmitWaitTimeMs int
+	MaxEmitWaitTimeMs int
 }
 
 func (l *LoopedConfig) Validate() error {
@@ -103,10 +103,11 @@ func (l *LoopedConfig) Validate() error {
 }
 
 type General struct {
-	Generator    string      `toml:"generator"`
-	EventsToEmit []abi.Event `toml:"-"`
-	Contracts    int         `toml:"contracts"`
-	EventsPerTx  int         `toml:"events_per_tx"`
+	Generator        string
+	EventsToEmit     []abi.Event
+	Contracts        int
+	EventsPerTx      int
+	FundingAmountEth float64
 }
 
 func (g *General) Validate() error {
@@ -126,8 +127,8 @@ func (g *General) Validate() error {
 }
 
 type ChaosConfig struct {
-	ExperimentCount int    `toml:"experiment_count"`
-	TargetComponent string `toml:"target_component"`
+	ExperimentCount int
+	TargetComponent string
 }
 
 func (c *ChaosConfig) Validate() error {
@@ -173,9 +174,10 @@ func (w *WaspConfig) Validate() error {
 func TestLogPoller(t *testing.T) {
 	cfg := &Config{
 		General: General{
-			Generator:   "looped",
-			Contracts:   2,
-			EventsPerTx: 4,
+			Generator:        "looped",
+			Contracts:        2,
+			EventsPerTx:      4,
+			FundingAmountEth: 10,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    30,
@@ -196,9 +198,10 @@ func TestLogPoller(t *testing.T) {
 func TestLogPollerReplay(t *testing.T) {
 	cfg := &Config{
 		General: General{
-			Generator:   "looped",
-			Contracts:   2,
-			EventsPerTx: 4,
+			Generator:        "looped",
+			Contracts:        2,
+			EventsPerTx:      4,
+			FundingAmountEth: 20,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    100,
@@ -218,9 +221,10 @@ func XTestLogPollerHeavyLoad(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time, remove the X from the test name to run it")
 	cfg := &Config{
 		General: General{
-			Generator:   "looped",
-			Contracts:   20,
-			EventsPerTx: 30,
+			Generator:        "looped",
+			Contracts:        20,
+			EventsPerTx:      30,
+			FundingAmountEth: 40,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    30,
@@ -248,9 +252,10 @@ func XTestLogPollerHeavyLoad(t *testing.T) {
 func TestLogPollerChaosChainlinkNodes(t *testing.T) {
 	cfg := &Config{
 		General: General{
-			Generator:   "looped",
-			Contracts:   2,
-			EventsPerTx: 4,
+			Generator:        "looped",
+			Contracts:        2,
+			EventsPerTx:      4,
+			FundingAmountEth: 15,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    50,
@@ -283,9 +288,10 @@ func TestLogPollerChaosPostgres(t *testing.T) {
 	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-563")
 	cfg := &Config{
 		General: General{
-			Generator:   "looped",
-			Contracts:   2,
-			EventsPerTx: 4,
+			Generator:        "looped",
+			Contracts:        2,
+			EventsPerTx:      4,
+			FundingAmountEth: 15,
 		},
 		LoopedConfig: &LoopedConfig{
 			ExecutionCount:    50,
@@ -357,7 +363,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 		require.NoError(t, err, "Failed to create ETH client")
 
 		checkRequiredBalance(t, keysRequired, c, config)
-		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, 10)
+		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, cfg.General.FundingAmountEth)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
 	}
@@ -515,7 +521,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 		checkRequiredBalance(t, keysRequired, c, config)
 
-		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, 20)
+		newPks, err := products.FundNewAddresses(ctx, keysRequired, c, cfg.General.FundingAmountEth)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
 	}
