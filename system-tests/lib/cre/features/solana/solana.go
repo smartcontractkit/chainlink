@@ -72,7 +72,7 @@ func (o *Solana) PreEnvStartup(
 		return nil, errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", solChain.ChainSelector())
 	}
 
-	data := solanaInput{
+	data := SolanaInput{
 		ChainSelector:    solChain.ChainSelector(),
 		ForwarderAddress: *programID,
 		ForwarderState:   *state,
@@ -85,7 +85,7 @@ func (o *Solana) PreEnvStartup(
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
+		updatedConfig, uErr := UpdateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -172,7 +172,7 @@ func DeployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 	return ptr.Ptr(out.Output.ProgramID.String()), ptr.Ptr(out.Output.State.String()), nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaInput, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
+func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data SolanaInput, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
 	key, ok := workerNode.Keys.Solana[chainID]
 	if !ok {
 		return nil, errors.Errorf("missing Solana key for chainID %s on node index %d", chainID, workerNode.Index)
@@ -244,7 +244,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
-type solanaInput struct {
+type SolanaInput struct {
 	ChainSelector    uint64
 	FromAddress      solanago.PublicKey
 	ForwarderAddress string

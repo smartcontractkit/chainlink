@@ -68,13 +68,16 @@ func (s *Solana) PreEnvStartup(
 ) (*cre.PreEnvStartupOutput, error) {
 	// 1. Deploy forwarders to solana blockchains
 	solChain := extractSolanaFromEnv(creEnv)
-	_, _, fErr := solana.DeployForwarder(testLogger, creEnv, solChain)
+	programID, state, fErr := solana.DeployForwarder(testLogger, creEnv, solChain)
 	if fErr != nil {
 		return nil, errors.Wrapf(fErr, "failed to deploy forwarder for solana")
 	}
-
+	input := solana.SolanaInput{
+		ForwarderAddress: *programID,
+		ForwarderState:   *state,
+	}
 	// 2. Patch nodes TOML config to include workflow From Address
-	cfgErr := updateNodeConfigs(don, solChain.ChainSelector())
+	cfgErr := updateNodeConfigs(creEnv, don, input, solChain.ChainSelector())
 	if cfgErr != nil {
 		return nil, errors.Wrapf(cfgErr, "failed to update node configs for solana")
 	}
@@ -308,15 +311,19 @@ func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	}
 }
 
-func updateNodeConfigs(don *cre.DonMetadata, selector uint64) error {
+func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data solana.SolanaInput, selector uint64) error {
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
 	}
+	chainID, chErr := chainselectors.SolanaChainIdFromSelector(selector)
+	if chErr != nil {
+		return chErr
+	}
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, don.NodeSets(), currentConfig, selector)
+		updatedConfig, updErr := solana.UpdateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
 		if updErr != nil {
 			return errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
