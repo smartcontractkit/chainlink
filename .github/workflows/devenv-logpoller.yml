@@ -70,7 +70,7 @@ jobs:
 
       - name: Run Automation environment
         env:
-          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE_NEW }}
         run: |
           cd cmd/cl && go install . && cd -
           cl u env.toml,${{ matrix.environment}}
