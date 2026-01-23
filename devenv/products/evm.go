@@ -395,6 +395,7 @@ func InitSeth(rpcURL string, privateKeys []string, chainID *uint64) (*seth.Clien
 		chainClient, err = seth.NewClientBuilder().
 			WithPrivateKeys(privateKeys).
 			WithRpcUrl(rpcURL).
+			WithGasPriceEstimations(true, 0, seth.Priority_Auto, 1).
 			Build()
 	}
 
