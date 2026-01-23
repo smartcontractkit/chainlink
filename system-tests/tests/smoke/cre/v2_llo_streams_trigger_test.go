@@ -325,15 +325,23 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	// Step 9: Wait for LLO reports with magic numbers
 	// We need to verify both Format 5 (424242) and Format 7 (555555 from calculated stream)
 	testLogger.Info().Msg("Step 9: Waiting for LLO reports with magic numbers...")
-
-	// First, wait for Format 5 (424242)
-	expectedLogFormat5 := "LLO_E2E_VALUE"
 	timeout := 3 * time.Minute
+
+	// First, explicitly wait for Format 5 (424242)
+	// Check for "Format=5" to ensure we get Format 5 reports specifically
+	expectedLogFormat5 := "Format=5"
+	testLogger.Info().Msg("Waiting for Format 5 reports (424242)...")
 	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat5, testLogger, messageChan, kafkaErrChan, timeout)
 	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive Format 5 reports")
+	
+	// Verify Format 5 value is correct (424242)
+	expectedLogFormat5Value := "Value=424242"
+	testLogger.Info().Msg("Verifying Format 5 value (424242)...")
+	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat5Value, testLogger, messageChan, kafkaErrChan, timeout)
+	require.NoError(t, err, "LLO Streams Trigger E2E test failed - Format 5 value is not 424242")
 	testLogger.Info().Msg("✓ Workflow received Format 5 reports (424242)")
 
-	// Then, wait for Format 7 (555555 from calculated stream: 111111 * 5)
+	// Then, explicitly wait for Format 7 (555555 from calculated stream: 111111 * 5)
 	// Check for Format=7 specifically to verify calculated streams are working
 	expectedLogFormat7 := "Format=7"
 	testLogger.Info().Msg("Waiting for Format 7 reports with calculated stream (555555 = 111111 * 5)...")
@@ -345,6 +353,7 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	testLogger.Info().Msg("Verifying calculated stream value (555555)...")
 	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat7Value, testLogger, messageChan, kafkaErrChan, timeout)
 	require.NoError(t, err, "LLO Streams Trigger E2E test failed - calculated stream value is not 555555")
+	testLogger.Info().Msg("✓ Workflow received Format 7 reports (555555)")
 	
 	testLogger.Info().Msg("✓ Workflow received LLO reports with magic numbers (both Format 5 and Format 7 with calculated stream)")
 
