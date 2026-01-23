@@ -70,6 +70,11 @@ func SetupLLOInfrastructure(
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	evmBlockchain := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain)
 
+	// Wait for Anvil to be ready before accessing it
+	testLogger.Info().Msg("Waiting for Anvil to be ready...")
+	err := waitForAnvil(ctx, evmBlockchain.SethClient.Client, testLogger, 30*time.Second)
+	require.NoError(t, err, "Anvil did not become ready in time")
+
 	// Get chain ID from the Seth client
 	chainID, err := evmBlockchain.SethClient.Client.ChainID(ctx)
 	require.NoError(t, err, "failed to get chain ID")
@@ -127,6 +132,13 @@ func SetOCRConfiguration(
 	// Get the first EVM blockchain
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	evmBlockchain := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain)
+
+	// Wait for Anvil to be ready before accessing it
+	testLogger.Info().Msg("Waiting for Anvil to be ready...")
+	err := waitForAnvil(ctx, evmBlockchain.SethClient.Client, testLogger, 30*time.Second)
+	if err != nil {
+		return fmt.Errorf("Anvil did not become ready: %w", err)
+	}
 
 	// Get chain ID and selector
 	chainID, err := evmBlockchain.SethClient.Client.ChainID(ctx)
@@ -387,6 +399,29 @@ func setOCRConfigurationWithChangesets(
 
 	testLogger.Info().Msg("✓ Production config set using CLD changeset")
 	return nil
+}
+
+// waitForAnvil waits for Anvil to be ready by attempting to get the chain ID
+func waitForAnvil(ctx context.Context, client interface{ ChainID(context.Context) (*big.Int, error) }, logger zerolog.Logger, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for time.Now().Before(deadline) {
+		_, err := client.ChainID(ctx)
+		if err == nil {
+			logger.Info().Msg("Anvil is ready")
+			return nil
+		}
+		logger.Debug().Err(err).Msg("Anvil not ready yet, retrying...")
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			// Continue loop
+		}
+	}
+	return fmt.Errorf("Anvil did not become ready within %v", timeout)
 }
 
 // mineBlocksAndWait mines a specified number of blocks on Anvil and waits for them

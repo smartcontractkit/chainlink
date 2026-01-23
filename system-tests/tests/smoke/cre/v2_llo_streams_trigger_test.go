@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -88,6 +88,10 @@ func Test_CRE_V2_LLO_Streams_Trigger_E2E(t *testing.T) {
 	channelDefsURL := GetLLOProviderChannelDefsURL()
 	t.Setenv("LLO_MOCK_EA_URL", priceProviderURL)
 	t.Setenv("LLO_CHANNEL_DEFS_URL", channelDefsURL)
+	// Enable OnchainPublicKey signer extraction for LLO tests
+	// This ensures the capability registry uses OnchainPublicKey addresses for signature verification
+	// The override in keystone_llo.go checks this environment variable
+	t.Setenv("USE_LLO_ONCHAIN_SIGNER", "true")
 
 	// Now set up the test environment - the fake provider is already running
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, lloStreamsConfigPath), v2RegistriesFlags...)

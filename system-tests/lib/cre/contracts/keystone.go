@@ -98,6 +98,16 @@ func DeployKeystoneContracts(
 
 const DonFamily = "test-don-family"
 
+// extractSignerAddressFromOCRConfig extracts the 20-byte signer address from OCR config.
+// This is a package-level variable that can be overridden in test files if needed.
+// Default behavior uses OffchainPublicKey (for production compatibility).
+// LLO tests override this to use OnchainPublicKey (see keystone_llo_test.go).
+var extractSignerAddressFromOCRConfig = func(ocrCfg deployment.OCRConfig) [32]byte {
+	var signer [32]byte
+	copy(signer[:], ocrCfg.OffchainPublicKey[:])
+	return signer
+}
+
 type donConfig struct {
 	id uint32 // the DON id as registered in the capabilities registry
 	keystone_changeset.DonCapabilities
@@ -194,17 +204,9 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 						panic(fmt.Errorf("failed to decode csa key: %w", err))
 					}
 
-					// Extract the 20-byte signer address from OnchainPublicKey
-					// OnchainPublicKey is a 23-byte slice: [1 20 0 <20-byte address>]
-					// Extract the last 20 bytes to get the Ethereum address
-					var signer [32]byte
-					if len(ocrCfg.OnchainPublicKey) >= 20 {
-						// Use common.BytesToAddress to extract the 20-byte address (takes last 20 bytes)
-						addr := common.BytesToAddress(ocrCfg.OnchainPublicKey)
-						copy(signer[0:20], addr.Bytes())
-					} else {
-						panic(fmt.Errorf("OnchainPublicKey too short: %d bytes", len(ocrCfg.OnchainPublicKey)))
-					}
+					// Extract signer address using the configurable function
+					// This allows test files to override the behavior (e.g., use OnchainPublicKey for LLO)
+					signer := extractSignerAddressFromOCRConfig(ocrCfg)
 
 					nodes = append(nodes, contracts.NodesInput{
 						NOP:                 nopName,
