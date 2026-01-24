@@ -284,7 +284,7 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 
 	// ignore any reads that do not update the config version
 	if e.localNode.Load().WorkflowDON.ConfigVersion == localNode.WorkflowDON.ConfigVersion {
-		return
+		return // NOOP change
 	}
 
 	e.cfg.Lggr.Debugw("Setting local node state",
