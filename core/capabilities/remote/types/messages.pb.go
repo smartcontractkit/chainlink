@@ -366,6 +366,7 @@ type TriggerEventMetadata struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	TriggerEventId string                 `protobuf:"bytes,1,opt,name=trigger_event_id,json=triggerEventId,proto3" json:"trigger_event_id,omitempty"`
 	WorkflowIds    []string               `protobuf:"bytes,2,rep,name=workflow_ids,json=workflowIds,proto3" json:"workflow_ids,omitempty"`
+	TriggerIds     []string               `protobuf:"bytes,3,rep,name=trigger_ids,json=triggerIds,proto3" json:"trigger_ids,omitempty"` // must be equal length to workflow_ids (or empty if not supported)
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -414,6 +415,13 @@ func (x *TriggerEventMetadata) GetWorkflowIds() []string {
 	return nil
 }
 
+func (x *TriggerEventMetadata) GetTriggerIds() []string {
+	if x != nil {
+		return x.TriggerIds
+	}
+	return nil
+}
+
 var File_core_capabilities_remote_types_messages_proto protoreflect.FileDescriptor
 
 const file_core_capabilities_remote_types_messages_proto_rawDesc = "" +
@@ -443,10 +451,12 @@ const file_core_capabilities_remote_types_messages_proto_rawDesc = "" +
 	"\n" +
 	"\bmetadataJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"R\n" +
 	"\x1bTriggerRegistrationMetadata\x123\n" +
-	"\x16last_received_event_id\x18\x01 \x01(\tR\x13lastReceivedEventId\"c\n" +
+	"\x16last_received_event_id\x18\x01 \x01(\tR\x13lastReceivedEventId\"\x84\x01\n" +
 	"\x14TriggerEventMetadata\x12(\n" +
 	"\x10trigger_event_id\x18\x01 \x01(\tR\x0etriggerEventId\x12!\n" +
-	"\fworkflow_ids\x18\x02 \x03(\tR\vworkflowIds*v\n" +
+	"\fworkflow_ids\x18\x02 \x03(\tR\vworkflowIds\x12\x1f\n" +
+	"\vtrigger_ids\x18\x03 \x03(\tR\n" +
+	"triggerIds*v\n" +
 	"\x05Error\x12\x06\n" +
 	"\x02OK\x10\x00\x12\x15\n" +
 	"\x11VALIDATION_FAILED\x10\x01\x12\x18\n" +
