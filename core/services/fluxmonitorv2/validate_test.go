@@ -22,6 +22,7 @@ func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
 }
 
 func TestValidate(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1564")
 	quarantine.Flaky(t, "DX-1852")
 	t.Parallel()
 	var tt = []struct {
