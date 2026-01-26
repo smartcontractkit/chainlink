@@ -19,6 +19,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -83,6 +85,7 @@ var vrfv2PlusCleanUpFn = func(
 }
 
 func TestVRFv2Plus(t *testing.T) {
+	quarantine.Flaky(t, "DX-2707")
 	t.Parallel()
 	var (
 		env                          *test_env.CLClusterTestEnv
