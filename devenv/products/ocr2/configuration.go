@@ -425,6 +425,7 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 		common.HexToAddress(rootAddr),
 		common.HexToAddress(rootAddr),
 		common.HexToAddress(rootAddr),
+		common.HexToAddress(rootAddr),
 	})
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to set payees: %w", err)

@@ -7,6 +7,8 @@ import (
 )
 
 func RegisterRoutes() error {
+	// Mocks that serve signed reports from DataStreams API.
+	// Exact values and feeds they contain remains unknown. These values were either copied from actual API responses or other tests.
 	err := fake.Func("GET", "/api/v1/reports/bulk", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
 			"reports": []map[string]any{
