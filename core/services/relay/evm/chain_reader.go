@@ -22,10 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 )
 
 type ChainReaderService interface {
