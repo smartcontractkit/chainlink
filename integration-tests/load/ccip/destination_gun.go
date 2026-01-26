@@ -14,11 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
-<<<<<<< HEAD
-=======
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
->>>>>>> 1082232bdd (Initial setup)
 	"go.uber.org/atomic"
 
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
