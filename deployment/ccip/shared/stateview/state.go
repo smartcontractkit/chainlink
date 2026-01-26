@@ -92,7 +92,7 @@ import (
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	// "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
@@ -1172,25 +1172,25 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.Multicall3 = mc
 			state.ABIByAddress[address] = multicall3.Multicall3ABI
 		case cldf.NewTypeAndVersion(ccipshared.PriceFeed, deployment.Version1_0_0).String():
-			// feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
-			// if err != nil {
-			// 	return state, err
-			// }
-			// if state.USDFeeds == nil {
-			// 	state.USDFeeds = make(map[ccipshared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
-			// }
-			// desc, err := feed.Description(&bind.CallOpts{})
-			// if err != nil {
-			// 	return state, err
-			// }
-			// keys, ok := ccipshared.GetSymbolsFromDescription(desc)
-			// if !ok {
-			// 	return state, fmt.Errorf("unknown feed description %s, %v", desc, feed)
-			// }
-			// for _, key := range keys {
-			// 	state.USDFeeds[key] = feed
-			// }
-			// state.ABIByAddress[address] = aggregator_v3_interface.AggregatorV3InterfaceABI
+			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDFeeds == nil {
+				state.USDFeeds = make(map[ccipshared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
+			}
+			desc, err := feed.Description(&bind.CallOpts{})
+			if err != nil {
+				return state, err
+			}
+			keys, ok := ccipshared.GetSymbolsFromDescription(desc)
+			if !ok {
+				return state, fmt.Errorf("unknown feed description %s", desc)
+			}
+			for _, key := range keys {
+				state.USDFeeds[key] = feed
+			}
+			state.ABIByAddress[address] = aggregator_v3_interface.AggregatorV3InterfaceABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
