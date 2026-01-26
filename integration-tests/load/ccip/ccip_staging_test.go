@@ -363,7 +363,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				"amountPerToken", "1e4 (0.00001 Link)",
 				"estimatedTxCount", estimatedTxCount)
 
-			tokenObjectIds, err := splitSuiTokens(
+			tokenObjectIDs, err := splitSuiTokens(
 				ctx,
 				t,
 				lggr,
@@ -380,10 +380,10 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 					"chainSelector", suiChain,
 					"error", err)
 			} else {
-				suiTokenPools[suiChain] = NewSuiTokenPool(lggr, tokenObjectIds)
+				suiTokenPools[suiChain] = NewSuiTokenPool(lggr, tokenObjectIDs)
 				lggr.Infow("Created Sui token pool",
 					"chainSelector", suiChain,
-					"poolSize", len(tokenObjectIds))
+					"poolSize", len(tokenObjectIDs))
 			}
 		}
 	}

@@ -21,7 +21,7 @@ import (
 	"github.com/btcsuite/btcutil/bech32"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"go.uber.org/atomic"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
@@ -226,7 +226,7 @@ func subscribeSuiTransmitEvents(
 							dst:    destChain,
 							seqNum: seqNum,
 						},
-						timestamp: uint64(time.Now().Unix()),
+						timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 - Unix time is always positive
 					}
 					metricPipe <- data
 				}
@@ -342,7 +342,8 @@ func subscribeSuiCommitEvents(
 			for _, seq := range sequences {
 				event := seq.Data.(*CommitReportAcceptedEvent)
 
-				allRoots := append(event.BlessedMerkleRoots, event.UnblessedMerkleRoots...)
+				allRoots := event.BlessedMerkleRoots
+				allRoots = append(allRoots, event.UnblessedMerkleRoots...)
 
 				if len(allRoots) == 0 {
 					lggr.Debugw("skipping empty commit event", "destChain", chainSelector)
@@ -383,7 +384,7 @@ func subscribeSuiCommitEvents(
 									dst:    chainSelector,
 									seqNum: seqNum,
 								},
-								timestamp: uint64(time.Now().Unix()),
+								timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 - Unix time is always positive
 							}
 							metricPipe <- data
 						}
@@ -488,7 +489,7 @@ func subscribeSuiExecutionEvents(
 			type ExecutionStateChangedEvent struct {
 				SourceChainSelector uint64 `json:"sourceChainSelector"`
 				SequenceNumber      uint64 `json:"sequenceNumber"`
-				MessageId           []byte `json:"messageId"`
+				MessageID           []byte `json:"messageId"`
 				MessageHash         []byte `json:"messageHash"`
 				State               byte   `json:"state"`
 			}
@@ -543,7 +544,7 @@ func subscribeSuiExecutionEvents(
 							dst:    chainSelector,
 							seqNum: event.SequenceNumber,
 						},
-						timestamp: uint64(time.Now().Unix()),
+						timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 - Unix time is always positive
 					}
 					metricPipe <- data
 				}
@@ -721,7 +722,7 @@ func setEventCursorToLatest(
 	return nil
 }
 
-func GetEVMExtraArgsV2SUI(receiverStateObjectId string) ([]byte, error) {
+func GetEVMExtraArgsV2SUI(receiverStateObjectID string) ([]byte, error) {
 	// Tag prefix
 	SUITag := hexutil.MustDecode("0x21ea4ca9")
 
@@ -730,23 +731,22 @@ func GetEVMExtraArgsV2SUI(receiverStateObjectId string) ([]byte, error) {
 		"0x0000000000000000000000000000000000000000000000000000000000000006",
 	))
 
-	fmt.Printf("Receiver state object id: %s\n", receiverStateObjectId)
+	fmt.Printf("Receiver state object id: %s\n", receiverStateObjectID)
 	var stateObj [32]byte
 	copy(stateObj[:], hexutil.MustDecode(
-		receiverStateObjectId,
+		receiverStateObjectID,
 	))
 
-	recieverObjectIds := [][32]byte{clockObj, stateObj}
+	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
 	suiExtraArgsData := message_hasher.ClientSuiExtraArgsV1{
 		GasLimit:                 big.NewInt(1000000),
 		AllowOutOfOrderExecution: true,
 		TokenReceiver:            [32]byte{}, // EOA
-		ReceiverObjectIds:        recieverObjectIds,
+		ReceiverObjectIds:        receiverObjectIDs,
 	}
 
 	return ccipevm.SerializeExtraArgs(SUITag, "encodeSUIExtraArgsV1", suiExtraArgsData)
-
 }
 
 // SuiCoinObject represents a Sui coin/object with its versioning info
@@ -911,7 +911,7 @@ func consolidateSuiCoins(
 				return nil, fmt.Errorf("failed to query gas coins: %w", err)
 			}
 			if len(gasCoins.Data) == 0 {
-				return nil, fmt.Errorf("no SUI gas coins available")
+				return nil, errors.New("no SUI gas coins available")
 			}
 
 			gasCoinRef, err := suitx.NewSuiObjectRef(
@@ -1054,7 +1054,7 @@ func consolidateSuiLinkTokens(
 
 	suiClient := sui.NewSuiClient(suiChain.URL)
 
-	coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
+	coinType := linkTokenPkgID + "::link::LINK"
 
 	return consolidateSuiCoins(
 		ctx,
@@ -1149,15 +1149,15 @@ type SuiTokenPool struct {
 }
 
 // NewSuiTokenPool creates a new token pool with the given token object IDs
-func NewSuiTokenPool(lggr logger.Logger, tokenObjectIds []string) *SuiTokenPool {
-	ch := make(chan string, len(tokenObjectIds))
-	for _, id := range tokenObjectIds {
+func NewSuiTokenPool(lggr logger.Logger, tokenObjectIDs []string) *SuiTokenPool {
+	ch := make(chan string, len(tokenObjectIDs))
+	for _, id := range tokenObjectIDs {
 		ch <- id
 	}
 	return &SuiTokenPool{
 		tokens:   ch,
 		lggr:     lggr,
-		capacity: len(tokenObjectIds),
+		capacity: len(tokenObjectIDs),
 	}
 }
 
@@ -1194,7 +1194,7 @@ func (p *SuiTokenPool) TryPop() (string, bool) {
 func (p *SuiTokenPool) GetNextToken() (string, error) {
 	token, ok := p.TryPop()
 	if !ok {
-		return "", fmt.Errorf("token pool is empty")
+		return "", errors.New("token pool is empty")
 	}
 	return token, nil
 }
@@ -1267,7 +1267,7 @@ func splitSuiTokens(
 		sourceBalance = new(big.Int).SetUint64(consolidatedCoin.Balance)
 
 		// Query for the updated coin info (we need the full CoinData for version/digest)
-		coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
+		coinType := linkTokenPkgID + "::link::LINK"
 		ownedCoins, err = client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
 			Owner:    deployerAddr,
 			CoinType: coinType,
@@ -1300,7 +1300,7 @@ func splitSuiTokens(
 			"sourceBalance", sourceBalance.String())
 	} else {
 		// No consolidation happened (0 or 1 coin), query normally
-		coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
+		coinType := linkTokenPkgID + "::link::LINK"
 		ownedCoins, err = client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
 			Owner:    deployerAddr,
 			CoinType: coinType,
@@ -1311,7 +1311,7 @@ func splitSuiTokens(
 		}
 
 		if len(ownedCoins.Data) == 0 {
-			return nil, fmt.Errorf("deployer account has no Link tokens to split")
+			return nil, errors.New("deployer account has no Link tokens to split")
 		}
 
 		sourceCoinID = ownedCoins.Data[0].CoinObjectId
@@ -1324,6 +1324,7 @@ func splitSuiTokens(
 	}
 
 	// Calculate total amount needed
+	//nolint:gosec // G115 - numTokenObjects and amountPerObject are bounded small positive values
 	totalNeeded := new(big.Int).Mul(big.NewInt(int64(numTokenObjects)), big.NewInt(int64(amountPerObject)))
 	if sourceBalance.Cmp(totalNeeded) < 0 {
 		return nil, fmt.Errorf("insufficient balance: have %s, need %s", sourceBalance.String(), totalNeeded.String())
@@ -1366,7 +1367,7 @@ func splitSuiTokens(
 		"firstGasCoinBalance", gasCoins.Data[0].Balance)
 
 	// Build PTB to split the coin into multiple objects
-	tokenObjectIds := make([]string, 0, numTokenObjects)
+	tokenObjectIDs := make([]string, 0, numTokenObjects)
 
 	// Split in batches to avoid gas limits
 	batchSize := 10
@@ -1440,14 +1441,15 @@ func splitSuiTokens(
 		// Both gas coin and source coin versions change after each transaction
 		for _, change := range resp.ObjectChanges {
 			if change.Type == "mutated" {
-				if change.ObjectId == gasCoins.Data[0].CoinObjectId {
+				switch change.ObjectId {
+				case gasCoins.Data[0].CoinObjectId:
 					// Update gas coin version and digest for next batch
 					gasCoins.Data[0].Version = change.Version
 					gasCoins.Data[0].Digest = change.Digest
 					lggr.Debugw("Updated gas coin reference",
 						"newVersion", change.Version,
 						"newDigest", change.Digest)
-				} else if change.ObjectId == sourceCoinID {
+				case sourceCoinID:
 					// Update source coin version and digest for next batch
 					ownedCoins.Data[0].Version = change.Version
 					ownedCoins.Data[0].Digest = change.Digest
@@ -1464,7 +1466,7 @@ func splitSuiTokens(
 				if change.Type == "created" && change.ObjectType != "" {
 					// Check if it's a Link coin
 					if strings.Contains(change.ObjectType, "::link::LINK") {
-						tokenObjectIds = append(tokenObjectIds, change.ObjectId)
+						tokenObjectIDs = append(tokenObjectIDs, change.ObjectId)
 						lggr.Debugw("Split token object created",
 							"objectId", change.ObjectId,
 							"batch", batch)
@@ -1475,15 +1477,15 @@ func splitSuiTokens(
 
 		lggr.Infow("Completed split batch",
 			"batch", batch,
-			"totalCreated", len(tokenObjectIds))
+			"totalCreated", len(tokenObjectIDs))
 	}
 
 	lggr.Infow("Successfully split token objects for load test",
 		"chainSelector", chainSelector,
-		"numObjects", len(tokenObjectIds),
+		"numObjects", len(tokenObjectIDs),
 		"amountPerObject", amountPerObject)
 
-	return tokenObjectIds, nil
+	return tokenObjectIDs, nil
 }
 
 // splitSuiGasCoins splits SUI gas coins owned by the deployer into multiple small objects
@@ -1601,8 +1603,8 @@ func splitSuiGasCoins(
 	}
 
 	// Calculate total amount needed (plus gas for the split transactions)
-	totalNeeded := uint64(numCoins) * amountPerCoin
-	gasBuffer := uint64(100_000_000) // 0.1 SUI for gas during splits
+	totalNeeded := uint64(numCoins) * amountPerCoin //nolint:gosec // G115 - numCoins is a bounded small positive value
+	gasBuffer := uint64(100_000_000)                // 0.1 SUI for gas during splits
 	if largestBalance < totalNeeded+gasBuffer {
 		return nil, fmt.Errorf("insufficient SUI balance: have %d, need %d (including gas buffer)", largestBalance, totalNeeded+gasBuffer)
 	}
@@ -1732,8 +1734,8 @@ func CalculateRequiredGasCoins(loadDurationSec int, requestFreqSec int, numDesti
 }
 
 // cleanupSuiDatabase cleans up Sui events and transactions tables before test runs
-func cleanupSuiDatabase(dbUrl string, lggr logger.Logger) {
-	db, err := sqlx.Open("postgres", dbUrl)
+func cleanupSuiDatabase(dbURL string, lggr logger.Logger) {
+	db, err := sqlx.Open("postgres", dbURL)
 	if err != nil {
 		lggr.Warnw("Failed to open database for cleanup", "error", err)
 		return
@@ -1864,7 +1866,7 @@ func SplitCoin(ctx context.Context, env cldf.Environment) (string, error) {
 
 	fmt.Println("Available Coins:", coins)
 	if coins == nil {
-		return "", errors.New("Not enough balance")
+		return "", errors.New("not enough balance")
 	}
 
 	var largestCoin models.CoinData
@@ -1883,7 +1885,7 @@ func SplitCoin(ctx context.Context, env cldf.Environment) (string, error) {
 		case uint64:
 			bal = v
 		default:
-			return "", errors.New("Unexpected balance")
+			return "", errors.New("unexpected balance")
 		}
 
 		if bal > largestBalance {

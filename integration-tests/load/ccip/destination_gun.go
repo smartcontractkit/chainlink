@@ -446,24 +446,24 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			} else {
 				// Programmable token transfer: include tokenReceiver in extraArgs
 				// Get receiver object IDs from config
-				receiverObjectIds := [][32]byte{}
+				receiverObjectIDs := [][32]byte{}
 
 				// Add clock object (0x6)
 				var clockObj [32]byte
 				copy(clockObj[:], hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000006"))
-				receiverObjectIds = append(receiverObjectIds, clockObj)
+				receiverObjectIDs = append(receiverObjectIDs, clockObj)
 
 				// Add receiver state object if configured
 				if m.testConfig.TestnetConfig != nil &&
 					m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectID != nil {
-					var receiverObjId [32]byte
-					receiverObjIdStr := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectID, "0x")
-					objIdBytes, err := hexutil.Decode("0x" + receiverObjIdStr)
+					var receiverObjID [32]byte
+					receiverObjIDStr := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectID, "0x")
+					objIDBytes, err := hexutil.Decode("0x" + receiverObjIDStr)
 					if err != nil {
 						return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to decode receiver object ID: %w", err)
 					}
-					copy(receiverObjId[:], objIdBytes)
-					receiverObjectIds = append(receiverObjectIds, receiverObjId)
+					copy(receiverObjID[:], objIDBytes)
+					receiverObjectIDs = append(receiverObjectIDs, receiverObjID)
 				}
 
 				// Get gasLimit from message details
@@ -473,7 +473,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 				}
 
 				// Build extraArgs with tokenReceiver for programmable transfer
-				extraArgs, err = GetEVMExtraArgsV2SUIWithTokenReceiver(msgGasLimit, tokenReceiverAddr, receiverObjectIds)
+				extraArgs, err = GetEVMExtraArgsV2SUIWithTokenReceiver(msgGasLimit, tokenReceiverAddr, receiverObjectIDs)
 				if err != nil {
 					return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to create Sui programmable token transfer extra args: %w", err)
 				}
@@ -482,7 +482,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 				m.l.Debugw("Programmable token transfer to Sui configured",
 					"tokenReceiver", suiAddr,
 					"gasLimit", msgGasLimit,
-					"receiverObjectIds", len(receiverObjectIds))
+					"receiverObjectIDs", len(receiverObjectIDs))
 			}
 		}
 	}
@@ -515,7 +515,7 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 }
 
 // GetEVMExtraArgsV2SUIWithTokenReceiver creates extraArgs for Sui with tokenReceiver
-func GetEVMExtraArgsV2SUIWithTokenReceiver(gasLimit int64, tokenReceiver [32]byte, receiverObjectIds [][32]byte) ([]byte, error) {
+func GetEVMExtraArgsV2SUIWithTokenReceiver(gasLimit int64, tokenReceiver [32]byte, receiverObjectIDs [][32]byte) ([]byte, error) {
 	// Tag prefix for Sui
 	SUITag := hexutil.MustDecode("0x21ea4ca9")
 
@@ -523,15 +523,15 @@ func GetEVMExtraArgsV2SUIWithTokenReceiver(gasLimit int64, tokenReceiver [32]byt
 		GasLimit:                 big.NewInt(gasLimit),
 		AllowOutOfOrderExecution: true,
 		TokenReceiver:            tokenReceiver,
-		ReceiverObjectIds:        receiverObjectIds,
+		ReceiverObjectIds:        receiverObjectIDs,
 	}
 
 	return ccipevm.SerializeExtraArgs(SUITag, "encodeSUIExtraArgsV1", suiExtraArgsData)
 }
 
-// GetEVMExtraArgsV2SUI_TokenOnly creates extraArgs for pure token transfer to Sui (no message data)
-// Pure token transfer requires: gasLimit=0, empty receiverObjectIds, tokenReceiver set
-func GetEVMExtraArgsV2SUI_TokenOnly(tokenReceiver [32]byte) ([]byte, error) {
+// GetEVMExtraArgsV2SUITokenOnly creates extraArgs for pure token transfer to Sui (no message data)
+// Pure token transfer requires: gasLimit=0, empty receiverObjectIDs, tokenReceiver set
+func GetEVMExtraArgsV2SUITokenOnly(tokenReceiver [32]byte) ([]byte, error) {
 	return GetEVMExtraArgsV2SUIWithTokenReceiver(0, tokenReceiver, [][32]byte{})
 }
 
@@ -726,14 +726,14 @@ func (m *DestinationGun) getSuiMessage(srcChainSelector uint64) (testhelpers.Sui
 			return testhelpers.SuiSendRequest{}, fmt.Errorf("no token pool available for Sui source chain %d - token transfers require pre-minted tokens", srcChainSelector)
 		}
 
-		tokenObjectId, err := pool.GetNextToken()
+		tokenObjectID, err := pool.GetNextToken()
 		if err != nil {
 			return testhelpers.SuiSendRequest{}, fmt.Errorf("failed to get token from pool for chain %d: %w", srcChainSelector, err)
 		}
 
 		m.l.Debugw("Using token from pool",
 			"srcChain", srcChainSelector,
-			"tokenObjectId", tokenObjectId,
+			"tokenObjectID", tokenObjectID,
 			"poolSize", pool.Size())
 
 		// For pure token transfer (TokenTransfer type), set gasLimit to 0
@@ -745,12 +745,12 @@ func (m *DestinationGun) getSuiMessage(srcChainSelector uint64) (testhelpers.Sui
 
 			m.l.Debugw("Configuring pure token transfer from Sui to EVM",
 				"receiver", fmt.Sprintf("0x%x", message.Receiver),
-				"tokenObjectId", tokenObjectId)
+				"tokenObjectID", tokenObjectID)
 		}
 
 		message.TokenAmounts = []testhelpers.SuiTokenAmount{
 			{
-				Token:  tokenObjectId,
+				Token:  tokenObjectID,
 				Amount: 1, // Amount field for Sui tokens (entire object is sent regardless)
 			},
 		}

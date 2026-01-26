@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -539,7 +540,6 @@ func fundAdditionalKeysWithExport(lggr logger.Logger, e cldf.Environment, destCh
 		funding := new(big.Int).SetUint64(fundingAmount)
 		if sel == chainselectors.AVALANCHE_TESTNET_FUJI.Selector || sel == chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector || sel == chainselectors.POLYGON_TESTNET_AMOY.Selector {
 			funding, _ = new(big.Int).SetString("30000000000000000000", 10) // 30 tokens
-
 		}
 		g.Go(func() error {
 			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, funding, sel)
@@ -821,7 +821,7 @@ func ExportFundedAccounts(
 
 	// Convert EVM accounts
 	for chainSel, accounts := range evmAccounts {
-		selStr := fmt.Sprintf("%d", chainSel)
+		selStr := strconv.FormatUint(chainSel, 10)
 		export.EVM[selStr] = make([]EVMAccountExport, 0, len(accounts))
 		for _, acc := range accounts {
 			export.EVM[selStr] = append(export.EVM[selStr], EVMAccountExport{
@@ -834,19 +834,19 @@ func ExportFundedAccounts(
 
 	// Copy Aptos accounts
 	for chainSel, accounts := range aptosAccounts {
-		selStr := fmt.Sprintf("%d", chainSel)
+		selStr := strconv.FormatUint(chainSel, 10)
 		export.Aptos[selStr] = accounts
 	}
 
 	// Copy Sui accounts
 	for chainSel, acc := range suiAccounts {
-		selStr := fmt.Sprintf("%d", chainSel)
+		selStr := strconv.FormatUint(chainSel, 10)
 		export.Sui[selStr] = acc
 	}
 
 	// Copy Solana accounts
 	for chainSel, acc := range solanaAccounts {
-		selStr := fmt.Sprintf("%d", chainSel)
+		selStr := strconv.FormatUint(chainSel, 10)
 		export.Solana[selStr] = acc
 	}
 
@@ -892,5 +892,5 @@ func marshalJSON(v interface{}) ([]byte, error) {
 
 // writeFile writes data to a file
 func writeFile(filename string, data []byte) error {
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }
