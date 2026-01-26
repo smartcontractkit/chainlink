@@ -162,7 +162,7 @@ require (
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
-	github.com/cometbft/cometbft v0.38.17 // indirect
+	github.com/cometbft/cometbft v0.38.21 // indirect
 	github.com/cometbft/cometbft-db v1.0.1 // indirect
 	github.com/consensys/gnark-crypto v0.19.2 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
@@ -211,7 +211,7 @@ require (
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
-	github.com/expr-lang/expr v1.17.5 // indirect
+	github.com/expr-lang/expr v1.17.7 // indirect
 	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
 	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
