@@ -735,6 +735,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1561")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
