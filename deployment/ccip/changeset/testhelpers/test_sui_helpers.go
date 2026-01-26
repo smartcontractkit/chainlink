@@ -48,7 +48,7 @@ const TokenSymbolLINK = "LINK"
 
 type SuiGasCoin struct {
 	ObjectID string
-	Version  uint64
+	Version  string
 	Digest   string
 }
 
