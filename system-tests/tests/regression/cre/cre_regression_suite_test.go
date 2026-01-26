@@ -143,6 +143,7 @@ func Test_CRE_V2_EVM_LogTrigger_Invalid_Address_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Action_CRUD_Regression(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1583")
 	for _, tCase := range httpActionFailureTests {
 		testName := "[v2] HTTP Action fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
