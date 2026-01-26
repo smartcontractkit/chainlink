@@ -412,6 +412,7 @@ ephemeral_addresses_number = 0
 
 [Load.CCIP.Load.TestnetConfig]
 Testnet = false
+# Local sim accounts
 EVMPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 AptosPrivateKey = "0x906b8a983b434318ca67b7eff7300f91b02744c84f87d243d2fbc3e528414366"
 SolanaPrivateKey = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
