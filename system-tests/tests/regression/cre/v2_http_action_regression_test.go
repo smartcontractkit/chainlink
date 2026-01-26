@@ -119,7 +119,7 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
 	// Now register and deploy the workflow
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// Wait for specific error message in Beholder based on test case
 	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Beholder...", httpActionTest.expectedError)

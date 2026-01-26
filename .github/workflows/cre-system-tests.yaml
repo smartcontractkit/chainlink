@@ -81,6 +81,9 @@ jobs:
              ],
             "Test_CRE_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
+             ],
+            "Test_CRE_V2_Sharding": [
+               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
@@ -124,8 +127,17 @@ jobs:
               )
           ')
 
-          # Extra tests: mix of contract and engine versions
-          cross_version_entries='[
+          # Extra tests that should not be run on all known topologies:
+          # - legacy vault plugin
+          # - mix of contract and engine versions
+          extra_tests='[
+            {
+              "test_name": "Test_CRE_V2_Suite/[v2]_Vault_DON_-_workflow-gateway-legacy-vault-don",
+              "topology": "workflow-gateway-legacy-vault-don",
+              "configs": "configs/workflow-gateway-legacy-vault-don.toml",
+              "test_id": null,
+              "cre_version": "v1"
+            },
             {
               "test_name": "Test_CRE_V1_Proof_Of_Reserve",
               "topology": "workflow-gateway",
@@ -144,7 +156,7 @@ jobs:
 
           # Merge and reassign test_id sequentially
           tests=$(echo "$tests" | jq -c \
-            --argjson manual "$cross_version_entries" \
+            --argjson manual "$extra_tests" \
             '. + $manual | to_entries | map(.value + {test_id: .key})')
 
           tests=$(echo "$tests" | jq -c .)

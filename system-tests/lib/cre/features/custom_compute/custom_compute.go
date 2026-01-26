@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -77,12 +77,12 @@ func (o *CustomCompute) PreEnvStartup(
 }
 
 const configTemplate = `
-NumWorkers = {{.NumWorkers}}
+NumWorkers = {{printf "%d" .NumWorkers}}
 [rateLimiter]
-globalRPS = {{.GlobalRPS}}
-globalBurst = {{.GlobalBurst}}
-perSenderRPS = {{.PerSenderRPS}}
-perSenderBurst = {{.PerSenderBurst}}
+globalRPS = {{printf "%v" .GlobalRPS}}
+globalBurst = {{printf "%v" .GlobalBurst}}
+perSenderRPS = {{printf "%v" .PerSenderRPS}}
+perSenderBurst = {{printf "%v" .PerSenderBurst}}
 `
 
 func (o *CustomCompute) PostEnvStartup(

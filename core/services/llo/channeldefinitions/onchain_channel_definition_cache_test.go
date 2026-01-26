@@ -1278,3 +1278,248 @@ func Test_filterName(t *testing.T) {
 	s := types.ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
 	require.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }
+
+func Test_decodePersistedSourceDefinitions(t *testing.T) {
+	t.Run("successful unmarshaling without key 1", func(t *testing.T) {
+		source2 := uint32(2)
+		source3 := uint32(3)
+
+		definitions := map[uint32]types.SourceDefinition{
+			source2: {
+				Trigger: types.Trigger{
+					Source:   source2,
+					URL:      "http://example.com/source2.json",
+					SHA:      [32]byte{1, 2, 3},
+					BlockNum: 1000,
+					Version:  0,
+				},
+				Definitions: llotypes.ChannelDefinitions{
+					10: makeChannelDefinition(10, source2),
+					11: makeChannelDefinition(11, source2),
+				},
+			},
+			source3: {
+				Trigger: types.Trigger{
+					Source:   source3,
+					URL:      "http://example.com/source3.json",
+					SHA:      [32]byte{4, 5, 6},
+					BlockNum: 2000,
+					Version:  0,
+				},
+				Definitions: llotypes.ChannelDefinitions{
+					20: makeChannelDefinition(20, source3),
+				},
+			},
+		}
+
+		definitionsJSON, err := json.Marshal(definitions)
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(definitionsJSON)
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		require.Contains(t, result, source2)
+		require.Contains(t, result, source3)
+		require.Equal(t, source2, result[source2].Trigger.Source)
+		require.Equal(t, source3, result[source3].Trigger.Source)
+		require.Equal(t, source2, result[source2].Definitions[10].Source)
+		require.Equal(t, source3, result[source3].Definitions[20].Source)
+	})
+
+	t.Run("successful unmarshaling with key 1 (migration case)", func(t *testing.T) {
+		legacyKey := uint32(1)
+		channelID1 := llotypes.ChannelID(100)
+		channelID2 := llotypes.ChannelID(200)
+
+		definitions := map[uint32]types.SourceDefinition{
+			legacyKey: {
+				Trigger: types.Trigger{
+					Source:   legacyKey, // This should be migrated to SourceOwner
+					URL:      "http://example.com/owner.json",
+					SHA:      [32]byte{7, 8, 9},
+					BlockNum: 3000,
+					Version:  42,
+				},
+				Definitions: llotypes.ChannelDefinitions{
+					channelID1: makeChannelDefinition(channelID1, legacyKey),
+					channelID2: makeChannelDefinition(channelID2, legacyKey),
+				},
+			},
+		}
+
+		definitionsJSON, err := json.Marshal(definitions)
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(definitionsJSON)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		require.NotContains(t, result, legacyKey, "legacy key 1 should not be present")
+		require.Contains(t, result, SourceOwner, "SourceOwner key should be present")
+
+		sourceDef := result[SourceOwner]
+		require.Equal(t, SourceOwner, sourceDef.Trigger.Source, "Trigger.Source should be migrated to SourceOwner")
+		require.Equal(t, uint32(42), sourceDef.Trigger.Version)
+		require.Equal(t, "http://example.com/owner.json", sourceDef.Trigger.URL)
+
+		require.Equal(t, SourceOwner, sourceDef.Definitions[channelID1].Source, "Channel definition Source should be migrated to SourceOwner")
+		require.Equal(t, SourceOwner, sourceDef.Definitions[channelID2].Source, "Channel definition Source should be migrated to SourceOwner")
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		testCases := []struct {
+			name           string
+			jsonData       string
+			expectedErrMsg string
+		}{
+			{
+				name:           "empty string",
+				jsonData:       "",
+				expectedErrMsg: "failed to unmarshal persisted definitions",
+			},
+			{
+				name:           "invalid JSON syntax",
+				jsonData:       `{"1": {invalid json}`,
+				expectedErrMsg: "failed to unmarshal persisted definitions",
+			},
+			{
+				name:           "malformed JSON",
+				jsonData:       `{not valid json}`,
+				expectedErrMsg: "failed to unmarshal persisted definitions",
+			},
+			{
+				name:           "wrong type",
+				jsonData:       `"not an object"`,
+				expectedErrMsg: "failed to unmarshal persisted definitions",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				result, err := decodePersistedSourceDefinitions(json.RawMessage(tc.jsonData))
+				require.Error(t, err)
+				require.Nil(t, result)
+				require.Contains(t, err.Error(), tc.expectedErrMsg)
+			})
+		}
+	})
+
+	t.Run("empty JSON object", func(t *testing.T) {
+		definitionsJSON := json.RawMessage(`{}`)
+
+		result, err := decodePersistedSourceDefinitions(definitionsJSON)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Empty(t, result)
+	})
+
+	t.Run("multiple sources including key 1", func(t *testing.T) {
+		legacyKey := uint32(1)
+		source2 := uint32(2)
+		source3 := uint32(3)
+
+		definitions := map[uint32]types.SourceDefinition{
+			legacyKey: {
+				Trigger: types.Trigger{
+					Source:   legacyKey,
+					URL:      "http://example.com/owner.json",
+					SHA:      [32]byte{1, 1, 1},
+					BlockNum: 1000,
+					Version:  10,
+				},
+				Definitions: llotypes.ChannelDefinitions{
+					1: makeChannelDefinition(1, legacyKey),
+				},
+			},
+			source2: {
+				Trigger: types.Trigger{
+					Source:   source2,
+					URL:      "http://example.com/source2.json",
+					SHA:      [32]byte{2, 2, 2},
+					BlockNum: 2000,
+					Version:  0,
+				},
+				Definitions: llotypes.ChannelDefinitions{
+					2: makeChannelDefinition(2, source2),
+				},
+			},
+			source3: {
+				Trigger: types.Trigger{
+					Source:   source3,
+					URL:      "http://example.com/source3.json",
+					SHA:      [32]byte{3, 3, 3},
+					BlockNum: 3000,
+					Version:  0,
+				},
+				Definitions: llotypes.ChannelDefinitions{
+					3: makeChannelDefinition(3, source3),
+				},
+			},
+		}
+
+		definitionsJSON, err := json.Marshal(definitions)
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(definitionsJSON)
+		require.NoError(t, err)
+		require.Len(t, result, 3, "should have SourceOwner, source2, and source3")
+		require.NotContains(t, result, legacyKey, "legacy key 1 should not be present")
+		require.Contains(t, result, SourceOwner, "SourceOwner should be present")
+		require.Contains(t, result, source2, "source2 should be present")
+		require.Contains(t, result, source3, "source3 should be present")
+
+		// Verify SourceOwner migration
+		require.Equal(t, SourceOwner, result[SourceOwner].Trigger.Source)
+		require.Equal(t, SourceOwner, result[SourceOwner].Definitions[1].Source)
+
+		// Verify other sources are unchanged
+		require.Equal(t, source2, result[source2].Trigger.Source)
+		require.Equal(t, source2, result[source2].Definitions[2].Source)
+		require.Equal(t, source3, result[source3].Trigger.Source)
+		require.Equal(t, source3, result[source3].Definitions[3].Source)
+	})
+
+	t.Run("key 1 with definitions having different source values", func(t *testing.T) {
+		legacyKey := uint32(1)
+		source2 := uint32(2)
+		source3 := uint32(3)
+
+		// Create definitions where key 1 has definitions with different source values
+		// This tests that all definitions under key 1 get migrated to SourceOwner
+		def1 := makeChannelDefinition(100, legacyKey)
+		def2 := makeChannelDefinition(200, source2) // Different source
+		def3 := makeChannelDefinition(300, source3) // Different source
+
+		definitions := map[uint32]types.SourceDefinition{
+			legacyKey: {
+				Trigger: types.Trigger{
+					Source:   legacyKey,
+					URL:      "http://example.com/owner.json",
+					SHA:      [32]byte{9, 9, 9},
+					BlockNum: 4000,
+					Version:  50,
+				},
+				Definitions: llotypes.ChannelDefinitions{
+					100: def1,
+					200: def2, // Has source2, should be migrated to SourceOwner
+					300: def3, // Has source3, should be migrated to SourceOwner
+				},
+			},
+		}
+
+		definitionsJSON, err := json.Marshal(definitions)
+		require.NoError(t, err)
+
+		result, err := decodePersistedSourceDefinitions(definitionsJSON)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		require.Contains(t, result, SourceOwner)
+
+		sourceDef := result[SourceOwner]
+		require.Equal(t, SourceOwner, sourceDef.Trigger.Source)
+
+		// All definitions should have SourceOwner regardless of their original source
+		require.Equal(t, SourceOwner, sourceDef.Definitions[100].Source, "definition 100 should be migrated to SourceOwner")
+		require.Equal(t, SourceOwner, sourceDef.Definitions[200].Source, "definition 200 should be migrated to SourceOwner")
+		require.Equal(t, SourceOwner, sourceDef.Definitions[300].Source, "definition 300 should be migrated to SourceOwner")
+	})
+}

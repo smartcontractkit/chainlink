@@ -74,6 +74,7 @@ func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.Deployed
 }
 
 func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env testhelpers.DeployedEnv) {
+	env.RefreshAdapters()
 	l.DeployedEnv = env
 }
 

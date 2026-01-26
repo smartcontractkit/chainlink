@@ -96,8 +96,14 @@ func (v CREView) MarshalJSON() ([]byte, error) {
 }
 
 type CREViewV2 struct {
-	Chains map[string]CREChainView   `json:"chains,omitempty"`
-	Nops   map[string]view.NopViewV2 `json:"nops,omitempty"`
+	Chains map[string]CREChainView `json:"chains,omitempty"`
+
+	// Nops will be DEPRECATED, but needs to stay here so we don't break downstream consumers, as tracking all the
+	// consumers is not straightforward. We would need to list them for the rdd monster Kafka topic and BQ table, but
+	// also list all the consumers who read the state.json file directly (are there any? we don't know).
+	// The best way to go about it is to add a `nops_v2` entry and announce depreciation of the `nops` entry.
+	Nops   map[string]view.NopView   `json:"nops,omitempty"`
+	NopsV2 map[string]view.NopViewV2 `json:"nops_v2,omitempty"`
 }
 
 func (v CREViewV2) MarshalJSON() ([]byte, error) {

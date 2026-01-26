@@ -16,7 +16,7 @@ func getCommands() []prompt.Suggest {
 		{Text: "up", Description: "Spin up the development environment"},
 		{Text: "down", Description: "Tear down the development environment"},
 		{Text: "restart", Description: "Restart the development environment"},
-		{Text: "test", Description: "Perform smoke or load/chaos testing"},
+		{Text: "test", Description: "Perform smoke or soak/load/volume/chaos testing"},
 		{Text: "bs", Description: "Manage the Blockscout EVM block explorer"},
 		{Text: "obs", Description: "Manage the observability stack"},
 		{Text: "db", Description: "Inspect Databases"},
@@ -28,9 +28,9 @@ func getSubCommands(parent string) []prompt.Suggest {
 	switch parent {
 	case "test":
 		return []prompt.Suggest{
-			{Text: "load", Description: "Run OCR2 load test"},
-			{Text: "gas", Description: "Run OCR2 load test + simulate gas spikes"},
-			{Text: "chaos", Description: "Run OCR2 load test + introduce container kills and latency"},
+			{Text: "soak", Description: "Run OCR2 soak test"},
+			{Text: "gas", Description: "Run OCR2 soak test + simulate gas spikes"},
+			{Text: "chaos", Description: "Run OCR2 soak test + introduce container kills and latency"},
 		}
 	case "bs":
 		return []prompt.Suggest{
@@ -57,6 +57,8 @@ func getSubCommands(parent string) []prompt.Suggest {
 	case "restart":
 		return []prompt.Suggest{
 			{Text: "env.toml", Description: "Spin up Anvil <> Anvil local chains, all services, 4 CL nodes"},
+			{Text: "env.toml,products/ocr2/basic.toml", Description: "2 Anvils, 4 CL Nodes, 1 OCRv2 product"},
+			{Text: "env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml", Description: "2 Anvils, 4 CL Nodes, 5 OCRv2 product for soak testing"},
 			{Text: "env.toml,env-cl-rebuild.toml", Description: "Spin up Anvil <> Anvil local chains, all services, 4 CL nodes (custom build)"},
 			{Text: "env.toml,env-geth.toml", Description: "Spin up Geth <> Geth local chains (clique), all services, 4 CL nodes"},
 			{Text: "env.toml,env-fuji-fantom.toml", Description: "Spin up testnets: Fuji <> Fantom, all services, 4 CL nodes"},

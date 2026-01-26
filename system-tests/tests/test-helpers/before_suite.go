@@ -38,7 +38,6 @@ type TestConfig struct {
 type TestEnvironment struct {
 	Config         *envconfig.Config
 	TestConfig     *TestConfig
-	EnvArtifact    *environment.EnvArtifact
 	Logger         zerolog.Logger
 	CreEnvironment *cre.Environment
 	Blockchains    []blockchains.Blockchain
@@ -49,8 +48,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 
 	createEnvironment(t, tconf, flags...)
 	in := getEnvironmentConfig(t)
-	envArtifact := getEnvironmentArtifact(t, tconf.RelativePathToRepoRoot)
-	creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
+	creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 	require.NoError(t, err, "failed to load environment")
 
 	t.Cleanup(func() {
@@ -68,7 +66,6 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 	return &ttypes.TestEnvironment{
 		Config:         in,
 		TestConfig:     tconf,
-		EnvArtifact:    envArtifact,
 		Logger:         framework.L,
 		CreEnvironment: creEnvironment,
 		Dons:           dons,
@@ -96,17 +93,11 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 	t.Helper()
 
-	in, err := framework.Load[envconfig.Config](nil)
+	// we call our own Load function because it executes a couple of crucial extra input transformations
+	in := &envconfig.Config{}
+	err := in.Load(os.Getenv("CTF_CONFIGS"))
 	require.NoError(t, err, "couldn't load environment state")
 	return in
-}
-
-func getEnvironmentArtifact(t *testing.T, relativePathToRepoRoot string) *environment.EnvArtifact {
-	t.Helper()
-
-	envArtifact, artErr := environment.ReadEnvArtifact(environment.MustEnvArtifactAbsPath(relativePathToRepoRoot))
-	require.NoError(t, artErr, "failed to read environment artifact")
-	return envArtifact
 }
 
 func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...string) {

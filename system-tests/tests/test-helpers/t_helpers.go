@@ -43,6 +43,7 @@ import (
 	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -284,6 +285,7 @@ type WorkflowConfig interface {
 		logtrigger_config.Config |
 		evmread_negative_config.Config |
 		evmwrite_negative_config.Config |
+		logtrigger_negative_config.Config |
 		http_config.Config |
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config
@@ -405,6 +407,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmwrite-negative workflow config file")
 			testLogger.Info().Msg("EVM Write negative workflow config file created.")
+
+		case *logtrigger_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create logtrigger-negative workflow config file")
+			testLogger.Info().Msg("EVM LogTrigger negative workflow config file created.")
 
 		case *http_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
@@ -536,7 +544,7 @@ Registers a workflow with the specified configuration.
 func registerWorkflow(ctx context.Context, t *testing.T,
 	wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client,
 	testLogger zerolog.Logger,
-) {
+) string {
 	t.Helper()
 
 	t.Cleanup(func() {
@@ -570,6 +578,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
+	return workflowID
 }
 
 /*
@@ -605,10 +614,13 @@ func deleteWorkflows(
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
-) {
+) string {
 	t.Helper()
 
-	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
+	testLogger.Info().
+		Str("workflow_name", workflowName).
+		Str("workflow_file_location", workflowFileLocation).
+		Msgf("compiling and registering workflow '%s'", workflowName)
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
 	workflowDOName := ""
@@ -636,5 +648,6 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		Blockchains:             testEnv.CreEnvironment.Blockchains,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	return workflowID
 }
