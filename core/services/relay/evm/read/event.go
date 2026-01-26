@@ -14,8 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ccipconsts "github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
@@ -25,6 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read/bindings/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read/bindings/onramp"
 )
 
 type EventBinding struct {

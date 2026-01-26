@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read/bindings/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read/bindings/onramp"
 )
 
 func Test_DecodeHardcodedType(t *testing.T) {
