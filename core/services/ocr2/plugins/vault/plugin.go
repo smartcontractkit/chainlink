@@ -1508,6 +1508,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 			continue
 		}
 
+		// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
 			if err := validateEncryptedSharesEntry(ds); err != nil {
@@ -1672,6 +1673,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 	}
 
 	if listResp.Success {
+		// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: listReq.Owner})
 		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(listResp.Identifiers)); err != nil {
 			var errBoundLimited limits.ErrorBoundLimited[int]
@@ -2009,6 +2011,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 					keyToShares[s.EncryptionKey] = s
 				}
 
+				// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 				innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 				for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
 					if err := validateEncryptedSharesEntry(existing); err != nil {
@@ -2154,6 +2157,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return nil, fmt.Errorf("failed to read secret identifiers count for owner: %w", err)
 	}
 
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
 	if ierr := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); ierr != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]

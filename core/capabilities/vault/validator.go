@@ -102,6 +102,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
 	}
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
 	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
@@ -128,6 +129,7 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
 	}
 
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: idOwner})
 	if err := r.MaxIdentifierOwnerLengthLimiter.Check(ctx, pkgconfig.Size(len(idOwner))); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]

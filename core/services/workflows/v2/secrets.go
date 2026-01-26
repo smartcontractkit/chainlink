@@ -103,6 +103,7 @@ func keyFor(owner, namespace, id string) string {
 
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      s.orgID,
 		Owner:    s.workflowOwner,
 		Workflow: s.workflowID,
 	})

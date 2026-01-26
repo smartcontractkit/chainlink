@@ -69,6 +69,8 @@ type GatewayHandler struct {
 	jwtAuthService   services.Service
 	lggr             logger.Logger
 	metrics          *metrics
+
+	// TODO add org resolver? https://smartcontract-it.atlassian.net/browse/CRE-1707
 }
 
 // NewGatewayHandler creates a Vault gateway connector handler with internal auth wiring.

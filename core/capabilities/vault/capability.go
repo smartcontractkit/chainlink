@@ -107,6 +107,7 @@ func (s *Capability) UnregisterFromWorkflow(_ context.Context, _ capabilities.Un
 }
 
 func (s *Capability) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	ctx = request.Metadata.ContextWithCRE(ctx)
 	if request.Payload == nil {
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
