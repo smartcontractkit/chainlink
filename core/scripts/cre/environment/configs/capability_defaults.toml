@@ -3,6 +3,10 @@
 
 # Global config for consensus is optional - uses empty config by default
 [capability_configs.consensus.config]
+# MaxRequestSizeBytes = 200000  # Default: 100000
+# RequestBatchSize = 1 # Default: 1
+# MaxRequestOutcomeSize = 1000 # Default: 1000
+# KeyBundleIDForValueConsensus = "" # Default: ""
 #   CustomField = "value"  # Add custom fields if needed
 
 [capability_configs.cron]
