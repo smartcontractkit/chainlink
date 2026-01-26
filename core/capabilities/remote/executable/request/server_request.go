@@ -186,7 +186,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	}
 
 	e.lggr.Debugw("OnMessage called for request", "calls", len(e.requesters),
-		"hasResponse", e.response != nil, "requester", requester.String(), "minRequesters", e.callingDon.F+1)
+		"hasResponse", e.response != nil, "requester", requester.String(), "minRequsters", e.callingDon.F+1)
 
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		switch e.method {

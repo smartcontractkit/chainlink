@@ -269,7 +269,7 @@ func performCommonChecks(
 	// Currently, this applies to Hedera and Tron.
 	if isSkipFeeBoostingSelector(batchCtx.destChainSelector) {
 		msgLggr.Infow("Skipping fee boosting for destination chain", "selector", batchCtx.destChainSelector)
-		return SuccessfullyValidated, messageMaxGas, tokenData, msgValue, nil
+		return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
 	}
 
 	// calculating the source chain fee, dividing by 1e18 for denomination.
@@ -303,7 +303,7 @@ func performCommonChecks(
 		)
 	}
 
-	return SuccessfullyValidated, messageMaxGas, tokenData, msgValue, nil
+	return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
 }
 
 func isSkipFeeBoostingSelector(selector uint64) bool {
@@ -514,7 +514,7 @@ func getCommitReportForSeqNum(ctx context.Context, commitStoreReader ccipdata.Co
 type messageStatus string
 
 const (
-	SuccessfullyValidated                messageStatus = "successfully_validated"
+	SuccesfullyValidated                 messageStatus = "successfully_validated"
 	AlreadyExecuted                      messageStatus = "already_executed"
 	SenderAlreadySkipped                 messageStatus = "sender_already_skipped"
 	MessageMaxGasCalcError               messageStatus = "message_max_gas_calc_error"
@@ -535,7 +535,7 @@ const (
 )
 
 func (m messageStatus) shouldBeSkipped() bool {
-	return m != SuccessfullyValidated
+	return m != SuccesfullyValidated
 }
 
 type messageExecStatus struct {

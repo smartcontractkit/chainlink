@@ -386,7 +386,7 @@ func (h *functionsHandler) processHeartbeatResponse(response *api.Message, respo
 		codec := &api.JsonRPCCodec{}
 		payloadJson, err := json.Marshal(payload)
 		if err != nil {
-			return &handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&userResponse), ErrorCode: api.NodeResponseEncodingError}, nil, nil
+			return &handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&userResponse), ErrorCode: api.NodeReponseEncodingError}, nil, nil
 		}
 		userResponse.Body.Payload = payloadJson
 		return &handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&userResponse), ErrorCode: api.NoError}, nil, nil

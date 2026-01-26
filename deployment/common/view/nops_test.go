@@ -101,7 +101,7 @@ func TestGenerateNopsView(t *testing.T) {
 	})
 
 	t.Run("node not found in JD", func(t *testing.T) {
-		v, err := GenerateNOPsViewV2(t.Context(), lggr, []string{"node_unknown"}, jdService, "test", nil)
+		v, err := GenerateNOPsViewV2(t.Context(), lggr, []string{"node_uknown"}, jdService, "test", nil)
 		require.NoError(t, err)
 		assert.Empty(t, v)
 	})

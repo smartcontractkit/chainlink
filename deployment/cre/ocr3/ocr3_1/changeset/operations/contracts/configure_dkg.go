@@ -119,7 +119,7 @@ var ConfigureDKG = operations.NewOperation(
 			}
 
 			if contract.McmsContracts == nil {
-				return out, fmt.Errorf("expected DKG capability contract %s to be owned by MCMS", contract.Contract.Address().String())
+				return out, fmt.Errorf("expected DKG capabilty contract %s to be owned by MCMS", contract.Contract.Address().String())
 			}
 
 			proposal, err := deps.Strategy.BuildProposal([]mcmstypes.BatchOperation{*resp.Ops})

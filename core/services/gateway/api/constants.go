@@ -10,7 +10,7 @@ const (
 	UnsupportedDONIdError
 	HandlerError
 	RequestTimeoutError
-	NodeResponseEncodingError
+	NodeReponseEncodingError
 	FatalError
 	UnsupportedMethodError
 	InvalidParamsError
@@ -31,8 +31,8 @@ func (e ErrorCode) String() string {
 		return "HandlerError"
 	case RequestTimeoutError:
 		return "RequestTimeoutError"
-	case NodeResponseEncodingError:
-		return "NodeResponseEncodingError"
+	case NodeReponseEncodingError:
+		return "NodeReponseEncodingError"
 	case FatalError:
 		return "FatalError"
 	case UnsupportedMethodError:
@@ -59,7 +59,7 @@ func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
 		InvalidParamsError:       jsonrpc2.ErrInvalidParams,    // Invalid Params
 		HandlerError:             jsonrpc2.ErrInvalidRequest,   // Invalid Request
 		RequestTimeoutError:      jsonrpc2.ErrServerOverloaded, // Server Error
-		NodeResponseEncodingError: jsonrpc2.ErrInternal,         // Internal Error
+		NodeReponseEncodingError: jsonrpc2.ErrInternal,         // Internal Error
 		FatalError:               jsonrpc2.ErrInternal,         // Internal Error
 		UnsupportedMethodError:   jsonrpc2.ErrMethodNotFound,   // Method Not Found
 		StaleNodeResponseError:   jsonrpc2.ErrInternal,         // Internal Error
@@ -104,7 +104,7 @@ func ToHttpErrorCode(errorCode ErrorCode) int {
 		HandlerError:             400, // Bad Request
 		InvalidParamsError:       400, // Bad Request
 		RequestTimeoutError:      504, // Gateway Timeout
-		NodeResponseEncodingError: 500, // Internal Server Error
+		NodeReponseEncodingError: 500, // Internal Server Error
 		FatalError:               500, // Internal Server Error
 		StaleNodeResponseError:   500, // Internal Server Error
 		ConflictError:            409, // Conflict

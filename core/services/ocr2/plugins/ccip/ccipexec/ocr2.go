@@ -263,7 +263,7 @@ func shouldSkipSnoozeForTokenDataNotReady(msgExecStates []messageExecStatus) boo
 		TokenDataNotReady:    true,
 		SkippedInflight:      true,
 		AddedToBatch:         true,
-		SuccessfullyValidated: true,
+		SuccesfullyValidated: true,
 	}
 
 	for _, state := range msgExecStates {
