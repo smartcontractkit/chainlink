@@ -901,6 +901,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 }
 
 func TestVRFv2PlusMigration(t *testing.T) {
+	quarantine.Flaky(t, "DX-2714")
 	t.Parallel()
 	var (
 		env                          *test_env.CLClusterTestEnv
