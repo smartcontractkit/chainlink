@@ -62,6 +62,7 @@ type registrationKey struct {
 type ackKey struct {
 	callerDonID    uint32
 	triggerEventID string
+	workflowID     string
 }
 
 type pubRegState struct {
@@ -260,7 +261,9 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			break
 		}
 		triggerEventID := triggerMetadata.TriggerEventId
-		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID)
+		workflowID := triggerMetadata.WorkflowIds
+		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID,
+			"workflowID", workflowID)
 
 		p.mu.Lock()
 		defer p.mu.Unlock()
@@ -274,7 +277,9 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			return
 		}
 
-		key := ackKey{msg.CallerDonId, triggerEventID}
+		wfID := workflowID[0] // TODO: Loop through each workflowID in the list (currently always contains a single wfid)
+
+		key := ackKey{msg.CallerDonId, triggerEventID, wfID}
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload) // TODO: Payload is empty..
 		minRequired := uint32(2*callerDon.F + 1)

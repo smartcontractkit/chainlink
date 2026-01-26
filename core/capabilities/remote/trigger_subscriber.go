@@ -129,13 +129,15 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return cfg.capInfo, nil
 }
 
-func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId, eventId string) error {
+func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, eventId string) error {
 	if s.capabilityID != triggerId {
 		return fmt.Errorf("AckEvent invariant violation: triggerId=%q was dispatched to the wrong capability (capabilityID=%q)", triggerId, s.capabilityID)
 	}
 
 	s.mu.RLock()
 	cfg := s.cfg.Load()
+	// TODO: Extract workflowID from triggerID
+	workflowID := triggerId
 	for _, peerID := range cfg.capDonInfo.Members {
 		m := &types.MessageBody{
 			CapabilityId:     cfg.capInfo.ID,
@@ -146,6 +148,7 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId, eventId str
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{
 					TriggerEventId: eventId,
+					WorkflowIds:    []string{workflowId}, // TODO: Extract from triggerID ;P
 				},
 			},
 		}

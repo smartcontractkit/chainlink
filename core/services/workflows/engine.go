@@ -479,7 +479,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 }
 
 func (e *Engine) ackTriggerEvent(ctx context.Context, te *capabilities.TriggerEvent) error {
-	triggerID := te.TriggerType
+	triggerID := te.TriggerType // TODO: Need to make sure TriggerType is TriggerID
 	for _, trigger := range e.workflow.triggers {
 		info, err := trigger.trigger.Info(ctx)
 		if err != nil {
@@ -487,7 +487,7 @@ func (e *Engine) ackTriggerEvent(ctx context.Context, te *capabilities.TriggerEv
 			continue
 		}
 		if info.ID == triggerID {
-			return trigger.trigger.AckEvent(ctx, te.ID)
+			return trigger.trigger.AckEvent(ctx, triggerID, te.ID)
 		}
 	}
 	return fmt.Errorf("failed to find trigger %s", triggerID)
