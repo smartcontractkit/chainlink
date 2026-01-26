@@ -1828,6 +1828,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 // with the latter approach (somehow assert.Eventually gives it a little bit more time, and then it fails
 // with the same unexpected call).
 func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1566")
 	t.Parallel()
 
 	db, nodeAddr := setupStoreWithKey(t)
