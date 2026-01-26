@@ -531,7 +531,7 @@ func subscribeSuiExecutionEvents(
 					"srcChain", event.SourceChainSelector,
 					"destChain", chainSelector,
 					"seqNum", event.SequenceNumber,
-					"messageId", event.MessageId,
+					"messageId", event.MessageID,
 					"state", event.State)
 
 				if !contains(seenMessages[event.SourceChainSelector], event.SequenceNumber) {

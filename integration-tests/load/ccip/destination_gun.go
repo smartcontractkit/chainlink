@@ -435,7 +435,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 				message.Receiver = emptyReceiver
 
 				// Build extraArgs for pure token transfer: gasLimit=0, empty receiverObjectIds
-				extraArgs, err = GetEVMExtraArgsV2SUI_TokenOnly(tokenReceiverAddr)
+				extraArgs, err = GetEVMExtraArgsV2SUITokenOnly(tokenReceiverAddr)
 				if err != nil {
 					return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to create Sui token transfer extra args: %w", err)
 				}
