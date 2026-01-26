@@ -159,8 +159,8 @@ func (m *Configurator) Store(path string, instanceIdx int) error {
 func (m *Configurator) GenerateNodesConfig(
 	ctx context.Context,
 	fs *fake.Input,
-	bc *blockchain.Input,
-	ns *nodeset.Input,
+	bc []*blockchain.Input,
+	ns []*nodeset.Input,
 ) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
@@ -261,7 +261,7 @@ HttpUrl = '{{.HTTPURL}}'
 	}
 
 	d := data{
-		ChainID:                   bc.Out.ChainID,
+		ChainID:                   bc[0].Out.ChainID,
 		FinalityDepth:             m.Config[0].EVMNetworkSettings.FinalityDepth,
 		FinalityTagEnabled:        m.Config[0].EVMNetworkSettings.FinalityTagEnabled,
 		SafeTagSupported:          m.Config[0].EVMNetworkSettings.SafeTagSupported,
@@ -269,8 +269,8 @@ HttpUrl = '{{.HTTPURL}}'
 		BackupLogPollerBlockDelay: m.Config[0].EVMNetworkSettings.BackupLogPollerBlockDelay,
 		HeadTracker:               m.Config[0].EVMNetworkSettings.HeadTrackerData,
 		GasEstimator:              m.Config[0].EVMNetworkSettings.GasEstimatorData,
-		WsURL:                     bc.Out.Nodes[0].InternalWSUrl,
-		HTTPURL:                   bc.Out.Nodes[0].InternalHTTPUrl,
+		WsURL:                     bc[0].Out.Nodes[0].InternalWSUrl,
+		HTTPURL:                   bc[0].Out.Nodes[0].InternalHTTPUrl,
 	}
 
 	var buf bytes.Buffer
@@ -285,8 +285,8 @@ HttpUrl = '{{.HTTPURL}}'
 func (m *Configurator) GenerateNodesSecrets(
 	ctx context.Context,
 	fs *fake.Input,
-	_ *blockchain.Input,
-	_ *nodeset.Input,
+	_ []*blockchain.Input,
+	_ []*nodeset.Input,
 ) (string, error) {
 	if m.Config[0].MercurySettings == nil {
 		L.Info().Msg("Product doesn't use Mercury. Skipping CL nodes secrets configuration")
@@ -329,11 +329,11 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
 	instanceIdx int,
 	fs *fake.Input,
-	bc *blockchain.Input,
-	ns *nodeset.Input,
+	bc []*blockchain.Input,
+	ns []*nodeset.Input,
 ) error {
 	L.Info().Msg("Connecting to CL nodes")
-	cl, err := clclient.New(ns.Out.CLNodes)
+	cl, err := clclient.New(ns[0].Out.CLNodes)
 	if err != nil {
 		return err
 	}
@@ -344,7 +344,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 
 	ethKeyAddresses := make([]string, 0)
 	for i, nc := range cl {
-		addr, cErr := nc.ReadPrimaryETHKey(bc.Out.ChainID)
+		addr, cErr := nc.ReadPrimaryETHKey(bc[0].Out.ChainID)
 		if cErr != nil {
 			return cErr
 		}
@@ -355,7 +355,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 			Msg("Node info")
 	}
 
-	bcNode := bc.Out.Nodes[0]
+	bcNode := bc[0].Out.Nodes[0]
 	c, _, _, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
@@ -372,7 +372,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		}
 	}
 
-	chainID, err := strconv.ParseUint(bc.ChainID, 10, 64)
+	chainID, err := strconv.ParseUint(bc[0].Out.ChainID, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -386,7 +386,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 
-	nodeDetails, err := collectNodeDetails(chainClient.Cfg.Network.ChainID, cl, ns.Out.CLNodes)
+	nodeDetails, err := collectNodeDetails(chainClient.Cfg.Network.ChainID, cl, ns[0].Out.CLNodes)
 	if err != nil {
 		return fmt.Errorf("error collecting node details: %w", err)
 	}

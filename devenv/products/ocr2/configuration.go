@@ -147,13 +147,13 @@ func (m *Configurator) Store(path string, idx int) error {
 func (m *Configurator) GenerateNodesConfig(
 	ctx context.Context,
 	_ *fake.Input,
-	bc *blockchain.Input,
-	_ *nodeset.Input,
+	bc []*blockchain.Input,
+	_ []*nodeset.Input,
 ) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
-	node := bc.Out.Nodes[0]
-	chainID := bc.Out.ChainID
+	node := bc[0].Out.Nodes[0]
+	chainID := bc[0].Out.ChainID
 	netConfig := fmt.Sprintf(`
        [[EVM]]
        LogPollInterval = '1s'
@@ -215,8 +215,8 @@ func (m *Configurator) GenerateNodesConfig(
 func (m *Configurator) GenerateNodesSecrets(
 	_ context.Context,
 	_ *fake.Input,
-	_ *blockchain.Input,
-	_ *nodeset.Input,
+	_ []*blockchain.Input,
+	_ []*nodeset.Input,
 ) (string, error) {
 	return "", nil
 }
@@ -225,11 +225,11 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
 	_ int,
 	fake *fake.Input,
-	bc *blockchain.Input,
-	ns *nodeset.Input,
+	bc []*blockchain.Input,
+	ns []*nodeset.Input,
 ) error {
 	L.Info().Msg("Connecting to CL nodes")
-	cl, err := clclient.New(ns.Out.CLNodes)
+	cl, err := clclient.New(ns[0].Out.CLNodes)
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	transmitters := make([]common.Address, 0)
 	ethKeyAddresses := make([]string, 0)
 	for i, nc := range cl {
-		addr, cErr := nc.ReadPrimaryETHKey(bc.Out.ChainID)
+		addr, cErr := nc.ReadPrimaryETHKey(bc[0].Out.ChainID)
 		if cErr != nil {
 			return cErr
 		}
@@ -252,7 +252,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 			Str("ETH", addr.Attributes.Address).
 			Msg("Node info")
 	}
-	bcNode := bc.Out.Nodes[0]
+	bcNode := bc[0].Out.Nodes[0]
 	c, auth, rootAddr, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
@@ -280,7 +280,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 	m.Config[0].OCR2SetConfigOut = ocrv2Config
-	if cErr := m.configureJobs(ctx, fake, bc, ns, cl, ocr2Addr); cErr != nil {
+	if cErr := m.configureJobs(ctx, fake, bc[0], ns[0], cl, ocr2Addr); cErr != nil {
 		return cErr
 	}
 	r := resty.New().SetBaseURL(fake.Out.BaseURLHost)
