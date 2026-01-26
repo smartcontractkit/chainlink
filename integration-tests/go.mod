@@ -56,8 +56,8 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260122131409-0fee84ccfa1d
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251205161630-88314452254c
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251205161630-88314452254c
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260124000807-bff5e296dfb7
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260124000807-bff5e296dfb7
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0
@@ -68,7 +68,7 @@ require (
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260119210543-276a92092771
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260119210543-276a92092771
 	github.com/smartcontractkit/libocr v0.0.0-20251212213002-0a5e2f907dda
-	github.com/smartcontractkit/mcms v0.32.1-0.20260115182955-e63152532517
+	github.com/smartcontractkit/mcms v0.34.0
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
