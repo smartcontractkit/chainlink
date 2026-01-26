@@ -50,9 +50,9 @@ type TestnetConfig struct {
 
 type SuiConfig struct {
 	SuiPrivateKey                 *string
-	SuiFeeTokenObjectId           *string
+	SuiFeeTokenObjectID           *string
 	SuiTestReceiverAddress        *string
-	SuiStateReceiverStateObjectId *string
+	SuiStateReceiverStateObjectID *string
 	TokenToTransferPkgID          *string
 }
 
@@ -197,7 +197,7 @@ func (t *TestnetConfig) Validate() error {
 		return errors.New("sui private key should be set for testnet")
 	}
 
-	if t.SuiConfig.SuiFeeTokenObjectId == nil {
+	if t.SuiConfig.SuiFeeTokenObjectID == nil {
 		return errors.New("sui fee token object id should be set for testnet")
 	}
 

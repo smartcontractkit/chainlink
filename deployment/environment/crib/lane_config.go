@@ -561,7 +561,6 @@ func (lc *LaneConfiguration) isDestinationEnabledOnAptosRouter(env cldf.Environm
 
 // isDestinationEnabledOnSuiRouter checks if a destination is enabled on the SUI Router
 func (lc *LaneConfiguration) isDestinationEnabledOnSuiRouter(env cldf.Environment, suiChainSelector uint64, chainState sui_deployment.CCIPChainState, destinationChain uint64) (bool, error) {
-
 	suiChain := env.BlockChains.SuiChains()[suiChainSelector]
 
 	onrampContract, err := sui_onramp.NewOnramp(chainState.OnRampAddress, suiChain.Client)

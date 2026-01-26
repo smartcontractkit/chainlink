@@ -422,9 +422,9 @@ FundingAmountApt = 0
 
 [Load.CCIP.Load.TestnetConfig.SuiConfig]
 SuiPrivateKey = "0x0"
-SuiFeeTokenObjectId = "0x0"
+SuiFeeTokenObjectID = "0x0"
 SuiTestReceiverAddress = "0x0"
-SuiStateReceiverStateObjectId = "0x0"
+SuiStateReceiverStateObjectID = "0x0"
 
 [Load.CCIP.Load]
 # 0 - no chaos, 1 - rpc latency, 2 - full chaos suite

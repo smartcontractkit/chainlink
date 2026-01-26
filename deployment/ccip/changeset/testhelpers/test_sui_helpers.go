@@ -46,6 +46,12 @@ import (
 
 const TokenSymbolLINK = "LINK"
 
+type SuiGasCoin struct {
+	ObjectID string
+	Version  uint64
+	Digest   string
+}
+
 type SuiSendRequest struct {
 	Receiver         []byte
 	Data             []byte
@@ -54,6 +60,7 @@ type SuiSendRequest struct {
 	FeeTokenStore    string
 	TokenAmounts     []SuiTokenAmount
 	TokenReceiverATA []byte
+	GasCoin          *SuiGasCoin
 }
 
 type SuiTokenAmount struct {

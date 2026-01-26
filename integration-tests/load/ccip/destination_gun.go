@@ -300,7 +300,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		rcv = common.LeftPadBytes(m.receiver, 32)
 		// OOO always true for Sui
 		// Clock is always at 0x6, receiver state object is in suiReceiverStateObjectId
-		extraArgs, err = GetEVMExtraArgsV2SUI(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectId)
+		extraArgs, err = GetEVMExtraArgsV2SUI(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectID)
 		if err != nil {
 			return router.ClientEVM2AnyMessage{}, 0, err
 		}
@@ -455,9 +455,9 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 
 				// Add receiver state object if configured
 				if m.testConfig.TestnetConfig != nil &&
-					m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectId != nil {
+					m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectID != nil {
 					var receiverObjId [32]byte
-					receiverObjIdStr := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectId, "0x")
+					receiverObjIdStr := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectID, "0x")
 					objIdBytes, err := hexutil.Decode("0x" + receiverObjIdStr)
 					if err != nil {
 						return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to decode receiver object ID: %w", err)
