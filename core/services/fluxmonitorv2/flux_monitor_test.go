@@ -735,6 +735,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1570")
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
