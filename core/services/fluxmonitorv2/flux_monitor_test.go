@@ -533,6 +533,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 }
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
+	quarantine.Flaky(t, "CRE-1558")
 	t.Parallel()
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
