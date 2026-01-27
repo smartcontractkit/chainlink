@@ -81,6 +81,11 @@ func onEVMWriteTrigger(wfCfg config.Config, runtime cre.Runtime, payload *cron.P
 	case "WriteReport - invalid gas":
 		return runWriteReportWithInvalidGas(evmClient, runtime, wfCfg, report)
 	case "WriteReport - failing on receiver":
+		priceOutput.FeedID = [32]byte{}
+		report, err := generateReports(runtime, priceOutput)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate reports: %w", err)
+		}
 		return runWriteReportFailingOnReceiver(evmClient, runtime, wfCfg, report)
 	default:
 		runtime.Logger().Warn("The provided name for function to test in regression EVM Write Workflow did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
