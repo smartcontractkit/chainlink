@@ -1013,6 +1013,7 @@ func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger,
 }
 
 func Test_CCIPReorg_BelowFinality_OnSource_WithRMN(t *testing.T) {
+	quarantine.Flaky(t, "DX-2717")
 	tc := rmnTestCase{
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
