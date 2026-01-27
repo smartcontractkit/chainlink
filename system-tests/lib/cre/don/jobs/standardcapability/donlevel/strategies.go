@@ -1,8 +1,6 @@
 package donlevel
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -22,14 +20,10 @@ func EnabledChainsProvider(registryChainSelector uint64, _ cre.NodeSetWithCapabi
 }
 
 func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, _ uint64, flag cre.CapabilityFlag) (map[string]any, error) {
-	if nodeSet == nil {
-		return nil, errors.New("node set input is nil")
+	resolved, err := cre.ResolveCapabilityConfig(nodeSet, flag, cre.DonCapabilityScope())
+	if err != nil {
+		return nil, err
 	}
 
-	config, ok := nodeSet.GetCapabilityConfig(flag)
-	if !ok {
-		return nil, errors.New("could not find capability config for the given flag")
-	}
-
-	return config.Values, nil
+	return resolved.Values, nil
 }

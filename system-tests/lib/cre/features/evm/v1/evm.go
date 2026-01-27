@@ -97,7 +97,7 @@ func (o *EVM) PreEnvStartup(
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don.NodeSet().CapabilityConfigs, enabledChainIDs, creEnv)
+		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don, enabledChainIDs, creEnv)
 		if updErr != nil {
 			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -249,7 +249,7 @@ func configureTronForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, 
 	return nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, capabilityConfigs map[string]cre.CapabilityConfig, enabledChains []uint64, creEnv *cre.Environment) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, don *cre.DonMetadata, enabledChains []uint64, creEnv *cre.Environment) (*string, error) {
 	writeEvmConfigs := []writeEVMData{}
 
 	// for each worker node find all supported chains and node's public address for each chain
@@ -271,9 +271,9 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, capabi
 		}
 		evmData.FromAddress = evmKey.PublicAddress
 
-		capabilityConfig, ok := capabilityConfigs[cre.FlagWithChainID(flag, chainID)]
-		if !ok {
-			return nil, fmt.Errorf("could not find capability config for '%s'", cre.FlagWithChainID(flag, chainID))
+		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(don.NodeSet(), flag, cre.ChainCapabilityScope(chainID))
+		if resolveErr != nil {
+			return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
 		}
 
 		var mergeErr error
@@ -355,7 +355,7 @@ func buildEVMWorkflowConfig(writeEVMInput writeEVMData) (*evmworkflow.Workflow, 
 
 	configStr := configBuffer.String()
 	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return nil, errors.Wrapf(err, "%s template validation failed", flag)
+		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	unmarshallErr := toml.Unmarshal([]byte(configStr), &evmWorkflow)

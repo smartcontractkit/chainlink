@@ -30,10 +30,9 @@ func EnabledChainsProvider(_ uint64, nodeSet cre.NodeSetWithCapabilityConfigs, f
 }
 
 func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (map[string]any, error) {
-	// chain-level capabilities can have per-chain configuration overrides, we need to resolve the config for the given chain
-	config, ok := nodeSet.GetCapabilityConfig(cre.FlagWithChainID(flag, chainID))
-	if !ok {
-		return nil, fmt.Errorf("capability config not found for flag %s", cre.FlagWithChainID(flag, chainID))
+	resolved, err := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
+	if err != nil {
+		return nil, err
 	}
-	return config.Values, nil
+	return resolved.Values, nil
 }

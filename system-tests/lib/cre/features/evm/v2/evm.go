@@ -346,9 +346,9 @@ func createJobs(
 			}
 		}
 
-		capabilityConfig, ok := nodeSet.GetCapabilityConfig(cre.FlagWithChainID(flag, chainID))
-		if !ok {
-			return fmt.Errorf("could not find capability config for '%s'", cre.FlagWithChainID(flag, chainID))
+		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
+		if resolveErr != nil {
+			return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
 		}
 
 		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
@@ -396,7 +396,7 @@ func createJobs(
 			configStr := configBuffer.String()
 
 			if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-				return errors.Wrapf(err, "%s template validation failed", flag)
+				return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 			}
 
 			evmKeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain

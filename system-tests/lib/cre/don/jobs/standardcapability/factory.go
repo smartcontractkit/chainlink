@@ -2,6 +2,7 @@ package standardcapability
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"text/template"
 
@@ -159,7 +160,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 				configStr := configBuffer.String()
 
 				if err := credon.ValidateTemplateSubstitution(configStr, capabilityFlag); err != nil {
-					return nil, errors.Wrapf(err, "%s template validation failed", capabilityFlag)
+					return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", capabilityFlag, err, configStr)
 				}
 
 				jobSpec := WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, f.jobNamer(chainID, capabilityFlag), command, configStr, "")

@@ -217,7 +217,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 	configStr := configBuffer.String()
 
 	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return nil, errors.Wrapf(err, "%s template validation failed", flag)
+		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	unmarshallErr = toml.Unmarshal([]byte(configStr), &solCfg)

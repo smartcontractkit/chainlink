@@ -50,10 +50,6 @@
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337"]
 
-  [nodesets.capability_configs]
-    [nodesets.capability_configs.vault.values]
-       EnableDeterministicPendingQueue = false # don't use the new pending queue feature for this DON.
-
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
@@ -83,6 +79,10 @@
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["web-api-target", "vault", "write-evm-2337", "read-contract-2337", "evm-2337"]
+
+  [nodesets.capability_configs]
+    [nodesets.capability_configs.vault.values]
+       EnableDeterministicPendingQueue = false # don't use the new pending queue feature for this DON.
 
   [nodesets.db]
     image = "postgres:12.0"

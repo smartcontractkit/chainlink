@@ -106,7 +106,7 @@ func (o *Mock) PostEnvStartup(
 	configStr := configBuffer.String()
 
 	if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return errors.Wrapf(err, "%s template validation failed", flag)
+		return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	workerInput := cre_jobs.ProposeJobSpecInput{
