@@ -79,7 +79,6 @@ func NewApp(s *Shell) *cli.App {
 		// This is overidden for server commands which may start a rotating
 		// logger instead.
 		lggr, closeFn := logger.NewLogger()
-		lggr.Infow("configuration args", "files", s.configFiles, "secrets", s.secretsFiles)
 
 		cfg, err := opts.New()
 		if err != nil {

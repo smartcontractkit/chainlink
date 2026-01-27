@@ -320,6 +320,7 @@ func (s *Shell) RunNode(c *cli.Context) error {
 func (s *Shell) runNode(c *cli.Context) error {
 	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
+	lggr.Infow("configuration args", "config files", s.configFiles, "secret files", s.secretsFiles)
 
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
