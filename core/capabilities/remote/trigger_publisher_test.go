@@ -2,6 +2,7 @@ package remote_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -283,4 +284,160 @@ func (tr *testTrigger) RegisterTrigger(_ context.Context, request commoncap.Trig
 
 func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) error {
 	return nil
+}
+
+func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+	peers := make([]p2ptypes.PeerID, 2)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+	capDonInfo := commoncap.DON{
+		ID:      capabilityDONID,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+	workflowDonInfo := commoncap.DON{
+		ID:      workflowDONID,
+		Members: []p2ptypes.PeerID{peers[1]},
+		F:       0,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	// Create a trigger that tracks registrations by triggerID
+	underlying := newMultiTrigger(capInfo)
+
+	dispatcher := mocks.NewDispatcher(t)
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            1, // no batching
+		BatchCollectionPeriod:   time.Second,
+	}
+
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+	require.NoError(t, publisher.Start(ctx))
+
+	// Register trigger1
+	regEvent1 := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "trigger1")
+	publisher.Receive(ctx, regEvent1)
+	reg1 := <-underlying.registrationsCh
+	require.Equal(t, "trigger1", reg1.TriggerID)
+	require.Equal(t, workflowID1, reg1.Metadata.WorkflowID)
+
+	// Register trigger2 for the same workflow
+	regEvent2 := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "trigger2")
+	publisher.Receive(ctx, regEvent2)
+	reg2 := <-underlying.registrationsCh
+	require.Equal(t, "trigger2", reg2.TriggerID)
+	require.Equal(t, workflowID1, reg2.Metadata.WorkflowID) // same workflowID
+
+	trigger1EventReceived := make(chan struct{})
+	trigger2EventReceived := make(chan struct{})
+
+	dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		require.Equal(t, capID, msg.CapabilityId)
+		require.Equal(t, remotetypes.MethodTriggerEvent, msg.Method)
+		metadata := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
+		require.Len(t, metadata.TriggerEventMetadata.WorkflowIds, 1)
+		require.Len(t, metadata.TriggerEventMetadata.TriggerIds, 1)
+		triggerID := metadata.TriggerEventMetadata.TriggerIds[0]
+		eventID := metadata.TriggerEventMetadata.TriggerEventId
+		if triggerID == "trigger1" && eventID == "event1" {
+			close(trigger1EventReceived)
+		} else if triggerID == "trigger2" && eventID == "event2" {
+			close(trigger2EventReceived)
+		}
+	}).Return(nil)
+
+	// Send both events and expect them to be delivered separately
+	underlying.SendEvent("trigger1", commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{ID: "event1"},
+	})
+	underlying.SendEvent("trigger2", commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{ID: "event2"},
+	})
+
+	<-trigger1EventReceived
+	<-trigger2EventReceived
+
+	require.NoError(t, publisher.Close())
+}
+
+func newRegisterTriggerMessageWithTriggerID(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID, triggerID string) *remotetypes.MessageBody {
+	triggerRequest := commoncap.TriggerRegistrationRequest{
+		TriggerID: triggerID,
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+	marshaled, err := pb.MarshalTriggerRegistrationRequest(triggerRequest)
+	require.NoError(t, err)
+	return &remotetypes.MessageBody{
+		Sender:      sender[:],
+		Method:      remotetypes.MethodRegisterTrigger,
+		CallerDonId: callerDonID,
+		Payload:     marshaled,
+	}
+}
+
+// multiTrigger is a test trigger that supports multiple trigger registrations
+// and can send events to specific triggers by triggerID
+type multiTrigger struct {
+	info            commoncap.CapabilityInfo
+	registrationsCh chan commoncap.TriggerRegistrationRequest
+	eventChans      map[string]chan commoncap.TriggerResponse
+	mu              sync.Mutex
+}
+
+func newMultiTrigger(info commoncap.CapabilityInfo) *multiTrigger {
+	return &multiTrigger{
+		info:            info,
+		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 10),
+		eventChans:      make(map[string]chan commoncap.TriggerResponse),
+	}
+}
+
+func (tr *multiTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
+	return tr.info, nil
+}
+
+func (tr *multiTrigger) RegisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	ch := make(chan commoncap.TriggerResponse, 10)
+	tr.eventChans[request.TriggerID] = ch
+	tr.registrationsCh <- request
+	return ch, nil
+}
+
+func (tr *multiTrigger) UnregisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) error {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	if ch, ok := tr.eventChans[request.TriggerID]; ok {
+		close(ch)
+		delete(tr.eventChans, request.TriggerID)
+	}
+	return nil
+}
+
+func (tr *multiTrigger) SendEvent(triggerID string, event commoncap.TriggerResponse) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	if ch, ok := tr.eventChans[triggerID]; ok {
+		ch <- event
+	}
 }
