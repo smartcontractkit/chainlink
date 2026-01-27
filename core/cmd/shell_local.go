@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -17,7 +17,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
-	"github.com/pkg/errors"
+
 	"github.com/urfave/cli"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
@@ -560,9 +560,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return fmt.Errorf("error creating api initializer: %w", err)
 		}
 		if user, err = s.FallbackAPIInitializer.Initialize(ctx, authProviderORM, lggr); err != nil {
-			if errors.Is(err, ErrNoAPICredentialsAvailable) {
-				return errors.WithStack(err)
-			}
 			return fmt.Errorf("error creating fallback initializer: %w", err)
 		}
 	}
@@ -688,7 +685,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = s.Config.Validate()
 	if err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
+		return fmt.Errorf("config validation failed of %v: %w", s.Config, err)
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
@@ -707,7 +704,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
-		return fmt.Errorf("transaction rebroadcast is not available in loop mode: %w", stderrors.ErrUnsupported)
+		return fmt.Errorf("transaction rebroadcast is not available in loop mode: %w", errors.ErrUnsupported)
 	}
 	keyStore := app.GetKeyStore()
 
@@ -891,7 +888,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		arg := c.Args().First()
 		numVersion, err := strconv.ParseInt(arg, 10, 64)
 		if err != nil {
-			return s.errorOut(errors.Errorf("Unable to parse %v as integer", arg))
+			return s.errorOut(fmt.Errorf("Unable to parse %v as integer", arg))
 		}
 		version = null.IntFrom(numVersion)
 	}
@@ -998,12 +995,12 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		var name string
 		var schema string
 		if err = rows.Scan(&name, &schema); err != nil {
-			return fmt.Errorf("failed to scan table name and schema: %w", err)
+			return fmt.Errorf("failed to scan table_name and table_schema: %w", err)
 		}
 		tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
 	}
 	if rows.Err() != nil {
-		return fmt.Errorf("error iterating over table rows: %w", rows.Err())
+		return fmt.Errorf("error iterating over rows: %w", rows.Err())
 	}
 
 	for _, tableName := range tablesToDeleteFrom {
