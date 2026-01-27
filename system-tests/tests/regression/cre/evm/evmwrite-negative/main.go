@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -81,6 +80,8 @@ func onEVMWriteTrigger(wfCfg config.Config, runtime cre.Runtime, payload *cron.P
 		return runWriteReportWithCorruptReceiverAddress(evmClient, runtime, wfCfg, report)
 	case "WriteReport - invalid gas":
 		return runWriteReportWithInvalidGas(evmClient, runtime, wfCfg, report)
+	case "WriteReport - failing on receiver":
+		return runWriteReportFailingOnReceiver(evmClient, runtime, wfCfg, report)
 	default:
 		runtime.Logger().Warn("The provided name for function to test in regression EVM Write Workflow did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
 		return nil, fmt.Errorf("the provided name for function to test in regression EVM Write Workflow did not match any known functions: %s", wfCfg.FunctionToTest)
@@ -141,6 +142,24 @@ func runWriteReportWithInvalidGas(evmClient evm.Client, runtime cre.Runtime, wfC
 		return nil, fmt.Errorf("expected error for WriteReport with invalid gas '%d': %w", invalidGas, err)
 	}
 	runtime.Logger().Info("this is not expected: WriteReport with invalid gas should return an error", "invalid_gas", invalidGas, "wr_output", wrOutput)
+	return wrOutput, nil
+}
+
+// runWriteReportWithInvalidGas writes a report that fails on the receiver
+func runWriteReportFailingOnReceiver(evmClient evm.Client, runtime cre.Runtime, wfCfg config.Config, report *cre.Report) (*evm.WriteReportReply, error) {
+	runtime.Logger().Info("Attempting to write report that should fail on the receiver")
+	receiver := wfCfg.DataFeedsCache.DataFeedsCacheAddress.Bytes()
+	wrOutput, err := writeReport(runtime, evmClient, receiver, report, &evm.GasConfig{GasLimit: 400000})
+	if err != nil {
+		runtime.Logger().Error("got unexpected error", "error", err)
+		return nil, fmt.Errorf("unexpected error for WriteReport  %w", err)
+	}
+
+	if wrOutput.TxStatus != evm.TxStatus_TX_STATUS_REVERTED {
+		runtime.Logger().Info("this is not expected, WriteReport should fail on the receiver and set the tx status to reverted, instead got", "tx_status", wrOutput.TxStatus)
+		return nil, errors.New("expected WriteReport to fail on the receiver")
+	}
+
 	return wrOutput, nil
 }
 
