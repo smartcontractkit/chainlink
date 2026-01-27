@@ -150,7 +150,7 @@ func runWriteReportWithInvalidGas(evmClient evm.Client, runtime cre.Runtime, wfC
 	return wrOutput, nil
 }
 
-// runWriteReportWithInvalidGas writes a report that fails on the receiver
+// runWriteReportFailingOnReceiver writes a report that fails on the receiver
 func runWriteReportFailingOnReceiver(evmClient evm.Client, runtime cre.Runtime, wfCfg config.Config, report *cre.Report) (*evm.WriteReportReply, error) {
 	runtime.Logger().Info("Attempting to write report that should fail on the receiver")
 	receiver := wfCfg.DataFeedsCache.DataFeedsCacheAddress.Bytes()
