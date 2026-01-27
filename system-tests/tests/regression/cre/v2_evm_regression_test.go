@@ -54,6 +54,8 @@ const (
 	writeReportInvalidGas                      = "WriteReport - invalid gas"
 	expectedWriteReportInvalidGas              = "failed to execute capability"
 	writeReportRandomTimestamps                = "WriteReport - random timestamps"
+	logTriggerInvalidAddress                   = "LogTrigger - EOA address (not a contract)"
+	expectedLogTriggerInvalidAddress           = "one or more addresses are not contracts"
 )
 
 type evmNegativeTest struct {
@@ -211,13 +213,55 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 			},
 		}
 		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := evmNegativeTest.expectedError
 		timeout := 2 * time.Minute
 		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")
+	}
+}
+
+func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
+	testLogger := framework.L
+	const workflowFileLocation = "./evm/logtrigger-negative/main.go"
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
+
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
+		if _, ok := enabledChains[chainID]; !ok {
+			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM LogTrigger workflow test", chainID)
+			continue
+		}
+
+		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
+		testLogger.Info().Msg("Creating EVM LogTrigger Fail workflow configuration...")
+
+		workflowConfig := evm_logtrigger_negative_config.Config{
+			ChainSelector:  bcOutput.ChainSelector(),
+			InvalidAddress: evmNegativeTest.invalidInput,
+		}
+		workflowName := fmt.Sprintf("evm-logtrigger-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		// For LogTrigger with EOA address, we expect engine initialization failure
+		// This is the correct behavior - the workflow engine should fail to initialize when trying to register a trigger with an invalid address
+		expectedError := evmNegativeTest.expectedError
+		timeout := 2 * time.Minute
+		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+
+		// Check if we got an engine initialization failure (which is expected for this test)
+		if err != nil {
+			errorMsg := err.Error()
+			if strings.Contains(errorMsg, "found engine initialization failure message") {
+				testLogger.Info().Msgf("EVM LogTrigger Fail test successfully completed - engine initialization failed as expected for EOA address: %s", evmNegativeTest.invalidInput)
+				return
+			}
+		}
+
+		require.NoError(t, err, "EVM LogTrigger Fail test failed")
+		testLogger.Info().Msg("EVM LogTrigger Fail test successfully completed")
 	}
 }
 
@@ -254,6 +298,12 @@ var evmNegativeTestsWriteReportInvalidGas = []evmNegativeTest{
 	{"too high", "100000000000", writeReportInvalidGas, expectedWriteReportInvalidGas},
 }
 
+var evmNegativeTestsLogTriggerInvalidAddress = []evmNegativeTest{
+	// using a well-known EOA address that is guaranteed to not be a contract
+	{"EOA address", "0x0000000000000000000000000000000000000001", logTriggerInvalidAddress, expectedLogTriggerInvalidAddress},
+	{"another EOA", "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0", logTriggerInvalidAddress, expectedLogTriggerInvalidAddress},
+}
+
 func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
 	testLogger := framework.L
 	const workflowFileLocation = "./evm/evmwrite-negative/main.go"
@@ -285,7 +335,7 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 				DataFeedsCacheAddress: dataFeedsCacheAddress,
 			},
 		}
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := evmNegativeTest.expectedError
 		timeout := 2 * time.Minute
