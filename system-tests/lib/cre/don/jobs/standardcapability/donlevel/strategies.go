@@ -31,5 +31,5 @@ func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig c
 		return nil, errors.New("could not find capability config for the given flag")
 	}
 
-	return config.Config, nil
+	return config.Values, nil
 }

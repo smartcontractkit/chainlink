@@ -53,9 +53,9 @@
   supported_sol_chains = ["5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"]
   #[nodesets.chain_capabilities]
   #  write-evm = ["1337"]
-  [nodesets.capability_overrides.mock]
+  [nodesets.capability_configs.mock]
     # add as many as you want:
-    [[nodesets.capability_overrides.mock.DefaultMocks]]
+    [[nodesets.capability_configs.mock.DefaultMocks]]
       Id = "securemint-trigger@1.0.0"
       Description = "trigger mock for secure mint"
       Type="trigger"

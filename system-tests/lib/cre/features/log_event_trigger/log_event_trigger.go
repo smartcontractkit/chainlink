@@ -110,7 +110,7 @@ func (o *LogEventTrigger) PostEnvStartup(
 			return errors.Wrap(cErr, "failed to get command for Read Contract capability")
 		}
 
-		templateData := capabilityConfig.Config
+		templateData := capabilityConfig.Values
 		templateData["ChainID"] = chainID
 
 		tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)

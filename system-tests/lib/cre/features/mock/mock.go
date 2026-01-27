@@ -93,7 +93,7 @@ func (o *Mock) PostEnvStartup(
 		return errors.Wrap(cErr, "failed to get command for Mock capability")
 	}
 
-	templateData := capabilityConfig.Config
+	templateData := capabilityConfig.Values
 	tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
 	if tmplErr != nil {
 		return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)

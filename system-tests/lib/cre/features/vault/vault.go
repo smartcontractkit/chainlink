@@ -141,7 +141,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 
 func pendingQueueEnabled(don *cre.Don) bool {
 	os := don.Metadata().CapabilityConfigs[flag]
-	setting, ok := os.Config["EnableDeterministicPendingQueue"]
+	setting, ok := os.Values["EnableDeterministicPendingQueue"]
 
 	if !ok {
 		return false
@@ -224,7 +224,7 @@ func (o *Vault) PostEnvStartup(
 		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
 	}
 
-	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, dons, pendingQueueEnabled(don))
+	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, pendingQueueEnabled(don))
 	if cErr != nil {
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
@@ -419,7 +419,7 @@ func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig,
 	return cfg, nil
 }
 
-func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, dons *cre.Dons, pendingQueueEnabled bool) ([]byte, error) {
+func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, pendingQueueEnabled bool) ([]byte, error) {
 	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector].Client
 	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
 	if err != nil {

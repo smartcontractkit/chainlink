@@ -183,7 +183,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 	}
 
 	var mErr error
-	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(capabilityConfig.Config, runtimeValues)
+	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
 	if mErr != nil {
 		return nil, errors.Wrap(mErr, "failed to apply runtime values")
 	}

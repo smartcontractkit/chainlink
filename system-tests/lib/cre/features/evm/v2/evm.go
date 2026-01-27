@@ -375,7 +375,7 @@ func createJobs(
 			}
 
 			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
-			templateData := capabilityConfig.Config
+			templateData := capabilityConfig.Values
 
 			var aErr error
 			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)

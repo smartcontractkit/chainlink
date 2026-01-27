@@ -107,7 +107,7 @@ func (o *WebAPITarget) PostEnvStartup(
 		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
 	}
 
-	templateData := capabilityConfig.Config
+	templateData := capabilityConfig.Values
 	tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
 	if tmplErr != nil {
 		return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -220,7 +221,46 @@ type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 
 type CapabilityConfig struct {
 	BinaryPath string         `toml:"binary_path"`
-	Config     map[string]any `toml:"config"` // TODO rename to Values
+	Values     map[string]any `toml:"values"`
+}
+
+// capabilityConfigTransformer keeps existing config fields intact while still
+// allowing new capability config keys to be merged in. We need it, because without it
+// mergo treats zero-values (e.g. false for boolean) as empty and overwrites them.
+type capabilityConfigTransformer struct{}
+
+func (capabilityConfigTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
+	if typ != reflect.TypeOf(CapabilityConfig{}) {
+		return nil
+	}
+
+	return func(dst, src reflect.Value) error {
+		if !dst.CanSet() || !src.IsValid() {
+			return nil
+		}
+
+		dstCfg := dst.Interface().(CapabilityConfig)
+		srcCfg := src.Interface().(CapabilityConfig)
+
+		if dstCfg.BinaryPath == "" && srcCfg.BinaryPath != "" {
+			dstCfg.BinaryPath = srcCfg.BinaryPath
+		}
+
+		if len(srcCfg.Values) > 0 {
+			if dstCfg.Values == nil {
+				dstCfg.Values = make(map[string]any, len(srcCfg.Values))
+			}
+			for key, val := range srcCfg.Values {
+				if _, exists := dstCfg.Values[key]; exists {
+					continue
+				}
+				dstCfg.Values[key] = val
+			}
+		}
+
+		dst.Set(reflect.ValueOf(dstCfg))
+		return nil
+	}
 }
 
 type WorkflowRegistryInput struct {
@@ -550,7 +590,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	capConfigs := make(map[string]CapabilityConfig)
 	maps.Copy(capConfigs, c.CapabilityConfigs)
 
-	if err := mergo.Merge(&capConfigs, capabilityConfigs); err != nil {
+	if err := mergo.Merge(&capConfigs, capabilityConfigs, mergo.WithTransformers(capabilityConfigTransformer{})); err != nil {
 		return nil, fmt.Errorf("failed to merge capability configs: %w", err)
 	}
 
