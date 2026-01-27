@@ -226,7 +226,7 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 //////////////////////////////////////////////////////
 
 var evmNegativeTestsWriteReportFailingOnReceiver = []evmNegativeTest{
-	{"tx ststus set to revert and no error", "", writeReportFailingOnReceiver, ""},
+	{"tx status set to revert on receiver reverting", "", writeReportFailingOnReceiver, "writeReport reverted on the receiver"},
 }
 
 var evmNegativeTestsWriteReportInvalidReceiver = []evmNegativeTest{

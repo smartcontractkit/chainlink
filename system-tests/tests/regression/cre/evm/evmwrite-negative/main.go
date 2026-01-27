@@ -165,7 +165,7 @@ func runWriteReportFailingOnReceiver(evmClient evm.Client, runtime cre.Runtime, 
 		return nil, errors.New("expected WriteReport to fail on the receiver")
 	}
 
-	return wrOutput, nil
+	return wrOutput, errors.New("writeReport reverted on the receiver")
 }
 
 // createPriceOutput creates a priceOutput struct from the workflow configuration
