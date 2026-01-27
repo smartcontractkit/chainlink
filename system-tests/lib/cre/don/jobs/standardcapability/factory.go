@@ -32,7 +32,7 @@ type CapabilityEnabler func(capabilities []string, nodeSet cre.NodeSetWithCapabi
 type EnabledChainsProvider func(registryChainSelector uint64, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) []uint64
 
 // ConfigResolver resolves the capability config for a given chain.
-type ConfigResolver func(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
+type ConfigResolver func(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (map[string]any, error)
 
 // NoOpExtractor is a no-operation runtime values extractor for DON-level capabilities
 // that don't need runtime values extraction from node metadata
@@ -116,7 +116,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 			return jobSpecs, nil
 		}
 
-		capabilityConfig, ok := input.CreEnvironment.CapabilityConfigs[capabilityFlag]
+		capabilityConfig, ok := input.Don.Metadata().CapabilityConfigs[capabilityFlag]
 		if !ok {
 			return nil, errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", capabilityFlag)
 		}
@@ -133,12 +133,9 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 		// Generate job specs for each enabled chain
 		for _, chainID := range f.enabledChainsProvider(f.registryChainSelector, input.NodeSet, capabilityFlag) {
-			enabled, mergedConfig, rErr := f.configResolver(input.NodeSet, capabilityConfig, chainID, capabilityFlag)
+			mergedConfig, rErr := f.configResolver(input.NodeSet, capabilityConfig, chainID, capabilityFlag)
 			if rErr != nil {
 				return nil, errors.Wrap(rErr, "failed to resolve capability config for chain")
-			}
-			if !enabled {
-				continue
 			}
 
 			// Create job specs for each worker node

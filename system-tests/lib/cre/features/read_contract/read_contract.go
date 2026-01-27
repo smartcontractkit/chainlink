@@ -22,7 +22,6 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const flag = cre.ReadContractCapability
@@ -41,7 +40,12 @@ func (o *ReadContract) PreEnvStartup(
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-	for _, chainID := range don.NodeSets().GetChainCapabilityConfigs()[flag].EnabledChains {
+	enabledChainIDs, err := don.NodeSet().GetEnabledChainIDsForCapability(flag)
+	if err != nil {
+		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
+	}
+
+	for _, chainID := range enabledChainIDs {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   fmt.Sprintf("read-contract-evm-%d", chainID),
@@ -70,16 +74,6 @@ func (o *ReadContract) PostEnvStartup(
 ) error {
 	specs := make(map[string][]string)
 
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
-	if !ok {
-		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
-	}
-
-	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
-	if cErr != nil {
-		return errors.Wrap(cErr, "failed to get command for Read Contract capability")
-	}
-
 	var nodeSet cre.NodeSetWithCapabilityConfigs
 	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
 		if ns.GetName() == don.Name {
@@ -91,16 +85,23 @@ func (o *ReadContract) PostEnvStartup(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	chainCapConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
-	if !ok || chainCapConfig == nil {
-		return fmt.Errorf("could not find chain capability config for '%s' in don '%s'", flag, don.Name)
+	enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(flag)
+	if err != nil {
+		return fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
 
-	for _, chainID := range chainCapConfig.EnabledChains {
-		_, templateData, tErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
-		if tErr != nil {
-			return errors.Wrapf(tErr, "failed to resolve capability config for chain %d", chainID)
+	for _, chainID := range enabledChainIDs {
+		capabilityConfig, ok := nodeSet.GetCapabilityConfig(cre.FlagWithChainID(flag, chainID))
+		if !ok {
+			return fmt.Errorf("could not find capability config for '%s'", cre.FlagWithChainID(flag, chainID))
 		}
+
+		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+		if cErr != nil {
+			return errors.Wrap(cErr, "failed to get command for Read Contract capability")
+		}
+
+		templateData := capabilityConfig.Config
 		templateData["ChainID"] = chainID
 
 		tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)

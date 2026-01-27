@@ -25,7 +25,6 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const flag = cre.HTTPActionCapability
@@ -102,7 +101,7 @@ func (o *HTTPAction) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	capabilityConfig, ok := don.Metadata().CapabilityConfigs[flag]
 	if !ok {
 		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
 	}
@@ -123,7 +122,7 @@ func (o *HTTPAction) PostEnvStartup(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	templateData := envconfig.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityConfigOverrides())
+	templateData := capabilityConfig.Config
 	tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
 	if tmplErr != nil {
 		return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)

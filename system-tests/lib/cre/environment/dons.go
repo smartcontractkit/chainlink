@@ -25,14 +25,14 @@ import (
 )
 
 type StartedDON struct {
-	NodeOutput *cre.WrappedNodeOutput
+	NodeOutput *cre.NodeSetOutput
 	DON        *cre.Don
 }
 
 type StartedDONs []*StartedDON
 
-func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
-	outputs := make([]*cre.WrappedNodeOutput, len(*s))
+func (s *StartedDONs) NodeOutputs() []*cre.NodeSetOutput {
+	outputs := make([]*cre.NodeSetOutput, len(*s))
 	for idx, don := range *s {
 		outputs[idx] = don.NodeOutput
 	}
@@ -165,10 +165,10 @@ func StartDONs(
 			}
 
 			resultMap.Store(idx, &StartedDON{
-				NodeOutput: &cre.WrappedNodeOutput{
+				NodeOutput: &cre.NodeSetOutput{
 					Output:       nodeset,
 					NodeSetName:  nodeSet.Name,
-					Capabilities: nodeSet.ComputedCapabilities,
+					Capabilities: nodeSet.Capabilities,
 				},
 				DON: don,
 			})

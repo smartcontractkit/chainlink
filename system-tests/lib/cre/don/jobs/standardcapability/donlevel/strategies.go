@@ -4,7 +4,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -22,10 +21,15 @@ func EnabledChainsProvider(registryChainSelector uint64, _ cre.NodeSetWithCapabi
 	return []uint64{registryChainSelector}
 }
 
-func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, _ uint64, flag cre.CapabilityFlag) (bool, map[string]any, error) {
+func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, _ uint64, flag cre.CapabilityFlag) (map[string]any, error) {
 	if nodeSet == nil {
-		return false, nil, errors.New("node set input is nil")
+		return nil, errors.New("node set input is nil")
 	}
 
-	return true, envconfig.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityConfigOverrides()), nil
+	config, ok := nodeSet.GetCapabilityConfig(flag)
+	if !ok {
+		return nil, errors.New("could not find capability config for the given flag")
+	}
+
+	return config.Config, nil
 }

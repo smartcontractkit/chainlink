@@ -59,7 +59,7 @@ func (c *Cron) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	capabilityConfig, ok := don.Metadata().CapabilityConfigs[flag]
 	if !ok {
 		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
 	}

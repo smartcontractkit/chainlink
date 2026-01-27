@@ -91,12 +91,12 @@ func (o *Vault) PreEnvStartup(
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
@@ -139,8 +139,8 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
-func pendingQueueEnabled(env *cre.Environment) bool {
-	os := env.CapabilityConfigs[flag]
+func pendingQueueEnabled(don *cre.Don) bool {
+	os := don.Metadata().CapabilityConfigs[flag]
 	setting, ok := os.Config["EnableDeterministicPendingQueue"]
 
 	if !ok {
@@ -224,7 +224,7 @@ func (o *Vault) PostEnvStartup(
 		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
 	}
 
-	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, dons, pendingQueueEnabled(creEnv))
+	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, dons, pendingQueueEnabled(don))
 	if cErr != nil {
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
