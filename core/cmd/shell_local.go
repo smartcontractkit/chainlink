@@ -324,7 +324,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
 	if err := s.Config.Validate(); err != nil {
-		return errors.Wrap(err, "config validation failed")
+		return fmt.Errorf("config validation failed: %w", err)
 	}
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
@@ -372,7 +372,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}
 
 	// Local shell initialization always uses local auth users table for admin auth
@@ -384,7 +384,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 			lggr.Debug("Importing eth key")
 			id, err2 := chain_selectors.GetChainIDFromSelector(k.ChainDetails().ChainSelector)
 			if err2 != nil {
-				return s.errorOut(errors.Wrapf(err2, "error getting chain id from selector when trying to import eth key %v", k.JSON()))
+				return s.errorOut(fmt.Errorf("error getting chain id from selector when trying to import eth key %v: %w", k.JSON(), err2))
 			}
 			cid, _ := big.NewInt(0).SetString(id, 10)
 			if cid == nil {
@@ -396,7 +396,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 					lggr.Debugf("Eth key %s already exists for chain %v", k.JSON(), k.ChainDetails())
 					continue
 				}
-				return s.errorOut(errors.Wrap(err2, "error importing eth key"))
+				return s.errorOut(fmt.Errorf("error importing eth key: %w", err2))
 			}
 			lggr.Debugf("Imported eth key %s for chain %v", k.JSON(), k.ChainDetails())
 		}
@@ -407,7 +407,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", id)
 				err2 := app.GetKeyStore().Eth().EnsureKeys(rootCtx, id)
 				if err2 != nil {
-					return errors.Wrap(err2, "failed to ensure keystore keys")
+					return fmt.Errorf("failed to ensure keystore keys: %w", err2)
 				}
 			} else {
 				lggr.Debugf("AutoCreateKey=false, will not ensure EVM key for chain %s", id)
@@ -418,7 +418,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	if s.Config.OCR().Enabled() {
 		err2 := app.GetKeyStore().OCR().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure ocr key")
+			return fmt.Errorf("failed to ensure ocr key: %w", err2)
 		}
 	}
 	if s.Config.OCR2().Enabled() {
@@ -449,7 +449,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure ocr key")
+			return fmt.Errorf("failed to ensure ocr key: %w", err2)
 		}
 	}
 
@@ -460,18 +460,18 @@ func (s *Shell) runNode(c *cli.Context) error {
 			if errors.Is(err2, keystore.ErrKeyExists) {
 				lggr.Debugf("P2P key already exists %s", s.Config.ImportedP2PKey().JSON())
 			} else if err2 != nil {
-				return s.errorOut(errors.Wrap(err2, "error importing p2p key"))
+				return s.errorOut(fmt.Errorf("error importing p2p key: %w", err2))
 			}
 		}
 		err2 := app.GetKeyStore().P2P().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure p2p key")
+			return fmt.Errorf("failed to ensure p2p key: %w", err2)
 		}
 	}
 	if s.Config.CosmosEnabled() {
 		err2 := app.GetKeyStore().Cosmos().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure cosmos key")
+			return fmt.Errorf("failed to ensure cosmos key: %w", err2)
 		}
 	}
 	if s.Config.SolanaEnabled() {
@@ -483,44 +483,44 @@ func (s *Shell) runNode(c *cli.Context) error {
 					lggr.Debugf("Sol key %s already exists for chain %v", k.JSON(), k.ChainDetails())
 					continue
 				}
-				return s.errorOut(errors.Wrap(err2, "error importing sol key"))
+				return s.errorOut(fmt.Errorf("error importing sol key: %w", err2))
 			}
 			lggr.Debugf("Imported sol key %s for chain %v", k.JSON(), k.ChainDetails())
 		}
 
 		err2 := app.GetKeyStore().Solana().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure solana key")
+			return fmt.Errorf("failed to ensure solana key: %w", err2)
 		}
 	}
 	if s.Config.StarkNetEnabled() {
 		err2 := app.GetKeyStore().StarkNet().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure starknet key")
+			return fmt.Errorf("failed to ensure starknet key: %w", err2)
 		}
 	}
 	if s.Config.AptosEnabled() {
 		err2 := app.GetKeyStore().Aptos().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure aptos key")
+			return fmt.Errorf("failed to ensure aptos key: %w", err2)
 		}
 	}
 	if s.Config.TronEnabled() {
 		err2 := app.GetKeyStore().Tron().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure tron key")
+			return fmt.Errorf("failed to ensure tron key: %w", err2)
 		}
 	}
 	if s.Config.TONEnabled() {
 		err2 := app.GetKeyStore().TON().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure ton key")
+			return fmt.Errorf("failed to ensure ton key: %w", err2)
 		}
 	}
 	if s.Config.SuiEnabled() {
 		err2 := app.GetKeyStore().Sui().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure Sui key")
+			return fmt.Errorf("failed to ensure Sui key: %w", err2)
 		}
 	}
 	if s.Config.CRE().EnableDKGRecipient() {
@@ -530,24 +530,24 @@ func (s *Shell) runNode(c *cli.Context) error {
 			if errors.Is(err2, keystore.ErrKeyExists) {
 				lggr.Debugf("DKG recipient key already exists %s", s.Config.ImportedDKGRecipientKey().JSON())
 			} else if err2 != nil {
-				return s.errorOut(errors.Wrap(err2, "error importing dkg recipient key"))
+				return s.errorOut(fmt.Errorf("error importing dkg recipient key: %w", err2))
 			}
 		}
 
 		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure dkg recipient key")
+			return fmt.Errorf("failed to ensure dkg recipient key: %w", err2)
 		}
 	}
 
 	err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
 	if err2 != nil {
-		return errors.Wrap(err2, "failed to ensure workflow key")
+		return fmt.Errorf("failed to ensure workflow key: %w", err2)
 	}
 
 	err2 = app.GetKeyStore().CSA().EnsureKey(rootCtx)
 	if err2 != nil {
-		return errors.Wrap(err2, "failed to ensure CSA key")
+		return fmt.Errorf("failed to ensure CSA key: %w", err2)
 	}
 
 	if e := checkFilePermissions(lggr, s.Config.RootDir()); e != nil {
@@ -557,13 +557,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 	var user sessions.User
 	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(ctx, authProviderORM, lggr); err != nil {
 		if !errors.Is(err, ErrNoCredentialFile) {
-			return errors.Wrap(err, "error creating api initializer")
+			return fmt.Errorf("error creating api initializer: %w", err)
 		}
 		if user, err = s.FallbackAPIInitializer.Initialize(ctx, authProviderORM, lggr); err != nil {
 			if errors.Is(err, ErrNoAPICredentialsAvailable) {
 				return errors.WithStack(err)
 			}
-			return errors.Wrap(err, "error creating fallback initializer")
+			return fmt.Errorf("error creating fallback initializer: %w", err)
 		}
 	}
 
@@ -573,7 +573,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		// We do not try stopping any sub-services that might be started,
 		// because the app will exit immediately upon return.
 		// But LockedDB will be released by defer in above.
-		return errors.Wrap(err, "error starting app")
+		return fmt.Errorf("error starting app: %w", err)
 	}
 
 	grp, grpCtx := errgroup.WithContext(rootCtx)
@@ -581,7 +581,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	grp.Go(func() error {
 		<-grpCtx.Done()
 		if errInternal := app.Stop(); errInternal != nil {
-			return errors.Wrap(errInternal, "error stopping app")
+			return fmt.Errorf("error stopping app: %w", errInternal)
 		}
 		return nil
 	})
@@ -610,13 +610,13 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	} else if err == nil {
 		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to ensure TLS directory permissions for %s: %w", tlsDir, err)
 		}
 
 		err = filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				lggr.Errorf(`error checking perms of "%v": %v`, path, err)
-				return err
+				return fmt.Errorf("error checking permissions of %s: %w", path, err)
 			}
 			if utils.TooPermissive(info.Mode().Perm(), ownerPermsMask) {
 				newPerms := info.Mode().Perm() & ownerPermsMask
@@ -626,7 +626,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 			return nil
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to walk TLS directory %s: %w", tlsDir, err)
 		}
 	}
 
@@ -638,14 +638,14 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 		if os.IsNotExist(err) {
 			continue
 		} else if err != nil {
-			return err
+			return fmt.Errorf("failed to stat file %s: %w", path, err)
 		}
 		if utils.TooPermissive(fileInfo.Mode().Perm(), ownerPermsMask) {
 			newPerms := fileInfo.Mode().Perm() & ownerPermsMask
 			lggr.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
 			err = utils.EnsureFilepathMaxPerms(path, newPerms)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to set permissions for %s: %w", path, err)
 			}
 		}
 		owned, err := utils.IsFileOwnedByChainlink(fileInfo)
@@ -673,7 +673,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "could not decode address"))
+		return s.errorOut(fmt.Errorf("could not decode address: %w", err))
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
@@ -688,14 +688,14 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = s.Config.Validate()
 	if err != nil {
-		return err
+		return fmt.Errorf("config validation failed: %w", err)
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
 
 	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}
 
 	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
@@ -703,7 +703,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	// this pattern but in a chain-agnostic way
 	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		return s.errorOut(err)
+		return s.errorOut(fmt.Errorf("failed to get EVM chain service for chain ID %s: %w", chainID.String(), err))
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
@@ -715,7 +715,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = ethClient.Dial(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to dial EVM client for chain ID %s: %w", chainID.String(), err)
 	}
 
 	err = s.Config.Validate()
@@ -725,11 +725,11 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = keyStore.Unlock(ctx, s.Config.Password().Keystore())
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "error authenticating keystore"))
+		return s.errorOut(fmt.Errorf("error authenticating keystore: %w", err))
 	}
 
 	if err = keyStore.Eth().CheckEnabled(ctx, address, chain.ID()); err != nil {
-		return s.errorOut(err)
+		return s.errorOut(fmt.Errorf("key for address %s not enabled for chain ID %s: %w", address.Hex(), chain.ID().String(), err))
 	}
 
 	ks := keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID())
@@ -742,7 +742,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
 	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
 	if err != nil {
-		return s.errorOut(err)
+		return s.errorOut(fmt.Errorf("failed to create EVM transaction metrics for chain ID %s: %w", ethClient.ConfiguredChainID().String(), err))
 	}
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
 		feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), ks, txBuilder, chain.Logger(), stuckTxDetector, metrics)
@@ -804,7 +804,7 @@ func (s *Shell) ConfigFileValidate(_ *cli.Context) error {
 	fn := func(f string, params ...any) { fmt.Printf(f, params...) }
 	s.Config.LogConfiguration(fn, fn)
 	if err := s.configExitErr(s.Config.Validate); err != nil {
-		return err
+		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 	fmt.Println("Valid configuration.")
 	return nil
@@ -873,7 +873,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 
 	err := migrate.SetMigrationENVVars(s.Config.EVMConfigs())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set migration environment variables: %w", err)
 	}
 
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
@@ -977,7 +977,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 
 	db, err := store.NewConnection(ctx, cfg)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
+		return s.errorOut(fmt.Errorf("error connecting to the database: %w", err))
 	}
 	defer db.Close()
 
@@ -989,7 +989,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 	}
 	rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to query tables with evm_chain_id column: %w", err)
 	}
 	defer rows.Close()
 
@@ -998,12 +998,12 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		var name string
 		var schema string
 		if err = rows.Scan(&name, &schema); err != nil {
-			return err
+			return fmt.Errorf("failed to scan table name and schema: %w", err)
 		}
 		tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
 	}
 	if rows.Err() != nil {
-		return rows.Err()
+		return fmt.Errorf("error iterating over table rows: %w", rows.Err())
 	}
 
 	for _, tableName := range tablesToDeleteFrom {
@@ -1041,7 +1041,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	if c.IsSet("evm-chain-id") {
 		err := chainID.UnmarshalText([]byte(c.String("evm-chain-id")))
 		if err != nil {
-			return s.errorOut(err)
+			return s.errorOut(fmt.Errorf("failed to parse evm-chain-id %s: %w", c.String("evm-chain-id"), err))
 		}
 	}
 
@@ -1062,12 +1062,12 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 
 	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}
 
 	err = app.DeleteLogPollerDataAfter(ctx, chainID, start)
 	if err != nil {
-		return s.errorOut(err)
+		return s.errorOut(fmt.Errorf("failed to delete log poller data after block %d for chain ID %s: %w", start, chainID.String(), err))
 	}
 
 	lggr.Infof("RemoveBlocks: successfully removed blocks")
@@ -1084,14 +1084,14 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	if passwordFile := c.String("password"); passwordFile != "" {
 		p, err := utils.PasswordFromFile(passwordFile)
 		if err != nil {
-			return errors.Wrap(err, "error reading password from file")
+			return fmt.Errorf("error reading password from file: %w", err)
 		}
 		pwd = &p
 	}
 	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
 		p, err := utils.PasswordFromFile(vrfPasswordFile)
 		if err != nil {
-			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+			return fmt.Errorf("error reading VRF password from vrfpassword file \"%s\": %w", vrfPasswordFile, err)
 		}
 		vrfpwd = &p
 	}
@@ -1107,7 +1107,7 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	// Try opening DB connection and acquiring DB locks at once
 	if err := ldb.Open(ctx); err != nil {
 		// If not successful, we know neither locks nor connection remains opened
-		return s.errorOut(errors.Wrap(err, "opening db"))
+		return s.errorOut(fmt.Errorf("opening db: %w", err))
 	}
 	db := ldb.DB()
 	// From now on, DB locks and DB connection will be released on every return.
@@ -1115,7 +1115,7 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 
 	err := handleNodeVersioning(ctx, db, lggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to handle node versioning: %w", err)
 	}
 
 	ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
@@ -1125,18 +1125,18 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 
 	err = s.KeyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
 	if err != nil {
-		return errors.Wrap(err, "error authenticating keystore")
+		return fmt.Errorf("error authenticating keystore: %w", err)
 	}
 
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(ctx, keyStore.CSA())
 	if err != nil {
-		return errors.Wrap(err, "failed to build Beholder auth")
+		return fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
 
 	// Initialize globals with beholder and telemetry
 	err = initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
 	if err != nil {
-		return errors.Wrap(err, "failed initializing globals")
+		return fmt.Errorf("failed initializing globals: %w", err)
 	}
 
 	// Set the signing mechanism for beholder auth headers
