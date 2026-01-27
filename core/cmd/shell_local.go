@@ -670,7 +670,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
-		return s.errorOut(fmt.Errorf("could not decode address: %w", err))
+		return s.errorOut(fmt.Errorf("could not decode address '%s': %w", addressHex, err))
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
@@ -726,7 +726,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	if err = keyStore.Eth().CheckEnabled(ctx, address, chain.ID()); err != nil {
-		return s.errorOut(fmt.Errorf("key for address %s not enabled for chain ID %s: %w", address.Hex(), chain.ID().String(), err))
+		return s.errorOut(fmt.Errorf("address '%s' not enabled for chain ID %s: %w", address.Hex(), chain.ID().String(), err))
 	}
 
 	ks := keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID())
@@ -875,7 +875,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
 	if err := migrateDB(ctx, cfg); err != nil {
-		return s.errorOut(err)
+		return s.errorOut(fmt.Errorf("migrateDB failed: %w", err))
 	}
 	return nil
 }
@@ -888,7 +888,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		arg := c.Args().First()
 		numVersion, err := strconv.ParseInt(arg, 10, 64)
 		if err != nil {
-			return s.errorOut(fmt.Errorf("Unable to parse %v as integer", arg))
+			return s.errorOut(fmt.Errorf("unable to parse %v as integer", arg))
 		}
 		version = null.IntFrom(numVersion)
 	}
