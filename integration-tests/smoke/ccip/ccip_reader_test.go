@@ -953,7 +953,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainD], cciptypes.UnknownAddress(offRampDDynamicConfig.FeeQuoter.Bytes()))
 
 	// Now Sync the CCIP Reader's S1 chain contract reader with OnRamp binding
-	onRampContractMapping := make(ccipreaderpkg.ContractAddresses)
+	onRampContractMapping := make(cciptypes.ContractAddresses)
 	onRampContractMapping[consts.ContractNameOnRamp] = make(map[cciptypes.ChainSelector]cciptypes.UnknownAddress)
 	onRampContractMapping[consts.ContractNameOnRamp][chainS1] = onRampS1Addr.Bytes()
 
@@ -1097,41 +1097,6 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		// Assert: Expect an empty map
 		require.Empty(t, updates)
 	})
-}
-
-func Test_LinkPriceUSD(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	env, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := stateview.LoadOnchainState(env.Env)
-	require.NoError(t, err)
-
-	selectors := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	chain1, chain2 := selectors[0], selectors[1]
-
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
-
-	reader := testSetupRealContracts(
-		ctx,
-		t,
-		chain1,
-		map[cciptypes.ChainSelector][]types.BoundContract{
-			cciptypes.ChainSelector(chain1): {
-				{
-					Address: state.MustGetEVMChainState(chain1).FeeQuoter.Address().String(),
-					Name:    consts.ContractNameFeeQuoter,
-				},
-			},
-		},
-		nil,
-		env,
-	)
-
-	linkPriceUSD, err := reader.LinkPriceUSD(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, linkPriceUSD.Int)
-	require.Equal(t, testhelpers.DefaultLinkPrice, linkPriceUSD.Int)
 }
 
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
