@@ -505,7 +505,7 @@ func parseChainCapabilityFlag(flag string) (CapabilityFlag, uint64, bool, error)
 		return "", 0, true, fmt.Errorf("capability flag %q is missing a capability name before the chain suffix", flag)
 	}
 	if chainPart == "" {
-		return CapabilityFlag(base), 0, true, fmt.Errorf("capability flag %q is missing a chain ID suffix", flag)
+		return base, 0, true, fmt.Errorf("capability flag %q is missing a chain ID suffix", flag)
 	}
 	if !allDigits(chainPart) {
 		return "", 0, false, nil
@@ -513,10 +513,10 @@ func parseChainCapabilityFlag(flag string) (CapabilityFlag, uint64, bool, error)
 
 	chainID, err := strconv.ParseUint(chainPart, 10, 64)
 	if err != nil {
-		return CapabilityFlag(base), 0, true, err
+		return base, 0, true, err
 	}
 
-	return CapabilityFlag(base), chainID, true, nil
+	return base, chainID, true, nil
 }
 
 func allDigits(value string) bool {
@@ -611,14 +611,14 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 			continue
 		}
 
-		flagWithoutChainId := flag[:lastIdx]
-		defaults[flag] = defaults[flagWithoutChainId]
+		flagWithoutChainID := flag[:lastIdx]
+		defaults[flag] = defaults[flagWithoutChainID]
 
-		chainCapabilitiesFound = append(chainCapabilitiesFound, flagWithoutChainId)
+		chainCapabilitiesFound = append(chainCapabilitiesFound, flagWithoutChainID)
 
 		// User must override per-chain, not the base capability
-		if _, exists := c.CapabilityConfigs[flagWithoutChainId]; exists {
-			return nil, fmt.Errorf("nodeset TOML capability config overwrites must be done for each chain separately. Invalid: [nodeset.capability_config.%s]. Valid: [nodeset.capability_config.%s]", flagWithoutChainId, flag)
+		if _, exists := c.CapabilityConfigs[flagWithoutChainID]; exists {
+			return nil, fmt.Errorf("nodeset TOML capability config overwrites must be done for each chain separately. Invalid: [nodeset.capability_config.%s]. Valid: [nodeset.capability_config.%s]", flagWithoutChainID, flag)
 		}
 	}
 
@@ -1190,8 +1190,8 @@ type NodeSet struct {
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
 
-	chainCapabilityIndex      map[CapabilityFlag][]uint64 `toml:"-" json:"-"`
-	chainCapabilityIndexBuilt bool                        `toml:"-" json:"-"`
+	chainCapabilityIndex      map[CapabilityFlag][]uint64
+	chainCapabilityIndexBuilt bool
 }
 
 func (c *NodeSet) ensureChainCapabilityIndex() {
@@ -1357,9 +1357,7 @@ func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 		for _, chainID := range unknownChains {
 			flags := missing[chainID]
 			names := make([]string, len(flags))
-			for i, flag := range flags {
-				names[i] = string(flag)
-			}
+			copy(names, flags)
 			slices.Sort(names)
 			details = append(details, fmt.Sprintf("chain %d required by [%s]", chainID, strings.Join(names, ", ")))
 		}
