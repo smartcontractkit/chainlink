@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -82,6 +83,8 @@ func onEVMWriteTrigger(wfCfg config.Config, runtime cre.Runtime, payload *cron.P
 		return runWriteReportWithInvalidGas(evmClient, runtime, wfCfg, report)
 	case "WriteReport - failing on receiver":
 		priceOutput.FeedID = [32]byte{}
+		priceOutput.Timestamp = 0
+		priceOutput.Price = big.NewInt(0)
 		report, err := generateReports(runtime, priceOutput)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate reports: %w", err)
@@ -160,12 +163,13 @@ func runWriteReportFailingOnReceiver(evmClient evm.Client, runtime cre.Runtime, 
 		return nil, fmt.Errorf("unexpected error for WriteReport  %w", err)
 	}
 
-	if wrOutput.TxStatus != evm.TxStatus_TX_STATUS_REVERTED {
-		runtime.Logger().Info("this is not expected, WriteReport should fail on the receiver and set the tx status to reverted, instead got", "tx_status", wrOutput.TxStatus)
-		return nil, errors.New("expected WriteReport to fail on the receiver")
+	if wrOutput.TxStatus == evm.TxStatus_TX_STATUS_REVERTED {
+		runtime.Logger().Info("WriteReport failed on the receiver and set the tx status to reverted")
+		return nil, fmt.Errorf("expected WriteReport to fail on the receiver")
 	}
 
-	return wrOutput, errors.New("writeReport reverted on the receiver")
+	runtime.Logger().Info("This is not expected, WriteReport should fail on the receiver and set the tx status to reverted, instead got", "tx_status", wrOutput.TxStatus)
+	return wrOutput, fmt.Errorf("writeReport should've returned tx status reverted, but instead returned %d", wrOutput.TxStatus)
 }
 
 // createPriceOutput creates a priceOutput struct from the workflow configuration
