@@ -157,7 +157,6 @@ func SendLinkFundsToDeploymentAddresses(
 	if err != nil {
 		return err
 	}
-	// TODO: 2:32PM WRN No matching event with valid indexed parameter count found for log Signature=0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef Transaction=0xde63b61cb6f22db882cee1f28c7a11159be3f4e5f07c71998eada723ccf9e6cd
 	tx, err := chainClient.Decode(linkInstance.Transfer(chainClient.NewTXOpts(), multicallAddress, toTransferToMultiCallContract))
 	if err != nil {
 		return err

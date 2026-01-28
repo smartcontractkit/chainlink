@@ -147,18 +147,6 @@ func newORM(logger common_logger.Logger, chainID *big.Int, nodeIndex, externalPo
 	return logpoller.NewORM(chainID, db, logger), db, nil
 }
 
-// // NewORM returns a new logpoller.orm instance
-// func NewORM(logger common_logger.SugaredLogger, chainID *big.Int, postgresDb any) (logpoller.ORM, *sqlx.DB, error) {
-// 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", postgresDb.ExternalPort, postgresDb.User, postgresDb.Password, postgresDb.DbName)
-// 	db, err := sqlx.Open("postgres", dsn)
-// 	if err != nil {
-// 		return nil, db, err
-// 	}
-
-// 	db.MapperFunc(reflectx.CamelToSnakeASCII)
-// 	return logpoller.NewORM(chainID, db, logger), db, nil
-// }
-
 type ExpectedFilter struct {
 	emitterAddress common.Address
 	topic          common.Hash
@@ -1077,115 +1065,6 @@ var (
 		MaxPerformDataSize:   uint32(5000),
 	}
 )
-
-// SetupLogPollerTestDocker starts the DON and private Ethereum network
-// func SetupLogPollerTestDocker(
-// 	t *testing.T,
-// 	registryVersion contracts.KeeperRegistryVersion,
-// 	registryConfig contracts.KeeperRegistrySettings,
-// 	upkeepsNeeded int,
-// 	finalityTagEnabled bool,
-// 	testConfig *tc.TestConfig,
-// 	logScannerSettings test_env.ChainlinkNodeLogScannerSettings,
-// ) (
-// 	*seth.Client,
-// 	[]*nodeclient.ChainlinkClient,
-// 	contracts.LinkToken,
-// 	contracts.KeeperRegistry,
-// 	contracts.KeeperRegistrar,
-// 	*test_env.CLClusterTestEnv,
-// 	*blockchain.EVMNetwork,
-// ) {
-// 	l := logging.GetTestLogger(t)
-
-// 	// Add registry version to config
-// 	registryConfig.RegistryVersion = registryVersion
-// 	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-
-// 	// launch the environment
-// 	var env *test_env.CLClusterTestEnv
-// 	chainlinkNodeFunding := 0.5
-// 	l.Debug().Msgf("Funding amount: %f", chainlinkNodeFunding)
-// 	clNodesCount := 5
-
-// 	var evmNetworkExtraSettingsFn = func(network *blockchain.EVMNetwork) *blockchain.EVMNetwork {
-// 		// we need it, because by default finality depth is 0 for our simulated network
-// 		if network.Simulated && !finalityTagEnabled {
-// 			network.FinalityDepth = 10
-// 		}
-// 		network.FinalityTag = finalityTagEnabled
-// 		return network
-// 	}
-
-// 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, testConfig)
-// 	require.NoError(t, err, "Error building ethereum network config")
-
-// 	env, err = test_env.NewCLTestEnvBuilder().
-// 		WithTestConfig(testConfig).
-// 		WithTestInstance(t).
-// 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
-// 		WithCLNodes(clNodesCount).
-// 		WithEVMNetworkOptions(evmNetworkExtraSettingsFn).
-// 		WithChainlinkNodeLogScanner(logScannerSettings).
-// 		WithStandardCleanup().
-// 		Build()
-// 	require.NoError(t, err, "Error deploying test environment")
-
-// 	evmNetwork, err := env.GetFirstEvmNetwork()
-// 	require.NoError(t, err, "Error getting first evm network")
-
-// 	chainClient, err := utils.TestAwareSethClient(t, testConfig, evmNetwork)
-// 	require.NoError(t, err, "Error getting seth client")
-
-// 	err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(chainlinkNodeFunding))
-// 	require.NoError(t, err, "Failed to fund the nodes")
-
-// 	nodeClients := env.ClCluster.NodeAPIs()
-// 	workerNodes := nodeClients[1:]
-
-// 	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
-// 	require.NoError(t, err, "Error deploying LINK token")
-
-// 	wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
-// 	require.NoError(t, err, "Error deploying weth token contract")
-
-// 	// This feed is used for both eth/usd and link/usd
-// 	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, registryConfig.FallbackLinkPrice)
-// 	require.NoError(t, err, "Error deploying eth usd feed contract")
-
-// 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
-// 	require.NoError(t, err, "Error getting LINK balance")
-
-// 	l.Info().Str("Balance", big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String()).Msg("LINK balance")
-// 	minLinkBalanceSingleNode := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(9))
-// 	minLinkBalance := big.NewInt(0).Mul(minLinkBalanceSingleNode, big.NewInt(int64(upkeepsNeeded)))
-// 	if linkBalance.Cmp(minLinkBalance) < 0 {
-// 		require.FailNowf(t, "Not enough LINK", "Not enough LINK to run the test. Need at least %s. but has only %s", big.NewInt(0).Div(minLinkBalance, big.NewInt(1e18)).String(), big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String())
-// 	}
-
-// 	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
-// 		t,
-// 		chainClient,
-// 		registryVersion,
-// 		registryConfig,
-// 		linkToken,
-// 		wethToken,
-// 		ethUSDFeed,
-// 	)
-
-// 	// Fund the registry with LINK
-// 	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
-// 	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
-
-// 	err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
-// 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-// 	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress(), registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
-// 	require.NoError(t, err, "Error building OCR config vars")
-// 	err = registry.SetConfigTypeSafe(ocrConfig)
-// 	require.NoError(t, err, "Registry config should be set successfully")
-
-// 	return chainClient, nodeClients, linkToken, registry, registrar, env, &network
-// }
 
 // uploadLogEmitterContracts uploads the configured number of log emitter contracts
 func uploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Client, config *Config) []*contracts.LogEmitter {

@@ -17,14 +17,6 @@ concurrency:
 
 jobs:
   smoke:
-    strategy:
-      fail-fast: false
-      matrix:
-        test:
-          - TestRegistry_2_0
-          - TestRegistry_2_1
-          - TestRegistry_2_2
-          - TestRegistry_2_3
     permissions:
       id-token: write
       contents: read
@@ -77,17 +69,25 @@ jobs:
           cd cmd/cl && go install . && cd -
           cl u env.toml,products/automation/basic.toml
 
-      - name: Run Smoke tests
+      - name: Run Soak tests
         id: soak_test
         working-directory: devenv/tests/automation
         run: |
-          echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: ${{ matrix.test }}"
-          go test -v -timeout 4h -run ${{ matrix.test }}
+          echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: Registry 2.3
+          go test -v -timeout 3h -run TestLoad/registry_2_1_logtrigger
 
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: container-logs-smoke-${{ matrix.test }}
+          name: container-logs-soak
           path: devenv/tests/e2e/logs
           retention-days: 1
+
+      - name: Upload Pprof (Alloc)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alloc.pprof
+          path: devenv/tests/ocr2/alloc.pprof
+          retention-days: 3

@@ -32,6 +32,21 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper2_0"
 )
 
+type testcase struct {
+	name string
+
+	registryVersion          contracts.KeeperRegistryVersion
+	upkeepCount              int    // how many upkeeps to deploy
+	expectedUpkeepExecutions int    // how many times each upkeep should execute
+	upkeepExecutionTimeout   string // "1s", "5m", 1h20m", etc
+	upkeepFundingLink        int64
+
+	testKeyFundingEth float64
+
+	// Chainlink Docker image to which nodes should be upgraded to
+	upgradeImage string
+}
+
 type Test struct {
 	ChainClient *seth.Client
 
@@ -47,12 +62,15 @@ type Test struct {
 	Registry    contracts.KeeperRegistry
 	Registrar   contracts.KeeperRegistrar
 
-	RegistrySettings       contracts.KeeperRegistrySettings
-	RegistrarSettings      contracts.KeeperRegistrarSettings
-	PluginConfig           ocr2keepers30config.OffchainConfig
-	PublicConfig           ocr3.PublicConfig
-	UpkeepPrivilegeManager common.Address
-	UpkeepIDs              []*big.Int
+	RegistrySettings  contracts.KeeperRegistrySettings
+	RegistrarSettings contracts.KeeperRegistrarSettings
+	PluginConfig      ocr2keepers30config.OffchainConfig
+	PublicConfig      ocr3.PublicConfig
+
+	UpkeepCount              int
+	ExpectedUpkeepExecutions int
+	UpkeepPrivilegeManager   common.Address
+	UpkeepIDs                []*big.Int
 
 	TransmitterKeyIndex int
 
