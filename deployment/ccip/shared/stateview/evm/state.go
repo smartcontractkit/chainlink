@@ -766,7 +766,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+					lggr.Warnw("failed to generate burn mint token pool view, skipping", "tokenPool", tokenPool.Address().Hex(), "chain", chain, "error", err)
+					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -781,7 +782,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+					lggr.Warnw("failed to generate burn mint token pool view, skipping", "tokenPool", tokenPool.Address().Hex(), "chain", chain, "error", err)
+					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -796,7 +798,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+					lggr.Warnw("failed to generate burn mint token pool view, skipping", "tokenPool", tokenPool.Address().Hex(), "chain", chain, "error", err)
+					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -811,7 +814,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+					lggr.Warnw("failed to generate burn with from mint token pool view, skipping", "tokenPool", tokenPool.Address().Hex(), "chain", chain, "error", err)
+					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -826,7 +830,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+					lggr.Warnw("failed to generate burn from mint token pool view, skipping", "tokenPool", tokenPool.Address().Hex(), "chain", chain, "error", err)
+					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -841,7 +846,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
+					lggr.Warnw("failed to generate lock release token pool view, skipping", "tokenPool", tokenPool.Address().Hex(), "chain", chain, "error", err)
+					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
 				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
@@ -854,7 +860,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			jobCh <- func() error {
 				tokenPoolView, err := v1_6_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
+					lggr.Warnw("failed to generate lock release token pool view, skipping", "tokenPool", tokenPool.Address().Hex(), "chain", chain, "error", err)
+					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
 				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
@@ -867,7 +874,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		jobCh <- func() error {
 			tokenPoolView, err := v1_5_1.GenerateUSDCTokenPoolView(pool)
 			if err != nil {
-				return fmt.Errorf("failed to generate USDC token pool view for %s: %w", pool.Address().String(), err)
+				lggr.Warnw("failed to generate USDC token pool view, skipping", "tokenPool", pool.Address().Hex(), "chain", chain, "error", err)
+				return nil
 			}
 			chainView.UpdateTokenPool(string(shared.USDCSymbol), pool.Address().Hex(), tokenPoolView)
 			lggr.Infow("generated USDC token pool view", "tokenPool", pool.Address().Hex(), "chain", chain)

@@ -856,7 +856,7 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
   MaxGasPrice = 100000000000  # 100 gwei
 ```
 
-`values` tables act as full replacements for a capability's configuration. When you override them (either in the defaults file or per-DON), you must provide the entire structure because individual fields are not merged with previously defined values.
+`values` are meant for storing values that will be used for capability configuration (be that the job specs or capability registry contract). When you override them (either in the defaults file or per-DON), you must provide the entire structure because individual fields are not merged with previously defined values.
 
 ### Step 6: Register the Capability
 
@@ -896,7 +896,7 @@ import (
 
 ### Step 7: Add to Environment Configurations
 
-To actually use your capability in tests, add it to the `capabilities` array inside the relevant topology under `core/scripts/cre/environment/configs/`. All capabilities—whether DON-wide or chain-scoped—live in this single list:
+To actually use your capability in tests, add it to the `capabilities` array inside the relevant topology under `core/scripts/cre/environment/configs/`. All capabilities live in this single list:
 
 ```toml
 # In workflow-gateway-don.toml, etc.
@@ -912,7 +912,6 @@ capabilities = [
 
 - Include the unsuffixed flag for capabilities that run globally (e.g., `ocr3`, `custom-compute`).
 - Append `-<chainID>` to scope a capability to a specific chain. Each chain you want to target must appear as its own suffixed entry (e.g., `write-evm-1337`).
-- Mixing global and chain-scoped entries in the same list is expected.
 
 Common configuration files:
 - `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node
@@ -1214,6 +1213,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 [[nodesets]]
   name = "data-feeds"
   don_types = ["capabilities"]
+  exposes_remote_capabilities = true # IMPORTANT: needs to be set to true if capabilities are to be accessible by the workflow DON
   capabilities = [
     "http-action",
     "cron",
