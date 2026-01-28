@@ -232,9 +232,14 @@ type CapabilityConfig struct {
 // in dst, its entire CapabilityConfig is preserved without modification.
 // Users who override a capability config must provide all required values.
 func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
-	for key, value := range src {
-		if _, exists := dst[key]; !exists {
-			dst[key] = value
+	for srcKey, srcValue := range src {
+		if dstValue, exists := dst[srcKey]; !exists {
+			dst[srcKey] = srcValue
+		} else {
+			if srcValue.BinaryPath != "" {
+				dstValue.BinaryPath = srcValue.BinaryPath
+			}
+			dst[srcKey] = dstValue
 		}
 	}
 }
