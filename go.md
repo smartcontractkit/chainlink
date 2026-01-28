@@ -464,6 +464,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/httpaction-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
@@ -479,6 +480,8 @@ flowchart LR
 	chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative --> cre-sdk-go/capabilities/blockchain/evm
+	click chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/http --> cre-sdk-go/capabilities/networking/http
 	click chainlink/system-tests/tests/regression/cre/http href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/networking/http
@@ -559,6 +562,7 @@ flowchart LR
 		 chainlink/system-tests/tests/regression/cre/consensus
 		 chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 		 chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
+		 chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 		 chainlink/system-tests/tests/regression/cre/http
 		 chainlink/system-tests/tests/regression/cre/httpaction-negative
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread

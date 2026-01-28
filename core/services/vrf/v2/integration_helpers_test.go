@@ -244,6 +244,9 @@ func testMultipleConsumersNeedBHS(
 		v2CoordinatorAddress = coordinatorAddress.String()
 	case vrfcommon.V2Plus:
 		v2PlusCoordinatorAddress = coordinatorAddress.String()
+		// Also set V2 to satisfy the database constraint which requires V1 OR V2 (but not V2Plus)
+		// Using the same contract address is safe since it's a valid contract
+		v2CoordinatorAddress = coordinatorAddress.String()
 	}
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
@@ -396,6 +399,9 @@ func testMultipleConsumersNeedTrustedBHS(
 		v2CoordinatorAddress = coordinatorAddress.String()
 	case vrfcommon.V2Plus:
 		v2PlusCoordinatorAddress = coordinatorAddress.String()
+		// Also set V2 to satisfy the database constraint which requires V1 OR V2 (but not V2Plus)
+		// Using the same contract address is safe since it's a valid contract (if not log poller will fail)
+		v2CoordinatorAddress = coordinatorAddress.String()
 	}
 
 	waitBlocks := 100
