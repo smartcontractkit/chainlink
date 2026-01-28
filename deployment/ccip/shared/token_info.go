@@ -128,7 +128,7 @@ const (
 	EthUSD   = "ETH / USD"
 	MaticUSD = "MATIC / USD"
 	BNBUSD   = "BNB / USD"
-	SUSD     = "S / USD"
+	SONICUSD = "S / USD"
 	USDCUSD  = "USDC / USD"
 	BTCUSD   = "BTC / USD"
 	LTCUSD   = "LTC / USD"
@@ -156,7 +156,7 @@ var (
 		EthUSD:                        {WethSymbol, WA0GISymbol},
 		MaticUSD:                      {WPOLSymbol},
 		BNBUSD:                        {WBNBSymbol},
-		SUSD:                          {WSSymbol},
+		SONICUSD:                      {WSBYSymbol},
 		BTCUSD:                        {WBTCNSymbol, WBTCSymbol},
 		LTCUSD:                        {WHYPESymbol},
 		USDCUSD:                       {WAPESymbol, WHSKSymbol, WSBYSymbol, WCROSymbol},
