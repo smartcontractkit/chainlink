@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
@@ -51,7 +52,8 @@ type EngineMetrics struct {
 	workflowExecutionStartedCounter   metric.Int64Counter
 	workflowExecutionSucceededCounter metric.Int64Counter
 
-	getSecretsDuration metric.Int64Histogram
+	getSecretsDuration     metric.Int64Histogram
+	callCapabilityDuration metric.Int64Histogram
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -239,6 +241,15 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
 	}
 
+	em.callCapabilityDuration, err = beholder.GetMeter().Int64Histogram(
+		"platform_engine_call_capability_duration_ms",
+		metric.WithDescription("Duration of CallCapability calls in ms"),
+		metric.WithUnit("ms"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -273,6 +284,12 @@ func MetricViews() []sdkmetric.View {
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_capability_execution_time_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 5, 10, 20, 60, 120, 240},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_call_capability_duration_ms"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: []float64{0, 5, 10, 20, 60, 120, 240},
 			}},
@@ -439,6 +456,12 @@ func (c WorkflowsMetricLabeler) UpdateWorkflowMeteringModeGauge(ctx context.Cont
 func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) RecordCallCapabilityDuration(ctx context.Context, segment string, duration int64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("segment", segment))
+	c.em.callCapabilityDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFailedCounter(ctx context.Context) {
