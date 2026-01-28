@@ -37,10 +37,10 @@ type orchestrator struct {
 var _ ShardOrchestrator = (*orchestrator)(nil)
 
 // New creates a new ShardOrchestrator service.
-func New(port int, store *shardorchestrator.Store, lggr logger.Logger) ShardOrchestrator {
+func New(port int, store *shardorchestrator.Store, shardAllocator shardorchestrator.ShardAllocator, lggr logger.Logger) ShardOrchestrator {
 	lggr = logger.Named(lggr, "ShardOrchestrator")
 
-	grpcHandler := shardorchestrator.NewServer(store, lggr)
+	grpcHandler := shardorchestrator.NewServer(store, shardAllocator, lggr)
 
 	grpcServer := grpc.NewServer()
 	grpcHandler.RegisterWithGRPCServer(grpcServer)
