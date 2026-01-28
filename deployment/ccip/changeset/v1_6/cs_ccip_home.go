@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -193,6 +194,8 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 				sourcePoolAddress = pool.Address()
 			} else if pool, ok := onchainState.USDCTokenPools[deployment.Version1_5_1]; ok {
 				sourcePoolAddress = pool.Address()
+			} else if proxy, ok := onchainState.USDCTokenPoolProxies[*semver.MustParse("1.7.0")]; ok {
+				sourcePoolAddress = proxy
 			} else {
 				return fmt.Errorf("chain %d does not have USDC token pool deployed with version %s or %s", sel, deployment.Version1_5_1, deployment.Version1_6_2)
 			}
@@ -200,7 +203,7 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			if common.HexToAddress(token.SourcePoolAddress) != sourcePoolAddress {
 				return fmt.Errorf("chain %d has latest USDC token pool deployed at %s, "+
 					"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
-					sel, onchainState.USDCTokenPools[deployment.Version1_5_1].Address().String(), token.SourcePoolAddress)
+					sel, sourcePoolAddress.String(), token.SourcePoolAddress)
 			}
 		case chain_selectors.FamilySolana:
 			onchainState, ok := state.SolChains[uint64(sel)]
