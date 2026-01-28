@@ -33,7 +33,7 @@ func TestJSON_Merge(t *testing.T) {
 			false,
 		},
 		{
-			"overwritting fields",
+			"overwriting fields",
 			`{"value":"OLD","other":1}`,
 			`{"value":["new","new"],"extra":2}`,
 			`{"value":["new","new"],"other":1,"extra":2}`,

@@ -769,7 +769,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
-			idleDurationOccured := make(chan struct{}, 3)
+			idleDurationOccurred := make(chan struct{}, 3)
 
 			tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 			if tc.expectedToSubmit {
@@ -779,15 +779,15 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				// idleDuration 1
 				roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
-					idleDurationOccured <- struct{}{}
+					idleDurationOccurred <- struct{}{}
 				})
 			}
 
 			require.NoError(t, fm.Start(testutils.Context(t)))
-			require.Empty(t, idleDurationOccured, "no Job Runs created")
+			require.Empty(t, idleDurationOccurred, "no Job Runs created")
 
 			if tc.expectedToSubmit {
-				g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
+				g.Eventually(func() int { return len(idleDurationOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
 
 				chBlock := make(chan struct{})
 				// NewRound resets the idle timer
@@ -808,16 +808,16 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				// idleDuration 2
 				roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
-					idleDurationOccured <- struct{}{}
+					idleDurationOccurred <- struct{}{}
 				})
 
-				g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
+				g.Eventually(func() int { return len(idleDurationOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
 			}
 
 			fm.Close()
 
 			if !tc.expectedToSubmit {
-				require.Empty(t, idleDurationOccured)
+				require.Empty(t, idleDurationOccurred)
 			}
 		})
 	}
@@ -849,7 +849,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	tm.logBroadcaster.On("IsConnected").Return(true)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 
-	pollOccured := make(chan struct{}, 4)
+	pollOccurred := make(chan struct{}, 4)
 
 	err := fm.Start(testutils.Context(t))
 	require.NoError(t, err)
@@ -858,7 +858,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 
 	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
-		pollOccured <- struct{}{}
+		pollOccurred <- struct{}{}
 	})
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", mock.Anything, contractAddress, uint32(1), mock.Anything).
@@ -868,12 +868,12 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	g.Eventually(func() int { return len(pollOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
+	g.Eventually(func() int { return len(pollOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// hiberation tick 1 triggers using the same round id as the initial poll. This resets the idle timer
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
-		pollOccured <- struct{}{}
+		pollOccurred <- struct{}{}
 	})
 
 	// Finds an existing run created by the initial poll
@@ -890,12 +890,12 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
-	g.Eventually(func() int { return len(pollOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
+	g.Eventually(func() int { return len(pollOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
 
 	// hiberation tick 2 triggers a new round. Started at is 0
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
-		pollOccured <- struct{}{}
+		pollOccurred <- struct{}{}
 	})
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", mock.Anything, contractAddress, uint32(2), mock.Anything).
@@ -905,7 +905,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	g.Eventually(func() int { return len(pollOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(3))
+	g.Eventually(func() int { return len(pollOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(3))
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
@@ -944,7 +944,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	tm.logBroadcaster.On("IsConnected").Return(true)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 
-	pollOccured := make(chan struct{}, 4)
+	pollOccurred := make(chan struct{}, 4)
 
 	err := fm.Start(testutils.Context(t))
 	require.NoError(t, err)
@@ -954,7 +954,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	// idle ticker
 	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now(), AvailableFunds: big.NewInt(0)}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
-		pollOccured <- struct{}{}
+		pollOccurred <- struct{}{}
 	})
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", mock.Anything, contractAddress, roundOne, mock.Anything).
@@ -965,14 +965,14 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 		}, nil).Once()
 
 	select {
-	case <-pollOccured:
+	case <-pollOccurred:
 	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur!")
 	}
 
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
-		pollOccured <- struct{}{}
+		pollOccurred <- struct{}{}
 	})
 
 	// Finds an error run, so that retry ticker will be kicked off
@@ -991,7 +991,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	}, nil)
 
 	select {
-	case <-pollOccured:
+	case <-pollOccurred:
 	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur!")
 	}
@@ -1011,18 +1011,18 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).
 		Run(func(args mock.Arguments) {
-			pollOccured <- struct{}{}
+			pollOccurred <- struct{}{}
 		}).
 		Once()
 
 	select {
-	case <-pollOccured:
+	case <-pollOccurred:
 		t.Fatal("Poll should not occur for next few seconds because we are in hibernation mode and all other tickers should be stopped")
 	case <-time.After(2 * time.Second):
 	}
 
 	select {
-	case <-pollOccured:
+	case <-pollOccurred:
 	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur, though it should have via hibernation ticker")
 	}
@@ -1053,7 +1053,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	tm.logBroadcaster.On("IsConnected").Return(true)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 
-	idleDurationOccured := make(chan struct{}, 4)
+	idleDurationOccurred := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
 	servicetest.Run(t, fm)
@@ -1070,13 +1070,13 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		}, nil).Once().Run(func(args mock.Arguments) {
 		initialPollOccurred <- struct{}{}
 	})
-	require.Empty(t, idleDurationOccured, "no Job Runs created")
+	require.Empty(t, idleDurationOccurred, "no Job Runs created")
 	g.Eventually(func() int { return len(initialPollOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// idleDuration 1 triggers using the same round id as the initial poll. This resets the idle timer
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
-		idleDurationOccured <- struct{}{}
+		idleDurationOccurred <- struct{}{}
 	})
 	// Finds an existing run created by the initial poll
 	tm.orm.
@@ -1092,12 +1092,12 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
-	g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
+	g.Eventually(func() int { return len(idleDurationOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// idleDuration 2 triggers a new round. Started at is 0
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
-		idleDurationOccured <- struct{}{}
+		idleDurationOccurred <- struct{}{}
 	})
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", mock.Anything, contractAddress, uint32(2), mock.Anything).
@@ -1107,12 +1107,12 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
+	g.Eventually(func() int { return len(idleDurationOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
 
 	// idleDuration 3 triggers from the previous new round
 	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() - 1000000}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Twice().Run(func(args mock.Arguments) {
-		idleDurationOccured <- struct{}{}
+		idleDurationOccurred <- struct{}{}
 	})
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", mock.Anything, contractAddress, uint32(3), mock.Anything).
@@ -1130,7 +1130,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
 	fm.ExportedProcessLogs()
 
-	g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(4))
+	g.Eventually(func() int { return len(idleDurationOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(4))
 }
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {

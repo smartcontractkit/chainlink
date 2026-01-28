@@ -38,6 +38,11 @@ import (
 
 var executingWorkflows atomic.Int64
 
+// Pin config version to 1 to avoid updating forwarder contracts on every single config update.
+// Config Version set in CapabilitiesRegistry is included in every report but is irrelevant
+// to validation on the forwarder side. What matters is DON ID and the set of signer public keys.
+const pinnedWorkflowDonConfigVersion = 1
+
 type Engine struct {
 	services.Service
 	srvcEng *services.Engine
@@ -103,7 +108,7 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 		platform.WorkflowRegistryAddress, e.cfg.WorkflowRegistryAddress,
 		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
-		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
+		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
 	}
 }
 
@@ -290,7 +295,8 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 	e.cfg.Lggr.Debugw("Setting local node state",
 		"Workflow DON ID", localNode.WorkflowDON.ID,
 		"Workflow DON Families", localNode.WorkflowDON.Families,
-		"Workflow DON Config Version", localNode.WorkflowDON.ConfigVersion,
+		"Workflow DON Config Version (onchain)", localNode.WorkflowDON.ConfigVersion,
+		"Workflow DON Config Version (pinned)", pinnedWorkflowDonConfigVersion,
 	)
 
 	// Recreate the beholder logger with updated labels to reflect the new DON version
@@ -417,12 +423,15 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
 				Metadata: capabilities.RequestMetadata{
-					WorkflowID:                    e.cfg.WorkflowID,
-					WorkflowOwner:                 e.cfg.WorkflowOwner,
-					WorkflowName:                  e.cfg.WorkflowName.Hex(),
-					WorkflowTag:                   e.cfg.WorkflowTag,
-					DecodedWorkflowName:           e.cfg.WorkflowName.String(),
-					WorkflowDonID:                 e.localNode.Load().WorkflowDON.ID,
+					WorkflowID:          e.cfg.WorkflowID,
+					WorkflowOwner:       e.cfg.WorkflowOwner,
+					WorkflowName:        e.cfg.WorkflowName.Hex(),
+					WorkflowTag:         e.cfg.WorkflowTag,
+					DecodedWorkflowName: e.cfg.WorkflowName.String(),
+					WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
+					// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
+					// that I can't reproduce locally. This values is unused in trigger subscription phase
+					// so it's not a problem. Still, let's do it right when CI is fixed.
 					WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
 					ReferenceID:                   fmt.Sprintf("trigger_%d", i),
 					WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,

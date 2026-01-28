@@ -64,6 +64,8 @@ func onConsensusNegativeTrigger(wfCfg config.Config, runtime cre.Runtime, payloa
 		return runConsensusGenerateReportWithInconsistentFeedIDs(runtime, wfCfg)
 	case "Consensus - inconsistent prices":
 		return runConsensusGenerateReportWithInconsistentPrices(runtime, wfCfg)
+	case "Consensus - oversized payload":
+		return runConsensusGenerateReportGreaterThanLimit(runtime, wfCfg)
 	default:
 		runtime.Logger().Warn("The provided name for function to test in regression Consensus Workflow did not match any known functions", "functionToTest", wfCfg.CaseToTrigger)
 		return nil, fmt.Errorf("the provided name for function to test in regression Consensus Workflow did not match any known functions: %s", wfCfg.CaseToTrigger)
@@ -110,6 +112,28 @@ func runConsensusGenerateReportWithInconsistentFeedIDs(runtime cre.Runtime, wfCf
 
 	runtime.Logger().Info("this is not expected: GenerateReport with inconsistent feedIDs should return an error", "generated_report", reportWithInconsistentFeedIDs)
 	return reportWithInconsistentFeedIDs, nil
+}
+
+// runConsensusGenerateReportGreaterThanLimit writes a report with size greater than limit
+// inconsistent prices should cause consensus to fail
+func runConsensusGenerateReportGreaterThanLimit(runtime cre.Runtime, wfCfg config.Config) (string, error) {
+	payloadSizeKB := wfCfg.PayloadSizeKB
+	runtime.Logger().Info("Running test for consensus oversized payload", "size_kb", payloadSizeKB)
+
+	generatedPayload := generateString(payloadSizeKB)
+	_, err := runtime.GenerateReport(&cre.ReportRequest{
+		EncodedPayload: generatedPayload,
+		EncoderName:    "evm",
+		SigningAlgo:    "ecdsa",
+		HashingAlgo:    "keccak256",
+	}).Await()
+	if err != nil {
+		runtime.Logger().Error("Failed to generate report due to payload size", "error", err)
+		return "", fmt.Errorf("failed to generate due to payload size: %w", err)
+	}
+
+	runtime.Logger().Info("Unexpected result. Consensus passed with oversized payload", "size_kb", payloadSizeKB)
+	return fmt.Sprintf("Unexpected result. Consensus passed with oversized payload: %d KB", payloadSizeKB), nil
 }
 
 // runConsensusGenerateReportWithInconsistentPrices writes a report with inconsistent prices
@@ -170,6 +194,16 @@ func createPriceOutputWithRandomFeedID(runtime cre.Runtime, wfCfg config.Config)
 	runtime.Logger().Info("priceOutput with random feedID created")
 
 	return outputWithRandomFeedID, nil
+}
+
+// generateString generates a deterministic byte slice of exactly the specified size in KB (count as 1000, it is not KiB).
+func generateString(sizeKB uint) []byte {
+	sizeBytes := int(sizeKB * 1000)
+	sizedPayload := make([]byte, sizeBytes)
+	for i := range sizedPayload {
+		sizedPayload[i] = 'A'
+	}
+	return sizedPayload
 }
 
 // createPriceOutputWithRandomPrice creates price output with random price
