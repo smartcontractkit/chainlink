@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 
@@ -35,6 +36,7 @@ type Eth interface {
 	EnsureKeys(ctx context.Context, chainIDs ...*big.Int) error
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
+	EnabledKeysForChainByID(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
 	CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error
 
@@ -343,6 +345,21 @@ func (ks *eth) EnabledKeysForChain(ctx context.Context, chainID *big.Int) (sendi
 	return ks.enabledKeysForChain(chainID), nil
 }
 
+// EnabledKeysForChainByID returns all keys that are enabled for the given chain,
+// sorted by State.ID (which reflects when the key was first enabled for the chain).
+// This provides deterministic ordering across time, unlike address-based sorting.
+func (ks *eth) EnabledKeysForChainByID(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error) {
+	if chainID == nil {
+		return nil, errors.New("chainID must be non-nil")
+	}
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	return ks.enabledKeysForChainByID(chainID), nil
+}
+
 func (ks *eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, whitelist ...common.Address) (common.Address, error) {
 	if chainID == nil {
 		return common.Address{}, errors.New("chainID must be non-nil")
@@ -473,6 +490,7 @@ func (ks *eth) GetStateForKey(ctx context.Context, key ethkey.KeyV2) (state ethk
 	err = fmt.Errorf("no state found for key with id %s", key.ID())
 	return
 }
+
 func (ks *eth) EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
@@ -539,6 +557,43 @@ func (ks *eth) getByID(id string) (ethkey.KeyV2, error) {
 // caller must hold lock!
 func (ks *eth) enabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2) {
 	return ks.keysForChain(chainID, false)
+}
+
+// caller must hold lock!
+func (ks *eth) enabledKeysForChainByID(chainID *big.Int) (keys []ethkey.KeyV2) {
+	states := ks.keyStates.ChainIDKeyID[chainID.String()]
+	if states == nil {
+		return
+	}
+
+	type keyWithState struct {
+		key   ethkey.KeyV2
+		state *ethkey.State
+	}
+	var keysWithStates []keyWithState
+
+	for keyID, state := range states {
+		if !state.Disabled {
+			k := ks.keyRing.Eth[keyID]
+			keysWithStates = append(keysWithStates, keyWithState{key: k, state: state})
+		}
+	}
+
+	// Sort by State.ID (serial primary key, lowest first). Use address as tiebreaker.
+	slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
+		if a.state.ID < b.state.ID {
+			return -1
+		}
+		if a.state.ID > b.state.ID {
+			return 1
+		}
+		return a.key.Cmp(b.key)
+	})
+
+	for _, kws := range keysWithStates {
+		keys = append(keys, kws.key)
+	}
+	return keys
 }
 
 // caller must hold lock!
