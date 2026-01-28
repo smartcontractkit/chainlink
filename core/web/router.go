@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -184,6 +185,8 @@ func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
 }
 
 func metricRoutes(r *gin.RouterGroup, includeHeap bool) {
+	runtime.SetBlockProfileRate(1)
+	runtime.SetMutexProfileFraction(1)
 	pprofGroup := r.Group("/debug/pprof")
 	pprofGroup.GET("/", ginHandlerFromHTTP(pprof.Index))
 	pprofGroup.GET("/cmdline", ginHandlerFromHTTP(pprof.Cmdline))
