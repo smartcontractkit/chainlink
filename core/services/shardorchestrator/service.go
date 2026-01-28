@@ -8,13 +8,13 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 // Server implements the gRPC ShardOrchestratorService
 // This runs on shard zero and serves requests from other shards
 type Server struct {
-	pb.UnimplementedShardOrchestratorServiceServer
+	ringpb.UnimplementedShardOrchestratorServiceServer
 	store  *Store
 	logger logger.Logger
 }
@@ -28,13 +28,13 @@ func NewServer(store *Store, lggr logger.Logger) *Server {
 
 // RegisterWithGRPCServer registers this service with a gRPC server
 func (s *Server) RegisterWithGRPCServer(grpcServer *grpc.Server) {
-	pb.RegisterShardOrchestratorServiceServer(grpcServer, s)
+	ringpb.RegisterShardOrchestratorServiceServer(grpcServer, s)
 	s.logger.Info("Registered ShardOrchestrator gRPC service")
 }
 
 // GetWorkflowShardMapping handles batch requests for workflow-to-shard mappings
 // This is called by other shards to determine where to route workflow executions
-func (s *Server) GetWorkflowShardMapping(ctx context.Context, req *pb.GetWorkflowShardMappingRequest) (*pb.GetWorkflowShardMappingResponse, error) {
+func (s *Server) GetWorkflowShardMapping(ctx context.Context, req *ringpb.GetWorkflowShardMappingRequest) (*ringpb.GetWorkflowShardMappingResponse, error) {
 	s.logger.Debugw("GetWorkflowShardMapping called", "workflowCount", len(req.WorkflowIds))
 
 	if len(req.WorkflowIds) == 0 {
@@ -51,21 +51,21 @@ func (s *Server) GetWorkflowShardMapping(ctx context.Context, req *pb.GetWorkflo
 	// Build simple mappings map (workflow_id -> shard_id)
 	simpleMappings := make(map[string]uint32, len(mappings))
 	// Build detailed mapping states
-	mappingStates := make(map[string]*pb.WorkflowMappingState, len(mappings))
+	mappingStates := make(map[string]*ringpb.WorkflowMappingState, len(mappings))
 
 	for workflowID, mapping := range mappings {
 		// Simple mapping: just the current shard
 		simpleMappings[workflowID] = mapping.NewShardID
 
 		// Detailed state: includes transition information
-		mappingStates[workflowID] = &pb.WorkflowMappingState{
+		mappingStates[workflowID] = &ringpb.WorkflowMappingState{
 			OldShardId:   mapping.OldShardID,
 			NewShardId:   mapping.NewShardID,
 			InTransition: mapping.TransitionState.InTransition(),
 		}
 	}
 
-	return &pb.GetWorkflowShardMappingResponse{
+	return &ringpb.GetWorkflowShardMappingResponse{
 		Mappings:       simpleMappings,
 		MappingStates:  mappingStates,
 		MappingVersion: version,
@@ -74,7 +74,7 @@ func (s *Server) GetWorkflowShardMapping(ctx context.Context, req *pb.GetWorkflo
 
 // ReportWorkflowTriggerRegistration handles shard registration reports
 // Shards call this to inform shard zero about which workflows they have loaded
-func (s *Server) ReportWorkflowTriggerRegistration(ctx context.Context, req *pb.ReportWorkflowTriggerRegistrationRequest) (*pb.ReportWorkflowTriggerRegistrationResponse, error) {
+func (s *Server) ReportWorkflowTriggerRegistration(ctx context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
 	s.logger.Debugw("ReportWorkflowTriggerRegistration called",
 		"shardID", req.SourceShardId,
 		"workflowCount", len(req.RegisteredWorkflows),
@@ -93,7 +93,7 @@ func (s *Server) ReportWorkflowTriggerRegistration(ctx context.Context, req *pb.
 			"shardID", req.SourceShardId,
 			"error", err,
 		)
-		return &pb.ReportWorkflowTriggerRegistrationResponse{
+		return &ringpb.ReportWorkflowTriggerRegistrationResponse{
 			Success: false,
 		}, nil
 	}
@@ -103,7 +103,7 @@ func (s *Server) ReportWorkflowTriggerRegistration(ctx context.Context, req *pb.
 		"workflowCount", len(workflowIDs),
 	)
 
-	return &pb.ReportWorkflowTriggerRegistrationResponse{
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{
 		Success: true,
 	}, nil
 }

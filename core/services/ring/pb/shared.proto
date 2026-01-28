@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package ring;
-
-option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/ring/pb";
-
-message ShardStatus {
-  bool is_healthy = 1;
-}

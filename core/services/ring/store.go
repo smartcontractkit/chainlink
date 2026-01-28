@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 // AllocationRequest represents a pending workflow allocation request during transition
@@ -21,10 +21,10 @@ type AllocationRequest struct {
 //   - Arbiter: provides shard health and scaling decisions
 //   - ShardOrchestrator: consumes routing state to direct workflow execution
 type Store struct {
-	routingState  map[string]uint32 // workflow_id -> shard_id (cache of allocated workflows)
-	shardHealth   map[uint32]bool   // shard_id -> is_healthy
-	healthyShards []uint32          // Sorted list of healthy shards
-	currentState  *pb.RoutingState  // Current routing state (steady or transition)
+	routingState  map[string]uint32    // workflow_id -> shard_id (cache of allocated workflows)
+	shardHealth   map[uint32]bool      // shard_id -> is_healthy
+	healthyShards []uint32             // Sorted list of healthy shards
+	currentState  *ringpb.RoutingState // Current routing state (steady or transition)
 
 	pendingAllocs map[string][]chan uint32 // workflow_id -> waiting channels
 	allocRequests chan AllocationRequest   // Channel for new allocation requests
@@ -121,13 +121,13 @@ func (s *Store) SetShardForWorkflow(workflowID string, shardID uint32) {
 }
 
 // SetRoutingState is called by the RingOCR plugin whenever a state transition happens.
-func (s *Store) SetRoutingState(state *pb.RoutingState) {
+func (s *Store) SetRoutingState(state *ringpb.RoutingState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.currentState = state
 }
 
-func (s *Store) GetRoutingState() *pb.RoutingState {
+func (s *Store) GetRoutingState() *ringpb.RoutingState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.currentState
@@ -181,9 +181,9 @@ func (s *Store) SetAllShardHealth(health map[uint32]bool) {
 				numHealthy++
 			}
 		}
-		s.currentState = &pb.RoutingState{
-			State: &pb.RoutingState_Transition{
-				Transition: &pb.Transition{
+		s.currentState = &ringpb.RoutingState{
+			State: &ringpb.RoutingState_Transition{
+				Transition: &ringpb.Transition{
 					WantShards: numHealthy,
 				},
 			},

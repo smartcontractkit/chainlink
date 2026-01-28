@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
@@ -24,14 +24,14 @@ var _ core.OCR3ReportingPluginFactory = &Factory{}
 type Factory struct {
 	ringStore              *Store
 	shardOrchestratorStore *shardorchestrator.Store
-	arbiterScaler          pb.ArbiterScalerClient
+	arbiterScaler          ringpb.ArbiterScalerClient
 	config                 *ConsensusConfig
 	lggr                   logger.Logger
 
 	services.StateMachine
 }
 
-func NewFactory(s *Store, shardOrchestratorStore *shardorchestrator.Store, arbiterScaler pb.ArbiterScalerClient, lggr logger.Logger, cfg *ConsensusConfig) (*Factory, error) {
+func NewFactory(s *Store, shardOrchestratorStore *shardorchestrator.Store, arbiterScaler ringpb.ArbiterScalerClient, lggr logger.Logger, cfg *ConsensusConfig) (*Factory, error) {
 	if arbiterScaler == nil {
 		return nil, errors.New("arbiterScaler is required")
 	}

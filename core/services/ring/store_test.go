@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 func TestStore_DeterministicHashing(t *testing.T) {
@@ -20,8 +20,8 @@ func TestStore_DeterministicHashing(t *testing.T) {
 		2: true,
 	})
 	// Simulate OCR having moved to steady state
-	store.SetRoutingState(&pb.RoutingState{
-		State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 	})
 
 	ctx := context.Background()
@@ -46,8 +46,8 @@ func TestStore_ConsistentRingConsistency(t *testing.T) {
 
 	// All stores with same healthy shards
 	healthyShards := map[uint32]bool{0: true, 1: true, 2: true}
-	steadyState := &pb.RoutingState{
-		State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+	steadyState := &ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 	}
 	store1.SetAllShardHealth(healthyShards)
 	store1.SetRoutingState(steadyState)
@@ -79,8 +79,8 @@ func TestStore_Rebalancing(t *testing.T) {
 
 	// Start with 3 healthy shards
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
-	store.SetRoutingState(&pb.RoutingState{
-		State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 	})
 	assignments1 := make(map[string]uint32)
 	for i := 1; i <= 10; i++ {
@@ -138,8 +138,8 @@ func TestStore_DistributionAcrossShards(t *testing.T) {
 		1: true,
 		2: true,
 	})
-	store.SetRoutingState(&pb.RoutingState{
-		State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 	})
 
 	// Generate many workflows and check distribution
@@ -176,8 +176,8 @@ func TestStore_GetShardForWorkflow_CacheHit(t *testing.T) {
 
 	// Set up steady state
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
-	store.SetRoutingState(&pb.RoutingState{
-		State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 	})
 
 	// Pre-populate cache with a specific shard assignment
@@ -194,9 +194,9 @@ func TestStore_GetShardForWorkflow_ContextCancelledDuringSend(t *testing.T) {
 
 	// Put store in transition state
 	store.SetAllShardHealth(map[uint32]bool{0: true})
-	store.SetRoutingState(&pb.RoutingState{
-		State: &pb.RoutingState_Transition{
-			Transition: &pb.Transition{WantShards: 2},
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_Transition{
+			Transition: &ringpb.Transition{WantShards: 2},
 		},
 	})
 
@@ -219,9 +219,9 @@ func TestStore_PendingAllocsDuringTransition(t *testing.T) {
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true})
 
 	// Put store in transition state
-	store.SetRoutingState(&pb.RoutingState{
-		State: &pb.RoutingState_Transition{
-			Transition: &pb.Transition{WantShards: 3},
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_Transition{
+			Transition: &ringpb.Transition{WantShards: 3},
 		},
 	})
 
@@ -258,8 +258,8 @@ func TestStore_AccessorMethods(t *testing.T) {
 	store := NewStore()
 
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: false})
-	store.SetRoutingState(&pb.RoutingState{
-		State: &pb.RoutingState_RoutableShards{RoutableShards: 2},
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
 	})
 	store.SetShardForWorkflow("wf-1", 0)
 	store.SetShardForWorkflow("wf-2", 1)
@@ -301,8 +301,8 @@ func TestStore_AccessorMethods(t *testing.T) {
 	})
 
 	t.Run("IsInTransition_transition_state", func(t *testing.T) {
-		store.SetRoutingState(&pb.RoutingState{
-			State: &pb.RoutingState_Transition{Transition: &pb.Transition{WantShards: 3}},
+		store.SetRoutingState(&ringpb.RoutingState{
+			State: &ringpb.RoutingState_Transition{Transition: &ringpb.Transition{WantShards: 3}},
 		})
 		require.True(t, store.IsInTransition())
 	})

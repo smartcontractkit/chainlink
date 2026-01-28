@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
@@ -20,7 +20,7 @@ func TestFactory_NewFactory(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		arbiter   pb.ArbiterScalerClient
+		arbiter   ringpb.ArbiterScalerClient
 		config    *ConsensusConfig
 		wantErr   bool
 		errSubstr string

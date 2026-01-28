@@ -16,35 +16,35 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
 type mockArbiter struct {
-	status *pb.ReplicaStatus
+	status *ringpb.ReplicaStatus
 }
 
-func (m *mockArbiter) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*pb.ReplicaStatus, error) {
+func (m *mockArbiter) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ringpb.ReplicaStatus, error) {
 	if m.status != nil {
 		return m.status, nil
 	}
-	return &pb.ReplicaStatus{}, nil
+	return &ringpb.ReplicaStatus{}, nil
 }
 
-func (m *mockArbiter) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *mockArbiter) ConsensusWantShards(ctx context.Context, req *ringpb.ConsensusWantShardsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
 
-var twoHealthyShards = []map[uint32]*pb.ShardStatus{
+var twoHealthyShards = []map[uint32]*ringpb.ShardStatus{
 	{0: {IsHealthy: true}, 1: {IsHealthy: true}},
 	{0: {IsHealthy: true}, 1: {IsHealthy: true}},
 	{0: {IsHealthy: true}, 1: {IsHealthy: true}},
 }
 
-func toShardStatus(m map[uint32]bool) map[uint32]*pb.ShardStatus {
-	result := make(map[uint32]*pb.ShardStatus, len(m))
+func toShardStatus(m map[uint32]bool) map[uint32]*ringpb.ShardStatus {
+	result := make(map[uint32]*ringpb.ShardStatus, len(m))
 	for k, v := range m {
-		result[k] = &pb.ShardStatus{IsHealthy: v}
+		result[k] = &ringpb.ShardStatus{IsHealthy: v}
 	}
 	return result
 }
@@ -73,7 +73,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		// Observations from 4 NOPs reporting health, workflows, and wantShards=3
 		observations := []struct {
 			name        string
-			shardStatus map[uint32]*pb.ShardStatus
+			shardStatus map[uint32]*ringpb.ShardStatus
 			workflows   []string
 			wantShards  uint32
 		}{
@@ -106,7 +106,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		// Build attributed observations
 		aos := make([]types.AttributedObservation, 0)
 		for idx, obs := range observations {
-			pbObs := &pb.Observation{
+			pbObs := &ringpb.Observation{
 				ShardStatus: obs.shardStatus,
 				WorkflowIds: obs.workflows,
 				Now:         timestamppb.Now(),
@@ -127,7 +127,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		require.NotNil(t, outcome)
 
 		// Verify outcome
-		outcomeProto := &pb.Outcome{}
+		outcomeProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome, outcomeProto)
 		require.NoError(t, err)
 
@@ -153,7 +153,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		outcome2, err := plugin.Outcome(ctx, outcomeCtx, nil, aos)
 		require.NoError(t, err)
 
-		outcomeProto2 := &pb.Outcome{}
+		outcomeProto2 := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome2, outcomeProto2)
 		require.NoError(t, err)
 
@@ -192,7 +192,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 		}
 
 		// Only 1 healthy shard in observations with wantShards=1
-		aos := makeObservationsWithWantShards(t, []map[uint32]*pb.ShardStatus{
+		aos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}},
 			{0: {IsHealthy: true}},
 			{0: {IsHealthy: true}},
@@ -201,7 +201,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 		outcome, err := plugin.Outcome(ctx, outcomeCtx, nil, aos)
 		require.NoError(t, err)
 
-		outcomeProto := &pb.Outcome{}
+		outcomeProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome, outcomeProto)
 		require.NoError(t, err)
 
@@ -214,14 +214,14 @@ func TestPlugin_StateTransitions(t *testing.T) {
 	// Test 2: Transition triggered when wantShards changes
 	t.Run("transition_triggered", func(t *testing.T) {
 		// Start with 1 shard in stable state
-		priorOutcome := &pb.Outcome{
-			State: &pb.RoutingState{
+		priorOutcome := &ringpb.Outcome{
+			State: &ringpb.RoutingState{
 				Id: 1,
-				State: &pb.RoutingState_RoutableShards{
+				State: &ringpb.RoutingState_RoutableShards{
 					RoutableShards: 1,
 				},
 			},
-			Routes: map[string]*pb.WorkflowRoute{},
+			Routes: map[string]*ringpb.WorkflowRoute{},
 		}
 		priorBytes, err := proto.Marshal(priorOutcome)
 		require.NoError(t, err)
@@ -237,7 +237,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 		outcome, err := plugin.Outcome(ctx, outcomeCtx, nil, aos)
 		require.NoError(t, err)
 
-		outcomeProto := &pb.Outcome{}
+		outcomeProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome, outcomeProto)
 		require.NoError(t, err)
 
@@ -253,18 +253,18 @@ func TestPlugin_StateTransitions(t *testing.T) {
 	// Test 3: Stay in transition during safety period
 	t.Run("stay_in_transition", func(t *testing.T) {
 		safeAfter := now.Add(1 * time.Hour)
-		priorOutcome := &pb.Outcome{
-			State: &pb.RoutingState{
+		priorOutcome := &ringpb.Outcome{
+			State: &ringpb.RoutingState{
 				Id: 2,
-				State: &pb.RoutingState_Transition{
-					Transition: &pb.Transition{
+				State: &ringpb.RoutingState_Transition{
+					Transition: &ringpb.Transition{
 						WantShards:       2,
 						LastStableCount:  1,
 						ChangesSafeAfter: timestamppb.New(safeAfter),
 					},
 				},
 			},
-			Routes: map[string]*pb.WorkflowRoute{},
+			Routes: map[string]*ringpb.WorkflowRoute{},
 		}
 		priorBytes, err := proto.Marshal(priorOutcome)
 		require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 		outcome, err := plugin.Outcome(ctx, outcomeCtx, nil, aos)
 		require.NoError(t, err)
 
-		outcomeProto := &pb.Outcome{}
+		outcomeProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome, outcomeProto)
 		require.NoError(t, err)
 
@@ -294,18 +294,18 @@ func TestPlugin_StateTransitions(t *testing.T) {
 	// Test 4: Complete transition after safety period
 	t.Run("complete_transition", func(t *testing.T) {
 		safeAfter := now.Add(-1 * time.Second) // Safety period already passed
-		priorOutcome := &pb.Outcome{
-			State: &pb.RoutingState{
+		priorOutcome := &ringpb.Outcome{
+			State: &ringpb.RoutingState{
 				Id: 2,
-				State: &pb.RoutingState_Transition{
-					Transition: &pb.Transition{
+				State: &ringpb.RoutingState_Transition{
+					Transition: &ringpb.Transition{
 						WantShards:       2,
 						LastStableCount:  1,
 						ChangesSafeAfter: timestamppb.New(safeAfter),
 					},
 				},
 			},
-			Routes: map[string]*pb.WorkflowRoute{},
+			Routes: map[string]*ringpb.WorkflowRoute{},
 		}
 		priorBytes, err := proto.Marshal(priorOutcome)
 		require.NoError(t, err)
@@ -320,7 +320,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 		outcome, err := plugin.Outcome(ctx, outcomeCtx, nil, aos)
 		require.NoError(t, err)
 
-		outcomeProto := &pb.Outcome{}
+		outcomeProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome, outcomeProto)
 		require.NoError(t, err)
 
@@ -333,14 +333,14 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 5: Stay stable when wantShards matches current
 	t.Run("stay_stable", func(t *testing.T) {
-		priorOutcome := &pb.Outcome{
-			State: &pb.RoutingState{
+		priorOutcome := &ringpb.Outcome{
+			State: &ringpb.RoutingState{
 				Id: 3,
-				State: &pb.RoutingState_RoutableShards{
+				State: &ringpb.RoutingState_RoutableShards{
 					RoutableShards: 2,
 				},
 			},
-			Routes: map[string]*pb.WorkflowRoute{},
+			Routes: map[string]*ringpb.WorkflowRoute{},
 		}
 		priorBytes, err := proto.Marshal(priorOutcome)
 		require.NoError(t, err)
@@ -356,7 +356,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 		outcome, err := plugin.Outcome(ctx, outcomeCtx, nil, aos)
 		require.NoError(t, err)
 
-		outcomeProto := &pb.Outcome{}
+		outcomeProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome, outcomeProto)
 		require.NoError(t, err)
 
@@ -368,10 +368,10 @@ func TestPlugin_StateTransitions(t *testing.T) {
 	})
 }
 
-func makeObservationsWithWantShards(t *testing.T, shardStatuses []map[uint32]*pb.ShardStatus, workflows []string, now time.Time, wantShards uint32) []types.AttributedObservation {
+func makeObservationsWithWantShards(t *testing.T, shardStatuses []map[uint32]*ringpb.ShardStatus, workflows []string, now time.Time, wantShards uint32) []types.AttributedObservation {
 	aos := make([]types.AttributedObservation, 0, len(shardStatuses))
 	for i, status := range shardStatuses {
-		pbObs := &pb.Observation{
+		pbObs := &ringpb.Observation{
 			ShardStatus: status,
 			WorkflowIds: workflows,
 			Now:         timestamppb.New(now),
@@ -470,7 +470,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	now := time.Now()
 	aos := make([]types.AttributedObservation, 3)
 	for i := 0; i < 3; i++ {
-		pbObs := &pb.Observation{
+		pbObs := &ringpb.Observation{
 			ShardStatus: toShardStatus(map[uint32]bool{0: false, 1: false, 2: false}),
 			WorkflowIds: []string{"workflow-123"},
 			Now:         timestamppb.New(now),
@@ -484,12 +484,12 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	}
 
 	// Use a previous outcome in steady state so we can test the fallback
-	priorOutcome := &pb.Outcome{
-		State: &pb.RoutingState{
+	priorOutcome := &ringpb.Outcome{
+		State: &ringpb.RoutingState{
 			Id:    1,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		},
-		Routes: map[string]*pb.WorkflowRoute{},
+		Routes: map[string]*ringpb.WorkflowRoute{},
 	}
 	priorBytes, err := proto.Marshal(priorOutcome)
 	require.NoError(t, err)
@@ -522,7 +522,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	}
 
 	// Verify the outcome assigned workflow-123 to shard 0
-	outcomeProto := &pb.Outcome{}
+	outcomeProto := &ringpb.Outcome{}
 	err = proto.Unmarshal(outcome, outcomeProto)
 	require.NoError(t, err)
 
@@ -620,7 +620,7 @@ func TestPlugin_ShardOrchestratorIntegration(t *testing.T) {
 	t.Run("initial_workflow_assignments", func(t *testing.T) {
 		// Create observations with workflows
 		workflows := []string{"wf-A", "wf-B", "wf-C"}
-		aos := makeObservationsWithWantShards(t, []map[uint32]*pb.ShardStatus{
+		aos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
@@ -670,7 +670,7 @@ func TestPlugin_ShardOrchestratorIntegration(t *testing.T) {
 	t.Run("workflow_transition_detected", func(t *testing.T) {
 		// First, establish a baseline with workflows distributed across 3 shards
 		// Use wantShards=3 to ensure workflows actually get assigned to shard 2
-		baselineAos := makeObservationsWithWantShards(t, []map[uint32]*pb.ShardStatus{
+		baselineAos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
@@ -686,7 +686,7 @@ func TestPlugin_ShardOrchestratorIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Parse baseline to see which workflows were on shard 2
-		baselineProto := &pb.Outcome{}
+		baselineProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(baselineOutcome, baselineProto)
 		require.NoError(t, err)
 
@@ -700,7 +700,7 @@ func TestPlugin_ShardOrchestratorIntegration(t *testing.T) {
 		require.NotEmpty(t, workflowsOnShard2, "at least one workflow should be on shard 2 for this test")
 
 		// Now scale down to 2 shards - workflows on shard 2 MUST move
-		transitionAos := makeObservationsWithWantShards(t, []map[uint32]*pb.ShardStatus{
+		transitionAos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}},
@@ -721,7 +721,7 @@ func TestPlugin_ShardOrchestratorIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify orchestrator store shows transition state for workflows that moved from shard 2
-		outcomeProto := &pb.Outcome{}
+		outcomeProto := &ringpb.Outcome{}
 		err = proto.Unmarshal(outcome, outcomeProto)
 		require.NoError(t, err)
 

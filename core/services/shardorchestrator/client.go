@@ -8,13 +8,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 // Client wraps gRPC client for communicating with shard 0's orchestrator service
 type Client struct {
 	conn   *grpc.ClientConn
-	client pb.ShardOrchestratorServiceClient
+	client ringpb.ShardOrchestratorServiceClient
 	logger logger.Logger
 }
 
@@ -29,16 +29,16 @@ func NewClient(ctx context.Context, address string, lggr logger.Logger) (*Client
 
 	return &Client{
 		conn:   conn,
-		client: pb.NewShardOrchestratorServiceClient(conn),
+		client: ringpb.NewShardOrchestratorServiceClient(conn),
 		logger: logger.Named(lggr, "ShardOrchestratorClient"),
 	}, nil
 }
 
 // GetWorkflowShardMapping queries shard 0 for workflow-to-shard mappings
-func (c *Client) GetWorkflowShardMapping(ctx context.Context, workflowIDs []string) (*pb.GetWorkflowShardMappingResponse, error) {
+func (c *Client) GetWorkflowShardMapping(ctx context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
 	c.logger.Debugw("Calling GetWorkflowShardMapping", "workflowCount", len(workflowIDs))
 
-	req := &pb.GetWorkflowShardMappingRequest{
+	req := &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	}
 
@@ -55,7 +55,7 @@ func (c *Client) GetWorkflowShardMapping(ctx context.Context, workflowIDs []stri
 }
 
 // ReportWorkflowTriggerRegistration reports workflow trigger registration to shard 0
-func (c *Client) ReportWorkflowTriggerRegistration(ctx context.Context, req *pb.ReportWorkflowTriggerRegistrationRequest) (*pb.ReportWorkflowTriggerRegistrationResponse, error) {
+func (c *Client) ReportWorkflowTriggerRegistration(ctx context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
 	c.logger.Debugw("Calling ReportWorkflowTriggerRegistration",
 		"shardID", req.SourceShardId,
 		"workflowCount", len(req.RegisteredWorkflows))

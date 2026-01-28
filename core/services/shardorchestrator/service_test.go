@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator/pb"
 )
 
 func TestServer_GetWorkflowShardMapping(t *testing.T) {
@@ -44,7 +44,7 @@ func TestServer_GetWorkflowShardMapping(t *testing.T) {
 		require.NoError(t, err)
 
 		// Request all three workflows
-		req := &pb.GetWorkflowShardMappingRequest{
+		req := &ringpb.GetWorkflowShardMappingRequest{
 			WorkflowIds: []string{"wf-alpha", "wf-beta", "wf-gamma"},
 		}
 
@@ -81,7 +81,7 @@ func TestServer_GetWorkflowShardMapping(t *testing.T) {
 		store := shardorchestrator.NewStore(lggr)
 		server := shardorchestrator.NewServer(store, lggr)
 
-		req := &pb.GetWorkflowShardMappingRequest{
+		req := &ringpb.GetWorkflowShardMappingRequest{
 			WorkflowIds: []string{},
 		}
 
@@ -102,7 +102,7 @@ func TestServer_GetWorkflowShardMapping(t *testing.T) {
 		require.NoError(t, err)
 
 		// Request one that exists and one that doesn't - batch query silently skips missing workflows
-		req := &pb.GetWorkflowShardMappingRequest{
+		req := &ringpb.GetWorkflowShardMappingRequest{
 			WorkflowIds: []string{"exists", "does-not-exist"},
 		}
 

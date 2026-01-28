@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 type mockArbiterScaler struct {
@@ -22,11 +22,11 @@ type mockArbiterScaler struct {
 	err     error
 }
 
-func (m *mockArbiterScaler) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*pb.ReplicaStatus, error) {
-	return &pb.ReplicaStatus{}, nil
+func (m *mockArbiterScaler) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ringpb.ReplicaStatus, error) {
+	return &ringpb.ReplicaStatus{}, nil
 }
 
-func (m *mockArbiterScaler) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *mockArbiterScaler) ConsensusWantShards(ctx context.Context, req *ringpb.ConsensusWantShardsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	m.called = true
 	m.nShards = req.NShards
 	if m.err != nil {
@@ -58,12 +58,12 @@ func TestTransmitter_Transmit(t *testing.T) {
 	mock := &mockArbiterScaler{}
 	tx := NewTransmitter(lggr, store, nil, mock, "test-account")
 
-	outcome := &pb.Outcome{
-		State: &pb.RoutingState{
+	outcome := &ringpb.Outcome{
+		State: &ringpb.RoutingState{
 			Id:    1,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		},
-		Routes: map[string]*pb.WorkflowRoute{
+		Routes: map[string]*ringpb.WorkflowRoute{
 			"wf-1": {Shard: 0},
 			"wf-2": {Shard: 1},
 		},
@@ -91,12 +91,12 @@ func TestTransmitter_Transmit_NilArbiter(t *testing.T) {
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, nil, "test-account")
 
-	outcome := &pb.Outcome{
-		State: &pb.RoutingState{
+	outcome := &ringpb.Outcome{
+		State: &ringpb.RoutingState{
 			Id:    1,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: 2},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
 		},
-		Routes: map[string]*pb.WorkflowRoute{"wf-1": {Shard: 0}},
+		Routes: map[string]*ringpb.WorkflowRoute{"wf-1": {Shard: 0}},
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
@@ -110,11 +110,11 @@ func TestTransmitter_Transmit_TransitionState(t *testing.T) {
 	mock := &mockArbiterScaler{}
 	tx := NewTransmitter(lggr, store, nil, mock, "test-account")
 
-	outcome := &pb.Outcome{
-		State: &pb.RoutingState{
+	outcome := &ringpb.Outcome{
+		State: &ringpb.RoutingState{
 			Id: 1,
-			State: &pb.RoutingState_Transition{
-				Transition: &pb.Transition{WantShards: 5},
+			State: &ringpb.RoutingState_Transition{
+				Transition: &ringpb.Transition{WantShards: 5},
 			},
 		},
 	}
@@ -142,10 +142,10 @@ func TestTransmitter_Transmit_ArbiterError(t *testing.T) {
 	mock := &mockArbiterScaler{err: context.DeadlineExceeded}
 	tx := NewTransmitter(lggr, store, nil, mock, "test-account")
 
-	outcome := &pb.Outcome{
-		State: &pb.RoutingState{
+	outcome := &ringpb.Outcome{
+		State: &ringpb.RoutingState{
 			Id:    1,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		},
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
@@ -159,9 +159,9 @@ func TestTransmitter_Transmit_NilState(t *testing.T) {
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, nil, "test-account")
 
-	outcome := &pb.Outcome{
+	outcome := &ringpb.Outcome{
 		State:  nil,
-		Routes: map[string]*pb.WorkflowRoute{"wf-1": {Shard: 0}},
+		Routes: map[string]*ringpb.WorkflowRoute{"wf-1": {Shard: 0}},
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 

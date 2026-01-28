@@ -7,16 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 func TestStateTransitionDeterminism(t *testing.T) {
 	now := time.Unix(0, 0)
 	timeToSync := 5 * time.Minute
 
-	current := &pb.RoutingState{
+	current := &ringpb.RoutingState{
 		Id:    1,
-		State: &pb.RoutingState_RoutableShards{RoutableShards: 2},
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
 	}
 
 	// Same inputs should produce identical outputs
@@ -39,7 +39,7 @@ func TestFV_StateIDMonotonicity(t *testing.T) {
 
 	testCases := []struct {
 		name  string
-		state *pb.RoutingState
+		state *ringpb.RoutingState
 		now   time.Time
 	}{
 		// Steady state cases
@@ -219,7 +219,7 @@ func TestFV_EventualCompletion(t *testing.T) {
 
 // ∀ state: exactly one of (IsInSteadyState, IsInTransition) is true
 func TestFV_StateTypeExclusivity(t *testing.T) {
-	states := []*pb.RoutingState{
+	states := []*ringpb.RoutingState{
 		steadyState(0, 1),
 		steadyState(5, 3),
 		transitionState(0, 1, 2, time.Now()),
@@ -228,7 +228,7 @@ func TestFV_StateTypeExclusivity(t *testing.T) {
 
 	for i, state := range states {
 		isSteady := IsInSteadyState(state)
-		_, isTransition := state.State.(*pb.RoutingState_Transition)
+		_, isTransition := state.State.(*ringpb.RoutingState_Transition)
 
 		require.NotEqual(t, isSteady, isTransition,
 			"state %d: exactly one state type must be true", i)
@@ -244,18 +244,18 @@ func TestFV_NilStateSafety(t *testing.T) {
 	require.Error(t, err, "NextState must reject nil input")
 }
 
-func steadyState(id uint64, shards uint32) *pb.RoutingState {
-	return &pb.RoutingState{
+func steadyState(id uint64, shards uint32) *ringpb.RoutingState {
+	return &ringpb.RoutingState{
 		Id:    id,
-		State: &pb.RoutingState_RoutableShards{RoutableShards: shards},
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: shards},
 	}
 }
 
-func transitionState(id uint64, lastStable, wantShards uint32, safeAfter time.Time) *pb.RoutingState {
-	return &pb.RoutingState{
+func transitionState(id uint64, lastStable, wantShards uint32, safeAfter time.Time) *ringpb.RoutingState {
+	return &ringpb.RoutingState{
 		Id: id,
-		State: &pb.RoutingState_Transition{
-			Transition: &pb.Transition{
+		State: &ringpb.RoutingState_Transition{
+			Transition: &ringpb.Transition{
 				WantShards:       wantShards,
 				LastStableCount:  lastStable,
 				ChangesSafeAfter: timestamppb.New(safeAfter),

@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
@@ -19,33 +19,33 @@ func TransitionStateFromBool(inTransition bool) shardorchestrator.TransitionStat
 }
 
 // TransitionStateFromRoutingState returns the TransitionState based on RoutingState
-func TransitionStateFromRoutingState(state *pb.RoutingState) shardorchestrator.TransitionState {
+func TransitionStateFromRoutingState(state *ringpb.RoutingState) shardorchestrator.TransitionState {
 	if IsInSteadyState(state) {
 		return shardorchestrator.StateSteady
 	}
 	return shardorchestrator.StateTransitioning
 }
 
-func IsInSteadyState(state *pb.RoutingState) bool {
+func IsInSteadyState(state *ringpb.RoutingState) bool {
 	if state == nil {
 		return false
 	}
-	_, ok := state.State.(*pb.RoutingState_RoutableShards)
+	_, ok := state.State.(*ringpb.RoutingState_RoutableShards)
 	return ok
 }
 
-func NextStateFromSteady(currentID uint64, currentShards, wantShards uint32, now time.Time, timeToSync time.Duration) *pb.RoutingState {
+func NextStateFromSteady(currentID uint64, currentShards, wantShards uint32, now time.Time, timeToSync time.Duration) *ringpb.RoutingState {
 	if currentShards == wantShards {
-		return &pb.RoutingState{
+		return &ringpb.RoutingState{
 			Id:    currentID,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: currentShards},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: currentShards},
 		}
 	}
 
-	return &pb.RoutingState{
+	return &ringpb.RoutingState{
 		Id: currentID + 1,
-		State: &pb.RoutingState_Transition{
-			Transition: &pb.Transition{
+		State: &ringpb.RoutingState_Transition{
+			Transition: &ringpb.Transition{
 				WantShards:       wantShards,
 				LastStableCount:  currentShards,
 				ChangesSafeAfter: timestamppb.New(now.Add(timeToSync)),
@@ -54,36 +54,36 @@ func NextStateFromSteady(currentID uint64, currentShards, wantShards uint32, now
 	}
 }
 
-func NextStateFromTransition(currentID uint64, transition *pb.Transition, now time.Time) *pb.RoutingState {
+func NextStateFromTransition(currentID uint64, transition *ringpb.Transition, now time.Time) *ringpb.RoutingState {
 	safeAfter := transition.ChangesSafeAfter.AsTime()
 
 	if now.Before(safeAfter) {
-		return &pb.RoutingState{
+		return &ringpb.RoutingState{
 			Id: currentID,
-			State: &pb.RoutingState_Transition{
+			State: &ringpb.RoutingState_Transition{
 				Transition: transition,
 			},
 		}
 	}
 
-	return &pb.RoutingState{
+	return &ringpb.RoutingState{
 		Id: currentID + 1,
-		State: &pb.RoutingState_RoutableShards{
+		State: &ringpb.RoutingState_RoutableShards{
 			RoutableShards: transition.WantShards,
 		},
 	}
 }
 
-func NextState(current *pb.RoutingState, wantShards uint32, now time.Time, timeToSync time.Duration) (*pb.RoutingState, error) {
+func NextState(current *ringpb.RoutingState, wantShards uint32, now time.Time, timeToSync time.Duration) (*ringpb.RoutingState, error) {
 	if current == nil {
 		return nil, errors.New("current state is nil")
 	}
 
 	switch s := current.State.(type) {
-	case *pb.RoutingState_RoutableShards:
+	case *ringpb.RoutingState_RoutableShards:
 		return NextStateFromSteady(current.Id, s.RoutableShards, wantShards, now, timeToSync), nil
 
-	case *pb.RoutingState_Transition:
+	case *ringpb.RoutingState_Transition:
 		return NextStateFromTransition(current.Id, s.Transition, now), nil
 
 	// coverage:ignore

@@ -13,26 +13,26 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 const bufSize = 1024 * 1024
 
 // mockShardOrchestratorServer implements the gRPC server for testing
 type mockShardOrchestratorServer struct {
-	pb.UnimplementedShardOrchestratorServiceServer
+	ringpb.UnimplementedShardOrchestratorServiceServer
 	mappings           map[string]uint32
 	registrationCalled bool
 }
 
-func (m *mockShardOrchestratorServer) GetWorkflowShardMapping(ctx context.Context, req *pb.GetWorkflowShardMappingRequest) (*pb.GetWorkflowShardMappingResponse, error) {
+func (m *mockShardOrchestratorServer) GetWorkflowShardMapping(ctx context.Context, req *ringpb.GetWorkflowShardMappingRequest) (*ringpb.GetWorkflowShardMappingResponse, error) {
 	mappings := make(map[string]uint32)
-	mappingStates := make(map[string]*pb.WorkflowMappingState)
+	mappingStates := make(map[string]*ringpb.WorkflowMappingState)
 
 	for _, wfID := range req.WorkflowIds {
 		if shardID, ok := m.mappings[wfID]; ok {
 			mappings[wfID] = shardID
-			mappingStates[wfID] = &pb.WorkflowMappingState{
+			mappingStates[wfID] = &ringpb.WorkflowMappingState{
 				OldShardId:   0,
 				NewShardId:   shardID,
 				InTransition: false,
@@ -40,16 +40,16 @@ func (m *mockShardOrchestratorServer) GetWorkflowShardMapping(ctx context.Contex
 		}
 	}
 
-	return &pb.GetWorkflowShardMappingResponse{
+	return &ringpb.GetWorkflowShardMappingResponse{
 		Mappings:       mappings,
 		MappingStates:  mappingStates,
 		MappingVersion: 1,
 	}, nil
 }
 
-func (m *mockShardOrchestratorServer) ReportWorkflowTriggerRegistration(ctx context.Context, req *pb.ReportWorkflowTriggerRegistrationRequest) (*pb.ReportWorkflowTriggerRegistrationResponse, error) {
+func (m *mockShardOrchestratorServer) ReportWorkflowTriggerRegistration(ctx context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
 	m.registrationCalled = true
-	return &pb.ReportWorkflowTriggerRegistrationResponse{
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{
 		Success: true,
 	}, nil
 }
@@ -58,7 +58,7 @@ func (m *mockShardOrchestratorServer) ReportWorkflowTriggerRegistration(ctx cont
 func setupTestServer(t *testing.T, mock *mockShardOrchestratorServer) (*grpc.Server, *bufconn.Listener) {
 	lis := bufconn.Listen(bufSize)
 	s := grpc.NewServer()
-	pb.RegisterShardOrchestratorServiceServer(s, mock)
+	ringpb.RegisterShardOrchestratorServiceServer(s, mock)
 
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -82,7 +82,7 @@ func createTestClient(t *testing.T, lis *bufconn.Listener) *Client {
 	lggr := logger.Test(t)
 	return &Client{
 		conn:   conn,
-		client: pb.NewShardOrchestratorServiceClient(conn),
+		client: ringpb.NewShardOrchestratorServiceClient(conn),
 		logger: logger.Named(lggr, "TestClient"),
 	}
 }
@@ -155,7 +155,7 @@ func TestClient_ReportWorkflowTriggerRegistration(t *testing.T) {
 	defer client.Close()
 
 	t.Run("successful registration report", func(t *testing.T) {
-		req := &pb.ReportWorkflowTriggerRegistrationRequest{
+		req := &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId: 1,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow-1": 1,

@@ -17,12 +17,12 @@ import (
 	"github.com/smartcontractkit/libocr/quorumhelper"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 type Plugin struct {
 	store         *Store
-	arbiterScaler pb.ArbiterScalerClient
+	arbiterScaler ringpb.ArbiterScalerClient
 	config        ocr3types.ReportingPluginConfig
 	lggr          logger.Logger
 
@@ -42,7 +42,7 @@ const (
 	DefaultTimeToSync = 5 * time.Minute
 )
 
-func NewPlugin(store *Store, arbiterScaler pb.ArbiterScalerClient, config ocr3types.ReportingPluginConfig, lggr logger.Logger, cfg *ConsensusConfig) (*Plugin, error) {
+func NewPlugin(store *Store, arbiterScaler ringpb.ArbiterScalerClient, config ocr3types.ReportingPluginConfig, lggr logger.Logger, cfg *ConsensusConfig) (*Plugin, error) {
 	if arbiterScaler == nil {
 		return nil, errors.New("RingOCR arbiterScaler is required")
 	}
@@ -84,7 +84,7 @@ func (p *Plugin) Query(_ context.Context, _ ocr3types.OutcomeContext) (types.Que
 
 func (p *Plugin) Observation(ctx context.Context, _ ocr3types.OutcomeContext, _ types.Query) (types.Observation, error) {
 	var wantShards uint32
-	var shardStatus map[uint32]*pb.ShardStatus
+	var shardStatus map[uint32]*ringpb.ShardStatus
 
 	status, err := p.arbiterScaler.Status(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -107,7 +107,7 @@ func (p *Plugin) Observation(ctx context.Context, _ ocr3types.OutcomeContext, _ 
 	allWorkflowIDs = uniqueSorted(allWorkflowIDs)
 	p.lggr.Infow("RingOCR Observation all workflow IDs unique", "allWorkflowIDs", allWorkflowIDs, "wantShards", wantShards)
 
-	observation := &pb.Observation{
+	observation := &ringpb.Observation{
 		ShardStatus: shardStatus,
 		WorkflowIds: allWorkflowIDs,
 		Now:         timestamppb.Now(),
@@ -118,7 +118,7 @@ func (p *Plugin) Observation(ctx context.Context, _ ocr3types.OutcomeContext, _ 
 }
 
 func (p *Plugin) ValidateObservation(_ context.Context, _ ocr3types.OutcomeContext, _ types.Query, ao types.AttributedObservation) error {
-	observation := &pb.Observation{}
+	observation := &ringpb.Observation{}
 	if err := proto.Unmarshal(ao.Observation, observation); err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (p *Plugin) collectShardInfo(aos []types.AttributedObservation) (shardHealt
 	shardHealth = make(map[uint32]int)
 	wantShardVotes = make(map[commontypes.OracleID]uint32)
 	for _, ao := range aos {
-		observation := &pb.Observation{}
+		observation := &ringpb.Observation{}
 		_ = proto.Unmarshal(ao.Observation, observation) // validated in ValidateObservation
 
 		for shardID, status := range observation.ShardStatus {
@@ -186,10 +186,10 @@ func (p *Plugin) Outcome(_ context.Context, outctx ocr3types.OutcomeContext, _ t
 	wantShards := votes[len(votes)/2]
 
 	// Bootstrap from Arbiter's current shard count on 1st round; subsequent rounds build on prior outcome
-	prior := &pb.Outcome{}
+	prior := &ringpb.Outcome{}
 	if outctx.PreviousOutcome == nil {
-		prior.Routes = map[string]*pb.WorkflowRoute{}
-		prior.State = &pb.RoutingState{Id: outctx.SeqNr, State: &pb.RoutingState_RoutableShards{RoutableShards: wantShards}}
+		prior.Routes = map[string]*ringpb.WorkflowRoute{}
+		prior.State = &ringpb.RoutingState{Id: outctx.SeqNr, State: &ringpb.RoutingState_RoutableShards{RoutableShards: wantShards}}
 	} else if err := proto.Unmarshal(outctx.PreviousOutcome, prior); err != nil {
 		return nil, err
 	}
@@ -206,17 +206,17 @@ func (p *Plugin) Outcome(_ context.Context, outctx ocr3types.OutcomeContext, _ t
 	// Deterministic hashing ensures all nodes agree on workflow-to-shard assignments
 	// without coordination, preventing protocol failures from inconsistent routing
 	ring := newShardRing(healthyShards)
-	routes := make(map[string]*pb.WorkflowRoute)
+	routes := make(map[string]*ringpb.WorkflowRoute)
 	for _, wfID := range allWorkflows {
 		shard, err := locateShard(ring, wfID)
 		if err != nil {
 			p.lggr.Warnw("RingOCR failed to locate shard for workflow", "workflowID", wfID, "error", err)
 			shard = 0 // fallback to shard 0 when no healthy shards
 		}
-		routes[wfID] = &pb.WorkflowRoute{Shard: shard}
+		routes[wfID] = &ringpb.WorkflowRoute{Shard: shard}
 	}
 
-	outcome := &pb.Outcome{
+	outcome := &ringpb.Outcome{
 		State:  nextState,
 		Routes: routes,
 	}

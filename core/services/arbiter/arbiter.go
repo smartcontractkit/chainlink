@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	ringpb "github.com/smartcontractkit/chainlink/v2/core/services/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
