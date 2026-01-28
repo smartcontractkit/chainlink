@@ -144,9 +144,9 @@ func createJobs(
 ) error {
 	specs := make(map[string][]string)
 
-	capabilityConfig, ok := don.Metadata().CapabilityConfigs[flag]
+	capabilityConfig, ok := don.GetCapabilityConfig(flag)
 	if !ok {
-		return fmt.Errorf("%s config not found in capabilities config: %v", flag, don.Metadata().CapabilityConfigs)
+		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
 	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)

@@ -587,7 +587,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (CapabilityConfigs, error) {
 	for cap := range c.CapabilityConfigs {
 		if !slices.Contains(c.Capabilities, cap) {
-			return nil, fmt.Errorf("tried to overwrite config for capability '%s' without it being present in capabilities list for don %s", cap, c.Name)
+			return nil, fmt.Errorf("config override for capability %s found, but DON %s doesn't have this capability. Fix your TOML config and either move the override to correct DON or add the capability to the DON", cap, c.Name)
 		}
 	}
 
@@ -600,7 +600,7 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 			continue
 		}
 
-		// Already has explicit config for this chain - skip
+		// Already has explicit config for this chain - skip, because all configs must contain all values (we don't allow partial overrides)
 		if _, ok := defaults[flag]; ok {
 			continue
 		}

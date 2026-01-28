@@ -102,9 +102,9 @@ func (o *WebAPITarget) PostEnvStartup(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	capabilityConfig, ok := don.Metadata().CapabilityConfigs[flag]
+	capabilityConfig, ok := don.GetCapabilityConfig(flag)
 	if !ok {
-		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
+		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
 	templateData := capabilityConfig.Values

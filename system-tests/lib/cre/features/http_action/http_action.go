@@ -101,9 +101,9 @@ func (o *HTTPAction) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	capabilityConfig, ok := don.Metadata().CapabilityConfigs[flag]
+	capabilityConfig, ok := don.GetCapabilityConfig(flag)
 	if !ok {
-		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
+		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
 	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)

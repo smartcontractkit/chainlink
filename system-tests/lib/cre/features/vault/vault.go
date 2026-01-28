@@ -140,7 +140,10 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 }
 
 func pendingQueueEnabled(don *cre.Don) bool {
-	os := don.Metadata().CapabilityConfigs[flag]
+	os, ok := don.GetCapabilityConfig(flag)
+	if !ok {
+		return false
+	}
 	setting, ok := os.Values["EnableDeterministicPendingQueue"]
 
 	if !ok {
