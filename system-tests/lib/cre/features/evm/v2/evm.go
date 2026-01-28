@@ -92,14 +92,14 @@ func (o *EVM) PreEnvStartup(
 		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 		currentConfigPtr := ptr.Ptr(currentConfig)
-		don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
 
-	enabledChainIDs, err := don.NodeSet().GetEnabledChainIDsForCapability(flag)
+	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
 	if err != nil {
 		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
@@ -110,7 +110,7 @@ func (o *EVM) PreEnvStartup(
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
 
-		evmMethodConfigs, err := getEvmMethodConfigs(don.NodeSet())
+		evmMethodConfigs, err := getEvmMethodConfigs(don.MustNodeSet())
 		if err != nil {
 			return nil, errors.Wrap(err, "there was an error getting EVM method configs")
 		}

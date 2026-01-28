@@ -40,7 +40,7 @@ func (o *ReadContract) PreEnvStartup(
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-	enabledChainIDs, err := don.NodeSet().GetEnabledChainIDsForCapability(flag)
+	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
 	if err != nil {
 		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}

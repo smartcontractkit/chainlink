@@ -110,8 +110,10 @@ type Don struct {
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
-	Flags             []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
-	capabilityConfigs map[string]CapabilityConfig
+	Flags []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
+
+	capabilityConfigs    map[string]CapabilityConfig
+	chainCapabilityIndex map[CapabilityFlag][]uint64
 }
 
 func (d *Don) Metadata() *DonMetadata {
@@ -205,7 +207,12 @@ func (d *Don) GetCapabilityConfig(flag CapabilityFlag) (CapabilityConfig, bool) 
 }
 
 func (d *Don) GetEnabledChainIDsForCapability(flag CapabilityFlag) ([]uint64, error) {
-	return d.Metadata().NodeSet().GetEnabledChainIDsForCapability(flag)
+	ids := d.chainCapabilityIndex[flag]
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	return slices.Clone(ids), nil
 }
 
 func (d *Don) GetCapabilityFlags() []string {
@@ -218,11 +225,12 @@ func (d *Don) GetName() string {
 
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
 	don := &Don{
-		Nodes:             make([]*Node, 0),
-		Name:              donMetadata.Name,
-		ID:                donMetadata.ID,
-		Flags:             donMetadata.Flags,
-		capabilityConfigs: donMetadata.ns.CapabilityConfigs,
+		Nodes:                make([]*Node, 0),
+		Name:                 donMetadata.Name,
+		ID:                   donMetadata.ID,
+		Flags:                donMetadata.Flags,
+		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
+		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
 	}
 
 	mu := &sync.Mutex{}

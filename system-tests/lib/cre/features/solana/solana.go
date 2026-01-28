@@ -83,12 +83,12 @@ func (o *Solana) PreEnvStartup(
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 		updatedConfig, uErr := updateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.WriteSolanaCapability])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	fullName := "write_solana_devnet@1.0.0"

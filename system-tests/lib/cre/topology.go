@@ -95,7 +95,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 func (t *Topology) NodeSets() []*NodeSet {
 	sets := make([]*NodeSet, len(t.DonsMetadata.List()))
 	for i, d := range t.DonsMetadata.List() {
-		ns := d.NodeSet()
+		ns := d.MustNodeSet()
 		sets[i] = ns
 	}
 	return sets

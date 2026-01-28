@@ -90,19 +90,19 @@ func (o *EVM) PreEnvStartup(
 		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}
 
-	enabledChainIDs, err := don.NodeSet().GetEnabledChainIDsForCapability(flag)
+	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
 	if err != nil {
 		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don, enabledChainIDs, creEnv)
 		if updErr != nil {
 			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
 
-		don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
@@ -271,7 +271,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, don *c
 		}
 		evmData.FromAddress = evmKey.PublicAddress
 
-		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(don.NodeSet(), flag, cre.ChainCapabilityScope(chainID))
+		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(don.MustNodeSet(), flag, cre.ChainCapabilityScope(chainID))
 		if resolveErr != nil {
 			return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
 		}

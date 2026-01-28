@@ -91,12 +91,12 @@ func (o *Vault) PreEnvStartup(
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		don.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{

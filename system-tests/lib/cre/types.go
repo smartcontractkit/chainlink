@@ -537,7 +537,7 @@ type DonMetadata struct {
 	ShardIndex                uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs         map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
 
-	ns NodeSet // computed field, not serialized
+	ns *NodeSet // computed field, not serialized
 }
 
 func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*DonMetadata, error) {
@@ -575,7 +575,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		Flags:                     c.Flags(),
 		NodesMetadata:             nodes,
 		Name:                      c.Name,
-		ns:                        *c,
+		ns:                        c,
 		ExposesRemoteCapabilities: c.ExposesRemoteCapabilities,
 		ShardIndex:                c.ShardIndex,
 		CapabilityConfigs:         capConfigs,
@@ -690,8 +690,11 @@ func (m *DonMetadata) HasFlag(flag CapabilityFlag) bool {
 	return HasFlag(m.Flags, flag)
 }
 
-func (m *DonMetadata) NodeSet() *NodeSet {
-	return &m.ns
+func (m *DonMetadata) MustNodeSet() *NodeSet {
+	if m.ns == nil {
+		panic("nodeset is nil on DonMetadata for DON " + m.Name + ". This might be the case if DonMetadata was created by calling don.Metadata(), which does not set the nodeset field.")
+	}
+	return m.ns
 }
 
 func (m *DonMetadata) EVMChains() []uint64 {
@@ -746,7 +749,7 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 	}
 
 	for _, workerNode := range workers {
-		currentConfig := m.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := m.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 
 		var typedConfig corechainlink.Config
 		unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
@@ -794,7 +797,7 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 			return errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 		}
 
-		m.NodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+		m.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 	}
 
 	return nil
