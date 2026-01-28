@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -41,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	captestutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 )
 
@@ -85,7 +85,7 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 		return nil, err
 	}
 
-	svc, err := evm.NewChainReaderService(ctx, c.lggr, c.logPoller, c.ht, c.client, *crCfg)
+	svc, err := read.NewChainReaderService(ctx, c.lggr, c.logPoller, c.ht, c.client, *crCfg)
 	if err != nil {
 		return nil, err
 	}

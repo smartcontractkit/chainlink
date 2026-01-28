@@ -49,6 +49,7 @@ const (
 	expectedGetTransactionByHashInvalidHash    = "not found"
 	headerByNumberInvalidBlock                 = "HeaderByNumber - invalid block number"
 	writeReportInvalidReceiver                 = "WriteReport - invalid receiver"
+	writeReportFailingOnReceiver               = "WriteReport - failing on receiver"
 	expectedWriteReportInvalidReceiver         = "RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED"
 	writeReportCorruptReceiverAddress          = "WriteReport - corrupt receiver address"
 	expectedWriteReportCorruptReceiverAddress  = "received address is not 20 bytes long"
@@ -269,6 +270,10 @@ func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNe
 //////////////////////////////////////////////////////
 // WRITE REPORT NEGATIVE TESTS
 //////////////////////////////////////////////////////
+
+var evmNegativeTestsWriteReportFailingOnReceiver = []evmNegativeTest{
+	{"tx status set to revert on receiver reverting", "", writeReportFailingOnReceiver, "WriteReport failed on the receiver and set the tx status to reverted"},
+}
 
 var evmNegativeTestsWriteReportInvalidReceiver = []evmNegativeTest{
 	// WriteReport - invalid receiver

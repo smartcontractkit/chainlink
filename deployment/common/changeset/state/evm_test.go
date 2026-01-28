@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -414,7 +414,7 @@ func deployMCMEvm(
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
 
-	groupQuorums, groupParents, signerAddresses, signerGroups, err := mcmsevmsdk.ExtractSetConfigInputs(config)
+	groupQuorums, groupParents, signerAddresses, signerGroups, err := sdk.ExtractSetConfigInputs(config)
 	require.NoError(t, err)
 	tx, err = contract.SetConfig(chain.DeployerKey, signerAddresses, signerGroups, groupQuorums, groupParents, false)
 	require.NoError(t, err)
