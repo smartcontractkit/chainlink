@@ -128,7 +128,7 @@ const (
 	EthUSD   = "ETH / USD"
 	MaticUSD = "MATIC / USD"
 	BNBUSD   = "BNB / USD"
-	FTMUSD   = "FTM / USD" // S token uses FTM / USD price feed under the hood
+	SUSD     = "S / USD"
 	USDCUSD  = "USDC / USD"
 	BTCUSD   = "BTC / USD"
 	LTCUSD   = "LTC / USD"
@@ -156,7 +156,7 @@ var (
 		EthUSD:                        {WethSymbol, WA0GISymbol},
 		MaticUSD:                      {WPOLSymbol},
 		BNBUSD:                        {WBNBSymbol},
-		FTMUSD:                        {WSSymbol},
+		SUSD:                          {WSSymbol},
 		BTCUSD:                        {WBTCNSymbol, WBTCSymbol},
 		LTCUSD:                        {WHYPESymbol},
 		USDCUSD:                       {WAPESymbol, WHSKSymbol, WSBYSymbol, WCROSymbol},
