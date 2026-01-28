@@ -634,7 +634,7 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 
 	// Remove base capability configs (e.g., "write-evm") when chain-specific variants
 	// exist (e.g., "write-evm-1337") to prevent accidental access to stale configs
-	// Remove configs for capabilties that DON doesn't have
+	// Remove configs for capabilities that DON doesn't have
 	for cap := range capConfigs {
 		if !slices.Contains(c.Capabilities, cap) || slices.Contains(chainCapabilitiesFound, cap) {
 			delete(capConfigs, cap)
@@ -1191,7 +1191,7 @@ type NodeSet struct {
 
 	// CapabilityConfigs allows overriding global capability configuration per DON.
 	// Example: [nodesets.capability_configs.web-api-target.config] GlobalRPS = 2000.0
-	CapabilityConfigs map[string]CapabilityConfig `toml:"capability_configs"`
+	CapabilityConfigs map[CapabilityFlag]CapabilityConfig `toml:"capability_configs"`
 
 	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
 

@@ -112,7 +112,7 @@ type Don struct {
 
 	Flags []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
 
-	capabilityConfigs    map[string]CapabilityConfig
+	capabilityConfigs    map[CapabilityFlag]CapabilityConfig
 	chainCapabilityIndex map[CapabilityFlag][]uint64
 }
 
