@@ -2,6 +2,8 @@ package gatewayconnector
 
 import (
 	"context"
+	"errors"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
@@ -13,6 +15,7 @@ import (
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 type Keystore interface {
@@ -20,15 +23,24 @@ type Keystore interface {
 	keys.MessageSigner
 }
 
+// DeterministicKeyProvider is an interface for keystores that support
+// deterministic key discovery. This allows auto-discovery of node addresses.
+type DeterministicKeyProvider interface {
+	EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
+}
+
 type ServiceWrapper struct {
 	services.StateMachine
 	stopCh services.StopChan
 
-	config    config.GatewayConnector
-	keystore  Keystore
-	connector connector.GatewayConnector
-	lggr      logger.Logger
-	clock     clockwork.Clock
+	config                config.GatewayConnector
+	keystore              Keystore
+	deterministicProvider DeterministicKeyProvider
+	chainID               *big.Int
+	connector             connector.GatewayConnector
+	lggr                  logger.Logger
+	clock                 clockwork.Clock
+	discoveredNodeAddress string // Stores auto-discovered node address if not configured
 }
 
 func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
@@ -50,13 +62,25 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 }
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
-func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore Keystore, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
+// keystore is used for signing operations.
+// deterministicProvider is used for auto-discovering the node address if not configured.
+// chainID is the chain ID for which keys should be discovered.
+func NewGatewayConnectorServiceWrapper(
+	config config.GatewayConnector,
+	keystore Keystore,
+	deterministicProvider DeterministicKeyProvider,
+	chainID *big.Int,
+	clock clockwork.Clock,
+	lggr logger.Logger,
+) *ServiceWrapper {
 	return &ServiceWrapper{
-		stopCh:   make(services.StopChan),
-		config:   config,
-		keystore: keystore,
-		clock:    clock,
-		lggr:     logger.Named(lggr, "GatewayConnectorServiceWrapper"),
+		stopCh:                make(services.StopChan),
+		config:                config,
+		keystore:              keystore,
+		deterministicProvider: deterministicProvider,
+		chainID:               chainID,
+		clock:                 clock,
+		lggr:                  logger.Named(lggr, "GatewayConnectorServiceWrapper"),
 	}
 }
 
@@ -64,13 +88,38 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		conf := e.config
 		nodeAddress := conf.NodeAddress()
+
+		// Auto-discover node address if not configured
+		if nodeAddress == "" {
+			if e.deterministicProvider == nil {
+				return errors.New("NodeAddress must be configured when deterministic key provider is not available")
+			}
+			keys, err := e.deterministicProvider.EnabledKeysWithDeterminism(ctx, e.chainID)
+			if err != nil {
+				return err
+			}
+			if len(keys) == 0 {
+				return errors.New("no enabled keys found for auto-discovery")
+			}
+			// Use the first account (lowest State.ID) as the node address
+			nodeAddress = keys[0].Address.String()
+			e.discoveredNodeAddress = nodeAddress
+			e.lggr.Infow("Auto-discovered node address", "address", nodeAddress)
+		}
+
 		configuredNodeAddress := common.HexToAddress(nodeAddress)
 		err := e.keystore.CheckEnabled(ctx, configuredNodeAddress)
 		if err != nil {
 			return err
 		}
 
+		// Update config with discovered address for translateConfigs
 		translated := translateConfigs(conf)
+		// Override NodeAddress in translated config if we auto-discovered it
+		if translated.NodeAddress == "" {
+			translated.NodeAddress = nodeAddress
+		}
+
 		e.connector, err = connector.NewGatewayConnector(&translated, e, e.clock, e.lggr)
 		if err != nil {
 			return err
@@ -80,7 +129,11 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 }
 
 func (e *ServiceWrapper) Sign(ctx context.Context, data ...[]byte) ([]byte, error) {
-	account := common.HexToAddress(e.config.NodeAddress())
+	nodeAddress := e.config.NodeAddress()
+	if nodeAddress == "" {
+		nodeAddress = e.discoveredNodeAddress
+	}
+	account := common.HexToAddress(nodeAddress)
 	return e.keystore.SignMessage(ctx, account, gwcommon.Flatten(data...))
 }
 
