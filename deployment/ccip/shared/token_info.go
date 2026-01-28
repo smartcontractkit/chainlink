@@ -156,7 +156,7 @@ var (
 		EthUSD:                        {WethSymbol, WA0GISymbol},
 		MaticUSD:                      {WPOLSymbol},
 		BNBUSD:                        {WBNBSymbol},
-		SONICUSD:                      {WSBYSymbol},
+		SONICUSD:                      {WSSymbol},
 		BTCUSD:                        {WBTCNSymbol, WBTCSymbol},
 		LTCUSD:                        {WHYPESymbol},
 		USDCUSD:                       {WAPESymbol, WHSKSymbol, WSBYSymbol, WCROSymbol},
