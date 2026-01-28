@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,6 +173,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -230,6 +232,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -274,6 +277,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -322,6 +326,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -393,6 +398,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -492,6 +498,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -633,4 +640,57 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 		},
 	)
 	return &localRegistry
+}
+
+func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
+	lggr := logger.TestLogger(t)
+
+	// semaphore with 0 capacity to force the first call to block after the limiter check
+	semaphore := limits.WorkflowResourcePoolLimiter[int](0)
+	// bound limiter of 1 call allowed
+	secretsCallsLimit := limits.NewBoundLimiter[int](1)
+
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
+		nil, // capRegistry not needed because first call will block on semaphore before using registry
+		lggr,
+		semaphore,
+		secretsCallsLimit,
+		"0x1111111111111111111111111111111111111111",
+		"wf",
+		"wfID",
+		"phaseID",
+		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req := &sdkpb.GetSecretsRequest{
+		Requests: []*sdkpb.SecretRequest{
+			{Id: "R1"},
+		},
+	}
+
+	errCh := make(chan error, 1)
+	// start first call which will pass the bound limiter but block on the semaphore
+	go func() {
+		_, err := sf.GetSecrets(ctx, req)
+		errCh <- err
+	}()
+
+	// small sleep to give goroutine time to reach semaphore.Wait
+	time.Sleep(20 * time.Millisecond)
+
+	// second call should immediately fail due to exceeding the bound limiter (limit == 1)
+	_, err := sf.GetSecrets(ctx, req)
+	require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
+
+	// cleanup: cancel context to unblock the first goroutine and wait for it
+	cancel()
+	select {
+	case <-errCh:
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out waiting for blocked GetSecrets goroutine to finish")
+	}
 }
