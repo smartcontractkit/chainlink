@@ -31,23 +31,6 @@
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "write-evm-1337", "evm-2337"]
 
-  # Enable capabilities per chain with optional per-chain overrides
-  [nodesets.chain_capabilities]
-    # Simple: enable write-evm on listed chains
-    # write-evm = ["1337", "2337"]
-
-    # write-evm with per-chain configuration overrides
-    write-evm = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { GasLimitDefault = 500_000, PollPeriod = "1s", AcceptanceTimeout = "45s", FromAddress = "0x0000000000000000000000000000000000000001" }, "2337" = { GasLimitDefault = 300_000, AcceptanceTimeout = "60s" } } }
-
-    # evm capability with a chain-specific override example
-    # evm = { enabled_chains = ["1337"], chain_overrides = { "1337" = { ReceiverGasMinimum = 1000 } } }
-
-    # Simple: enable read-contract capability for one chain
-    # read-contract = ["1337"]
-
-    # log-event-trigger capability per chain configuration overrides
-    # log-event-trigger = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { PollPeriod = 1000 } } }
-
   # Capability config overrides for this DON.
   # IMPORTANT: When you override a capability config, you must provide ALL values
   # for that capability - partial overrides are not supported. If you specify a key,
