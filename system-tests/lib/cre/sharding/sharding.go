@@ -73,7 +73,7 @@ func SetupSharding(ctx context.Context, input SetupShardingInput) error {
 		return fmt.Errorf("failed to create Ring jobs: %w", err)
 	}
 
-	time.Sleep(60 * time.Second)
+	time.Sleep(60 * time.Second) // TODO: remove but make sure LogPoller is initialized
 	// 5. Wait for LogPoller to be healthy before configuring OCR3
 	if lpErr := consensus.WaitForLogPollerToBeHealthy(shardLeaderDON); lpErr != nil {
 		return errors.Wrap(lpErr, "failed while waiting for Log Poller to become healthy")

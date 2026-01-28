@@ -1078,6 +1078,7 @@ func (d *Delegate) newServicesRing(
 	orchestratorSvc := localshardorch.New(
 		int(shardingCfg.ShardOrchestratorPort()),
 		shardOrchestratorStore,
+		ringStore,
 		lggr,
 	)
 	srvs = append(srvs, orchestratorSvc)

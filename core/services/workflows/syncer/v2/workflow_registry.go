@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -95,9 +96,10 @@ type workflowRegistry struct {
 
 	hooks Hooks
 
-	// shardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
-	// This is nil for shard 0.
-	shardOrchestratorClient *shardorchestrator.Client
+	// shardOrchestratorStore will keep track workflows in workflow registry known to shard 0 and their mappings
+	shardOrchestratorStore *shardorchestrator.Store
+
+	shardIndex uint32
 }
 
 type Hooks struct {
@@ -127,11 +129,11 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	}
 }
 
-// WithShardOrchestratorClient sets the shard orchestrator client for querying/reporting
-// workflow mappings to shard 0. This should only be set for shards > 0.
-func WithShardOrchestratorClient(client *shardorchestrator.Client) func(*workflowRegistry) {
+// WithShardOrchestratorStore sets the shard orchestrator store and the current shardIndex.
+func WithShardOrchestratorStore(store *shardorchestrator.Store, shardIndex uint32) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
-		wr.shardOrchestratorClient = client
+		wr.shardOrchestratorStore = store
+		wr.shardIndex = shardIndex
 	}
 }
 
@@ -524,6 +526,31 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
 			}
+
+			// Mark all workflows as seen in shard orchestrator store
+			seenWorkflows := make([]string, 0, len(allWorkflowsMetadata))
+			for i, wfMeta := range allWorkflowsMetadata {
+				seenWorkflows[i] = wfMeta.WorkflowID.Hex()
+			}
+			err = w.shardOrchestratorStore.SetAllSeenWorkflows(seenWorkflows)
+			if err != nil {
+				w.lggr.Errorw("failed to set seen workflows in shard orchestrator store", "err", err)
+			}
+			w.lggr.Debugw("workflows seen sent to shard orchestrator: ", "numWorkflowsSeen", len(seenWorkflows))
+
+			// filter out allWorkflowsMetadata to only those that belong to this shard
+			filteredWorkflowsForShard := w.shardOrchestratorStore.GetWorkflowForShard(ctx, w.shardIndex)
+			w.lggr.Debugw("filtering workflows for this shard", "shardIndex", w.shardIndex, "numWorkflowsForShard", len(filteredWorkflowsForShard))
+
+			// filter allWorkflowsMetadata to only those that belong to this shard
+			workflowsMetadataForThisShard := make([]WorkflowMetadataView, 0, len(filteredWorkflowsForShard))
+
+			for i, w := range allWorkflowsMetadata {
+				if slices.Contains(filteredWorkflowsForShard, w.WorkflowID.Hex()) {
+					workflowsMetadataForThisShard[i] = w
+				}
+			}
+
 			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
 			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(allWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
 			events, err := w.generateReconciliationEvents(ctx, pendingEvents, allWorkflowsMetadata, head)
