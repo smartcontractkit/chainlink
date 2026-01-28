@@ -127,6 +127,9 @@ func Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidReceiver)
 }
 
+func Test_CRE_V2_EVM_WriteReport_Failing_On_Receiver(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportFailingOnReceiver)
+}
 func Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportCorruptReceiverAddress)
 }

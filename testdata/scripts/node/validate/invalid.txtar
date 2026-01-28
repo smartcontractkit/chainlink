@@ -597,4 +597,4 @@ Invalid configuration: 2 errors:
 	- Password.Keystore: empty: must be provided and non-empty
 
 -- err.txt --
-invalid configuration
+Error running app: configuration validation failed: invalid configuration

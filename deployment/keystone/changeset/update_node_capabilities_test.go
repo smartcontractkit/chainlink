@@ -59,13 +59,13 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		t.Run("succeeds if update sets new and existing capabilities", func(t *testing.T) {
 			existing := getNodeCapabilities(te.CapabilitiesRegistry(), p2pIDs)
 
-			capabiltiesToSet := existing
+			capabilitiesToSet := existing
 			for k, v := range newCapabilities {
-				capabiltiesToSet[k] = append(capabiltiesToSet[k], v...)
+				capabilitiesToSet[k] = append(capabilitiesToSet[k], v...)
 			}
 			cfg := changeset.UpdateNodeCapabilitiesRequest{
 				RegistryChainSel:  te.RegistrySelector,
-				P2pToCapabilities: capabiltiesToSet,
+				P2pToCapabilities: capabilitiesToSet,
 				RegistryRef:       te.CapabilityRegistryAddressRef(),
 			}
 
@@ -74,7 +74,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			require.Empty(t, csOut.MCMSTimelockProposals)
 			require.Nil(t, csOut.AddressBook)
 
-			validateCapabilityUpdates(t, te, capabiltiesToSet)
+			validateCapabilityUpdates(t, te, capabilitiesToSet)
 		})
 	})
 	t.Run("with mcms", func(t *testing.T) {
@@ -96,13 +96,13 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 
 		existing := getNodeCapabilities(te.CapabilitiesRegistry(), p2pIDs)
 
-		capabiltiesToSet := existing
+		capabilitiesToSet := existing
 		for k, v := range newCapabilities {
-			capabiltiesToSet[k] = append(capabiltiesToSet[k], v...)
+			capabilitiesToSet[k] = append(capabilitiesToSet[k], v...)
 		}
 		cfg := changeset.UpdateNodeCapabilitiesRequest{
 			RegistryChainSel:  te.RegistrySelector,
-			P2pToCapabilities: capabiltiesToSet,
+			P2pToCapabilities: capabilitiesToSet,
 			MCMSConfig:        &changeset.MCMSConfig{MinDelay: 0},
 			RegistryRef:       te.CapabilityRegistryAddressRef(),
 		}
@@ -119,7 +119,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			&cfg,
 		))
 		require.NoError(t, err)
-		validateCapabilityUpdates(t, te, capabiltiesToSet)
+		validateCapabilityUpdates(t, te, capabilitiesToSet)
 	})
 }
 
