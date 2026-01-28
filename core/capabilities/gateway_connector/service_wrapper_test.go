@@ -11,12 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // fakeDeterministicProvider is a simple fake implementation for testing
@@ -105,6 +108,7 @@ func setupAutoDiscoverTest(
 	nodeAddress *string,
 	deterministicProvider gatewayconnector.DeterministicKeyProvider,
 	keystoreAddresses []ethkey.KeyV2,
+	addressToPrivateKey map[string]*ecdsa.PrivateKey,
 ) (*gatewayconnector.ServiceWrapper, error) {
 	logger := logger.Test(t)
 	chainID := big.NewInt(1)
@@ -128,11 +132,19 @@ func setupAutoDiscoverTest(
 	}.New()
 	require.NoError(t, err)
 
-	addresses := make(keystest.Addresses, len(keystoreAddresses))
-	for i, key := range keystoreAddresses {
-		addresses[i] = key.Address
+	var ethKeystore keys.Store
+	if addressToPrivateKey != nil {
+		// Use signing keystore that actually signs
+		// addressToPrivateKey is already map[string]*ecdsa.PrivateKey
+		ethKeystore = evmtestutils.NewSigningKeystore(addressToPrivateKey, keystoreAddresses)
+	} else {
+		// Use fake keystore for tests that don't need actual signing
+		addresses := make(keystest.Addresses, len(keystoreAddresses))
+		for i, key := range keystoreAddresses {
+			addresses[i] = key.Address
+		}
+		ethKeystore = &keystest.FakeChainStore{Addresses: addresses}
 	}
-	ethKeystore := &keystest.FakeChainStore{Addresses: addresses}
 	gc := config.Capabilities().GatewayConnector()
 
 	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(
@@ -164,17 +176,27 @@ func TestGatewayConnectorServiceWrapper_AutoDiscoverNodeAddress(t *testing.T) {
 		chainID: chainID,
 	}
 
-	wrapper, err := setupAutoDiscoverTest(t, nil, deterministicProvider, []ethkey.KeyV2{key1V2, keystoreKeyV2})
+	// Create address to private key mapping for signing keystore
+	addressToKey := map[string]*ecdsa.PrivateKey{
+		key1V2.Address.Hex():        key1,
+		keystoreKeyV2.Address.Hex(): keystoreKey,
+	}
+	wrapper, err := setupAutoDiscoverTest(t, nil, deterministicProvider, []ethkey.KeyV2{key1V2, keystoreKeyV2}, addressToKey)
 	require.NoError(t, err)
 
 	ctx := testutils.Context(t)
 	err = wrapper.Start(ctx)
 	require.NoError(t, err)
 
-	// Verify that Sign() works with the discovered address
+	// Verify that Sign() uses the discovered address (key1V2) by verifying the signature
 	testData := []byte("test")
-	_, err = wrapper.Sign(ctx, testData)
+	wrapperSignature, err := wrapper.Sign(ctx, testData)
 	require.NoError(t, err, "Sign should succeed with auto-discovered address")
+
+	// Verify the signature was created with key1's address using utils
+	recoveredAddr, err := utils.GetSignersEthAddress(testData, wrapperSignature)
+	require.NoError(t, err, "Should be able to recover address from signature")
+	assert.Equal(t, key1V2.Address, recoveredAddr, "Signature should be from key1V2 (the discovered address)")
 
 	t.Cleanup(func() {
 		assert.NoError(t, wrapper.Close())
@@ -236,7 +258,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 				keystoreKeysV2[i] = ethkey.FromPrivateKey(key)
 			}
 
-			wrapper, err := setupAutoDiscoverTest(t, tt.nodeAddress, tt.deterministicProvider, keystoreKeysV2)
+			wrapper, err := setupAutoDiscoverTest(t, tt.nodeAddress, tt.deterministicProvider, keystoreKeysV2, nil)
 			require.NoError(t, err)
 
 			ctx := testutils.Context(t)
