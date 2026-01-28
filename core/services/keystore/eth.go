@@ -36,7 +36,7 @@ type Eth interface {
 	EnsureKeys(ctx context.Context, chainIDs ...*big.Int) error
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
-	EnabledKeysForChainByID(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
+	EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
 	CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error
 
@@ -348,7 +348,7 @@ func (ks *eth) EnabledKeysForChain(ctx context.Context, chainID *big.Int) (sendi
 // EnabledKeysForChainByID returns all keys that are enabled for the given chain,
 // sorted by State.ID (which reflects when the key was first enabled for the chain).
 // This provides deterministic ordering across time, unlike address-based sorting.
-func (ks *eth) EnabledKeysForChainByID(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error) {
+func (ks *eth) EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error) {
 	if chainID == nil {
 		return nil, errors.New("chainID must be non-nil")
 	}
@@ -357,7 +357,7 @@ func (ks *eth) EnabledKeysForChainByID(ctx context.Context, chainID *big.Int) (k
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
-	return ks.enabledKeysForChainByID(chainID), nil
+	return ks.enabledKeysWithDeterminism(chainID), nil
 }
 
 func (ks *eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, whitelist ...common.Address) (common.Address, error) {
@@ -560,7 +560,7 @@ func (ks *eth) enabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2) {
 }
 
 // caller must hold lock!
-func (ks *eth) enabledKeysForChainByID(chainID *big.Int) (keys []ethkey.KeyV2) {
+func (ks *eth) enabledKeysWithDeterminism(chainID *big.Int) (keys []ethkey.KeyV2) {
 	states := ks.keyStates.ChainIDKeyID[chainID.String()]
 	if states == nil {
 		return
