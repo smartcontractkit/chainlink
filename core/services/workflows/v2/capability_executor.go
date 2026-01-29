@@ -56,11 +56,11 @@ type capCall struct {
 	method string
 }
 
-func (c *ExecutionHelper) recordDuration(ctx context.Context, segment string) func() {
+func (c *ExecutionHelper) recordDuration(ctx context.Context, segment string, capabilityID string) func() {
 	start := time.Now()
 	return func() {
 		duration := time.Since(start)
-		c.metrics.RecordCallCapabilityDuration(ctx, segment, int64(duration.Seconds()))
+		c.metrics.RecordCallCapabilityDuration(ctx, segment, capabilityID, int64(duration))
 	}
 }
 
@@ -105,7 +105,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	execLogger := c.logger().With("workflowExecutionID", c.WorkflowExecutionID, "capabilityID", request.Id, "callbackID", request.CallbackId, "method", request.Method)
 	execLogger.Debug("CallCapability handler invoked")
 
-	end := c.recordDuration(ctx, "chain_selector_parse")
+	end := c.recordDuration(ctx, "chain_selector_parse", request.Id)
 	capName, err := c.checkChainAllowed(ctx, request)
 	if err != nil {
 		end()
@@ -113,20 +113,20 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	end()
 
-	end = c.recordDuration(ctx, "capability_rate_limit_check")
+	end = c.recordDuration(ctx, "capability_rate_limit_check", request.Id)
 	err = c.checkLimit(ctx, capName, request.Method)
 	end()
 	if err != nil {
 		return nil, err
 	}
 
-	end = c.recordDuration(ctx, "check_limit")
+	end = c.recordDuration(ctx, "check_limit", request.Id)
 	err = c.checkLimit(ctx, capName, request.Method)
 	end()
 	if err != nil {
 		return nil, err
 	}
-	end = c.recordDuration(ctx, "semaphore_wait")
+	end = c.recordDuration(ctx, "semaphore_wait", request.Id)
 	free, err := c.capCallsSemaphore.Wait(ctx, 1)
 	if err != nil {
 		end()
@@ -135,7 +135,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	end()
 	defer free()
 
-	end = c.recordDuration(ctx, "call_capability")
+	end = c.recordDuration(ctx, "call_capability", request.Id)
 	resp, err := c.callCapability(ctx, request)
 	end()
 	return resp, err
@@ -144,21 +144,23 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	execLogger := c.logger().With("workflowExecutionID", c.WorkflowExecutionID, "capabilityID", request.Id, "callbackID", request.CallbackId, "method", request.Method)
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
-	end := c.recordDuration(ctx, "get_executable_capability")
+	end := c.recordDuration(ctx, "get_executable_capability", request.Id)
 	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	end()
 	if err != nil {
 		return nil, fmt.Errorf("action capability not found: %w, ", err)
 	}
 
-	end = c.recordDuration(ctx, "capability_info")
+	end = c.recordDuration(ctx, "capability_info", request.Id)
+	start := time.Now()
 	info, err := capability.Info(ctx)
+	execLogger.With("capabilityInfoDuration", time.Since(start).String()).Debug("Fetched capability info")
 	end()
 	if err != nil {
 		return nil, fmt.Errorf("capability info not found: %w", err)
 	}
 
-	end = c.recordDuration(ctx, "local_node")
+	end = c.recordDuration(ctx, "local_node", request.Id)
 	localNode := c.localNode.Load()
 
 	// If the capability info is missing a DON, then
@@ -174,7 +176,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	end()
 
-	end = c.recordDuration(ctx, "config_for_capability")
+	end = c.recordDuration(ctx, "config_for_capability", request.Id)
 	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
 	end()
 	if err != nil {
@@ -183,7 +185,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		execLogger.Debugw("capability config not found", "err", err)
 	}
 
-	end = c.recordDuration(ctx, "metering")
+	end = c.recordDuration(ctx, "metering", request.Id)
 	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
 		execLogger.Error("no metering report found")
@@ -218,7 +220,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	end()
 
-	end = c.recordDuration(ctx, "executing_capability")
+	end = c.recordDuration(ctx, "executing_capability", request.Id)
 	capReq := capabilities.CapabilityRequest{
 		Payload:      request.Payload,
 		Method:       request.Method,

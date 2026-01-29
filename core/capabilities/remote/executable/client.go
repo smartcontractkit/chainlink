@@ -212,6 +212,10 @@ func (c *client) cancelAllRequests(err error) {
 }
 
 func (c *client) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
+	start := time.Now()
+	defer func() {
+		c.lggr.Debugw("CapabilityInfo completed", "duration", time.Since(start))
+	}()
 	cfg := c.cfg.Load()
 	if cfg == nil {
 		return commoncap.CapabilityInfo{}, errors.New("config not set - call SetConfig() before Info()")

@@ -291,7 +291,7 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_call_capability_duration_ms"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 5, 10, 20, 60, 120, 240},
+				Boundaries: []float64{0, 50, 100, 200, 500, 1000, 2000, 5000, 20000, 40000, 60000, 90000, 120000},
 			}},
 		),
 	}
@@ -458,9 +458,10 @@ func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, du
 	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c WorkflowsMetricLabeler) RecordCallCapabilityDuration(ctx context.Context, segment string, duration int64) {
+func (c WorkflowsMetricLabeler) RecordCallCapabilityDuration(ctx context.Context, segment string, capID string, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	otelLabels = append(otelLabels, attribute.String("segment", segment))
+	otelLabels = append(otelLabels, attribute.String("capabilityID", capID))
 	c.em.callCapabilityDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
