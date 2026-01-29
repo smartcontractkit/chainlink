@@ -538,7 +538,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			if w.shardOrchestratorClient == nil {
 				w.lggr.Debug("shard orchestrator client is not configured; cannot get workflow shard mapping")
 			} else {
-				workflowsMapping, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, allWorkflowsIds)
+				ctx_so, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				workflowsMapping, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx_so, allWorkflowsIds)
 				if err != nil {
 					w.lggr.Errorw("failed to get workflow shard mapping", "err", err)
 					continue
