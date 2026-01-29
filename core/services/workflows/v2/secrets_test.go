@@ -671,7 +671,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	req := &sdkpb.GetSecretsRequest{
