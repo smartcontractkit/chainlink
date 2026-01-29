@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -106,7 +107,7 @@ func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...str
 	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath)
 	require.NoError(t, confErr, "failed to set configuration")
 
-	createErr := createEnvironmentIfNotExists(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, flags...)
+	createErr := createEnvironmentIfNotExists(t.Context(), testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, flags...)
 	require.NoError(t, createErr, "failed to create environment")
 
 	setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot))
@@ -124,14 +125,14 @@ func setConfigurationIfMissing(configName string) error {
 	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
 }
 
-func createEnvironmentIfNotExists(relativePathToRepoRoot, environmentDir string, flags ...string) error {
+func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, environmentDir string, flags ...string) error {
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
 		args := []string{"run", ".", "env", "start"}
 		args = append(args, flags...)
 
-		cmd := exec.Command("go", args...)
+		cmd := exec.CommandContext(ctx, "go", args...)
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

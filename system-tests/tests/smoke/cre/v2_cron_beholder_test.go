@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
@@ -20,6 +22,8 @@ func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
 	workflowName := "cronbeholder"
+
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
@@ -39,7 +43,10 @@ func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedBeholderLog := "Amazing workflow user log"
-	failingBeholderLog := "Workflow Engine initialization failed"
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, failingBeholderLog, expectedBeholderLog, 2*time.Minute)
+	err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, 4*time.Minute)
+	require.NoError(t, err, "Cron (Beholder) test failed")
+	testLogger.Info().Msg("Cron (Beholder) test completed")
+
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, expectedBeholderLog, 2*time.Minute)
 }

@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
+
 	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 )
 
@@ -68,7 +69,8 @@ func NewServer(cfg Config) (*Server, error) {
 
 // Run starts the gRPC server and blocks until it exits.
 func (s *Server) Run() error {
-	lis, err := net.Listen("tcp", s.cfg.GRPCListen)
+	lc := &net.ListenConfig{}
+	lis, err := lc.Listen(context.Background(), "tcp", s.cfg.GRPCListen)
 	if err != nil {
 		return fmt.Errorf("gRPC listen: %w", err)
 	}
@@ -102,6 +104,7 @@ func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.Pub
 
 func (s *Server) Shutdown(ctx context.Context) {
 	s.grpcServer.GracefulStop()
+	log.Println("[chip-testsink] Server shutdown")
 }
 
 func notifyStarted(ch chan<- struct{}) {

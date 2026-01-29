@@ -94,7 +94,7 @@ func FailOnBaseMessage(
 
 // GetPublishFn returns a CHiP publish handler that demuxes events into the provided channels.
 func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage) chiptestsink.PublishFn {
-	var publishFn chiptestsink.PublishFn = func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
+	var publishFn = func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
 		switch event.Type {
 		case "workflows.v1.UserLogs":
 			typedMsg := &workflowevents.UserLogs{}
@@ -167,4 +167,59 @@ func WatchWorkflowLogs(
 	}
 	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedBeholderLog)
 	require.NoError(t, err, "failed to find expected user log message")
+}
+
+// WaitForBaseMessage blocks until the base message channel emits a message containing needle.
+func WaitForBaseMessage(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	publishCh <-chan *commonevents.BaseMessage,
+	needle string,
+) (*commonevents.BaseMessage, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, context.Cause(ctx)
+		case msg := <-publishCh:
+			if strings.Contains(msg.Msg, needle) {
+				return msg, nil
+			}
+			if strings.Contains(msg.Msg, "heartbeat") {
+				continue
+			}
+			testLogger.Warn().
+				Str("expected_log", needle).
+				Str("found_message", strings.TrimSpace(msg.Msg)).
+				Msg("[soft assertion] Received BaseMessage message, but it does not match expected log")
+		}
+	}
+}
+
+// WatchBaseMessages requires that the expected base message arrives before the timeout.
+func WatchBaseMessages(
+	t *testing.T,
+	testLogger zerolog.Logger,
+	baseMessageCh <-chan *commonevents.BaseMessage,
+	expectedMessage string,
+	timeout time.Duration) {
+	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New("failed to find expected base message"))
+	defer cancelFn()
+
+	_, err := WaitForBaseMessage(ctx, testLogger, baseMessageCh, expectedMessage)
+	require.NoError(t, err, "failed to find expected base message")
+}
+
+// IgnoreUserLogs drains user log traffic so publishers never block when tests do not care about logs.
+func IgnoreUserLogs(ctx context.Context, userLogsCh <-chan *workflowevents.UserLogs) {
+	go func() {
+		defer func() { _ = recover() }() // in case channel closes
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-userLogsCh:
+				// noop
+			}
+		}
+	}()
 }
