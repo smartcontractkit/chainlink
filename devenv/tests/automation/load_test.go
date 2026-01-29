@@ -17,7 +17,7 @@ func TestLoad(t *testing.T) {
 			name:                     "registry_2_1_logtrigger",
 			upkeepCount:              5,
 			upkeepExecutionTimeout:   "2h",
-			expectedUpkeepExecutions: 100, //TODO increase maybe to 1000 once we have figured out which funds are missing and make the counter stop around 95-99 executions
+			expectedUpkeepExecutions: 1000, //TODO increase maybe to 1000 once we have figured out which funds are missing and make the counter stop around 95-99 executions
 			testKeyFundingEth:        15,
 			upkeepFundingLink:        15,
 		},
