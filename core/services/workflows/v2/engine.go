@@ -646,10 +646,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 	registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
-	e.lggr.Infof("TriggerCapID: %s", wrappedTriggerEvent.triggerCapID)
-	err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
+	err = e.ackTriggerEvent(ctx, wrappedTriggerEvent.triggerCapID, registrationID, &triggerEvent)
 	if err != nil {
-		e.lggr.Errorf("failed to ACK trigger event (eventID=%s)", triggerEvent.ID)
+		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
 	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 	var executionStatus string // store.StatusStarted
@@ -748,20 +747,20 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 }
 
-func (e *Engine) ackTriggerEvent(ctx context.Context, triggerID string, te *capabilities.TriggerEvent) error {
-	e.lggr.Infof("Ack trigger event (triggerID=%s, eventID=%s)", triggerID, te.ID)
+func (e *Engine) ackTriggerEvent(ctx context.Context, triggerCapID string, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
+	e.lggr.Infof("Ack trigger event (triggerID=%s, eventID=%s)", triggerRegistrationID, te.ID)
 	for _, trigger := range e.triggers {
 		info, err := trigger.TriggerCapability.Info(ctx)
 		if err != nil {
 			e.lggr.Errorf("failed to get trigger info: %v", err)
 			continue
 		}
-		if info.ID == triggerID {
-			e.lggr.Infof("Calling ACKEvent on trigger capability (triggerID=%s, eventID=%s)", triggerID, te.ID)
-			return trigger.TriggerCapability.AckEvent(ctx, triggerID, te.ID)
+		if info.ID == triggerCapID {
+			e.lggr.Infof("Calling ACKEvent on trigger capability (triggerID=%s, eventID=%s)", triggerRegistrationID, te.ID)
+			return trigger.TriggerCapability.AckEvent(ctx, triggerRegistrationID, te.ID)
 		}
 	}
-	return fmt.Errorf("failed to find trigger %s", triggerID)
+	return fmt.Errorf("failed to find trigger %s", triggerCapID)
 }
 
 func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
