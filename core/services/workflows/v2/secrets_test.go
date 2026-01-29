@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -644,15 +643,24 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 
 func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
-	// semaphore with 0 capacity to force the first call to block after the limiter check
-	semaphore := limits.WorkflowResourcePoolLimiter[int](0)
+	f, n := 2, 3
+	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(f, n)
+	require.NoError(t, err)
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	semaphore := limits.WorkflowResourcePoolLimiter[int](5)
 	// bound limiter of 1 call allowed
 	secretsCallsLimit := limits.NewBoundLimiter[int](1)
 
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
-		nil, // capRegistry not needed because first call will block on semaphore before using registry
+		reg,
 		lggr,
 		semaphore,
 		secretsCallsLimit,
@@ -672,25 +680,10 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 		},
 	}
 
-	errCh := make(chan error, 1)
-	// start first call which will pass the bound limiter but block on the semaphore
-	go func() {
-		_, err := sf.GetSecrets(ctx, req)
-		errCh <- err
-	}()
+	// 1st call to occupy the only available slot in the limiter
+	_, _ = sf.GetSecrets(ctx, req)
 
-	// small sleep to give goroutine time to reach semaphore.Wait
-	time.Sleep(20 * time.Millisecond)
-
-	// second call should immediately fail due to exceeding the bound limiter (limit == 1)
-	_, err := sf.GetSecrets(ctx, req)
+	// second call should fail due to exceeding the bound limiter (limit == 1)
+	_, err = sf.GetSecrets(ctx, req)
 	require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
-
-	// cleanup: cancel context to unblock the first goroutine and wait for it
-	cancel()
-	select {
-	case <-errCh:
-	case <-time.After(1 * time.Second):
-		t.Fatal("timed out waiting for blocked GetSecrets goroutine to finish")
-	}
 }
