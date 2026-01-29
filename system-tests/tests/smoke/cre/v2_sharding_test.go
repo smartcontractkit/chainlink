@@ -2,6 +2,7 @@ package cre
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -23,8 +24,10 @@ import (
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
 
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -100,6 +103,22 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		testLogger.Info().Msg("SetupSharding completed successfully")
 	}
 
+	testLogger.Info().Msg("Verifying Ring OCR Oracle health on shard0 nodes...")
+	waitForRingOracleHealthy(t, shardZero)
+
+	const numWorkflows = 10
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	var workflowIDs []string
+	for i := 0; i < numWorkflows; i++ {
+		workflowName := fmt.Sprintf("shardtest%d", i)
+		workflowConfig := crontypes.WorkflowConfig{
+			Schedule: "*/30 * * * * *",
+		}
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		workflowIDs = append(workflowIDs, workflowID)
+	}
+	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed real workflows for sharding test")
+
 	var rpcHost string
 	for _, nodeSet := range testEnv.Config.NodeSets {
 		if nodeSet.Name == "shard0" && nodeSet.Out != nil && len(nodeSet.Out.CLNodes) > 0 {
@@ -119,10 +138,10 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	shardOrchestratorAddr := rpcHost + ":60051"
 	validateShardOrchestratorRPC(t, testLogger, shardOrchestratorAddr)
 
-	arbiterAddr := rpcHost + ":19876"
-	validateArbiterRPC(t, testLogger, arbiterAddr)
+	testLogger.Info().Msg("Reporting shard status to ALL nodes' Arbiters...")
+	initializeAllArbiterStates(t, testEnv, shardZero, len(shardDONs))
 
-	validateShardingScaleScenario(t, testEnv, rpcHost)
+	validateShardingScaleScenario(t, testEnv, rpcHost, workflowIDs)
 
 	testLogger.Info().Msg("Sharding test completed successfully")
 }
@@ -149,37 +168,56 @@ func validateShardOrchestratorRPC(t *testing.T, logger zerolog.Logger, addr stri
 	logger.Info().Int("mappingsCount", len(resp.Mappings)).Msg("ShardOrchestrator RPC responded successfully")
 }
 
-func validateArbiterRPC(t *testing.T, logger zerolog.Logger, addr string) {
+func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, shardZero *cre.Don, numShards int) {
 	t.Helper()
+	logger := framework.L
 
-	logger.Info().Str("address", addr).Msg("Testing Arbiter RPC connectivity")
-
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	require.NoError(t, err, "Failed to create gRPC client for Arbiter at %s", addr)
-	defer conn.Close()
-
-	client := ringpb.NewArbiterClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	resp, err := client.GetDesiredReplicas(ctx, &ringpb.ShardStatusRequest{})
-
-	if err != nil {
-		errStr := err.Error()
-		require.NotContains(t, errStr, "unknown service",
-			"Arbiter service not registered - ensure Ring jobs are created via SetupSharding")
-		logger.Info().Err(err).Msg("Arbiter returned error (may be expected depending on state)")
-	} else {
-		require.NotNil(t, resp, "Arbiter response should not be nil")
-		logger.Info().
-			Uint32("wantShards", resp.WantShards).
-			Msg("Arbiter RPC responded successfully")
+	shardStatus := make(map[uint32]*ringpb.ShardStatus)
+	for i := 0; i < numShards; i++ {
+		shardStatus[uint32(i)] = &ringpb.ShardStatus{IsHealthy: true}
 	}
 
-	logger.Info().Str("address", addr).Msg("Arbiter RPC test passed")
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		if nodeSet.Name != shardZero.Name || nodeSet.Out == nil {
+			continue
+		}
+		for _, clNode := range nodeSet.Out.CLNodes {
+			parsedURL, parseErr := url.Parse(clNode.Node.ExternalURL)
+			if parseErr != nil {
+				logger.Warn().Err(parseErr).Str("url", clNode.Node.ExternalURL).Msg("Failed to parse node URL")
+				continue
+			}
+			arbiterAddr := parsedURL.Hostname() + ":19876"
+
+			conn, err := grpc.NewClient(arbiterAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				logger.Warn().Err(err).Str("addr", arbiterAddr).Msg("Failed to connect to Arbiter")
+				continue
+			}
+
+			client := ringpb.NewArbiterClient(conn)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+			resp, err := client.GetDesiredReplicas(ctx, &ringpb.ShardStatusRequest{
+				Status: shardStatus,
+			})
+			cancel()
+			conn.Close()
+
+			if err != nil {
+				logger.Warn().Err(err).Str("addr", arbiterAddr).Msg("Failed to call GetDesiredReplicas")
+			} else {
+				logger.Info().
+					Str("addr", arbiterAddr).
+					Uint32("wantShards", resp.WantShards).
+					Msg("Initialized Arbiter state")
+			}
+		}
+	}
+	logger.Info().Int("numShards", numShards).Msg("Arbiter states initialized on all shard0 nodes")
 }
 
-func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string) {
+func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string, workflowIDs []string) {
 	t.Helper()
 	logger := framework.L
 	ctx := context.Background()
@@ -190,24 +228,32 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	arbiterClient := newArbiterClient(t, rpcHost+":19876")
 	shardOrchClient := newShardOrchestratorClient(t, rpcHost+":60051")
 
-	workflowIDs := []string{"workflow-A", "workflow-B", "workflow-C", "workflow-D"}
+	logger.Info().Msg("Diagnostic: Verifying store connection (direct registration)...")
+	verifyStoreConnection(t, shardOrchClient)
 
-	logger.Info().Msg("Step 1: Set ShardConfig to 1 shard (only shard-zero)")
-	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 1)
+	logger.Info().Msg("Diagnostic: Verifying Ring OCR rounds are completing...")
+	waitForRingOCRRounds(t, shardOrchClient)
 
-	logger.Info().Msg("Step 2: Verify Arbiter returns WantShards=1")
-	waitForArbiterShardCount(t, arbiterClient, 1)
+	logger.Info().Msg("Waiting for real workflows to be registered via Ring OCR consensus...")
+	waitForWorkflowsRegistered(t, shardOrchClient, workflowIDs)
 
-	logger.Info().Msg("Step 3: Register all workflows on shard-zero (the only shard)")
-	_, err := shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-		SourceShardId:        0,
-		RegisteredWorkflows:  map[string]uint32{"workflow-A": 1, "workflow-B": 1, "workflow-C": 1, "workflow-D": 1},
-		TotalActiveWorkflows: 4,
+	logger.Info().Msg("Step 1: Verify all real workflows are mapped")
+	resp, err := shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+		WorkflowIds: workflowIDs,
 	})
 	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Len(t, resp.Mappings, len(workflowIDs), "All deployed workflows should be mapped")
+	logger.Info().Interface("mappings", resp.Mappings).Int("count", len(resp.Mappings)).Msg("Real workflows mapped")
 
-	logger.Info().Msg("Step 4: Verify all workflows mapped to shard 0")
-	resp, err := shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+	logger.Info().Msg("Step 2: Set ShardConfig to 1 shard (only shard-zero)")
+	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 1)
+
+	logger.Info().Msg("Step 3: Verify Arbiter returns WantShards=1")
+	waitForArbiterShardCount(t, arbiterClient, 1)
+
+	logger.Info().Msg("Step 4: Verify all workflows mapped to shard 0 with single shard")
+	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	})
 	require.NoError(t, err)
@@ -223,15 +269,10 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	logger.Info().Msg("Step 6: Verify Arbiter returns WantShards=2")
 	waitForArbiterShardCount(t, arbiterClient, 2)
 
-	logger.Info().Msg("Step 7: Shard 1 reports its workflows after scaling")
-	_, err = shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-		SourceShardId:        1,
-		RegisteredWorkflows:  map[string]uint32{"workflow-C": 1, "workflow-D": 1},
-		TotalActiveWorkflows: 2,
-	})
-	require.NoError(t, err)
+	logger.Info().Msg("Step 7: Wait for workflow redistribution after scaling")
+	waitForWorkflowsDistributed(t, shardOrchClient, workflowIDs, 2)
 
-	logger.Info().Msg("Step 8: Verify workflow mappings now span 2 shards")
+	logger.Info().Msg("Step 8: Verify workflow mappings span 2 shards")
 	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	})
@@ -247,7 +288,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	logger.Info().
 		Interface("mappings", resp.Mappings).
 		Interface("distribution", shardCounts).
-		Msg("Workflows distributed across 2 shards after scaling")
+		Msg("Real workflows distributed across 2 shards after scaling")
 }
 
 func getShardConfigRef(t *testing.T, testEnv *ttypes.TestEnvironment) datastore.AddressRefKey {
@@ -303,4 +344,140 @@ func newShardOrchestratorClient(t *testing.T, addr string) ringpb.ShardOrchestra
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 	return ringpb.NewShardOrchestratorServiceClient(conn)
+}
+
+func waitForRingOracleHealthy(t *testing.T, shardZero *cre.Don) {
+	t.Helper()
+	logger := framework.L
+
+	workers, err := shardZero.Workers()
+	require.NoError(t, err, "Failed to get shard0 workers")
+	require.NotEmpty(t, workers, "No worker nodes in shard0")
+
+	node := workers[0]
+	logger.Info().Str("node", node.Name).Msg("Checking available health components...")
+
+	health, _, healthErr := node.Clients.RestClient.Health()
+	if healthErr != nil {
+		logger.Error().Err(healthErr).Msg("Failed to get health status")
+	} else if health != nil && health.Data != nil {
+		var ocrComponents []string
+		for _, check := range health.Data {
+			if strings.Contains(strings.ToLower(check.Attributes.Name), "ocr") ||
+				strings.Contains(strings.ToLower(check.Attributes.Name), "oracle") ||
+				strings.Contains(strings.ToLower(check.Attributes.Name), "ring") {
+				ocrComponents = append(ocrComponents, check.Attributes.Name+" ("+check.Attributes.Status+")")
+			}
+		}
+		if len(ocrComponents) > 0 {
+			logger.Info().Strs("ocrComponents", ocrComponents).Msg("Found OCR-related health components")
+		} else {
+			logger.Warn().Int("totalComponents", len(health.Data)).Msg("No OCR/Oracle/Ring health components found - Ring Oracle likely not running")
+			var allNames []string
+			for _, check := range health.Data {
+				allNames = append(allNames, check.Attributes.Name)
+			}
+			logger.Debug().Strs("allComponents", allNames).Msg("All available health components")
+		}
+	}
+
+	logger.Info().Msg("Ring Oracle health check complete - if no OCR components found, Ring job may not be running")
+}
+
+func verifyStoreConnection(t *testing.T, client ringpb.ShardOrchestratorServiceClient) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	testWorkflowID := "test-store-connection-workflow"
+	_, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
+		SourceShardId:        0,
+		RegisteredWorkflows:  map[string]uint32{testWorkflowID: 0},
+		TotalActiveWorkflows: 1,
+	})
+	require.NoError(t, err, "Failed to register test workflow via ReportWorkflowTriggerRegistration")
+
+	resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+		WorkflowIds: []string{testWorkflowID},
+	})
+	require.NoError(t, err, "Failed to get workflow mapping")
+	require.Contains(t, resp.Mappings, testWorkflowID, "Store connection test: directly registered workflow should appear in mappings")
+	framework.L.Info().
+		Str("testWorkflowID", testWorkflowID).
+		Uint64("mappingVersion", resp.MappingVersion).
+		Msg("Store connection verified - direct registration works")
+}
+
+func waitForRingOCRRounds(t *testing.T, client ringpb.ShardOrchestratorServiceClient) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	initialResp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+		WorkflowIds: []string{"probe-workflow"},
+	})
+	require.NoError(t, err)
+	initialVersion := initialResp.MappingVersion
+
+	framework.L.Info().
+		Uint64("initialVersion", initialVersion).
+		Msg("Waiting for Ring OCR rounds to complete (mapping_version should increase)")
+
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+			WorkflowIds: []string{"probe-workflow"},
+		})
+		if err != nil {
+			framework.L.Warn().Err(err).Msg("Failed to get workflow mapping during Ring OCR check")
+			return false
+		}
+		framework.L.Info().
+			Uint64("currentVersion", resp.MappingVersion).
+			Uint64("initialVersion", initialVersion).
+			Int("mappingsCount", len(resp.Mappings)).
+			Msg("Ring OCR round check")
+		return resp.MappingVersion > initialVersion
+	}, 90*time.Second, 5*time.Second, "Ring OCR rounds not completing - mapping_version not increasing. Initial: %d", initialVersion)
+}
+
+func waitForWorkflowsRegistered(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+			WorkflowIds: workflowIDs,
+		})
+		if err != nil {
+			return false
+		}
+		framework.L.Info().
+			Int("registered", len(resp.Mappings)).
+			Int("expected", len(workflowIDs)).
+			Uint64("mappingVersion", resp.MappingVersion).
+			Msg("Waiting for workflows")
+		return len(resp.Mappings) == len(workflowIDs)
+	}, 2*time.Minute, 5*time.Second, "Workflows not registered within timeout")
+}
+
+func waitForWorkflowsDistributed(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string, minShards int) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+			WorkflowIds: workflowIDs,
+		})
+		if err != nil {
+			return false
+		}
+		shardsSeen := make(map[uint32]bool)
+		for _, shardID := range resp.Mappings {
+			shardsSeen[shardID] = true
+		}
+		framework.L.Info().Int("shardsUsed", len(shardsSeen)).Int("minShards", minShards).Msg("Waiting for distribution")
+		return len(shardsSeen) >= minShards
+	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards within timeout", minShards)
 }

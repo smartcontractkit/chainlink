@@ -1072,11 +1072,9 @@ func (d *Delegate) newServicesRing(
 	lggr.Info("Arbiter service created")
 
 	ringStore := ring.NewStore()
-	shardOrchestratorStore := shardorchestrator.NewStore(lggr)
-	// Start ShardOrchestrator
 	orchestratorSvc := shardorchestrator.New(
 		int(shardingCfg.ShardOrchestratorPort()),
-		shardOrchestratorStore,
+		ringStore,
 		lggr,
 	)
 	srvs = append(srvs, orchestratorSvc)
@@ -1085,7 +1083,7 @@ func (d *Delegate) newServicesRing(
 	// Create RingArbiterClient that calls the Arbiter directly (no gRPC network)
 	arbiterScalerClient := arbiter.NewRingArbiterClient(arbiterSvc.ArbiterScalerServer(), lggr)
 
-	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchestratorStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
+	transmitter := ring.NewTransmitter(lggr, ringStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
@@ -1134,7 +1132,7 @@ func (d *Delegate) newServicesRing(
 		OnchainKeyring:               onchainKeyringAdapter,
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, shardOrchestratorStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
 		BatchSize:  100,         // Default batch size
 		TimeToSync: time.Second, // Default sync time
 	})

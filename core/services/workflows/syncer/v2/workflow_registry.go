@@ -98,6 +98,10 @@ type workflowRegistry struct {
 	// shardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
 	// This is nil for shard 0.
 	shardOrchestratorClient *shardorchestrator.Client
+
+	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
+	myShardID       uint32
+	shardingEnabled bool
 }
 
 type Hooks struct {
@@ -132,6 +136,14 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 func WithShardOrchestratorClient(client *shardorchestrator.Client) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.shardOrchestratorClient = client
+	}
+}
+
+// WithShardID enables shard filtering and sets the shard ID for this syncer.
+func WithShardID(shardID uint32) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		wr.myShardID = shardID
+		wr.shardingEnabled = true
 	}
 }
 
@@ -525,8 +537,19 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				continue
 			}
 			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(allWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
-			events, err := w.generateReconciliationEvents(ctx, pendingEvents, allWorkflowsMetadata, head)
+
+			filteredWorkflowsMetadata := allWorkflowsMetadata
+			if w.shardingEnabled {
+				filteredWorkflowsMetadata, err = w.filterWorkflowsByShard(ctx, allWorkflowsMetadata)
+				if err != nil {
+					w.lggr.Errorw("failed to filter workflows by shard", "err", err)
+					continue
+				}
+				w.lggr.Debugw("filtered workflows by shard", "total", len(allWorkflowsMetadata), "filtered", len(filteredWorkflowsMetadata), "shardID", w.myShardID)
+			}
+
+			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(filteredWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
+			events, err := w.generateReconciliationEvents(ctx, pendingEvents, filteredWorkflowsMetadata, head)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
@@ -738,6 +761,45 @@ func (w *workflowRegistry) getAllWorkflowsMetadata(ctx context.Context, don capa
 	}
 
 	return allWorkflows, headAtLastRead, nil
+}
+
+func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, allWorkflows []WorkflowMetadataView) ([]WorkflowMetadataView, error) {
+	if len(allWorkflows) == 0 {
+		return allWorkflows, nil
+	}
+
+	workflowIDs := make([]string, 0, len(allWorkflows))
+	for _, wf := range allWorkflows {
+		workflowIDs = append(workflowIDs, wf.WorkflowID.Hex())
+	}
+
+	mappings, err := w.getShardMappings(ctx, workflowIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shard mappings: %w", err)
+	}
+
+	filtered := make([]WorkflowMetadataView, 0)
+	for _, wf := range allWorkflows {
+		wfID := wf.WorkflowID.Hex()
+		if shardID, ok := mappings[wfID]; ok && shardID == w.myShardID {
+			filtered = append(filtered, wf)
+		}
+	}
+
+	return filtered, nil
+}
+
+func (w *workflowRegistry) getShardMappings(ctx context.Context, workflowIDs []string) (map[string]uint32, error) {
+	if w.shardOrchestratorClient == nil {
+		return nil, fmt.Errorf("shard orchestrator client not configured")
+	}
+
+	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Mappings, nil
 }
 
 func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
