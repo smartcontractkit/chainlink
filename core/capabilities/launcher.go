@@ -85,6 +85,7 @@ func NewLauncher(
 	registry *Registry,
 	workflowDonNotifier DonNotifier,
 ) (*launcher, error) {
+	lggr.Info("NEW LAUNCHER!")
 	p2pStreamConfig := defaultStreamConfig
 	if streamConfig != nil {
 		p2pStreamConfig.IncomingMessageBufferSize = streamConfig.IncomingMessageBufferSize()
@@ -1077,6 +1078,7 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 
 // retrieve or create a CombinedClient for the given capability
 func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.CombinedClient, bool) {
+	w.lggr.Infof("Using Combined Client (ID=%s)", info.ID)
 	key := shimKey(info.ID, info.DON.ID, "") // empty method name - CombinedClient covers all methods
 	cc, exists := w.cachedShims.combinedClients[key]
 	if !exists { // create a new combined client and cache it
@@ -1084,6 +1086,5 @@ func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.C
 		w.cachedShims.combinedClients[key] = cc
 		return cc, true
 	}
-	w.lggr.Infof("Using Combined Client (ID=%s)", info.ID)
 	return cc, false
 }
