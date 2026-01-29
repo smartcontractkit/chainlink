@@ -60,6 +60,7 @@ func (c *combinedClient) UnregisterTrigger(ctx context.Context, request capabili
 func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	fmt.Println("COMBINED CLIENT ACK EVENT")
 	for _, trigger := range c.triggerSubscribers {
 		info, err := trigger.Info(ctx)
 		if err != nil {

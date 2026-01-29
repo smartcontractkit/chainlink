@@ -748,7 +748,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 func (e *Engine) ackTriggerEvent(ctx context.Context, te *capabilities.TriggerEvent) error {
 	triggerID := te.TriggerType // TODO: Need to make sure TriggerType is TriggerID
-	e.lggr.Infof("ACK TRIGGER EVENT (eventID=%s)", te.ID)
+	e.lggr.Infof("Ack trigger event (eventID=%s)", te.ID)
 	for _, trigger := range e.triggers {
 		info, err := trigger.TriggerCapability.Info(ctx)
 		if err != nil {

@@ -63,7 +63,6 @@ type registrationKey struct {
 type ackKey struct {
 	callerDonID    uint32
 	triggerEventID string
-	workflowID     string
 }
 
 type pubRegState struct {
@@ -257,6 +256,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	case types.MethodTriggerEventAck:
+		p.lggr.Infof("recieved EventAck method")
 		triggerMetadata := msg.GetTriggerEventMetadata()
 		if triggerMetadata == nil {
 			p.lggr.Errorw("recieved empty trigger event ack metadata", "sender", sender)
@@ -264,7 +264,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 		triggerEventID := triggerMetadata.TriggerEventId
 		workflowID := triggerMetadata.WorkflowIds
-		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID,
+		p.lggr.Infow("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID,
 			"workflowID", workflowID)
 
 		p.mu.Lock()
@@ -279,20 +279,19 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			return
 		}
 
-		wfID := workflowID[0] // TODO: Loop through each workflowID in the list (currently always contains a single wfid)
-
-		key := ackKey{msg.CallerDonId, triggerEventID, wfID}
+		key := ackKey{msg.CallerDonId, triggerEventID}
 		nowMs := time.Now().UnixMilli()
-		p.ackCache.Insert(key, sender, nowMs, msg.Payload) // TODO: Payload is empty..
+		p.ackCache.Insert(key, sender, nowMs, msg.Payload) // TODO Payload is empty, should we do something else here?
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.EventTimeout.Milliseconds(), false)
 		if !ready {
-			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
+			p.lggr.Infow("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return
 		}
 
 		ctx, cancel := p.stopCh.NewCtx()
 		defer cancel()
+		p.lggr.Infow("ACKing trigger event", "triggerEventId", triggerEventID)
 		err = cfg.underlying.AckEvent(ctx, p.capabilityID, triggerEventID)
 		if err != nil {
 			p.lggr.Errorf("failed to AckEvent on underlying trigger capability (eventID = %s, capabilityID: %s): %v",
