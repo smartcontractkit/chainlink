@@ -60,7 +60,7 @@ func (c *ExecutionHelper) recordDuration(ctx context.Context, segment string, ca
 	start := time.Now()
 	return func() {
 		duration := time.Since(start)
-		c.metrics.RecordCallCapabilityDuration(ctx, segment, capabilityID, int64(duration))
+		c.metrics.RecordCallCapabilityDuration(ctx, segment, capabilityID, int64(duration.Milliseconds()))
 	}
 }
 
