@@ -6,11 +6,12 @@ import (
 	"time"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
