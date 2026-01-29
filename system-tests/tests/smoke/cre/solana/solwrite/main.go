@@ -62,7 +62,7 @@ func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload)
 		Report:            report,
 		RemainingAccounts: remaining,
 		ComputeConfig: &solana.ComputeConfig{
-			ComputeLimit: 99_999,
+			ComputeLimit: 290_000,
 		},
 	}).Await()
 	if err != nil {
