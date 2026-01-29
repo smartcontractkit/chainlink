@@ -16,8 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
-	shardorchpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -137,11 +136,11 @@ func validateShardOrchestratorRPC(t *testing.T, logger zerolog.Logger, addr stri
 	require.NoError(t, err, "Failed to create gRPC client for ShardOrchestrator at %s", addr)
 	defer conn.Close()
 
-	client := shardorchpb.NewShardOrchestratorServiceClient(conn)
+	client := ringpb.NewShardOrchestratorServiceClient(conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	resp, err := client.GetWorkflowShardMapping(ctx, &shardorchpb.GetWorkflowShardMappingRequest{
+	resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: []string{"test-workflow-id"},
 	})
 
@@ -200,7 +199,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	waitForArbiterShardCount(t, arbiterClient, 1)
 
 	logger.Info().Msg("Step 3: Register all workflows on shard-zero (the only shard)")
-	_, err := shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &shardorchpb.ReportWorkflowTriggerRegistrationRequest{
+	_, err := shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 		SourceShardId:        0,
 		RegisteredWorkflows:  map[string]uint32{"workflow-A": 1, "workflow-B": 1, "workflow-C": 1, "workflow-D": 1},
 		TotalActiveWorkflows: 4,
@@ -208,7 +207,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	require.NoError(t, err)
 
 	logger.Info().Msg("Step 4: Verify all workflows mapped to shard 0")
-	resp, err := shardOrchClient.GetWorkflowShardMapping(ctx, &shardorchpb.GetWorkflowShardMappingRequest{
+	resp, err := shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	})
 	require.NoError(t, err)
@@ -225,7 +224,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	waitForArbiterShardCount(t, arbiterClient, 2)
 
 	logger.Info().Msg("Step 7: Shard 1 reports its workflows after scaling")
-	_, err = shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &shardorchpb.ReportWorkflowTriggerRegistrationRequest{
+	_, err = shardOrchClient.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 		SourceShardId:        1,
 		RegisteredWorkflows:  map[string]uint32{"workflow-C": 1, "workflow-D": 1},
 		TotalActiveWorkflows: 2,
@@ -233,7 +232,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	require.NoError(t, err)
 
 	logger.Info().Msg("Step 8: Verify workflow mappings now span 2 shards")
-	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &shardorchpb.GetWorkflowShardMappingRequest{
+	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	})
 	require.NoError(t, err)
@@ -298,10 +297,10 @@ func newArbiterClient(t *testing.T, addr string) ringpb.ArbiterClient {
 	return ringpb.NewArbiterClient(conn)
 }
 
-func newShardOrchestratorClient(t *testing.T, addr string) shardorchpb.ShardOrchestratorServiceClient {
+func newShardOrchestratorClient(t *testing.T, addr string) ringpb.ShardOrchestratorServiceClient {
 	t.Helper()
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
-	return shardorchpb.NewShardOrchestratorServiceClient(conn)
+	return ringpb.NewShardOrchestratorServiceClient(conn)
 }
