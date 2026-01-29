@@ -535,7 +535,7 @@ func TestConfig_Marshal(t *testing.T) {
 				URL:                 ptr(""),
 				TLSEnabled:          ptr(true),
 			},
-			AlternativeSourcesConfig: []toml.AlternativeWorkflowSource{
+			AdditionalSourcesConfig: []toml.AdditionalWorkflowSource{
 				{
 					URL:        ptr("localhost:50051"),
 					TLSEnabled: ptr(true),

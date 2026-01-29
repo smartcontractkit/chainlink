@@ -342,7 +342,7 @@ ArtifactStorageHost = ''
 URL = ''
 TLSEnabled = true
 
-[[Capabilities.WorkflowRegistry.AlternativeSources]]
+[[Capabilities.WorkflowRegistry.AdditionalSources]]
 URL = 'localhost:50051'
 TLSEnabled = true
 Name = 'test-grpc-source'

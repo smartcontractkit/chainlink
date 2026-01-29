@@ -2200,16 +2200,16 @@ func (s *WorkflowStorage) ValidateConfig() error {
 	return nil
 }
 
-// AlternativeWorkflowSource represents a single alternative workflow metadata source
+// AdditionalWorkflowSource represents a single additional workflow metadata source
 // configured via TOML. This allows workflows to be loaded from sources other than
 // the on-chain registry contract (e.g., a GRPC service).
-type AlternativeWorkflowSource struct {
+type AdditionalWorkflowSource struct {
 	URL        *string `toml:"URL"`
 	TLSEnabled *bool   `toml:"TLSEnabled"`
 	Name       *string `toml:"Name"` // Human-readable name for logging
 }
 
-func (a *AlternativeWorkflowSource) setFrom(f *AlternativeWorkflowSource) {
+func (a *AdditionalWorkflowSource) setFrom(f *AdditionalWorkflowSource) {
 	if f.URL != nil {
 		a.URL = f.URL
 	}
@@ -2221,22 +2221,22 @@ func (a *AlternativeWorkflowSource) setFrom(f *AlternativeWorkflowSource) {
 	}
 }
 
-// GetURL implements config.AlternativeWorkflowSource.
-func (a AlternativeWorkflowSource) GetURL() string {
+// GetURL implements config.AdditionalWorkflowSource.
+func (a AdditionalWorkflowSource) GetURL() string {
 	if a.URL == nil {
 		return ""
 	}
 	return *a.URL
 }
 
-func (a AlternativeWorkflowSource) GetTLSEnabled() bool {
+func (a AdditionalWorkflowSource) GetTLSEnabled() bool {
 	if a.TLSEnabled == nil {
 		return true // Default to enabled
 	}
 	return *a.TLSEnabled
 }
 
-func (a AlternativeWorkflowSource) GetName() string {
+func (a AdditionalWorkflowSource) GetName() string {
 	if a.Name == nil {
 		return ""
 	}
@@ -2244,16 +2244,16 @@ func (a AlternativeWorkflowSource) GetName() string {
 }
 
 type WorkflowRegistry struct {
-	Address                  *string
-	NetworkID                *string
-	ChainID                  *string
-	ContractVersion          *string
-	MaxBinarySize            *utils.FileSize
-	MaxEncryptedSecretsSize  *utils.FileSize
-	MaxConfigSize            *utils.FileSize
-	SyncStrategy             *string
-	WorkflowStorage          WorkflowStorage
-	AlternativeSourcesConfig []AlternativeWorkflowSource `toml:"AlternativeSources"`
+	Address                 *string
+	NetworkID               *string
+	ChainID                 *string
+	ContractVersion         *string
+	MaxBinarySize           *utils.FileSize
+	MaxEncryptedSecretsSize *utils.FileSize
+	MaxConfigSize           *utils.FileSize
+	SyncStrategy            *string
+	WorkflowStorage         WorkflowStorage
+	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -2291,50 +2291,50 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
 
-	if len(f.AlternativeSourcesConfig) > 0 {
-		r.AlternativeSourcesConfig = make([]AlternativeWorkflowSource, len(f.AlternativeSourcesConfig))
-		for i := range f.AlternativeSourcesConfig {
-			r.AlternativeSourcesConfig[i].setFrom(&f.AlternativeSourcesConfig[i])
+	if len(f.AdditionalSourcesConfig) > 0 {
+		r.AdditionalSourcesConfig = make([]AdditionalWorkflowSource, len(f.AdditionalSourcesConfig))
+		for i := range f.AdditionalSourcesConfig {
+			r.AdditionalSourcesConfig[i].setFrom(&f.AdditionalSourcesConfig[i])
 		}
 	}
 }
 
-// MaxAlternativeSources is the maximum number of alternative workflow sources
-const MaxAlternativeSources = 5
+// MaxAdditionalSources is the maximum number of additional workflow sources
+const MaxAdditionalSources = 5
 
 func (r *WorkflowRegistry) ValidateConfig() error {
 	if err := r.WorkflowStorage.ValidateConfig(); err != nil {
 		return err
 	}
 
-	if len(r.AlternativeSourcesConfig) > MaxAlternativeSources {
+	if len(r.AdditionalSourcesConfig) > MaxAdditionalSources {
 		return configutils.ErrInvalid{
-			Name:  "AlternativeSources",
-			Value: len(r.AlternativeSourcesConfig),
-			Msg:   fmt.Sprintf("maximum %d alternative sources supported", MaxAlternativeSources),
+			Name:  "AdditionalSources",
+			Value: len(r.AdditionalSourcesConfig),
+			Msg:   fmt.Sprintf("maximum %d additional sources supported", MaxAdditionalSources),
 		}
 	}
 
-	// Reserved source names that cannot be used by alternative sources
+	// Reserved source names that cannot be used by additional sources
 	reservedNames := map[string]bool{"ContractWorkflowSource": true}
 	seenNames := make(map[string]bool)
 
 	// Validate each source has a URL and unique Name
-	for i, src := range r.AlternativeSourcesConfig {
+	for i, src := range r.AdditionalSourcesConfig {
 		if src.URL == nil || *src.URL == "" {
-			return configutils.ErrMissing{Name: fmt.Sprintf("AlternativeSources[%d].URL", i)}
+			return configutils.ErrMissing{Name: fmt.Sprintf("AdditionalSources[%d].URL", i)}
 		}
 
 		// Require Name field
 		if src.Name == nil || *src.Name == "" {
-			return configutils.ErrMissing{Name: fmt.Sprintf("AlternativeSources[%d].Name", i)}
+			return configutils.ErrMissing{Name: fmt.Sprintf("AdditionalSources[%d].Name", i)}
 		}
 		name := *src.Name
 
 		// Check reserved names
 		if reservedNames[name] {
 			return configutils.ErrInvalid{
-				Name:  fmt.Sprintf("AlternativeSources[%d].Name", i),
+				Name:  fmt.Sprintf("AdditionalSources[%d].Name", i),
 				Value: name,
 				Msg:   "name is reserved for internal use",
 			}
@@ -2343,9 +2343,9 @@ func (r *WorkflowRegistry) ValidateConfig() error {
 		// Check uniqueness
 		if seenNames[name] {
 			return configutils.ErrInvalid{
-				Name:  fmt.Sprintf("AlternativeSources[%d].Name", i),
+				Name:  fmt.Sprintf("AdditionalSources[%d].Name", i),
 				Value: name,
-				Msg:   "duplicate source name; each alternative source must have a unique name",
+				Msg:   "duplicate source name; each additional source must have a unique name",
 			}
 		}
 		seenNames[name] = true
@@ -2354,12 +2354,12 @@ func (r *WorkflowRegistry) ValidateConfig() error {
 	return nil
 }
 
-// AlternativeSources returns the list of alternative workflow sources.
+// AdditionalSources returns the list of additional workflow sources.
 // Implements config.CapabilitiesWorkflowRegistry.
-func (r WorkflowRegistry) AlternativeSources() []config.AlternativeWorkflowSource {
-	result := make([]config.AlternativeWorkflowSource, len(r.AlternativeSourcesConfig))
-	for i := range r.AlternativeSourcesConfig {
-		result[i] = r.AlternativeSourcesConfig[i]
+func (r WorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource {
+	result := make([]config.AdditionalWorkflowSource, len(r.AdditionalSourcesConfig))
+	for i := range r.AdditionalSourcesConfig {
+		result[i] = r.AdditionalSourcesConfig[i]
 	}
 	return result
 }

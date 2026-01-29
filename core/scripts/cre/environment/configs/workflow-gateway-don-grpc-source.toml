@@ -1,5 +1,5 @@
-# Workflow DON with gateway and gRPC alternative workflow source enabled.
-# This topology is the same as workflow-gateway-don.toml but with AlternativeSources
+# Workflow DON with gateway and gRPC additional workflow source enabled.
+# This topology is the same as workflow-gateway-don.toml but with AdditionalSources
 # configured to read workflows from a gRPC source at host.docker.internal:8544.
 #
 # Used by: system-tests/tests/smoke/cre/v2_grpc_source_test.go
@@ -69,9 +69,9 @@
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
-# Configure gRPC alternative workflow source
+# Configure gRPC additional workflow source
 # The mock server runs on port 8544 (started by the test before environment setup)
-[[Capabilities.WorkflowRegistry.AlternativeSources]]
+[[Capabilities.WorkflowRegistry.AdditionalSources]]
 URL = 'host.docker.internal:8544'
 TLSEnabled = false
 Name = 'mock-private-registry'

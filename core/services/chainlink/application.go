@@ -1325,12 +1325,12 @@ func newCREServices(
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 					}
 
-					// Build alternative sources configuration from config
+					// Build additional sources configuration from config
 					// JWT auth is always enabled for gRPC sources
-					altSources := capCfg.WorkflowRegistry().AlternativeSources()
-					altSourceConfigs := make([]syncerV2.AlternativeSourceConfig, 0, len(altSources))
-					for _, src := range altSources {
-						altSourceConfigs = append(altSourceConfigs, syncerV2.AlternativeSourceConfig{
+					addSources := capCfg.WorkflowRegistry().AdditionalSources()
+					addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
+					for _, src := range addSources {
+						addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
 							URL:          src.GetURL(),
 							Name:         src.GetName(),
 							TLSEnabled:   src.GetTLSEnabled(),
@@ -1338,8 +1338,8 @@ func newCREServices(
 						})
 					}
 
-					// Create syncer - contract address may be empty for pure alternative-source deployments
-					// File sources are detected by file:// URL prefix in WithAlternativeSources
+					// Create syncer - contract address may be empty for pure additional-source deployments
+					// File sources are detected by file:// URL prefix in WithAdditionalSources
 					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
 						lggr,
 						crFactory,
@@ -1351,7 +1351,7 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
-						syncerV2.WithAlternativeSources(altSourceConfigs),
+						syncerV2.WithAdditionalSources(addSourceConfigs),
 						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
 					)
 					if err != nil {

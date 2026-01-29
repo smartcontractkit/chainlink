@@ -23,16 +23,16 @@ Slack: #topic-local-dev-environments
    - [Debugging core nodes](#debugging-core-nodes)
    - [Debugging capabilities (mac)](#debugging-capabilities-mac)
    - [Workflow Commands](#workflow-commands)
-   - [Alternative Workflow Sources](#alternative-workflow-sources)
-     - [Overview](#alternative-sources-overview)
-     - [Configuration](#alternative-sources-configuration)
+   - [Additional Workflow Sources](#additional-workflow-sources)
+     - [Overview](#additional-sources-overview)
+     - [Configuration](#additional-sources-configuration)
      - [File Source JSON Format](#file-source-json-format)
      - [Helper Tool: generate_file_source](#helper-tool-generate_file_source)
      - [Deploying a File-Source Workflow](#deploying-a-file-source-workflow)
      - [Mixed Sources (Contract + File)](#mixed-sources-contract--file)
      - [Pausing and Deleting File-Source Workflows](#pausing-and-deleting-file-source-workflows)
-     - [Key Behaviors](#alternative-sources-key-behaviors)
-     - [Debugging Alternative Sources](#debugging-alternative-sources)
+     - [Key Behaviors](#additional-sources-key-behaviors)
+     - [Debugging Additional Sources](#debugging-additional-sources)
    - [Further use](#further-use)
    - [Advanced Usage](#advanced-usage)
    - [Testing Billing](#testing-billing)
@@ -393,33 +393,33 @@ This command uses default values and is useful for testing the workflow deployme
 
 ---
 
-## Alternative Workflow Sources
+## Additional Workflow Sources
 
 The workflow registry syncer supports multiple sources of workflow metadata beyond the on-chain contract. This enables flexible deployment scenarios including pure file-based or GRPC-based workflow deployments.
 
-### Alternative Sources Overview
+### Additional Sources Overview
 
 Three source types are supported:
 
 1. **ContractWorkflowSource** (optional): Reads from the on-chain workflow registry contract
-2. **GRPCWorkflowSource** (alternative): Fetches from external GRPC services
-3. **FileWorkflowSource** (alternative): Reads from a local JSON file
+2. **GRPCWorkflowSource** (additional): Fetches from external GRPC services
+3. **FileWorkflowSource** (additional): Reads from a local JSON file
 
 **Key Features:**
 - Contract source is optional - enables pure GRPC-only or file-only deployments
-- All alternative sources (GRPC and file) are configured via unified `AlternativeSources` config
+- All additional sources (GRPC and file) are configured via unified `AdditionalSources` config
 - Source type is auto-detected by URL scheme (`file://` for file, otherwise GRPC)
 
-### Alternative Sources Configuration
+### Additional Sources Configuration
 
-All alternative sources are configured via the `AlternativeSources` config in TOML. The source type is auto-detected based on the URL scheme:
+All additional sources are configured via the `AdditionalSources` config in TOML. The source type is auto-detected based on the URL scheme:
 
 **File source (detected by `file://` prefix):**
 ```toml
 [WorkflowRegistry]
 Address = "0x1234..."  # Optional - leave empty for pure file-only deployments
 
-[[WorkflowRegistry.AlternativeSources]]
+[[WorkflowRegistry.AdditionalSources]]
 Name = "local-file"
 URL = "file:///tmp/workflows_metadata.json"
 ```
@@ -429,7 +429,7 @@ URL = "file:///tmp/workflows_metadata.json"
 [WorkflowRegistry]
 Address = "0x1234..."
 
-[[WorkflowRegistry.AlternativeSources]]
+[[WorkflowRegistry.AdditionalSources]]
 Name = "private-registry"
 URL = "grpc.private-registry.example.com:443"
 TLSEnabled = true
@@ -440,7 +440,7 @@ TLSEnabled = true
 [WorkflowRegistry]
 # No Address = no contract source
 
-[[WorkflowRegistry.AlternativeSources]]
+[[WorkflowRegistry.AdditionalSources]]
 Name = "private-registry"
 URL = "grpc.private-registry.example.com:443"
 TLSEnabled = true
@@ -636,12 +636,12 @@ docker cp /tmp/empty_metadata.json workflow-node5:/tmp/workflows_metadata.json
 # Contract workflows continue running; file-source workflow is removed
 ```
 
-### Alternative Sources Key Behaviors
+### Additional Sources Key Behaviors
 
 **Source Aggregation:**
 - Workflows from all sources are merged into a single list
 - Only ContractWorkflowSource provides real blockchain head (block height/hash)
-- For pure alternative-source deployments, a synthetic head is created (Unix timestamp)
+- For pure additional-source deployments, a synthetic head is created (Unix timestamp)
 - If one source fails, others continue to work (graceful degradation)
 
 **Contract Source Optional:**
@@ -664,7 +664,7 @@ docker cp /tmp/empty_metadata.json workflow-node5:/tmp/workflows_metadata.json
 - Each workflow includes a `Source` field identifying where it was deployed from
 - Source identifiers: `ContractWorkflowSource`, `FileWorkflowSource`, `GRPCWorkflowSource`
 
-### Debugging Alternative Sources
+### Debugging Additional Sources
 
 **Check if file source is being read:**
 ```bash

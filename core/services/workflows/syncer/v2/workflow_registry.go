@@ -136,21 +136,21 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	}
 }
 
-// AlternativeSourceConfig holds configuration for a GRPC workflow source.
-type AlternativeSourceConfig struct {
+// AdditionalSourceConfig holds configuration for an additional workflow source.
+type AdditionalSourceConfig struct {
 	URL          string
 	Name         string
 	TLSEnabled   bool
 	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
-// WithAlternativeSources adds alternative workflow sources to the registry.
+// WithAdditionalSources adds additional workflow sources to the registry.
 // Sources are detected by URL scheme:
 //   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
 //   - Otherwise -> GRPCWorkflowSource (connects to GRPC server)
 //
 // These sources supplement or replace the primary contract source.
-func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowRegistry) {
+func WithAdditionalSources(sources []AdditionalSourceConfig) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		successCount := 0
 		failedSources := []string{}
@@ -201,7 +201,7 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 
 		// Log summary if any sources failed to initialize
 		if len(failedSources) > 0 {
-			wr.lggr.Warnw("Some alternative sources failed to initialize",
+			wr.lggr.Warnw("Some additional sources failed to initialize",
 				"expected", len(sources),
 				"active", successCount,
 				"failed", failedSources)

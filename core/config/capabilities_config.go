@@ -33,7 +33,7 @@ type CapabilitiesWorkflowRegistry interface {
 	RelayID() types.RelayID
 	SyncStrategy() string
 	WorkflowStorage() WorkflowStorage
-	AlternativeSources() []AlternativeWorkflowSource
+	AdditionalSources() []AdditionalWorkflowSource
 }
 
 type WorkflowStorage interface {
@@ -42,9 +42,9 @@ type WorkflowStorage interface {
 	TLSEnabled() bool
 }
 
-// AlternativeWorkflowSource represents a single alternative workflow metadata source
+// AdditionalWorkflowSource represents a single additional workflow metadata source
 // that can be configured to load workflows from sources other than the on-chain registry.
-type AlternativeWorkflowSource interface {
+type AdditionalWorkflowSource interface {
 	GetURL() string
 	GetTLSEnabled() bool
 	GetName() string

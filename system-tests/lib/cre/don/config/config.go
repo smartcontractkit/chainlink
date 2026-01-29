@@ -183,7 +183,7 @@ func PrepareNodeTOMLs(
 
 	// Transform UserConfigOverrides to use platform-specific Docker host addresses.
 	// This handles differences between macOS (host.docker.internal) and Linux (172.17.0.1)
-	// for URLs in user-provided config overrides (e.g., AlternativeSources).
+	// for URLs in user-provided config overrides (e.g., AdditionalSources).
 	for i := range localNodeSets {
 		for j := range localNodeSets[i].NodeSpecs {
 			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
@@ -415,7 +415,7 @@ func addWorkerNodeConfig(
 		}
 	}
 
-	// Preserve existing WorkflowRegistry config (e.g., AlternativeSourcesConfig from user_config_overrides)
+	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
 	// before resetting Capabilities struct
 	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
 	existingConfig.Capabilities = coretoml.Capabilities{
@@ -451,16 +451,16 @@ func addWorkerNodeConfig(
 	}
 
 	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
-		// Preserve existing AlternativeSourcesConfig when setting WorkflowRegistry fields
+		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields
 		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
-		existingAltSources := transformAlternativeSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AlternativeSourcesConfig)
+		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:                  ptr.Ptr(commonInputs.workflowRegistry.address),
-			NetworkID:                ptr.Ptr("evm"),
-			ChainID:                  ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion:          ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-			SyncStrategy:             ptr.Ptr("reconciliation"),
-			AlternativeSourcesConfig: existingAltSources,
+			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:               ptr.Ptr("evm"),
+			ChainID:                 ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion:         ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:            ptr.Ptr("reconciliation"),
+			AdditionalSourcesConfig: existingAddSources,
 		}
 	}
 
@@ -789,10 +789,10 @@ func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain
 	})
 }
 
-// transformAlternativeSourceURLs transforms URLs in AlternativeSourcesConfig to use
+// transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use
 // platform-specific Docker host addresses. This handles differences between macOS
 // (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
-func transformAlternativeSourceURLs(sources []coretoml.AlternativeWorkflowSource) []coretoml.AlternativeWorkflowSource {
+func transformAdditionalSourceURLs(sources []coretoml.AdditionalWorkflowSource) []coretoml.AdditionalWorkflowSource {
 	if len(sources) == 0 {
 		return sources
 	}
@@ -801,7 +801,7 @@ func transformAlternativeSourceURLs(sources []coretoml.AlternativeWorkflowSource
 	// "http://172.17.0.1" on Linux)
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
-	transformed := make([]coretoml.AlternativeWorkflowSource, len(sources))
+	transformed := make([]coretoml.AdditionalWorkflowSource, len(sources))
 	for i, src := range sources {
 		transformed[i] = src
 		if src.URL != nil {

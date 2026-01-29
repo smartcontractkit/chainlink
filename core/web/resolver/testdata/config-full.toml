@@ -336,7 +336,7 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
-AlternativeSources = []
+AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 ArtifactStorageHost = ''
