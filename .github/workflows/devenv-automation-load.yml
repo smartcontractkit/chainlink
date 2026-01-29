@@ -67,7 +67,7 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          cl u env.toml,products/automation/basic.toml
+          cl u env.toml,products/automation/soak.toml
 
       - name: Run Soak tests
         id: soak_test
