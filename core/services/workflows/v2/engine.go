@@ -645,7 +645,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
-	err = e.ackTriggerEvent(ctx, &triggerEvent)
+	registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+	e.lggr.Infof("TriggerCapID: %s", wrappedTriggerEvent.triggerCapID)
+	err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
 	if err != nil {
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s)", triggerEvent.ID)
 	}
@@ -746,8 +748,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 }
 
-func (e *Engine) ackTriggerEvent(ctx context.Context, te *capabilities.TriggerEvent) error {
-	triggerID := te.TriggerType // TODO: Need to make sure TriggerType is TriggerID
+func (e *Engine) ackTriggerEvent(ctx context.Context, triggerID string, te *capabilities.TriggerEvent) error {
 	e.lggr.Infof("Ack trigger event (triggerID=%s, eventID=%s)", triggerID, te.ID)
 	for _, trigger := range e.triggers {
 		info, err := trigger.TriggerCapability.Info(ctx)
