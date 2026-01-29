@@ -1,4 +1,4 @@
-name: Automation Nightly Smoke Tests
+name: Automation Nightly Load Tests
 
 on:
   schedule:
@@ -73,7 +73,7 @@ jobs:
         id: soak_test
         working-directory: devenv/tests/automation
         run: |
-          echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: Registry 2.3
+          echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: Registry 2.3"
           go test -v -timeout 3h -run TestLoad/registry_2_1_logtrigger
 
       - name: Upload Logs
