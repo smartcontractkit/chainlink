@@ -121,10 +121,10 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		// Convert to WorkflowMetadataView
 		view, err := f.toWorkflowMetadataView(wf)
 		if err != nil {
-		f.lggr.Warnw("Failed to parse workflow metadata, skipping",
-			"source", f.name,
-			"workflowName", wf.WorkflowName,
-			"error", err)
+			f.lggr.Warnw("Failed to parse workflow metadata, skipping",
+				"source", f.name,
+				"workflowName", wf.WorkflowName,
+				"error", err)
 			continue
 		}
 
