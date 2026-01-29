@@ -64,12 +64,12 @@ github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/smartcontractkit/chain-selectors v1.0.90 h1:M+1Xgum6WxxEMgUIkE2KJomsf60IntavaypUb9O/OI0=
 github.com/smartcontractkit/chain-selectors v1.0.90/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
-github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9 h1:QRWXJusIj/IRY5Pl3JclNvDre0cZPd/5NbILwc4RV2M=
-github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9/go.mod h1:jUC52kZzEnWF9tddHh85zolKybmLpbQ1oNA4FjOHt1Q=
+github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260128193424-4b6c859e4e0b h1:SFlS50BiFDtTqB/t3k4SQQXGkOVvwa217CnDRgt7elU=
+github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260128193424-4b6c859e4e0b/go.mod h1:jUC52kZzEnWF9tddHh85zolKybmLpbQ1oNA4FjOHt1Q=
 github.com/smartcontractkit/cre-sdk-go v1.1.0 h1:7tcN/uDty2ex39xw8sDnvLaEh6swQJBYRsrBVDpGSrw=
 github.com/smartcontractkit/cre-sdk-go v1.1.0/go.mod h1:sgiRyHUiPcxp1e/EMnaJ+ddMFL4MbE3UMZ2MORAAS9U=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0 h1:8AzRC735Z3vCvcEyElBq8DXv884mQE67bCp6YNGI3jY=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0/go.mod h1:zlMsfDAXcrfEOGvHhrxaq4oxQN1egrzPwOSK2d5RnwQ=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260128204834-51a77a3ffe17 h1:ScmBVVaHmg8ZrGW+zbkLp04KHj10J2eJQ858Kdoy/u0=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260128204834-51a77a3ffe17/go.mod h1:PK4CF7qM7N8qEQD9b4xFfUsbNa/FrQ3+kbZyF8gpQGo=
 github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0 h1:g7UrVaNKVEmIhVkJTk4f8raCM8Kp/RTFnAT64wqNmTY=
 github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0/go.mod h1:PWyrIw16It4TSyq6mDXqmSR0jF2evZRKuBxu7pK1yDw=
 github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 h1:RN5mrigyirb8anBEtdjtHFIufXdacyTi6i4KBfeNXeo=
