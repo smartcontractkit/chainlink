@@ -39,6 +39,7 @@ import (
 )
 
 const TronEVMChainID = 3360022319
+const DefaultChipIngressPort = 50051
 
 func PrepareNodeTOMLs(
 	ctx context.Context,
@@ -315,7 +316,7 @@ func addBootstrapNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("host.docker.internal:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + strconv.Itoa(DefaultChipIngressPort))
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -392,7 +393,7 @@ func addWorkerNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("host.docker.internal:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + strconv.Itoa(DefaultChipIngressPort))
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 

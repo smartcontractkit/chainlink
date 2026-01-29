@@ -100,17 +100,10 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		ExecuteVaultTest(t, testEnv)
 	})
 
-	t.Run("[v2] Cron Beholder Stateless Sink - "+topology, func(t *testing.T) {
+	t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
-		ExecuteCronBeholderTest_Stateless(t, testEnv)
-	})
-
-	t.Run("[v2] Cron Beholder Stateful Sink - "+topology, func(t *testing.T) {
-		t.Skip()
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteCronBeholderTest_State(t, testEnv)
+		ExecuteCronBeholderTest(t, testEnv)
 	})
 
 	t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
