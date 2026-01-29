@@ -217,7 +217,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	return nil
 }
 
-func (t *transmitter) AckEvent(ctx context.Context, eventId string) error {
+func (t *transmitter) AckEvent(ctx context.Context, triggerId string, eventId string) error {
 	// TODO
 	return nil
 }

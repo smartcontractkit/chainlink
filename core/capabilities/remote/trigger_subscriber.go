@@ -142,8 +142,6 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, even
 
 	s.mu.RLock()
 	cfg := s.cfg.Load()
-	// TODO: Extract workflowID from triggerID
-	workflowID := triggerId
 	for _, peerID := range cfg.capDonInfo.Members {
 		m := &types.MessageBody{
 			CapabilityId:     cfg.capInfo.ID,
@@ -154,7 +152,7 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, even
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{
 					TriggerEventId: eventId,
-					WorkflowIds:    []string{workflowId}, // TODO: Extract from triggerID ;P
+					TriggerIds:     []string{triggerId},
 				},
 			},
 		}
