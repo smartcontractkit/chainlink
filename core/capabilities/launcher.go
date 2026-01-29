@@ -1084,5 +1084,6 @@ func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.C
 		w.cachedShims.combinedClients[key] = cc
 		return cc, true
 	}
+	w.lggr.Infof("Using Combined Client (ID=%s)", info.ID)
 	return cc, false
 }
