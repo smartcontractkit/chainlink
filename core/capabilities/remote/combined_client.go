@@ -60,15 +60,20 @@ func (c *combinedClient) UnregisterTrigger(ctx context.Context, request capabili
 func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	fmt.Println("COMBINED CLIENT ACK EVENT")
+	fmt.Println("COMBINED CLIENT ACK EVENT") // TODO: Remove testing print
 	for _, trigger := range c.triggerSubscribers {
-		info, err := trigger.Info(ctx)
-		if err != nil {
-			return err
-		}
-		if info.ID == triggerID {
-			return trigger.AckEvent(ctx, triggerID, eventID)
-		}
+		// TODO: TESTING ALWAYS CALL ON EVERY FOR NOW
+		_ = trigger.AckEvent(ctx, triggerID, eventID)
+
+		/*
+			info, err := trigger.Info(ctx)
+			if err != nil {
+				return err
+			}
+			if info.ID == triggerID {
+				return trigger.AckEvent(ctx, triggerID, eventID)
+			}
+		*/
 	}
 	return fmt.Errorf("could not find trigger %q triggerID", triggerID)
 }
