@@ -24,9 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -130,7 +130,7 @@ func (th *EVMBackendTH) NewContractReader(ctx context.Context, t *testing.T, cfg
 		return nil, err
 	}
 
-	svc, err := evm.NewChainReaderService(ctx, th.Lggr, th.LogPoller, th.HeadTracker, th.EVMClient, *crCfg)
+	svc, err := read.NewChainReaderService(ctx, th.Lggr, th.LogPoller, th.HeadTracker, th.EVMClient, *crCfg)
 	if err != nil {
 		return nil, err
 	}

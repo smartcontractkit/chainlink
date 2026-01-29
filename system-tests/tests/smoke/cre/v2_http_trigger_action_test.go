@@ -30,11 +30,23 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
+const (
+	workflowTag = "some-tag"
+	requestID   = "http-trigger-validation-test"
+)
+
 func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
 	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
 	require.NoError(t, newKeysErr, "failed to generate new public key")
+
+	// Debug: compare the authorized key with the signing key address
+	signerAddr := crypto.PubkeyToAddress(signingKey.PublicKey).Hex()
+	testLogger.Info().
+		Str("config_authorized_key", publicKeyAddr.Hex()).
+		Str("signing_key_address", signerAddr).
+		Msg("Generated key pair for workflow authorization")
 
 	fakeServer, err := startTestOrderServer(t, testEnv.Config.Fake.Port)
 	require.NoError(t, err, "failed to start fake HTTP server")
@@ -45,11 +57,21 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 		URL:           fakeServer.BaseURLHost,
 	}
 
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &httpWorkflowConfig, "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go")
+	pathToWorkflow := "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &httpWorkflowConfig, pathToWorkflow)
 
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
-	newGatewayURL := testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Path
+
+	gatewayConfig := testEnv.Dons.GatewayConnectors.Configurations[0].Incoming
+	testEnv.Logger.Info().
+		Str("protocol", gatewayConfig.Protocol).
+		Str("host", gatewayConfig.Host).
+		Int("port", gatewayConfig.ExternalPort).
+		Str("path", gatewayConfig.Path).
+		Msg("Gateway configuration details")
+
+	newGatewayURL := gatewayConfig.Protocol + "://" + gatewayConfig.Host + ":" + strconv.Itoa(gatewayConfig.ExternalPort) + gatewayConfig.Path
 	gatewayURL, err := url.Parse(newGatewayURL)
 	require.NoError(t, err, "failed to parse gateway URL")
 
@@ -57,23 +79,26 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	workflowOwner := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 
-	testEnv.Logger.Info().Msgf("Workflow owner address: %s", workflowOwnerAddress)
-	testEnv.Logger.Info().Msgf("Workflow name: %s", uniqueWorkflowName)
+	testEnv.Logger.Info().
+		Str("owner", workflowOwnerAddress).
+		Str("workflow_name", uniqueWorkflowName).
+		Str("workflow_tag", "some-tag").
+		Msg("Waiting for workflow to be loaded before triggering...")
 
-	executeHTTPTriggerRequest(t, testEnv, gatewayURL, uniqueWorkflowName, signingKey, workflowOwnerAddress)
+	executeHTTPTriggerRequest(t, testEnv, gatewayURL, uniqueWorkflowName, workflowID, signingKey, workflowOwnerAddress)
 	validateHTTPWorkflowRequest(t, testEnv)
 
 	testEnv.Logger.Info().Msg("HTTP trigger and action test completed successfully")
 }
 
 // executeHTTPTriggerRequest executes an HTTP trigger request and waits for successful response
-func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, gatewayURL *url.URL, workflowName string, singingKey *ecdsa.PrivateKey, workflowOwnerAddress string) {
+func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, gatewayURL *url.URL, workflowName, workflowID string, singingKey *ecdsa.PrivateKey, workflowOwnerAddress string) {
 	var finalResponse jsonrpc.Response[json.RawMessage]
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
 	tick := 5 * time.Second
 	require.Eventually(t, func() bool {
-		triggerRequest = createHTTPTriggerRequestWithKey(t, workflowName, workflowOwnerAddress, singingKey)
+		triggerRequest = createHTTPTriggerRequestWithKey(t, workflowName, workflowID, workflowOwnerAddress, singingKey)
 		triggerRequestBody, err := json.Marshal(triggerRequest)
 		if err != nil {
 			testEnv.Logger.Warn().Msgf("Failed to marshal trigger request: %v", err)
@@ -105,12 +130,13 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, ga
 			return false
 		}
 
-		testEnv.Logger.Info().Msgf("HTTP trigger response (status %d): %s", resp.StatusCode, string(body))
-
 		if resp.StatusCode != http.StatusOK {
+			testEnv.Logger.Warn().Msgf("HTTP trigger response (status %d): %s", resp.StatusCode, string(body))
 			testEnv.Logger.Warn().Msgf("Gateway returned status %d, retrying...", resp.StatusCode)
 			return false
 		}
+
+		testEnv.Logger.Info().Msgf("HTTP trigger response (status %d): %s", resp.StatusCode, string(body))
 
 		err = json.Unmarshal(body, &finalResponse)
 		if err != nil {
@@ -138,7 +164,7 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	require.Eventually(t, func() bool {
 		records, err := fake.R.Get("POST", "/orders")
 		return err == nil && len(records) > 0
-	}, 5*time.Minute, tick, "workflow should have made at least one HTTP request to mock server")
+	}, 3*time.Minute, tick, "workflow should have made at least one HTTP request to mock server")
 
 	records, err := fake.R.Get("POST", "/orders")
 	require.NoError(t, err, "failed to get recorded requests")
@@ -160,12 +186,23 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	require.Contains(t, workflowRequestBody, "toppings", "expected toppings field")
 }
 
-func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner string, privateKey *ecdsa.PrivateKey) jsonrpc.Request[json.RawMessage] {
+func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowID, workflowOwner string, privateKey *ecdsa.PrivateKey) jsonrpc.Request[json.RawMessage] {
+	signerAddress := strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
+
+	framework.L.Info().
+		Str("workflow_owner", workflowOwner).
+		Str("workflow_name", workflowName).
+		Str("workflow_tag", workflowTag).
+		Str("workflow_id", workflowID).
+		Str("signer_address", signerAddress).
+		Msg("Creating HTTP trigger request")
+
 	triggerPayload := gateway_common.HTTPTriggerRequest{
 		Workflow: gateway_common.WorkflowSelector{
 			WorkflowOwner: workflowOwner,
 			WorkflowName:  workflowName,
-			WorkflowTag:   "TEMP_TAG",
+			WorkflowTag:   workflowTag,
+			WorkflowID:    workflowID,
 		},
 		Input: json.RawMessage(`{
 			"customer": "test-customer",
@@ -183,7 +220,7 @@ func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner s
 		Version: jsonrpc.JsonRpcVersion,
 		Method:  gateway_common.MethodWorkflowExecute,
 		Params:  &rawPayload,
-		ID:      "http-trigger-test-" + uuid.New().String()[0:8],
+		ID:      requestID + uuid.New().String()[0:8],
 	}
 
 	token, err := utils.CreateRequestJWT(req)

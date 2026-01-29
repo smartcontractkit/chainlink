@@ -6,7 +6,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	pb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 // RingArbiterHandler implements the ArbiterScalerServer interface from chainlink-common.
@@ -15,7 +15,7 @@ import (
 //   - Status(): Returns routable shard count and per-shard health for Ring OCR routing decisions
 //   - ConsensusWantShards(): Receives the Ring consensus decision about desired shard count
 type RingArbiterHandler struct {
-	pb.UnimplementedArbiterScalerServer
+	ringpb.UnimplementedArbiterScalerServer
 	state *State
 	lggr  logger.Logger
 }
@@ -31,7 +31,7 @@ func NewRingArbiterHandler(state *State, lggr logger.Logger) *RingArbiterHandler
 // Status returns the current replica status for Ring OCR routing.
 // Returns only READY shards count and per-shard health status.
 // This is called by the Ring plugin to determine which shards can receive traffic.
-func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.ReplicaStatus, error) {
+func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*ringpb.ReplicaStatus, error) {
 	routable := h.state.GetRoutableShards()
 
 	h.lggr.Debugw("Status requested",
@@ -40,9 +40,9 @@ func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.
 	)
 
 	// Convert internal shard health to protobuf ShardStatus
-	shardStatus := make(map[uint32]*pb.ShardStatus, len(routable.ShardInfo))
+	shardStatus := make(map[uint32]*ringpb.ShardStatus, len(routable.ShardInfo))
 	for shardID, health := range routable.ShardInfo {
-		shardStatus[shardID] = &pb.ShardStatus{
+		shardStatus[shardID] = &ringpb.ShardStatus{
 			IsHealthy: health.IsHealthy,
 		}
 	}
@@ -50,7 +50,7 @@ func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.
 	// TODO: Rename WantShards to ReadyShards in protobuf (breaking change)
 	// The field name "WantShards" is misleading - it actually represents
 	// the number of shards ready for routing, not what Ring "wants".
-	return &pb.ReplicaStatus{
+	return &ringpb.ReplicaStatus{
 		WantShards: uint32(routable.ReadyCount), //nolint:gosec // G115: replica count bounded
 		Status:     shardStatus,
 	}, nil
@@ -58,7 +58,7 @@ func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*pb.
 
 // ConsensusWantShards is called by the Ring consensus to report the desired number of shards.
 // The consensus has agreed on how many shards the system should have.
-func (h *RingArbiterHandler) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
+func (h *RingArbiterHandler) ConsensusWantShards(ctx context.Context, req *ringpb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
 	nShards := req.GetNShards()
 
 	if nShards == 0 {

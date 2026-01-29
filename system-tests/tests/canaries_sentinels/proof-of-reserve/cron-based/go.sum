@@ -64,8 +64,8 @@ github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/smartcontractkit/chain-selectors v1.0.90 h1:M+1Xgum6WxxEMgUIkE2KJomsf60IntavaypUb9O/OI0=
 github.com/smartcontractkit/chain-selectors v1.0.90/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
-github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129130744-bdc12eacfc00 h1:AgJgEiLPyxPTwLORsxvacc/ZEExBPFx0eSgZ0viN35o=
-github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129130744-bdc12eacfc00/go.mod h1:Eg5rz/fQINjR9H0TxHw7j+zGZeYxprUpEQZzC5JGHG4=
+github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129155548-5c11c191d8cc h1:FR8+dIQbYLHShd9C1PoS5YgbUjJ6Q0S6NGTOpgt91xo=
+github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129155548-5c11c191d8cc/go.mod h1:zBuRC7el/pQQB95t7JnLOvCfZ3lmi5jjXYRUY2XUD+g=
 github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250806152407-159881c7589c h1:QaImySzrLcGzQc4wCF2yDqqb73jA3+9EIqybgx8zT4w=
 github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250806152407-159881c7589c/go.mod h1:U1UAbPhy6D7Qz0wHKGPoQO+dpR0hsYjgUz8xwRrmKwI=
 github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250806155403-1d805e639a0f h1:mnnlyMH5LgJRAzx/4mW2R+sbK1Acpfs3q0EokeAX5RI=

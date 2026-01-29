@@ -120,7 +120,7 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	testID := uuid.New().String()[0:8]
 	workflowName := "http-action-success-workflow-" + httpActionTest.testCase + "-" + testID
-	thelpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	_ = thelpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// Start Beholder listener to capture workflow execution messages
 	listenerCtx, messageChan, kafkaErrChan := thelpers.StartBeholder(t, testLogger, testEnv)
