@@ -102,7 +102,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
-	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260106052706-6dd937cb5ec6
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260121103211-89fe83165431
@@ -436,4 +436,4 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
-replace github.com/smartcontractkit/chainlink-protos/ring/go => ../chainlink-protos/ring/go
+//replace github.com/smartcontractkit/chainlink-protos/ring/go => ../chainlink-protos/ring/go
