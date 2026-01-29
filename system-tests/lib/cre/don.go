@@ -574,15 +574,14 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 	var idToAccept string
 	for _, jp := range jd.JobProposals {
 		if jp.LatestSpec.Definition == spec {
-			idToAccept = jp.LatestSpec.Id
+			idToAccept = jp.Id
 			break
 		}
 	}
 	if idToAccept == "" {
 		return fmt.Errorf("no job proposal found for job spec %s", spec)
 	}
-	// set force to 'true' to mirror what the UI does
-	approvedSpec, err := n.Clients.GQLClient.ApproveJobProposalSpec(ctx, idToAccept, true)
+	approvedSpec, err := n.Clients.GQLClient.ApproveJobProposalSpec(ctx, idToAccept, false)
 	if err != nil {
 		return err
 	}

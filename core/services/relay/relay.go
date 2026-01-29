@@ -57,7 +57,7 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.NewMercuryProvider(ctx, rargs, pargs)
 	case types.OCR2Keeper:
 		return r.NewAutomationProvider(ctx, rargs, pargs)
-	case types.OCR3Capability, types.DonTimePlugin:
+	case types.OCR3Capability, types.DonTimePlugin, types.RingPlugin:
 		return r.NewOCR3CapabilityProvider(ctx, rargs, pargs)
 	case types.CCIPCommit:
 		return r.NewCCIPCommitProvider(ctx, rargs, pargs)

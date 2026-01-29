@@ -72,6 +72,9 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 			if strings.Contains(strings.ToLower(testName), "writereport") {
 				framework.L.Info().Msg("Running EVM Write Regression test")
 				EVMWriteFailsTest(t, testEnv, tCase)
+			} else if strings.Contains(strings.ToLower(testName), "logtrigger") {
+				framework.L.Info().Msg("Running EVM LogTrigger Regression test")
+				EVMLogTriggerFailsTest(t, testEnv, tCase)
 			} else {
 				framework.L.Info().Msg("Running EVM Read Regression test")
 				EVMReadFailsTest(t, testEnv, tCase)
@@ -124,12 +127,19 @@ func Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidReceiver)
 }
 
+func Test_CRE_V2_EVM_WriteReport_Failing_On_Receiver(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportFailingOnReceiver)
+}
 func Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportCorruptReceiverAddress)
 }
 
 func Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidGas)
+}
+
+func Test_CRE_V2_EVM_LogTrigger_Invalid_Address_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsLogTriggerInvalidAddress)
 }
 
 func Test_CRE_V2_HTTP_Action_CRUD_Regression(t *testing.T) {

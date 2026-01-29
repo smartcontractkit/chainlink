@@ -176,7 +176,7 @@ func (c *CommitReportTracker) visitCommitReport(sourceChainSelector uint64, minS
 	}
 }
 
-func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
+func (c *CommitReportTracker) allCommitted(sourceChainSelector uint64) bool {
 	for _, v := range c.seenMessages[sourceChainSelector] {
 		if !v {
 			return false

@@ -179,7 +179,7 @@ func confirmCommitWithExpectedSeqNumRangeTON(
 
 			// Check if all messages committed (single or multiple reports)
 			if (uint64(expectedSeqNums.Start()) >= mr.MinSeqNr && uint64(expectedSeqNums.End()) <= mr.MaxSeqNr) ||
-				tracker.allCommited(srcChainSelector) {
+				tracker.allCommitted(srcChainSelector) {
 				t.Logf("All sequence numbers committed [%d, %d]", expectedSeqNums.Start(), expectedSeqNums.End())
 				return true, nil
 			}

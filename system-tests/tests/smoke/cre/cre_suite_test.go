@@ -112,7 +112,7 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		ExecuteHTTPTriggerActionTest(t, testEnv)
 	})
 
-	t.Run("[v2] HTTP Action CRUD Success - "+topology, func(t *testing.T) {
+	t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
@@ -158,4 +158,14 @@ func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), append(v2RegistriesFlags, "--with-dashboards")...)
 
 	ExecuteLogStreamingTest(t, testEnv)
+}
+
+func Test_CRE_V2_Sharding(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
+		v2RegistriesFlags...,
+	)
+
+	ExecuteShardingTest(t, testEnv)
 }

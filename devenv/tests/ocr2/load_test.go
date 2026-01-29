@@ -140,12 +140,15 @@ func TestLoad(t *testing.T) {
 			l, err := leak.NewCLNodesLeakDetector(leak.NewResourceLeakChecker())
 			require.NoError(t, err)
 			errs := l.Check(&leak.CLNodesCheck{
+				// since the test is stable we assert absolute values
+				// no more than 25% CPU and 350Mb (last 5m)
+				ComparisonMode:  leak.ComparisonModeAbsolute,
 				NumNodes:        in.NodeSets[0].Nodes,
 				Start:           start,
 				End:             time.Now(),
-				WarmUpDuration:  10 * time.Minute,
-				CPUThreshold:    20.0,
-				MemoryThreshold: 20.0,
+				WarmUpDuration:  30 * time.Minute,
+				CPUThreshold:    25.0,
+				MemoryThreshold: 350.0,
 			})
 			require.NoError(t, errs)
 		})

@@ -188,7 +188,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to parse chain ID %s: %w", chainIDStr, err)
 	}
 
-	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s", chainName, input.Zone)
+	jobName := fmt.Sprintf("evm-cap-v2-%s-%s", chainName, input.Zone)
 	job := pkg.StandardCapabilityJob{
 		JobName:               jobName,
 		Command:               "/usr/local/bin/evm",

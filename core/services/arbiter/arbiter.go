@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -60,7 +60,8 @@ func New(
 	shardConfig := NewShardConfigSyncer(contractReaderFactory, shardConfigAddr, pollInterval, retryInterval, lggr)
 
 	// Create gRPC handler for Arbiter service (from chainlink-common)
-	grpcHandler := NewGRPCServer(shardConfig, lggr)
+	// Pass state so GetDesiredReplicas can store shard status for Ring OCR
+	grpcHandler := NewGRPCServer(shardConfig, state, lggr)
 
 	// Create handler for ArbiterScaler (Ring OCR → Arbiter communication)
 	ringArbiterHandler := NewRingArbiterHandler(state, lggr)

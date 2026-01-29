@@ -403,19 +403,6 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	if topology.DonsMetadata.ShardingEnabled() {
-		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Setting up Sharding")))
-		err := sharding.SetupSharding(sharding.SetupShardingInput{
-			Logger:   testLogger,
-			CreEnv:   creEnvironment,
-			Topology: topology,
-		})
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to setup Sharding")
-		}
-		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	}
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 
 	for _, feature := range input.Features.List() {
@@ -434,6 +421,21 @@ func SetupTestEnvironment(
 		}
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	// Sharding setup moved AFTER PostEnvStartup to ensure OCR3 configs work properly
+	if topology.DonsMetadata.ShardingEnabled() {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Setting up Sharding")))
+		err := sharding.SetupSharding(ctx, sharding.SetupShardingInput{
+			Logger:   testLogger,
+			CreEnv:   creEnvironment,
+			Topology: topology,
+			Dons:     dons,
+		})
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to setup Sharding")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	}
 
 	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
