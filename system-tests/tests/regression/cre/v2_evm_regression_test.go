@@ -269,7 +269,10 @@ func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNe
 
 		// For LogTrigger with EOA address, we expect engine initialization failure
 		// This is the correct behavior - the workflow engine should fail to initialize when trying to register a trigger with an invalid address
-		t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, 2*time.Minute)
+		baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, 2*time.Minute)
+		require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
+		require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
+		require.Contains(t, baseMsg.Labels["err"], evmNegativeTest.expectedError, "expected error message to contain "+evmNegativeTest.expectedError)
 		testLogger.Info().Msg("EVM LogTrigger Fail test successfully completed")
 	}
 }

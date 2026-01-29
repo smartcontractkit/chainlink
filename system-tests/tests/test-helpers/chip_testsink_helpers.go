@@ -133,6 +133,7 @@ func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptest
 		PublishFunc: publishFn,
 		GRPCListen:  ":" + strconv.Itoa(config.DefaultChipIngressPort),
 		Started:     startCh,
+		// UpstreamEndpoint: "localhost:50051", // uncomment to forward events to ChIP
 	})
 	require.NoError(t, err, "failed to create new test sink server")
 
@@ -201,12 +202,15 @@ func WatchBaseMessages(
 	testLogger zerolog.Logger,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	expectedMessage string,
-	timeout time.Duration) {
+	timeout time.Duration,
+) *commonevents.BaseMessage {
 	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New("failed to find expected base message"))
 	defer cancelFn()
 
-	_, err := WaitForBaseMessage(ctx, testLogger, baseMessageCh, expectedMessage)
+	msg, err := WaitForBaseMessage(ctx, testLogger, baseMessageCh, expectedMessage)
 	require.NoError(t, err, "failed to find expected base message")
+
+	return msg
 }
 
 // IgnoreUserLogs drains user log traffic so publishers never block when tests do not care about logs.

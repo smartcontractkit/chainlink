@@ -39,19 +39,19 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 	testLogger := framework.L
 	const workflowFileLocation = "./consensus/main.go"
 
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
-
-		userLogsCh := make(chan *workflowevents.UserLogs, 1000)
-		baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
-
-		server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
-
-		t.Cleanup(func() {
-			server.Shutdown(t.Context())
-			close(userLogsCh)
-			close(baseMessageCh)
-		})
 
 		testLogger.Info().Msg("Creating Consensus Fail workflow configuration...")
 		workflowName := fmt.Sprintf("consensus-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
@@ -65,7 +65,7 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 
 		expectedError := consensusNegativeTest.expectedError
 
-		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, "", expectedError, 90*time.Second)
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, "", expectedError, 2*time.Minute)
 		testLogger.Info().Msg("Consensus Fail test successfully completed")
 	}
 }

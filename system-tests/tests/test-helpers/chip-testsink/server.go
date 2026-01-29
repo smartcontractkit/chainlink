@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -99,6 +100,17 @@ func (s *Server) Run() error {
 //
 // Adjust the signature if your generated interface differs.
 func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
+	go func() {
+		if s.cfg.UpstreamEndpoint != "" {
+			context, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancelFn()
+			_, err := s.upstream.Publish(context, event)
+			if err != nil {
+				log.Printf("failed to forward to upstream: %v", err)
+			}
+		}
+	}()
+
 	return s.cfg.PublishFunc(ctx, event)
 }
 

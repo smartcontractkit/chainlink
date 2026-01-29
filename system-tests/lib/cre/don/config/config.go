@@ -39,7 +39,7 @@ import (
 )
 
 const TronEVMChainID = 3360022319
-const DefaultChipIngressPort = 50051
+const DefaultChipIngressPort = 50055
 
 func PrepareNodeTOMLs(
 	ctx context.Context,
