@@ -32,8 +32,9 @@ func removeFeedProxyMappingLogic(env cldf.Environment, c types.RemoveFeedProxyCo
 		proposalConfig := MultiChainProposalConfig{
 			c.ChainSelector: []ProposalData{
 				{
-					contract: contract.Address().Hex(),
-					tx:       tx,
+					contract:          contract.Address().Hex(),
+					tx:                tx,
+					timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 				},
 			},
 		}
