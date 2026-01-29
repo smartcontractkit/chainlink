@@ -81,6 +81,9 @@ jobs:
              ],
             "Test_CRE_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
+             ],
+            "Test_CRE_V2_Sharding": [
+               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
@@ -124,6 +127,23 @@ jobs:
               )
           ')
 
+          # Extra tests:
+          # - legacy vault plugin
+          extra_tests='[
+            {
+              "test_name": "Test_CRE_V2_Suite/[v2]_Vault_DON_-_workflow-gateway-legacy-vault-don",
+              "topology": "workflow-gateway-legacy-vault-don",
+              "configs": "configs/workflow-gateway-legacy-vault-don.toml",
+              "test_id": null,
+              "cre_version": "v1"
+            }
+          ]'
+
+          # Merge and reassign test_id sequentially
+          tests=$(echo "$tests" | jq -c \
+            --argjson manual "$extra_tests" \
+            '. + $manual | to_entries | map(.value + {test_id: .key})')
+
           tests=$(echo "$tests" | jq -c .)
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
@@ -143,9 +163,10 @@ jobs:
     timeout-minutes: 60
     env:
       ENABLE_AUTO_QUARANTINE: "true"
-      # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
+      # override Chip Ingress and Chip Config images with remote images. We have added this env var here, instead of the "Start local CRE" step, because
       # Beholder stack will be started only for the Beholder tests
-      CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
+      CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+      CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
       BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
 
     steps:

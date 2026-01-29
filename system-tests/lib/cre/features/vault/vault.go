@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -39,7 +40,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
-	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -105,7 +105,9 @@ func (o *Vault) PreEnvStartup(
 			Version:        "1.0.0",
 			CapabilityType: 1, // ACTION
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -135,6 +137,22 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	}
 
 	return ptr.Ptr(string(stringifiedConfig)), nil
+}
+
+func pendingQueueEnabled(env *cre.Environment) bool {
+	os := env.CapabilityConfigs[flag]
+	setting, ok := os.Config["EnableDeterministicPendingQueue"]
+
+	if !ok {
+		return false
+	}
+
+	enabled, ok := setting.(bool)
+	if !ok {
+		return false
+	}
+
+	return enabled
 }
 
 func (o *Vault) PostEnvStartup(
@@ -206,7 +224,7 @@ func (o *Vault) PostEnvStartup(
 		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
 	}
 
-	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, dons)
+	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, dons, pendingQueueEnabled(creEnv))
 	if cErr != nil {
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
@@ -261,7 +279,7 @@ func createJobs(
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
 		DONName:     bootstrap.DON.Name,
-		JobName:     "vault-bootstrap",
+		JobName:     "vault-bootstrap-" + don.Name,
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
@@ -401,7 +419,7 @@ func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig,
 	return cfg, nil
 }
 
-func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, dons *cre.Dons) ([]byte, error) {
+func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, dons *cre.Dons, pendingQueueEnabled bool) ([]byte, error) {
 	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector].Client
 	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
 	if err != nil {
@@ -413,7 +431,8 @@ func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre
 	}
 	instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
 	cfg := vaultprotos.ReportingPluginConfig{
-		DKGInstanceID: &instanceID,
+		DKGInstanceID:                   &instanceID,
+		EnableDeterministicPendingQueue: pendingQueueEnabled,
 	}
 	cfgb, err := proto.Marshal(&cfg)
 	if err != nil {

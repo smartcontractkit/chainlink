@@ -8,6 +8,8 @@ import (
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	zkbindings "github.com/smartcontractkit/mcms/sdk/zksync/bindings"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -23,9 +25,9 @@ var OpEVMDeployProposerMCM = opsutils.NewEVMDeployOperation(
 	commontypes.ProposerManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
-		// ZkSyncVMBytecode not supported
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.ManyChainMultiSigBin),
+		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
 		return []any{}
@@ -39,9 +41,9 @@ var OpEVMDeployBypasserMCM = opsutils.NewEVMDeployOperation(
 	commontypes.BypasserManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
-		// ZkSyncVMBytecode not supported
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.ManyChainMultiSigBin),
+		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
 		return []any{}
@@ -55,9 +57,9 @@ var OpEVMDeployCancellerMCM = opsutils.NewEVMDeployOperation(
 	commontypes.CancellerManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
-		// ZkSyncVMBytecode not supported
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.ManyChainMultiSigBin),
+		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
 		return []any{}

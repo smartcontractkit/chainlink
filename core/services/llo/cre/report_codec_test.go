@@ -37,7 +37,7 @@ func Test_ReportCodec(t *testing.T) {
 				{StreamID: 1},
 				{StreamID: 2},
 			},
-		}, nil)
+		})
 		require.NoError(t, err)
 
 		var pbuf capabilitiespb.OCRTriggerReport
@@ -100,7 +100,7 @@ func Test_ReportCodec(t *testing.T) {
 				{StreamID: 3},
 			},
 			Opts: opts,
-		}, nil)
+		})
 		require.NoError(t, err)
 
 		var pbuf capabilitiespb.OCRTriggerReport

@@ -23,6 +23,7 @@ import (
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
@@ -39,7 +40,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -460,7 +460,7 @@ func testSetup(ctx context.Context, t testing.TB, readerChain ccipocr3common.Cha
 	)
 	require.NoError(t, lp.Start(ctx))
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
+	cr, err := read.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
 	require.NoError(t, err)
 
 	err = cr.Start(ctx)

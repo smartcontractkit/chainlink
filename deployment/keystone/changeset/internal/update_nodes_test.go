@@ -487,7 +487,7 @@ func TestUpdateNodes(t *testing.T) {
 
 			// register the capabilities that the Update will use
 			expectedUpdatedCaps := make(map[p2pkey.PeerID][]internal.RegisteredCapability)
-			capCache := kstest.NewCapabiltyCache(t, registry)
+			capCache := kstest.NewCapabilityCache(t, registry)
 			for p2p, update := range tt.args.req.P2pToUpdates {
 				if len(update.Capabilities) > 0 {
 					expectedCaps := capCache.AddCapabilities(tt.args.lggr, tt.args.req.Chain, registry, update.Capabilities)

@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -285,6 +286,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
@@ -296,7 +299,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, wl, store, workflowEncryptionKey, donNotifier)
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey, donNotifier)
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -383,6 +386,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
@@ -394,7 +399,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	require.NoError(t, err)
 
 	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
-		emitter, limiters, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}))
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(

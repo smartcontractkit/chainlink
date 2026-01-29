@@ -3,7 +3,9 @@ package view
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -26,6 +28,69 @@ type OCR3ConfigView struct {
 	OnchainConfig         []byte              `json:"onchainConfig"`
 	OffchainConfigVersion uint64              `json:"offchainConfigVersion"`
 	OffchainConfig        ocr3.OracleConfig   `json:"offchainConfig"`
+}
+
+type OCR3ConfigViewLegacy struct {
+	Signers               []string            `json:"signers"`
+	Transmitters          []ocr2types.Account `json:"transmitters"`
+	F                     uint8               `json:"f"`
+	OnchainConfig         []byte              `json:"onchainConfig"`
+	OffchainConfigVersion uint64              `json:"offchainConfigVersion"`
+	OffchainConfig        OracleConfigLegacy  `json:"offchainConfig"`
+}
+
+type OracleConfigLegacy struct {
+	UniqueReports                     bool
+	DeltaProgressMillis               uint32
+	DeltaResendMillis                 uint32
+	DeltaInitialMillis                uint32
+	DeltaRoundMillis                  uint32
+	DeltaGraceMillis                  uint32
+	DeltaCertifiedCommitRequestMillis uint32
+	DeltaStageMillis                  uint32
+	MaxRoundsPerEpoch                 uint64
+	TransmissionSchedule              []int
+
+	MaxDurationQueryMillis          uint32
+	MaxDurationObservationMillis    uint32
+	MaxDurationShouldAcceptMillis   uint32
+	MaxDurationShouldTransmitMillis uint32
+
+	MaxFaultyOracles int
+
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxReportLengthBytes      uint32
+	MaxOutcomeLengthBytes     uint32
+	MaxReportCount            uint32
+	MaxBatchSize              uint32
+	OutcomePruningThreshold   uint64
+	RequestTimeout            time.Duration
+}
+
+func (oc *OracleConfigLegacy) UnmarshalJSON(data []byte) error {
+	type aliasT OracleConfigLegacy
+	temp := &struct {
+		RequestTimeout string `json:"RequestTimeout"`
+		*aliasT
+	}{
+		aliasT: (*aliasT)(oc),
+	}
+	if err := json.Unmarshal(data, temp); err != nil {
+		return fmt.Errorf("failed to unmarshal OracleConfigLegacy: %w", err)
+	}
+
+	if temp.RequestTimeout == "" {
+		oc.RequestTimeout = 0
+	} else {
+		requestTimeout, err := time.ParseDuration(temp.RequestTimeout)
+		if err != nil {
+			return fmt.Errorf("failed to parse RequestTimeout: %w", err)
+		}
+		oc.RequestTimeout = requestTimeout
+	}
+
+	return nil
 }
 
 func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {

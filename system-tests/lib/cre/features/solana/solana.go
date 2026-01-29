@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
 	solanago "github.com/gagliardetto/solana-go"
@@ -102,7 +102,9 @@ func (o *Solana) PreEnvStartup(
 			CapabilityType: 3, // TARGET
 			ResponseType:   1, // OBSERVATION_IDENTICAL
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -255,7 +257,7 @@ const solWorkflowConfigTemplate = `
 		ForwarderState   = '{{.ForwarderState}}'
 		PollPeriod = '{{.PollPeriod}}'
 		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
-		TxAcceptanceState = {{.TxAcceptanceState}}
+		TxAcceptanceState = {{printf "%d" .TxAcceptanceState}}
 		Local = {{.Local}}
 	`
 

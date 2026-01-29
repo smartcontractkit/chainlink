@@ -48,7 +48,9 @@ func (o *ReadContract) PreEnvStartup(
 				Version:        "1.0.0",
 				CapabilityType: 1, // ACTION
 			},
-			Config: &capabilitiespb.CapabilityConfig{},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		})
 	}
 
@@ -57,7 +59,7 @@ func (o *ReadContract) PreEnvStartup(
 	}, nil
 }
 
-const configTemplate = `{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}"}`
+const configTemplate = `{"chainId":{{printf "%d" .ChainID}},"network":"{{.NetworkFamily}}"}`
 
 func (o *ReadContract) PostEnvStartup(
 	ctx context.Context,
