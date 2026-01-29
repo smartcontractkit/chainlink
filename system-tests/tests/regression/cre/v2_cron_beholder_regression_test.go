@@ -35,7 +35,7 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: invalidSchedule,
 	}
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	testLogger.Warn().Msgf("Expecting Cron workflow to fail with invalid schedule: %s", invalidSchedule)
 	expectedBeholderLog := "beholder found engine initialization failure message!"

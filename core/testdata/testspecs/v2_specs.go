@@ -732,18 +732,6 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		params.Name = "blockhash-store"
 	}
 
-	if params.CoordinatorV1Address == "" {
-		params.CoordinatorV1Address = "0x19D20b4Ec0424A530C3C1cDe874445E37747eb18"
-	}
-
-	if params.CoordinatorV2Address == "" {
-		params.CoordinatorV2Address = "0x2498e651Ae17C2d98417C4826F0816Ac6366A95E"
-	}
-
-	if params.CoordinatorV2PlusAddress == "" {
-		params.CoordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
-	}
-
 	if params.TrustedBlockhashStoreAddress == "" {
 		params.TrustedBlockhashStoreAddress = utils.ZeroAddress.Hex()
 	}
@@ -783,28 +771,36 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		formattedFromAddresses = fmt.Sprintf("[%s]", strings.Join(addresses, ", "))
 	}
 
-	template := `
-type = "blockhashstore"
-schemaVersion = 1
-name = "%s"
-coordinatorV1Address = "%s"
-coordinatorV2Address = "%s"
-coordinatorV2PlusAddress = "%s"
-waitBlocks = %d
-lookbackBlocks = %d
-blockhashStoreAddress = "%s"
-trustedBlockhashStoreAddress = "%s"
-trustedBlockhashStoreBatchSize = %d
-pollPeriod = "%s"
-runTimeout = "%s"
-evmChainID = "%d"
-fromAddresses = %s
-heartbeatPeriod = "%s"
-`
-	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
-		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
-		params.BlockhashStoreAddress, params.TrustedBlockhashStoreAddress, params.TrustedBlockhashStoreBatchSize, params.PollPeriod.String(), params.RunTimeout.String(),
-		params.EVMChainID, formattedFromAddresses, params.HeartbeatPeriod.String())
+	// Build TOML conditionally including coordinator addresses only if provided.
+	var lines []string
+	lines = append(lines,
+		`type = "blockhashstore"`,
+		`schemaVersion = 1`,
+		fmt.Sprintf(`name = "%s"`, params.Name),
+	)
+	if params.CoordinatorV1Address != "" {
+		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
+	}
+	if params.CoordinatorV2Address != "" {
+		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
+	}
+	if params.CoordinatorV2PlusAddress != "" {
+		lines = append(lines, fmt.Sprintf(`coordinatorV2PlusAddress = "%s"`, params.CoordinatorV2PlusAddress))
+	}
+	lines = append(lines,
+		fmt.Sprintf(`waitBlocks = %d`, params.WaitBlocks),
+		fmt.Sprintf(`lookbackBlocks = %d`, params.LookbackBlocks),
+		fmt.Sprintf(`blockhashStoreAddress = "%s"`, params.BlockhashStoreAddress),
+		fmt.Sprintf(`trustedBlockhashStoreAddress = "%s"`, params.TrustedBlockhashStoreAddress),
+		fmt.Sprintf(`trustedBlockhashStoreBatchSize = %d`, params.TrustedBlockhashStoreBatchSize),
+		fmt.Sprintf(`pollPeriod = "%s"`, params.PollPeriod.String()),
+		fmt.Sprintf(`runTimeout = "%s"`, params.RunTimeout.String()),
+		fmt.Sprintf(`evmChainID = "%d"`, params.EVMChainID),
+		fmt.Sprintf(`fromAddresses = %s`, formattedFromAddresses),
+		fmt.Sprintf(`heartbeatPeriod = "%s"`, params.HeartbeatPeriod.String()),
+	)
+	lines = append(lines, "") // trailing newline
+	toml := strings.Join(lines, "\n")
 
 	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}
 }
@@ -847,18 +843,6 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 
 	if params.Name == "" {
 		params.Name = "blockheaderfeeder"
-	}
-
-	if params.CoordinatorV1Address == "" {
-		params.CoordinatorV1Address = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
-	}
-
-	if params.CoordinatorV2Address == "" {
-		params.CoordinatorV2Address = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
-	}
-
-	if params.CoordinatorV2PlusAddress == "" {
-		params.CoordinatorV2PlusAddress = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
 	}
 
 	if params.WaitBlocks == 0 {
@@ -904,29 +888,36 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 		formattedFromAddresses = fmt.Sprintf("[%s]", strings.Join(addresses, ", "))
 	}
 
-	template := `
-type = "blockheaderfeeder"
-schemaVersion = 1
-name = "%s"
-coordinatorV1Address = "%s"
-coordinatorV2Address = "%s"
-coordinatorV2PlusAddress = "%s"
-waitBlocks = %d
-lookbackBlocks = %d
-blockhashStoreAddress = "%s"
-batchBlockhashStoreAddress = "%s"
-pollPeriod = "%s"
-runTimeout = "%s"
-evmChainID = "%d"
-fromAddresses = %s
-getBlockhashesBatchSize = %d
-storeBlockhashesBatchSize = %d
-`
-	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
-		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
-		params.BlockhashStoreAddress, params.BatchBlockhashStoreAddress, params.PollPeriod.String(),
-		params.RunTimeout.String(), params.EVMChainID, formattedFromAddresses, params.GetBlockhashesBatchSize,
-		params.StoreBlockhashesBatchSize)
+	// Build TOML conditionally including coordinator addresses only if provided.
+	var lines []string
+	lines = append(lines,
+		`type = "blockheaderfeeder"`,
+		`schemaVersion = 1`,
+		fmt.Sprintf(`name = "%s"`, params.Name),
+	)
+	if params.CoordinatorV1Address != "" {
+		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
+	}
+	if params.CoordinatorV2Address != "" {
+		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
+	}
+	if params.CoordinatorV2PlusAddress != "" {
+		lines = append(lines, fmt.Sprintf(`coordinatorV2PlusAddress = "%s"`, params.CoordinatorV2PlusAddress))
+	}
+	lines = append(lines,
+		fmt.Sprintf(`waitBlocks = %d`, params.WaitBlocks),
+		fmt.Sprintf(`lookbackBlocks = %d`, params.LookbackBlocks),
+		fmt.Sprintf(`blockhashStoreAddress = "%s"`, params.BlockhashStoreAddress),
+		fmt.Sprintf(`batchBlockhashStoreAddress = "%s"`, params.BatchBlockhashStoreAddress),
+		fmt.Sprintf(`pollPeriod = "%s"`, params.PollPeriod.String()),
+		fmt.Sprintf(`runTimeout = "%s"`, params.RunTimeout.String()),
+		fmt.Sprintf(`evmChainID = "%d"`, params.EVMChainID),
+		fmt.Sprintf(`fromAddresses = %s`, formattedFromAddresses),
+		fmt.Sprintf(`getBlockhashesBatchSize = %d`, params.GetBlockhashesBatchSize),
+		fmt.Sprintf(`storeBlockhashesBatchSize = %d`, params.StoreBlockhashesBatchSize),
+	)
+	lines = append(lines, "") // trailing newline
+	toml := strings.Join(lines, "\n")
 
 	return BlockHeaderFeederSpec{BlockHeaderFeederSpecParams: params, toml: toml}
 }

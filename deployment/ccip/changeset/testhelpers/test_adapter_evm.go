@@ -161,7 +161,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			}
 
 			// Check if all messages committed across multiple reports (if enforceSingleCommit is false)
-			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+			if !enforceSingleCommit && seenMessages.allCommitted(srcSelector) {
 				t.Logf(
 					"✅ All sequence numbers already committed from range [%d, %d] across multiple reports",
 					expectedSeqNumRange.Start(), expectedSeqNumRange.End(),

@@ -24,7 +24,7 @@ plugins:
       installPath: "."
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "b0897990489fdbccb5cdc8892d786cacf64c3a1a"
+      gitRef: "0492b56b7b77c04b1078525fa89a7081949aace4"
       installPath: "."
   workflowevent:
     - enabled: false
@@ -41,7 +41,7 @@ plugins:
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "2a0f492ca251dc72a742626084644fb7bc4d3ec0"
+      gitRef: "a139082943250a18c6c49031369384f02aea36c1"
       installPath: "."
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"

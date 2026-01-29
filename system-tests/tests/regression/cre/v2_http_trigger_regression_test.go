@@ -118,7 +118,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	}
 
 	workflowName := "http-trigger-fail-workflow-" + httpNegativeTest.testCase
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// For invalid key type and invalid public key format, we expect the workflow deployment/trigger setup to fail
 	// For non-existing public key, we expect the trigger execution to fail with unauthorized error at gateway level

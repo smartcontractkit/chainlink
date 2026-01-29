@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cast"
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	evmMcms "github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -64,7 +64,7 @@ func DeployMCMSWithConfigEVM(
 	mcmConfig mcmsTypes.Config,
 	options ...DeployMCMSOption,
 ) (*cldf.ContractDeploy[*bindings.ManyChainMultiSig], error) {
-	groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&mcmConfig)
+	groupQuorums, groupParents, signerAddresses, signerGroups, err := sdk.ExtractSetConfigInputs(&mcmConfig)
 	if err != nil {
 		lggr.Errorw("Failed to extract set config inputs", "chain", chain.String(), "err", err)
 		return nil, err

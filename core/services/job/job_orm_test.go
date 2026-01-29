@@ -298,7 +298,7 @@ func TestORM(t *testing.T) {
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		bhsJob, err := blockhashstore.ValidatedSpec(
-			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{}).Toml())
+			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV1Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml())
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)
@@ -329,8 +329,11 @@ func TestORM(t *testing.T) {
 
 	t.Run("it creates and deletes records for blockheaderfeeder jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
+		// at least one coordinator address to satisfy the validation DB constraint
 		bhsJob, err := blockheaderfeeder.ValidatedSpec(
-			testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{}).Toml())
+			testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{
+				CoordinatorV2Address: "0x0000000000000000000000000000000000000001",
+			}).Toml())
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)

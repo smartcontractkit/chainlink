@@ -5,9 +5,11 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
+	"time"
 
 	ag_binary "github.com/gagliardetto/binary"
 	solgo "github.com/gagliardetto/solana-go"
@@ -65,16 +67,49 @@ func getDecimalReportUpdatedDiscriminator() [8]byte {
 	return discriminator
 }
 
+// getDecimalReportUpdatedIdlJson returns the Anchor IDL JSON for the DecimalReportUpdated event
+// This matches the event definition in data_feeds_cache/src/event.rs:
+//
+//	#[event]
+//	pub struct DecimalReportUpdated {
+//	    pub state: Pubkey,
+//	    pub data_id: [u8; 16],
+//	    pub timestamp: u32,
+//	    pub answer: u128,
+//	}
+func getDecimalReportUpdatedIdlJson() ([]byte, error) {
+	// IDL structure matching chainlink-solana/pkg/solana/codec types
+	idl := map[string]interface{}{
+		"event": map[string]interface{}{
+			"name": "DecimalReportUpdated",
+			"fields": []map[string]interface{}{
+				{"name": "state", "type": "publicKey", "index": false},
+				{"name": "data_id", "type": map[string]interface{}{"array": []interface{}{"u8", 16}}, "index": false},
+				{"name": "timestamp", "type": "u32", "index": false},
+				{"name": "answer", "type": "u128", "index": false},
+			},
+		},
+		"types": []interface{}{}, // No custom types needed
+	}
+	return json.Marshal(idl)
+}
+
 func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	// Configure the log trigger to listen for DecimalReportUpdated events
 	// from the data_feeds_cache program (cfg.Receiver)
 	discriminator := getDecimalReportUpdatedDiscriminator()
 
+	eventIdlJson, err := getDecimalReportUpdatedIdlJson()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate event IDL JSON: %w", err)
+	}
+
 	filterLogTriggerRequest := &solana.FilterLogTriggerRequest{
-		Name:      "decimal-report-updated-filter",
-		Address:   cfg.Receiver[:],        // The data_feeds_cache program address
-		EventName: "DecimalReportUpdated", // Event name for logging/debugging
-		EventSig:  discriminator[:],       // 8-byte event discriminator
+		Name:         "decimal-report-updated-filter",
+		Address:      cfg.Receiver[:],        // The data_feeds_cache program address
+		EventName:    "DecimalReportUpdated", // Event name for logging/debugging
+		EventSig:     discriminator[:],       // 8-byte event discriminator
+		EventIdlJson: eventIdlJson,           // Anchor IDL JSON for event decoding
 	}
 
 	return cre.Workflow[config.Config]{
@@ -83,7 +118,7 @@ func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider
 			onTrigger,
 		),
 		cre.Handler(
-			solana.LogTrigger(chain_selectors.SOLANA_DEVNET.Selector, filterLogTriggerRequest),
+			solana.LogTrigger(chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector, filterLogTriggerRequest),
 			onLogTrigger,
 		),
 	}, nil
@@ -268,12 +303,18 @@ type ForwarderReport struct {
 func encodeReport(accHash [32]byte, cfg config.Config) ([]byte, error) {
 	var payloadBuf bytes.Buffer
 	payloadEnc := ag_binary.NewBorshEncoder(&payloadBuf)
+
+	// Use current timestamp for both timestamp field and answer to ensure uniqueness
+	// This prevents "report already onchain" errors on subsequent runs
+	now := time.Now().Unix()
 	var answer [16]byte
-	copy(answer[:], big.NewInt(15).Bytes())
+	// Use timestamp as answer to make each report unique
+	answerBig := big.NewInt(now)
+	copy(answer[:], answerBig.Bytes())
 
 	reports := []ReceivedDecimalReport{
 		{
-			Timestamp: 1,
+			Timestamp: uint32(now),
 			Answer:    answer,
 			DataID:    cfg.FeedID,
 		},
