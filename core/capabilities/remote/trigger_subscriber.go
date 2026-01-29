@@ -139,6 +139,7 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, even
 	if s.capabilityID != triggerId {
 		return fmt.Errorf("AckEvent invariant violation: triggerId=%q was dispatched to the wrong capability (capabilityID=%q)", triggerId, s.capabilityID)
 	}
+	s.lggr.Infof("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerId, eventId)
 
 	s.mu.RLock()
 	cfg := s.cfg.Load()
