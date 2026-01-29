@@ -47,6 +47,24 @@ type testcase struct {
 	upgradeImage string
 }
 
+type load struct {
+	numberOfEvents                int
+	numberOfSpamMatchingEvents    int
+	numberOfSpamNonMatchingEvents int
+	checkBurnAmount               *big.Int
+	performBurnAmount             *big.Int
+	sharedTrigger                 bool
+	upkeepGasLimit                uint32
+	isStreamsLookup               bool
+	feeds                         []string
+	durationSec                   int
+}
+
+type loadtestcase struct {
+	testcase
+	load
+}
+
 type Test struct {
 	ChainClient *seth.Client
 

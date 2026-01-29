@@ -165,6 +165,14 @@ func deployContracts(chainClient *seth.Client, config *Automation) error {
 		config.DeployedContracts.Registrar = addr
 	}
 
+	if config.DeployedContracts.MultiCall == "" {
+		addr, err := DeployMultiCall(chainClient)
+		if err != nil {
+			return fmt.Errorf("error deploying multi call contract: %w", err)
+		}
+		config.DeployedContracts.MultiCall = addr
+	}
+
 	return nil
 }
 
@@ -261,6 +269,14 @@ func DeployRegistrar(chainClient *seth.Client, registryVersion contracts.KeeperR
 		return "", err
 	}
 	return registrar.Address(), nil
+}
+
+func DeployMultiCall(chainClient *seth.Client) (string, error) {
+	multiCall, err := contracts.DeployMultiCallContract(chainClient)
+	if err != nil {
+		return "", err
+	}
+	return multiCall.Hex(), nil
 }
 
 func LoadRegistry(chainClient *seth.Client, registryAddress, chainModuleAddress string, registryVersion contracts.KeeperRegistryVersion) (contracts.KeeperRegistry, error) {

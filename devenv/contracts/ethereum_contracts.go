@@ -13,20 +13,19 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/counter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_gas_aggregator_wrapper"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_gas_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
@@ -575,4 +574,47 @@ func (c *Counter) Count() (*big.Int, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+type EthereumAutomationSimpleLogCounterConsumer struct {
+	client   *seth.Client
+	consumer *simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter
+	address  *common.Address
+}
+
+func (v *EthereumAutomationSimpleLogCounterConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumAutomationSimpleLogCounterConsumer) Start() error {
+	return nil
+}
+
+func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	return v.consumer.Counter(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+func DeployAutomationSimpleLogTriggerConsumerFromKey(client *seth.Client, isStreamsLookup bool, keyNum int) (KeeperConsumer, error) {
+	abi, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
+	if err != nil {
+		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to get SimpleLogUpkeepCounter ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "SimpleLogUpkeepCounter", *abi, common.FromHex(simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.Bin), isStreamsLookup)
+	if err != nil {
+		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("SimpleLogUpkeepCounter instance deployment have failed: %w", err)
+	}
+
+	instance, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(data.Address, MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to instantiate SimpleLogUpkeepCounter instance: %w", err)
+	}
+
+	return &EthereumAutomationSimpleLogCounterConsumer{
+		client:   client,
+		consumer: instance,
+		address:  &data.Address,
+	}, nil
 }
