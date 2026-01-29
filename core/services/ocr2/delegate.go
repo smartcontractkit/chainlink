@@ -605,6 +605,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.RingPlugin:
+		lggr.Debug("===> types.RingPlugin")
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	default:
@@ -999,6 +1000,8 @@ func (d *Delegate) newServicesRing(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 ) (srvs []job.ServiceCtx, err error) {
+
+	lggr.Debug("===> newServicesRing")
 	spec := jb.OCR2OracleSpec
 
 	rid, err := spec.RelayID()
@@ -1074,6 +1077,7 @@ func (d *Delegate) newServicesRing(
 
 	ringStore := ring.NewStore()
 	shardOrchestratorStore := shardorchestrator.NewStore(lggr)
+	lggr.Debug("===> starting shard orchestrator, shardIndex:", shardingCfg.ShardIndex())
 	// Start ShardOrchestrator
 	orchestratorSvc := localshardorch.New(
 		int(shardingCfg.ShardOrchestratorPort()),

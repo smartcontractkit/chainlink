@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -529,13 +530,13 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			// Get the shard mapping
 			allWorkflowsIds := make([]string, 0, len(allWorkflowsMetadata))
-			for i, wfMeta := range allWorkflowsMetadata {
-				allWorkflowsIds[i] = wfMeta.WorkflowID.Hex()
+			for _, wfMeta := range allWorkflowsMetadata {
+				allWorkflowsIds = append(allWorkflowsIds, wfMeta.WorkflowID.Hex())
 			}
 			w.lggr.Debug("getting workflow shard mapping", "numWorkflows", len(allWorkflowsIds), "shardIndex", w.shardIndex)
 
 			if w.shardOrchestratorClient == nil {
-				w.lggr.Errorw("shard orchestrator client is not configured; cannot get workflow shard mapping")
+				w.lggr.Debug("shard orchestrator client is not configured; cannot get workflow shard mapping")
 			} else {
 				workflowsMapping, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, allWorkflowsIds)
 				if err != nil {
@@ -543,6 +544,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					continue
 				}
 				w.lggr.Debugw("got workflow shard mapping", "numMappings", len(workflowsMapping.Mappings), "shardIndex", w.shardIndex)
+				spew.Dump(workflowsMapping)
 
 				// fiter allWorkflowsMetadata to only include workflows assigned to this shard
 				filteredWorkflowsMetadata := make([]WorkflowMetadataView, 0)

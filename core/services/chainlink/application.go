@@ -272,26 +272,27 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	var shardOrchestratorClient *shardorchestrator.Client
-	shardIdx := cfg.Sharding().ShardIndex()
-
-	shardID := shardIdx // TODO: confirm these are the same or if its going to be derived from it + CSAKey
-	// Shard 1+ runs the gRPC client
-	if shardID > 0 {
-		address := cfg.Sharding().ShardOrchestratorAddress()
-		if address == nil {
-			return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
-		}
-		client, err := shardorchestrator.NewClient(
-			ctx,
-			address.String(),
-			globalLogger.Named("ShardOrchestratorClient"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
-		}
-		shardOrchestratorClient = client
-		globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
+	shardIndex := uint32(cfg.Sharding().ShardIndex())
+	// // Only non-leader shards (shardIndex > 0) need a gRPC client to connect to shard 0.
+	// // Shard 0 (leader) runs the gRPC server and doesn't need a client to itself.
+	// if shardIndex > 0 {
+	// address := cfg.Sharding().ShardOrchestratorAddress()
+	// if address == nil {
+	// 	return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardIndex)
+	// }
+	client, err := shardorchestrator.NewClient(
+		ctx,
+		"127.0.0.1:50051",
+		globalLogger.Named("ShardOrchestratorClient"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
 	}
+	shardOrchestratorClient = client
+	globalLogger.Infow("ShardOrchestrator gRPC client created", "shardIndex", shardIndex, "serverAddress")
+	// } else {
+	// 	globalLogger.Infow("Shard leader does not create ShardOrchestrator client", "shardIndex", shardIndex)
+	// }
 
 	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
 	if err != nil {
@@ -445,6 +446,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		UseLocalTimeProvider:    opts.UseLocalTimeProvider,
 		JWTGenerator:            jwtGenerator,
 		ShardOrchestratorClient: shardOrchestratorClient,
+		ShardIndex:              shardIndex,
 	}, opts.DonTimeStore, limitsFactory, peerWrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
@@ -919,6 +921,7 @@ type CREOpts struct {
 	// ShardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
 	// This is nil for shard 0.
 	ShardOrchestratorClient *shardorchestrator.Client
+	ShardIndex              uint32
 }
 
 type CREServices struct {
@@ -1336,7 +1339,7 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
-						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient, uint32(cfg.Sharding().ShardIndex())),
+						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient, opts.ShardIndex),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
