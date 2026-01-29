@@ -350,7 +350,7 @@ type mockTriggerCapability struct {
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
-func (m *mockTriggerCapability) AckEvent(ctx context.Context, eventId string) error {
+func (m *mockTriggerCapability) AckEvent(ctx context.Context, triggerId string, eventId string) error {
 	return nil
 }
 
@@ -2574,8 +2574,8 @@ func (t mockRuntimeTrigger) Info(ctx context.Context) (capabilities.CapabilityIn
 	return t.c.Info(ctx)
 }
 
-func (t mockRuntimeTrigger) AckEvent(ctx context.Context, eventId string) error {
-	return t.c.AckEvent(ctx, eventId)
+func (t mockRuntimeTrigger) AckEvent(ctx context.Context, triggerId string, eventId string) error {
+	return t.c.AckEvent(ctx, triggerId, eventId)
 }
 
 func (t mockRuntimeTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {

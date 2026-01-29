@@ -267,7 +267,7 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 }
 
 func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID string) error {
-	return nil
+	return fmt.Errorf("unimplemented")
 }
 
 func (h *triggerConnectorHandler) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {

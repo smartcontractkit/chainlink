@@ -68,6 +68,7 @@ func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID
 		if err != nil {
 			return err
 		}
+		// TODO: We need TriggerCapID here, not the registration triggerID?
 		if info.ID == triggerID {
 			c.lggr.Infof("combined Client AckEvent on matched trigger (triggerID=%s, eventID=%s)", triggerID, eventID)
 			return trigger.AckEvent(ctx, triggerID, eventID) // TODO: Could this be some interface returning nil?
