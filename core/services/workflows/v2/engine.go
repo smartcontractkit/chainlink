@@ -645,6 +645,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+	err = e.ackTriggerEvent(ctx, &triggerEvent)
+	if err != nil {
+		e.lggr.Errorf("failed to ACK trigger event (eventID=%s)", triggerEvent.ID)
+	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 	var executionStatus string // store.StatusStarted
 
@@ -740,6 +744,22 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+}
+
+func (e *Engine) ackTriggerEvent(ctx context.Context, te *capabilities.TriggerEvent) error {
+	triggerID := te.TriggerType // TODO: Need to make sure TriggerType is TriggerID
+	e.lggr.Infof("ACK TRIGGER EVENT (eventID=%s)", te.ID)
+	for _, trigger := range e.triggers {
+		info, err := trigger.TriggerCapability.Info(ctx)
+		if err != nil {
+			e.lggr.Errorf("failed to get trigger info: %v", err)
+			continue
+		}
+		if info.ID == triggerID {
+			return trigger.TriggerCapability.AckEvent(ctx, triggerID, te.ID)
+		}
+	}
+	return fmt.Errorf("failed to find trigger %s", triggerID)
 }
 
 func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
