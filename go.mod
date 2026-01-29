@@ -435,5 +435,3 @@ require (
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20251014124537-af6b1684fe15
 
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
-
-//replace github.com/smartcontractkit/chainlink-protos/ring/go => ../chainlink-protos/ring/go
