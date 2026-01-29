@@ -295,7 +295,8 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		defer cancel()
 		err = cfg.underlying.AckEvent(ctx, p.capabilityID, triggerEventID)
 		if err != nil {
-			p.lggr.Errorw("failed to AckEvent on underlying trigger capability", "err", err)
+			p.lggr.Errorf("failed to AckEvent on underlying trigger capability (eventID = %s, capabilityID: %s): %v",
+				triggerEventID, p.capabilityID, err)
 		}
 	default:
 		p.lggr.Errorw("received message with unknown method",
