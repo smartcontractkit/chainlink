@@ -157,10 +157,10 @@ func WithAlternativeSources(sources []AlternativeSourceConfig) func(*workflowReg
 
 		for _, src := range sources {
 			// Detect source type by URL scheme
-			if strings.HasPrefix(src.URL, "file://") {
-				// File source - extract path from file:// URL
-				filePath := strings.TrimPrefix(src.URL, "file://")
-				fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, filePath)
+		if strings.HasPrefix(src.URL, "file://") {
+			// File source - extract path from file:// URL
+			filePath := strings.TrimPrefix(src.URL, "file://")
+			fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, src.Name, filePath)
 				if err != nil {
 					wr.lggr.Errorw("Failed to create file workflow source",
 						"name", src.Name,
@@ -309,7 +309,8 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 					return
 				case <-ticker:
 					// Async initialization of contract reader for allowlisted requests.
-					// Blocking on initialization results in a deadlock, so we poll until ready.
+					// There is an on-chain call dependency that would cause a deadlock if we block.
+					// Instead, we poll until the contract reader is ready.
 					reader, err := w.newAllowlistedRequestsContractReader(ctx)
 					if err != nil {
 						w.lggr.Infow("contract reader unavailable", "error", err.Error())
@@ -405,7 +406,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 ) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
 	localHead := toLocalHead(head)
-	// workflowMetadataMap is only used for lookups
+	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
 	workflowMetadataMap := make(map[string]WorkflowMetadataView)
 	for _, wfMeta := range workflowMetadata {
 		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
@@ -420,6 +421,8 @@ func (w *workflowRegistry) generateReconciliationEvents(
 		switch wfMeta.Status {
 		case WorkflowStatusActive:
 			switch engineFound {
+			// we can't tell the difference between an activation and registration without holding
+			// state in the db; so we handle as an activation event.
 			case false:
 				signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, id, toSpecStatus(wfMeta.Status))
 
@@ -454,6 +457,8 @@ func (w *workflowRegistry) generateReconciliationEvents(
 					id:        id,
 				})
 				workflowsSeen[id] = true
+			// if the workflow is active, the workflow engine is in the engine registry, and the metadata has not changed
+			// then we don't need to action the event further. Mark as seen and continue.
 			case true:
 				workflowsSeen[id] = true
 			}
@@ -461,10 +466,17 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
 			switch engineFound {
 			case false:
+				// Account for a state change from active to paused, by checking
+				// whether an existing pendingEvent exists.
+				// We do this regardless of whether we have an event to handle or not, since this ensures
+				// we correctly handle the state of pending events in the following situation:
+				// - we registered an active workflow, but it failed to process successfully
+				// - we then paused the workflow; this should clear the pending event
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature != signature {
 					delete(pendingEvents, id)
 				}
 			case true:
+				// Will be handled in the event handler as a deleted event and will clear the DB workflow spec.
 				workflowsSeen[id] = true
 
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {

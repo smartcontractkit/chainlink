@@ -119,11 +119,35 @@ func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyURL(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	_, err := NewGRPCWorkflowSource(lggr, GRPCWorkflowSourceConfig{
-		URL: "",
+		Name: "test-source",
+		URL:  "",
 	})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GRPC URL is required")
+}
+
+func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyName(t *testing.T) {
+	lggr := logger.TestLogger(t)
+
+	_, err := NewGRPCWorkflowSource(lggr, GRPCWorkflowSourceConfig{
+		Name: "",
+		URL:  "localhost:50051",
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source name is required")
+}
+
+func TestGRPCWorkflowSourceWithClient_EmptyName(t *testing.T) {
+	lggr := logger.TestLogger(t)
+
+	_, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
+		Name: "",
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source name is required")
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
@@ -410,15 +434,18 @@ func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
 func TestGRPCWorkflowSource_ConfigDefaults(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{})
+	// Name is required, but other config options have defaults
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
+		Name: "test-source",
+	})
 	require.NoError(t, err)
 
-	// Verify defaults are applied
+	// Verify defaults are applied for non-required fields
 	assert.Equal(t, defaultPageSize, source.pageSize)
 	assert.Equal(t, defaultMaxRetries, source.maxRetries)
 	assert.Equal(t, defaultRetryBaseDelay, source.retryBaseDelay)
 	assert.Equal(t, defaultRetryMaxDelay, source.retryMaxDelay)
-	assert.Equal(t, GRPCWorkflowSourceName, source.name) // Default name
+	assert.Equal(t, "test-source", source.name) // Name from config
 }
 
 func TestGRPCWorkflowSource_Ready(t *testing.T) {
@@ -495,13 +522,13 @@ func TestGRPCWorkflowSource_Name(t *testing.T) {
 	assert.Equal(t, "my-custom-source", source.Name())
 }
 
-func TestGRPCWorkflowSource_Name_Default(t *testing.T) {
+func TestGRPCWorkflowSource_Name_Required(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{})
-	require.NoError(t, err)
-
-	assert.Equal(t, GRPCWorkflowSourceName, source.Name())
+	// Empty name should return an error
+	_, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source name is required")
 }
 
 func TestGRPCWorkflowSource_syntheticHead(t *testing.T) {

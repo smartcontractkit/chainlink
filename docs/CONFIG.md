@@ -1511,7 +1511,7 @@ TLSEnabled enables TLS for the GRPC connection. Defaults to true.
 ```toml
 Name = 'my-workflow-source' # Example
 ```
-Name is a human-readable identifier for logging purposes.
+Name is a required unique identifier for this workflow source. Each alternative source must have a distinct name to prevent workflow reconciliation conflicts. Names like 'ContractWorkflowSource' are reserved for internal use.
 
 ## Workflows
 ```toml

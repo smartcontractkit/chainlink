@@ -74,14 +74,13 @@ type GRPCWorkflowSourceConfig struct {
 }
 
 // NewGRPCWorkflowSource creates a new GRPC-based workflow source.
+// The Name field in cfg is required and must be unique across all workflow sources.
 func NewGRPCWorkflowSource(lggr logger.Logger, cfg GRPCWorkflowSourceConfig) (*GRPCWorkflowSource, error) {
+	if cfg.Name == "" {
+		return nil, errors.New("source name is required")
+	}
 	if cfg.URL == "" {
 		return nil, errors.New("GRPC URL is required")
-	}
-
-	sourceName := cfg.Name
-	if sourceName == "" {
-		sourceName = GRPCWorkflowSourceName
 	}
 
 	// Build client options - JWT auth is always enabled
@@ -92,7 +91,7 @@ func NewGRPCWorkflowSource(lggr logger.Logger, cfg GRPCWorkflowSourceConfig) (*G
 		clientOpts = append(clientOpts, grpcsource.WithJWTGenerator(cfg.JWTGenerator))
 	}
 
-	client, err := grpcsource.NewClient(cfg.URL, sourceName, clientOpts...)
+	client, err := grpcsource.NewClient(cfg.URL, cfg.Name, clientOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,9 +106,8 @@ func NewGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 }
 
 func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg GRPCWorkflowSourceConfig) (*GRPCWorkflowSource, error) {
-	sourceName := cfg.Name
-	if sourceName == "" {
-		sourceName = GRPCWorkflowSourceName
+	if cfg.Name == "" {
+		return nil, errors.New("source name is required")
 	}
 
 	pageSize := cfg.PageSize
@@ -133,9 +131,9 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 	}
 
 	return &GRPCWorkflowSource{
-		lggr:           lggr.Named(sourceName),
+		lggr:           lggr.Named(cfg.Name),
 		client:         client,
-		name:           sourceName,
+		name:           cfg.Name,
 		pageSize:       pageSize,
 		maxRetries:     maxRetries,
 		retryBaseDelay: retryBaseDelay,

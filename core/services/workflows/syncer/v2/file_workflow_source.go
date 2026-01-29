@@ -56,18 +56,24 @@ type FileWorkflowSourceData struct {
 type FileWorkflowSource struct {
 	lggr     logger.Logger
 	filePath string
+	name     string
 	mu       sync.RWMutex
 }
 
 // NewFileWorkflowSourceWithPath creates a new file-based workflow source with a custom path.
-// Returns an error if the file does not exist - a configured file source must have a valid file.
-func NewFileWorkflowSourceWithPath(lggr logger.Logger, path string) (*FileWorkflowSource, error) {
+// The name parameter is required and must be unique across all workflow sources.
+// Returns an error if name is empty or if the file does not exist.
+func NewFileWorkflowSourceWithPath(lggr logger.Logger, name string, path string) (*FileWorkflowSource, error) {
+	if name == "" {
+		return nil, errors.New("source name is required")
+	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, errors.New("workflow metadata file does not exist: " + path)
 	}
 	return &FileWorkflowSource{
-		lggr:     lggr.Named(FileWorkflowSourceName),
+		lggr:     lggr.Named(name),
 		filePath: path,
+		name:     name,
 	}, nil
 }
 
@@ -115,10 +121,10 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		// Convert to WorkflowMetadataView
 		view, err := f.toWorkflowMetadataView(wf)
 		if err != nil {
-			f.lggr.Warnw("Failed to parse workflow metadata, skipping",
-				"source", FileWorkflowSourceName,
-				"workflowName", wf.WorkflowName,
-				"error", err)
+		f.lggr.Warnw("Failed to parse workflow metadata, skipping",
+			"source", f.name,
+			"workflowName", wf.WorkflowName,
+			"error", err)
 			continue
 		}
 
@@ -135,7 +141,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 }
 
 func (f *FileWorkflowSource) Name() string {
-	return FileWorkflowSourceName
+	return f.name
 }
 
 // Ready returns nil if the file exists, or an error if it doesn't.
@@ -187,7 +193,7 @@ func (f *FileWorkflowSource) toWorkflowMetadataView(wf FileWorkflowMetadata) (Wo
 		Tag:          wf.Tag,
 		Attributes:   attributes,
 		DonFamily:    wf.DonFamily,
-		Source:       FileWorkflowSourceName,
+		Source:       f.name,
 	}, nil
 }
 

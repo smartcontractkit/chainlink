@@ -17,9 +17,22 @@ import (
 
 func TestFileWorkflowSource_FileNotExists(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	_, err := NewFileWorkflowSourceWithPath(lggr, "/nonexistent/path/workflows.json")
+	_, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", "/nonexistent/path/workflows.json")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist")
+}
+
+func TestFileWorkflowSource_EmptyName(t *testing.T) {
+	lggr := logger.TestLogger(t)
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "workflows.json")
+	err := os.WriteFile(tmpFile, []byte("{}"), 0600)
+	require.NoError(t, err)
+
+	_, err = NewFileWorkflowSourceWithPath(lggr, "", tmpFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source name is required")
 }
 
 func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
@@ -31,7 +44,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte(""), 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -97,7 +110,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -169,7 +182,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -214,7 +227,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -237,9 +250,9 @@ func TestFileWorkflowSource_Name(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte("{}"), 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "my-custom-file-source", tmpFile)
 	require.NoError(t, err)
-	assert.Equal(t, FileWorkflowSourceName, source.Name())
+	assert.Equal(t, "my-custom-file-source", source.Name())
 }
 
 func TestFileWorkflowSource_Ready(t *testing.T) {
@@ -250,7 +263,7 @@ func TestFileWorkflowSource_Ready(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte("{}"), 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 	assert.NoError(t, source.Ready())
 
@@ -268,7 +281,7 @@ func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte("invalid json"), 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -308,7 +321,7 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 	err = os.WriteFile(tmpFile, data, 0600)
 	require.NoError(t, err)
 
-	source, err := NewFileWorkflowSourceWithPath(lggr, tmpFile)
+	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
 	ctx := context.Background()

@@ -90,6 +90,7 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 				// Log warnings for incomplete metadata but don't skip processing
 				c.validateWorkflowMetadata(wfMeta)
 
+				// TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-1021 load balance across workflow nodes in DON Family
 				allWorkflows = append(allWorkflows, WorkflowMetadataView{
 					WorkflowID:   wfMeta.WorkflowId,
 					Owner:        wfMeta.Owner.Bytes(),

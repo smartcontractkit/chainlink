@@ -2238,7 +2238,7 @@ func (a AlternativeWorkflowSource) GetTLSEnabled() bool {
 
 func (a AlternativeWorkflowSource) GetName() string {
 	if a.Name == nil {
-		return "GRPCWorkflowSource"
+		return ""
 	}
 	return *a.Name
 }
@@ -2315,11 +2315,40 @@ func (r *WorkflowRegistry) ValidateConfig() error {
 		}
 	}
 
-	// Validate each source has a URL
+	// Reserved source names that cannot be used by alternative sources
+	reservedNames := map[string]bool{"ContractWorkflowSource": true}
+	seenNames := make(map[string]bool)
+
+	// Validate each source has a URL and unique Name
 	for i, src := range r.AlternativeSourcesConfig {
 		if src.URL == nil || *src.URL == "" {
 			return configutils.ErrMissing{Name: fmt.Sprintf("AlternativeSources[%d].URL", i)}
 		}
+
+		// Require Name field
+		if src.Name == nil || *src.Name == "" {
+			return configutils.ErrMissing{Name: fmt.Sprintf("AlternativeSources[%d].Name", i)}
+		}
+		name := *src.Name
+
+		// Check reserved names
+		if reservedNames[name] {
+			return configutils.ErrInvalid{
+				Name:  fmt.Sprintf("AlternativeSources[%d].Name", i),
+				Value: name,
+				Msg:   "name is reserved for internal use",
+			}
+		}
+
+		// Check uniqueness
+		if seenNames[name] {
+			return configutils.ErrInvalid{
+				Name:  fmt.Sprintf("AlternativeSources[%d].Name", i),
+				Value: name,
+				Msg:   "duplicate source name; each alternative source must have a unique name",
+			}
+		}
+		seenNames[name] = true
 	}
 
 	return nil

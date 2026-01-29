@@ -715,6 +715,19 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
+
+		// Check for WorkflowID collision across sources
+		if errors.Is(err, ErrAlreadyExists) {
+			existingEntry, found := h.engineRegistry.Get(wid)
+			if found {
+				h.lggr.Warnw("WorkflowID collision detected: workflow already exists from different source",
+					"workflowID", wid.Hex(),
+					"attemptedSource", source,
+					"existingSource", existingEntry.Source,
+					"hint", "Each workflow ID should only be registered from a single source. Check your workflow configurations for duplicates.")
+			}
+		}
+
 		// This shouldn't happen because we call the handler serially and
 		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)
