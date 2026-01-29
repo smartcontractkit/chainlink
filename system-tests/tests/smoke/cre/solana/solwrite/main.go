@@ -32,7 +32,7 @@ func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider
 }
 func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload) (string, error) {
 	runtime.Logger().Info("Solana Write workflow started", "payload", payload)
-	solClient := solana.Client{ChainSelector: chain_selectors.SOLANA_DEVNET.Selector}
+	solClient := solana.Client{ChainSelector: chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector}
 	runtime.Logger().Info("Got Solana client", "chainSelector", solClient.ChainSelector)
 	// 1. Derive remaining
 	remaining, err := deriveRemaining(runtime, config)

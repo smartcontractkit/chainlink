@@ -387,8 +387,8 @@ github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/smartcontractkit/chain-selectors v1.0.90 h1:M+1Xgum6WxxEMgUIkE2KJomsf60IntavaypUb9O/OI0=
 github.com/smartcontractkit/chain-selectors v1.0.90/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
-github.com/smartcontractkit/chainlink-common v0.9.6-0.20260121192409-c7dd5bcaea65 h1:F4sNBVFxsns0hDzfdrohMdFRhjr69qNNDxeJ0N6kb9M=
-github.com/smartcontractkit/chainlink-common v0.9.6-0.20260121192409-c7dd5bcaea65/go.mod h1:Eg5rz/fQINjR9H0TxHw7j+zGZeYxprUpEQZzC5JGHG4=
+github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129130744-bdc12eacfc00 h1:AgJgEiLPyxPTwLORsxvacc/ZEExBPFx0eSgZ0viN35o=
+github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129130744-bdc12eacfc00/go.mod h1:Eg5rz/fQINjR9H0TxHw7j+zGZeYxprUpEQZzC5JGHG4=
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250709215002-07f34ab867df h1:G9gvGH7/w81huKg385ZXdqibVSi4QKMWeHJZVnCjvZE=
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250709215002-07f34ab867df/go.mod h1:CcJ+9Qa1BiVnqLeR5vxmv08SekSelqSP6jRKhWy4Cfc=
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0 h1:/bhoALRzNXZkdzxBkNM505pMofNy0K0eW1nCzXw+AUI=

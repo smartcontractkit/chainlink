@@ -5,7 +5,7 @@
   docker_cmd_params = ["-b", "5"]
 
 [[blockchains]]
-  chain_id = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
+  chain_id = "22222222222222222222222222222222222222222222"
   port = "8550"
   type = "solana"
   public_key = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"
@@ -50,7 +50,7 @@
   env_vars = { CL_EVM_CMD = "" }
 
   capabilities = ["ocr3", "web-api-trigger", "cron","custom-compute", "mock",  "don-time","consensus", "solana"]
-  supported_sol_chains = ["EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"]
+  supported_sol_chains = ["22222222222222222222222222222222222222222222"]
   #[nodesets.chain_capabilities]
   #  write-evm = ["1337"]
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
@@ -108,7 +108,7 @@
   don_types = ["capabilities"]
   override_mode = "all"
   http_port_range_start = 10200
-  supported_sol_chains = ["EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"]
+  supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["solana","web-api-target"]

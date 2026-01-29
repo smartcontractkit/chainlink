@@ -13,7 +13,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260121192409-c7dd5bcaea65
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129130744-bdc12eacfc00
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250709215002-07f34ab867df
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.13.4
