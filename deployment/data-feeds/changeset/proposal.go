@@ -32,13 +32,24 @@ func BuildMultiChainProposals(env cldf.Environment, description string, proposal
 	var proposerMCMSes = map[uint64]string{}
 	var inspectorPerChain = map[uint64]sdk.Inspector{}
 	var batches []mcmstypes.BatchOperation
+	mcmsStateCache := make(map[string]map[uint64]*commonchangeset.MCMSWithTimelockState)
 
 	for chainSelector, proposalData := range proposalConfig {
 		var transactions []mcmstypes.Transaction
 		for _, proposal := range proposalData {
-			mcmsChainState, err := commonchangeset.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSelector}, proposal.timeLockQualifier)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load MCMS contracts for chain %d: %w", chainSelector, err)
+			cacheKey := fmt.Sprintf("%d:%s", chainSelector, proposal.timeLockQualifier)
+			// Load MCMS state only if not already cached
+			if _, exists := mcmsStateCache[cacheKey]; !exists {
+				mcmsChainState, err := commonchangeset.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSelector}, proposal.timeLockQualifier)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load MCMS contracts for chain %d: %w", chainSelector, err)
+				}
+				mcmsStateCache[cacheKey] = mcmsChainState
+			}
+			mcmsChainState, ok := mcmsStateCache[cacheKey]
+
+			if !ok {
+				return nil, fmt.Errorf("MCMS state not found in cache for chain %d and qualifier %s", chainSelector, proposal.timeLockQualifier)
 			}
 
 			chain := env.BlockChains.EVMChains()[chainSelector]
