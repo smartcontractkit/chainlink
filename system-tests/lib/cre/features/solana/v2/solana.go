@@ -45,7 +45,7 @@ const (
 		"chainId":"{{.ChainID}}",
 		"network":"{{.Network}}"
 	}`
-	deltaStage     = 400*time.Millisecond + 1*time.Second // block time + 1 second delta
+	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
 	requestTimeout = 30 * time.Second
 )
 
