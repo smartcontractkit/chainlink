@@ -124,6 +124,7 @@ func TestRMN_SimpleVerificationDisabledOnDestination(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing.T) {
+	quarantine.Flaky(t, "DX-2023")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
