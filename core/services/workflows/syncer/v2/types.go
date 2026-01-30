@@ -50,8 +50,8 @@ type WorkflowMetadataView struct {
 	BinaryURL    string
 	ConfigURL    string
 	Tag          string
-	Attributes   []byte
-	DonFamily string
+	Attributes []byte
+	DonFamily  string
 	// Source identifies where this workflow metadata came from.
 	// Format varies by source type:
 	//   - Onchain contract: "contract:{chain_selector}:{contract_address}"
