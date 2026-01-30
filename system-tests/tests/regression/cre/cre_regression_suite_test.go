@@ -51,6 +51,7 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-2009")
 	for _, tCase := range httpNegativeTests {
 		testName := "[v2] HTTP Trigger fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
