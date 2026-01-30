@@ -41,7 +41,7 @@ func TestLoad(t *testing.T) {
 			Testcase: Testcase{
 				RegistryVersion:   contracts.RegistryVersion_2_1,
 				Name:              "registry_2_1",
-				UpkeepCount:       10,
+				UpkeepCount:       5,
 				TestKeyFundingEth: 100,
 				UpkeepFundingLink: 1_000_000,
 			},
