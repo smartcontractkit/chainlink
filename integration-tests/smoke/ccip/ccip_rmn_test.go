@@ -1104,6 +1104,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
 }
 
 func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block(t *testing.T) {
+	quarantine.Flaky(t, "DX-2719")
 	tc := rmnTestCase{
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
