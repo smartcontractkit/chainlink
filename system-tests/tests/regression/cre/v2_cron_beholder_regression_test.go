@@ -4,8 +4,7 @@ import (
 	"testing"
 	"time"
 
-	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
@@ -30,15 +29,11 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
 	workflowName := "cronbeholder"
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
-	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
-
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
-
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
+		// stop ChIP Ingress after the test to free the port, on which other tests will start the ChiP Test Sink
+		err := t_helpers.StopBeholder(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+		require.NoError(t, err, "Failed to stop Beholder")
 	})
 
 	testLogger.Info().Msg("Creating Cron workflow configuration file...")
@@ -50,6 +45,8 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 	testLogger.Warn().Msgf("Expecting Cron workflow to fail with invalid schedule: %s", invalidSchedule)
 	expectedBeholderLog := "beholder found engine initialization failure message!"
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, expectedBeholderLog, 75*time.Second)
+	timeout := 75 * time.Second
+	expectedError := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
+	require.Error(t, expectedError, "Cron (Beholder) test failed. This test expects to fail with an error, but did not.")
 	testLogger.Info().Msg("Cron (Beholder) fail test completed")
 }

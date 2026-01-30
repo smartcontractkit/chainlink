@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -190,32 +191,44 @@ func getComposeFileFromGoMod(ctx context.Context) (string, error) {
 		return "", errors.Wrap(mkdirErr, "failed to create cache directory")
 	}
 
-	// Download file
+	// Download file with retries to withstand transient GitHub/network issues
+	var respBody []byte
+	downloadErr := retry.Do(
+		func() error {
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if reqErr != nil {
+				return errors.Wrapf(reqErr, "failed to create HTTP request for %s", url)
+			}
 
-	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if reqErr != nil {
-		return "", errors.Wrapf(reqErr, "failed to create HTTP request for %s", url)
-	}
+			resp, httpErr := http.DefaultClient.Do(req)
+			if httpErr != nil {
+				return errors.Wrapf(httpErr, "failed to download compose file from %s", url)
+			}
+			defer resp.Body.Close()
 
-	resp, httpErr := http.DefaultClient.Do(req)
-	if httpErr != nil {
-		return "", errors.Wrapf(httpErr, "failed to download compose file from %s", url)
-	}
-	defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return errors.Errorf("failed to download compose file: HTTP %d", resp.StatusCode)
+			}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("failed to download compose file: HTTP %d", resp.StatusCode)
+			bodyBytes, readErr := io.ReadAll(resp.Body)
+			if readErr != nil {
+				return errors.Wrap(readErr, "failed to read compose file contents")
+			}
+			respBody = bodyBytes
+			return nil
+		},
+		retry.Context(ctx),
+		retry.Delay(500*time.Millisecond),
+		retry.Attempts(5),
+		retry.DelayType(retry.BackOffDelay),
+	)
+	if downloadErr != nil {
+		return "", errors.Wrap(downloadErr, "failed to download compose file")
 	}
 
 	// Save to cache
-	outFile, createErr := os.Create(cachedFile)
-	if createErr != nil {
-		return "", errors.Wrap(createErr, "failed to create cache file")
-	}
-	defer outFile.Close()
-
-	if _, copyErr := io.Copy(outFile, resp.Body); copyErr != nil {
-		return "", errors.Wrap(copyErr, "failed to write compose file to cache")
+	if writeErr := os.WriteFile(cachedFile, respBody, 0o644); writeErr != nil { //nolint: gosec // it's fine for permissions to be a bit wider
+		return "", errors.Wrap(writeErr, "failed to write compose file to cache")
 	}
 
 	framework.L.Info().Msgf("Cached compose file at: %s", cachedFile)
@@ -290,12 +303,12 @@ func startBeholderCmd() *cobra.Command {
 	}
 
 	cmd.Flags().DurationVarP(&timeout, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
-	cmd.Flags().IntVarP(&port, "grpc-port", "g", mustParse(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
+	cmd.Flags().IntVarP(&port, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
 	return cmd
 }
 
-func mustParse(in string) int {
+func mustStringToInt(in string) int {
 	out, err := strconv.Atoi(in)
 	if err != nil {
 		panic(fmt.Errorf("failed to parse default ChIP Ingress port: %w", err))

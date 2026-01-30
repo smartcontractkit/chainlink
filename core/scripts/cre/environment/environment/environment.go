@@ -511,7 +511,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
-	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustParse(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
+	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
 	return cmd
 }

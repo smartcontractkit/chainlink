@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -20,12 +19,12 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	chiptestsink "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/chip-testsink"
 )
 
@@ -272,16 +271,17 @@ func GetLoggingPublishFn(
 
 // StartChipTestSink boots the CHiP test sink and waits until it is accepting traffic.
 func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptestsink.Server {
-	if !isPortAvailable(":" + strconv.Itoa(config.DefaultChipIngressPort)) {
-		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %d is already taken. Most probably an instance of ChIP Ingress is already running.
+	grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
+	if !isPortAvailable(grpcListenAddr) {
+		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %s is already taken. Most probably an instance of ChIP Ingress is already running.
 If you want to use both together start ChiIP Ingress on a different port with '--grpc-port' flag
-and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, config.DefaultChipIngressPort)
+and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 	}
 
 	startCh := make(chan struct{}, 1)
 	server, err := chiptestsink.NewServer(chiptestsink.Config{
 		PublishFunc: publishFn,
-		GRPCListen:  ":" + strconv.Itoa(config.DefaultChipIngressPort),
+		GRPCListen:  grpcListenAddr,
 		Started:     startCh, // signals that server is indeed listening on the GRPC port
 		// UpstreamEndpoint: "localhost:50052", // uncomment to forward events to ChIP, remember to start ChIP on a different port config.DefaultChipIngressPort (=50051)
 	})
