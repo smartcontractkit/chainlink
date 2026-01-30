@@ -2,6 +2,7 @@ package automation
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -29,14 +30,14 @@ const (
 )
 
 func TestRegistry_2_0(t *testing.T) {
-	basicAutomationTest(t, testcase{
-		registryVersion:          contracts.RegistryVersion_2_0,
-		name:                     "registry_2_0",
-		upkeepCount:              defaultAmountOfUpkeeps,
-		upkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
-		expectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-		testKeyFundingEth:        defaultEthFunds,
-		upkeepFundingLink:        defaultLinkFunds,
+	basicAutomationTest(t, Testcase{
+		RegistryVersion:          contracts.RegistryVersion_2_0,
+		Name:                     "registry_2_0",
+		UpkeepCount:              defaultAmountOfUpkeeps,
+		UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+		ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
+		TestKeyFundingEth:        defaultEthFunds,
+		UpkeepFundingLink:        defaultLinkFunds,
 		upgradeImage:             os.Getenv("CHAINLINK_UPGRADE_IMAGE"),
 	})
 }
@@ -45,14 +46,14 @@ func TestRegistry_2_1(t *testing.T) {
 	// testNames := []string{"registry_2_1_conditional", "registry_2_1_logtrigger", "registry_2_1_with_mercury_v02", "registry_2_1_with_mercury_v03"}
 	testNames := []string{"registry_2_1_logtrigger"}
 	for _, tc := range testNames {
-		basicAutomationTest(t, testcase{
-			registryVersion:          contracts.RegistryVersion_2_1,
-			name:                     tc,
-			upkeepCount:              defaultAmountOfUpkeeps,
-			upkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
-			expectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			testKeyFundingEth:        defaultEthFunds,
-			upkeepFundingLink:        defaultLinkFunds,
+		basicAutomationTest(t, Testcase{
+			RegistryVersion:          contracts.RegistryVersion_2_1,
+			Name:                     tc,
+			UpkeepCount:              defaultAmountOfUpkeeps,
+			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
+			TestKeyFundingEth:        defaultEthFunds,
+			UpkeepFundingLink:        defaultLinkFunds,
 			upgradeImage:             os.Getenv("CHAINLINK_UPGRADE_IMAGE"),
 		})
 	}
@@ -61,14 +62,14 @@ func TestRegistry_2_1(t *testing.T) {
 func TestRegistry_2_2(t *testing.T) {
 	testNames := []string{"registry_2_2_conditional", "registry_2_2_logtrigger", "registry_2_2_with_mercury_v02", "registry_2_2_with_mercury_v03", "registry_2_1_with_logtrigger_and_mercury_v02"}
 	for _, tc := range testNames {
-		basicAutomationTest(t, testcase{
-			registryVersion:          contracts.RegistryVersion_2_2,
-			name:                     tc,
-			upkeepCount:              defaultAmountOfUpkeeps,
-			upkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
-			expectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			testKeyFundingEth:        defaultEthFunds,
-			upkeepFundingLink:        defaultLinkFunds,
+		basicAutomationTest(t, Testcase{
+			RegistryVersion:          contracts.RegistryVersion_2_2,
+			Name:                     tc,
+			UpkeepCount:              defaultAmountOfUpkeeps,
+			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
+			TestKeyFundingEth:        defaultEthFunds,
+			UpkeepFundingLink:        defaultLinkFunds,
 			upgradeImage:             os.Getenv("CHAINLINK_UPGRADE_IMAGE"),
 		})
 	}
@@ -77,26 +78,29 @@ func TestRegistry_2_2(t *testing.T) {
 func TestRegistry_2_3(t *testing.T) {
 	testNames := []string{"registry_2_3_conditional_native", "registry_2_3_conditional_link", "registry_2_3_logtrigger_native", "registry_2_3_logtrigger_link", "registry_2_3_with_logtrigger_and_mercury_v02_link"}
 	for _, tc := range testNames {
-		basicAutomationTest(t, testcase{
-			registryVersion:          contracts.RegistryVersion_2_3,
-			name:                     tc,
-			upkeepCount:              defaultAmountOfUpkeeps,
-			upkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
-			expectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			upkeepFundingLink:        defaultLinkFunds,
-			testKeyFundingEth:        defaultEthFunds,
+		basicAutomationTest(t, Testcase{
+			RegistryVersion:          contracts.RegistryVersion_2_3,
+			Name:                     tc,
+			UpkeepCount:              defaultAmountOfUpkeeps,
+			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
+			UpkeepFundingLink:        defaultLinkFunds,
+			TestKeyFundingEth:        defaultEthFunds,
 			upgradeImage:             os.Getenv("CHAINLINK_UPGRADE_IMAGE"),
 		})
 	}
 }
 
-func basicAutomationTest(t *testing.T, testcase testcase) {
+func basicAutomationTest(t *testing.T, testcase Testcase) {
 	l := framework.L
-	l.Info().Msg("Running test " + testcase.name + " with registry version " + testcase.registryVersion.String())
+	l.Info().Msg("Running test " + testcase.Name + " with registry version " + testcase.RegistryVersion.String())
 
 	t.Cleanup(func() {
 		err := products.ScanLogs(l, products.DefaultSettings())
 		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 
 	outputFile := "../../env-out.toml"
@@ -105,15 +109,15 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 	pdConfig, err := products.LoadOutput[automation.Configurator](outputFile)
 	require.NoError(t, err)
 	// Use the name to determine if this is a log trigger or mercury or billing token is native
-	isBillingTokenNative := strings.Contains(testcase.name, "native")
-	isLogTrigger := strings.Contains(testcase.name, "logtrigger")
-	isMercuryV02 := strings.Contains(testcase.name, "mercury_v02")
-	isMercuryV03 := strings.Contains(testcase.name, "mercury_v03")
+	isBillingTokenNative := strings.Contains(testcase.Name, "native")
+	isLogTrigger := strings.Contains(testcase.Name, "logtrigger")
+	isMercuryV02 := strings.Contains(testcase.Name, "mercury_v02")
+	isMercuryV03 := strings.Contains(testcase.Name, "mercury_v03")
 	isMercury := isMercuryV02 || isMercuryV03
 
 	var config *automation.Automation
 	for _, candidate := range pdConfig.Config {
-		if candidate.MustGetRegistryVersion() == testcase.registryVersion {
+		if candidate.MustGetRegistryVersion() == testcase.RegistryVersion {
 			if !isMercury {
 				config = candidate
 				break
@@ -130,7 +134,7 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 			}
 		}
 	}
-	require.NotNil(t, config, "failed to find matching config with registry version %v; mercury v2: %v, mercury v3: %v", testcase.registryVersion.String(), isMercuryV02, isMercuryV03)
+	require.NotNil(t, config, "failed to find matching config with registry version %v; mercury v2: %v, mercury v3: %v", testcase.RegistryVersion.String(), isMercuryV02, isMercuryV03)
 
 	pks := []string{products.NetworkPrivateKey()}
 
@@ -140,7 +144,7 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 	// we ignore key at index 0, because it is the root key, which is not used during the test
 	// for contract deployment and interaction
 	// we create new addresses only on the simulated network to protect against fund loss
-	if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != testcase.upkeepCount {
+	if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != testcase.UpkeepCount {
 		bcNode := in.Blockchains[0].Out.Nodes[0]
 		c, _, _, err := products.ETHClient(
 			t.Context(),
@@ -150,11 +154,11 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 		)
 		require.NoError(t, err, "Failed to create ETH client")
 
-		newPks, err := products.FundNewAddresses(t.Context(), testcase.upkeepCount, c, testcase.testKeyFundingEth)
+		newPks, err := products.FundNewAddresses(t.Context(), testcase.UpkeepCount, c, testcase.TestKeyFundingEth)
 		require.NoError(t, err, "Failed to fund new addresses")
 		pks = append(pks, newPks...)
 	}
-	require.GreaterOrEqual(t, len(pks), testcase.upkeepCount+1, "you must provide at least %d private keys", testcase.upkeepCount+1)
+	require.GreaterOrEqual(t, len(pks), testcase.UpkeepCount+1, "you must provide at least %d private keys", testcase.UpkeepCount+1)
 	chainID, err := strconv.ParseUint(in.Blockchains[0].ChainID, 10, 64)
 	require.NoError(t, err, "Failed to parse chain ID")
 
@@ -173,8 +177,8 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 		a.Registry,
 		a.Registrar,
 		a.LinkToken,
-		testcase.upkeepCount,
-		big.NewInt(0).Mul(big.NewInt(testcase.upkeepFundingLink), big.NewInt(1e18)),
+		testcase.UpkeepCount,
+		big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)),
 		defaultUpkeepGasLimit,
 		isLogTrigger,
 		isMercury,
@@ -214,12 +218,12 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 		}
 	}
 
-	l.Info().Msgf("Waiting %s for %d upkeeps to be performed by %d contracts", testcase.upkeepExecutionTimeout, testcase.expectedUpkeepExecutions, testcase.upkeepCount)
+	l.Info().Msgf("Waiting %s for %d upkeeps to be performed by %d contracts", testcase.UpkeepExecutionTimeout, testcase.ExpectedUpkeepExecutions, testcase.UpkeepCount)
 	gom := gomega.NewGomegaWithT(t)
 	startTime := time.Now()
 
 	t.Cleanup(func() {
-		getStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, testcase.registryVersion)()
+		getStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, testcase.RegistryVersion)()
 	})
 
 	gom.Eventually(func(g gomega.Gomega) {
@@ -227,17 +231,17 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 		for i := range upkeepIDs {
 			counter, err := consumers[i].Counter(t.Context())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-			expect := testcase.expectedUpkeepExecutions
+			expect := testcase.ExpectedUpkeepExecutions
 			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}
-	}, testcase.upkeepExecutionTimeout, "1s").Should(gomega.Succeed())
+	}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
-	l.Info().Msgf("Total time taken to get %d performs for each upkeep: %s", testcase.expectedUpkeepExecutions, time.Since(startTime))
+	l.Info().Msgf("Total time taken to get %d performs for each upkeep: %s", testcase.ExpectedUpkeepExecutions, time.Since(startTime))
 
 	if testcase.upgradeImage != "" {
-		expect := testcase.expectedUpkeepExecutions
+		expect := testcase.ExpectedUpkeepExecutions
 		// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 		for i := range 5 {
 			in.NodeSets[0].NodeSpecs[i].Node.Image = testcase.upgradeImage
@@ -245,7 +249,7 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 			err = products.RestartNodes(t.Context(), in.NodeSets[0], in.Blockchains[0], true, time.Minute)
 			require.NoError(t, err, "Error when upgrading node %d", i)
 			time.Sleep(time.Second * 10)
-			expect += testcase.expectedUpkeepExecutions
+			expect += testcase.ExpectedUpkeepExecutions
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
 				for i := range upkeepIDs {
@@ -255,7 +259,7 @@ func basicAutomationTest(t *testing.T, testcase testcase) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-			}, testcase.upkeepExecutionTimeout, "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 			l.Info().Msgf("All upkeeps performed after upgrading node %d", i)
 		}
 	}

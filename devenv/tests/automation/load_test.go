@@ -15,6 +15,7 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
@@ -37,38 +38,47 @@ const (
 func TestLoad(t *testing.T) {
 	testCases := []loadtestcase{
 		{
-			testcase: testcase{
-				registryVersion:   contracts.RegistryVersion_2_1,
-				name:              "registry_2_1",
-				upkeepCount:       5,
-				testKeyFundingEth: 15,
-				upkeepFundingLink: 15,
+			Testcase: Testcase{
+				RegistryVersion:   contracts.RegistryVersion_2_1,
+				Name:              "registry_2_1",
+				UpkeepCount:       5,
+				TestKeyFundingEth: 15,
+				UpkeepFundingLink: 1_000_000,
 			},
-			load: load{
-				durationSec:                   7200,
-				numberOfEvents:                1,
-				numberOfSpamMatchingEvents:    1,
-				numberOfSpamNonMatchingEvents: 0,
-				checkBurnAmount:               big.NewInt(0),
-				performBurnAmount:             big.NewInt(0),
-				upkeepGasLimit:                1000000,
-				sharedTrigger:                 false,
-				isStreamsLookup:               false,
-				feeds:                         []string{"0x000200"},
+			Load: Load{
+				DurationSec:                   7200,
+				NumberOfEvents:                1,
+				NumberOfSpamMatchingEvents:    1,
+				NumberOfSpamNonMatchingEvents: 0,
+				CheckBurnAmount:               big.NewInt(0),
+				PerformBurnAmount:             big.NewInt(0),
+				UpkeepGasLimit:                1000000,
+				SharedTrigger:                 false,
+				IsStreamsLookup:               false,
+				Feeds:                         []string{"0x000200"},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.Name, func(t *testing.T) {
 			start := time.Now()
 
 			l := framework.L
-			l.Info().Msg("Running test " + tc.name + " with registry version " + tc.registryVersion.String())
+			l.Info().Msg("Running test " + tc.Name + " with registry version " + tc.RegistryVersion.String())
+
+			tcStr, mErr := toml.Marshal(tc)
+			require.NoError(t, mErr, "failed to marshall test case")
+			fmt.Println("------ TEST CONFIGURATION ------")
+			fmt.Print(string(tcStr))
+			fmt.Println("--------------------------------")
 
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+
+				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+				require.NoError(t, cErr)
 			})
 
 			outputFile := "../../env-out.toml"
@@ -78,13 +88,13 @@ func TestLoad(t *testing.T) {
 			require.NoError(t, err)
 
 			// used only to determine which config to use
-			isMercuryV02 := strings.Contains(tc.name, "mercury_v02")
-			isMercuryV03 := strings.Contains(tc.name, "mercury_v03")
+			isMercuryV02 := strings.Contains(tc.Name, "mercury_v02")
+			isMercuryV03 := strings.Contains(tc.Name, "mercury_v03")
 			isMercury := isMercuryV02 || isMercuryV03
 
 			var config *automation.Automation
 			for _, candidate := range pdConfig.Config {
-				if candidate.MustGetRegistryVersion() == tc.registryVersion {
+				if candidate.MustGetRegistryVersion() == tc.RegistryVersion {
 					if !isMercury {
 						config = candidate
 						break
@@ -101,7 +111,7 @@ func TestLoad(t *testing.T) {
 					}
 				}
 			}
-			require.NotNil(t, config, "failed to find matching config with registry version %v; mercury v2: %v, mercury v3: %v", tc.registryVersion.String(), isMercuryV02, isMercuryV03)
+			require.NotNil(t, config, "failed to find matching config with registry version %v; mercury v2: %v, mercury v3: %v", tc.RegistryVersion.String(), isMercuryV02, isMercuryV03)
 
 			pks := []string{products.NetworkPrivateKey()}
 
@@ -111,7 +121,7 @@ func TestLoad(t *testing.T) {
 			// we ignore key at index 0, because it is the root key, which is not used during the test
 			// for contract deployment and interaction
 			// we create new addresses only on the simulated network to protect against fund loss
-			if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != tc.upkeepCount {
+			if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != tc.UpkeepCount {
 				bcNode := in.Blockchains[0].Out.Nodes[0]
 				c, _, _, err := products.ETHClient(
 					t.Context(),
@@ -121,11 +131,11 @@ func TestLoad(t *testing.T) {
 				)
 				require.NoError(t, err, "Failed to create ETH client")
 
-				newPks, err := products.FundNewAddresses(t.Context(), tc.upkeepCount, c, tc.testKeyFundingEth)
+				newPks, err := products.FundNewAddresses(t.Context(), tc.UpkeepCount, c, tc.TestKeyFundingEth)
 				require.NoError(t, err, "Failed to fund new addresses")
 				pks = append(pks, newPks...)
 			}
-			require.GreaterOrEqual(t, len(pks), tc.upkeepCount+1, "you must provide at least %d private keys", tc.upkeepCount+1)
+			require.GreaterOrEqual(t, len(pks), tc.UpkeepCount+1, "you must provide at least %d private keys", tc.UpkeepCount+1)
 			chainID, err := strconv.ParseUint(in.Blockchains[0].ChainID, 10, 64)
 			require.NoError(t, err, "Failed to parse chain ID")
 
@@ -135,7 +145,7 @@ func TestLoad(t *testing.T) {
 			a, err := NewTest(chainClient, config)
 			require.NoError(t, err, "Failed to create automation test")
 
-			loadDuration := time.Duration(tc.durationSec) * time.Second
+			loadDuration := time.Duration(tc.DurationSec) * time.Second
 
 			startTimeTestSetup := time.Now()
 			l.Info().Str("START_TIME", startTimeTestSetup.String()).Msg("Test setup started")
@@ -160,14 +170,14 @@ func TestLoad(t *testing.T) {
 			}
 
 			upkeepConfigs := make([]UpkeepConfig, 0)
-			loadConfigs := make([]load, 0)
+			loadConfigs := make([]Load, 0)
 
-			expectedTotalUpkeepCount := tc.upkeepCount
+			expectedTotalUpkeepCount := tc.UpkeepCount
 
 			maxDeploymentConcurrency := 100
 
 			multicallAddress := common.HexToAddress(config.DeployedContracts.MultiCall)
-			deploymentData, err := deployConsumerAndTriggerContracts(l, tc, a.ChainClient, multicallAddress, maxDeploymentConcurrency, big.NewInt(0).Mul(big.NewInt(tc.upkeepFundingLink), big.NewInt(1e18)), a.LinkToken)
+			deploymentData, err := deployConsumerAndTriggerContracts(l, tc, a.ChainClient, multicallAddress, maxDeploymentConcurrency, big.NewInt(0).Mul(big.NewInt(tc.UpkeepFundingLink), big.NewInt(1e18)), a.LinkToken)
 			require.NoError(t, err, "Error deploying consumer and trigger contracts")
 
 			consumerContracts = append(consumerContracts, deploymentData.ConsumerContracts...)
@@ -193,10 +203,10 @@ func TestLoad(t *testing.T) {
 					Str("Encoded Log Trigger Config", hex.EncodeToString(encodedLogTriggerConfig)).Msg("Encoded Log Trigger Config")
 
 				checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
-					CheckBurnAmount:   loadConfigs[i].checkBurnAmount,
-					PerformBurnAmount: loadConfigs[i].performBurnAmount,
+					CheckBurnAmount:   loadConfigs[i].CheckBurnAmount,
+					PerformBurnAmount: loadConfigs[i].PerformBurnAmount,
 					EventSig:          bytes1,
-					Feeds:             loadConfigs[i].feeds,
+					Feeds:             loadConfigs[i].Feeds,
 				}
 
 				encodedCheckDataStruct, err := consumerABI.Methods["_checkDataConfig"].Inputs.Pack(&checkDataStruct)
@@ -209,13 +219,13 @@ func TestLoad(t *testing.T) {
 					UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),
 					EncryptedEmail: []byte("test@mail.com"),
 					UpkeepContract: common.HexToAddress(consumerContract.Address()),
-					GasLimit:       loadConfigs[i].upkeepGasLimit,
+					GasLimit:       loadConfigs[i].UpkeepGasLimit,
 					AdminAddress:   chainClient.MustGetRootKeyAddress(),
 					TriggerType:    uint8(1),
 					CheckData:      encodedCheckDataStruct,
 					TriggerConfig:  encodedLogTriggerConfig,
 					OffchainConfig: []byte(""),
-					FundingAmount:  big.NewInt(0).Mul(big.NewInt(tc.upkeepFundingLink), big.NewInt(1e18)),
+					FundingAmount:  big.NewInt(0).Mul(big.NewInt(tc.UpkeepFundingLink), big.NewInt(1e18)),
 				}
 				l.Debug().Interface("Upkeep Config", upkeepConfig).Msg("Upkeep Config")
 				upkeepConfigs = append(upkeepConfigs, upkeepConfig)
@@ -246,11 +256,11 @@ func TestLoad(t *testing.T) {
 			for i, triggerContract := range triggerContracts {
 				c := LogTriggerConfig{
 					Address:                       triggerContract.Address().String(),
-					NumberOfEvents:                int64(loadConfigs[i].numberOfEvents),
-					NumberOfSpamMatchingEvents:    int64(loadConfigs[i].numberOfSpamMatchingEvents),
-					NumberOfSpamNonMatchingEvents: int64(loadConfigs[i].numberOfSpamNonMatchingEvents),
+					NumberOfEvents:                int64(loadConfigs[i].NumberOfEvents),
+					NumberOfSpamMatchingEvents:    int64(loadConfigs[i].NumberOfSpamMatchingEvents),
+					NumberOfSpamNonMatchingEvents: int64(loadConfigs[i].NumberOfSpamNonMatchingEvents),
 				}
-				numberOfEventsEmittedPerSec += int64(loadConfigs[i].numberOfEvents)
+				numberOfEventsEmittedPerSec += int64(loadConfigs[i].NumberOfEvents)
 				configs = append(configs, c)
 			}
 

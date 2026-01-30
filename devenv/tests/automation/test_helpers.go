@@ -32,37 +32,37 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper2_0"
 )
 
-type testcase struct {
-	name string
+type Testcase struct {
+	Name string `toml:"name"`
 
-	registryVersion          contracts.KeeperRegistryVersion
-	upkeepCount              int    // how many upkeeps to deploy
-	expectedUpkeepExecutions int    // how many times each upkeep should execute
-	upkeepExecutionTimeout   string // "1s", "5m", 1h20m", etc
-	upkeepFundingLink        int64
+	RegistryVersion          contracts.KeeperRegistryVersion `toml:"registryVersion"`
+	UpkeepCount              int                             `toml:"upkeepCount,omitempty"`              // how many upkeeps to deploy
+	ExpectedUpkeepExecutions int                             `toml:"expectedUpkeepExecutions,omitempty"` // how many times each upkeep should execute
+	UpkeepExecutionTimeout   string                          `toml:"upkeepExecutionTimeout,omitempty"`   // "1s", "5m", 1h20m", etc
+	UpkeepFundingLink        int64                           `toml:"upkeepFundingLink,omitempty"`
 
-	testKeyFundingEth float64
+	TestKeyFundingEth float64 `toml:"testKeyFundingEth,omitempty"`
 
 	// Chainlink Docker image to which nodes should be upgraded to
 	upgradeImage string
 }
 
-type load struct {
-	numberOfEvents                int
-	numberOfSpamMatchingEvents    int
-	numberOfSpamNonMatchingEvents int
-	checkBurnAmount               *big.Int
-	performBurnAmount             *big.Int
-	sharedTrigger                 bool
-	upkeepGasLimit                uint32
-	isStreamsLookup               bool
-	feeds                         []string
-	durationSec                   int
+type Load struct {
+	NumberOfEvents                int      `toml:"numberOfEvents,omitempty"`
+	NumberOfSpamMatchingEvents    int      `toml:"numberOfSpamMatchingEvents,omitempty"`
+	NumberOfSpamNonMatchingEvents int      `toml:"numberOfSpamNonMatchingEvents,omitempty"`
+	CheckBurnAmount               *big.Int `toml:"checkBurnAmount,omitempty"`
+	PerformBurnAmount             *big.Int `toml:"performBurnAmount,omitempty"`
+	SharedTrigger                 bool     `toml:"sharedTrigger,omitempty"`
+	UpkeepGasLimit                uint32   `toml:"upkeepGasLimit,omitempty"`
+	IsStreamsLookup               bool     `toml:"isStreamsLookup,omitempty"`
+	Feeds                         []string `toml:"feeds,omitempty"`
+	DurationSec                   int      `toml:"durationSec,omitempty"`
 }
 
 type loadtestcase struct {
-	testcase
-	load
+	Testcase
+	Load
 }
 
 type Test struct {

@@ -22,14 +22,14 @@ type DeploymentData struct {
 	ConsumerContracts []contracts.KeeperConsumer
 	TriggerContracts  []contracts.LogEmitter
 	TriggerAddresses  []common.Address
-	LoadConfigs       []load
+	LoadConfigs       []Load
 }
 
 type deployedContractData struct {
 	consumerContract contracts.KeeperConsumer
 	triggerContract  contracts.LogEmitter
 	triggerAddress   common.Address
-	loadConfig       load
+	loadConfig       Load
 }
 
 func (d deployedContractData) GetResult() deployedContractData {
@@ -55,13 +55,13 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, tc loadtestcase, chainC
 	}
 
 	l.Debug().
-		Int("Number of Upkeeps", tc.upkeepCount).
+		Int("Number of Upkeeps", tc.UpkeepCount).
 		Int("Concurrency", concurrency).
 		Msg("Deployment parallelisation info")
 
 	tasks := []task{}
-	for i := 0; i < tc.upkeepCount; i++ {
-		if tc.sharedTrigger {
+	for i := 0; i < tc.UpkeepCount; i++ {
+		if tc.SharedTrigger {
 			if i == 0 {
 				tasks = append(tasks, task{deployTrigger: true})
 			} else {
@@ -74,7 +74,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, tc loadtestcase, chainC
 
 	var deployContractFn = func(deployedCh chan deployedContractData, errorCh chan error, keyNum int, task task) {
 		data := deployedContractData{}
-		consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumerFromKey(chainClient, tc.isStreamsLookup, keyNum)
+		consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumerFromKey(chainClient, tc.IsStreamsLookup, keyNum)
 		if err != nil {
 			errorCh <- errors.Wrapf(err, "Error deploying simple log trigger contract")
 			return
@@ -82,19 +82,19 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, tc loadtestcase, chainC
 
 		data.consumerContract = consumerContract
 
-		loadCfg := load{
-			numberOfEvents:                tc.numberOfEvents,
-			numberOfSpamMatchingEvents:    tc.numberOfSpamMatchingEvents,
-			numberOfSpamNonMatchingEvents: tc.numberOfSpamNonMatchingEvents,
-			checkBurnAmount:               tc.checkBurnAmount,
-			performBurnAmount:             tc.performBurnAmount,
-			upkeepGasLimit:                tc.upkeepGasLimit,
-			sharedTrigger:                 tc.sharedTrigger,
-			feeds:                         []string{},
+		loadCfg := Load{
+			NumberOfEvents:                tc.NumberOfEvents,
+			NumberOfSpamMatchingEvents:    tc.NumberOfSpamMatchingEvents,
+			NumberOfSpamNonMatchingEvents: tc.NumberOfSpamNonMatchingEvents,
+			CheckBurnAmount:               tc.CheckBurnAmount,
+			PerformBurnAmount:             tc.PerformBurnAmount,
+			UpkeepGasLimit:                tc.UpkeepGasLimit,
+			SharedTrigger:                 tc.SharedTrigger,
+			Feeds:                         []string{},
 		}
 
-		if tc.isStreamsLookup {
-			loadCfg.feeds = tc.feeds
+		if tc.IsStreamsLookup {
+			loadCfg.Feeds = tc.Feeds
 		}
 
 		data.loadConfig = loadCfg
@@ -132,18 +132,18 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, tc loadtestcase, chainC
 
 	// if there's more than 1 upkeep and it's a shared trigger, then we should use only the first address in triggerAddresses
 	// as triggerAddresses array
-	if tc.sharedTrigger {
+	if tc.SharedTrigger {
 		if len(data.TriggerAddresses) == 0 {
 			return DeploymentData{}, errors.New("No trigger addresses found")
 		}
 		triggerAddress := data.TriggerAddresses[0]
 		data.TriggerAddresses = make([]common.Address, 0)
-		for i := 0; i < tc.upkeepCount; i++ {
+		for i := 0; i < tc.UpkeepCount; i++ {
 			data.TriggerAddresses = append(data.TriggerAddresses, triggerAddress)
 		}
 	}
 
-	sendErr := automation.SendLinkFundsToDeploymentAddresses(chainClient, concurrency, tc.upkeepCount, tc.upkeepCount/concurrency, multicallAddress, automationDefaultLinkFunds, linkToken)
+	sendErr := automation.SendLinkFundsToDeploymentAddresses(chainClient, concurrency, tc.UpkeepCount, tc.UpkeepCount/concurrency, multicallAddress, automationDefaultLinkFunds, linkToken)
 	if sendErr != nil {
 		return DeploymentData{}, sendErr
 	}

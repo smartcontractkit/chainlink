@@ -73,7 +73,7 @@ jobs:
         id: soak_test
         working-directory: devenv/tests/automation
         run: |
-          echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: Registry 2.3"
+          echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: Registry 2.1"
           go test -v -timeout 3h -run TestLoad/registry_2_1
 
       - name: Upload Logs
@@ -81,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-soak
-          path: devenv/tests/e2e/logs
+          path: devenv/tests/logs
           retention-days: 1
 
       - name: Upload Pprof (Alloc)
@@ -89,5 +89,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: alloc.pprof
-          path: devenv/tests/ocr2/alloc.pprof
+          path: devenv/tests/automation/alloc.pprof
           retention-days: 3
