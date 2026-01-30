@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -69,6 +71,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 */
 
 func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
+	quarantine.Flaky(t, "DX-1907")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	require.NoError(
