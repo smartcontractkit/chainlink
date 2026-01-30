@@ -233,7 +233,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/event_dump.ndjson"))
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
 
 	t.Cleanup(func() {
 		server.Shutdown(t.Context())
@@ -259,10 +259,6 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		// triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-
-		// t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, triggersUpAndRunning, 4*time.Minute)
-
 		message := "Data for log trigger"
 		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
@@ -280,9 +276,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 				case <-emitCtx.Done():
 					return
 				case <-ticker.C:
-					fmt.Printf("About to emit event #%d for chain %s", emittedEventCount, chainID)
+					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
 					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-					fmt.Printf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
 					emittedEventCount++
 				}
 			}

@@ -31,20 +31,6 @@ import (
 
 const testSinkStartupTimeout = 10 * time.Second
 
-// WaitForServerStart blocks until the CHiP test sink reports it is ready or fails fast.
-func WaitForServerStart(t *testing.T, started <-chan struct{}, errCh <-chan error) {
-	t.Helper()
-
-	select {
-	case <-started:
-		return
-	case err := <-errCh:
-		require.NoError(t, err, "test sink server failed while starting")
-	case <-time.After(testSinkStartupTimeout):
-		require.FailNow(t, "timeout waiting for test sink server to start")
-	}
-}
-
 // WaitForUserLog monitors workflow user logs until one contains needle or the context ends.
 func WaitForUserLog(
 	ctx context.Context,
@@ -133,11 +119,13 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 	return publishFn
 }
 
+// GetPublishFn returns a CHiP publish handler that demuxes events into the provided channels and saves all events to a file.
+// Useful when debugging failures of tests that depend on workflow logs.
 func GetLoggingPublishFn(
 	testLogger zerolog.Logger,
 	userLogsCh chan *workflowevents.UserLogs,
 	baseMessageCh chan *commonevents.BaseMessage,
-	dumpFilePath string, // <--- New Argument
+	dumpFilePath string, // <--- best set to `./logs/your_file.txt` since `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
 ) chiptestsink.PublishFn {
 
 	// 1. Thread-safe helper to write generic proto messages to a file
@@ -194,8 +182,6 @@ func GetLoggingPublishFn(
 	return func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
 
 		// --- SWITCH 1: Data Persistence (Observability) ---
-		// This handles the "potentially 20 different events".
-		// We process this FIRST to ensure everything is captured, even if Switch 2 returns early.
 		if dumpFilePath != "" {
 			var msgToSave proto.Message
 
@@ -259,7 +245,6 @@ func GetLoggingPublishFn(
 		}
 
 		// --- SWITCH 2: Test Orchestration (Logic) ---
-		// This preserves the existing behavior exactly.
 		switch event.Type {
 		case "workflows.v1.UserLogs":
 			typedMsg := &workflowevents.UserLogs{}
@@ -294,11 +279,12 @@ func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptest
 If you want to use both together start ChiIP Ingress on a different port with '--grpc-port' flag
 and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, config.DefaultChipIngressPort)
 	}
+
 	startCh := make(chan struct{}, 1)
 	server, err := chiptestsink.NewServer(chiptestsink.Config{
 		PublishFunc: publishFn,
 		GRPCListen:  ":" + strconv.Itoa(config.DefaultChipIngressPort),
-		Started:     startCh,
+		Started:     startCh, // signals that server is indeed listening on the GRPC port
 		// UpstreamEndpoint: "localhost:50052", // uncomment to forward events to ChIP, remember to start ChIP on a different port config.DefaultChipIngressPort (=50051)
 	})
 	require.NoError(t, err, "failed to create new test sink server")
@@ -307,7 +293,14 @@ and make sure that the sink is pointing to correct upstream endpoint ('localhost
 	go func() {
 		errCh <- server.Run()
 	}()
-	WaitForServerStart(t, startCh, errCh)
+
+	select {
+	case <-startCh:
+	case err := <-errCh:
+		require.NoError(t, err, "test sink server failed while starting")
+	case <-time.After(testSinkStartupTimeout):
+		require.FailNow(t, "timeout waiting for test sink server to start")
+	}
 
 	return server
 }

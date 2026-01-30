@@ -17,6 +17,8 @@ import (
 
 type PublishFn = func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error)
 
+const listenerReadyTimeout = 5 * time.Second
+
 // Config defines how the test sink listens.
 type Config struct {
 	// gRPC listen address for ChipIngress, e.g. ":9090".
@@ -76,13 +78,17 @@ func (s *Server) Run() error {
 		return fmt.Errorf("gRPC listen: %w", err)
 	}
 
-	notifyStarted(s.cfg.Started)
-	log.Printf("[chip-testsink] gRPC listening on %s", s.cfg.GRPCListen)
-
+	addr := lis.Addr().String()
+	log.Printf("[chip-testsink] binding gRPC listener on %s", addr)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- s.grpcServer.Serve(lis)
 	}()
+	if err := waitForListenerReady(addr, listenerReadyTimeout); err != nil {
+		s.grpcServer.Stop()
+		return err
+	}
+	notifyStarted(s.cfg.Started)
 
 	if s.cfg.UpstreamEndpoint != "" {
 		log.Printf("[chip-testsink] Forwarding to upstream Chip Ingress endpoint: %s", s.cfg.UpstreamEndpoint)
@@ -117,6 +123,26 @@ func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.Pub
 func (s *Server) Shutdown(ctx context.Context) {
 	s.grpcServer.GracefulStop()
 	log.Println("[chip-testsink] Server shutdown")
+}
+
+func waitForListenerReady(addr string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		dialer := &net.Dialer{Timeout: 250 * time.Millisecond}
+		conn, err := dialer.Dial("tcp", addr)
+		if err == nil {
+			_ = conn.Close()
+			log.Printf("[chip-testsink] gRPC listener ready on %s", addr)
+			return nil
+		}
+		lastErr = err
+		time.Sleep(50 * time.Millisecond)
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("listener on %s not ready", addr)
+	}
+	return fmt.Errorf("timeout waiting for listener readiness: %w", lastErr)
 }
 
 func notifyStarted(ch chan<- struct{}) {
