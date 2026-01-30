@@ -239,7 +239,7 @@ func (fc *FakeEVMChain) UnregisterLogTrigger(ctx context.Context, triggerID stri
 	return nil
 }
 
-func (fc *FakeEVMChain) AckEvent(ctx context.Context, triggerId string, eventId string) caperrors.Error {
+func (fc *FakeEVMChain) AckEvent(ctx context.Context, triggerID string, eventID string) caperrors.Error {
 	return nil
 }
 

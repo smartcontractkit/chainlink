@@ -281,7 +281,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 
 		key := ackKey{msg.CallerDonId, triggerEventID}
 		nowMs := time.Now().UnixMilli()
-		p.ackCache.Insert(key, sender, nowMs, msg.Payload) // TODO Payload is empty, should we do something else here?
+		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.EventTimeout.Milliseconds(), false)
 		if !ready {

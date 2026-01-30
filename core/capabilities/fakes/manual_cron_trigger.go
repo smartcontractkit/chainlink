@@ -101,7 +101,7 @@ func (f *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, 
 	return nil
 }
 
-func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerId string, eventId string) caperrors.Error {
+func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID string, eventID string) caperrors.Error {
 	return nil
 }
 

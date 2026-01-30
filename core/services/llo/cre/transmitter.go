@@ -217,8 +217,8 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	return nil
 }
 
-func (t *transmitter) AckEvent(ctx context.Context, triggerId string, eventId string) error {
-	return fmt.Errorf("unimplemented")
+func (t *transmitter) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+	return nil
 }
 
 func (t *transmitter) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {

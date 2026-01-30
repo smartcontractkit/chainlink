@@ -65,7 +65,7 @@ func (st *fakeStreamsTrigger) Info(ctx context.Context) (commonCap.CapabilityInf
 	}, nil
 }
 
-func (st *fakeStreamsTrigger) AckEvent(ctx context.Context, triggerId string, eventId string) error {
+func (st *fakeStreamsTrigger) AckEvent(ctx context.Context, triggerID string, eventID string) error {
 	return nil
 }
 

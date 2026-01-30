@@ -117,7 +117,7 @@ func (s *fakeTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, er
 	), nil
 }
 
-func (s *fakeTrigger) AckEvent(ctx context.Context, triggerId string, eventId string) error {
+func (s *fakeTrigger) AckEvent(ctx context.Context, triggerID string, eventID string) error {
 	return fmt.Errorf("unimplemented")
 }
 

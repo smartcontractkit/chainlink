@@ -110,8 +110,6 @@ func TestTriggerPublisher_RecieveTriggerEventAcks(t *testing.T) {
 
 	require.True(t, underlyingTriggerCap.eventAckd)
 	require.NoError(t, publisher.Close())
-
-	// TODO: Increase event ACK test coverage
 }
 
 func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
