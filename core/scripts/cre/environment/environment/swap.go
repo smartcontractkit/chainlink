@@ -180,7 +180,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 	// and directly approve jobspecs without restarting nodes
 	nerrg := errgroup.Group{}
 	for _, nodeSet := range config.NodeSets {
-		if !flags.HasFlagForAnyChain(nodeSet.ComputedCapabilities, capabilityFlag) {
+		if !flags.HasFlagForAnyChain(nodeSet.Capabilities, capabilityFlag) {
 			continue
 		}
 		nerrg.Go(func() error {

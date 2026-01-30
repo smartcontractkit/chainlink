@@ -107,6 +107,8 @@ flowchart LR
 	click chainlink-protos/linking-service/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/orchestrator --> wsrpc
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/ring/go
+	click chainlink-protos/ring/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/rmn/v1.6/go
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/storage-service
@@ -142,6 +144,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
+	chainlink/v2 --> chainlink-protos/ring/go
 	chainlink/v2 --> chainlink-sui
 	chainlink/v2 --> chainlink-ton
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
@@ -219,6 +222,7 @@ flowchart LR
 		 chainlink-protos/cre/go
 		 chainlink-protos/linking-service/go
 		 chainlink-protos/orchestrator
+		 chainlink-protos/ring/go
 		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/storage-service
 		 chainlink-protos/svr
@@ -368,6 +372,8 @@ flowchart LR
 	click chainlink-protos/op-catalog href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/orchestrator --> wsrpc
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/ring/go
+	click chainlink-protos/ring/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/rmn/v1.6/go
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/storage-service
@@ -501,6 +507,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
+	chainlink/v2 --> chainlink-protos/ring/go
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
 	chainlink/v2 --> quarantine
@@ -617,6 +624,7 @@ flowchart LR
 		 chainlink-protos/linking-service/go
 		 chainlink-protos/op-catalog
 		 chainlink-protos/orchestrator
+		 chainlink-protos/ring/go
 		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/storage-service
 		 chainlink-protos/svr

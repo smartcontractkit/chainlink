@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	ringpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )

@@ -55,6 +55,7 @@ type dynamicPublisherConfig struct {
 type registrationKey struct {
 	callerDonID uint32
 	workflowID  string
+	triggerID   string
 }
 
 type pubRegState struct {
@@ -68,6 +69,7 @@ type batchedResponse struct {
 	callerDonID    uint32
 	triggerEventID string
 	workflowIDs    []string
+	triggerIDs     []string
 }
 
 type TriggerPublisher interface {
@@ -199,27 +201,27 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
 		}
-		p.lggr.Debugw("received trigger registration", "workflowId", req.Metadata.WorkflowID, "sender", sender)
-		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID}
+		p.lggr.Debugw("received trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "sender", sender)
+		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID, req.TriggerID}
 		nowMs := time.Now().UnixMilli()
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
 		_, exists := p.registrations[key]
 		if exists {
-			p.lggr.Debugw("trigger registration already exists", "workflowId", req.Metadata.WorkflowID)
+			p.lggr.Debugw("trigger registration already exists", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
 			return
 		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
-			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
+			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "minRequired", minRequired)
 			return
 		}
 		aggregated, err := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if err != nil {
-			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "err", err)
+			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 			return
 		}
 		unmarshaled, err := pb.UnmarshalTriggerRegistrationRequest(aggregated)
@@ -237,10 +239,10 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			}
 			p.wg.Add(1)
 			go p.triggerEventLoop(callbackCh, key)
-			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID)
+			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
 		} else {
 			cancel()
-			p.lggr.Errorw("failed to register trigger", "workflowId", req.Metadata.WorkflowID, "err", err)
+			p.lggr.Errorw("failed to register trigger", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 		}
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
@@ -281,12 +283,12 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 				callerDon := cfg.workflowDONs[key.callerDonID]
 				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
 				if !ready {
-					p.lggr.Infow("trigger registration expired", "callerDonID", key.callerDonID, "workflowId", key.workflowID)
+					p.lggr.Infow("trigger registration expired", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID)
 					ctx, cancel := p.stopCh.NewCtx()
 					err := cfg.underlying.UnregisterTrigger(ctx, req.request)
 					cancel()
 					p.registrations[key].cancel() // Cancel context on register trigger
-					p.lggr.Infow("unregistered trigger", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "err", err)
+					p.lggr.Infow("unregistered trigger", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID, "err", err)
 					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
 					delete(p.registrations, key)
 					p.messageCache.Delete(key)
@@ -305,12 +307,12 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 			return
 		case response, ok := <-callbackCh:
 			if !ok {
-				p.lggr.Infow("triggerEventLoop channel closed", "workflowId", key.workflowID)
+				p.lggr.Infow("triggerEventLoop channel closed", "workflowId", key.workflowID, "triggerID", key.triggerID)
 				return
 			}
 
 			triggerEvent := response.Event
-			p.lggr.Debugw("received trigger event", "workflowId", key.workflowID, "triggerEventID", triggerEvent.ID)
+			p.lggr.Debugw("received trigger event", "workflowId", key.workflowID, "triggerID", key.triggerID, "triggerEventID", triggerEvent.ID)
 			marshaledResponse, err := pb.MarshalTriggerResponse(response)
 			if err != nil {
 				p.lggr.Debugw("can't marshal trigger event", "err", err)
@@ -327,6 +329,7 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 					callerDonID:    key.callerDonID,
 					triggerEventID: triggerEvent.ID,
 					workflowIDs:    []string{key.workflowID},
+					triggerIDs:     []string{key.triggerID},
 				})
 			}
 		}
@@ -348,10 +351,12 @@ func (p *triggerPublisher) enqueueForBatching(rawResponse []byte, key registrati
 			callerDonID:    key.callerDonID,
 			triggerEventID: triggerEventID,
 			workflowIDs:    []string{key.workflowID},
+			triggerIDs:     []string{key.triggerID},
 		}
 		p.batchingQueue[sha] = elem
 	} else {
 		elem.workflowIDs = append(elem.workflowIDs, key.workflowID)
+		elem.triggerIDs = append(elem.triggerIDs, key.triggerID)
 	}
 	p.bqMu.Unlock()
 }
@@ -364,12 +369,16 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 	}
 
 	for len(resp.workflowIDs) > 0 {
-		idBatch := resp.workflowIDs
-		if cfg.batchingEnabled && int64(len(idBatch)) > int64(cfg.remoteConfig.MaxBatchSize) {
-			idBatch = idBatch[:cfg.remoteConfig.MaxBatchSize]
+		workflowBatch := resp.workflowIDs
+		triggerBatch := resp.triggerIDs
+		if cfg.batchingEnabled && int64(len(workflowBatch)) > int64(cfg.remoteConfig.MaxBatchSize) {
+			workflowBatch = workflowBatch[:cfg.remoteConfig.MaxBatchSize]
+			triggerBatch = triggerBatch[:cfg.remoteConfig.MaxBatchSize]
 			resp.workflowIDs = resp.workflowIDs[cfg.remoteConfig.MaxBatchSize:]
+			resp.triggerIDs = resp.triggerIDs[cfg.remoteConfig.MaxBatchSize:]
 		} else {
 			resp.workflowIDs = nil
+			resp.triggerIDs = nil
 		}
 		msg := &types.MessageBody{
 			CapabilityId:    p.capabilityID,
@@ -379,7 +388,8 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			Payload:         resp.rawResponse,
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{
-					WorkflowIds:    idBatch,
+					WorkflowIds:    workflowBatch,
+					TriggerIds:     triggerBatch,
 					TriggerEventId: resp.triggerEventID,
 				},
 			},
