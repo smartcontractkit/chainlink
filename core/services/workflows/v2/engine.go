@@ -748,7 +748,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 }
 
 func (e *Engine) ackTriggerEvent(ctx context.Context, triggerCapID string, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
-	e.lggr.Infof("Ack trigger event (triggerID=%s, eventID=%s)", triggerRegistrationID, te.ID)
 	for _, trigger := range e.triggers {
 		info, err := trigger.TriggerCapability.Info(ctx)
 		if err != nil {
@@ -756,7 +755,7 @@ func (e *Engine) ackTriggerEvent(ctx context.Context, triggerCapID string, trigg
 			continue
 		}
 		if info.ID == triggerCapID {
-			e.lggr.Infof("Calling ACKEvent on trigger capability (triggerID=%s, eventID=%s)", triggerRegistrationID, te.ID)
+			e.lggr.Debugf("Calling AackEvent on trigger capability (triggerID=%s, eventID=%s)", triggerRegistrationID, te.ID)
 			return trigger.TriggerCapability.AckEvent(ctx, triggerRegistrationID, te.ID)
 		}
 	}
