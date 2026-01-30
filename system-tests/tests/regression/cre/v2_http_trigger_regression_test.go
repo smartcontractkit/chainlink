@@ -117,7 +117,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	var authorizedKeyToUse string
 	switch httpNegativeTest.testCase {
 	case "invalid-public-key":
-		authorizedKeyToUse = "invalid-public-key-format"
+		authorizedKeyToUse = "0x000000000000000000000000000000000000000"
 	case "non-existing-public-key":
 		authorizedKeyToUse = "0x0000000000000000000000000000000000000000"
 	default:
