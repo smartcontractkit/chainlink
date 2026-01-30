@@ -139,8 +139,12 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	validateShardOrchestratorRPC(t, testLogger, shardOrchestratorAddr)
 
 	testLogger.Info().Msg("Reporting shard status to ALL nodes' Arbiters...")
+
+	// TODO: we should modify arbiter not to report or report something else when health data is not available from Scaler
 	initializeAllArbiterStates(t, testEnv, shardZero, len(shardDONs))
 
+	// TODO: check edge case what happens when the GetWorkflowMappingsBatch returns mappings with missing workflows
+	// TODO: check what happens if workflows is being removed, if there are no artifacts in the routing state (ringStore)
 	validateShardingScaleScenario(t, testEnv, rpcHost, workflowIDs)
 
 	testLogger.Info().Msg("Sharding test completed successfully")

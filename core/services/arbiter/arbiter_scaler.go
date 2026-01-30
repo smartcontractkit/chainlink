@@ -46,6 +46,7 @@ func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*rin
 			)
 			shardStatus := make(map[uint32]*ringpb.ShardStatus, desiredCount)
 			for i := uint64(0); i < desiredCount; i++ {
+				// TODO: In a real scenario, we might not want to mark all shards as healthy by default.
 				shardStatus[uint32(i)] = &ringpb.ShardStatus{IsHealthy: true}
 			}
 			return &ringpb.ReplicaStatus{

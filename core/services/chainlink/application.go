@@ -1336,8 +1336,12 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
+						// TODO: make this configurable and backwards compatible
+						syncerV2.WithShardEnabled(true),
 						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
+						syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 					)
+
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 					}

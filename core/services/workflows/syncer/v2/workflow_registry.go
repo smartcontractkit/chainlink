@@ -139,11 +139,16 @@ func WithShardOrchestratorClient(client *shardorchestrator.Client) func(*workflo
 	}
 }
 
+func WithShardEnabled(shardingEnabled bool) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		wr.shardingEnabled = shardingEnabled
+	}
+}
+
 // WithShardID enables shard filtering and sets the shard ID for this syncer.
 func WithShardID(shardID uint32) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.myShardID = shardID
-		wr.shardingEnabled = true
 	}
 }
 
@@ -768,8 +773,11 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, allWorkfl
 		return allWorkflows, nil
 	}
 
+	w.lggr.Debugw("Shard filtering workflows", "count", len(allWorkflows))
+
 	workflowIDs := make([]string, 0, len(allWorkflows))
 	for _, wf := range allWorkflows {
+		w.lggr.Debugw("Shard filtering workflow", "workflowID", wf.WorkflowID, "owner", wf.Owner)
 		workflowIDs = append(workflowIDs, wf.WorkflowID.Hex())
 	}
 
@@ -778,6 +786,8 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, allWorkfl
 		return nil, fmt.Errorf("failed to get shard mappings: %w", err)
 	}
 
+	w.lggr.Debugw("Shard filtering mappings", "count", len(mappings))
+
 	filtered := make([]WorkflowMetadataView, 0)
 	for _, wf := range allWorkflows {
 		wfID := wf.WorkflowID.Hex()
@@ -785,6 +795,8 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, allWorkfl
 			filtered = append(filtered, wf)
 		}
 	}
+
+	w.lggr.Debugw("Completed shard filtering workflows", "originalCount", len(allWorkflows), "filteredCount", len(filtered), "shardID", w.myShardID)
 
 	return filtered, nil
 }
