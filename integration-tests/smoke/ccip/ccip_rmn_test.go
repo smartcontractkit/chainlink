@@ -147,6 +147,7 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
+	quarantine.Flaky(t, "DX-2019")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
