@@ -126,7 +126,7 @@ Recommendation: Use it in tests that need to listen for Beholder messages.
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	beholder, err := NewBeholder(framework.L, testEnv.TestConfig)
 	require.NoError(t, err, "failed to create beholder instance")
 
 	// We are interested in UserLogs (successful execution)

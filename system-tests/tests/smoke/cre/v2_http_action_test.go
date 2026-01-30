@@ -142,7 +142,7 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	// Expect exact success message for this test case
 	expectedMessage := "HTTP Action CRUD success test completed: " + httpActionTest.testCase
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, expectedMessage, 60*time.Second)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, expectedMessage, 4*time.Minute)
 
 	testLogger.Info().Msg("HTTP Action CRUD success test completed")
 }

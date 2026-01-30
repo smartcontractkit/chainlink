@@ -8,42 +8,20 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
-
-// TestConfig holds common test specific configurations related to the test execution
-// These configurations are not meant to impact the actual test logic
-type TestConfig struct {
-	RelativePathToRepoRoot   string
-	EnvironmentConfigPath    string
-	EnvironmentDirPath       string
-	EnvironmentStateFile     string
-	EnvironmentArtifactPaths string
-	BeholderStateFile        string
-}
-
-// TestEnvironment holds references to the main test components
-type TestEnvironment struct {
-	Config         *envconfig.Config
-	TestConfig     *TestConfig
-	Logger         zerolog.Logger
-	CreEnvironment *cre.Environment
-	Blockchains    []blockchains.Blockchain
-}
 
 func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
 	t.Helper()
@@ -89,6 +67,7 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 		EnvironmentDirPath:     environmentDirPath,
 		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
+		ChipIngressGRPCPort:    chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT,
 	}
 }
 

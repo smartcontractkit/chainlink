@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"net"
 	"strconv"
 	"strings"
 	"testing"
@@ -128,12 +129,17 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 
 // StartChipTestSink boots the CHiP test sink and waits until it is accepting traffic.
 func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptestsink.Server {
+	if !isPortAvailable(":" + strconv.Itoa(config.DefaultChipIngressPort)) {
+		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %d is already taken. Most probably an instance of ChIP Ingress is already running.
+If you want to use both together start ChiIP Ingress on a different port with '--grpc-port' flag
+and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, config.DefaultChipIngressPort)
+	}
 	startCh := make(chan struct{}, 1)
 	server, err := chiptestsink.NewServer(chiptestsink.Config{
 		PublishFunc: publishFn,
 		GRPCListen:  ":" + strconv.Itoa(config.DefaultChipIngressPort),
 		Started:     startCh,
-		// UpstreamEndpoint: "localhost:50051", // uncomment to forward events to ChIP
+		// UpstreamEndpoint: "localhost:50052", // uncomment to forward events to ChIP, remember to start ChIP on a different port config.DefaultChipIngressPort (=50051)
 	})
 	require.NoError(t, err, "failed to create new test sink server")
 
@@ -144,6 +150,16 @@ func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptest
 	WaitForServerStart(t, startCh, errCh)
 
 	return server
+}
+
+func isPortAvailable(addr string) bool {
+	lc := net.ListenConfig{}
+	l, err := lc.Listen(context.Background(), "tcp", addr)
+	if err != nil {
+		return false // already in use or permission denied
+	}
+	_ = l.Close()
+	return true
 }
 
 // WatchWorkflowLogs enforces that the expected log appears before timeout and that poison logs abort the test.

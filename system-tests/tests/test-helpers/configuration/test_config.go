@@ -15,7 +15,7 @@ type TestConfig struct {
 	EnvironmentDirPath       string
 	EnvironmentStateFile     string
 	EnvironmentArtifactPaths string
-	BeholderStateFile        string
+	ChipIngressGRPCPort      string
 }
 
 // TestEnvironment holds references to the main test components
