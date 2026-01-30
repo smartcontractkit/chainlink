@@ -2814,11 +2814,11 @@ func (s *Sharding) ValidateConfig() (err error) {
 // M1: JobSpec represents a static job specification in TOML config
 // This allows jobs to be defined in configuration files and loaded at startup
 type JobSpec struct {
-	Type              string
-	SchemaVersion     int
-	Name              string
-	ExternalJobID     *string
-	ForwardingAllowed *bool
-	Command           string
-	Config            string
+	Type              string  `toml:"type"`
+	SchemaVersion     int     `toml:"schemaVersion"`
+	Name              string  `toml:"name"`
+	ExternalJobID     *string `toml:"externalJobID"`
+	ForwardingAllowed *bool   `toml:"forwardingAllowed"`
+	Command           string  `toml:"command"`
+	Config            string  `toml:"config"`
 }
