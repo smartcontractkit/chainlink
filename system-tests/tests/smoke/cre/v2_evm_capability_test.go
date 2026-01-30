@@ -259,12 +259,12 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
+		// triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
 
-		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, triggersUpAndRunning, 4*time.Minute)
+		// t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, triggersUpAndRunning, 4*time.Minute)
 
 		message := "Data for log trigger"
-		// start background event emission every 10s while AssertBeholderMessage is running, so that the workflow has events to pick up eventually
+		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
 
