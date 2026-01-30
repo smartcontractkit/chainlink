@@ -38,6 +38,10 @@ func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*rin
 
 	// If no replicas have been reported, use ShardConfig's desired count as fallback
 	// This handles the case where no external scaler is running (e.g., in test environments)
+
+	// TODO: if this if is removed problems appear:
+	// - problem with getting workflow mapping inside the storeRing, it will hang forever without defaults
+	// - if there no healthy shards, no routing happens (hash can't be computed) <-- design assumption shard-zero works, handle gracefully when it doesn't
 	if routable.ReadyCount == 0 && h.shardConfig != nil {
 		desiredCount, err := h.shardConfig.GetDesiredShardCount(ctx)
 		if err == nil && desiredCount > 0 {

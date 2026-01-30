@@ -276,22 +276,27 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	shardID := shardIdx // TODO: confirm these are the same or if its going to be derived from it + CSAKey
 	// Shard 1+ runs the gRPC client
-	if shardID > 0 {
-		address := cfg.Sharding().ShardOrchestratorAddress()
-		if address == nil {
-			return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
-		}
-		client, err := shardorchestrator.NewClient(
-			ctx,
-			address.String(),
-			globalLogger.Named("ShardOrchestratorClient"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
-		}
-		shardOrchestratorClient = client
-		globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
+
+	// TODO: this requires attention and a proper fix!
+	var address string
+	if shardID == 0 {
+		address = "127.0.0.1:50051" // default address for shard 0 server
+	} else {
+		address = cfg.Sharding().ShardOrchestratorAddress().String()
 	}
+	//if address == nil {
+	//	return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
+	//}
+	client, err := shardorchestrator.NewClient(
+		ctx,
+		address,
+		globalLogger.Named("ShardOrchestratorClient"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+	}
+	shardOrchestratorClient = client
+	globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
 
 	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
 	if err != nil {
