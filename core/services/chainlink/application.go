@@ -8,7 +8,6 @@ import (
 	"io"
 	"math/big"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -221,7 +220,6 @@ type ApplicationOpts struct {
 	CREOpts
 
 	Config                   GeneralConfig
-	ConfigTOMLPath           string // Path to the main TOML configuration file for job loading
 	Logger                   logger.Logger
 	Registerer               prometheus.Registerer
 	DS                       sqlutil.DataSource
@@ -824,27 +822,24 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, globalLogger, lbs)
 
-	// M1: Load static job specifications from configuration file
-	if opts.ConfigTOMLPath != "" {
-		configBytes, err := os.ReadFile(opts.ConfigTOMLPath)
+	// M1: Load static job specifications from effective configuration
+	// The effective config is the result of merging all TOML files passed via -c flags
+	_, effectiveConfigTOML := cfg.ConfigTOML()
+	if effectiveConfigTOML != "" {
+		jobSpecs, err := job.ParseJobSpecsFromTOML([]byte(effectiveConfigTOML))
 		if err != nil {
-			globalLogger.Warnw("Could not read config file for job loading", "path", opts.ConfigTOMLPath, "err", err)
-		} else {
-			jobSpecs, err := job.ParseJobSpecsFromTOML(configBytes)
-			if err != nil {
-				globalLogger.Errorw("Failed to parse job specifications from config", "err", err)
-			} else if len(jobSpecs) > 0 {
-				// Create validator map for supported job types
-				validators := map[string]job.ValidatorFunc{
-					"standardcapabilities": standardcapabilities.ValidatedStandardCapabilitiesSpec,
-					// Add more types as needed:
-					// "directrequest": directrequest.ValidatedDirectRequestSpec,
-					// "webhook": webhook.ValidatedWebhookSpec,
-					// "keeper": keeper.ValidatedKeeperSpec,
-				}
-				if err := job.LoadJobsFromConfig(ctx, jobSpecs, jobORM, validators, globalLogger); err != nil {
-					globalLogger.Errorw("Failed to load jobs from configuration", "err", err)
-				}
+			globalLogger.Debugw("No job specifications found in configuration or parse error", "err", err)
+		} else if len(jobSpecs) > 0 {
+			// Create validator map for supported job types
+			validators := map[string]job.ValidatorFunc{
+				"standardcapabilities": standardcapabilities.ValidatedStandardCapabilitiesSpec,
+				// Add more types as needed:
+				// "directrequest": directrequest.ValidatedDirectRequestSpec,
+				// "webhook": webhook.ValidatedWebhookSpec,
+				// "keeper": keeper.ValidatedKeeperSpec,
+			}
+			if err := job.LoadJobsFromConfig(ctx, jobSpecs, jobORM, validators, globalLogger); err != nil {
+				globalLogger.Errorw("Failed to load jobs from configuration", "err", err)
 			}
 		}
 	}
