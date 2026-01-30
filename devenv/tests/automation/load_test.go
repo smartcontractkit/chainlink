@@ -271,6 +271,14 @@ func TestLoad(t *testing.T) {
 				Str("Duration", testSetupDuration.String()).
 				Msg("Test setup ended")
 
+			gun, gErr := NewLogTriggerUser(
+				l,
+				configs,
+				a.ChainClient,
+				multicallAddress.Hex(),
+			)
+			require.NoError(t, gErr, "failed to create LogTriggerUser WASP gun")
+
 			g, err := wasp.NewGenerator(&wasp.Config{
 				T:           t,
 				LoadType:    wasp.RPS,
@@ -280,12 +288,7 @@ func TestLoad(t *testing.T) {
 					1,
 					loadDuration,
 				),
-				Gun: NewLogTriggerUser(
-					l,
-					configs,
-					a.ChainClient,
-					multicallAddress.Hex(),
-				),
+				Gun:              gun,
 				CallResultBufLen: 1000,
 			})
 			p.Add(g, err)

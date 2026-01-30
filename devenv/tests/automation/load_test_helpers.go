@@ -183,9 +183,14 @@ func NewLogTriggerUser(
 	triggerConfigs []LogTriggerConfig,
 	client *seth.Client,
 	multicallAddress string,
-) *LogTriggerGun {
+) (*LogTriggerGun, error) {
 	var data [][]byte
 	var addresses []string
+
+	// we need to sync nodes manually, because we are not using ephemeral addresses
+	if err := client.NonceManager.UpdateNonces(); err != nil {
+		return nil, err
+	}
 
 	for _, c := range triggerConfigs {
 		if c.NumberOfEvents > 0 {
@@ -211,7 +216,7 @@ func NewLogTriggerUser(
 		logger:           logger,
 		multiCallAddress: multicallAddress,
 		client:           client,
-	}
+	}, nil
 }
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {

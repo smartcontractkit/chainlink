@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  smoke:
+  soak:
     permissions:
       id-token: write
       contents: read
