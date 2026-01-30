@@ -2070,6 +2070,10 @@ type TriggerCapabilityWrapper struct {
 
 var _ capabilities.TriggerCapability = &TriggerCapabilityWrapper{}
 
+func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerId string, eventId string) error {
+	return nil
+}
+
 func (c *TriggerCapabilityWrapper) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	ch := make(chan capabilities.TriggerResponse, 1)
 	defer close(ch)
