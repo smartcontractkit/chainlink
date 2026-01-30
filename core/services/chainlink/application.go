@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -220,6 +221,7 @@ type ApplicationOpts struct {
 	CREOpts
 
 	Config                   GeneralConfig
+	ConfigTOMLPath           string // Path to the main TOML configuration file for job loading
 	Logger                   logger.Logger
 	Registerer               prometheus.Registerer
 	DS                       sqlutil.DataSource
@@ -821,6 +823,32 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		lbs = append(lbs, legacyChain.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, globalLogger, lbs)
+
+	// M1: Load static job specifications from configuration file
+	if opts.ConfigTOMLPath != "" {
+		configBytes, err := os.ReadFile(opts.ConfigTOMLPath)
+		if err != nil {
+			globalLogger.Warnw("Could not read config file for job loading", "path", opts.ConfigTOMLPath, "err", err)
+		} else {
+			jobSpecs, err := job.ParseJobSpecsFromTOML(configBytes)
+			if err != nil {
+				globalLogger.Errorw("Failed to parse job specifications from config", "err", err)
+			} else if len(jobSpecs) > 0 {
+				// Create validator map - only include types you want to support
+				validators := map[string]job.ValidatorFunc{
+					"cron":          cron.ValidatedCronSpec,
+					"directrequest": directrequest.ValidatedDirectRequestSpec,
+					// Add more types as needed:
+					// "keeper": keeper.ValidatedKeeperSpec,
+					// "webhook": webhook.ValidatedWebhookSpec,
+				}
+				if err := job.LoadJobsFromConfig(ctx, jobSpecs, jobORM, validators, globalLogger); err != nil {
+					globalLogger.Errorw("Failed to load jobs from configuration", "err", err)
+				}
+			}
+		}
+	}
+
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	var feedsService feeds.Service
