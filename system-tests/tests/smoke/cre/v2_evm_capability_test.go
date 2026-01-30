@@ -233,7 +233,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/event_dump.ndjson"))
 
 	t.Cleanup(func() {
 		server.Shutdown(t.Context())

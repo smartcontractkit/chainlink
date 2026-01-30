@@ -2,9 +2,13 @@ package helpers
 
 import (
 	"context"
+	"encoding/json"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,12 +16,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	chiptestsink "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/chip-testsink"
@@ -125,6 +131,160 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 	}
 
 	return publishFn
+}
+
+func GetLoggingPublishFn(
+	testLogger zerolog.Logger,
+	userLogsCh chan *workflowevents.UserLogs,
+	baseMessageCh chan *commonevents.BaseMessage,
+	dumpFilePath string, // <--- New Argument
+) chiptestsink.PublishFn {
+
+	// 1. Thread-safe helper to write generic proto messages to a file
+	var fileMu sync.Mutex
+	logToFile := func(eventType string, msg proto.Message) {
+		if dumpFilePath == "" {
+			return
+		}
+
+		fileMu.Lock()
+		defer fileMu.Unlock()
+
+		if dir := filepath.Dir(dumpFilePath); dir != "." && dir != "" {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				testLogger.Warn().Err(err).Str("path", dir).Msg("Failed to create dump directory")
+				return
+			}
+		}
+
+		// Serialize the proto message to JSON
+		// Multiline: false ensures one event per line (easier to parse later as ndjson)
+		dataBytes, err := (protojson.MarshalOptions{Multiline: false}).Marshal(msg)
+		if err != nil {
+			testLogger.Warn().Err(err).Str("type", eventType).Msg("Failed to marshal event for dump")
+			return
+		}
+
+		// Wrap in a simple structure to preserve the event type in the log file
+		entry := map[string]interface{}{
+			"type":      eventType,
+			"timestamp": time.Now(),
+			"data":      json.RawMessage(dataBytes),
+		}
+
+		line, err := json.Marshal(entry)
+		if err != nil {
+			return
+		}
+
+		// Open file in Append mode
+		f, err := os.OpenFile(dumpFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			testLogger.Warn().Err(err).Str("path", dumpFilePath).Msg("Failed to open dump file")
+			return
+		}
+		defer f.Close()
+
+		if _, err := f.Write(append(line, '\n')); err != nil {
+			testLogger.Warn().Err(err).Msg("Failed to write to dump file")
+		}
+	}
+
+	// Returns the actual PublishFn
+	return func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
+
+		// --- SWITCH 1: Data Persistence (Observability) ---
+		// This handles the "potentially 20 different events".
+		// We process this FIRST to ensure everything is captured, even if Switch 2 returns early.
+		if dumpFilePath != "" {
+			var msgToSave proto.Message
+
+			switch event.Type {
+			// workflows.v1 events
+			case "workflows.v1.CapabilityExecutionFinished":
+				msgToSave = &workflowevents.CapabilityExecutionFinished{}
+			case "workflows.v1.CapabilityExecutionStarted":
+				msgToSave = &workflowevents.CapabilityExecutionStarted{}
+			case "workflows.v1.MeteringReport":
+				msgToSave = &workflowevents.MeteringReport{}
+			case "workflows.v1.TransmissionsScheduledEvent":
+				msgToSave = &workflowevents.TransmissionsScheduledEvent{}
+			case "workflows.v1.TransmitScheduleEvent":
+				msgToSave = &workflowevents.TransmitScheduleEvent{}
+			case "workflows.v1.WorkflowExecutionFinished":
+				msgToSave = &workflowevents.WorkflowExecutionFinished{}
+			case "workflows.v1.WorkflowExecutionStarted":
+				msgToSave = &workflowevents.WorkflowExecutionStarted{}
+			case "workflows.v1.WorkflowStatusChanged":
+				msgToSave = &workflowevents.WorkflowStatusChanged{}
+			case "workflows.v1.UserLogs":
+				msgToSave = &workflowevents.UserLogs{}
+
+			// workflows.v2 events
+			case "workflows.v2.CapabilityExecutionFinished":
+				msgToSave = &workfloweventsv2.CapabilityExecutionFinished{}
+			case "workflows.v2.CapabilityExecutionStarted":
+				msgToSave = &workfloweventsv2.CapabilityExecutionStarted{}
+			case "workflows.v2.TriggerExecutionStarted":
+				msgToSave = &workfloweventsv2.TriggerExecutionStarted{}
+			case "workflows.v2.WorkflowActivated":
+				msgToSave = &workfloweventsv2.WorkflowActivated{}
+			case "workflows.v2.WorkflowDeleted":
+				msgToSave = &workfloweventsv2.WorkflowDeleted{}
+			case "workflows.v2.WorkflowDeployed":
+				msgToSave = &workfloweventsv2.WorkflowDeployed{}
+			case "workflows.v2.WorkflowExecutionFinished":
+				msgToSave = &workfloweventsv2.WorkflowExecutionFinished{}
+			case "workflows.v2.WorkflowExecutionStarted":
+				msgToSave = &workfloweventsv2.WorkflowExecutionStarted{}
+			case "workflows.v2.WorkflowPaused":
+				msgToSave = &workfloweventsv2.WorkflowPaused{}
+			case "workflows.v2.WorkflowUpdated":
+				msgToSave = &workfloweventsv2.WorkflowUpdated{}
+			case "workflows.v2.WorkflowUserLog":
+				msgToSave = &workfloweventsv2.WorkflowUserLog{}
+
+			case "BaseMessage":
+				msgToSave = &commonevents.BaseMessage{}
+			default:
+				// Optional: Log that we saw an unknown event type not in our save list?
+			}
+
+			if msgToSave != nil {
+				// Unmarshal specifically for logging (safe to do redundantly for clarity)
+				if err := proto.Unmarshal(event.GetProtoData().GetValue(), msgToSave); err == nil {
+					logToFile(event.Type, msgToSave)
+				}
+			}
+		}
+
+		// --- SWITCH 2: Test Orchestration (Logic) ---
+		// This preserves the existing behavior exactly.
+		switch event.Type {
+		case "workflows.v1.UserLogs":
+			typedMsg := &workflowevents.UserLogs{}
+			if err := proto.Unmarshal(event.GetProtoData().GetValue(), typedMsg); err != nil {
+				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
+				return &chippb.PublishResponse{}, nil
+			}
+			userLogsCh <- typedMsg
+			return &chippb.PublishResponse{}, nil
+
+		case "BaseMessage":
+			typedMsg := &commonevents.BaseMessage{}
+			if err := proto.Unmarshal(event.GetProtoData().GetValue(), typedMsg); err != nil {
+				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
+				return &chippb.PublishResponse{}, nil
+			}
+			baseMessageCh <- typedMsg
+			return &chippb.PublishResponse{}, nil
+
+		default:
+			// ignore
+		}
+
+		return &chippb.PublishResponse{}, nil
+	}
 }
 
 // StartChipTestSink boots the CHiP test sink and waits until it is accepting traffic.
