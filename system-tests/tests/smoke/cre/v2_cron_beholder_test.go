@@ -22,6 +22,11 @@ func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
+	t.Cleanup(func() {
+		// stop ChIP Ingress after the test to free the port, on which other tests will start the ChiP Test Sink
+		t_helpers.StopBeholder(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	})
+
 	testLogger.Info().Msg("Creating Cron workflow configuration file...")
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *", // every 30 seconds

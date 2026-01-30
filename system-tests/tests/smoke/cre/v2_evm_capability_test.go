@@ -280,9 +280,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 				case <-emitCtx.Done():
 					return
 				case <-ticker.C:
-					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
+					fmt.Printf("About to emit event #%d for chain %s", emittedEventCount, chainID)
 					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+					fmt.Printf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
 					emittedEventCount++
 				}
 			}

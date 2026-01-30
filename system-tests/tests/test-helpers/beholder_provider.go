@@ -101,6 +101,31 @@ func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir, grpcPort 
 	return nil
 }
 
+func StopBeholder(relativePathToRepoRoot, environmentDir string) error {
+	if !config.ChipIngressStateFileExists(relativePathToRepoRoot) {
+		framework.L.Info().Msg("No need to stop Beholder - it is not running")
+		return nil
+	}
+
+	framework.L.Info().Dur("timeout", beholderStartTimeout).Msg("Beholder state file found. Stopping Beholder...")
+	ctx, cancel := context.WithTimeout(context.Background(), beholderStartTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "stop")
+	cmd.Dir = environmentDir
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.Wrap(err, "timeout stopping Beholder")
+		}
+		return errors.Wrap(err, "failed to stop Beholder")
+	}
+
+	framework.L.Info().Msg("Beholder stopped successfully")
+	return nil
+}
+
 // loadBeholderStackCache loads and validates the Beholder configuration.
 func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressConfig, error) {
 	c := &config.ChipIngressConfig{}
