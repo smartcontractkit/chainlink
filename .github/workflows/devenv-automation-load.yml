@@ -21,7 +21,7 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
