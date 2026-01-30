@@ -38,6 +38,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -111,6 +112,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -186,6 +188,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -225,6 +228,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -302,6 +306,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -361,6 +366,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -419,6 +425,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -508,6 +515,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -596,6 +604,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -655,6 +664,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -706,6 +716,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -773,6 +784,7 @@ func Test_Start(t *testing.T) {
 				return mockReader, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -822,6 +834,7 @@ func Test_GetAllowlistedRequests(t *testing.T) {
 			return mockContractReader, nil
 		},
 		"",
+		"test-chain-selector",
 		Config{
 			QueryCount:   20,
 			SyncStrategy: SyncStrategyReconciliation,
@@ -900,6 +913,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -936,6 +950,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -988,6 +1003,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -1030,6 +1046,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -1077,6 +1094,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -1119,6 +1137,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -1176,6 +1195,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -1230,6 +1250,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -1270,6 +1291,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 				return nil, nil
 			},
 			"",
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,

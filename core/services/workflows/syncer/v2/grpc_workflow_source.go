@@ -352,8 +352,14 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 		Tag:          wf.GetTag(),
 		Attributes:   attributes,
 		DonFamily:    wf.GetDonFamily(),
-		Source:       g.name,
+		Source:       g.sourceIdentifier(),
 	}, nil
+}
+
+// sourceIdentifier returns a formatted source identifier for workflow metadata.
+// Format: grpc:{source_name}:v1
+func (g *GRPCWorkflowSource) sourceIdentifier() string {
+	return fmt.Sprintf("grpc:%s:v1", g.name)
 }
 
 // syntheticHead returns a synthetic head for GRPC sources.

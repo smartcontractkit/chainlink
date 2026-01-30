@@ -71,6 +71,7 @@ type workflowRegistry struct {
 
 	lggr                    logger.Logger
 	workflowRegistryAddress string
+	chainSelector           string
 
 	// lastSeenAllowlistedRequestsCount tracks the last seen allowlisted requests count to avoid fetching the same allowlisted requests multiple times.
 	// This value is stored in memory and not persisted to the database.
@@ -220,10 +221,12 @@ func WithShardOrchestratorClient(client *shardorchestrator.Client) func(*workflo
 // NewWorkflowRegistry returns a new v2 workflowRegistry.
 // The addr parameter is optional - if empty, no contract source will be created,
 // enabling pure GRPC-only or file-only workflow deployments.
+// The chainSelector parameter identifies the chain where the workflow registry contract is deployed.
 func NewWorkflowRegistry(
 	lggr logger.Logger,
 	contractReaderFn versioning.ContractReaderFactory,
 	addr string,
+	chainSelector string,
 	config Config,
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
@@ -243,10 +246,11 @@ func NewWorkflowRegistry(
 
 	// Only add contract source if address is configured
 	if addr != "" {
-		contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr)
+		contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr, chainSelector)
 		workflowSources = append(workflowSources, contractSource)
 		lggr.Infow("Added contract workflow source",
-			"contractAddress", addr)
+			"contractAddress", addr,
+			"chainSelector", chainSelector)
 	} else {
 		lggr.Infow("No contract address configured, skipping contract workflow source")
 	}
@@ -255,6 +259,7 @@ func NewWorkflowRegistry(
 		lggr:                             lggr,
 		contractReaderFn:                 contractReaderFn,
 		workflowRegistryAddress:          addr,
+		chainSelector:                    chainSelector,
 		lastSeenAllowlistedRequestsCount: big.NewInt(0),
 		config:                           config,
 		stopCh:                           make(services.StopChan),

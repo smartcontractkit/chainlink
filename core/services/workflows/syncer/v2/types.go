@@ -51,9 +51,12 @@ type WorkflowMetadataView struct {
 	ConfigURL    string
 	Tag          string
 	Attributes   []byte
-	DonFamily    string
-	// Source identifies where this workflow metadata came from
-	// e.g., "ContractWorkflowSource", "GRPCWorkflowSource", "FileWorkflowSource"
+	DonFamily string
+	// Source identifies where this workflow metadata came from.
+	// Format varies by source type:
+	//   - Onchain contract: "contract:{chain_selector}:{contract_address}"
+	//   - GRPC source:      "grpc:{source_name}:v1"
+	//   - File source:      "file:{source_name}:v1"
 	Source string
 }
 

@@ -1344,6 +1344,7 @@ func newCREServices(
 						lggr,
 						crFactory,
 						capCfg.WorkflowRegistry().Address(),
+						strconv.FormatUint(wrChainDetails.ChainSelector, 10),
 						syncerV2.Config{
 							QueryCount:   100,
 							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),

@@ -28,21 +28,25 @@ const (
 type ContractWorkflowSource struct {
 	lggr                    logger.Logger
 	workflowRegistryAddress string
+	chainSelector           string
 	contractReaderFn        versioning.ContractReaderFactory
 	contractReader          commontypes.ContractReader
 	mu                      sync.RWMutex
 }
 
 // NewContractWorkflowSource creates a new contract-based workflow source.
+// chainSelector is the chain selector where the workflow registry contract is deployed.
 func NewContractWorkflowSource(
 	lggr logger.Logger,
 	contractReaderFn versioning.ContractReaderFactory,
 	workflowRegistryAddress string,
+	chainSelector string,
 ) *ContractWorkflowSource {
 	return &ContractWorkflowSource{
 		lggr:                    lggr.Named(ContractWorkflowSourceName),
 		contractReaderFn:        contractReaderFn,
 		workflowRegistryAddress: workflowRegistryAddress,
+		chainSelector:           chainSelector,
 	}
 }
 
@@ -102,7 +106,7 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 					Tag:          wfMeta.Tag,
 					Attributes:   wfMeta.Attributes,
 					DonFamily:    wfMeta.DonFamily,
-					Source:       ContractWorkflowSourceName,
+					Source:       c.sourceIdentifier(),
 				})
 			}
 
@@ -130,6 +134,12 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 
 func (c *ContractWorkflowSource) Name() string {
 	return ContractWorkflowSourceName
+}
+
+// sourceIdentifier returns a formatted source identifier for workflow metadata.
+// Format: contract:{chain_selector}:{contract_address}
+func (c *ContractWorkflowSource) sourceIdentifier() string {
+	return fmt.Sprintf("contract:%s:%s", c.chainSelector, c.workflowRegistryAddress)
 }
 
 // Ready returns nil if the contract reader is initialized.

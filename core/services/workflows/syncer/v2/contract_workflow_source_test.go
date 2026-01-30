@@ -114,6 +114,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 			return mockReader, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	// Manually set the contract reader (simulating successful initialization)
@@ -150,6 +151,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *test
 			return mockReader, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	source.contractReader = mockReader
@@ -177,6 +179,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_NotInitialized(t *testing.T
 			return nil, errors.New("factory error")
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	don := capabilities.DON{
@@ -206,6 +209,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_ContractReaderError(t *test
 			return mockReader, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 	source.contractReader = mockReader
 
@@ -236,6 +240,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_EmptyResult(t *testing.T) {
 			return mockReader, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 	source.contractReader = mockReader
 
@@ -259,6 +264,7 @@ func TestContractWorkflowSource_Ready_NotInitialized(t *testing.T) {
 			return nil, errors.New("factory error")
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	err := source.Ready()
@@ -277,6 +283,7 @@ func TestContractWorkflowSource_Ready_Initialized(t *testing.T) {
 			return mockReader, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 	source.contractReader = mockReader
 
@@ -296,6 +303,7 @@ func TestContractWorkflowSource_tryInitialize_Success(t *testing.T) {
 			return mockReader, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	// Initially not ready
@@ -323,6 +331,7 @@ func TestContractWorkflowSource_tryInitialize_AlreadyInitialized(t *testing.T) {
 			return mockReader, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	// First initialization
@@ -346,6 +355,7 @@ func TestContractWorkflowSource_tryInitialize_FactoryError(t *testing.T) {
 			return nil, errors.New("factory error")
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	result := source.tryInitialize(ctx)
@@ -362,6 +372,7 @@ func TestContractWorkflowSource_Name(t *testing.T) {
 			return nil, nil
 		},
 		testOwnerAddress,
+		"test-chain-selector",
 	)
 
 	assert.Equal(t, ContractWorkflowSourceName, source.Name())

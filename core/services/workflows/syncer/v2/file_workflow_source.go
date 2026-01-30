@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"sync"
@@ -193,8 +194,14 @@ func (f *FileWorkflowSource) toWorkflowMetadataView(wf FileWorkflowMetadata) (Wo
 		Tag:          wf.Tag,
 		Attributes:   attributes,
 		DonFamily:    wf.DonFamily,
-		Source:       f.name,
+		Source:       f.sourceIdentifier(),
 	}, nil
+}
+
+// sourceIdentifier returns a formatted source identifier for workflow metadata.
+// Format: file:{source_name}:v1
+func (f *FileWorkflowSource) sourceIdentifier() string {
+	return fmt.Sprintf("file:%s:v1", f.name)
 }
 
 // syntheticHead creates a synthetic head for the file source.
