@@ -41,6 +41,10 @@ type mockTrigger struct {
 	capabilities.CapabilityInfo
 }
 
+func (m *mockTrigger) AckEvent(ctx context.Context, triggerId string, eventId string) error {
+	return nil
+}
+
 func (m *mockTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	return nil, nil
 }
