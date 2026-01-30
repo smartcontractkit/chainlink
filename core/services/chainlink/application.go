@@ -834,13 +834,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			if err != nil {
 				globalLogger.Errorw("Failed to parse job specifications from config", "err", err)
 			} else if len(jobSpecs) > 0 {
-				// Create validator map - only include types you want to support
+				// Create validator map for supported job types
 				validators := map[string]job.ValidatorFunc{
-					"cron":          cron.ValidatedCronSpec,
-					"directrequest": directrequest.ValidatedDirectRequestSpec,
+					"standardcapabilities": standardcapabilities.ValidatedStandardCapabilitiesSpec,
 					// Add more types as needed:
-					// "keeper": keeper.ValidatedKeeperSpec,
+					// "directrequest": directrequest.ValidatedDirectRequestSpec,
 					// "webhook": webhook.ValidatedWebhookSpec,
+					// "keeper": keeper.ValidatedKeeperSpec,
 				}
 				if err := job.LoadJobsFromConfig(ctx, jobSpecs, jobORM, validators, globalLogger); err != nil {
 					globalLogger.Errorw("Failed to load jobs from configuration", "err", err)

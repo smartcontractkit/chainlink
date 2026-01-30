@@ -22,25 +22,29 @@ func TestParseJobSpecsFromTOML(t *testing.T) {
 	t.Run("parses valid job specs", func(t *testing.T) {
 		tomlConfig := `
 [[Jobs]]
-type = "cron"
-schedule = "CRON_TZ=UTC * * * * * *"
+type = "standardcapabilities"
+schemaVersion = 1
+command = "cron"
 externalJobID = "b3d3c3e3-1234-5678-9abc-def012345678"
 name = "test-cron"
+config = ""
 
 [[Jobs]]
-type = "directrequest"
+type = "standardcapabilities"
 schemaVersion = 1
-name = "test-dr"
+command = "consensus"
+name = "test-consensus"
+config = ""
 `
 		jobSpecs, err := job.ParseJobSpecsFromTOML([]byte(tomlConfig))
 		require.NoError(t, err)
 		require.Len(t, jobSpecs, 2)
 
-		assert.Equal(t, "cron", jobSpecs[0].Type)
-		assert.Contains(t, jobSpecs[0].TOMLString, "schedule")
+		assert.Equal(t, "standardcapabilities", jobSpecs[0].Type)
+		assert.Contains(t, jobSpecs[0].TOMLString, "command")
 
-		assert.Equal(t, "directrequest", jobSpecs[1].Type)
-		assert.Contains(t, jobSpecs[1].TOMLString, "schemaVersion")
+		assert.Equal(t, "standardcapabilities", jobSpecs[1].Type)
+		assert.Contains(t, jobSpecs[1].TOMLString, "consensus")
 	})
 
 	t.Run("returns empty for no jobs", func(t *testing.T) {
@@ -86,15 +90,15 @@ func TestLoadJobsFromConfig(t *testing.T) {
 		externalJobID := uuid.New()
 
 		jobSpec := job.JobSpecConfig{
-			Type:       "cron",
-			TOMLString: `type = "cron"`,
+			Type:       "standardcapabilities",
+			TOMLString: `type = "standardcapabilities"`,
 		}
 
 		// Mock validator
 		validators := map[string]job.ValidatorFunc{
-			"cron": func(tomlString string) (job.Job, error) {
+			"standardcapabilities": func(tomlString string) (job.Job, error) {
 				return job.Job{
-					Type:          job.Cron,
+					Type:          job.StandardCapabilities,
 					ExternalJobID: externalJobID,
 					Name:          mustNewNullString("test-job"),
 				}, nil
@@ -117,14 +121,14 @@ func TestLoadJobsFromConfig(t *testing.T) {
 		externalJobID := uuid.New()
 
 		jobSpec := job.JobSpecConfig{
-			Type:       "cron",
-			TOMLString: `type = "cron"`,
+			Type:       "standardcapabilities",
+			TOMLString: `type = "standardcapabilities"`,
 		}
 
 		validators := map[string]job.ValidatorFunc{
-			"cron": func(tomlString string) (job.Job, error) {
+			"standardcapabilities": func(tomlString string) (job.Job, error) {
 				return job.Job{
-					Type:          job.Cron,
+					Type:          job.StandardCapabilities,
 					ExternalJobID: externalJobID,
 					Name:          mustNewNullString("test-job"),
 				}, nil
@@ -149,18 +153,18 @@ func TestLoadJobsFromConfig(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 
 		jobSpecs := []job.JobSpecConfig{
-			{Type: "cron", TOMLString: `invalid`},
-			{Type: "directrequest", TOMLString: `valid`},
+			{Type: "standardcapabilities", TOMLString: `invalid`},
+			{Type: "standardcapabilities", TOMLString: `valid`},
 		}
 
 		externalJobID := uuid.New()
 		validators := map[string]job.ValidatorFunc{
-			"cron": func(tomlString string) (job.Job, error) {
-				return job.Job{}, errors.New("validation failed")
-			},
-			"directrequest": func(tomlString string) (job.Job, error) {
+			"standardcapabilities": func(tomlString string) (job.Job, error) {
+				if tomlString == "invalid" {
+					return job.Job{}, errors.New("validation failed")
+				}
 				return job.Job{
-					Type:          job.DirectRequest,
+					Type:          job.StandardCapabilities,
 					ExternalJobID: externalJobID,
 				}, nil
 			},
@@ -195,14 +199,14 @@ func TestLoadJobsFromConfig(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 
 		jobSpec := job.JobSpecConfig{
-			Type:       "cron",
-			TOMLString: `type = "cron"`,
+			Type:       "standardcapabilities",
+			TOMLString: `type = "standardcapabilities"`,
 		}
 
 		validators := map[string]job.ValidatorFunc{
-			"cron": func(tomlString string) (job.Job, error) {
+			"standardcapabilities": func(tomlString string) (job.Job, error) {
 				return job.Job{
-					Type:          job.Cron,
+					Type:          job.StandardCapabilities,
 					ExternalJobID: uuid.Nil, // Missing
 				}, nil
 			},
