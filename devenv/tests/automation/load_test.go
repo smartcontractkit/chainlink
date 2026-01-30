@@ -41,7 +41,7 @@ func TestLoad(t *testing.T) {
 			Testcase: Testcase{
 				RegistryVersion:   contracts.RegistryVersion_2_1,
 				Name:              "registry_2_1",
-				UpkeepCount:       20,
+				UpkeepCount:       100,
 				TestKeyFundingEth: 50,
 				UpkeepFundingLink: 1_000_000,
 			},
@@ -117,11 +117,13 @@ func TestLoad(t *testing.T) {
 
 			require.Equal(t, "1337", in.Blockchains[0].ChainID, "automation smoke tests can only be run on simulated network. If do want to run on a live network, please read the code, understand the implications (e.g. potential fund loss) and adjust the test accordingly")
 
+			keysRequired := tc.UpkeepCount * 4
+
 			// on simulated network create new ephemeral addresses if insufficient private keys were provided
 			// we ignore key at index 0, because it is the root key, which is not used during the test
 			// for contract deployment and interaction
 			// we create new addresses only on the simulated network to protect against fund loss
-			if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != tc.UpkeepCount {
+			if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != keysRequired {
 				bcNode := in.Blockchains[0].Out.Nodes[0]
 				c, _, _, err := products.ETHClient(
 					t.Context(),
@@ -131,11 +133,11 @@ func TestLoad(t *testing.T) {
 				)
 				require.NoError(t, err, "Failed to create ETH client")
 
-				newPks, err := products.FundNewAddresses(t.Context(), tc.UpkeepCount, c, tc.TestKeyFundingEth)
+				newPks, err := products.FundNewAddresses(t.Context(), keysRequired, c, tc.TestKeyFundingEth)
 				require.NoError(t, err, "Failed to fund new addresses")
 				pks = append(pks, newPks...)
 			}
-			require.GreaterOrEqual(t, len(pks), tc.UpkeepCount+1, "you must provide at least %d private keys", tc.UpkeepCount+1)
+			require.GreaterOrEqual(t, len(pks), keysRequired+1, "you must provide at least %d private keys", keysRequired+1)
 			chainID, err := strconv.ParseUint(in.Blockchains[0].ChainID, 10, 64)
 			require.NoError(t, err, "Failed to parse chain ID")
 
