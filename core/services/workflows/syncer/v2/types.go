@@ -50,8 +50,8 @@ type WorkflowMetadataView struct {
 	BinaryURL    string
 	ConfigURL    string
 	Tag          string
-	Attributes []byte
-	DonFamily  string
+	Attributes   []byte
+	DonFamily    string
 	// Source identifies where this workflow metadata came from.
 	// Format varies by source type:
 	//   - Onchain contract: "contract:{chain_selector}:{contract_address}"
@@ -150,8 +150,7 @@ type WorkflowMetadataSource interface {
 	Name() string
 
 	// SourceIdentifier returns the source identifier used in WorkflowMetadataView.Source.
-	// This identifier is used for engine registry lookups and must match the Source field
-	// set on workflow metadata returned by ListWorkflowMetadata.
+	// This identifier is used in engine registry lookups and to differeniate between wf registries in workflow events.
 	SourceIdentifier() string
 
 	// Ready returns nil if the source is ready to be queried.
