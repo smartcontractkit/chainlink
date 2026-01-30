@@ -42,7 +42,7 @@ func TestLoad(t *testing.T) {
 				RegistryVersion:   contracts.RegistryVersion_2_1,
 				Name:              "registry_2_1",
 				UpkeepCount:       10,
-				TestKeyFundingEth: 50,
+				TestKeyFundingEth: 100,
 				UpkeepFundingLink: 1_000_000,
 			},
 			Load: Load{
@@ -117,7 +117,7 @@ func TestLoad(t *testing.T) {
 
 			require.Equal(t, "1337", in.Blockchains[0].ChainID, "automation smoke tests can only be run on simulated network. If do want to run on a live network, please read the code, understand the implications (e.g. potential fund loss) and adjust the test accordingly")
 
-			keysRequired := tc.UpkeepCount * 4
+			keysRequired := tc.UpkeepCount * 10
 
 			// on simulated network create new ephemeral addresses if insufficient private keys were provided
 			// we ignore key at index 0, because it is the root key, which is not used during the test
