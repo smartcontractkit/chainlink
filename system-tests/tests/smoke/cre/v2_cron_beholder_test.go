@@ -24,7 +24,8 @@ func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	t.Cleanup(func() {
 		// stop ChIP Ingress after the test to free the port, on which other tests will start the ChiP Test Sink
-		t_helpers.StopBeholder(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+		err := t_helpers.StopBeholder(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+		require.NoError(t, err, "Failed to stop Beholder")
 	})
 
 	testLogger.Info().Msg("Creating Cron workflow configuration file...")

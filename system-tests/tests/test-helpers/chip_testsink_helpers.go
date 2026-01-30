@@ -127,7 +127,6 @@ func GetLoggingPublishFn(
 	baseMessageCh chan *commonevents.BaseMessage,
 	dumpFilePath string, // <--- best set to `./logs/your_file.txt` since `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
 ) chiptestsink.PublishFn {
-
 	// 1. Thread-safe helper to write generic proto messages to a file
 	var fileMu sync.Mutex
 	logToFile := func(eventType string, msg proto.Message) {
@@ -180,7 +179,6 @@ func GetLoggingPublishFn(
 
 	// Returns the actual PublishFn
 	return func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
-
 		// --- SWITCH 1: Data Persistence (Observability) ---
 		if dumpFilePath != "" {
 			var msgToSave proto.Message
