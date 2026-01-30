@@ -149,6 +149,11 @@ type WorkflowMetadataSource interface {
 	// Name returns a human-readable name for this source.
 	Name() string
 
+	// SourceIdentifier returns the source identifier used in WorkflowMetadataView.Source.
+	// This identifier is used for engine registry lookups and must match the Source field
+	// set on workflow metadata returned by ListWorkflowMetadata.
+	SourceIdentifier() string
+
 	// Ready returns nil if the source is ready to be queried.
 	Ready() error
 }

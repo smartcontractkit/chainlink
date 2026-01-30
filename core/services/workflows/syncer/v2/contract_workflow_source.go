@@ -106,7 +106,7 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 					Tag:          wfMeta.Tag,
 					Attributes:   wfMeta.Attributes,
 					DonFamily:    wfMeta.DonFamily,
-					Source:       c.sourceIdentifier(),
+					Source:       c.SourceIdentifier(),
 				})
 			}
 
@@ -136,9 +136,9 @@ func (c *ContractWorkflowSource) Name() string {
 	return ContractWorkflowSourceName
 }
 
-// sourceIdentifier returns a formatted source identifier for workflow metadata.
+// SourceIdentifier returns the source identifier used in WorkflowMetadataView.Source.
 // Format: contract:{chain_selector}:{contract_address}
-func (c *ContractWorkflowSource) sourceIdentifier() string {
+func (c *ContractWorkflowSource) SourceIdentifier() string {
 	return fmt.Sprintf("contract:%s:%s", c.chainSelector, c.workflowRegistryAddress)
 }
 

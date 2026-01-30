@@ -194,13 +194,13 @@ func (f *FileWorkflowSource) toWorkflowMetadataView(wf FileWorkflowMetadata) (Wo
 		Tag:          wf.Tag,
 		Attributes:   attributes,
 		DonFamily:    wf.DonFamily,
-		Source:       f.sourceIdentifier(),
+		Source:       f.SourceIdentifier(),
 	}, nil
 }
 
-// sourceIdentifier returns a formatted source identifier for workflow metadata.
+// SourceIdentifier returns the source identifier used in WorkflowMetadataView.Source.
 // Format: file:{source_name}:v1
-func (f *FileWorkflowSource) sourceIdentifier() string {
+func (f *FileWorkflowSource) SourceIdentifier() string {
 	return fmt.Sprintf("file:%s:v1", f.name)
 }
 

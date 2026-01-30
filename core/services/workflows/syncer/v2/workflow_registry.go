@@ -643,12 +643,13 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			for _, source := range w.workflowSources {
 				sourceName := source.Name()
+				sourceIdentifier := source.SourceIdentifier()
 
 				// Initialize pending events for this source if needed
-				if pendingEventsBySource[sourceName] == nil {
-					pendingEventsBySource[sourceName] = make(map[string]*reconciliationEvent)
+				if pendingEventsBySource[sourceIdentifier] == nil {
+					pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
 				}
-				pendingEvents := pendingEventsBySource[sourceName]
+				pendingEvents := pendingEventsBySource[sourceIdentifier]
 
 				// Fetch workflows from this source (each source handles lazy initialization internally)
 				start := time.Now()
@@ -671,8 +672,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					"count", len(workflows),
 					"durationMs", duration.Milliseconds())
 
-				// Generate events only for this source's engines
-				events, genErr := w.generateReconciliationEvents(ctx, pendingEvents, workflows, head, sourceName)
+				// Generate events only for this source's engines (using sourceIdentifier for engine registry lookups)
+				events, genErr := w.generateReconciliationEvents(ctx, pendingEvents, workflows, head, sourceIdentifier)
 				if genErr != nil {
 					w.lggr.Errorw("Failed to generate reconciliation events for source",
 						"source", sourceName, "error", genErr)
@@ -682,7 +683,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
 
 				// Clear pending events after successful reconciliation
-				pendingEventsBySource[sourceName] = make(map[string]*reconciliationEvent)
+				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
 
 				// Handle events (shared handler)
 				for _, event := range events {
@@ -699,14 +700,14 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 							if handleErr != nil {
 								event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
 
-								pendingEventsBySource[sourceName][event.id] = event
+								pendingEventsBySource[sourceIdentifier][event.id] = event
 
 								reconcileReport.Backoffs[event.id] = event.nextRetryAt
 								w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
 							}
 						} else {
 							// It's not ready to execute yet, let's put it back on the pending queue.
-							pendingEventsBySource[sourceName][event.id] = event
+							pendingEventsBySource[sourceIdentifier][event.id] = event
 
 							reconcileReport.Backoffs[event.id] = event.nextRetryAt
 							w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
