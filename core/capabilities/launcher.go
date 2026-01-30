@@ -1080,7 +1080,7 @@ func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.C
 	key := shimKey(info.ID, info.DON.ID, "") // empty method name - CombinedClient covers all methods
 	cc, exists := w.cachedShims.combinedClients[key]
 	if !exists { // create a new combined client and cache it
-		cc = remote.NewCombinedClient(info, w.lggr)
+		cc = remote.NewCombinedClient(info)
 		w.cachedShims.combinedClients[key] = cc
 		return cc, true
 	}

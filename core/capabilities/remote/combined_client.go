@@ -3,7 +3,6 @@ package remote
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -24,7 +23,6 @@ type CombinedClient interface {
 }
 
 type combinedClient struct {
-	lggr               logger.Logger
 	info               capabilities.CapabilityInfo
 	triggerSubscribers map[string]capabilities.TriggerCapability
 	executableClients  map[string]capabilities.ExecutableCapability
@@ -60,7 +58,6 @@ func (c *combinedClient) UnregisterTrigger(ctx context.Context, request capabili
 }
 
 func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID string) error {
-	c.lggr.Infof("combined Client AckEvent (triggerID=%s, eventID=%s)", triggerID, eventID)
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	for _, trigger := range c.triggerSubscribers {
@@ -70,11 +67,9 @@ func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID
 		}
 		// TODO: We need TriggerCapID here, not the registration triggerID?
 		if info.ID == triggerID {
-			c.lggr.Infof("combined Client AckEvent on matched trigger (triggerID=%s, eventID=%s)", triggerID, eventID)
-			return trigger.AckEvent(ctx, triggerID, eventID) // TODO: Could this be some interface returning nil?
+			return trigger.AckEvent(ctx, triggerID, eventID)
 		}
 	}
-	c.lggr.Errorf("failed to find trigger for ACK (triggerID=%s, eventID=%s)", triggerID, eventID)
 	return fmt.Errorf("could not find trigger %q triggerID", triggerID)
 }
 
@@ -97,9 +92,8 @@ func (c *combinedClient) Execute(ctx context.Context, request capabilities.Capab
 	return client.Execute(ctx, request)
 }
 
-func NewCombinedClient(info capabilities.CapabilityInfo, lggr logger.Logger) *combinedClient {
+func NewCombinedClient(info capabilities.CapabilityInfo) *combinedClient {
 	return &combinedClient{
-		lggr:               lggr,
 		info:               info,
 		triggerSubscribers: make(map[string]capabilities.TriggerCapability),
 		executableClients:  make(map[string]capabilities.ExecutableCapability),
