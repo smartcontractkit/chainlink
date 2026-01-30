@@ -65,6 +65,7 @@ type Core struct {
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
+	Jobs                 []JobSpec            `toml:",omitempty"` // M1: Static job specifications
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -112,6 +113,11 @@ func (c *Core) SetFrom(f *Core) {
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
 
 	c.Sharding.setFrom(&f.Sharding)
+	
+	// M1: Append jobs from the new config
+	if len(f.Jobs) > 0 {
+		c.Jobs = append(c.Jobs, f.Jobs...)
+	}
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -2803,4 +2809,16 @@ func (s *Sharding) ValidateConfig() (err error) {
 		}
 	}
 	return err
+}
+
+// M1: JobSpec represents a static job specification in TOML config
+// This allows jobs to be defined in configuration files and loaded at startup
+type JobSpec struct {
+	Type              string
+	SchemaVersion     int
+	Name              string
+	ExternalJobID     *string
+	ForwardingAllowed *bool
+	Command           string
+	Config            string
 }
