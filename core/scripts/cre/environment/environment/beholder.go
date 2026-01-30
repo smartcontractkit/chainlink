@@ -140,8 +140,8 @@ func getComposeFileFromGoMod(ctx context.Context) (string, error) {
 
 	// Parse JSON output
 	var modInfo moduleInfo
-	if err := json.Unmarshal(output, &modInfo); err != nil {
-		return "", errors.Wrap(err, "failed to parse go list JSON output")
+	if unmarshalErr := json.Unmarshal(output, &modInfo); unmarshalErr != nil {
+		return "", errors.Wrap(unmarshalErr, "failed to parse go list JSON output")
 	}
 
 	if modInfo.Version == "" {
