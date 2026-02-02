@@ -50,7 +50,7 @@ func TestLoad(t *testing.T) {
 				UpkeepFundingLink: 1_000_000,
 			},
 			Load: Load{
-				DurationSec:                   1800,
+				DurationSec:                   7200,
 				NumberOfEvents:                1,
 				NumberOfSpamMatchingEvents:    1,
 				NumberOfSpamNonMatchingEvents: 0,
