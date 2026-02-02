@@ -5,12 +5,10 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
 
-	ag_binary "github.com/gagliardetto/binary"
 	solgo "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
@@ -19,149 +17,19 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"gopkg.in/yaml.v3"
+
+	ag_binary "github.com/gagliardetto/binary"
 )
 
-// DecimalReportUpdated represents the event emitted when a report is updated
-// Matches the Rust struct in data_feeds_cache/src/event.rs
-// Uses the same patterns as the generated bindings in chainlink-solana
-type DecimalReportUpdated struct {
-	State     solgo.PublicKey   // 32 bytes
-	DataID    [16]uint8         // 16 bytes
-	Timestamp uint32            // 4 bytes
-	Answer    ag_binary.Uint128 // 16 bytes (little-endian u128)
-}
-
-// UnmarshalWithDecoder follows the same pattern as generated bindings in chainlink-solana
-func (obj *DecimalReportUpdated) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
-	// Deserialize `State`:
-	err = decoder.Decode(&obj.State)
-	if err != nil {
-		return err
-	}
-	// Deserialize `DataID`:
-	err = decoder.Decode(&obj.DataID)
-	if err != nil {
-		return err
-	}
-	// Deserialize `Timestamp`:
-	err = decoder.Decode(&obj.Timestamp)
-	if err != nil {
-		return err
-	}
-	// Deserialize `Answer`:
-	err = decoder.Decode(&obj.Answer)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// getDecimalReportUpdatedDiscriminator returns the 8-byte event discriminator
-// for the DecimalReportUpdated event. Anchor events use sha256("event:<EventName>")[:8]
-// This matches commoncodec.NewDiscriminatorHashPrefix("DecimalReportUpdated", false) from chainlink-solana
-func getDecimalReportUpdatedDiscriminator() [8]byte {
-	hash := sha256.Sum256([]byte("event:DecimalReportUpdated"))
-	var discriminator [8]byte
-	copy(discriminator[:], hash[:8])
-	return discriminator
-}
-
-// getDecimalReportUpdatedIdlJson returns the Anchor IDL JSON for the DecimalReportUpdated event
-// This matches the event definition in data_feeds_cache/src/event.rs:
-//
-//	#[event]
-//	pub struct DecimalReportUpdated {
-//	    pub state: Pubkey,
-//	    pub data_id: [u8; 16],
-//	    pub timestamp: u32,
-//	    pub answer: u128,
-//	}
-func getDecimalReportUpdatedIdlJson() ([]byte, error) {
-	// IDL structure matching chainlink-solana/pkg/solana/codec types
-	idl := map[string]interface{}{
-		"event": map[string]interface{}{
-			"name": "DecimalReportUpdated",
-			"fields": []map[string]interface{}{
-				{"name": "state", "type": "publicKey", "index": false},
-				{"name": "data_id", "type": map[string]interface{}{"array": []interface{}{"u8", 16}}, "index": false},
-				{"name": "timestamp", "type": "u32", "index": false},
-				{"name": "answer", "type": "u128", "index": false},
-			},
-		},
-		"types": []interface{}{}, // No custom types needed
-	}
-	return json.Marshal(idl)
-}
-
 func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
-	// Configure the log trigger to listen for DecimalReportUpdated events
-	// from the data_feeds_cache program (cfg.Receiver)
-	discriminator := getDecimalReportUpdatedDiscriminator()
-
-	eventIdlJson, err := getDecimalReportUpdatedIdlJson()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate event IDL JSON: %w", err)
-	}
-
-	filterLogTriggerRequest := &solana.FilterLogTriggerRequest{
-		Name:         "decimal-report-updated-filter",
-		Address:      cfg.Receiver[:],        // The data_feeds_cache program address
-		EventName:    "DecimalReportUpdated", // Event name for logging/debugging
-		EventSig:     discriminator[:],       // 8-byte event discriminator
-		EventIdlJson: eventIdlJson,           // Anchor IDL JSON for event decoding
-	}
-
 	return cre.Workflow[config.Config]{
 		cre.Handler(
 			cron.Trigger(&cron.Config{Schedule: "*/60 * * * * *"}), // every 30 seconds
 			onTrigger,
 		),
-		cre.Handler(
-			solana.LogTrigger(chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector, filterLogTriggerRequest),
-			onLogTrigger,
-		),
 	}, nil
 
 }
-
-func onLogTrigger(cfg config.Config, runtime cre.Runtime, payload *solana.Log) (string, error) {
-	runtime.Logger().Info("DecimalReportUpdated event received!",
-		"blockNumber", payload.BlockNumber,
-		"txHash", fmt.Sprintf("%x", payload.TxHash),
-	)
-
-	// Parse the event data using the same decoder pattern as chainlink-solana generated bindings
-	event, err := parseDecimalReportUpdated(payload.Data)
-	if err != nil {
-		runtime.Logger().Error("Failed to parse DecimalReportUpdated event", "error", err)
-		return "", fmt.Errorf("failed to parse event: %w", err)
-	}
-
-	// ag_binary.Uint128 has a BigInt() method for conversion
-	answer := event.Answer.BigInt()
-
-	runtime.Logger().Info("DecimalReportUpdated event parsed",
-		"state", event.State.String(),
-		"dataID", fmt.Sprintf("%x", event.DataID),
-		"timestamp", event.Timestamp,
-		"answer", answer.String(),
-	)
-
-	return fmt.Sprintf("Event received: answer=%s, timestamp=%d", answer.String(), event.Timestamp), nil
-}
-
-func parseDecimalReportUpdated(data []byte) (*DecimalReportUpdated, error) {
-	// Use ag_binary.Decoder following the same pattern as chainlink-solana generated bindings
-	decoder := ag_binary.NewBorshDecoder(data)
-
-	event := &DecimalReportUpdated{}
-	if err := event.UnmarshalWithDecoder(decoder); err != nil {
-		return nil, fmt.Errorf("failed to decode DecimalReportUpdated: %w", err)
-	}
-
-	return event, nil
-}
-
 func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload) (string, error) {
 	runtime.Logger().Info("Solana Write workflow started", "payload", payload)
 	solClient := solana.Client{ChainSelector: chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector}

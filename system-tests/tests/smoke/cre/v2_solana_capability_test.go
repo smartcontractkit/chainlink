@@ -17,6 +17,7 @@ import (
 	solgo "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -40,8 +42,6 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
 	bcs := tenv.CreEnvironment.Blockchains
 	ds := creEnvironment.CldfEnvironment.DataStore
-	testLogger := tenv.Logger
-
 	// prevalidate environment
 	forwarders := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier),
@@ -57,7 +57,6 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	solChain := getSolChain(t, ds, &s, bcs)
 	require.False(t, s.ForwarderProgramID.IsZero(), "failed to receive forwarder program id from blockchains output")
 	s.Selector = solChain.ChainSelector()
-
 	// 2. Deploy data-feeds cache
 	framework.L.Info().Msg("Deploy and configure data-feeds cache programs...")
 	workflowName := fmt.Sprintf("sol-write-workflow--%04d", 3411)
@@ -65,13 +64,12 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	s.WFName = string(b)
 	s.WFOwner = tenv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.Addresses[0]
 	deployAndConfigureCache(t, &s, *creEnvironment.CldfEnvironment, solChain)
+	testLogger := tenv.Logger
 	framework.L.Info().Msg("Successfully deployed and configured")
-
 	// 3. Compile and deploy workflow
 	var err error
 	var workflowConfig config.Config
 	workflowConfig.Receiver = s.CacheProgramID
-	log.Printf("~~~ receiver: %x", workflowConfig.Receiver)
 	workflowConfig.ForwarderState = s.ForwarderState
 	workflowConfig.ForwarderProgramID = s.ForwarderProgramID
 	workflowConfig.ReceiverState = s.CacheState
@@ -93,58 +91,11 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	log.Printf("~~~write flag: %x name: %x length: %d", writeFlagKey, b, len(b))
 	const workflowFileLocation = "./solana/solwrite/main.go"
 
-	// 4. Start Beholder listener before deploying workflow
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, tenv)
-
-	// 5. Deploy workflow
 	t_helpers.CompileAndDeployWorkflow(t,
 		tenv, testLogger, workflowName, &workflowConfig,
 		workflowFileLocation)
 
-	// 6. Wait for both: feed update on-chain AND log trigger event received
-	timeout := 5 * time.Minute
-	feedUpdateDone := make(chan error, 1)
-	logTriggerDone := make(chan error, 1)
-
-	// Start goroutine to wait for feed update
-	go func() {
-		err := waitForFeedUpdateWithError(t.Context(), solChain.SolClient, &s, timeout)
-		feedUpdateDone <- err
-	}()
-
-	// Start goroutine to wait for log trigger event
-	expectedLogTriggerMessage := "DecimalReportUpdated event parsed"
-	go func() {
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogTriggerMessage, testLogger, messageChan, kafkaErrChan, timeout)
-		logTriggerDone <- err
-	}()
-
-	// Wait for both to complete
-	var feedErr, logTriggerErr error
-	for i := 0; i < 2; i++ {
-		select {
-		case feedErr = <-feedUpdateDone:
-			if feedErr != nil {
-				framework.L.Error().Err(feedErr).Msg("Feed update failed")
-			} else {
-				framework.L.Info().Msg("✅ Feed update confirmed on-chain")
-			}
-		case logTriggerErr = <-logTriggerDone:
-			if logTriggerErr != nil {
-				framework.L.Error().Err(logTriggerErr).Msg("Log trigger check failed")
-			} else {
-				framework.L.Info().Msg("✅ Log trigger received DecimalReportUpdated event")
-			}
-		case <-time.After(timeout + 30*time.Second):
-			require.FailNow(t, "Test timed out waiting for feed update and log trigger")
-		}
-	}
-
-	// Assert both conditions were met
-	require.NoError(t, feedErr, "Feed should be updated on-chain")
-	require.NoError(t, logTriggerErr, "Log trigger should have received DecimalReportUpdated event")
-
-	framework.L.Info().Msg("🎉 Solana write test completed successfully: feed updated AND log trigger fired")
+	waitForFeedUpdate(t, solChain.SolClient, &s)
 }
 
 func createReportHash(dataID []byte, forwarderAuthority []byte, workflowOwner []byte, workflowName []byte) [32]byte {
@@ -200,34 +151,22 @@ func deriveForwarderAuthority(forwarderState solgo.PublicKey, receiverProgram so
 }
 
 func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
-	err := waitForFeedUpdateWithError(t.Context(), solclient, s, time.Minute*4)
-	require.NoError(t, err, "Feed update failed")
-}
-
-func waitForFeedUpdateWithError(ctx context.Context, solclient *rpc.Client, s *setup, timeout time.Duration) error {
 	tt := time.NewTicker(time.Second * 5)
 	defer tt.Stop()
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*4)
 	defer cancel()
-
-	reportAcc, err := getDecimalReportAccountNoTest(s)
-	if err != nil {
-		return err
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("feed failed to update before timeout expired")
+			require.FailNow(t, "The feed failed to update before timeout expired")
 		case <-tt.C:
-			decimalReportAccount, err := solclient.GetAccountInfoWithOpts(ctx, reportAcc, &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentProcessed})
+			reportAcc := getDecimalReportAccount(t, s)
+
+			decimalReportAccount, err := solclient.GetAccountInfoWithOpts(t.Context(), reportAcc, &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentProcessed})
 			if errors.Is(err, rpc.ErrNotFound) {
 				continue
 			}
-			if err != nil {
-				return fmt.Errorf("failed to receive decimal report account: %w", err)
-			}
-
+			require.NoError(t, err, "failed to receive decimal report account")
 			// that's how report is stored on chain
 			type report struct {
 				timestamp uint32   // 4 byte
@@ -237,9 +176,7 @@ func waitForFeedUpdateWithError(ctx context.Context, solclient *rpc.Client, s *s
 			data := decimalReportAccount.Value.Data.GetBinary()
 			descriminatorLen := 8
 			expectedLen := descriminatorLen + 4 + 16
-			if len(data) < expectedLen {
-				return fmt.Errorf("data length %d is less than expected %d", len(data), expectedLen)
-			}
+			require.GreaterOrEqual(t, len(data), expectedLen)
 			offset := descriminatorLen
 			r.timestamp = binary.LittleEndian.Uint32(data[offset : offset+4])
 			offset += 4
@@ -252,10 +189,8 @@ func waitForFeedUpdateWithError(ctx context.Context, solclient *rpc.Client, s *s
 				continue
 			}
 			framework.L.Info().Msg("Feed is updated. Asserting results...")
-			if r.answer.String() != Mintable.String() {
-				return fmt.Errorf("onchain answer value %s is not equal to sent value %s", r.answer.String(), Mintable.String())
-			}
-			return nil
+			require.Equal(t, Mintable.String(), r.answer.String(), "onchain answer value is not equal to sent value")
+			return
 		}
 	}
 }
@@ -292,12 +227,6 @@ func parsePackedU128(le [16]byte) (amount *big.Int, block uint64, unused uint8) 
 }
 
 func getDecimalReportAccount(t *testing.T, s *setup) solanago.PublicKey {
-	key, err := getDecimalReportAccountNoTest(s)
-	require.NoError(t, err, "failed to derive decimal report key")
-	return key
-}
-
-func getDecimalReportAccountNoTest(s *setup) (solanago.PublicKey, error) {
 	dataID, _ := new(big.Int).SetString(s.FeedID, 0)
 	var data [16]byte
 	copy(data[:], dataID.Bytes())
@@ -307,10 +236,8 @@ func getDecimalReportAccountNoTest(s *setup) (solanago.PublicKey, error) {
 		data[:],
 	}
 	decimalReportKey, _, err := solanago.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
-	if err != nil {
-		return solanago.PublicKey{}, fmt.Errorf("failed to derive decimal report key: %w", err)
-	}
-	return decimalReportKey, nil
+	require.NoError(t, err, "failed to derive decimal report key")
+	return decimalReportKey
 }
 
 type setup struct {
@@ -413,4 +340,87 @@ func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype dat
 	require.NoError(t, err)
 
 	return solanago.MustPublicKeyFromBase58(contract.Address)
+}
+
+func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironment) {
+	bcs := tenv.CreEnvironment.Blockchains
+	testLogger := tenv.Logger
+
+	var solChain *solana.Blockchain
+	for _, w := range bcs {
+		if !w.IsFamily(chainselectors.FamilySolana) {
+			continue
+		}
+		require.IsType(t, &solana.Blockchain{}, w, "expected Solana blockchain type")
+		solChain = w.(*solana.Blockchain)
+		break
+	}
+	require.NotNil(t, solChain, "Solana blockchain not found in test environment")
+
+	logReadTestProgramID := solanago.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
+
+	workflowName := fmt.Sprintf("sol-logtrigger-wf--%04d", 1234)
+	var workflowConfig logtrigger_config.Config
+	workflowConfig.LogReadTestProgramID = logReadTestProgramID
+
+	const workflowFileLocation = "./solana/sollogtrigger/main.go"
+
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, tenv)
+
+	t_helpers.CompileAndDeployWorkflow(t,
+		tenv, testLogger, workflowName, &workflowConfig,
+		workflowFileLocation)
+
+	workflowInitMessage := "RunSolLogTriggerWorkflow called"
+	err := t_helpers.AssertBeholderMessage(listenerCtx, t, workflowInitMessage, testLogger, messageChan, kafkaErrChan, 2*time.Minute)
+	require.NoError(t, err, "Workflow should have initialized")
+
+	err = triggerLogReadTestEvent(t.Context(), solChain, logReadTestProgramID, 42)
+	require.NoError(t, err, "failed to trigger log_read_test event")
+
+	timeout := 5 * time.Minute
+	expectedLogTriggerMessage := "TestEvent received!"
+
+	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogTriggerMessage, testLogger, messageChan, kafkaErrChan, timeout)
+	require.NoError(t, err, "Log trigger should have received TestEvent")
+}
+
+func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solanago.PublicKey, value uint64) error {
+	discriminator := getCreateLogDiscriminator()
+
+	var instructionData []byte
+	instructionData = append(instructionData, discriminator[:]...)
+
+	valueBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(valueBytes, value)
+	instructionData = append(instructionData, valueBytes...)
+
+	instruction := solanago.NewInstruction(
+		programID,
+		solanago.AccountMetaSlice{
+			{PublicKey: solChain.PrivateKey.PublicKey(), IsSigner: true, IsWritable: true},
+			{PublicKey: solanago.SystemProgramID, IsSigner: false, IsWritable: false},
+		},
+		instructionData,
+	)
+
+	_, err := solCommonUtil.SendAndConfirm(
+		ctx,
+		solChain.SolClient,
+		[]solanago.Instruction{instruction},
+		solChain.PrivateKey,
+		rpc.CommitmentConfirmed,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to send create_log transaction: %w", err)
+	}
+
+	return nil
+}
+
+func getCreateLogDiscriminator() [8]byte {
+	hash := sha256.Sum256([]byte("global:create_log"))
+	var discriminator [8]byte
+	copy(discriminator[:], hash[:8])
+	return discriminator
 }
