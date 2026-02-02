@@ -327,12 +327,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 
-		beholder.GetClient().RecordConfigMetric(ctx)
-
 		for {
+			beholder.GetClient().RecordConfigMetric(ctx)
+
 			select {
 			case <-ticker.C:
-				beholder.GetClient().RecordConfigMetric(ctx)
 			case <-ctx.Done():
 				return
 			}
