@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"time"
 
 	ag_binary "github.com/gagliardetto/binary"
 	solgo "github.com/gagliardetto/solana-go"
@@ -114,7 +113,7 @@ func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider
 
 	return cre.Workflow[config.Config]{
 		cre.Handler(
-			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}), // every 30 seconds
+			cron.Trigger(&cron.Config{Schedule: "*/60 * * * * *"}), // every 30 seconds
 			onTrigger,
 		),
 		cre.Handler(
@@ -195,7 +194,7 @@ func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload)
 		Report:            report,
 		RemainingAccounts: remaining,
 		ComputeConfig: &solana.ComputeConfig{
-			ComputeLimit: 99_999,
+			ComputeLimit: 290_000,
 		},
 	}).Await()
 	if err != nil {
@@ -303,18 +302,12 @@ type ForwarderReport struct {
 func encodeReport(accHash [32]byte, cfg config.Config) ([]byte, error) {
 	var payloadBuf bytes.Buffer
 	payloadEnc := ag_binary.NewBorshEncoder(&payloadBuf)
-
-	// Use current timestamp for both timestamp field and answer to ensure uniqueness
-	// This prevents "report already onchain" errors on subsequent runs
-	now := time.Now().Unix()
 	var answer [16]byte
-	// Use timestamp as answer to make each report unique
-	answerBig := big.NewInt(now)
-	copy(answer[:], answerBig.Bytes())
+	copy(answer[:], big.NewInt(15).Bytes())
 
 	reports := []ReceivedDecimalReport{
 		{
-			Timestamp: uint32(now),
+			Timestamp: 1,
 			Answer:    answer,
 			DataID:    cfg.FeedID,
 		},

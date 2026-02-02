@@ -187,6 +187,10 @@ github.com/shirou/gopsutil/v4 v4.25.9 h1:JImNpf6gCVhKgZhtaAHJ0serfFGtlfIlSC08eaK
 github.com/shirou/gopsutil/v4 v4.25.9/go.mod h1:gxIxoC+7nQRwUl/xNhutXlD8lq+jxTgpIkEf3rADHL8=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260130142938-ac5f62ecd1c9 h1:DxgyxzOqYLcSu2pyQUwt5FRk+WB8GjBHQBrhEEyXZLc=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260130142938-ac5f62ecd1c9/go.mod h1:KZ+pz3yGTdMvsqLBMogVxI/CJ+JpQqjRqyqgdqEbLnc=
+github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260130142938-ac5f62ecd1c9 h1:zaR4xir2MFHdHIMh0w/3YNA+3rYhYQ6cpWIagDtySAI=
+github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260130142938-ac5f62ecd1c9/go.mod h1:hFeypDTBuDiam0BImViLIMtrkCWXUi79Ni5OJlGTsSI=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.13.0 h1:N+CwnuvttZNh0zvKzKnvPQNwZj+StfQ0TOPi/Ho87q0=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.13.0/go.mod h1:2p+lXQtkaJmD5dXw+HaAf+lFoQtNJy3NwkRfprU3VlY=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.1-0.20250711120409-5078050f9db4 h1:6iIj+U1SA19xftdEJwubATHBoGm4yc8q+MwWz6rlBDc=

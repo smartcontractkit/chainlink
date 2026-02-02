@@ -47,7 +47,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260127052127-9e53e86176d3
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260202141447-934691421631
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260130142830-2b52746975d3
 	github.com/smartcontractkit/chainlink-data-streams v0.1.11
 	github.com/smartcontractkit/chainlink-deployments-framework v0.75.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260127143834-21d7db9955ee
@@ -513,7 +513,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260106052706-6dd937cb5ec6 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260130142938-ac5f62ecd1c9 // indirect
-	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260129162634-aa39f8829fe6 // indirect
+	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260130142938-ac5f62ecd1c9 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260124000807-bff5e296dfb7 // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260124000807-bff5e296dfb7 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect

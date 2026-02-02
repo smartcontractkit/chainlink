@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/ethereum/go-ethereum v1.16.8
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260129155548-5c11c191d8cc
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260130142830-2b52746975d3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022073203-7d8ae8cf67c1
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9
 	github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18
@@ -59,6 +59,8 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260130142938-ac5f62ecd1c9 // indirect
+	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260130142938-ac5f62ecd1c9 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20251212213002-0a5e2f907dda // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/supranational/blst v0.3.16-0.20250831170142-f48500c1fdbe // indirect

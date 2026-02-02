@@ -45,10 +45,8 @@ const (
 		"chainId":"{{.ChainID}}",
 		"network":"{{.Network}}"
 	}`
-	deltaStage          = 400*time.Millisecond + 1*time.Second // block time + 1 second delta
-	requestTimeout      = 30 * time.Second
-	registrationRefresh = 30 * time.Second
-	registrationExpiry  = 60 * time.Second
+	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
+	requestTimeout = 30 * time.Second
 )
 
 type SolChain interface {
