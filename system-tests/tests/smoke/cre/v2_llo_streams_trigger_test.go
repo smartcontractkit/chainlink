@@ -13,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	streams "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/streams"
@@ -62,12 +61,10 @@ func Test_CRE_V2_LLO_Streams_Trigger_Mock(t *testing.T) {
 // This test automatically deploys the full LLO infrastructure:
 // 1. LLO contracts (Configurator, ChannelConfigStore)
 // 2. OCR configuration with proper encryption keys
-// 3. Stream jobs to fetch data from fake price provider
-// 4. LLO jobs with CRE transmitter
-// 5. Channel definitions for Format 5 and Format 7
+// 3. Stream jobs and LLO jobs with CRE transmitter
+// 4. Channel definitions (from LLO infrastructure setup)
 //
-// The test verifies end-to-end data flow from price provider -> streams DON -> workflow
-// by checking for LLO_E2E_VALUE messages in workflow logs.
+// The test verifies end-to-end data flow by checking for magic numbers in workflow logs.
 //
 // To run:
 //
@@ -76,25 +73,11 @@ func Test_CRE_V2_LLO_Streams_Trigger_Mock(t *testing.T) {
 func Test_CRE_V2_LLO_Streams_Trigger_E2E(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
 
-	// IMPORTANT: Start the fake price provider BEFORE environment setup
-	// The LLO feature's PostEnvStartup hook sets the channel definitions URL on the contract,
-	// and the Docker containers need to be able to reach this URL immediately.
-	testLogger := framework.L
-	testLogger.Info().Msg("Setting up LLO price provider (BEFORE environment setup)...")
-	priceProviderURL, err := SetupLLOPriceProvider(testLogger, &fake.Input{Port: 8171}, DefaultLLOPriceConfig())
-	require.NoError(t, err, "Failed to set up LLO price provider")
-	testLogger.Info().Str("url", priceProviderURL).Msg("LLO price provider ready")
-
-	// Set environment variables for the LLO feature to pick up
-	channelDefsURL := GetLLOProviderChannelDefsURL()
-	t.Setenv("LLO_MOCK_EA_URL", priceProviderURL)
-	t.Setenv("LLO_CHANNEL_DEFS_URL", channelDefsURL)
 	// Enable OnchainPublicKey signer extraction for LLO tests
 	// This ensures the capability registry uses OnchainPublicKey addresses for signature verification
 	// The override in keystone_llo.go checks this environment variable
 	t.Setenv("USE_LLO_ONCHAIN_SIGNER", "true")
 
-	// Now set up the test environment - the fake provider is already running
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, lloStreamsConfigPath), v2RegistriesFlags...)
 
 	t.Run("[v2] LLO Streams Trigger E2E - "+topology, func(t *testing.T) {
@@ -333,7 +316,7 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	testLogger.Info().Msg("Waiting for Format 5 reports (424242)...")
 	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat5, testLogger, messageChan, kafkaErrChan, timeout)
 	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive Format 5 reports")
-	
+
 	// Verify Format 5 value is correct (424242)
 	expectedLogFormat5Value := "Value=424242"
 	testLogger.Info().Msg("Verifying Format 5 value (424242)...")
@@ -347,18 +330,17 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	testLogger.Info().Msg("Waiting for Format 7 reports with calculated stream (555555 = 111111 * 5)...")
 	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat7, testLogger, messageChan, kafkaErrChan, timeout)
 	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive Format 7 reports with calculated stream")
-	
+
 	// Also verify the calculated value is correct (555555)
 	expectedLogFormat7Value := "Value=555555"
 	testLogger.Info().Msg("Verifying calculated stream value (555555)...")
 	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogFormat7Value, testLogger, messageChan, kafkaErrChan, timeout)
 	require.NoError(t, err, "LLO Streams Trigger E2E test failed - calculated stream value is not 555555")
 	testLogger.Info().Msg("✓ Workflow received Format 7 reports (555555)")
-	
+
 	testLogger.Info().Msg("✓ Workflow received LLO reports with magic numbers (both Format 5 and Format 7 with calculated stream)")
 
 	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
 	testLogger.Info().Msg("║  ✓ LLO STREAMS TRIGGER E2E TEST PASSED                               ║")
 	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
 }
-

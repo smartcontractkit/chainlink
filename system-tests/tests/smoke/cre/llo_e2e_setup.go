@@ -234,6 +234,21 @@ func deployLLOContractsWithChangesets(
 	}, nil
 }
 
+// getCapabilitiesDON returns the DON that has type "capabilities" (streams-trigger / LLO).
+// It uses the DON type flag so topology is resolved reliably regardless of DON name.
+// Returns a clear error listing available DONs if the capabilities DON is not in the topology.
+func getCapabilitiesDON(testEnv *ttypes.TestEnvironment) (*cre.Don, error) {
+	caps := testEnv.Dons.DonsWithFlag(cre.CapabilitiesDON)
+	if len(caps) > 0 {
+		return caps[0], nil
+	}
+	names := make([]string, 0, len(testEnv.Dons.List()))
+	for _, d := range testEnv.Dons.List() {
+		names = append(names, d.Metadata().Name)
+	}
+	return nil, fmt.Errorf("capabilities DON not found (topology has DONs: %v). Ensure the environment was started with workflow-capabilities-llo-don.toml", names)
+}
+
 // setOCRConfigurationWithChangesets gathers node keys and sets the OCR configuration on the Configurator using CLD changesets
 func setOCRConfigurationWithChangesets(
 	ctx context.Context,
@@ -244,16 +259,9 @@ func setOCRConfigurationWithChangesets(
 	chainSelector uint64,
 	donID uint32,
 ) error {
-	// Find the capabilities DON (which runs LLO)
-	var capabilitiesDON *cre.Don
-	for _, don := range testEnv.Dons.List() {
-		if don.Name == "capabilities" {
-			capabilitiesDON = don
-			break
-		}
-	}
-	if capabilitiesDON == nil {
-		return fmt.Errorf("capabilities DON not found")
+	capabilitiesDON, err := getCapabilitiesDON(testEnv)
+	if err != nil {
+		return err
 	}
 
 	// Get worker nodes (exclude bootstrap)
@@ -402,7 +410,9 @@ func setOCRConfigurationWithChangesets(
 }
 
 // waitForAnvil waits for Anvil to be ready by attempting to get the chain ID
-func waitForAnvil(ctx context.Context, client interface{ ChainID(context.Context) (*big.Int, error) }, logger zerolog.Logger, timeout time.Duration) error {
+func waitForAnvil(ctx context.Context, client interface {
+	ChainID(context.Context) (*big.Int, error)
+}, logger zerolog.Logger, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -459,16 +469,9 @@ func DeployStreamJobs(
 ) error {
 	testLogger.Info().Msg("Deploying stream jobs via Job Distributor...")
 
-	// Find the capabilities DON
-	var capabilitiesDON *cre.Don
-	for _, don := range testEnv.Dons.List() {
-		if don.Name == "capabilities" {
-			capabilitiesDON = don
-			break
-		}
-	}
-	if capabilitiesDON == nil {
-		return fmt.Errorf("capabilities DON not found")
+	capabilitiesDON, err := getCapabilitiesDON(testEnv)
+	if err != nil {
+		return err
 	}
 
 	// Stream job specs for each stream - using hardcoded values
@@ -545,16 +548,9 @@ func DeployLLOJobs(
 ) error {
 	testLogger.Info().Msg("Deploying LLO jobs with CRE transmitter via Job Distributor...")
 
-	// Find the capabilities DON
-	var capabilitiesDON *cre.Don
-	for _, don := range testEnv.Dons.List() {
-		if don.Name == "capabilities" {
-			capabilitiesDON = don
-			break
-		}
-	}
-	if capabilitiesDON == nil {
-		return fmt.Errorf("capabilities DON not found")
+	capabilitiesDON, err := getCapabilitiesDON(testEnv)
+	if err != nil {
+		return err
 	}
 
 	workers, err := capabilitiesDON.Workers()

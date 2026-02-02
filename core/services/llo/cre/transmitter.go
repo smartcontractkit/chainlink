@@ -232,15 +232,11 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 		return fmt.Errorf("failed to wrap streams.Report in anypb.Any: %w", err)
 	}
 
-	// Populate V1 (Outputs) only for capability trigger type reports; V1 is not deprecated.
-	// Other report types are sent with V2 (Payload) only.
-	var o *values.Map
-	if reportFormat == llotypes.ReportFormatCapabilityTrigger {
-		var mapErr error
-		o, mapErr = event.ToMap()
-		if mapErr != nil {
-			t.eng.Warnw("failed to convert OCRTriggerEvent to map (V1)", "error", mapErr)
-		}
+	// Also keep backward compatibility with V1 format using Outputs
+	// Note: For ABI-encoded reports, ToMap will likely fail but that's ok since V1 is deprecated
+	o, mapErr := event.ToMap()
+	if mapErr != nil && reportFormat == llotypes.ReportFormatCapabilityTrigger {
+		t.eng.Warnw("failed to convert OCRTriggerEvent to map (V1 compat)", "error", mapErr)
 	}
 
 	capResponse := capabilities.TriggerResponse{
@@ -248,7 +244,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 			TriggerType: t.ID,
 			ID:          eventID,
 			Payload:     payload, // V2 format: proto wrapped in anypb.Any
-			Outputs:     o,       // V1 format: values.Map (only for capability trigger type)
+			Outputs:     o,       // V1 format: values.Map (for backward compat)
 		},
 	}
 
