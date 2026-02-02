@@ -76,6 +76,11 @@ jobs:
           echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: Registry 2.1"
           go test -v -timeout 3h -run TestLoad/registry_2_1
 
+      - name: Show Docker containers status
+        if: failure()
+        shell: bash
+        run: docker ps -a
+
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v4
