@@ -1,8 +1,8 @@
 [capability_configs.consensus]
   binary_path = "./binaries/consensus"
 
-# Global config for consensus is optional - uses empty config by default
-[capability_configs.consensus.config]
+# Global values for consensus are optional - uses empty jobspec config by default
+[capability_configs.consensus.values]
 # MaxRequestSizeBytes = 200000  # Default: 100000
 # RequestBatchSize = 1 # Default: 1
 # MaxRequestOutcomeSize = 1000 # Default: 1000
@@ -13,13 +13,13 @@
   binary_path = "./binaries/cron"
 
 # Global config for cron is optional - uses empty config by default
-[capability_configs.cron.config]
+[capability_configs.cron.values]
 #   CustomField = "value"  # Add custom fields if needed
 
 [capability_configs.custom-compute]
   # No binary_path needed - this is a built-in capability, it doesn't exist as a separate binary
 
-[capability_configs.custom-compute.config]
+[capability_configs.custom-compute.values]
   NumWorkers = 3
   GlobalRPS = 20.0
   GlobalBurst = 30
@@ -29,7 +29,7 @@
 [capability_configs.log-event-trigger]
   binary_path = "./binaries/log-event-trigger"
 
-[capability_configs.log-event-trigger.config]
+[capability_configs.log-event-trigger.values]
   LookbackBlocks = 2000        # Default lookback blocks
   PollPeriod = 1500            # Default poll period in milliseconds
   NetworkFamily = "evm"        # EVM is the only supported family
@@ -40,7 +40,7 @@
   # These are merged with per-DON chain_overrides
   binary_path = "./binaries/evm"
 
-[capability_configs.evm.config]
+[capability_configs.evm.values]
   LogTriggerPollInterval = 1500000000  # 1.5s in nanoseconds
   ReceiverGasMinimum = 500
   # LogTriggerSendChannelBufferSize = 1000 # default 1000, ommited here to use default
@@ -52,14 +52,14 @@
 [capability_configs.read-contract]
   binary_path = "./binaries/readcontract"
 
-[capability_configs.read-contract.config]
+[capability_configs.read-contract.values]
   NetworkFamily = "evm"        # EVM is the only supported family
   #ChainID = 1337              # Provided dynamically for each chain
 
 #[capability_configs.web-api-target]
 #  no binary path for web API target, it's built-in
 
-[capability_configs.web-api-target.config]
+[capability_configs.web-api-target.values]
   # Rate limiter configuration for web API target
   GlobalRPS = 1000.0
   GlobalBurst = 1000
@@ -70,13 +70,13 @@
 #  no binary path for web API trigger, it's built-in
 
 # Web API trigger uses empty config by default
-[capability_configs.web-api-trigger.config]
+[capability_configs.web-api-trigger.values]
 #   CustomField = "value"  # Add custom fields if needed
 
 [capability_configs.http-action]
   binary_path = "./binaries/http_action"
 
-[capability_configs.http-action.config]
+[capability_configs.http-action.values]
   # HTTP Action capability configuration
   ProxyMode = "gateway"
   IncomingGlobalBurst = 10
@@ -91,7 +91,7 @@
 [capability_configs.http-trigger]
   binary_path = "./binaries/http_trigger"
 
-[capability_configs.http-trigger.config]
+[capability_configs.http-trigger.values]
   # HTTP Trigger capability configuration
   IncomingGlobalBurst = 10
   IncomingGlobalRPS = 50
@@ -105,7 +105,7 @@
 [capability_configs.write-evm]
   # No binary_path needed - this is a built-in capability, it doesn't exist as a separate binary
 
-[capability_configs.write-evm.config]
+[capability_configs.write-evm.values]
   # EVM Workflow configuration for write capabilities
   GasLimitDefault = 400_000
   TxAcceptanceState = 2
@@ -115,7 +115,7 @@
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
 
-[capability_configs.write-solana.config]
+[capability_configs.write-solana.values]
   # Solana Workflow configuration for write capabilities
   TxAcceptanceState = 3
   PollPeriod = "2s"
@@ -129,8 +129,8 @@
 [capability_configs.mock]
   binary_path = "./binaries/mock"
 
-[capability_configs.mock.config]
+[capability_configs.mock.values]
   Port = 7777  # Default port for mock service
 
-[capability_configs.vault.config]
+[capability_configs.vault.values]
   EnableDeterministicPendingQueue = true

@@ -51,11 +51,10 @@
 
   capabilities = ["ocr3", "custom-compute", "mock", "write-solana", "don-time"]
   supported_sol_chains = ["5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"]
-  #[nodesets.chain_capabilities]
-  #  write-evm = ["1337"]
-  [nodesets.capability_overrides.mock]
+  [nodesets.capability_configs.mock.values]
+    Port = 7777
     # add as many as you want:
-    [[nodesets.capability_overrides.mock.DefaultMocks]]
+    [[nodesets.capability_configs.mock.values.DefaultMocks]]
       Id = "securemint-trigger@1.0.0"
       Description = "trigger mock for secure mint"
       Type="trigger"

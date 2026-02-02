@@ -56,9 +56,6 @@ func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64
 			// If we have a custom qualifier for this chain, use it for MCMS contracts
 			if qualifier != "" && isMCMSContract(string(typever.Type)) {
 				ref.Qualifier = qualifier
-			} else {
-				// Use the original auto-generated qualifier for other contracts
-				ref.Qualifier = fmt.Sprintf("%s-%s", addr, typever.Type)
 			}
 
 			// If the address book has labels, we need to add them to the addressRef

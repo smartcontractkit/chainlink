@@ -113,8 +113,6 @@ func PrepareNodeTOMLs(
 					OCRPeeringData:          ocrPeeringData,
 					RegistryChainSelector:   creEnv.RegistryChainSelector,
 					Topology:                topology,
-					NodeSet:                 localNodeSets[i],
-					CapabilityConfigs:       creEnv.CapabilityConfigs,
 					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
@@ -639,7 +637,7 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 		}
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		if len(input.DonMetadata.NodeSets().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.NodeSets().EVMChains(), bcOut.ChainID()) {
+		if len(input.DonMetadata.MustNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.MustNodeSet().EVMChains(), bcOut.ChainID()) {
 			continue
 		}
 

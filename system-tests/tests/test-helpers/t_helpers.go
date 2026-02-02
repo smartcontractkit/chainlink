@@ -103,12 +103,11 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 
 	enabledChains := map[string]struct{}{}
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		require.NoError(t, nodeSet.ParseChainCapabilities())
-		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
-			continue
-		}
 
-		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
+		enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(cre.EVMCapability)
+		require.NoError(t, err, "failed to get enabled chain IDs for EVM capability")
+
+		for _, chainID := range enabledChainIDs {
 			strChainID := strconv.FormatUint(chainID, 10)
 			enabledChains[strChainID] = struct{}{}
 		}

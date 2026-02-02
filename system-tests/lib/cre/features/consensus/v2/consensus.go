@@ -31,7 +31,6 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
 )
 
@@ -152,9 +151,9 @@ func createJobs(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	capabilityConfig, ok := don.GetCapabilityConfig(flag)
 	if !ok {
-		return fmt.Errorf("%s config not found in capabilities config: %v", flag, creEnv.CapabilityConfigs)
+		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
 	command, commandErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
@@ -176,8 +175,7 @@ func createJobs(
 	configStr, configErr := buildCapabilityConfig(
 		flag,
 		configTemplate,
-		capabilityConfig.Config,
-		nodeSet.GetCapabilityConfigOverrides(),
+		capabilityConfig,
 	)
 	if configErr != nil {
 		return fmt.Errorf("failed to build consensus capability config: %w", configErr)
@@ -216,11 +214,10 @@ func createJobs(
 func buildCapabilityConfig(
 	capabilityFlag cre.CapabilityFlag,
 	configTemplate string,
-	globalConfig map[string]any,
-	donOverrides map[string]map[string]any,
+	capConfig cre.CapabilityConfig,
 ) (string, error) {
 	// Merge global defaults with DON-specific overrides
-	templateData := envconfig.ResolveCapabilityConfigForDON(capabilityFlag, globalConfig, donOverrides)
+	templateData := capConfig.Values
 
 	// If no config provided, return empty string (capability will use hardcoded defaults)
 	if len(templateData) == 0 {
