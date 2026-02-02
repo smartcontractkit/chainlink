@@ -117,7 +117,7 @@ func TestLoad(t *testing.T) {
 
 			require.Equal(t, "1337", in.Blockchains[0].ChainID, "automation smoke tests can only be run on simulated network. If do want to run on a live network, please read the code, understand the implications (e.g. potential fund loss) and adjust the test accordingly")
 
-			keysRequired := tc.UpkeepCount * 10
+			keysRequired := tc.UpkeepCount * 20
 
 			// on simulated network create new ephemeral addresses if insufficient private keys were provided
 			// we ignore key at index 0, because it is the root key, which is not used during the test
@@ -517,14 +517,19 @@ Test Duration: %s`
 				Msg("Test reporting ended")
 
 			numberOfExpectedEvents := numberOfEventsEmittedPerSec * int64(loadDuration.Seconds())
-			if numberOfEventsEmitted < numberOfExpectedEvents {
-				l.Error().Msg("Number of events emitted is less than expected")
-				t.Fail()
-			}
 			testReport := fmt.Sprintf(testReportFormat, avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF,
 				avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
 				len(allUpkeepDelaysRecovery), numberOfExpectedEvents, numberOfEventsEmitted, eventsMissed, percentMissed, testExDuration.String())
 			l.Info().Str("Test Report", testReport).Msg("Test Report prepared")
+
+			if numberOfEventsEmitted < numberOfExpectedEvents {
+				l.Error().
+					Int64("number of events emitted", numberOfEventsEmitted).
+					Int64("number of expected events", numberOfExpectedEvents).
+					Int64("Difference", numberOfExpectedEvents-numberOfEventsEmitted).
+					Msg("Number of events emitted is less than expected")
+				t.FailNow()
+			}
 
 			require.LessOrEqual(t, percentMissed, 10.0, "Too many events were missed")
 
