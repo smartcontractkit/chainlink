@@ -2,9 +2,12 @@ package ocr2key
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
@@ -30,39 +33,64 @@ func (x EncryptedOCRKeyExport) GetCrypto() keystore.CryptoJSON {
 
 // FromEncryptedJSON returns key from encrypted json
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
+	ocrBundle, err := corekeys.FromEncryptedOCRKeyBundle(keyJSON, password)
+	if err == nil {
+		coreChainType := chaintype.ChainType(ocrBundle.ChainType)
+
+		rawData := keyBundleRawData{
+			ChainType:       coreChainType,
+			OffchainKeyring: append(ocrBundle.OffchainSigningKey, ocrBundle.OffchainEncryptionKey...),
+			Keyring:         ocrBundle.OnchainSigningKey,
+		}
+		rawBytes, err := json.Marshal(rawData)
+		if err != nil {
+			return nil, err
+		}
+
+		return unmarshalKeyBundle(coreChainType, rawBytes)
+	}
+
+	if !errors.Is(err, corekeys.ErrInvalidExportFormat) {
+		return nil, err
+	}
+
 	return internal.FromEncryptedJSON(
 		keyTypeIdentifier,
 		keyJSON,
 		password,
 		adulteratedPassword,
 		func(export EncryptedOCRKeyExport, rawPrivKey internal.Raw) (KeyBundle, error) {
-			var kb KeyBundle
-			switch export.ChainType {
-			case chaintype.EVM:
-				kb = newKeyBundle(new(evmKeyring))
-			case chaintype.Cosmos:
-				kb = newKeyBundle(new(cosmosKeyring))
-			case chaintype.Solana:
-				kb = newKeyBundle(new(solanaKeyring))
-			case chaintype.StarkNet:
-				kb = newKeyBundle(new(starkkey.OCR2Key))
-			case chaintype.Aptos:
-				kb = newKeyBundle(new(ed25519Keyring))
-			case chaintype.Tron:
-				kb = newKeyBundle(new(evmKeyring))
-			case chaintype.TON:
-				kb = newKeyBundle(new(tonKeyring))
-			case chaintype.Sui:
-				kb = newKeyBundle(new(ed25519Keyring))
-			default:
-				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
-			}
-			if err := kb.Unmarshal(internal.Bytes(rawPrivKey)); err != nil {
-				return nil, err
-			}
-			return kb, nil
+			return unmarshalKeyBundle(export.ChainType, internal.Bytes(rawPrivKey))
 		},
 	)
+}
+
+func unmarshalKeyBundle(chainType chaintype.ChainType, rawKeyData []byte) (KeyBundle, error) {
+	var kb KeyBundle
+	switch chainType {
+	case chaintype.EVM:
+		kb = newKeyBundle(new(evmKeyring))
+	case chaintype.Cosmos:
+		kb = newKeyBundle(new(cosmosKeyring))
+	case chaintype.Solana:
+		kb = newKeyBundle(new(solanaKeyring))
+	case chaintype.StarkNet:
+		kb = newKeyBundle(new(starkkey.OCR2Key))
+	case chaintype.Aptos:
+		kb = newKeyBundle(new(ed25519Keyring))
+	case chaintype.Tron:
+		kb = newKeyBundle(new(evmKeyring))
+	case chaintype.TON:
+		kb = newKeyBundle(new(tonKeyring))
+	case chaintype.Sui:
+		kb = newKeyBundle(new(ed25519Keyring))
+	default:
+		return nil, chaintype.NewErrInvalidChainType(chainType)
+	}
+	if err := kb.Unmarshal(rawKeyData); err != nil {
+		return nil, err
+	}
+	return kb, nil
 }
 
 // ToEncryptedJSON returns encrypted JSON representing key
