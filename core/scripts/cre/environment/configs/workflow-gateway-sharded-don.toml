@@ -39,6 +39,7 @@
   nodes = 4
   name = "shard0"
   don_types = ["workflow", "shard"]
+  shard_index = 0
   override_mode = "each"
   http_port_range_start = 10100
 

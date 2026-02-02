@@ -544,6 +544,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
 
 			filteredWorkflowsMetadata := allWorkflowsMetadata
+			// TODO: make sure this is 100% backwards compatible
 			if w.shardingEnabled {
 				filteredWorkflowsMetadata, err = w.filterWorkflowsByShard(ctx, allWorkflowsMetadata)
 				if err != nil {
@@ -796,6 +797,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, allWorkfl
 		}
 	}
 
+	// TODO: add logic that reports unexected scenarios, e.g. missing mappings or duplicated mappings (here defensive, in Ring proper defaults)
 	w.lggr.Debugw("Completed shard filtering workflows", "originalCount", len(allWorkflows), "filteredCount", len(filtered), "shardID", w.myShardID)
 
 	return filtered, nil

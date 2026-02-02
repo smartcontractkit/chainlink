@@ -104,9 +104,10 @@ func NewRoles(roles []string) (Roles, error) {
 }
 
 type Don struct {
-	Name string `toml:"name" json:"name"`
-	ID   uint64 `toml:"id" json:"id"`
-	F    uint8  `toml:"f" json:"f"` // max faulty nodes
+	Name       string `toml:"name" json:"name"`
+	ID         uint64 `toml:"id" json:"id"`
+	F          uint8  `toml:"f" json:"f"` // max faulty nodes
+	ShardIndex uint   `toml:"shard_index" json:"shard_index"`
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
@@ -120,6 +121,7 @@ func (d *Don) Metadata() *DonMetadata {
 		Name:          d.Name,
 		ID:            d.ID,
 		Flags:         d.Flags,
+		ShardIndex:    d.ShardIndex,
 		NodesMetadata: make([]*NodeMetadata, len(d.Nodes)),
 		// caution: missing NodeSet field, since we don't have it here
 	}
@@ -221,6 +223,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		Name:                      donMetadata.Name,
 		ID:                        donMetadata.ID,
 		Flags:                     donMetadata.Flags,
+		ShardIndex:                donMetadata.ShardIndex,
 		chainCapabilityConfigs:    donMetadata.ns.ChainCapabilities,
 		capabilityConfigOverrides: donMetadata.ns.CapabilityOverrides,
 	}

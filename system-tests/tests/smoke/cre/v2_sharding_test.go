@@ -14,10 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -256,15 +258,13 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	logger.Info().Msg("Step 3: Verify Arbiter returns WantShards=1")
 	waitForArbiterShardCount(t, arbiterClient, 1)
 
-	logger.Info().Msg("Step 4: Verify all workflows mapped to shard 0 with single shard")
+	logger.Info().Msg("Step 4: Wait for all workflows to be remapped to shard 0")
+	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, 0)
 	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	for _, wfID := range workflowIDs {
-		assert.Equal(t, uint32(0), resp.Mappings[wfID], "With 1 shard, workflow %s should map to shard 0", wfID)
-	}
 	logger.Info().Interface("mappings", resp.Mappings).Msg("All workflows on shard-zero")
 
 	logger.Info().Msg("Step 5: Scale up - Set ShardConfig to 2 shards")
@@ -293,6 +293,14 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 		Interface("mappings", resp.Mappings).
 		Interface("distribution", shardCounts).
 		Msg("Real workflows distributed across 2 shards after scaling")
+
+	logger.Info().Msg("Step 9: Verify all workflows execute on their assigned shards via Beholder")
+	p2pToShard := buildP2PIDToShardMap(t, testEnv)
+	logger.Info().Interface("p2pToShard", p2pToShard).Msg("P2P ID to shard mapping")
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, logger, testEnv)
+	executedWorkflows := waitForAllWorkflowsExecuted(t, listenerCtx, logger, messageChan, kafkaErrChan, workflowIDs, resp.Mappings, p2pToShard, 3*time.Minute)
+	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
+	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
 }
 
 func getShardConfigRef(t *testing.T, testEnv *ttypes.TestEnvironment) datastore.AddressRefKey {
@@ -484,4 +492,115 @@ func waitForWorkflowsDistributed(t *testing.T, client ringpb.ShardOrchestratorSe
 		framework.L.Info().Int("shardsUsed", len(shardsSeen)).Int("minShards", minShards).Msg("Waiting for distribution")
 		return len(shardsSeen) >= minShards
 	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards within timeout", minShards)
+}
+
+func buildP2PIDToShardMap(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]uint32 {
+	t.Helper()
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	p2pToShard := make(map[string]uint32)
+	for _, don := range shardDONs {
+		shardIndex := uint32(don.ShardIndex) //nolint:gosec // G115: overflow is unrealistic
+		for _, node := range don.Nodes {
+			p2pID := strings.TrimPrefix(node.Keys.PeerID(), "p2p_")
+			p2pToShard[p2pID] = shardIndex
+		}
+	}
+	return p2pToShard
+}
+
+func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string, expectedShard uint32) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+			WorkflowIds: workflowIDs,
+		})
+		if err != nil {
+			return false
+		}
+		for _, shardID := range resp.Mappings {
+			if shardID != expectedShard {
+				framework.L.Info().Uint32("expectedShard", expectedShard).Interface("mappings", resp.Mappings).Msg("Waiting for workflows to remap")
+				return false
+			}
+		}
+		return true
+	}, 2*time.Minute, 5*time.Second, "Workflows not remapped to shard %d within timeout", expectedShard)
+}
+
+func waitForAllWorkflowsExecuted(t *testing.T, ctx context.Context, logger zerolog.Logger, messageChan <-chan proto.Message, errChan <-chan error, workflowIDs []string, shardMappings map[string]uint32, p2pToShard map[string]uint32, timeout time.Duration) map[string]struct{} {
+	t.Helper()
+
+	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
+	for _, id := range workflowIDs {
+		expectedWorkflows[id] = struct{}{}
+	}
+
+	executedWorkflows := make(map[string]struct{})
+	seenNodes := make(map[string]struct{})
+	seenShards := make(map[uint32]struct{})
+
+	timeoutCh := time.After(timeout)
+	for {
+		select {
+		case <-ctx.Done():
+			return executedWorkflows
+		case <-timeoutCh:
+			logger.Warn().
+				Int("executed", len(executedWorkflows)).
+				Int("expected", len(expectedWorkflows)).
+				Msg("Timeout waiting for all workflows to execute")
+			return executedWorkflows
+		case err := <-errChan:
+			require.NoError(t, err, "Beholder error while waiting for workflow executions")
+		case msg := <-messageChan:
+			userLogs, ok := msg.(*workflowevents.UserLogs)
+			if !ok || userLogs.M == nil {
+				continue
+			}
+
+			hasExpectedLog := false
+			for _, line := range userLogs.LogLines {
+				if strings.Contains(line.Message, "Amazing workflow user log") {
+					hasExpectedLog = true
+					break
+				}
+			}
+			if !hasExpectedLog {
+				continue
+			}
+
+			wfID := userLogs.M.WorkflowID
+			if _, expected := expectedWorkflows[wfID]; expected {
+				if _, seen := executedWorkflows[wfID]; !seen {
+					p2pID := userLogs.M.P2PID
+					actualShard, knownNode := p2pToShard[p2pID]
+					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, p2pID)
+					expectedShard := shardMappings[wfID]
+					require.Equal(t, expectedShard, actualShard, "Workflow %s executed on shard %d but expected shard %d (node %s)", wfID, actualShard, expectedShard, p2pID)
+
+					executedWorkflows[wfID] = struct{}{}
+					seenNodes[p2pID] = struct{}{}
+					seenShards[actualShard] = struct{}{}
+					logger.Info().
+						Str("workflowID", wfID).
+						Str("workflowName", userLogs.M.WorkflowName).
+						Str("p2pID", p2pID).
+						Uint32("shard", actualShard).
+						Int("progress", len(executedWorkflows)).
+						Int("total", len(expectedWorkflows)).
+						Msg("Workflow executed on correct shard")
+				}
+			}
+
+			if len(executedWorkflows) == len(expectedWorkflows) {
+				logger.Info().
+					Int("uniqueNodes", len(seenNodes)).
+					Int("uniqueShards", len(seenShards)).
+					Msg("All workflows executed on correct shards")
+				return executedWorkflows
+			}
+		}
+	}
 }
