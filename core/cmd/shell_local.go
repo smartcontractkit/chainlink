@@ -322,6 +322,23 @@ func (s *Shell) runNode(c *cli.Context) error {
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 	lggr.Infow("configuration args", "config files", s.configFiles, "secret files", s.secretsFiles)
 
+	// Record beholder config periodically
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		beholder.GetClient().RecordConfigMetric(ctx)
+
+		for {
+			select {
+			case <-ticker.C:
+				beholder.GetClient().RecordConfigMetric(ctx)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
 	if err := s.Config.Validate(); err != nil {
