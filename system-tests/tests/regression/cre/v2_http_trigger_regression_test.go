@@ -153,6 +153,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
 	require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
 	require.Contains(t, baseMsg.Labels["err"], httpNegativeTest.expectedError, "expected error message to contain "+httpNegativeTest.expectedError)
+	testLogger.Info().Msgf("Found expected error - %s - in base message's labels", httpNegativeTest.expectedError)
 	testLogger.Info().Msg("HTTP Trigger Fail test successfully completed")
 }
 
