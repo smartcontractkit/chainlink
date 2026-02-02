@@ -2,7 +2,7 @@ name: Automation Nightly Load Tests
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Run daily at 6 AM
+    - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
   # remove after testing
   pull_request:
@@ -81,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-soak
-          path: devenv/tests/logs
+          path: devenv/tests/automation/logs
           retention-days: 1
 
       - name: Upload Pprof (Alloc)

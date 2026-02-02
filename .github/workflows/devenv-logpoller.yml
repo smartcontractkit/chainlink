@@ -2,7 +2,7 @@ name: Logpoller Nightly Smoke Tests
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Run daily at 6 AM
+    - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
   # remove after testing
   pull_request:
@@ -87,5 +87,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke-${{ matrix.environment }}
-          path: devenv/tests/e2e/logs
+          path: devenv/tests/logpoller/logs
           retention-days: 1
