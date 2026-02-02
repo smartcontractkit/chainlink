@@ -54,17 +54,27 @@ func (s *StreamsTrigger) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	// Calculate minResponsesToAggregate based on F+1 threshold
-	// For a 4-node DON with F=1, this is 2
+	// Calculate minResponsesToAggregate based on 2f+1 threshold (DefaultModeAggregator requires 2f+1 identical responses).
+	// For a 4-node DON with F=1, this is 3.
 	numNodes := len(don.NodesMetadata)
 	if numNodes <= 0 {
 		numNodes = 4 // default to 4 nodes
 	}
 	faultyNodes := uint32((numNodes - 1) / 3)
-	minResponsesToAggregate := faultyNodes + 1
+	minResponsesToAggregate := 2*faultyNodes + 1
 
-	// Register streams-trigger@2.0.0 in the Capabilities Registry
-	// This is a DON-level trigger capability that emits LLO OCR reports
+	remoteTriggerConfig := &capabilitiespb.RemoteTriggerConfig{
+		RegistrationRefresh:     durationpb.New(registrationRefresh),
+		RegistrationExpiry:      durationpb.New(registrationExpiry),
+		MinResponsesToAggregate: minResponsesToAggregate,
+		MessageExpiry:           durationpb.New(2 * registrationExpiry),
+		MaxBatchSize:            25,
+		BatchCollectionPeriod:   durationpb.New(200 * time.Millisecond),
+	}
+
+	// Register streams-trigger@2.0.0 in the Capabilities Registry.
+	// MethodConfigs with method "Trigger" causes the launcher to use the V2 path (addRemoteCapabilityV2)
+	// with DefaultModeAggregator(MinResponsesToAggregate). RemoteConfig is kept for V1 path fallback.
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "streams-trigger",
@@ -73,16 +83,14 @@ func (s *StreamsTrigger) PreEnvStartup(
 		},
 		Config: &capabilitiespb.CapabilityConfig{
 			LocalOnly: don.HasOnlyLocalCapabilities(),
-			// Configure the remote trigger config for cross-DON communication
-			// This tells the TriggerSubscriber how many responses to wait for before aggregating
 			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-				RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-					RegistrationRefresh:     durationpb.New(registrationRefresh),
-					RegistrationExpiry:      durationpb.New(registrationExpiry),
-					MinResponsesToAggregate: minResponsesToAggregate,
-					MessageExpiry:           durationpb.New(2 * registrationExpiry),
-					MaxBatchSize:            25,
-					BatchCollectionPeriod:   durationpb.New(200 * time.Millisecond),
+				RemoteTriggerConfig: remoteTriggerConfig,
+			},
+			MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+				"Trigger": {
+					RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+						RemoteTriggerConfig: remoteTriggerConfig,
+					},
 				},
 			},
 		},
@@ -93,7 +101,7 @@ func (s *StreamsTrigger) PreEnvStartup(
 		Str("don", don.Name).
 		Bool("localOnly", don.HasOnlyLocalCapabilities()).
 		Uint32("minResponsesToAggregate", minResponsesToAggregate).
-		Msg("Registering streams-trigger capability for DON with remote trigger config")
+		Msg("Registering streams-trigger capability for DON with remote trigger config (V2 path: MethodConfigs with Trigger; DefaultModeAggregator 2f+1)")
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,

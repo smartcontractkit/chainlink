@@ -166,7 +166,7 @@ Returns an error if found in error channel or timeouts if a log message is not r
 */
 func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
-	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
+	foundErrorLog := make(chan string, 1)  // Channel to pass full Beholder message when engine init failure is detected
 	receivedUserLogs := 0
 
 	// Start message processor goroutine
@@ -180,7 +180,16 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 				switch typedMsg := msg.(type) {
 				case *commonevents.BaseMessage:
 					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
-						foundErrorLog <- true
+						// Include full message so test output shows the underlying error (e.g. from runTriggerSubscriptionPhase)
+						fullMsg := typedMsg.Msg
+						if len(typedMsg.Labels) > 0 {
+							fullMsg = fullMsg + " labels=" + fmt.Sprint(typedMsg.Labels)
+						}
+						select {
+						case foundErrorLog <- fullMsg:
+						default:
+							// Channel already has a value
+						}
 					}
 				case *workflowevents.UserLogs:
 					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
@@ -223,9 +232,9 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	case <-foundExpectedLog:
 		testLogger.Info().Str("expected_log", expectedLog).Msg("✅ Test completed successfully - found expected user log message!")
 		return nil
-	case <-foundErrorLog:
-		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
-		return errors.New("beholder message validation completed with error: found engine initialization failure message")
+	case beholderMsg := <-foundErrorLog:
+		testLogger.Warn().Str("beholder_msg", beholderMsg).Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
+		return fmt.Errorf("beholder message validation completed with error: found engine initialization failure message: %s", beholderMsg)
 	case <-time.After(timeout):
 		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {

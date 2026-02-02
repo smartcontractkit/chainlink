@@ -31,6 +31,12 @@ const (
 	defaultCapabilityVersion     = "2.0.0" // v2 = LLO
 	defaultTickerResolutionMs    = 1000
 	defaultSendChannelBufferSize = 1000
+
+	// MinTransmissionWindowMs is the minimum transmission window for production.
+	// When TransmissionWindowMs > 0, sends are delayed until the next wall-clock boundary
+	// so Streams DON nodes tend to send at the same time. Tests may use 1/4 or 1/8 of this
+	// for faster runs (e.g. MinTransmissionWindowMs/8).
+	MinTransmissionWindowMs = 100
 )
 
 type Transmitter interface {
@@ -47,6 +53,12 @@ type TransmitterConfig struct {
 	TriggerCapabilityVersion     string `json:"triggerCapabilityVersion"`
 	TriggerTickerMinResolutionMs int    `json:"triggerTickerMinResolutionMs"`
 	TriggerSendChannelBufferSize int    `json:"triggerSendChannelBufferSize"`
+
+	// TransmissionWindowMs delays pushing to subscribers until the next wall-clock boundary
+	// (top of window), so Streams DON nodes are more likely to send at the same time.
+	// 0 = no delay (immediate send). When > 0, use at least MinTransmissionWindowMs in production;
+	// tests may use MinTransmissionWindowMs/4 or MinTransmissionWindowMs/8 for breathing room.
+	TransmissionWindowMs int `json:"transmissionWindowMs"`
 }
 
 var _ Transmitter = &transmitter{}
@@ -64,6 +76,14 @@ type transmitter struct {
 	subscribers  map[string]*subscriber
 	lastReportMs uint64
 	mu           sync.Mutex
+
+	// Delayed send until top of transmission window (when TransmissionWindowMs > 0)
+	pendingMu      sync.Mutex
+	pendingQueue   []pendingSend
+	pendingWake    chan struct{}
+	sendWorkerDone chan struct{}
+	stopCtx        context.Context
+	stopCancel     context.CancelFunc
 }
 
 type subscriber struct {
@@ -72,16 +92,29 @@ type subscriber struct {
 	config     streamstypes.LLOTriggerConfig
 }
 
+// pendingSend is a trigger response scheduled for the top of a transmission window.
+type pendingSend struct {
+	response    capabilities.TriggerResponse
+	targetTime  time.Time
+	alignedTsMs uint64
+	eventID     string
+}
+
 func (c TransmitterConfig) NewTransmitter() (*transmitter, error) {
 	return c.newTransmitter(c.Logger)
 }
 
 func (c TransmitterConfig) newTransmitter(lggr logger.Logger) (*transmitter, error) {
+	stopCtx, stopCancel := context.WithCancel(context.Background())
 	t := &transmitter{
-		config:      c,
-		fromAccount: ocr2types.Account(lggr.Name() + strconv.FormatUint(uint64(c.DonID), 10)),
-		registry:    c.CapabilitiesRegistry,
-		subscribers: make(map[string]*subscriber),
+		config:         c,
+		fromAccount:    ocr2types.Account(lggr.Name() + strconv.FormatUint(uint64(c.DonID), 10)),
+		registry:       c.CapabilitiesRegistry,
+		subscribers:    make(map[string]*subscriber),
+		pendingWake:    make(chan struct{}, 1),
+		sendWorkerDone: make(chan struct{}),
+		stopCtx:        stopCtx,
+		stopCancel:     stopCancel,
 	}
 	if t.config.TriggerCapabilityName == "" {
 		t.config.TriggerCapabilityName = defaultCapabilityName
@@ -117,18 +150,112 @@ func (c TransmitterConfig) newTransmitter(lggr logger.Logger) (*transmitter, err
 }
 
 func (t *transmitter) start(ctx context.Context) error {
+	if t.config.TransmissionWindowMs > 0 {
+		go t.sendWorker()
+	}
 	t.eng.Infow("CRETransmitter starting, registering capability",
 		"capabilityID", t.ID,
-		"donID", t.config.DonID)
+		"donID", t.config.DonID,
+		"transmissionWindowMs", t.config.TransmissionWindowMs)
 	return t.registry.Add(ctx, t)
 }
 
 func (t *transmitter) close() error {
+	t.stopCancel()
+	if t.config.TransmissionWindowMs > 0 {
+		<-t.sendWorkerDone
+		// Drain any remaining pending sends immediately
+		t.pendingMu.Lock()
+		for _, p := range t.pendingQueue {
+			t.doPushToSubscribers(p.response, p.alignedTsMs, p.eventID)
+		}
+		t.pendingQueue = nil
+		t.pendingMu.Unlock()
+	}
 	return t.registry.Remove(context.Background(), t.ID)
 }
 
 func (t *transmitter) FromAccount(context.Context) (ocr2types.Account, error) {
 	return t.fromAccount, nil
+}
+
+// nextTransmissionBoundary returns the next wall-clock time aligned to the given window (ms).
+// Boundaries are at 0, windowMs, 2*windowMs, ... ms from Unix epoch.
+func nextTransmissionBoundary(now time.Time, windowMs int) time.Time {
+	if windowMs <= 0 {
+		return now
+	}
+	unixMs := now.UnixMilli()
+	boundaryMs := (unixMs/int64(windowMs) + 1) * int64(windowMs)
+	return time.UnixMilli(boundaryMs)
+}
+
+// doPushToSubscribers sends the response to all subscribers that pass the frequency filter.
+// Caller must not hold t.mu; doPushToSubscribers locks as needed.
+func (t *transmitter) doPushToSubscribers(response capabilities.TriggerResponse, alignedTsMs uint64, eventID string) {
+	hasPayload := response.Event.Payload != nil
+	payloadType := "nil"
+	if hasPayload {
+		payloadType = response.Event.Payload.TypeUrl
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	nSent := 0
+	nDropped := 0
+	nFiltered := 0
+	for _, sub := range t.subscribers {
+		includeByFrequency := sub.config.MaxFrequencyMs == 0 || alignedTsMs%sub.config.MaxFrequencyMs == 0
+		if includeByFrequency {
+			select {
+			case sub.ch <- response:
+				nSent++
+				t.eng.Infow("CRETransmitter: Sent TriggerResponse to subscriber channel", "eventID", eventID, "workflowID", sub.workflowID, "hasPayload", hasPayload, "payloadType", payloadType)
+			default:
+				nDropped++
+				t.eng.Errorw("CRETransmitter: subscriber channel full, dropping event", "eventID", eventID, "workflowID", sub.workflowID, "channelBufferSize", defaultSendChannelBufferSize)
+			}
+		} else {
+			nFiltered++
+		}
+	}
+	t.eng.Infow("ProcessReport done", "eventID", eventID, "nSubscribers", len(t.subscribers), "nSent", nSent, "nDropped", nDropped, "nFiltered", nFiltered)
+}
+
+func (t *transmitter) sendWorker() {
+	defer close(t.sendWorkerDone)
+	for {
+		t.pendingMu.Lock()
+		for len(t.pendingQueue) == 0 {
+			t.pendingMu.Unlock()
+			select {
+			case <-t.pendingWake:
+				t.pendingMu.Lock()
+				continue
+			case <-t.stopCtx.Done():
+				return
+			}
+		}
+		first := t.pendingQueue[0]
+		t.pendingQueue = t.pendingQueue[1:]
+		targetTime := first.targetTime
+		t.pendingMu.Unlock()
+
+		waitDur := time.Until(targetTime)
+		if waitDur > 0 {
+			select {
+			case <-time.After(waitDur):
+			case <-t.pendingWake:
+				t.pendingMu.Lock()
+				t.pendingQueue = append([]pendingSend{first}, t.pendingQueue...)
+				t.pendingMu.Unlock()
+				continue
+			case <-t.stopCtx.Done():
+				return
+			}
+		}
+
+		t.doPushToSubscribers(first.response, first.alignedTsMs, first.eventID)
+	}
 }
 
 func (t *transmitter) Transmit(
@@ -203,9 +330,9 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	}
 
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	if tsMs/uint64(t.config.TriggerTickerMinResolutionMs) == t.lastReportMs/uint64(t.config.TriggerTickerMinResolutionMs) { //nolint:gosec // disable G115
 		// ignore reports that are too frequent
+		t.mu.Unlock()
 		return nil
 	}
 	t.lastReportMs = tsMs
@@ -254,34 +381,27 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 		payloadType = capResponse.Event.Payload.TypeUrl
 	}
 	t.eng.Infow("ProcessReport pushing event", "eventID", eventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs, "nSubscribers", len(t.subscribers), "hasPayload", hasPayload, "payloadType", payloadType)
-	nIncludedSubscribers := 0
-	nSent := 0
-	nDropped := 0
-	nFiltered := 0
-	for _, sub := range t.subscribers {
-		// Handle case where MaxFrequencyMs is 0 (default/unset) - treat as "include every report"
-		includeByFrequency := sub.config.MaxFrequencyMs == 0 || alignedTsMs%sub.config.MaxFrequencyMs == 0
-		if includeByFrequency {
-			// include this subscriber
-			select {
-			case sub.ch <- capResponse:
-				nSent++
-				t.eng.Infow("CRETransmitter: Sent TriggerResponse to subscriber channel", "eventID", eventID, "workflowID", sub.workflowID, "hasPayload", hasPayload, "payloadType", payloadType)
-			case <-ctx.Done():
-				t.eng.Error("context done, dropping event")
-				return ctx.Err()
-			default:
-				// drop event if channel is full - processNewEvent() should be non-blocking
-				nDropped++
-				t.eng.Errorw("CRETransmitter: subscriber channel full, dropping event", "eventID", eventID, "workflowID", sub.workflowID, "channelBufferSize", defaultSendChannelBufferSize)
-			}
-			nIncludedSubscribers++
-		} else {
-			nFiltered++
-			t.eng.Debugw("Skipping subscriber due to frequency filter", "eventID", eventID, "workflowID", sub.workflowID, "alignedTsMs", alignedTsMs, "maxFrequencyMs", sub.config.MaxFrequencyMs)
+
+	if t.config.TransmissionWindowMs > 0 {
+		targetSendTime := nextTransmissionBoundary(time.Now(), t.config.TransmissionWindowMs)
+		t.pendingMu.Lock()
+		t.pendingQueue = append(t.pendingQueue, pendingSend{
+			response:    capResponse,
+			targetTime:  targetSendTime,
+			alignedTsMs: alignedTsMs,
+			eventID:     eventID,
+		})
+		t.pendingMu.Unlock()
+		select {
+		case t.pendingWake <- struct{}{}:
+		default:
 		}
+		t.mu.Unlock()
+		return nil
 	}
-	t.eng.Infow("ProcessReport done", "eventID", eventID, "nIncludedSubscribers", nIncludedSubscribers, "nTotalSubscribers", len(t.subscribers), "nSent", nSent, "nDropped", nDropped, "nFiltered", nFiltered)
+
+	t.mu.Unlock()
+	t.doPushToSubscribers(capResponse, alignedTsMs, eventID)
 	return nil
 }
 

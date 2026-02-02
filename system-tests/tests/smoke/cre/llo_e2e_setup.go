@@ -671,6 +671,8 @@ triggerCapabilityName = "streams-trigger"
 triggerCapabilityVersion = "2.0.0"
 triggerTickerMinResolutionMs = 1000
 triggerSendChannelBufferSize = 1000
+# Top-of-window delay: sends wait until next wall-clock boundary (non-zero exercises delayed-send path)
+transmissionWindowMs = 100
 
 [relayConfig]
 chainID = "1337"

@@ -70,7 +70,7 @@ func NewStreamsTrigger(cfg *streams.Config) cre.Trigger[*streams.Report, *stream
 func (*streamsTrigger) IsTrigger()                {}
 func (*streamsTrigger) NewT() *streams.Report     { return &streams.Report{} }
 func (*streamsTrigger) CapabilityID() string      { return "streams-trigger@2.0.0" }
-func (*streamsTrigger) Method() string            { return "" }
+func (*streamsTrigger) Method() string            { return "Trigger" }
 func (t *streamsTrigger) ConfigAsAny() *anypb.Any { return t.config }
 func (t *streamsTrigger) Adapt(report *streams.Report) (*streams.Report, error) {
 	if report == nil {

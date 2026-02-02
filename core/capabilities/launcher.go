@@ -492,21 +492,10 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 						w.lggr,
 					)
 				case 2: // LLO
-					// LLO reports are cryptographically signed by the LLO DON nodes as part of the OCR protocol.
-					// The CRE transmitter sends these pre-signed reports to the workflow DON.
-					// We verify signatures using the LLO DON's OCR keys (which should match the capabilities DON's keys).
-					signers, err := signersFor(remoteDON, localRegistry)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get signers for llo-trigger: %w", err)
-					}
-					const maxAgeSec = 120 // TODO: move to capability onchain config
-					aggregator = aggregation.NewSignedReportRemoteAggregator(
-						signers,
-						int(remoteDON.F+1),
-						info.ID,
-						maxAgeSec,
-						w.lggr,
-					)
+					// LLO reports are produced by Streams DON consensus. We use DefaultModeAggregator with 2f+1
+					// identical responses (no per-report signature verification); the trigger subscriber waits
+					// for MinResponsesToAggregate (2f+1) before calling Aggregate.
+					aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F*2 + 1))
 				default:
 					return nil, fmt.Errorf("unsupported stream trigger %s", info.ID)
 				}
