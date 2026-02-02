@@ -103,19 +103,15 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
 	}
 
-	config, loadErr := framework.Load[envconfig.Config](nil)
+	config := &envconfig.Config{}
+	loadErr := config.Load(os.Getenv("CTF_CONFIGS"))
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load CTF config")
 	}
 
-	envArtifact, artErr := creenv.ReadEnvArtifact(creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot))
-	if artErr != nil {
-		return errors.Wrap(artErr, "failed to read environment artifact")
-	}
-
 	cldLogger := cldlogger.NewSingleFileLogger(nil)
 
-	creEnvironment, dons, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
+	creEnvironment, dons, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config)
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load environment")
 	}
@@ -184,7 +180,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 	// and directly approve jobspecs without restarting nodes
 	nerrg := errgroup.Group{}
 	for _, nodeSet := range config.NodeSets {
-		if !flags.HasFlagForAnyChain(nodeSet.ComputedCapabilities, capabilityFlag) {
+		if !flags.HasFlagForAnyChain(nodeSet.Capabilities, capabilityFlag) {
 			continue
 		}
 		nerrg.Go(func() error {
@@ -446,9 +442,5 @@ func joinPreRunFuncs(funcs ...func(cmd *cobra.Command, args []string)) func(cmd 
 func envIsRunningPreRunFunc(cmd *cobra.Command, args []string) {
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Fatal().Str("Expected location", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist. Please start the environment first.")
-	}
-
-	if !creenv.EnvArtifactFileExists(relativePathToRepoRoot) {
-		framework.L.Fatal().Str("Expected location", creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)).Msg("Environment artifact file does not exist. Please start the environment first.")
 	}
 }

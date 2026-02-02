@@ -596,4 +596,8 @@ func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
 	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
 }
 
+func (g *generalConfig) Sharding() coreconfig.Sharding {
+	return &shardingConfig{s: g.c.Sharding}
+}
+
 var zeroSha256Hash = models.Sha256Hash{}

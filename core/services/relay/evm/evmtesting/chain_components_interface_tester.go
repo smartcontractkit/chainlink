@@ -25,12 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	_ "github.com/smartcontractkit/chainlink-evm/pkg/testutils" // force binding for tx type
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 const (
@@ -310,7 +309,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 	ctx := it.Helper.Context(t)
 	lggr := logger.Nop()
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, it.Helper.LogPoller(t), it.Helper.HeadTracker(t), it.client, it.chainReaderConfigSupplier(t))
+	cr, err := read.NewChainReaderService(ctx, lggr, it.Helper.LogPoller(t), it.Helper.HeadTracker(t), it.client, it.chainReaderConfigSupplier(t))
 	require.NoError(t, err)
 	servicetest.Run(t, cr)
 

@@ -25,8 +25,8 @@ var OpEVMDeployProposerMCM = opsutils.NewEVMDeployOperation(
 	commontypes.ProposerManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.ManyChainMultiSigBin),
 		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
@@ -41,8 +41,8 @@ var OpEVMDeployBypasserMCM = opsutils.NewEVMDeployOperation(
 	commontypes.BypasserManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.ManyChainMultiSigBin),
 		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {
@@ -57,8 +57,8 @@ var OpEVMDeployCancellerMCM = opsutils.NewEVMDeployOperation(
 	commontypes.CancellerManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.ManyChainMultiSigBin),
 		ZkSyncVMBytecode: zkbindings.ManyChainMultiSigZkBytecode,
 	},
 	func(input any) []any {

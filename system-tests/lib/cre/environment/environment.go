@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -46,7 +47,7 @@ type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CreEnvironment                      *cre.Environment
 	Dons                                *cre.Dons
-	NodeOutput                          []*cre.WrappedNodeOutput
+	NodeOutput                          []*cre.NodeSetOutput
 	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
 }
@@ -150,7 +151,6 @@ func SetupTestEnvironment(
 		Blockchains:           deployedBlockchains.Outputs,
 		ContractVersions:      input.ContractVersions,
 		Provider:              input.Provider,
-		CapabilityConfigs:     input.CapabilityConfigs,
 		RegistryChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
 	}
 
@@ -176,7 +176,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
-	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider)
+	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider, input.CapabilityConfigs)
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
@@ -343,7 +343,7 @@ func SetupTestEnvironment(
 			ContractVersion: cldf.TypeAndVersion{Version: *wfRegVersion},
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
-			AllowedDonIDs:   []uint64{topology.WorkflowDONID},
+			AllowedDonIDs:   topology.WorkflowDONIDs,
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)
@@ -401,6 +401,7 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 
 	for _, feature := range input.Features.List() {
@@ -419,6 +420,21 @@ func SetupTestEnvironment(
 		}
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	// Sharding setup moved AFTER PostEnvStartup to ensure OCR3 configs work properly
+	if topology.DonsMetadata.ShardingEnabled() {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Setting up Sharding")))
+		err := sharding.SetupSharding(ctx, sharding.SetupShardingInput{
+			Logger:   testLogger,
+			CreEnv:   creEnvironment,
+			Topology: topology,
+			Dons:     dons,
+		})
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to setup Sharding")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	}
 
 	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
@@ -440,7 +456,7 @@ func SetupTestEnvironment(
 	}, nil
 }
 
-func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
+func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
 		input.NodeSets[idx].Out = nsOut.Output

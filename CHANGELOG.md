@@ -1,5 +1,25 @@
 # Changelog Chainlink Core
 
+## 2.32.0
+
+### Minor Changes
+
+- [#20562](https://github.com/smartcontractkit/chainlink/pull/20562) [`bdbb18b`](https://github.com/smartcontractkit/chainlink/commit/bdbb18b4750c527bc3c15f4647819b0d31a8fdb5) - #added changeset to mint link tokens from MCMS
+
+- [#20305](https://github.com/smartcontractkit/chainlink/pull/20305) [`6d86c43`](https://github.com/smartcontractkit/chainlink/commit/6d86c4362501af92bbe823ac67a328493e04f7f7) - #added LLO plugin channel adder support
+
+### Patch Changes
+
+- [#20469](https://github.com/smartcontractkit/chainlink/pull/20469) [`769837a`](https://github.com/smartcontractkit/chainlink/commit/769837ac2e7c2529a3ca8392671bb16f1cb50b26) - #added OCR2 config option SampleTelemetry which enables telemetry sampling.
+
+- [#20531](https://github.com/smartcontractkit/chainlink/pull/20531) [`8f17c1b`](https://github.com/smartcontractkit/chainlink/commit/8f17c1b1bbcd617de1939c379f2c4e6045f8be9e) - #internal disable 3 upgrade e2e tests due to flakiness
+
+- [#20469](https://github.com/smartcontractkit/chainlink/pull/20469) [`769837a`](https://github.com/smartcontractkit/chainlink/commit/769837ac2e7c2529a3ca8392671bb16f1cb50b26) - #internal #added Sampling of LLO telemetry.
+
+- [#20469](https://github.com/smartcontractkit/chainlink/pull/20469) [`769837a`](https://github.com/smartcontractkit/chainlink/commit/769837ac2e7c2529a3ca8392671bb16f1cb50b26) - #updated bumped chainlink-data-streams version
+
+- [#20579](https://github.com/smartcontractkit/chainlink/pull/20579) [`e3914e7`](https://github.com/smartcontractkit/chainlink/commit/e3914e7d743f5484e2e5db4ce73b4be06dfa2719) - #bugfix Upgrades plugin: chainlink-data-streams so that calculated streams do not generate wrong timestamps
+
 ## 2.31.0 - 2025-12-11
 
 ### Minor Changes
@@ -145,7 +165,6 @@
 - [#19710](https://github.com/smartcontractkit/chainlink/pull/19710) [`5625fd0`](https://github.com/smartcontractkit/chainlink/commit/5625fd08dfcd03072efed15c50cd14518022483f) - #updated CCIP changesets to deploy v1.5.1 TokenPoolFactory instead of latest version
 
 - [#19667](https://github.com/smartcontractkit/chainlink/pull/19667) [`535a014`](https://github.com/smartcontractkit/chainlink/commit/535a014bef3a6a007ecf7fe8c2d9f21907e4d127) - #added Add Workflow Registry Chain Selector to CRE v2 registry events.
-
 
 ## 2.30.1 - 2025-11-18
 

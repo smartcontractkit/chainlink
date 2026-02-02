@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
 	solanago "github.com/gagliardetto/solana-go"
@@ -29,7 +29,6 @@ import (
 	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -84,12 +83,12 @@ func (o *Solana) PreEnvStartup(
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, uErr := updateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.WriteSolanaCapability])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	fullName := "write_solana_devnet@1.0.0"
@@ -102,7 +101,9 @@ func (o *Solana) PreEnvStartup(
 			CapabilityType: 3, // TARGET
 			ResponseType:   1, // OBSERVATION_IDENTICAL
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -175,12 +176,6 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 	}
 	data.FromAddress = key.PublicAddress
 
-	mergedConfig := envconfig.ResolveCapabilityConfigForDON(
-		cre.WriteSolanaCapability,
-		capabilityConfig.Config,
-		nil,
-	)
-
 	runtimeValues := map[string]any{
 		"FromAddress":      data.FromAddress.String(),
 		"ForwarderAddress": data.ForwarderAddress,
@@ -188,7 +183,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 	}
 
 	var mErr error
-	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
+	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
 	if mErr != nil {
 		return nil, errors.Wrap(mErr, "failed to apply runtime values")
 	}
@@ -222,7 +217,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 	configStr := configBuffer.String()
 
 	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return nil, errors.Wrapf(err, "%s template validation failed", flag)
+		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	unmarshallErr = toml.Unmarshal([]byte(configStr), &solCfg)
@@ -255,7 +250,7 @@ const solWorkflowConfigTemplate = `
 		ForwarderState   = '{{.ForwarderState}}'
 		PollPeriod = '{{.PollPeriod}}'
 		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
-		TxAcceptanceState = {{.TxAcceptanceState}}
+		TxAcceptanceState = {{printf "%d" .TxAcceptanceState}}
 		Local = {{.Local}}
 	`
 

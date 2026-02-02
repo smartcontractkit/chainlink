@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"errors"
 	"math"
 	"math/big"
@@ -23,11 +24,13 @@ import (
 	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
+	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
 const ExpectedTxHash = "0xabcd"
@@ -42,6 +45,7 @@ type Mocks struct {
 	Poller        *lpmocks.LogPoller
 	HeaderTracker *headstest.Tracker[*types.Head, common.Hash]
 	Relayer       *Relayer
+	KeyStoreMock  keyStoreMock
 }
 
 type returnedStatusAndReceipts struct {
@@ -59,6 +63,15 @@ func createMockReceipt(t *testing.T) *txmgr.ChainReceipt {
 	return &receipt
 }
 
+type keyStoreMock struct {
+	chainID *big.Int
+	*keystoremocks.Eth
+}
+
+func (_m keyStoreMock) EnabledAddresses(ctx context.Context) ([]common.Address, error) {
+	return _m.EnabledAddressesForChain(ctx, _m.chainID)
+}
+
 func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
@@ -68,7 +81,9 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	evmClient := clienttest.NewClient(t)
 	poller := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*types.Head](t)
-
+	ksMock := keyStoreMock{chainID: evmtestutils.FixtureChainID, Eth: keystoremocks.NewEth(t)}
+	ksMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{createFromAddress().Address()}, nil).Maybe()
+	mockEVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second).Maybe()
 	chain.On("TxManager").Return(txManager).Maybe()
 	chain.On("LogPoller").Return(poller).Maybe()
 	chain.On("HeadTracker").Return(ht).Maybe()
@@ -76,12 +91,11 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	chain.EXPECT().Config().Return(mockConfig).Maybe()
 	mockConfig.EXPECT().EVM().Return(mockEVM).Maybe()
 	mockEVM.EXPECT().Workflow().Return(mockWorkflow).Maybe()
-
 	lggr, err := logger.New()
 	require.NoError(t, err)
 	relayer := &Relayer{
 		chain:      chain,
-		evmService: evmService{chain: chain, logger: lggr},
+		evmService: evmService{addressLister: ksMock, chain: chain, logger: lggr},
 	}
 
 	return &Mocks{
@@ -93,6 +107,7 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 		EvmClient:     evmClient,
 		Poller:        poller,
 		HeaderTracker: ht,
+		KeyStoreMock:  ksMock,
 	}, relayer
 }
 
@@ -110,8 +125,6 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 	if tc.SetupMocks != nil {
 		tc.SetupMocks(mocks, ctx)
 	}
-
-	setCommonSubmitTransactionMocks(mocks)
 
 	receiver := createToAddress()
 	gasLimit := uint64(1000)
@@ -132,12 +145,6 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 		result.TxIdempotencyKey = ""
 		require.Equal(t, tc.ExpectedResult, result)
 	}
-}
-
-func setCommonSubmitTransactionMocks(m *Mocks) {
-	fromAddress := createFromAddress()
-	m.Workflow.EXPECT().FromAddress().Return(&fromAddress)
-	m.EVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second)
 }
 
 func createFromAddress() types.EIP55Address {
@@ -343,6 +350,61 @@ func TestEVMService(t *testing.T) {
 				TxHash:   common.Hash{},
 				TxStatus: evm.TxFatal,
 			},
+		},
+		{
+			Name: "Fails with failed to get enabled addresses",
+			SetupMocks: func(m *Mocks, ctx any) {
+				// Clear the default expectation first
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				// Set new expectation
+				m.KeyStoreMock.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{}, errors.New("some error")).Once()
+			},
+			ExpectedError: "failed to get enabled addresses: some error",
+		},
+		{
+			Name: "Fails with no enabled addresses",
+			SetupMocks: func(m *Mocks, ctx any) {
+				// Clear the default expectation first
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				// Set new expectation
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{}, nil).Once()
+			},
+			ExpectedError: "no enabled addresses available",
+		},
+		{
+			Name: "Selects address with highest balance when multiple addresses available",
+			SetupMocks: func(m *Mocks, ctx any) {
+				highBalanceAddr := createFromAddress().Address()
+				lowBalanceAddr := common.HexToAddress("0x333")
+
+				// Clear the default expectation and return multiple addresses
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return(
+					[]common.Address{lowBalanceAddr, highBalanceAddr}, nil,
+				).Once()
+
+				// Mock BalanceAt: lowBalanceAddr has 0, highBalanceAddr has 1000
+				m.EvmClient.EXPECT().BalanceAt(mock.Anything, lowBalanceAddr, (*big.Int)(nil)).Return(big.NewInt(0), nil).Once()
+				m.EvmClient.EXPECT().BalanceAt(mock.Anything, highBalanceAddr, (*big.Int)(nil)).Return(big.NewInt(1000), nil).Once()
+
+				// Expect transaction to be created with the high balance address
+				expectedTxRequest := txmgr.TxRequest{
+					FromAddress:    highBalanceAddr,
+					ToAddress:      createToAddress(),
+					EncodedPayload: createPayload(),
+				}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
+					return txRequest.FromAddress == expectedTxRequest.FromAddress &&
+						txRequest.ToAddress == expectedTxRequest.ToAddress &&
+						slices.Equal(txRequest.EncodedPayload, expectedTxRequest.EncodedPayload)
+				})).Return(txmgr.Tx{}, nil).Once()
+
+				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Once()
+				txHash := common.HexToHash(ExpectedTxHash)
+				mockReceipt := NewChainReceipt(txHash, t)
+				m.TxManager.EXPECT().GetTransactionReceipt(mock.Anything, mock.Anything).Return(&mockReceipt, nil).Once()
+			},
+			ExpectedResult: &evm.TransactionResult{TxStatus: evm.TxSuccess, TxHash: common.HexToHash(ExpectedTxHash)},
 		},
 	}
 

@@ -179,7 +179,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 				Nonce:                  nil, // TON nonce check is skipped
 				Receiver:               receiverBytes,
 				MsgData:                []byte("hello CCIPReceiver"),
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100_000_000, false), // 0.1 TON
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100_000_000, true), // 0.1 TON
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)

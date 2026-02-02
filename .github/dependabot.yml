@@ -68,3 +68,83 @@ updates:
     labels:
       - "dependencies"
       - "ctf"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/smoke/cre/httpaction"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/smoke/cre/evm/evmread"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/smoke/cre/evm/logtrigger"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/regression/cre/consensus"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/regression/cre/http"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/regression/cre/evm/evmread-negative"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/regression/cre/evm/evmwrite-negative"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/regression/cre/evm/logtrigger-negative"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"
+  - package-ecosystem: gomod
+    directory: "/system-tests/tests/regression/cre/httpaction-negative"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "tests"

@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -22,6 +23,7 @@ type RunnerConfig struct {
 	EnableStandardCapabilities bool
 	Lggr                       logger.Logger
 	LifecycleHooks             v2.LifecycleHooks
+	WorkflowSettingsCfgFn      func(*cresettings.Workflows)
 }
 
 type RunnerHooks struct {
@@ -148,7 +150,7 @@ func (r *Runner) Run(
 		billingAddress = "localhost:4319"
 	}
 
-	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName)
+	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName, cfg.WorkflowSettingsCfgFn)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)

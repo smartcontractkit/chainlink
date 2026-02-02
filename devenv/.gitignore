@@ -1,0 +1,5 @@
+dashboards/dummy.json
+compose
+blockscout
+env-out.toml
+**/alloc.pprof

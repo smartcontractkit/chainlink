@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -23,12 +24,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
+	"github.com/spf13/cobra"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/spf13/cobra"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -474,6 +477,15 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
+			addresses, aErr := output.CreEnvironment.CldfEnvironment.DataStore.Addresses().Fetch()
+			if aErr != nil {
+				return errors.Wrap(aErr, "failed to fetch addresses from datastore")
+			}
+
+			stErr := in.SetAddresses(addresses)
+			if stErr != nil {
+				return errors.Wrap(stErr, "failed to set addresses on Config")
+			}
 			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 			if storeErr != nil {
 				return errors.Wrap(storeErr, "failed to store local CRE state")
@@ -638,14 +650,6 @@ func stopCmd() *cobra.Command {
 				} else {
 					framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
 				}
-
-				envArtifactFile := creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)
-				eErr := os.Remove(envArtifactFile)
-				if eErr != nil {
-					framework.L.Warn().Msgf("failed to remove local CRE environment artifact file: %s", eErr)
-				} else {
-					framework.L.Info().Msgf("removed local CRE environment artifact file: %s", envArtifactFile)
-				}
 			}
 
 			fmt.Println("Environment stopped successfully")
@@ -690,18 +694,7 @@ func StartCLIEnvironment(
 		if len(nodeSet.Capabilities) > 0 {
 			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
 		}
-		fmt.Print(libformat.PurpleText("\tGlobal capabilities: %s\n", capabilitiesDesc))
-		chainCapabilitiesDesc := "none"
-		if len(nodeSet.ChainCapabilities) > 0 {
-			chainCapList := []string{}
-			for capabilityName, chainCapability := range nodeSet.ChainCapabilities {
-				for _, chainID := range chainCapability.EnabledChains {
-					chainCapList = append(chainCapList, fmt.Sprintf("%s-%d", capabilityName, chainID))
-				}
-			}
-			chainCapabilitiesDesc = strings.Join(chainCapList, ", ")
-		}
-		fmt.Print(libformat.PurpleText("\tChain capabilities: %s\n", chainCapabilitiesDesc))
+		fmt.Print(libformat.PurpleText("\tCapabilities: %s\n", capabilitiesDesc))
 		fmt.Print(libformat.PurpleText("\tDON Types: %s\n\n", strings.Join(nodeSet.DONTypes, ", ")))
 	}
 
@@ -740,26 +733,6 @@ func StartCLIEnvironment(
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
-	}
-
-	capabilitiesContractFactoryFunctions := []cre.CapabilityRegistryConfigFn{}
-	for _, cap := range capabilities {
-		capabilitiesContractFactoryFunctions = append(capabilitiesContractFactoryFunctions, cap.CapabilityRegistryV1ConfigFn())
-	}
-
-	artifactPath, artifactErr := creenv.DumpArtifact(
-		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
-		*universalSetupOutput.Dons,
-		universalSetupOutput.CreEnvironment,
-		*in.JD.Out,
-		in.NodeSets,
-		capabilitiesContractFactoryFunctions,
-	)
-
-	if artifactErr != nil {
-		testLogger.Error().Err(artifactErr).Msg("failed to generate env artifact")
-	} else {
-		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
 	}
 
 	return universalSetupOutput, nil
@@ -1125,6 +1098,13 @@ func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
 	stages := 9
 	if in.S3ProviderInput != nil {
 		stages++
+	}
+
+	for _, ns := range in.NodeSets {
+		if slices.Contains(ns.DONTypes, cre.ShardDON) {
+			stages++
+			break
+		}
 	}
 
 	return stagegen.NewStageGen(stages, "STAGE")

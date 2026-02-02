@@ -1,0 +1,246 @@
+package ocr3_1
+
+import (
+	"encoding/json"
+	"os"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/view"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+)
+
+var wantOCR3_1Config = `{
+  "Signers": [
+    "011400b35409a8d4f9a18da55c5b2bb08a3f5f68d44442052000b8834eaa062f0df4ccfe7832253920071ec14dc4f78b13ecdda10b824e2dd3b6",
+    "0114008258f4c4761cc445333017608044a204fd0c006a052000247d0189f65f58be83a4e7d87ff338aaf8956e9acb9fcc783f34f9edc29d1b40",
+    "011400d4dcc573e9d24a8b27a07bba670ba3a2ab36e5bb052000ba20d3da9b07663f1e8039081a514649fd61a48be2d241bc63537ee47d028fcd",
+    "0114006607c140e558631407f33bafbabd103863cee876052000046faf34ebfe42510251e6098bc34fa3dd5f2de38ac07e47f2d1b34ac770639f",
+    "011400a6f35436cb7bffd615cc47a0a04aa0a78696a1440520001221e131ef21014a6a99ed22376eb869746a3b5e30fd202cf79e44efaeb8c5c2",
+    "011400657587eb55cecd6f90b97297b611c3024e488cc0052000425d1354a7b8180252a221040c718cac0ba0251c7efe31a2acefbba578dc2153",
+    "0114004885973b2fcf061d5cdfb8f74c5139bd3056e9da0520004a94c75cb9fe8b1fba86fd4b71ad130943281fdefad10216c46eb2285d60950f",
+    "011400213803bb9f9715379aaf11aadb0212369701dc0a05200096dc85670c49caa986de4ad288e680e9afb0f5491160dcbb4868ca718e194fc8",
+    "0114008c2aa1e6fad88a6006dfb116eb866cbad2910314052000bddafb20cc50d89e0ae2f244908c27b1d639615d8186b28c357669de3359f208",
+    "011400679296b7c1eb4948efcc87efc550940a182e610c0520004fa557850e4d5c21b3963c97414c1f37792700c4d3b8abdb904b765fd47e39bf"
+  ],
+  "Transmitters": [
+    "0x2877F08d9c5Cc9F401F730Fa418fAE563A9a2FF3",
+    "0x415aa1E9a1bcB3929ed92bFa1F9735Dc0D45AD31",
+    "0xCea84bC1881F3cE14BA13Dc3a00DC1Ff3D553fF0",
+    "0xA9eFB53c513E413762b2Be5299D161d8E6e7278e",
+    "0x6F5cAb24Fb7412bB516b3468b9F3a9c471d25fE5",
+    "0xdAd1F3F8ec690cf335D46c50EdA5547CeF875161",
+    "0x19e10B063a62B1574AE19020A64fDe6419892dA6",
+    "0x9ad9f3AD49e5aB0F28bD694d211a90297bD90D7f",
+    "0x31B179dcF8f9036C30f04bE578793e51bF14A39E",
+    "0x0b04cE574E80Da73191Ec141c0016a54A6404056"
+  ],
+  "F": 3,
+  "OnchainConfig": "0x",
+  "OffchainConfigVersion": 310,
+  "OffchainConfig": "0x980380e497d012b0038084af5fe0040aea04010af2042003dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1f20420255096a3b7ade10e29c648e0b407fc486180464f713446b1da04f013df6179c8f20420dba3c61e5f8bec594be481bcaf67ecea0d1c2950edb15b158ce3dbc77877def3f20420b4c4993d6c15fee63800db901a8b35fa419057610962caab1c1d7bed55709127f204202a4c7dec127fdd8145e48c5edb9467225098bd8c8ad1dade868325b787affbdef20420283471ed66d61fbe11f64eff65d738b59a0301c9a4f846280db26c64c9fdd3f8f20420aa3419628ea3536783742d17d8adf05681aa6a6bd2b206fbde78c7e5aa38586df2042001496edce35663071d74472e02119432ba059b3904d205e4358014410e4f2be3f20420ad08c2a5878cada53521f4e2bb449f191ccca7899246721a0deeea19f7b83f70f20420c805572b813a072067eab2087ddbee8aa719090e12890b15c01094f0d3f74a5ffa0434313244334b6f6f574d57554b646f41633272755a663966353570374e56466a37414669506d3637786a5138425a42776b71795976fa0434313244334b6f6f57436244694c3773503942566279354b615a7150706156503152426f6b6f613953687a483557686b5958343676fa0434313244334b6f6f5747446d424b5a37423350796e4772766648544a4d456563706a6648747339594b354e576b386f4a757863416ffa0434313244334b6f6f574363564c797471696e4438784d6e32374e766f6d6351686a326d714d567a7947656d7a366f50777631534d54fa0434313244334b6f6f57487152317732367948617454535a5157337862526374395378577a566a3958345370553931364879386a5967fa0434313244334b6f6f57523864356b625a6237596951574b7054314a3150664d714e6147416d62346a4246783944576167346870535afa0434313244334b6f6f574e4a38646533505555525a326f7563725654706e5254714e4254555977484c516a4b394c7a4e3345364d666efa0434313244334b6f6f57514d436a37335635786d436436433556734a723772624647325446394c7756634c69694271587073394d6743fa0434313244334b6f6f5741556167714d796373726f32376b467a6e5351524862686643424c78386e4b44347074546955474465333863fa0434313244334b6f6f5742434d43435a5a387835374158764a767043756a71685a7a546a57586252656152453854784e7235644d3455820503303031880580c8afa02590058094ebdc0398058094ebdc03a0058094ebdc03a8058094ebdc03b0058094ebdc03b8058094ebdc03c0058094ebdc03c8058094ebdc03d205f8010a20da47a8cc1c10796dd43f98ed113c648625e2e504c16ac5da9c65669e2377241b1220f5beca3bb11406079dc174183105c474c862a73c257ce8b3d9f5ca065e6264691a10805015e4203740495a23e93c1bd06ba81a10ca58ff36ffb0545dc3f800ddd6f8d0481a1076f664639ca8b5209e488895faa5460f1a104a1e89a7f2d8c89158f18856bf289c2a1a10c2f4330787831f419713ad4990e347d31a10fd403ec0797c001a2794b51d6178916d1a10e14fff88fdd3d1554ed861104ddc56a81a10b0284b9817fec2c3066c6f2651d17fc41a10b090233a67d502f78191c9e19a2a032b1a10e483414860bb612af50ee15ce8cd8ef5da0520abc1230000000000000000000000000000000000000000000000000000000000e00505ea0520abc1240000000000000000000000000000000000000000000000000000000000"
+}`
+
+var ocr3_1Cfg = `
+{
+  "DeltaProgressMillis":  5000,
+  "DeltaRoundMillis":     200,
+  "DeltaGraceMillis":     0,
+  "DeltaStageMillis":     0,
+  "MaxRoundsPerEpoch":    10,
+  "TransmissionSchedule": [
+    10
+  ],
+  "MaxDurationInitializationMillis": 10000,
+  "MaxDurationShouldAcceptAttestedReportMillis": 1000,
+  "MaxDurationShouldTransmitAcceptedReportMillis": 1000,
+
+  "WarnDurationQueryMillis":               1000,
+  "WarnDurationObservationMillis":         1000,
+  "WarnDurationValidateObservationMillis": 1000,
+  "WarnDurationObservationQuorumMillis":   1000,
+  "WarnDurationStateTransition":           1000,
+  "WarnDurationCommitted":                 1000,
+
+  "MaxFaultyOracles": 3,
+  "PrevConfigDigest": "abC1230000000000000000000000000000000000000000000000000000000000",
+  "PrevSeqNr": 5,
+  "PrevHistoryDigest": "abC1240000000000000000000000000000000000000000000000000000000000"
+}`
+
+func Test_configureOCR3_1Request_generateOCR3_1Config(t *testing.T) {
+	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
+	var cfg V3_1OracleConfig
+	err := json.Unmarshal([]byte(ocr3_1Cfg), &cfg)
+	require.NoError(t, err)
+	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"))
+	require.NoError(t, err)
+	b, err := json.MarshalIndent(got, "", "  ")
+	require.NoError(t, err)
+	require.Equal(t, wantOCR3_1Config, string(b))
+
+	t.Run("no multiple transmitters", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.TransmissionSchedule = []int{}
+		for i := 1; i <= len(nodes); i++ {
+			cfg2.TransmissionSchedule = append(cfg2.TransmissionSchedule, i)
+		}
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		require.Error(t, err)
+	})
+	t.Run("transmitter schedule equal num nodes", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		require.Error(t, err)
+	})
+}
+
+var ocr3_1CfgNoPrevConfigDigest = `
+{
+  "DeltaProgressMillis":  5000,
+  "DeltaRoundMillis":     200,
+  "DeltaGraceMillis":     0,
+  "DeltaStageMillis":     0,
+  "MaxRoundsPerEpoch":    10,
+  "TransmissionSchedule": [
+    10
+  ],
+  "MaxDurationInitializationMillis": 10000,
+  "MaxDurationShouldAcceptAttestedReportMillis": 1000,
+  "MaxDurationShouldTransmitAcceptedReportMillis": 1000,
+
+  "WarnDurationQueryMillis":               1000,
+  "WarnDurationObservationMillis":         1000,
+  "WarnDurationValidateObservationMillis": 1000,
+  "WarnDurationObservationQuorumMillis":   1000,
+  "WarnDurationStateTransition":           1000,
+  "WarnDurationCommitted":                 1000,
+
+  "MaxFaultyOracles": 3,
+  "PrevConfigDigest": "",
+  "PrevSeqNr": 0,
+  "PrevHistoryDigest": ""
+}`
+
+func Test_configureOCR3_1_NoPrevConfigDigest(t *testing.T) {
+	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
+	var cfg V3_1OracleConfig
+	err := json.Unmarshal([]byte(ocr3_1CfgNoPrevConfigDigest), &cfg)
+	require.NoError(t, err)
+	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"))
+	require.NoError(t, err)
+	_, err = json.MarshalIndent(got, "", "  ")
+	require.NoError(t, err)
+
+	t.Run("no multiple transmitters", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.TransmissionSchedule = []int{}
+		for i := 1; i <= len(nodes); i++ {
+			cfg2.TransmissionSchedule = append(cfg2.TransmissionSchedule, i)
+		}
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		require.Error(t, err)
+	})
+	t.Run("transmitter schedule equal num nodes", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		require.Error(t, err)
+	})
+}
+
+func loadTestData(t *testing.T, path string) []deployment.Node {
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var nopViews map[string]*view.NopViewV2
+	err = json.Unmarshal(data, &nopViews)
+	require.NoError(t, err)
+	require.Len(t, nopViews, 1)
+
+	names := make([]string, 0)
+	for k := range nopViews {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	// in general we can map from the view to the node, but we know the test data
+	var nodes []deployment.Node
+	// for _, nv := range nopViews {
+	for _, name := range names {
+		nv, ok := nopViews[name]
+		require.True(t, ok, "missing nop view for %s", name)
+		t.Logf("loading nop view for %s with %d nodes", name, len(nv.Nodes))
+
+		for _, n := range nv.Nodes {
+			node := deployment.Node{
+				NodeID:         n.NodeID,
+				IsBootstrap:    n.IsBootstrap,
+				SelToOCRConfig: make(map[chain_selectors.ChainDetails]deployment.OCRConfig),
+				AdminAddr:      n.PayeeAddress,
+			}
+			for chain, ocrKey := range n.OCRKeys {
+				// TODO: this decoding could be shared with NodeInfo
+				p, err := p2pkey.MakePeerID(ocrKey.PeerID)
+				require.NoError(t, err)
+				node.PeerID = p
+
+				b := common.Hex2Bytes(ocrKey.OffchainPublicKey)
+				var opk types2.OffchainPublicKey
+				copy(opk[:], b)
+
+				b = common.Hex2Bytes(ocrKey.ConfigEncryptionPublicKey)
+				var cpk types.ConfigEncryptionPublicKey
+				copy(cpk[:], b)
+
+				var pubkey types.OnchainPublicKey
+				if strings.HasPrefix(chain, "ethereum") {
+					// convert from pubkey to address
+					pubkey = common.HexToAddress(ocrKey.OnchainPublicKey).Bytes()
+				} else {
+					pubkey = common.Hex2Bytes(ocrKey.OnchainPublicKey)
+				}
+
+				ocrCfg := deployment.OCRConfig{
+					KeyBundleID:               ocrKey.KeyBundleID,
+					OffchainPublicKey:         opk,
+					OnchainPublicKey:          pubkey,
+					PeerID:                    p,
+					TransmitAccount:           types.Account(ocrKey.TransmitAccount),
+					ConfigEncryptionPublicKey: cpk,
+				}
+				var k chain_selectors.ChainDetails
+				switch chain {
+				case "aptos-testnet":
+					k = chain_selectors.ChainDetails{
+						ChainSelector: chain_selectors.APTOS_TESTNET.Selector,
+						ChainName:     chain,
+					}
+
+				case "ethereum-testnet-sepolia":
+					k = chain_selectors.ChainDetails{
+						ChainSelector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+						ChainName:     chain,
+					}
+				default:
+					t.Fatalf("unexpected chain %s", chain)
+				}
+				node.SelToOCRConfig[k] = ocrCfg
+			}
+
+			nodes = append(nodes, node)
+		}
+	}
+	require.Len(t, nodes, 10)
+	return nodes
+}

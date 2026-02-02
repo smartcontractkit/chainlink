@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const flag = cre.CustomComputeCapability
@@ -66,7 +65,9 @@ func (o *CustomCompute) PreEnvStartup(
 			Version:        "1.0.0",
 			CapabilityType: 1, // ACTION
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -75,12 +76,12 @@ func (o *CustomCompute) PreEnvStartup(
 }
 
 const configTemplate = `
-NumWorkers = {{.NumWorkers}}
+NumWorkers = {{printf "%d" .NumWorkers}}
 [rateLimiter]
-globalRPS = {{.GlobalRPS}}
-globalBurst = {{.GlobalBurst}}
-perSenderRPS = {{.PerSenderRPS}}
-perSenderBurst = {{.PerSenderBurst}}
+globalRPS = {{printf "%v" .GlobalRPS}}
+globalBurst = {{printf "%v" .GlobalBurst}}
+perSenderRPS = {{printf "%v" .PerSenderRPS}}
+perSenderBurst = {{printf "%v" .PerSenderBurst}}
 `
 
 func (o *CustomCompute) PostEnvStartup(
@@ -90,9 +91,9 @@ func (o *CustomCompute) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	capabilityConfig, ok := don.GetCapabilityConfig(flag)
 	if !ok {
-		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
+		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
 	var nodeSet cre.NodeSetWithCapabilityConfigs
@@ -106,7 +107,7 @@ func (o *CustomCompute) PostEnvStartup(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	templateData := envconfig.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityConfigOverrides())
+	templateData := capabilityConfig.Values
 	tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
 	if tmplErr != nil {
 		return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)
@@ -119,7 +120,7 @@ func (o *CustomCompute) PostEnvStartup(
 	configStr := configBuffer.String()
 
 	if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return errors.Wrapf(err, "%s template validation failed", flag)
+		return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	workerInput := cre_jobs.ProposeJobSpecInput{

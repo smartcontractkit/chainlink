@@ -24,13 +24,13 @@ import (
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"  // Register Aptos plugin config factories
@@ -723,12 +723,12 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		}
 
 		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
-			ChainID:                        chainID,
-			Relayer:                        relayer,
-			Transmitters:                   i.transmitters,
-			ExecBatchGasLimit:              execBatchGasLimit,
-			ChainFamily:                    relayChainFamily,
-			OfframpProgramAddress:          config.Config.OfframpAddress,
+			ChainID:               chainID,
+			Relayer:               relayer,
+			Transmitters:          i.transmitters,
+			ExecBatchGasLimit:     execBatchGasLimit,
+			ChainFamily:           relayChainFamily,
+			OfframpProgramAddress: config.Config.OfframpAddress,
 		})
 		if err1 != nil {
 			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does

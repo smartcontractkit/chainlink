@@ -6,6 +6,8 @@ import (
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	zkbindings "github.com/smartcontractkit/mcms/sdk/zksync/bindings"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -22,9 +24,9 @@ var OpEVMDeployCallProxy = opsutils.NewEVMDeployOperation(
 	commontypes.CallProxy,
 	bindings.CallProxyMetaData,
 	&opsutils.ContractOpts{
-		Version:     &deployment.Version1_0_0,
-		EVMBytecode: common.FromHex(bindings.CallProxyBin),
-		// ZkSyncVMBytecode not supported
+		Version:          &deployment.Version1_0_0,
+		EVMBytecode:      common.FromHex(bindings.CallProxyBin),
+		ZkSyncVMBytecode: zkbindings.CallProxyZkBytecode,
 	},
 	func(input OpEVMDeployCallProxyInput) []any {
 		return []any{
