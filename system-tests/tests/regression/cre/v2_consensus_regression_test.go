@@ -65,7 +65,7 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 
 		expectedError := consensusNegativeTest.expectedError
 
-		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, expectedError, 2*time.Minute)
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedError, 2*time.Minute)
 		testLogger.Info().Msg("Consensus Fail test successfully completed")
 	}
 }

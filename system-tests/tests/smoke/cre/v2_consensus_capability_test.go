@@ -30,6 +30,6 @@ func ExecuteConsensusTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 
 	expectedBeholderLog := "Successfully passed all consensus tests"
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, expectedBeholderLog, 4*time.Minute)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedBeholderLog, 4*time.Minute)
 	testLogger.Info().Msg("Consensus capability test completed")
 }

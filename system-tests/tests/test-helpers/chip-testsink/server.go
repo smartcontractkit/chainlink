@@ -108,9 +108,9 @@ func (s *Server) Run() error {
 func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
 	go func() {
 		if s.cfg.UpstreamEndpoint != "" {
-			context, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+			forwardCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancelFn()
-			_, err := s.upstream.Publish(context, event)
+			_, err := s.upstream.Publish(forwardCtx, event)
 			if err != nil {
 				log.Printf("failed to forward to upstream: %v", err)
 			}

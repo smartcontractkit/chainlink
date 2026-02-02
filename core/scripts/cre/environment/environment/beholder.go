@@ -401,7 +401,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port i
 
 	if !isPortAvailable(":" + strconv.Itoa(port)) {
 		return fmt.Errorf(`port %d is already in use. Most probably an instance of ChIP Test Sink is already running.
-If you want to use both together start ChiIP Ingress on a different port with '--grpc-port' flag
+If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
 and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, port)
 	}
 

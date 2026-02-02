@@ -118,7 +118,7 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 	return publishFn
 }
 
-// GetPublishFn returns a CHiP publish handler that demuxes events into the provided channels and saves all events to a file.
+// GetLoggingPublishFn returns a CHiP publish handler that demuxes events into the provided channels and saves all events to a file.
 // Useful when debugging failures of tests that depend on workflow logs.
 func GetLoggingPublishFn(
 	testLogger zerolog.Logger,
@@ -274,7 +274,7 @@ func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptest
 	grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
 	if !isPortAvailable(grpcListenAddr) {
 		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %s is already taken. Most probably an instance of ChIP Ingress is already running.
-If you want to use both together start ChiIP Ingress on a different port with '--grpc-port' flag
+If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
 and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 	}
 

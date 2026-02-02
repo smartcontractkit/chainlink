@@ -228,7 +228,7 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
 		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")
 	}
 }
@@ -269,7 +269,7 @@ func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNe
 
 		// For LogTrigger with EOA address, we expect engine initialization failure
 		// This is the correct behavior - the workflow engine should fail to initialize when trying to register a trigger with an invalid address
-		baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, 2*time.Minute)
+		baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, 2*time.Minute)
 		require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
 		require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
 		require.Contains(t, baseMsg.Labels["err"], evmNegativeTest.expectedError, "expected error message to contain "+evmNegativeTest.expectedError)
@@ -359,7 +359,7 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 		}
 		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
 		testLogger.Info().Msg("EVM Write Regression test successfully completed")
 	}
 }

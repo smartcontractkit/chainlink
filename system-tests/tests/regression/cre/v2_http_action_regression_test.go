@@ -136,7 +136,7 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Beholder...", httpActionTest.expectedError)
 
 	// Expect exact error message for this test case - no fallbacks
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorklfowEngineInitErrorLog, httpActionTest.expectedError, 60*time.Second)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, httpActionTest.expectedError, 60*time.Second)
 	testLogger.Info().Msg("HTTP Action failure test completed successfully")
 
 	// Note: Workflow cleanup happens via t.Cleanup() after this function returns

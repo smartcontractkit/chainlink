@@ -68,7 +68,7 @@ import (
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 )
 
-const WorklfowEngineInitErrorLog = "Workflow Engine initialization failed"
+const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
 
 /////////////////////////
 // ENVIRONMENT HELPERS //
@@ -181,7 +181,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 				// Process received messages
 				switch typedMsg := msg.(type) {
 				case *commonevents.BaseMessage:
-					if strings.Contains(typedMsg.Msg, WorklfowEngineInitErrorLog) {
+					if strings.Contains(typedMsg.Msg, WorkflowEngineInitErrorLog) {
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
