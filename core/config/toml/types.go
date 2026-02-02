@@ -146,6 +146,8 @@ type Secrets struct {
 
 	P2PKey          P2PKey          `toml:",omitempty"`
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
+	CSAKey          CSAKey          `toml:",omitempty"`
+	OCR2Key         OCR2Key         `toml:",omitempty"`
 
 	CRE CreSecrets `toml:",omitempty"`
 	CCV CCVSecrets `toml:",omitempty"`
@@ -492,6 +494,78 @@ func (p *DKGRecipientKey) validateMerge(f *DKGRecipientKey) (err error) {
 func (p *DKGRecipientKey) ValidateConfig() (err error) {
 	if (p.JSON != nil) != (p.Password != nil) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "DKGRecipientKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	return err
+}
+
+type CSAKey struct {
+	JSON     *models.Secret
+	Password *models.Secret
+}
+
+func (p *CSAKey) SetFrom(f *CSAKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+
+func (p *CSAKey) validateMerge(f *CSAKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *CSAKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "CSAKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	return err
+}
+
+type OCR2Key struct {
+	JSON     *models.Secret
+	Password *models.Secret
+}
+
+func (p *OCR2Key) SetFrom(f *OCR2Key) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+
+func (p *OCR2Key) validateMerge(f *OCR2Key) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *OCR2Key) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "OCR2Key", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
 	}
 	return err
 }

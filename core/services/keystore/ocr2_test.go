@@ -4,9 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kslib "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/ocr2offchain"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -209,4 +213,78 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		require.Len(t, tronKeys, 1)
 		require.Equal(t, chaintype.Tron, tronKeys[0].ChainType())
 	})
+}
+
+func Test_OCR2KeyStore_KeystoreLibCompatibility(t *testing.T) {
+	ctx := testutils.Context(t)
+	password := "my-password"
+	chainType := "evm"
+
+	ks, err := kslib.LoadKeystore(ctx, kslib.NewMemoryStorage(), password)
+	require.NoError(t, err)
+
+	corekeysKs := corekeys.NewStore(ks)
+
+	encryptedBundle, err := corekeysKs.GenerateEncryptedOCRKeyBundle(ctx, chainType, password)
+	require.NoError(t, err)
+
+	signingKeyPath := kslib.NewKeyPath(ocr2offchain.PrefixOCR2Offchain, "default", ocr2offchain.OCR2OffchainSigning)
+	encryptionKeyPath := kslib.NewKeyPath(ocr2offchain.PrefixOCR2Offchain, "default", ocr2offchain.OCR2OffchainEncryption)
+	onchainKeyPath := kslib.NewKeyPath(corekeys.PrefixOCR2Onchain, "default", chainType)
+
+	getKeysResp, err := ks.GetKeys(ctx, kslib.GetKeysRequest{
+		KeyNames: []string{
+			signingKeyPath.String(),
+			encryptionKeyPath.String(),
+			onchainKeyPath.String(),
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, getKeysResp.Keys, 3)
+
+	var expectedSigningPubKey, expectedEncryptionPubKey, expectedOnchainPubKey []byte
+	for _, key := range getKeysResp.Keys {
+		switch key.KeyInfo.Name {
+		case signingKeyPath.String():
+			expectedSigningPubKey = key.KeyInfo.PublicKey
+		case encryptionKeyPath.String():
+			expectedEncryptionPubKey = key.KeyInfo.PublicKey
+		case onchainKeyPath.String():
+			expectedOnchainPubKey = key.KeyInfo.PublicKey
+		}
+	}
+
+	require.NotEmpty(t, expectedSigningPubKey)
+	require.NotEmpty(t, expectedEncryptionPubKey)
+	require.NotEmpty(t, expectedOnchainPubKey)
+
+	db := pgtest.NewSqlxDB(t)
+	keyStore := keystore.ExposedNewMaster(t, db)
+	require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
+
+	ocr2KeyStore := keyStore.OCR2()
+
+	importedKey, err := ocr2KeyStore.Import(ctx, encryptedBundle, password)
+	require.NoError(t, err)
+
+	assert.Equal(t, chaintype.EVM, importedKey.ChainType())
+
+	importedSigningPubKey := importedKey.OffchainPublicKey()
+	assert.Equal(t, expectedSigningPubKey, importedSigningPubKey[:])
+
+	importedConfigPubKey := importedKey.ConfigEncryptionPublicKey()
+	assert.Equal(t, expectedEncryptionPubKey, importedConfigPubKey[:])
+
+	bundle, err := corekeys.FromEncryptedOCRKeyBundle(encryptedBundle, password)
+	require.NoError(t, err)
+
+	onchainPrivKey, err := crypto.ToECDSA(bundle.OnchainSigningKey)
+	require.NoError(t, err)
+	derivedOnchainPubKey := crypto.FromECDSAPub(&onchainPrivKey.PublicKey)
+	require.Equal(t, expectedOnchainPubKey, derivedOnchainPubKey)
+
+	expectedOnchainAddress := crypto.PubkeyToAddress(onchainPrivKey.PublicKey)
+
+	importedOnchainPubKey := importedKey.PublicKey()
+	assert.Equal(t, expectedOnchainAddress[:], []byte(importedOnchainPubKey))
 }

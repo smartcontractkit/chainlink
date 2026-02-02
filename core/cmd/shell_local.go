@@ -37,6 +37,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	beholderServices "github.com/smartcontractkit/chainlink/v2/core/services/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -318,6 +319,28 @@ func (s *Shell) RunNode(c *cli.Context) error {
 	return nil
 }
 
+type ks[K any] interface {
+	Import(ctx context.Context, keyJSON []byte, password string) (K, error)
+}
+
+func importKeyIfProvided[K any](ctx context.Context, lggr logger.Logger, keyType string, importableKey config.ImportableKey, k ks[K]) error {
+	keyJSON := importableKey.JSON()
+	if keyJSON == "" {
+		return nil
+	}
+
+	lggr.Debugf("Importing %s %s", keyType, keyJSON)
+	_, err := k.Import(ctx, []byte(keyJSON), importableKey.Password())
+	if errors.Is(err, keystore.ErrKeyExists) {
+		lggr.Debugf("%s key already exists %s", keyType, keyJSON)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("error importing %s key: %w", keyType, err)
+	}
+
+	return nil
+}
+
 func (s *Shell) runNode(c *cli.Context) error {
 	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
@@ -430,6 +453,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.OCR2().Enabled() {
+		err2 := importKeyIfProvided(rootCtx, lggr, "OCR2Key", s.Config.ImportedOCR2Key(), app.GetKeyStore().OCR2())
+		if err2 != nil {
+			return s.errorOut(err2)
+		}
+
 		var enabledChains []chaintype.ChainType
 		if s.Config.EVMEnabled() {
 			enabledChains = append(enabledChains, chaintype.EVM)
@@ -455,23 +483,19 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.SuiEnabled() {
 			enabledChains = append(enabledChains, chaintype.Sui)
 		}
-		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
+		err2 = app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure ocr key: %w", err2)
 		}
 	}
 
 	if s.Config.P2P().Enabled() {
-		if s.Config.ImportedP2PKey().JSON() != "" {
-			lggr.Debugf("Importing p2p key %s", s.Config.ImportedP2PKey().JSON())
-			_, err2 := app.GetKeyStore().P2P().Import(rootCtx, []byte(s.Config.ImportedP2PKey().JSON()), s.Config.ImportedP2PKey().Password())
-			if errors.Is(err2, keystore.ErrKeyExists) {
-				lggr.Debugf("P2P key already exists %s", s.Config.ImportedP2PKey().JSON())
-			} else if err2 != nil {
-				return s.errorOut(fmt.Errorf("error importing p2p key: %w", err2))
-			}
+		err2 := importKeyIfProvided(rootCtx, lggr, "P2P", s.Config.ImportedP2PKey(), app.GetKeyStore().P2P())
+		if err2 != nil {
+			return s.errorOut(err2)
 		}
-		err2 := app.GetKeyStore().P2P().EnsureKey(rootCtx)
+
+		err2 = app.GetKeyStore().P2P().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure p2p key: %w", err2)
 		}
@@ -532,17 +556,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.CRE().EnableDKGRecipient() {
-		if s.Config.ImportedDKGRecipientKey().JSON() != "" {
-			lggr.Debugf("Importing DKG recipient key %s", s.Config.ImportedDKGRecipientKey().JSON())
-			_, err2 := app.GetKeyStore().DKGRecipient().Import(rootCtx, []byte(s.Config.ImportedDKGRecipientKey().JSON()), s.Config.ImportedDKGRecipientKey().Password())
-			if errors.Is(err2, keystore.ErrKeyExists) {
-				lggr.Debugf("DKG recipient key already exists %s", s.Config.ImportedDKGRecipientKey().JSON())
-			} else if err2 != nil {
-				return s.errorOut(fmt.Errorf("error importing dkg recipient key: %w", err2))
-			}
+		err2 := importKeyIfProvided(rootCtx, lggr, "DKG Recipient", s.Config.ImportedDKGRecipientKey(), app.GetKeyStore().DKGRecipient())
+		if err2 != nil {
+			return s.errorOut(err2)
 		}
 
-		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
+		err2 = app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure dkg recipient key: %w", err2)
 		}
@@ -551,6 +570,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 	err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
 	if err2 != nil {
 		return fmt.Errorf("failed to ensure workflow key: %w", err2)
+	}
+
+	err2 = importKeyIfProvided(rootCtx, lggr, "CSA", s.Config.ImportedCSAKey(), app.GetKeyStore().CSA())
+	if err2 != nil {
+		return s.errorOut(err2)
 	}
 
 	err2 = app.GetKeyStore().CSA().EnsureKey(rootCtx)

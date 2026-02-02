@@ -880,6 +880,53 @@ func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMon
 	return _c
 }
 
+// ImportedCSAKey provides a mock function with no fields
+func (_m *GeneralConfig) ImportedCSAKey() config.ImportableKey {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedCSAKey")
+	}
+
+	var r0 config.ImportableKey
+	if rf, ok := ret.Get(0).(func() config.ImportableKey); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableKey)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedCSAKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedCSAKey'
+type GeneralConfig_ImportedCSAKey_Call struct {
+	*mock.Call
+}
+
+// ImportedCSAKey is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedCSAKey() *GeneralConfig_ImportedCSAKey_Call {
+	return &GeneralConfig_ImportedCSAKey_Call{Call: _e.mock.On("ImportedCSAKey")}
+}
+
+func (_c *GeneralConfig_ImportedCSAKey_Call) Run(run func()) *GeneralConfig_ImportedCSAKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedCSAKey_Call) Return(_a0 config.ImportableKey) *GeneralConfig_ImportedCSAKey_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedCSAKey_Call) RunAndReturn(run func() config.ImportableKey) *GeneralConfig_ImportedCSAKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ImportedDKGRecipientKey provides a mock function with no fields
 func (_m *GeneralConfig) ImportedDKGRecipientKey() config.ImportableKey {
 	ret := _m.Called()
@@ -970,6 +1017,53 @@ func (_c *GeneralConfig_ImportedEthKeys_Call) Return(_a0 config.ImportableChainK
 }
 
 func (_c *GeneralConfig_ImportedEthKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedEthKeys_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ImportedOCR2Key provides a mock function with no fields
+func (_m *GeneralConfig) ImportedOCR2Key() config.ImportableKey {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedOCR2Key")
+	}
+
+	var r0 config.ImportableKey
+	if rf, ok := ret.Get(0).(func() config.ImportableKey); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableKey)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedOCR2Key_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedOCR2Key'
+type GeneralConfig_ImportedOCR2Key_Call struct {
+	*mock.Call
+}
+
+// ImportedOCR2Key is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedOCR2Key() *GeneralConfig_ImportedOCR2Key_Call {
+	return &GeneralConfig_ImportedOCR2Key_Call{Call: _e.mock.On("ImportedOCR2Key")}
+}
+
+func (_c *GeneralConfig_ImportedOCR2Key_Call) Run(run func()) *GeneralConfig_ImportedOCR2Key_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedOCR2Key_Call) Return(_a0 config.ImportableKey) *GeneralConfig_ImportedOCR2Key_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedOCR2Key_Call) RunAndReturn(run func() config.ImportableKey) *GeneralConfig_ImportedOCR2Key_Call {
 	_c.Call.Return(run)
 	return _c
 }

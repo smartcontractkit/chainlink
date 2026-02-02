@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kslib "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -176,4 +178,38 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 	})
+}
+
+func Test_CSAKeyStore_KeystoreLibCompatibility(t *testing.T) {
+	ctx := testutils.Context(t)
+	password := "my-password"
+
+	ks, err := kslib.LoadKeystore(ctx, kslib.NewMemoryStorage(), password)
+	require.NoError(t, err)
+
+	corekeysKs := corekeys.NewStore(ks)
+
+	encryptedKey, err := corekeysKs.GenerateEncryptedCSAKey(ctx, password)
+	require.NoError(t, err)
+
+	csaKeyPath := kslib.NewKeyPath(corekeys.TypeCSA, "default")
+	getKeysResp, err := ks.GetKeys(ctx, kslib.GetKeysRequest{
+		KeyNames: []string{csaKeyPath.String()},
+	})
+	require.NoError(t, err)
+	require.Len(t, getKeysResp.Keys, 1)
+
+	expectedPublicKey := getKeysResp.Keys[0].KeyInfo.PublicKey
+	require.NotEmpty(t, expectedPublicKey)
+
+	db := pgtest.NewSqlxDB(t)
+	keyStore := keystore.ExposedNewMaster(t, db)
+	require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
+
+	csaKeyStore := keyStore.CSA()
+
+	importedKey, err := csaKeyStore.Import(ctx, encryptedKey, password)
+	require.NoError(t, err)
+
+	assert.Equal(t, expectedPublicKey, []byte(importedKey.PublicKey))
 }

@@ -573,6 +573,14 @@ func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
 	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
 }
 
+func (g *generalConfig) ImportedCSAKey() coreconfig.ImportableKey {
+	return &importedCSAKeyConfig{s: g.secrets.CSAKey}
+}
+
+func (g *generalConfig) ImportedOCR2Key() coreconfig.ImportableKey {
+	return &importedOCR2KeyConfig{s: g.secrets.OCR2Key}
+}
+
 func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
 }
