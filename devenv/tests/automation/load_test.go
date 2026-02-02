@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,12 +17,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/leak"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	de "github.com/smartcontractkit/chainlink/devenv"
@@ -46,7 +50,7 @@ func TestLoad(t *testing.T) {
 				UpkeepFundingLink: 1_000_000,
 			},
 			Load: Load{
-				DurationSec:                   7200,
+				DurationSec:                   1800,
 				NumberOfEvents:                1,
 				NumberOfSpamMatchingEvents:    1,
 				NumberOfSpamNonMatchingEvents: 0,
@@ -117,7 +121,7 @@ func TestLoad(t *testing.T) {
 
 			require.Equal(t, "1337", in.Blockchains[0].ChainID, "automation smoke tests can only be run on simulated network. If do want to run on a live network, please read the code, understand the implications (e.g. potential fund loss) and adjust the test accordingly")
 
-			keysRequired := tc.UpkeepCount * 20
+			keysRequired := tc.UpkeepCount * 5
 
 			// on simulated network create new ephemeral addresses if insufficient private keys were provided
 			// we ignore key at index 0, because it is the root key, which is not used during the test
@@ -273,11 +277,16 @@ func TestLoad(t *testing.T) {
 				Str("Duration", testSetupDuration.String()).
 				Msg("Test setup ended")
 
+			keyLogger := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
+			keyPool, err := NewKeyPool(keyLogger, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, a.ChainClient.Addresses[1:], in.Blockchains[0].Type == blockchain.TypeAnvil)
+			require.NoError(t, err, "failed to create key pool")
+
 			gun, gErr := NewLogTriggerUser(
 				l,
 				configs,
 				a.ChainClient,
 				multicallAddress.Hex(),
+				keyPool,
 			)
 			require.NoError(t, gErr, "failed to create LogTriggerUser WASP gun")
 
