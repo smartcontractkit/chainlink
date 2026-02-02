@@ -265,7 +265,7 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 				return
 			}
 
-			tx, err := contracts.MultiCallLogTriggerLoadGen(m.client, keyIndex+1, big.NewInt(int64(nonce)), m.multiCallAddress, m.addresses, a)
+			tx, err := contracts.MultiCallLogTriggerLoadGen(m.client, keyIndex+1, big.NewInt(int64(nonce)), m.multiCallAddress, m.addresses, a) //nolint:gosec // we will never have that many keys to cause an overflow
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
 				resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
