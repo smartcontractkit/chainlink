@@ -91,6 +91,7 @@ type EngineLimiters struct {
 	ChainReadCalls    limits.BoundLimiter[int]
 	ConsensusCalls    limits.BoundLimiter[int]
 	HTTPActionCalls   limits.BoundLimiter[int]
+	SecretsCalls      limits.BoundLimiter[int]
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -186,6 +187,13 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return
 	}
 	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
+	if err != nil {
+		return
+	}
+	l.SecretsCalls, err = limits.MakeBoundLimiter(lf, cfg.Secrets.CallLimit)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -212,6 +220,7 @@ func (l *EngineLimiters) Close() error {
 		l.ChainReadCalls,
 		l.ConsensusCalls,
 		l.HTTPActionCalls,
+		l.SecretsCalls,
 	)
 }
 

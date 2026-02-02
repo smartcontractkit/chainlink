@@ -150,7 +150,7 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 		}
 
 		framework.L.Info().Str("state file", config.MustBillingStateFileAbsPath(relativePathToRepoRoot)).Msg("Billing state file was not found. Starting Billing...")
-		cmd := exec.CommandContext(context.Background(), "go", "run", ".", "env", "billing", "start")
+		cmd := exec.CommandContext(t.Context(), "go", "run", ".", "env", "billing", "start")
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
