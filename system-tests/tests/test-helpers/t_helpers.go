@@ -326,7 +326,7 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName, workflowDONName string, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation string) (string, string) {
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
@@ -336,8 +336,10 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(workflowDONName), compressedWorkflowWasmPath, workflowConfigFilePath)
-	require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
+	for _, don := range workflowDONs {
+		copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(don.Name), compressedWorkflowWasmPath, workflowConfigFilePath)
+		require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
+	}
 	testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
 
 	return compressedWorkflowWasmPath, workflowConfigFilePath
@@ -624,16 +626,17 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		Msgf("compiling and registering workflow '%s'", workflowName)
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
-	workflowDOName := ""
+	workflowDONs := make([]*cre.Don, 0)
 	for _, don := range testEnv.Dons.List() {
-		if don.ID == testEnv.Dons.MustWorkflowDON().ID {
-			workflowDOName = don.Name
-			break
+		if !don.HasFlag(cre.WorkflowDON) {
+			continue
 		}
+		workflowDONs = append(workflowDONs, don)
 	}
-	require.NotEmpty(t, workflowDOName, "failed to find workflow DON in the topology")
 
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDOName, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
+	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
+
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
