@@ -34,8 +34,8 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
 
 	// Add extra padded zeros to the feed IDs
+	extraPaddedZeros := strings.Repeat("0", 32)
 	for i := range feedState.Feeds {
-		extraPaddedZeros := strings.Repeat("0", 32)
 		feedState.Feeds[i].FeedID += extraPaddedZeros
 	}
 

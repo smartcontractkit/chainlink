@@ -12,7 +12,6 @@ import (
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -20,7 +19,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -31,19 +29,16 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -97,23 +92,25 @@ func (o *EVM) PreEnvStartup(
 		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, don.NodeSets(), currentConfig)
-		if updErr != nil {
-			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
-		}
-
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfigPtr := ptr.Ptr(currentConfig)
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-	for _, chainID := range don.NodeSets().ChainCapabilities[flag].EnabledChains {
+
+	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
+	if err != nil {
+		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
+	}
+
+	for _, chainID := range enabledChainIDs {
 		selector, selectorErr := chainselectors.SelectorFromChainId(chainID)
 		if selectorErr != nil {
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
 
-		evmMethodConfigs, err := getEvmMethodConfigs(don.NodeSets())
+		evmMethodConfigs, err := getEvmMethodConfigs(don.MustNodeSet())
 		if err != nil {
 			return nil, errors.Wrap(err, "there was an error getting EVM method configs")
 		}
@@ -133,43 +130,6 @@ func (o *EVM) PreEnvStartup(
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
 	}, nil
-}
-
-func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.NodeSet, currentConfig string) (*string, error) {
-	chainsFromAddress, err := findNodeAddressPerChain(nodeSet, workerNode)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get chains with from address")
-	}
-
-	var typedConfig corechainlink.Config
-	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
-	if unmarshallErr != nil {
-		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
-	}
-
-	if len(typedConfig.EVM) < len(chainsFromAddress) {
-		return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add evm config. Expected at least %d chains, but found %d", workerNode.Index, len(chainsFromAddress), len(typedConfig.EVM))
-	}
-
-	for idx, evmChain := range typedConfig.EVM {
-		chainID := libc.MustSafeUint64(evmChain.ChainID.Int64())
-		addr, ok := chainsFromAddress[chainID]
-		if ok {
-			// if present means we need fromAddress for this chain
-			address, err := types.NewEIP55Address(addr.Hex())
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to convert fromAddress to EIP55Address for chain %d", chainID)
-			}
-			typedConfig.EVM[idx].Workflow.FromAddress = &address
-		}
-	}
-
-	stringifiedConfig, mErr := toml.Marshal(typedConfig)
-	if mErr != nil {
-		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
-	}
-
-	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
 func (o *EVM) PostEnvStartup(
@@ -304,16 +264,6 @@ func createJobs(
 ) error {
 	specs := make(map[string][]string)
 
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
-	if !ok {
-		return fmt.Errorf("%s config not found in capabilities config: %v", flag, creEnv.CapabilityConfigs)
-	}
-
-	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
-	if cErr != nil {
-		return errors.Wrap(cErr, "failed to get command for cron capability")
-	}
-
 	var nodeSet cre.NodeSetWithCapabilityConfigs
 	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
 		if ns.GetName() == don.Name {
@@ -335,12 +285,12 @@ func createJobs(
 		return errors.Wrap(wErr, "failed to find worker nodes")
 	}
 
-	chainConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
-	if !ok {
-		return fmt.Errorf("could not find capability config for capability %s in node set %s", flag, nodeSet.GetName())
+	enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(flag)
+	if err != nil {
+		return fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
 
-	for _, chainID := range chainConfig.EnabledChains {
+	for _, chainID := range enabledChainIDs {
 		chainSelector, selErr := chainselectors.SelectorFromChainId(chainID)
 		if selErr != nil {
 			return errors.Wrapf(selErr, "failed to get chain selector from chainID %d", chainID)
@@ -396,6 +346,16 @@ func createJobs(
 			}
 		}
 
+		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
+		if resolveErr != nil {
+			return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
+		}
+
+		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+		if cErr != nil {
+			return errors.Wrap(cErr, "failed to get command for Read Contract capability")
+		}
+
 		for _, workerNode := range workerNodes {
 			evmKey, ok := workerNode.Keys.EVM[chainID]
 			if !ok {
@@ -415,11 +375,7 @@ func createJobs(
 			}
 
 			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
-
-			_, templateData, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
-			if rErr != nil {
-				return errors.Wrap(rErr, "failed to resolve capability config for chain")
-			}
+			templateData := capabilityConfig.Values
 
 			var aErr error
 			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)
@@ -440,7 +396,7 @@ func createJobs(
 			configStr := configBuffer.String()
 
 			if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-				return errors.Wrapf(err, "%s template validation failed", flag)
+				return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 			}
 
 			evmKeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain
@@ -523,20 +479,6 @@ func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, node
 		"CreForwarderAddress": creForwarderAddress,
 		"NodeAddress":         nodeAddress,
 	}
-}
-
-func findNodeAddressPerChain(nodeSet *cre.NodeSet, workerNode *cre.NodeMetadata) (map[uint64]common.Address, error) {
-	// get all the forwarders and add workflow config (FromAddress) for chains that have evm enabled
-	data := make(map[uint64]common.Address)
-	for _, chainID := range nodeSet.ChainCapabilities[flag].EnabledChains {
-		evmKey, ok := workerNode.Keys.EVM[chainID]
-		if !ok {
-			return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-		}
-		data[chainID] = evmKey.PublicAddress
-	}
-
-	return data, nil
 }
 
 // getEvmMethodConfigs returns the method configs for all EVM methods we want to support, if any method is missing it

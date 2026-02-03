@@ -176,6 +176,14 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.CCIPSpec != nil {
 			return p.CCIPSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.CCVCommitteeVerifierJobSpec:
+		if p.CCVCommitteeVerifierSpec != nil {
+			return p.CCVCommitteeVerifierSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.CCVExecutorJobSpec:
+		if p.CCVExecutorSpec != nil {
+			return p.CCVExecutorSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

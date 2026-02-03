@@ -26,7 +26,8 @@ import (
 )
 
 type MCMSConfig struct {
-	MinDelay time.Duration `json:"minDelay" yaml:"minDelay"` // delay for timelock worker to execute the transfers.
+	MinDelay          time.Duration `json:"minDelay" yaml:"minDelay"`                   // delay for timelock worker to execute the transfers.
+	TimeLockQualifier string        `json:"timeLockQualifier" yaml:"timeLockQualifier"` // qualifier to find the timelock contract in dataStore
 }
 
 type AddressType string

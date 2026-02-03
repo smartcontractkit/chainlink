@@ -43,13 +43,7 @@
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time"]
-
-  # Enable capabilities per chain with optional per-chain overrides
-  [nodesets.chain_capabilities]
-    # Tron is configured as an EVM chain so we can use all the EVM capabilities.
-    read-contract = ["1337", "3360022319"]
-    write-evm = ["1337", "3360022319"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "write-evm-3360022319", "read-contract-1337", "read-contract-3360022319"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 

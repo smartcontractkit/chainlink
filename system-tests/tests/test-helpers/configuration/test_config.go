@@ -4,7 +4,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -16,14 +15,13 @@ type TestConfig struct {
 	EnvironmentDirPath       string
 	EnvironmentStateFile     string
 	EnvironmentArtifactPaths string
-	BeholderStateFile        string
+	ChipIngressGRPCPort      string
 }
 
 // TestEnvironment holds references to the main test components
 type TestEnvironment struct {
 	Config         *envconfig.Config
 	TestConfig     *TestConfig
-	EnvArtifact    *environment.EnvArtifact
 	Logger         zerolog.Logger
 	CreEnvironment *cre.Environment
 	Dons           *cre.Dons

@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
+	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -47,6 +49,12 @@ func GetCurrentInboundRateLimiterState(t TokenPoolContract, remoteChainSelector 
 	case *usdc_token_pool.USDCTokenPool:
 		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
+	case *burn_mint_token_pool_v1_6_1.BurnMintTokenPool:
+		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
+		return token_pool.RateLimiterTokenBucket(state), err
+	case *lock_release_token_pool_v1_6_1.LockReleaseTokenPool:
+		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
+		return token_pool.RateLimiterTokenBucket(state), err
 	default:
 		return token_pool.RateLimiterTokenBucket{}, fmt.Errorf("unknown type %T", t)
 	}
@@ -67,6 +75,12 @@ func GetCurrentOutboundRateLimiterState(t TokenPoolContract, remoteChainSelector
 		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *usdc_token_pool.USDCTokenPool:
+		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
+		return token_pool.RateLimiterTokenBucket(state), err
+	case *burn_mint_token_pool_v1_6_1.BurnMintTokenPool:
+		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
+		return token_pool.RateLimiterTokenBucket(state), err
+	case *lock_release_token_pool_v1_6_1.LockReleaseTokenPool:
 		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	default:

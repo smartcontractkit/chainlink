@@ -38,3 +38,6 @@ state/
 bun.lock
 package.json
 *.js
+
+# tmp folders that might not be deleted if process is interrupted
+.tmp-capability-binaries*/
