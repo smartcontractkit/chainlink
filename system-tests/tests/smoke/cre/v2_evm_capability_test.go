@@ -39,8 +39,16 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const workflowFileLocation = "./evm/evmread/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	listenerCtx, messageChan, _ := t_helpers.StartBeholder(t, lggr, testEnv)
-	go t_helpers.LogBeholderMessages(listenerCtx, lggr, messageChan)
+	userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
+	baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
+
+	// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/evm_read_workflow_test.log"))
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
 
 	chainLock := sync.Mutex{}
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
@@ -71,6 +79,18 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			})
 		}
 	}
+}
+
+func makeSinkCh[T any]() chan T {
+	c := make(chan T, 1)
+	go func() {
+		for range c {
+			// drain the channel as content is processed elsewhere
+			// no:lint:revive
+		}
+	}()
+
+	return c
 }
 
 func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain, testCase evm_config.TestCase, workflowName string) evm_config.Config {
