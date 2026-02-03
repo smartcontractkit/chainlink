@@ -93,7 +93,7 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	framework.L.Info().Msgf("Secure mint job is successfully posted. Job spec:\n %v", jobSpec)
 
 	// trigger workflow
-	trigger := createFakeTrigger(t, &s, tenv.Dons)
+	trigger := createFakeTrigger(t, &s)
 	ctx, cancel := context.WithCancel(t.Context())
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
@@ -528,7 +528,7 @@ func (f *fakeTrigger) createReport() (*values.Map, error) {
 	return event, nil
 }
 
-func createFakeTrigger(t *testing.T, s *setup, dons *cre.Dons) *fakeTrigger {
+func createFakeTrigger(t *testing.T, s *setup) *fakeTrigger {
 	client := createMockClient(t)
 	framework.L.Info().Msg("Successfully exported ocr2 keys")
 

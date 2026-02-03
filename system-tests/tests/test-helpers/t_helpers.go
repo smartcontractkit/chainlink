@@ -68,6 +68,8 @@ import (
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 )
 
+const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
+
 /////////////////////////
 // ENVIRONMENT HELPERS //
 /////////////////////////
@@ -103,12 +105,11 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 
 	enabledChains := map[string]struct{}{}
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		require.NoError(t, nodeSet.ParseChainCapabilities())
-		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
-			continue
-		}
 
-		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
+		enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(cre.EVMCapability)
+		require.NoError(t, err, "failed to get enabled chain IDs for EVM capability")
+
+		for _, chainID := range enabledChainIDs {
 			strChainID := strconv.FormatUint(chainID, 10)
 			enabledChains[strChainID] = struct{}{}
 		}
@@ -124,7 +125,7 @@ Recommendation: Use it in tests that need to listen for Beholder messages.
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	beholder, err := NewBeholder(framework.L, testEnv.TestConfig)
 	require.NoError(t, err, "failed to create beholder instance")
 
 	// We are interested in UserLogs (successful execution)
@@ -179,7 +180,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 				// Process received messages
 				switch typedMsg := msg.(type) {
 				case *commonevents.BaseMessage:
-					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
+					if strings.Contains(typedMsg.Msg, WorkflowEngineInitErrorLog) {
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:

@@ -4,7 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
@@ -16,11 +17,19 @@ import (
 
 func ExecuteDonTimeTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
-	timeout := 2 * time.Minute
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time_consensus/main.go"
 	workflowName := "timebeholder"
 
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
 
 	testLogger.Info().Msg("Creating Cron workflow configuration file...")
 	workflowConfig := crontypes.WorkflowConfig{
@@ -29,7 +38,6 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedBeholderLog := "Verified consensus on DON Time"
-	err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "DON Time test failed, Beholder should not return an error")
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedBeholderLog, 2*time.Minute)
 	testLogger.Info().Msg("DON Time test completed")
 }

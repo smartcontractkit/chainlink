@@ -172,6 +172,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -230,6 +231,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -274,6 +276,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -322,6 +325,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -393,6 +397,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -492,6 +497,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
 		owner,
 		"workflowName",
 		"workflowID",
@@ -633,4 +639,51 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 		},
 	)
 	return &localRegistry
+}
+
+func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+
+	f, n := 2, 3
+	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(f, n)
+	require.NoError(t, err)
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	semaphore := limits.WorkflowResourcePoolLimiter[int](5)
+	// bound limiter of 1 call allowed
+	secretsCallsLimit := limits.NewBoundLimiter[int](1)
+
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
+		reg,
+		lggr,
+		semaphore,
+		secretsCallsLimit,
+		"0x1111111111111111111111111111111111111111",
+		"wf",
+		"wfID",
+		"phaseID",
+		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+	)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	req := &sdkpb.GetSecretsRequest{
+		Requests: []*sdkpb.SecretRequest{
+			{Id: "R1"},
+		},
+	}
+
+	// 1st call to occupy the only available slot in the limiter
+	_, _ = sf.GetSecrets(ctx, req)
+
+	// second call should fail due to exceeding the bound limiter (limit == 1)
+	_, err = sf.GetSecrets(ctx, req)
+	require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
 }

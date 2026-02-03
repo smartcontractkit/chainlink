@@ -38,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 )
 
@@ -91,18 +90,23 @@ func (o *EVM) PreEnvStartup(
 		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}
 
+	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
+	if err != nil {
+		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
+	}
+
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don.NodeSets().ChainCapabilities, creEnv)
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don, enabledChainIDs, creEnv)
 		if updErr != nil {
 			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
 
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-	for _, chainID := range don.NodeSets().ChainCapabilities[flag].EnabledChains {
+	for _, chainID := range enabledChainIDs {
 		fullName := corevm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 
@@ -245,11 +249,11 @@ func configureTronForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, 
 	return nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainCapabilityConfigs map[string]*cre.ChainCapabilityConfig, creEnv *cre.Environment) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, don *cre.DonMetadata, enabledChains []uint64, creEnv *cre.Environment) (*string, error) {
 	writeEvmConfigs := []writeEVMData{}
 
 	// for each worker node find all supported chains and node's public address for each chain
-	for _, chainID := range chainCapabilityConfigs[flag].EnabledChains {
+	for _, chainID := range enabledChains {
 		chain, exists := chain_selectors.ChainByEvmChainID(chainID)
 		if !exists {
 			return nil, errors.Errorf("failed to find selector for chain ID %d", chainID)
@@ -267,8 +271,13 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainC
 		}
 		evmData.FromAddress = evmKey.PublicAddress
 
+		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(don.MustNodeSet(), flag, cre.ChainCapabilityScope(chainID))
+		if resolveErr != nil {
+			return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
+		}
+
 		var mergeErr error
-		evmData, mergeErr = mergeDefaultAndRuntimeConfigValues(evmData, creEnv.CapabilityConfigs, chainCapabilityConfigs, chainID)
+		evmData, mergeErr = mergeDefaultAndRuntimeConfigValues(evmData, capabilityConfig, chainID)
 		if mergeErr != nil {
 			return nil, errors.Wrap(mergeErr, "failed to merge default and runtime write-evm config values")
 		}
@@ -317,28 +326,16 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainC
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
-func mergeDefaultAndRuntimeConfigValues(data writeEVMData, defaultCapabilityConfigs cre.CapabilityConfigs, nodeSetChainCapabilities map[string]*cre.ChainCapabilityConfig, chainID uint64) (writeEVMData, error) {
-	if writeEvmConfig, ok := defaultCapabilityConfigs[flag]; ok {
-		_, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(
-			flag,
-			nodeSetChainCapabilities,
-			writeEvmConfig.Config,
-			chainID,
-		)
-		if rErr != nil {
-			return data, errors.Wrapf(rErr, "failed to resolve write-evm config for chain %d", chainID)
-		}
+func mergeDefaultAndRuntimeConfigValues(data writeEVMData, capabilityConfig cre.CapabilityConfig, chainID uint64) (writeEVMData, error) {
+	runtimeValues := map[string]any{
+		"FromAddress":      data.FromAddress.Hex(),
+		"ForwarderAddress": data.ForwarderAddress,
+	}
 
-		runtimeValues := map[string]any{
-			"FromAddress":      data.FromAddress.Hex(),
-			"ForwarderAddress": data.ForwarderAddress,
-		}
-
-		var mErr error
-		data.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
-		if mErr != nil {
-			return data, errors.Wrap(mErr, "failed to apply runtime values")
-		}
+	var mErr error
+	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
+	if mErr != nil {
+		return data, errors.Wrap(mErr, "failed to apply runtime values")
 	}
 
 	return data, nil
@@ -358,7 +355,7 @@ func buildEVMWorkflowConfig(writeEVMInput writeEVMData) (*evmworkflow.Workflow, 
 
 	configStr := configBuffer.String()
 	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return nil, errors.Wrapf(err, "%s template validation failed", flag)
+		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	unmarshallErr := toml.Unmarshal([]byte(configStr), &evmWorkflow)

@@ -772,6 +772,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.cfg.CapRegistry,
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
+		e.cfg.LocalLimiters.SecretsCalls,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,
