@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -292,7 +293,7 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) error {
 	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
 	if httpStatus != http.StatusOK {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
-		return errors.New("failed to fetch vault public key, http status code: " + fmt.Sprint(httpStatus))
+		return errors.New("failed to fetch vault public key, http status code: " + strconv.Itoa(httpStatus))
 	} else {
 		h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
 	}
@@ -337,7 +338,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 	if len(req.ID) > 200 {
 		// Arbitrary limit to prevent abuse
-		return errors.New("request ID is too long: " + fmt.Sprint(len(req.ID)) + ". max is 200 characters")
+		return errors.New("request ID is too long: " + strconv.Itoa(len(req.ID)) + ". max is 200 characters")
 	}
 
 	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID, "request", req)
@@ -368,8 +369,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 			RawResponse: rawResponse,
 			ErrorCode:   api.NoError,
 		}
-		callback.SendResponse(successResp)
-		return nil
+		return callback.SendResponse(successResp)
 	case vaulttypes.MethodSecretsGet:
 		// Secrets get is only allowed in non-production builds for testing purposes
 		// So no authorization is required
