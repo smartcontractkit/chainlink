@@ -106,15 +106,11 @@ func RunLLOConsumerWorkflow(config WorkflowConfig, logger *slog.Logger, _ cre.Se
 // onStreamsTrigger processes LLO reports from the Streams DON
 //
 // SECURITY NOTE:
-// By the time data reaches this workflow, it has already been verified by the
-// TriggerSubscriber's SignedReportRemoteAggregator which:
-//   - Performs cryptographic signature verification (ecrecover)
-//   - Checks signers against the on-chain capabilities registry
-//   - Requires F+1 valid signatures for BFT consensus
-//   - Deduplicates reports (only one event per SeqNr)
-//   - Rejects stale reports (maxAgeSec)
-//
-// The workflow can trust the data it receives.
+// On the v2 path (streams-trigger@2.0.0 with MethodConfig), the TriggerSubscriber
+// uses DefaultModeAggregator: it requires MinResponsesToAggregate (2f+1) identical
+// responses from capability DON nodes before forwarding. There is no per-report
+// cryptographic signature verification on this path. The workflow receives the
+// consensus-aggregated report after 2f+1 nodes have sent the same payload.
 func onStreamsTrigger(config WorkflowConfig, runtime cre.Runtime, report *streams.Report) (string, error) {
 	logger := runtime.Logger()
 
