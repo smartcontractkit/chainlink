@@ -106,6 +106,8 @@ flowchart LR
 	click chainlink-protos/linking-service/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/orchestrator --> wsrpc
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/ring/go
+	click chainlink-protos/ring/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/rmn/v1.6/go
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/storage-service
@@ -138,6 +140,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
+	chainlink/v2 --> chainlink-protos/ring/go
 	chainlink/v2 --> chainlink-sui
 	chainlink/v2 --> chainlink-ton
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
@@ -215,6 +218,7 @@ flowchart LR
 		 chainlink-protos/cre/go
 		 chainlink-protos/linking-service/go
 		 chainlink-protos/orchestrator
+		 chainlink-protos/ring/go
 		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/storage-service
 		 chainlink-protos/svr
@@ -364,6 +368,8 @@ flowchart LR
 	click chainlink-protos/op-catalog href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/orchestrator --> wsrpc
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/ring/go
+	click chainlink-protos/ring/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/rmn/v1.6/go
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/storage-service
@@ -458,6 +464,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/httpaction-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
@@ -473,6 +480,8 @@ flowchart LR
 	chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative --> cre-sdk-go/capabilities/blockchain/evm
+	click chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/http --> cre-sdk-go/capabilities/networking/http
 	click chainlink/system-tests/tests/regression/cre/http href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/networking/http
@@ -494,6 +503,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
+	chainlink/v2 --> chainlink-protos/ring/go
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
 	chainlink/v2 --> quarantine
@@ -553,6 +563,7 @@ flowchart LR
 		 chainlink/system-tests/tests/regression/cre/consensus
 		 chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 		 chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
+		 chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 		 chainlink/system-tests/tests/regression/cre/http
 		 chainlink/system-tests/tests/regression/cre/httpaction-negative
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
@@ -609,6 +620,7 @@ flowchart LR
 		 chainlink-protos/linking-service/go
 		 chainlink-protos/op-catalog
 		 chainlink-protos/orchestrator
+		 chainlink-protos/ring/go
 		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/storage-service
 		 chainlink-protos/svr

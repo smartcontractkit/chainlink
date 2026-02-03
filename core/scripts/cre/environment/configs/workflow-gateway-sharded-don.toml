@@ -43,12 +43,7 @@
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time"]
-
-   [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337", "2337"]
-    evm = ["1337", "2337"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337", "write-evm-2337", "read-contract-2337", "evm-2337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -104,12 +99,7 @@
 
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
-  capabilities = ["ocr3", "custom-compute",  "web-api-target", "web-api-trigger", "cron", "consensus", "don-time"]
-
-   [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337", "2337"]
-    evm = ["1337", "2337"]
+  capabilities = ["ocr3", "custom-compute",  "web-api-target", "web-api-trigger", "cron", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337", "write-evm-2337", "read-contract-2337", "evm-2337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 

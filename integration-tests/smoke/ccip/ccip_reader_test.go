@@ -36,6 +36,7 @@ import (
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
@@ -61,7 +62,6 @@ import (
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 // This file contains e2e tests for CCIPReader methods, goal of these tests is to cover entire flow of
@@ -155,7 +155,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmconfig.DestReaderConfig)
+	cr, err := read.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmconfig.DestReaderConfig)
 	require.NoError(t, err)
 	err = cr.Start(ctx)
 	require.NoError(t, err)
@@ -300,7 +300,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmconfig.DestReaderConfig)
+	cr, err := read.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmconfig.DestReaderConfig)
 	require.NoError(t, err)
 	err = cr.Start(ctx)
 	require.NoError(t, err)
@@ -863,11 +863,11 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	)
 	require.NoError(t, lpD.Start(ctx))
 
-	crS1, err := evm.NewChainReaderService(ctx, logger.TestLogger(t), lpS1, headTrackerS1, clS1, evmconfig.SourceReaderConfig)
+	crS1, err := read.NewChainReaderService(ctx, logger.TestLogger(t), lpS1, headTrackerS1, clS1, evmconfig.SourceReaderConfig)
 	require.NoError(t, err)
 	extendedCrS1 := contractreader.NewExtendedContractReader(crS1)
 
-	crD, err := evm.NewChainReaderService(ctx, logger.TestLogger(t), lpD, headTrackerD, clD, evmconfig.DestReaderConfig)
+	crD, err := read.NewChainReaderService(ctx, logger.TestLogger(t), lpD, headTrackerD, clD, evmconfig.DestReaderConfig)
 	require.NoError(t, err)
 	extendedCrD := contractreader.NewExtendedContractReader(crD)
 	err = extendedCrD.Bind(ctx, []types.BoundContract{
@@ -953,7 +953,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainD], cciptypes.UnknownAddress(offRampDDynamicConfig.FeeQuoter.Bytes()))
 
 	// Now Sync the CCIP Reader's S1 chain contract reader with OnRamp binding
-	onRampContractMapping := make(ccipreaderpkg.ContractAddresses)
+	onRampContractMapping := make(cciptypes.ContractAddresses)
 	onRampContractMapping[consts.ContractNameOnRamp] = make(map[cciptypes.ChainSelector]cciptypes.UnknownAddress)
 	onRampContractMapping[consts.ContractNameOnRamp][chainS1] = onRampS1Addr.Bytes()
 
@@ -1097,41 +1097,6 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		// Assert: Expect an empty map
 		require.Empty(t, updates)
 	})
-}
-
-func Test_LinkPriceUSD(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	env, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := stateview.LoadOnchainState(env.Env)
-	require.NoError(t, err)
-
-	selectors := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	chain1, chain2 := selectors[0], selectors[1]
-
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
-
-	reader := testSetupRealContracts(
-		ctx,
-		t,
-		chain1,
-		map[cciptypes.ChainSelector][]types.BoundContract{
-			cciptypes.ChainSelector(chain1): {
-				{
-					Address: state.MustGetEVMChainState(chain1).FeeQuoter.Address().String(),
-					Name:    consts.ContractNameFeeQuoter,
-				},
-			},
-		},
-		nil,
-		env,
-	)
-
-	linkPriceUSD, err := reader.LinkPriceUSD(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, linkPriceUSD.Int)
-	require.Equal(t, testhelpers.DefaultLinkPrice, linkPriceUSD.Int)
 }
 
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
@@ -1314,7 +1279,7 @@ func testSetupRealContracts(
 		} else {
 			cfg = evmconfig.SourceReaderConfig
 		}
-		cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
+		cr, err := read.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
 		require.NoError(t, err)
 
 		extendedCr2 := contractreader.NewExtendedContractReader(cr)
@@ -1436,7 +1401,7 @@ func testSetup(
 		assert.Equal(t, seqNum, cciptypes.SeqNum(scc.MinSeqNr))
 	}
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg)
+	cr, err := read.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg)
 	require.NoError(t, err)
 
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
@@ -1483,7 +1448,7 @@ func testSetup(
 		)
 		require.NoError(t, lp2.Start(ctx))
 
-		cr2, err2 := evm.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, params.Cfg)
+		cr2, err2 := read.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, params.Cfg)
 		require.NoError(t, err2)
 
 		otherExtendedCr := contractreader.NewExtendedContractReader(cr2)

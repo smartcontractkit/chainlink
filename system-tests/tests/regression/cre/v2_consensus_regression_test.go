@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -31,16 +32,26 @@ var consensusNegativeTestsGenerateReport = []consensusNegativeTest{
 	{"random timestamps", "Consensus - random timestamps", expectedConsensusError},
 	{"inconsistent feedIDs", "Consensus - inconsistent feedIDs", expectedConsensusError},
 	{"inconsistent prices", "Consensus - inconsistent prices", expectedConsensusError},
+	{"oversized payload", "Consensus - oversized payload", expectedConsensusError},
 }
 
 func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensusNegativeTest consensusNegativeTest) {
 	testLogger := framework.L
 	const workflowFileLocation = "./consensus/main.go"
 
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
-
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
 		testLogger.Info().Msg("Creating Consensus Fail workflow configuration...")
 		workflowName := fmt.Sprintf("consensus-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
@@ -48,13 +59,13 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 		workflowConfig := consensus_negative_config.Config{
 			CaseToTrigger: consensusNegativeTest.caseToTrigger,
 			FeedID:        feedID,
+			PayloadSizeKB: 101, // only used for oversized payload test
 		}
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-		timeout := 90 * time.Second
 		expectedError := consensusNegativeTest.expectedError
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-		require.NoError(t, err, "Consensus Fail test failed")
+
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedError, 2*time.Minute)
 		testLogger.Info().Msg("Consensus Fail test successfully completed")
 	}
 }
