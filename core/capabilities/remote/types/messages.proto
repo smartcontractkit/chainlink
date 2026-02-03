@@ -49,4 +49,5 @@ message TriggerRegistrationMetadata {
 message TriggerEventMetadata {
   string trigger_event_id = 1;
   repeated string workflow_ids = 2;
+  repeated string trigger_ids = 3; // must be equal length to workflow_ids (or empty if not supported)
 }

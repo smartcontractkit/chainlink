@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -50,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
 
@@ -211,7 +211,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
+			_, err := read.NewChainReaderService(testutils.Context(t), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
 			require.Error(t, err)
 			if err != nil {
 				assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -226,7 +226,7 @@ func TestChainReader_HealthReport(t *testing.T) {
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")
 	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
-	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: nil})
+	cr, err := read.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: nil})
 	require.NoError(t, err)
 	healthReport := cr.HealthReport()
 	require.True(t, services.ContainsError(healthReport, clcommontypes.ErrFinalityViolated), "expected chain reader to propagate logpoller's error")

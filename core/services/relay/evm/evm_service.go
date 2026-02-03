@@ -20,6 +20,7 @@ import (
 	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/retry"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -28,8 +29,9 @@ import (
 )
 
 type evmService struct {
-	chain  legacyevm.Chain
-	logger logger.Logger
+	addressLister keys.AddressLister
+	chain         legacyevm.Chain
+	logger        logger.Logger
 }
 
 // Direct RPC
@@ -201,11 +203,29 @@ func (e *evmService) GetTransactionStatus(ctx context.Context, transactionID com
 func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.SubmitTransactionRequest) (*evm.TransactionResult, error) {
 	config := e.chain.Config()
 
-	fromAddress := config.EVM().Workflow().FromAddress().Address()
 	var gasLimit uint64
 	if txRequest.GasConfig != nil && txRequest.GasConfig.GasLimit != nil {
 		gasLimit = *txRequest.GasConfig.GasLimit
 	}
+	if e.addressLister == nil {
+		return nil, errors.New("address lister is not initialized")
+	}
+
+	addresses, err := e.addressLister.EnabledAddresses(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enabled addresses: %w", err)
+	}
+
+	if len(addresses) == 0 {
+		return nil, errors.New("no enabled addresses available")
+	}
+
+	// Find address with highest balance
+	fromAddress, err := e.getAddressWithHighestBalance(ctx, addresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine FromAddress for SubmitTransaction: %w", err)
+	}
+	e.logger.Debugw("Using fromAddress", "address", fromAddress.Hex())
 
 	id, err := uuid.NewUUID()
 	if err != nil {
@@ -282,6 +302,45 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		TxHash:           (*receipt).GetTxHash(),
 		TxIdempotencyKey: txID,
 	}, nil
+}
+
+// getAddressWithHighestBalance returns the address with the highest ETH balance
+func (e *evmService) getAddressWithHighestBalance(ctx context.Context, addresses []common.Address) (common.Address, error) {
+	if len(addresses) == 0 {
+		return common.Address{}, errors.New("no addresses provided")
+	}
+	if len(addresses) == 1 {
+		e.logger.Debugw("only one enabled fromAddress for chain", "address", addresses[0].Hex())
+		return addresses[0], nil
+	}
+
+	var highestBalance *big.Int
+	var selectedAddress common.Address
+
+	for _, addr := range addresses {
+		balance, err := e.chain.Client().BalanceAt(ctx, addr, nil) // nil = latest block
+		if err != nil {
+			e.logger.Warnw("failed to get balance for address, skipping", "address", addr.Hex(), "error", err)
+			continue
+		}
+
+		if highestBalance == nil || balance.Cmp(highestBalance) > 0 {
+			highestBalance = balance
+			selectedAddress = addr
+		}
+	}
+
+	if highestBalance == nil {
+		// Fallback to first address if all balance queries failed
+		return addresses[0], nil
+	}
+
+	e.logger.Debugw("selected fromAddress with highest balance for chain",
+		"address", selectedAddress.Hex(),
+		"balance", highestBalance.String(),
+		"totalAddresses", len(addresses))
+
+	return selectedAddress, nil
 }
 
 func (e *evmService) CalculateTransactionFee(ctx context.Context, receipt evm.ReceiptGasInfo) (*evm.TransactionFee, error) {

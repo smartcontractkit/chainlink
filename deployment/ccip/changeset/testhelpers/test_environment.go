@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -169,6 +170,9 @@ type TestConfigs struct {
 	// TonContainerConfig allows custom configuration for mylocalton-docker.
 	// See https://github.com/neodix42/mylocalton-docker/wiki/Genesis-setup-parameters for available options.
 	TonContainerConfig *onchain.TonContainerConfig
+
+	// SuiContainerConfig allows custom configuration for Sui containers.
+	SuiContainerConfig *onchain.SuiContainerConfig
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -370,6 +374,13 @@ func WithTonContainerConfig(cfg onchain.TonContainerConfig) TestOps {
 	}
 }
 
+// WithSuiContainerConfig sets the Sui container configuration for tests.
+func WithSuiContainerConfig(cfg onchain.SuiContainerConfig) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.SuiContainerConfig = &cfg
+	}
+}
+
 func WithNumOfUsersPerChain(numUsers uint) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
@@ -408,6 +419,7 @@ type TestEnvironment interface {
 
 type DeployedEnv struct {
 	Env                    cldf.Environment
+	Adapters               map[uint64]Adapter
 	HomeChainSel           uint64
 	FeedChainSel           uint64
 	ReplayBlocks           map[uint64]uint64
@@ -420,6 +432,27 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
 	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
+}
+
+func (d *DeployedEnv) RefreshAdapters() {
+	if d.Adapters == nil {
+		d.Adapters = make(map[uint64]Adapter)
+	}
+	// re-wrap adapters
+	for selector, chain := range d.Env.BlockChains.All() {
+		family, err := chain_selectors.GetSelectorFamily(selector)
+		if err != nil {
+			continue
+			// TODO:
+		}
+
+		adapterFactory, ok := Adapters[family]
+		if !ok {
+			// NOTE: skip any chains with no adapter, give them a dummy one?
+			continue
+		}
+		d.Adapters[selector] = adapterFactory(chain, d.Env)
+	}
 }
 
 type MemoryEnvironment struct {
@@ -442,6 +475,7 @@ func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
 }
 
 func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
+	env.RefreshAdapters()
 	m.DeployedEnv = env
 }
 
@@ -451,7 +485,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 
 	loadOpts := []environment.LoadOpt{
 		environment.WithAptosContainerN(t, tc.AptosChains),
-		environment.WithSuiContainerN(t, tc.SuiChains),
 		environment.WithLogger(logger.Test(t)),
 	}
 
@@ -478,6 +511,14 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	if tc.TonChains > 0 {
 		require.NotNil(t, tc.TonContainerConfig, "TON container config is required")
 		loadOpts = append(loadOpts, environment.WithTonContainerNWithConfig(t, tc.TonChains, *tc.TonContainerConfig))
+	}
+
+	if tc.SuiChains > 0 {
+		if tc.SuiContainerConfig != nil {
+			loadOpts = append(loadOpts, environment.WithSuiContainerNWithConfig(t, tc.SuiChains, *tc.SuiContainerConfig))
+		} else {
+			loadOpts = append(loadOpts, environment.WithSuiContainerN(t, tc.SuiChains))
+		}
 	}
 
 	env, err := environment.New(t.Context(), loadOpts...)
@@ -1173,7 +1214,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := tontestutils.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		contractVersion := "897a04fdf92f" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-897a04fdf92f
+		contractVersion := "74edaa830fa4" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-74edaa830fa4
 		// Allow overriding with a custom version, it's set to "local" on chainlink-ton CI
 		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
 			contractVersion = version

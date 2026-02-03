@@ -26,7 +26,7 @@ func ExecuteBillingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		Schedule: "*/30 * * * * *", // every 30 seconds
 	}
 
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 	assertBillingStateChanged(t, billingState, timeout, 0)
 
 	testLogger.Info().Msg("Billing test completed")

@@ -14,7 +14,9 @@ union JobSpec =
     WorkflowSpec |
     StandardCapabilitiesSpec |
     StreamSpec |
-    CCIPSpec
+    CCIPSpec |
+    CCVCommitteeVerifierSpec |
+    CCVExecutorSpec
 
 type CronSpec {
     schedule: String!
@@ -195,4 +197,19 @@ type CCIPSpec {
     capabilityLabelledName: String!
     ocrKeyBundleIDs: Map!
     p2pKeyID: String!
+    p2pv2Bootstrappers: [String!]
+    pluginConfig: Map!
+    relayConfigs: Map!
+}
+
+type CCVCommitteeVerifierSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    committeeVerifierConfig: String!
+}
+
+type CCVExecutorSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    executorConfig: String!
 }

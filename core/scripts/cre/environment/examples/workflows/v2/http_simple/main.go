@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type Config struct {
@@ -68,7 +69,9 @@ func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, 
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
-				TimeoutMs: 5000,
+				Timeout: &durationpb.Duration{
+					Seconds: 5,
+				},
 			}
 
 			resp, err := client.SendRequest(nodeRuntime, req).Await()

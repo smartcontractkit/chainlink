@@ -1,0 +1,24 @@
+type = "offchainreporting2"
+schemaVersion = 1
+name = "{{ .JobName }}"
+externalJobID = "{{ .ExternalJobID }}"
+contractID = "{{ .ContractID }}"
+ocrKeyBundleID = "{{ .OCR2EVMKeyBundleID }}"
+p2pv2Bootstrappers = [
+{{ range .P2Pv2Bootstrappers }}  "{{ . }}",
+{{ end }}]
+relay = "evm"
+pluginType = "ring"
+transmitterID = "{{ .TransmitterID }}"
+
+[relayConfig]
+chainID = "{{ .ChainID }}"
+
+[pluginConfig]
+shardConfigAddr = "{{ .ShardConfigAddr }}"
+
+[onchainSigningStrategy]
+strategyName = "multi-chain"
+
+[onchainSigningStrategy.config]
+evm = "{{ .OCR2EVMKeyBundleID }}"
