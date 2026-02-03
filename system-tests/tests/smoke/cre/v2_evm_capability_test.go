@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 
@@ -50,7 +49,6 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		close(baseMessageCh)
 	})
 
-	chainLock := sync.Mutex{}
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
@@ -60,7 +58,6 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		for tc := range evm_config.TestCaseLen {
 			t.Run(fmt.Sprintf("Read %s on chain %s", tc.String(), chainID), func(t *testing.T) {
-				t.Parallel()
 				workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
 				lggr.Info().
 					Str("workflow_name", workflowName).
@@ -69,11 +66,8 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 					Msg("Creating EVM Read workflow configuration...")
 				require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
 				evmChain := bcOutput.(*evm.Blockchain)
-				// lock to avoid nonce issues
-				chainLock.Lock()
 				workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
 				t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-				chainLock.Unlock()
 
 				validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
 			})
@@ -84,9 +78,9 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 func makeSinkCh[T any]() chan T {
 	c := make(chan T, 1)
 	go func() {
+		// no:lint:revive
 		for range c {
 			// drain the channel as content is processed elsewhere
-			// no:lint:revive
 		}
 	}()
 
