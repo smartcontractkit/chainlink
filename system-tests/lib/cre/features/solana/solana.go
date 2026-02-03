@@ -29,7 +29,6 @@ import (
 	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -84,13 +83,13 @@ func (o *Solana) PreEnvStartup(
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := UpdateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, uErr := UpdateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
 
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	fullName := "write_solana_devnet@1.0.0"
@@ -179,12 +178,6 @@ func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data SolanaI
 	}
 	data.FromAddress = key.PublicAddress
 
-	mergedConfig := envconfig.ResolveCapabilityConfigForDON(
-		cre.WriteSolanaCapability,
-		capabilityConfig.Config,
-		nil,
-	)
-
 	runtimeValues := map[string]any{
 		"FromAddress":      data.FromAddress.String(),
 		"ForwarderAddress": data.ForwarderAddress,
@@ -192,7 +185,7 @@ func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data SolanaI
 	}
 
 	var mErr error
-	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
+	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
 	if mErr != nil {
 		return nil, errors.Wrap(mErr, "failed to apply runtime values")
 	}
@@ -226,7 +219,7 @@ func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data SolanaI
 	configStr := configBuffer.String()
 
 	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return nil, errors.Wrapf(err, "%s template validation failed", flag)
+		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	unmarshallErr = toml.Unmarshal([]byte(configStr), &solCfg)

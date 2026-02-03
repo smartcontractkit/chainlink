@@ -69,13 +69,14 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 			// Check if test name contains "write" to determine which test function to run
-			if strings.Contains(strings.ToLower(testName), "writereport") {
+			switch {
+			case strings.Contains(strings.ToLower(testName), "writereport"):
 				framework.L.Info().Msg("Running EVM Write Regression test")
 				EVMWriteFailsTest(t, testEnv, tCase)
-			} else if strings.Contains(strings.ToLower(testName), "logtrigger") {
+			case strings.Contains(strings.ToLower(testName), "logtrigger"):
 				framework.L.Info().Msg("Running EVM LogTrigger Regression test")
 				EVMLogTriggerFailsTest(t, testEnv, tCase)
-			} else {
+			default:
 				framework.L.Info().Msg("Running EVM Read Regression test")
 				EVMReadFailsTest(t, testEnv, tCase)
 			}

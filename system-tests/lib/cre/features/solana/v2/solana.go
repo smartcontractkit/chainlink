@@ -129,15 +129,6 @@ func createJobs(
 ) error {
 	specs := make(map[string][]string)
 	solChain := extractSolanaFromEnv(creEnv)
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
-	if !ok {
-		return fmt.Errorf("%s config not found in capabilities config: %v", flag, creEnv.CapabilityConfigs)
-	}
-
-	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
-	if cErr != nil {
-		return errors.Wrap(cErr, "failed to get command for cron capability")
-	}
 
 	var nodeSet cre.NodeSetWithCapabilityConfigs
 	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
@@ -148,6 +139,15 @@ func createJobs(
 	}
 	if nodeSet == nil {
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+	}
+	config, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.CapabilityScope{})
+	if resolveErr != nil {
+		return errors.Wrap(resolveErr, "unable to find solana capability config")
+	}
+
+	command, cErr := standardcapability.GetCommand(config.BinaryPath, creEnv.Provider)
+	if cErr != nil {
+		return errors.Wrap(cErr, "failed to get command for cron capability")
 	}
 
 	// propose bootstrap job once consensus reads are enabled
@@ -209,7 +209,7 @@ func createJobs(
 			"ChainID":             solChainID.String(),
 		}
 
-		templateData, aErr := credon.ApplyRuntimeValues(capabilityConfig.Config, runtimeFallbacks)
+		templateData, aErr := credon.ApplyRuntimeValues(config.Values, runtimeFallbacks)
 		if aErr != nil {
 			return errors.Wrap(aErr, "failed to apply runtime values")
 		}
@@ -322,12 +322,12 @@ func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data solan
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := solana.UpdateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, updErr := solana.UpdateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
 		if updErr != nil {
 			return errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	return nil
