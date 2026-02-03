@@ -14,6 +14,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -32,7 +34,6 @@ import (
 	solchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 const (
@@ -107,9 +108,9 @@ func (s *Solana) PostEnvStartup(
 	// 3. Configure Forwarders
 	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
 	for _, don := range consensusDons {
-		testLogger.Info().Msg(fmt.Sprintf("configure forwarder for: %s", don.Name))
+		testLogger.Info().Msg("configure forwarder for: " + don.Name)
 		for _, n := range don.Nodes {
-			testLogger.Info().Msg(fmt.Sprintf("solana keys: %s", n.Keys.OCR2BundleIDs["solana"]))
+			testLogger.Info().Msg("solana keys: " + n.Keys.OCR2BundleIDs["solana"])
 		}
 		err := solana.ConfigureForwarders(ctx, testLogger, don, dons, creEnv)
 		if err != nil {
@@ -228,7 +229,7 @@ func createJobs(
 			Domain:      offchain.ProductLabel,
 			Environment: cre.EnvironmentName,
 			DONName:     don.Name,
-			JobName:     fmt.Sprintf("sol-v2-worker-%s", chainID),
+			JobName:     "sol-v2-worker-" + chainID,
 			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: don.Name},
@@ -370,7 +371,6 @@ func findSolFromAddress(workerNode *cre.NodeMetadata, selector uint64) (solanago
 	}
 
 	return key.PublicAddress, nil
-
 }
 
 func extractSolanaFromEnv(creEnv *cre.Environment) *solchain.Blockchain {
