@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jonboulle/clockwork"
@@ -55,7 +56,25 @@ func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.D
 	}
 }
 
-func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
+func (hf *handlerFactory) NewHandler(
+	handlerType HandlerType,
+	handlerConfig json.RawMessage,
+	shardedDONs []config.ShardedDONConfig,
+	shardsConnMgrs [][]handlers.DON,
+) (handlers.Handler, error) {
+	if len(shardedDONs) == 0 || len(shardsConnMgrs) == 0 {
+		return nil, errors.New("at least one DON and connection manager required")
+	}
+	if len(shardsConnMgrs[0]) == 0 {
+		return nil, errors.New("at least one shard connection manager required")
+	}
+
+	// For backward compatibility, convert sharded config to legacy DONConfig
+	// using the first DON's first shard. Handlers that support sharding can
+	// use the full shardedDONs and shardsConnMgrs directly.
+	donConfig := shardedDONsToLegacy(shardedDONs[0])
+	don := shardsConnMgrs[0][0]
+
 	switch handlerType {
 	case FunctionsHandlerType:
 		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.ds, hf.lggr)
@@ -70,5 +89,17 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
+	}
+}
+
+func shardedDONsToLegacy(shardedDON config.ShardedDONConfig) *config.DONConfig {
+	var members []config.NodeConfig
+	if len(shardedDON.Shards) > 0 {
+		members = shardedDON.Shards[0].Nodes
+	}
+	return &config.DONConfig{
+		DonId:   shardedDON.DonName,
+		F:       shardedDON.F,
+		Members: members,
 	}
 }

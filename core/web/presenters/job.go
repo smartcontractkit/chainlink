@@ -43,6 +43,8 @@ const (
 	WorkflowJobSpec             JobSpecType = "workflow"
 	StandardCapabilitiesJobSpec JobSpecType = "standardcapabilities"
 	CCIPSJobSpec                JobSpecType = "ccip"
+	CCVCommitteeVerifierJobSpec JobSpecType = "ccvcommitteeverifier"
+	CCVExecutorJobSpec          JobSpecType = "ccvexecutor"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job

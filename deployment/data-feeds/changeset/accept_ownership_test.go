@@ -33,10 +33,14 @@ func TestAcceptOwnership(t *testing.T) {
 
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
 
+	MCMScfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	MCMSQualifier := "MCMS_EVM_1"
+	MCMScfg.Qualifier = &MCMSQualifier
+
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(
 			commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+			selector: MCMScfg,
 		}),
 	)
 	require.NoError(t, err)
@@ -55,7 +59,8 @@ func TestAcceptOwnership(t *testing.T) {
 			ChainSelector:     selector,
 			ContractAddresses: []common.Address{cache.Contract.Address()},
 			McmsConfig: &types.MCMSConfig{
-				MinDelay: 1,
+				MinDelay:          1,
+				TimeLockQualifier: MCMSQualifier,
 			},
 		}),
 		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),

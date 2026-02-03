@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 )
@@ -23,8 +22,6 @@ const (
 
 // Verify that cache evicts an expired module.
 func TestCache(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-558")
-
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
