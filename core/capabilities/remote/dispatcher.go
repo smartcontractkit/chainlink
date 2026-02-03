@@ -186,7 +186,7 @@ func (d *dispatcher) setReceiver(k key, rec types.Receiver) error {
 		ch:     receiverCh,
 	}
 
-	d.lggr.Infow("receiver set", "capabilityId", k.capID, "donId", k.donID, "methodName", k.methodName)
+	d.lggr.Debugw("receiver set", "capabilityId", k.capID, "donId", k.donID, "methodName", k.methodName)
 	return nil
 }
 
@@ -284,11 +284,10 @@ func (d *dispatcher) handleMessage(msg *p2ptypes.Message) {
 	receiver, ok := d.receivers[k]
 	d.mu.RUnlock()
 	if !ok {
-		d.lggr.Warnw("received message for unregistered capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName, "methodFromBody", body.CapabilityMethod, "registeredReceivers", d.listRegisteredReceivers())
+		d.lggr.Debugw("received message for unregistered capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName)
 		d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 		return
 	}
-	d.lggr.Debugw("routing message to receiver", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName, "messageMethod", body.Method)
 
 	receiverQueueUsage := float64(0)
 	if d.cfg.ReceiverBufferSize() > 0 {
@@ -329,14 +328,4 @@ func (d *dispatcher) HealthReport() map[string]error {
 
 func (d *dispatcher) Name() string {
 	return d.lggr.Name()
-}
-
-func (d *dispatcher) listRegisteredReceivers() []string {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	receivers := make([]string, 0, len(d.receivers))
-	for k := range d.receivers {
-		receivers = append(receivers, fmt.Sprintf("%s@don%d:%s", k.capID, k.donID, k.methodName))
-	}
-	return receivers
 }

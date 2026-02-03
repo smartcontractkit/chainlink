@@ -162,7 +162,6 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 }
 
 func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
-	p.lggr.Infow("TriggerPublisher received message", "method", SanitizeLogString(msg.Method), "capabilityId", msg.CapabilityId, "capabilityDonId", msg.CapabilityDonId, "callerDonId", msg.CallerDonId, "capabilityMethod", msg.CapabilityMethod)
 	cfg := p.cfg.Load()
 	if cfg == nil {
 		p.lggr.Errorw("received message but config is not set")
@@ -215,10 +214,9 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
-			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired, "nPayloads", len(payloads))
+			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
 			return
 		}
-		p.lggr.Infow("TriggerPublisher: registration aggregation ready, registering with underlying capability", "workflowId", req.Metadata.WorkflowID, "callerDonID", msg.CallerDonId, "minRequired", minRequired, "nPayloads", len(payloads))
 		aggregated, err := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if err != nil {
 			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "err", err)
@@ -239,10 +237,10 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			}
 			p.wg.Add(1)
 			go p.triggerEventLoop(callbackCh, key)
-			p.lggr.Infow("TriggerPublisher: successfully registered with underlying capability, triggerEventLoop started", "workflowId", req.Metadata.WorkflowID, "callerDonID", msg.CallerDonId)
+			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID)
 		} else {
 			cancel()
-			p.lggr.Errorw("failed to register trigger with underlying capability", "workflowId", req.Metadata.WorkflowID, "err", err)
+			p.lggr.Errorw("failed to register trigger", "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
@@ -301,25 +299,17 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 
 func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerResponse, key registrationKey) {
 	defer p.wg.Done()
-	p.lggr.Infow("triggerEventLoop started, waiting for events from underlying capability", "workflowId", key.workflowID, "callerDonID", key.callerDonID)
 	for {
 		select {
 		case <-p.stopCh:
-			p.lggr.Infow("triggerEventLoop stopped via stopCh", "workflowId", key.workflowID)
 			return
 		case response, ok := <-callbackCh:
 			if !ok {
-				p.lggr.Infow("triggerEventLoop channel closed", "workflowId", key.workflowID)
 				return
 			}
 
 			triggerEvent := response.Event
-			hasPayload := triggerEvent.Payload != nil
-			payloadType := "nil"
-			if hasPayload {
-				payloadType = triggerEvent.Payload.TypeUrl
-			}
-			p.lggr.Infow("TriggerPublisher received trigger event from underlying capability", "workflowId", key.workflowID, "triggerEventID", triggerEvent.ID, "hasPayload", hasPayload, "payloadType", payloadType)
+			p.lggr.Debugw("received trigger event", "workflowId", key.workflowID, "triggerEventID", triggerEvent.ID)
 			marshaledResponse, err := pb.MarshalTriggerResponse(response)
 			if err != nil {
 				p.lggr.Debugw("can't marshal trigger event", "err", err)
@@ -327,7 +317,6 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 			}
 
 			cfg := p.cfg.Load()
-			p.lggr.Infow("TriggerPublisher: preparing to send event via P2P", "workflowId", key.workflowID, "triggerEventID", triggerEvent.ID, "batchingEnabled", cfg.batchingEnabled)
 			if cfg.batchingEnabled {
 				p.enqueueForBatching(marshaledResponse, key, triggerEvent.ID)
 			} else {
@@ -400,14 +389,11 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			p.lggr.Errorw("workflow DON not found for callerDonID", "callerDonID", resp.callerDonID, "triggerEventID", resp.triggerEventID)
 			return
 		}
-		p.lggr.Infow("TriggerPublisher: sending trigger event via P2P to workflow DON", "triggerEventID", resp.triggerEventID, "callerDonID", resp.callerDonID, "nWorkflows", len(idBatch), "nWorkflowDONMembers", len(workflowDON.Members), "workflowIDs", idBatch)
 		// NOTE: send to all nodes by default, introduce different strategies later (KS-76)
 		for _, peerID := range workflowDON.Members {
 			err := p.dispatcher.Send(peerID, msg)
 			if err != nil {
-				p.lggr.Errorw("failed to send trigger event via P2P", "peerID", peerID, "triggerEventID", resp.triggerEventID, "err", err)
-			} else {
-				p.lggr.Debugw("trigger event sent successfully via P2P", "peerID", peerID, "triggerEventID", resp.triggerEventID)
+				p.lggr.Errorw("failed to send trigger event", "peerID", peerID, "err", err)
 			}
 		}
 	}

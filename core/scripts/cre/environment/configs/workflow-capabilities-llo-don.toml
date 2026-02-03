@@ -104,15 +104,15 @@
   name = "capabilities"
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10200
 
   # Need same chain for capability registry communication
   supported_evm_chains = [1337]
 
   env_vars = { CL_EVM_CMD = "" }
-  # streams-trigger and ocr3 are required for LLO streams trigger E2E test
-  capabilities = ["ocr3", "streams-trigger"]
+  # streams-trigger and ocr3 for LLO E2E; mock for LLO mock test (LLO_MOCK_ENABLED=true)
+  capabilities = ["ocr3", "streams-trigger", "mock"]
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
@@ -123,12 +123,62 @@
     image = "postgres:12.0"
     port = 13100
 
+  # Per-node mock gRPC ports for LLO mock test: host 15002-15005 -> container 7777 (mock default)
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15002:7777"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15003:7777"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15004:7777"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15005:7777"]
       user_config_overrides = '''
 [Log]
 Level = 'debug'

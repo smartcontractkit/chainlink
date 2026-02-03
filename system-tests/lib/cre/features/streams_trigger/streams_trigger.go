@@ -149,8 +149,6 @@ func (s *StreamsTrigger) PreEnvStartup(
 //	        }},
 //	    },
 //	}
-//
-// See system-tests/tests/smoke/cre/llo_deployment_helpers.go for helper functions.
 func (s *StreamsTrigger) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -158,20 +156,8 @@ func (s *StreamsTrigger) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	testLogger.Info().
-		Str("capability", "streams-trigger@2.0.0").
-		Str("don", don.Name).
-		Msg("streams-trigger capability registered - deploy LLO jobs to enable trigger events")
-
-	// NOTE: Actual LLO contract and job deployment is done by the test, not here.
-	// This is because:
-	// 1. Contract addresses (Configurator, ChannelConfigStore) may vary per test
-	// 2. Stream job configuration is test-specific (stream IDs, report formats)
-	// 3. The data-streams-deploy changesets provide flexible deployment options
-	//
-	// See:
-	// - system-tests/tests/smoke/cre/llo_deployment_helpers.go - Helper functions using data-streams-deploy
-	// - system-tests/tests/smoke/cre/v2_llo_streams_trigger_test.go - E2E test example
-
-	return nil
+	// Deploy LLO contracts (Configurator, ChannelConfigStore) via changesets,
+	// set channel definitions (static data), deploy stream + LLO jobs via text/template,
+	// then set OCR production config. Channel defs are static; only CCS address is from deployment.
+	return runPostEnvStartup(ctx, testLogger, don, dons, creEnv)
 }

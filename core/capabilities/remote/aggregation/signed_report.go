@@ -45,6 +45,9 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 	for _, signer := range allowedSigners {
 		signersMap[common.BytesToAddress(signer)] = struct{}{}
 	}
+	lggr = logger.Named(lggr, "SignedReportRemoteAggregator")
+
+	lggr.Infow("created", "allowedSigners", signersMap, "minRequiredSignatures", minRequiredSignatures, "maxAgeSec", maxAgeSec, "capID", capID)
 	return &signedReportRemoteAggregator{
 		allowedSigners:        signersMap,
 		minRequiredSignatures: minRequiredSignatures,
@@ -54,14 +57,10 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 	}
 }
 
-// Accept first response with valid signatures and expected event ID
-// every element in responses is must be a [capabilitypb.TriggerResponse]
-// and for each of them, we expect the [capabilitypb.TriggerResponse.Event.Outputs] field
-// to be the [values.Map] representation a [capabilities.OCRTriggerEvent] (see [capabilities.OCRTriggerEvent.ToMap])
-//
+// Accept first response with valid signatures and expected event ID.
 // Supports two report encodings:
-// - Protobuf-encoded (Streams DON ReportFormatCapabilityTrigger): Protobuf-encoded OCRTriggerReport
-// - ABI-encoded (Streams DON ReportFormatEVMABIEncodeUnpackedExpr): ABI-encoded report with calculated streams
+//   - Protobuf (Format 5 / ReportFormatCapabilityTrigger): OCRTriggerReport
+//   - ABI (Format 7 / ReportFormatEVMABIEncodeUnpackedExpr): workflow decodes at execution time
 func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, responses [][]byte) (capabilities.TriggerResponse, error) {
 	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
@@ -77,7 +76,6 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 		}
 		rawReport := ocrEvent.Report
 
-		// Check ABI-encoded first (can be identified by event ID suffix) to avoid unnecessary protobuf parsing
 		if isABIEncodedEventID(triggerEventID) {
 			result, err := a.aggregateABI(triggerEventID, triggerResp, ocrEvent, rawReport)
 			if err != nil {
@@ -86,12 +84,8 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			return result, nil
 		}
 
-		// Try protobuf-encoded if not ABI-encoded
 		rep := &capabilitiespb.OCRTriggerReport{}
 		err = proto.Unmarshal(rawReport, rep)
-		// Check for valid protobuf parse: Unmarshal can succeed on non-protobuf data
-		// but will leave all fields at default values. We require EventID and Timestamp
-		// to be populated for a valid protobuf-encoded report.
 		if err == nil && rep.EventID != "" && rep.Timestamp != 0 {
 			result, err := a.aggregateProtobuf(triggerEventID, triggerResp, ocrEvent, rep)
 			if err != nil {
@@ -100,12 +94,12 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			return result, nil
 		}
 
-		a.lggr.Errorw("failed to parse OCR report as protobuf or ABI-encoded", "id", triggerResp.Event.ID)
+		a.lggr.Errorw("failed to parse OCR report as protobuf or ABI", "id", triggerResp.Event.ID)
 	}
 	return capabilities.TriggerResponse{}, fmt.Errorf("%w: %s", ErrMissingResponse, triggerEventID)
 }
 
-// aggregateProtobuf handles protobuf-encoded reports (Streams DON ReportFormatCapabilityTrigger)
+// aggregateProtobuf handles Format 5 (protobuf-encoded OCRTriggerReport).
 func (a *signedReportRemoteAggregator) aggregateProtobuf(
 	triggerEventID string,
 	triggerResp capabilities.TriggerResponse,
@@ -115,98 +109,67 @@ func (a *signedReportRemoteAggregator) aggregateProtobuf(
 	if rep.EventID != triggerEventID {
 		return capabilities.TriggerResponse{}, fmt.Errorf("unexpected event ID: expected %s, got %s", triggerEventID, rep.EventID)
 	}
-
-	// use Abs to handle edge case of clock skew
-	timeDiff := time.Since(time.Unix(0, int64(rep.Timestamp))).Abs() //nolint:gosec // disable G115 this won't be running in 2262
+	timeDiff := time.Since(time.Unix(0, int64(rep.Timestamp))).Abs() //nolint:gosec
 	if timeDiff.Nanoseconds() > int64(a.maxAgeSec)*1000000000 {
 		return capabilities.TriggerResponse{}, fmt.Errorf("report too old: age %v, maxAge %ds", timeDiff, a.maxAgeSec)
 	}
-
 	if err := a.validateSignatures(ocrEvent); err != nil {
 		return capabilities.TriggerResponse{}, fmt.Errorf("invalid signatures: %w", err)
 	}
-
-	// Replace "Outputs" field with the one extracted from the OCR report
 	outputsMap, err := values.FromMapValueProto(rep.Outputs)
 	if err != nil {
 		return capabilities.TriggerResponse{}, fmt.Errorf("failed to parse OCR report outputs: %w", err)
 	}
 	triggerResp.Event.Outputs = outputsMap
-	// Preserve Payload field (V2 format) - contains streams.Report wrapped in anypb.Any
-	// This is set by the CRE transmitter and is needed by the workflow SDK
 	return triggerResp, nil
 }
 
-// aggregateABI handles ABI-encoded reports (Streams DON ReportFormatEVMABIEncodeUnpackedExpr)
-// ABI header structure:
-//   - bytes 0-31: feedId (bytes32)
-//   - bytes 32-63: validFromTimestamp (uint32, right-aligned)
-//   - bytes 64-95: timestamp (uint32, right-aligned)
-//   - bytes 96-127: nativeFee (int192)
-//   - bytes 128-159: linkFee (int192)
-//   - bytes 160-191: expiresAt (uint32)
-//   - bytes 192+: custom ABI fields (calculated streams)
-//
-// ABI-encoded reports use the legacy Mercury signing scheme (LegacyReportContext) which includes
-// the donID in the ExtraHash. This is different from protobuf-encoded reports which use Sign3.
+// aggregateABI handles Format 7 (ABI-encoded). The workflow receives RawReport/Timestamp in Outputs and decodes at execution time.
 func (a *signedReportRemoteAggregator) aggregateABI(
 	triggerEventID string,
 	triggerResp capabilities.TriggerResponse,
 	ocrEvent *capabilities.OCRTriggerEvent,
 	rawReport []byte,
 ) (capabilities.TriggerResponse, error) {
-	// Extract timestamp from ABI header (offset 64-95, uint32 at end of 32-byte word)
 	timestamp, err := extractABITimestamp(rawReport)
 	if err != nil {
-		return capabilities.TriggerResponse{}, fmt.Errorf("failed to extract ABI timestamp: %w", err)
+		return capabilities.TriggerResponse{}, fmt.Errorf("ABI timestamp: %w", err)
 	}
-
-	// Check staleness using ABI timestamp (seconds, not nanoseconds)
 	timeDiff := time.Since(time.Unix(int64(timestamp), 0)).Abs()
 	if timeDiff.Seconds() > float64(a.maxAgeSec) {
 		return capabilities.TriggerResponse{}, fmt.Errorf("ABI report too old: age %v, maxAge %ds", timeDiff, a.maxAgeSec)
 	}
-
-	// Extract donID from event ID (format: streams_DONID_TIMESTAMP_f7)
 	donID, err := extractDonIDFromEventID(triggerEventID)
 	if err != nil {
-		a.lggr.Warnw("Failed to extract donID from event ID, using default", "eventID", triggerEventID, "err", err)
-		donID = 2 // Default for E2E test
+		a.lggr.Warnw("extract donID from event ID, using default", "eventID", triggerEventID, "err", err)
+		donID = 2
 	}
-
-		// Validate signatures using legacy signing scheme (includes donID in ExtraHash)
-		if err := a.validateSignaturesLegacy(ocrEvent, donID); err != nil {
-			return capabilities.TriggerResponse{}, fmt.Errorf("ABI-encoded report signature verification failed: %w", err)
-		}
-
-	// For ABI-encoded reports, keep the raw report bytes as Outputs
-	// The workflow can decode the ABI payload
+	if err := a.validateSignaturesLegacy(ocrEvent, donID); err != nil {
+		return capabilities.TriggerResponse{}, fmt.Errorf("ABI signature verification: %w", err)
+	}
 	outputsMap := &valuespb.Map{
 		Fields: map[string]*valuespb.Value{
-			"RawReport": {
-				Value: &valuespb.Value_BytesValue{BytesValue: rawReport},
-			},
-			"Timestamp": {
-				Value: &valuespb.Value_Uint64Value{Uint64Value: uint64(timestamp)},
-			},
+			"RawReport": {Value: &valuespb.Value_BytesValue{BytesValue: rawReport}},
+			"Timestamp": {Value: &valuespb.Value_Uint64Value{Uint64Value: uint64(timestamp)}},
 		},
 	}
 	triggerResp.Event.Outputs, err = values.FromMapValueProto(outputsMap)
 	if err != nil {
-		return capabilities.TriggerResponse{}, fmt.Errorf("failed to create outputs map: %w", err)
+		return capabilities.TriggerResponse{}, fmt.Errorf("create outputs: %w", err)
 	}
-	// Preserve Payload field (V2 format) - contains streams.Report wrapped in anypb.Any
-	// This is set by the CRE transmitter and is needed by the workflow SDK
 	return triggerResp, nil
 }
 
-// extractDonIDFromEventID parses the donID from event ID format: streams_DONID_TIMESTAMP_f7
+func isABIEncodedEventID(eventID string) bool {
+	return strings.HasSuffix(eventID, "_f7")
+}
+
 func extractDonIDFromEventID(eventID string) (uint32, error) {
 	var donID uint64
 	var timestamp uint64
 	_, err := fmt.Sscanf(eventID, "streams_%d_%d_f7", &donID, &timestamp)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse event ID '%s': %w", eventID, err)
+		return 0, fmt.Errorf("parse event ID %q: %w", eventID, err)
 	}
 	if donID > math.MaxUint32 {
 		return 0, fmt.Errorf("donID %d exceeds uint32", donID)
@@ -214,25 +177,79 @@ func extractDonIDFromEventID(eventID string) (uint32, error) {
 	return uint32(donID), nil
 }
 
-// isABIEncodedEventID checks if the event ID indicates an ABI-encoded report
-// ABI-encoded report event IDs have "_f7" suffix (generated by the CRE transmitter)
-// This is a Streams DON convention for identifying ABI-encoded reports
-func isABIEncodedEventID(eventID string) bool {
-	return strings.HasSuffix(eventID, "_f7")
+func extractABITimestamp(report []byte) (uint32, error) {
+	if len(report) < 192 {
+		return 0, fmt.Errorf("ABI report too short: %d bytes", len(report))
+	}
+	return binary.BigEndian.Uint32(report[92:96]), nil
 }
 
-// extractABITimestamp extracts the timestamp from an ABI-encoded report
-// The timestamp is at offset 64-95 (uint32 right-aligned in a 32-byte word)
-func extractABITimestamp(report []byte) (uint32, error) {
-	// Minimum size: 192 bytes for the base header
-	if len(report) < 192 {
-		return 0, fmt.Errorf("ABI-encoded report too short: %d bytes", len(report))
+// validateSignaturesLegacy validates ABI/Format 7 reports (legacy Mercury signing with donID in ExtraHash).
+func (a *signedReportRemoteAggregator) validateSignaturesLegacy(event *capabilities.OCRTriggerEvent, donID uint32) error {
+	digest, err := ocr2types.BytesToConfigDigest(event.ConfigDigest)
+	if err != nil {
+		return errors.Join(ErrMalformedConfig, err)
 	}
-	// Timestamp is at offset 64, stored as uint32 in the last 4 bytes of the 32-byte word
-	timestampWord := report[64:96]
-	// uint32 is right-aligned in the 32-byte ABI word
-	timestamp := binary.BigEndian.Uint32(timestampWord[28:32])
-	return timestamp, nil
+	reportCtx, err := legacyReportContext(digest, event.SeqNr, donID)
+	if err != nil {
+		return fmt.Errorf("legacy report context: %w", err)
+	}
+	fullHash := reportToSigDataLegacy(reportCtx, event.Report)
+	validated := map[common.Address]struct{}{}
+	for _, sig := range event.Sigs {
+		signerPubkey, err2 := crypto.SigToPub(fullHash, sig.Signature)
+		if err2 != nil {
+			continue
+		}
+		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
+		if _, ok := a.allowedSigners[signerAddr]; !ok {
+			continue
+		}
+		validated[signerAddr] = struct{}{}
+		if len(validated) >= a.minRequiredSignatures {
+			break
+		}
+	}
+	if len(validated) < a.minRequiredSignatures {
+		return fmt.Errorf("%w (legacy): got %d, needed %d", ErrInsufficientSignatures, len(validated), a.minRequiredSignatures)
+	}
+	return nil
+}
+
+const lloPluginVersion uint32 = 1
+
+func legacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64, donID uint32) (ocr2types.ReportContext, error) {
+	epoch, round, err := seqNrToEpochAndRound(seqNr)
+	if err != nil {
+		return ocr2types.ReportContext{}, err
+	}
+	return ocr2types.ReportContext{
+		ReportTimestamp: ocr2types.ReportTimestamp{ConfigDigest: cd, Epoch: epoch, Round: round},
+		ExtraHash:       lloExtraHash(donID),
+	}, nil
+}
+
+func seqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8, err error) {
+	if seqNr/256 > math.MaxUint32 {
+		return 0, 0, fmt.Errorf("epoch overflows uint32: %d", seqNr)
+	}
+	epoch = uint32(seqNr / 256) //nolint:gosec
+	round = uint8(seqNr % 256)  //nolint:gosec
+	return epoch, round, nil
+}
+
+func lloExtraHash(donID uint32) common.Hash {
+	combined := uint64(donID)<<32 | uint64(lloPluginVersion)
+	return common.BigToHash(new(big.Int).SetUint64(combined))
+}
+
+func reportToSigDataLegacy(reportCtx ocr2types.ReportContext, report ocr2types.Report) []byte {
+	rawCtx := evmutil.RawReportContext(reportCtx)
+	sigData := crypto.Keccak256(report)
+	sigData = append(sigData, rawCtx[0][:]...)
+	sigData = append(sigData, rawCtx[1][:]...)
+	sigData = append(sigData, rawCtx[2][:]...)
+	return crypto.Keccak256(sigData)
 }
 
 func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OCRTriggerEvent) error {
@@ -241,7 +258,6 @@ func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OC
 		return errors.Join(ErrMalformedConfig, err)
 	}
 	fullHash := ocr2key.ReportToSigData3(digest, event.SeqNr, event.Report)
-
 	validated := map[common.Address]struct{}{}
 	for _, sig := range event.Sigs {
 		signerPubkey, err2 := crypto.SigToPub(fullHash, sig.Signature)
@@ -249,8 +265,8 @@ func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OC
 			return errors.Join(ErrMalformedSigner, err2)
 		}
 		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
-
 		if _, ok := a.allowedSigners[signerAddr]; !ok {
+			a.lggr.Warnw("invalid signer", "signerAddr", signerAddr)
 			continue
 		}
 		validated[signerAddr] = struct{}{}
@@ -262,88 +278,4 @@ func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OC
 		return fmt.Errorf("%w: got %d, needed %d", ErrInsufficientSignatures, len(validated), a.minRequiredSignatures)
 	}
 	return nil
-}
-
-// validateSignaturesLegacy validates signatures using the legacy Mercury/LLO signing scheme.
-// This is used for ABI-encoded reports (Streams DON ReportFormatEVMABIEncodeUnpackedExpr) and other legacy formats.
-// The legacy scheme uses LegacyReportContext which includes donID in the ExtraHash.
-func (a *signedReportRemoteAggregator) validateSignaturesLegacy(event *capabilities.OCRTriggerEvent, donID uint32) error {
-	digest, err := ocr2types.BytesToConfigDigest(event.ConfigDigest)
-	if err != nil {
-		return errors.Join(ErrMalformedConfig, err)
-	}
-
-	// Build legacy report context (same as used by LLO keyring for signing)
-	reportCtx, err := legacyReportContext(digest, event.SeqNr, donID)
-	if err != nil {
-		return fmt.Errorf("failed to build legacy report context: %w", err)
-	}
-
-	// Compute hash using legacy method
-	fullHash := reportToSigDataLegacy(reportCtx, event.Report)
-
-	validated := map[common.Address]struct{}{}
-	for _, sig := range event.Sigs {
-		signerPubkey, err2 := crypto.SigToPub(fullHash, sig.Signature)
-		if err2 != nil {
-			continue
-		}
-		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
-
-		if _, ok := a.allowedSigners[signerAddr]; !ok {
-			continue
-		}
-		validated[signerAddr] = struct{}{}
-		if len(validated) >= a.minRequiredSignatures {
-			break // early exit
-		}
-	}
-	if len(validated) < a.minRequiredSignatures {
-		return fmt.Errorf("%w (legacy): got %d, needed %d", ErrInsufficientSignatures, len(validated), a.minRequiredSignatures)
-	}
-	return nil
-}
-
-// Legacy report context construction - matches LLO keyring signing
-const lloPluginVersion uint32 = 1
-
-func legacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64, donID uint32) (ocr2types.ReportContext, error) {
-	epoch, round, err := seqNrToEpochAndRound(seqNr)
-	if err != nil {
-		return ocr2types.ReportContext{}, err
-	}
-	return ocr2types.ReportContext{
-		ReportTimestamp: ocr2types.ReportTimestamp{
-			ConfigDigest: cd,
-			Epoch:        epoch,
-			Round:        round,
-		},
-		ExtraHash: lloExtraHash(donID),
-	}, nil
-}
-
-func seqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8, err error) {
-	// Simulate 256 rounds/epoch (same as LLO keyring)
-	if seqNr/256 > math.MaxUint32 {
-		err = fmt.Errorf("epoch overflows uint32: %d", seqNr)
-		return
-	}
-	epoch = uint32(seqNr / 256) //nolint:gosec // G115 false positive
-	round = uint8(seqNr % 256)  //nolint:gosec // G115 false positive
-	return
-}
-
-func lloExtraHash(donID uint32) common.Hash {
-	// Packs donID+pluginVersion as (uint32, uint32)
-	combined := uint64(donID)<<32 | uint64(lloPluginVersion)
-	return common.BigToHash(new(big.Int).SetUint64(combined))
-}
-
-func reportToSigDataLegacy(reportCtx ocr2types.ReportContext, report ocr2types.Report) []byte {
-	rawReportContext := evmutil.RawReportContext(reportCtx)
-	sigData := crypto.Keccak256(report)
-	sigData = append(sigData, rawReportContext[0][:]...)
-	sigData = append(sigData, rawReportContext[1][:]...)
-	sigData = append(sigData, rawReportContext[2][:]...)
-	return crypto.Keccak256(sigData)
 }

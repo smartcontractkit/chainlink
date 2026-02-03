@@ -291,7 +291,8 @@ func (c *Controller) GetTriggerSubscribers(ctx context.Context, triggerID string
 	return subscribers, nil
 }
 
-// WaitForTriggerSubscribers waits until all nodes have at least one subscriber for the specified trigger
+// WaitForTriggerSubscribers waits until at least one node has at least one subscriber for the specified trigger.
+// It does not require all nodes to have subscribers (workflow may subscribe to one or more nodes).
 func (c *Controller) WaitForTriggerSubscribers(ctx context.Context, triggerID string, timeoutDuration time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeoutDuration)
 	defer cancel()
@@ -299,7 +300,7 @@ func (c *Controller) WaitForTriggerSubscribers(ctx context.Context, triggerID st
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	c.lggr.Info().Msgf("Waiting for subscribers on trigger %s for all nodes...", triggerID)
+	c.lggr.Info().Msgf("Waiting for subscribers on trigger %s (at least one node)...", triggerID)
 
 	for {
 		select {
@@ -312,33 +313,14 @@ func (c *Controller) WaitForTriggerSubscribers(ctx context.Context, triggerID st
 				continue
 			}
 
-			allNodesHaveSubscribers := true
 			for nodeURL, workflowIDs := range subscribers {
-				if len(workflowIDs) == 0 {
-					c.lggr.Debug().Msgf("Node %s does not have subscribers for trigger %s yet", nodeURL, triggerID)
-					allNodesHaveSubscribers = false
-					break
+				if len(workflowIDs) > 0 {
+					c.lggr.Info().Msgf("Node %s has %d subscriber(s) for trigger %s", nodeURL, len(workflowIDs), triggerID)
+					return nil
 				}
 			}
 
-			// Check if all nodes are represented in the subscribers map
-			if len(subscribers) < len(c.Nodes) {
-				missingNodes := []string{}
-				for _, node := range c.Nodes {
-					if _, exists := subscribers[node.URL]; !exists {
-						missingNodes = append(missingNodes, node.URL)
-					}
-				}
-				if len(missingNodes) > 0 {
-					c.lggr.Debug().Msgf("Some nodes have no subscribers for trigger %s: %v", triggerID, missingNodes)
-					allNodesHaveSubscribers = false
-				}
-			}
-
-			if allNodesHaveSubscribers {
-				c.lggr.Info().Msgf("All nodes now have subscribers for trigger %s", triggerID)
-				return nil
-			}
+			c.lggr.Debug().Msgf("No nodes have subscribers for trigger %s yet", triggerID)
 		}
 	}
 }

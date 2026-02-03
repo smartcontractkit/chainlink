@@ -40,16 +40,30 @@ func (o *Mock) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
-		Capability: kcr.CapabilitiesRegistryCapability{
-			LabelledName:   "mock",
-			Version:        "1.0.0",
-			CapabilityType: 0, // TRIGGER
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "mock",
+				Version:        "1.0.0",
+				CapabilityType: 0, // TRIGGER
+			},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		},
-		Config: &capabilitiespb.CapabilityConfig{
-			LocalOnly: don.HasOnlyLocalCapabilities(),
+		// Register as streams-trigger@2.0.0 so LLO mock test can use mock-only config:
+		// workflow discovers streams-trigger@2.0.0 and subscribes to the mock.
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "streams-trigger",
+				Version:        "2.0.0",
+				CapabilityType: 0, // TRIGGER
+			},
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		},
-	}}
+	}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,

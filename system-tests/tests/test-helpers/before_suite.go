@@ -125,38 +125,7 @@ func setConfigurationIfMissing(configName string) error {
 }
 
 func createEnvironmentIfNotExists(relativePathToRepoRoot, environmentDir string, flags ...string) error {
-	stateExists := envconfig.LocalCREStateFileExists(relativePathToRepoRoot)
-	freshEnv := os.Getenv("FRESH_ENV") == "true"
-
-	// If FRESH_ENV=true and state exists, stop environment and delete state to force recreation
-	if freshEnv && stateExists {
-		framework.L.Info().Msg("FRESH_ENV=true - stopping existing environment and deleting state...")
-
-		// Stop existing environment first
-		stopCmd := exec.Command("go", "run", ".", "env", "stop")
-		stopCmd.Dir = environmentDir
-		stopCmd.Stdout = os.Stdout
-		stopCmd.Stderr = os.Stderr
-		_ = stopCmd.Run() // Ignore errors - environment might not be running
-
-		// Remove all test containers (including Anvil/blockchain containers) to ensure fresh state
-		// This is critical to avoid reusing old blockchain state with incorrect contract data
-		removeErr := framework.RemoveTestContainers()
-		if removeErr != nil {
-			framework.L.Warn().Msgf("Failed to remove test containers (this may be expected if containers don't exist): %s", removeErr)
-		} else {
-			framework.L.Info().Msg("Removed all test containers (including blockchain/Anvil) to ensure fresh state")
-		}
-
-		// Delete state directory
-		stateDir := filepath.Join(relativePathToRepoRoot, envconfig.StateDirname)
-		if err := os.RemoveAll(stateDir); err != nil {
-			return errors.Wrap(err, "failed to delete state directory")
-		}
-		stateExists = false
-	}
-
-	if !stateExists {
+	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
 		args := []string{"run", ".", "env", "start"}

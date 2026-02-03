@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -506,21 +505,9 @@ func (o *orm) insertFinishedRun(ctx context.Context, run *Run, saveSuccessfulTas
 	defer o.prune(ctx, o.ds, run.PruningKey)
 	sql = `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
-		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
-		ON CONFLICT (id) DO NOTHING;`
+		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);`
 	_, err = o.ds.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
-	if err != nil {
-		// Check if it's a duplicate key error (SQLSTATE 23505)
-		// ON CONFLICT DO NOTHING should prevent this, but handle it gracefully as a fallback
-		errStr := err.Error()
-		if strings.Contains(errStr, "duplicate key") || strings.Contains(errStr, "23505") {
-			// Duplicate key violation - log and continue gracefully
-			o.lggr.Debugw("Skipping duplicate pipeline_task_runs insert", "pipeline_run_id", run.ID, "nTaskRuns", len(run.PipelineTaskRuns), "err", errStr)
-			return nil
-		}
-		return errors.Wrap(err, "failed to insert pipeline_task_runs")
-	}
-	return nil
+	return errors.Wrap(err, "failed to insert pipeline_task_runs")
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space

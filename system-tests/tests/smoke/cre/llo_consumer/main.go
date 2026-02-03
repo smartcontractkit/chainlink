@@ -35,9 +35,16 @@ const (
 	MAGIC_NUMBER_FORMAT7 = 555555 // For ReportFormat 7 (EVMABIEncodeUnpackedExpr)
 )
 
+// DefaultStreamsTriggerCapabilityID is the capability ID used for LLO streams trigger (real DON).
+const DefaultStreamsTriggerCapabilityID = "streams-trigger@2.0.0"
+
+// MockStreamsTriggerCapabilityID is used when the capabilities DON runs only the mock (mock test).
+const MockStreamsTriggerCapabilityID = "mock@1.0.0"
+
 type WorkflowConfig struct {
-	StreamIDs      []uint32 `yaml:"stream_ids"`
-	MaxFrequencyMs uint64   `yaml:"max_frequency_ms"`
+	StreamIDs           []uint32 `yaml:"stream_ids"`
+	MaxFrequencyMs      uint64   `yaml:"max_frequency_ms"`
+	TriggerCapabilityID string   `yaml:"trigger_capability_id"` // optional; default streams-trigger@2.0.0. Use mock@1.0.0 for mock test.
 }
 
 func main() {
@@ -56,20 +63,24 @@ func main() {
 }
 
 type streamsTrigger struct {
-	config *anypb.Any
+	config       *anypb.Any
+	capabilityID string
 }
 
-func NewStreamsTrigger(cfg *streams.Config) cre.Trigger[*streams.Report, *streams.Report] {
+func NewStreamsTrigger(cfg *streams.Config, capabilityID string) cre.Trigger[*streams.Report, *streams.Report] {
 	configAny := &anypb.Any{}
 	if cfg != nil {
 		_ = anypb.MarshalFrom(configAny, cfg, proto.MarshalOptions{Deterministic: true})
 	}
-	return &streamsTrigger{config: configAny}
+	if capabilityID == "" {
+		capabilityID = DefaultStreamsTriggerCapabilityID
+	}
+	return &streamsTrigger{config: configAny, capabilityID: capabilityID}
 }
 
 func (*streamsTrigger) IsTrigger()                {}
 func (*streamsTrigger) NewT() *streams.Report     { return &streams.Report{} }
-func (*streamsTrigger) CapabilityID() string      { return "streams-trigger@2.0.0" }
+func (t *streamsTrigger) CapabilityID() string    { return t.capabilityID }
 func (*streamsTrigger) Method() string            { return "Trigger" }
 func (t *streamsTrigger) ConfigAsAny() *anypb.Any { return t.config }
 func (t *streamsTrigger) Adapt(report *streams.Report) (*streams.Report, error) {
@@ -80,13 +91,12 @@ func (t *streamsTrigger) Adapt(report *streams.Report) (*streams.Report, error) 
 }
 
 func RunLLOConsumerWorkflow(config WorkflowConfig, logger *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[WorkflowConfig], error) {
-	logger.Info(fmt.Sprintf("LLO_CONSUMER_STARTING: streams=%v, expecting MAGIC_FORMAT5=%d, MAGIC_FORMAT7=%d",
-		config.StreamIDs, MAGIC_NUMBER_FORMAT5, MAGIC_NUMBER_FORMAT7))
+	logger.Info("LLO_CONSUMER_STARTING", "streams", config.StreamIDs, "triggerCapabilityID", config.TriggerCapabilityID, "MAGIC_FORMAT5", MAGIC_NUMBER_FORMAT5, "MAGIC_FORMAT7", MAGIC_NUMBER_FORMAT7)
 
 	trigger := NewStreamsTrigger(&streams.Config{
 		StreamIds:      config.StreamIDs,
 		MaxFrequencyMs: config.MaxFrequencyMs,
-	})
+	}, config.TriggerCapabilityID)
 
 	return cre.Workflow[WorkflowConfig]{
 		cre.Handler(trigger, onStreamsTrigger),

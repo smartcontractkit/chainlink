@@ -36,61 +36,30 @@
 #  provider = "kind"  # or "aws"
 
 [[nodesets]]
-  nodes = 5
+  nodes = 4
   name = "workflow"
   don_types = ["workflow"]
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10100
+
+  # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
+  # because bootstrap job for capability DON will be created on the boostrap node from this DON
+  supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
   [nodesets.chain_capabilities]
-    # we want to write only to the home chain, so that we can test whether remote write-evm-2337 capability of the 'capabilities DON' is used
+    # we want to write only to the home chain, so that we can test whether remote capabilities of the 'capabilities DON' are used
     write-evm = ["1337"]
     read-contract = ["1337"]
+    evm = ["1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
     image = "postgres:12.0"
     port = 13000
-
-  [[nodesets.node_specs]]
-    roles = ["bootstrap"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
- [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
- [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
- [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
 
  [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -105,16 +74,21 @@
   nodes = 4
   name = "capabilities"
   don_types = ["capabilities"]
+  exposes_remote_capabilities = true
   override_mode = "all"
   http_port_range_start = 10200
 
+  # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
+  # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
+  supported_evm_chains = [1337, 2337]
+
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["web-api-target","vault"]
+  capabilities = ["web-api-target", "vault"]
 
   [nodesets.chain_capabilities]
   write-evm = ["2337"]
   read-contract = ["2337"]
-  evm = ["1337"]
+  evm = ["2337"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -131,29 +105,26 @@
 
 [[nodesets]]
   nodes = 1
-  name = "gateway"
-  don_types = ["gateway"]
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
 
   env_vars = { CL_EVM_CMD = "" }
-
-  # required so that EVM keys are generated and we can add gateway connecter
-  # remove once connector is not required by Workflow Registry Syncer
-  supported_evm_chains = [1337]
+  supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
     image = "postgres:12.0"
     port = 13200
 
   [[nodesets.node_specs]]
-    roles = ["gateway"]
+    roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""

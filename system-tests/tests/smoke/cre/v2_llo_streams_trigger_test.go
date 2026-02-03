@@ -28,6 +28,10 @@ import (
 // Uses a test-specific config without gateway DON and with streams-trigger capability
 const lloStreamsConfigPath = "/configs/workflow-capabilities-llo-don.toml"
 
+// Mock test uses a config where capabilities DON has only "mock" (no "streams-trigger")
+// so the workflow subscribes to the mock; mock must register as streams-trigger@2.0.0
+const lloStreamsMockConfigPath = "/configs/workflow-capabilities-llo-don-mock.toml"
+
 // To run with debug log level (shows nSubscribers and other debug logs), set:
 // CTF_LOG_LEVEL=debug go test -timeout 10m -run "Test_CRE_V2_LLO_Streams_Trigger_E2E" ./smoke/cre/...
 
@@ -50,14 +54,15 @@ func Test_CRE_V2_LLO_Streams_Trigger_Mock(t *testing.T) {
 	}
 
 	topology := os.Getenv("TOPOLOGY_NAME")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, lloStreamsConfigPath), v2RegistriesFlags...)
+	// Use mock-only config so workflow subscribes to mock (not real streams-trigger)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, lloStreamsMockConfigPath), v2RegistriesFlags...)
 
 	t.Run("[v2] LLO Streams Trigger (Mock) - "+topology, func(t *testing.T) {
 		ExecuteLLOStreamsTriggerTest(t, testEnv)
 	})
 }
 
-// Test_CRE_V2_LLO_Streams_Trigger_E2E runs the full E2E test with real LLO plugin
+// Test_CRE_V2_LLO_Streams_Trigger_E2E runs the full E2E test with real LLO plugin.
 // This test automatically deploys the full LLO infrastructure:
 // 1. LLO contracts (Configurator, ChannelConfigStore)
 // 2. OCR configuration with proper encryption keys
@@ -65,6 +70,7 @@ func Test_CRE_V2_LLO_Streams_Trigger_Mock(t *testing.T) {
 // 4. Channel definitions (from LLO infrastructure setup)
 //
 // The test verifies end-to-end data flow by checking for magic numbers in workflow logs.
+// Triggering is done by the LLO plugin once OCR rounds produce reports (stream jobs -> LLO jobs -> CRE transmitter).
 //
 // To run:
 //
@@ -103,23 +109,35 @@ func ExecuteLLOStreamsTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	// Start Beholder listener to capture workflow logs
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
-	// Step 1: Deploy the LLO consumer workflow
+	// Step 1: Deploy the LLO consumer workflow (mock test: subscribe to mock@1.0.0)
 	testLogger.Info().Msg("Step 1: Deploying LLO consumer workflow...")
 	workflowConfig := llo_consumer_config.LLOConsumerConfig{
-		StreamIDs:      []uint32{1}, // Subscribe to stream ID 1
-		MaxFrequencyMs: 1000,        // 1 second max frequency
+		StreamIDs:           []uint32{1},  // Subscribe to stream ID 1
+		MaxFrequencyMs:      1000,         // 1 second max frequency
+		TriggerCapabilityID: "mock@1.0.0", // Mock test uses mock-only DON; workflow must subscribe to mock trigger
 	}
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 	testLogger.Info().Msg("✓ Workflow deployed successfully")
 
 	// Step 2: Wait for capability registration and DON-to-DON discovery
 	testLogger.Info().Msg("Step 2: Waiting for capability discovery...")
-	time.Sleep(10 * time.Second) // Allow time for capability registration
+	time.Sleep(30 * time.Second) // Allow time for capability registration and workflow subscription
 	testLogger.Info().Msg("✓ Capability discovery period completed")
+
+	// Step 2b: Wait for the workflow to subscribe to streams-trigger on the mock (mock-only config).
+	// The mock capability only has a trigger after RegisterTrigger is called; SendTriggerEvent
+	// returns "cannot find trigger" until then.
+	testLogger.Info().Msg("Step 2b: Waiting for trigger subscribers (workflow must subscribe first)...")
+	controller := mockcap.NewMockCapabilityController(framework.L)
+	if err := controller.ConnectAll(getMockCapabilityAddresses(testEnv), true, false); err != nil {
+		require.NoError(t, err, "Failed to connect to mock capability controllers")
+	}
+	err := controller.WaitForTriggerSubscribers(context.Background(), "mock@1.0.0", 90*time.Second)
+	require.NoError(t, err, "Timeout waiting for workflow to subscribe to mock@1.0.0 on mock - use workflow-capabilities-llo-don-mock.toml (capabilities DON has only mock)")
 
 	// Step 3: Inject mock LLO reports via the mock capability controller
 	testLogger.Info().Msg("Step 3: Injecting mock LLO reports...")
-	err := injectMockLLOReports(t, testEnv, 5) // Inject 5 reports
+	err = injectMockLLOReports(t, testEnv, 5) // Inject 5 reports
 	require.NoError(t, err, "Failed to inject mock LLO reports")
 	testLogger.Info().Msg("✓ Mock reports injected")
 
@@ -166,7 +184,7 @@ func injectMockLLOReports(t *testing.T, testEnv *ttypes.TestEnvironment, count i
 		}
 
 		req := &mockpb.SendTriggerEventRequest{
-			TriggerID:   "streams-trigger@2.0.0",
+			TriggerID:   "mock@1.0.0", // Must match trigger ID the workflow subscribed to (mock test uses mock@1.0.0)
 			TriggerType: "llo",
 			ID:          fmt.Sprintf("mock-llo-report-%d", i+1),
 			Payload:     anyReport,
@@ -184,7 +202,10 @@ func injectMockLLOReports(t *testing.T, testEnv *ttypes.TestEnvironment, count i
 	return nil
 }
 
-// generateMockLLOReport creates a mock LLO report that matches the streams.Report structure
+// generateMockLLOReport creates a mock LLO report that matches the streams.Report structure.
+// configDigest is the OCR config digest (32-byte SHA256). For mock tests any fixed digest is fine.
+// In production this comes from the OCR protocol; to obtain or regenerate see libocr ConfigDigest
+// or the contract's latest config digest.
 func generateMockLLOReport(seqNr uint64) (*streams.Report, error) {
 	timestamp := uint64(time.Now().UnixNano())
 	configDigest, _ := hex.DecodeString("00091599c39d29821b4949b9ba237d2d1d9b7369087a71283c921034898320b0")
@@ -230,74 +251,37 @@ func getMockCapabilityAddresses(_ *ttypes.TestEnvironment) []string {
 	return addresses
 }
 
-// ExecuteLLOStreamsTriggerE2EWithFullLLO runs the E2E test with actual LLO plugin
-// This test deploys LLO infrastructure:
-// - LLO contracts (Configurator, ChannelConfigStore)
-// - OCR configuration with proper encryption keys
-// - Channel definitions for Format 5 and Format 7
-// - Stream jobs fetching from fake price provider
-// - LLO jobs with CRE transmitter
-//
-// The test verifies end-to-end data flow by checking for magic numbers in workflow logs.
+// ExecuteLLOStreamsTriggerE2EWithFullLLO runs the E2E test with actual LLO plugin.
+// LLO infrastructure (Configurator, ChannelConfigStore, channel defs, stream jobs,
+// LLO jobs, OCR config) is deployed by StreamsTrigger.PostEnvStartup during env startup.
+// This test deploys the consumer workflow and verifies end-to-end data flow via magic numbers.
 func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEnvironment) {
-	ctx := context.Background()
+	var err error
 	testLogger := framework.L
 	workflowFileLocation := "llo_consumer/main.go"
 	workflowName := "llo-consumer-e2e"
 
 	testLogger.Info().Msg("╔══════════════════════════════════════════════════════════════════════╗")
 	testLogger.Info().Msg("║        LLO STREAMS TRIGGER E2E TEST (FULL LLO)                       ║")
-	testLogger.Info().Msg("║  Magic Numbers: Format5=424242, Format7=555555 (111111*5 calculated) ║")
+	testLogger.Info().Msg("║  LLO deployed via PostEnvStartup; Magic: Format5=424242, Format7=555555 ║")
 	testLogger.Info().Msg("╚══════════════════════════════════════════════════════════════════════╝")
 
-	// Step 1: Setup LLO Infrastructure (deploy contracts only)
-	testLogger.Info().Msg("Step 1: Setting up LLO Infrastructure (contracts only)...")
-	const donID uint32 = 2 // Use DON ID 2 for LLO
-	infra, err := SetupLLOInfrastructure(t, ctx, testLogger, testEnv, donID)
-	require.NoError(t, err, "Failed to setup LLO infrastructure")
-	defer infra.StopChannelDefsServer()
-	testLogger.Info().Msg("✓ LLO Infrastructure ready")
+	// Step 1: Wait for LLO jobs to detect config and start OCR rounds (PostEnvStartup already ran)
+	testLogger.Info().Msg("Step 1: Waiting for LLO jobs to detect config and start OCR rounds...")
+	time.Sleep(30 * time.Second)
 
-	// Step 2: Deploy stream jobs
-	testLogger.Info().Msg("Step 2: Deploying stream jobs...")
-	err = DeployStreamJobs(ctx, testLogger, testEnv)
-	require.NoError(t, err, "Failed to deploy stream jobs")
-	testLogger.Info().Msg("✓ Stream jobs deployed")
-
-	// Step 3: Deploy LLO jobs with CRE transmitter (this starts LogPoller)
-	testLogger.Info().Msg("Step 3: Deploying LLO jobs with CRE transmitter...")
-	err = DeployLLOJobs(ctx, testLogger, testEnv, infra)
-	require.NoError(t, err, "Failed to deploy LLO jobs")
-	testLogger.Info().Msg("✓ LLO jobs deployed")
-
-	// Step 4: Set OCR config AFTER LLO jobs are deployed
-	// This is critical because LogPoller only starts indexing when the LLO job
-	// is deployed. Setting config now ensures the ProductionConfigSet event is
-	// at a block that the LogPoller can see.
-	testLogger.Info().Msg("Step 4: Setting OCR configuration...")
-	err = SetOCRConfiguration(t, ctx, testLogger, testEnv, infra)
-	require.NoError(t, err, "Failed to set OCR configuration")
-	testLogger.Info().Msg("✓ OCR configuration set")
-
-	// Step 5: Wait for LLO jobs to detect config and start OCR rounds
-	testLogger.Info().Msg("Step 5: Waiting for LLO jobs to detect config and start OCR rounds...")
-	time.Sleep(30 * time.Second) // Give LLO jobs time to detect config and start OCR rounds
-
-	// Step 6: Wait for CRE Transmitter to register
-	testLogger.Info().Msg("Step 6: Waiting for CRE Transmitter to register...")
+	// Step 2: Wait for CRE Transmitter to register
+	testLogger.Info().Msg("Step 2: Waiting for CRE Transmitter to register...")
 	time.Sleep(10 * time.Second)
 
-	// Step 7: Wait for capability discovery BEFORE deploying workflow
-	// The workflow engine initialization happens immediately when the workflow is deployed,
-	// so we need to ensure the streams-trigger capability is registered and discoverable first.
-	testLogger.Info().Msg("Step 7: Waiting for capability discovery (streams-trigger must be registered)...")
-	time.Sleep(40 * time.Second) // Allow time for cross-DON capability discovery
+	// Step 3: Wait for capability discovery before deploying workflow
+	testLogger.Info().Msg("Step 3: Waiting for capability discovery (streams-trigger must be registered)...")
+	time.Sleep(40 * time.Second)
 
-	// Start Beholder listener to capture workflow logs
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
-	// Step 8: Deploy the LLO consumer workflow
-	testLogger.Info().Msg("Step 8: Deploying LLO consumer workflow...")
+	// Step 4: Deploy the LLO consumer workflow
+	testLogger.Info().Msg("Step 4: Deploying LLO consumer workflow...")
 	workflowConfig := llo_consumer_config.LLOConsumerConfig{
 		StreamIDs:      []uint32{1, 4}, // Subscribe to both Format 5 and Format 7 streams
 		MaxFrequencyMs: 1000,
@@ -305,9 +289,8 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 	testLogger.Info().Msg("✓ Workflow deployed")
 
-	// Step 9: Wait for LLO reports with magic numbers
-	// We need to verify both Format 5 (424242) and Format 7 (555555 from calculated stream)
-	testLogger.Info().Msg("Step 9: Waiting for LLO reports with magic numbers...")
+	// Step 5: Wait for LLO reports with magic numbers (Format 5=424242, Format 7=555555)
+	testLogger.Info().Msg("Step 5: Waiting for LLO reports with magic numbers...")
 	timeout := 3 * time.Minute
 
 	// First, explicitly wait for Format 5 (424242)
