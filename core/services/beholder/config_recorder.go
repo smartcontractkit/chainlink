@@ -21,12 +21,12 @@ type ConfigRecorder struct {
 func NewConfigRecorder(logger logger.Logger, interval time.Duration) *ConfigRecorder {
 	cr := &ConfigRecorder{
 		interval: interval,
-		logger:   logger,
+		logger:   logger.Named("BeholderConfigRecorder"),
 	}
 	cr.Service, cr.eng = services.Config{
 		Name:  "BeholderConfigRecorder",
 		Start: cr.start,
-	}.NewServiceEngine(logger)
+	}.NewServiceEngine(cr.logger)
 	return cr
 }
 
