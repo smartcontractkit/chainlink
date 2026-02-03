@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // ConfigRecorder periodically records Beholder config info metric.
@@ -15,12 +16,14 @@ type ConfigRecorder struct {
 	chStop   services.StopChan
 	wgDone   sync.WaitGroup
 	interval time.Duration
+	logger   logger.Logger
 }
 
-func NewConfigRecorder(interval time.Duration) *ConfigRecorder {
+func NewConfigRecorder(logger logger.Logger, interval time.Duration) *ConfigRecorder {
 	return &ConfigRecorder{
 		chStop:   make(services.StopChan),
 		interval: interval,
+		logger:   logger,
 	}
 }
 
@@ -45,7 +48,9 @@ func (s *ConfigRecorder) run(ctx context.Context) {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 	for {
-		beholder.GetClient().RecordConfigMetric(ctx)
+		if err := beholder.GetClient().RecordConfigMetric(ctx); err != nil {
+			s.logger.Errorf("failed to record beholder config metric: %v", err)
+		}
 		select {
 		case <-ticker.C:
 		case <-s.chStop:

@@ -323,7 +323,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 	lggr.Infow("configuration args", "config files", s.configFiles, "secret files", s.secretsFiles)
 
-	beholderConfigRecorder := beholderServices.NewConfigRecorder(1 * time.Hour)
+	beholderConfigRecorder := beholderServices.NewConfigRecorder(lggr, 1*time.Hour)
 	if err := beholderConfigRecorder.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start beholder config recorder service: %w", err)
 	}
