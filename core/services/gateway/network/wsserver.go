@@ -123,7 +123,9 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	conn, err := s.upgrader.Upgrade(w, r, hdr)
 	if err != nil {
 		s.lggr.Errorw("failed websocket upgrade", "err", err)
-		conn.Close()
+		if conn != nil {
+			conn.Close()
+		}
 		s.acceptor.AbortHandshake(attemptId)
 		return
 	}
