@@ -136,10 +136,7 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 }
 
 func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string) error {
-	if s.capabilityID != triggerID {
-		return fmt.Errorf("AckEvent invariant violation: triggerID=%q was dispatched to the wrong capability (capabilityID=%q)", triggerID, s.capabilityID)
-	}
-	s.lggr.Infof("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerID, eventID)
+	s.lggr.Debugf("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerID, eventID)
 
 	s.mu.RLock()
 	cfg := s.cfg.Load()

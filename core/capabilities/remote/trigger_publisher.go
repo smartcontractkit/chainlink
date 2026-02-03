@@ -256,16 +256,13 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	case types.MethodTriggerEventAck:
-		p.lggr.Infof("received EventAck method")
 		triggerMetadata := msg.GetTriggerEventMetadata()
 		if triggerMetadata == nil {
 			p.lggr.Errorw("received empty trigger event ack metadata", "sender", sender)
 			break
 		}
 		triggerEventID := triggerMetadata.TriggerEventId
-		workflowID := triggerMetadata.WorkflowIds
-		p.lggr.Infow("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID,
-			"workflowID", workflowID)
+		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID)
 
 		p.mu.Lock()
 		defer p.mu.Unlock()
@@ -285,13 +282,13 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.EventTimeout.Milliseconds(), false)
 		if !ready {
-			p.lggr.Infow("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
+			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return
 		}
 
 		ctx, cancel := p.stopCh.NewCtx()
 		defer cancel()
-		p.lggr.Infow("ACKing trigger event", "triggerEventId", triggerEventID)
+		p.lggr.Debugw("ACKing trigger event", "triggerEventId", triggerEventID)
 		err = cfg.underlying.AckEvent(ctx, p.capabilityID, triggerEventID)
 		if err != nil {
 			p.lggr.Errorf("failed to AckEvent on underlying trigger capability (eventID = %s, capabilityID: %s): %v",
