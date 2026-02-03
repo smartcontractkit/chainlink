@@ -8,7 +8,7 @@ require (
 	github.com/ethereum/go-ethereum v1.16.8
 	github.com/google/go-cmp v0.7.0
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8
-	github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18
+	github.com/smartcontractkit/cre-sdk-go v1.1.5
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 	github.com/stretchr/testify v1.11.1
