@@ -24,6 +24,7 @@ import (
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -313,7 +314,7 @@ func addBootstrapNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -390,7 +391,7 @@ func addWorkerNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 

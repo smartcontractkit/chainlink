@@ -227,6 +227,7 @@ func startCmd() *cobra.Command {
 		withObs                  bool
 		withBilling              bool
 		setupConfig              SetupConfig
+		chipGRPCPort             int
 	)
 
 	cmd := &cobra.Command{
@@ -370,6 +371,7 @@ func startCmd() *cobra.Command {
 				startBeholderErr := startBeholder(
 					cmdContext,
 					cleanupWait,
+					chipGRPCPort,
 				)
 
 				metaData := map[string]any{}
@@ -509,6 +511,8 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
+	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
+
 	return cmd
 }
 
@@ -1042,7 +1046,7 @@ func purgeStateCmd() *cobra.Command {
 
 func allCacheFolders() ([]string, error) {
 	// TODO get this path from Beholder in the CTF
-	knownCacheDirRoots := []string{"~/.local/share/beholder", "~/.local/share/observability"}
+	knownCacheDirRoots := []string{"~/.local/share/beholder", "~/.local/share/observability", "~/.local/share/chip_ingress_set", "~/.local/share/ctf"}
 
 	cacheDirs := []string{}
 	for _, root := range knownCacheDirRoots {

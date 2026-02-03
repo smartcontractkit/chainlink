@@ -33,7 +33,14 @@ func NewNode(t *testing.T, c NodeConfig) *deployment.Node {
 	p2p := p2pkey.MustNewV2XXXTestingOnly(k)
 	ocrConfigs := make(map[chain_selectors.ChainDetails]deployment.OCRConfig)
 	for _, cs := range c.ChainSelectors {
-		ocrConfigs[chain_selectors.ChainDetails{ChainSelector: cs}] = testOCRConfig(t, cs, p2p)
+		// populate name and networkType based on chain selector
+		family, err := chain_selectors.GetSelectorFamily(cs)
+		require.NoError(t, err)
+		chainID, err := chain_selectors.GetChainIDFromSelector(cs)
+		require.NoError(t, err)
+		details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainID, family)
+		require.NoError(t, err)
+		ocrConfigs[details] = testOCRConfig(t, cs, p2p)
 	}
 	if c.Labels == nil {
 		c.Labels = map[string]string{}

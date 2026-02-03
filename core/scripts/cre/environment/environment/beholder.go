@@ -5,13 +5,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -113,6 +118,123 @@ func isHexString(s string) bool {
 	return err == nil
 }
 
+// getComposeFileFromGoMod extracts the version of chainlink-testing-framework/framework/components/dockercompose
+// from go.mod and returns the URL to the docker-compose.yml file for that version.
+// It caches the file locally to avoid re-downloading.
+func getComposeFileFromGoMod(ctx context.Context) (string, error) {
+	const targetModule = "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose"
+
+	// Get the absolute path to the core/scripts directory (where go.mod is located for this package)
+	scriptsDir, err := filepath.Abs("../../")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get absolute path to scripts directory")
+	}
+
+	// Use `go list -m -json` to get module information
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-json", targetModule)
+	cmd.Dir = scriptsDir
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to run 'go list -m -json %s'", targetModule)
+	}
+
+	// Parse JSON output
+	var modInfo moduleInfo
+	if unmarshalErr := json.Unmarshal(output, &modInfo); unmarshalErr != nil {
+		return "", errors.Wrap(unmarshalErr, "failed to parse go list JSON output")
+	}
+
+	if modInfo.Version == "" {
+		return "", errors.Errorf("no version found for module %s", targetModule)
+	}
+
+	// Determine the GitHub ref to use
+	version := modInfo.Version
+	var githubRef string
+	var cacheKey string
+
+	// Check if it's a pseudo-version (format: v0.1.19-0.20260130101725-678aa4ae7ce6)
+	if strings.Contains(version, "-0.") && strings.Count(version, "-") >= 2 {
+		// Extract commit hash from pseudo-version
+		parts := strings.Split(version, "-")
+		commitHash := parts[len(parts)-1]
+		githubRef = commitHash // Use commit hash directly
+		cacheKey = commitHash  // Use commit hash for cache
+		framework.L.Info().Msgf("Detected pseudo-version: %s, using commit: %s", version, commitHash)
+	} else {
+		// It's a proper version tag
+		githubRef = "framework/components/dockercompose/" + version
+		cacheKey = version
+		framework.L.Info().Msgf("Detected version tag: %s", version)
+	}
+
+	// Check if file is already cached locally
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get user home directory")
+	}
+	cacheDir := filepath.Join(homeDir, ".local", "share", "chip_ingress_set")
+	cachedFile := filepath.Join(cacheDir, fmt.Sprintf("docker-compose-%s.yml", cacheKey))
+
+	if _, statErr := os.Stat(cachedFile); statErr == nil {
+		framework.L.Info().Msgf("Using cached compose file: %s", cachedFile)
+		return "file://" + cachedFile, nil
+	}
+
+	// Download and cache the file
+	url := fmt.Sprintf("https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/%s/framework/components/dockercompose/chip_ingress_set/docker-compose.yml", githubRef)
+	framework.L.Info().Msgf("Downloading compose file from: %s", url)
+
+	// Create cache directory
+	if mkdirErr := os.MkdirAll(cacheDir, 0o755); mkdirErr != nil {
+		return "", errors.Wrap(mkdirErr, "failed to create cache directory")
+	}
+
+	// Download file with retries to withstand transient GitHub/network issues
+	var respBody []byte
+	downloadErr := retry.Do(
+		func() error {
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if reqErr != nil {
+				return errors.Wrapf(reqErr, "failed to create HTTP request for %s", url)
+			}
+
+			resp, httpErr := http.DefaultClient.Do(req)
+			if httpErr != nil {
+				return errors.Wrapf(httpErr, "failed to download compose file from %s", url)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return errors.Errorf("failed to download compose file: HTTP %d", resp.StatusCode)
+			}
+
+			bodyBytes, readErr := io.ReadAll(resp.Body)
+			if readErr != nil {
+				return errors.Wrap(readErr, "failed to read compose file contents")
+			}
+			respBody = bodyBytes
+			return nil
+		},
+		retry.Context(ctx),
+		retry.Delay(500*time.Millisecond),
+		retry.Attempts(5),
+		retry.DelayType(retry.BackOffDelay),
+	)
+	if downloadErr != nil {
+		return "", errors.Wrap(downloadErr, "failed to download compose file")
+	}
+
+	// Save to cache
+	if writeErr := os.WriteFile(cachedFile, respBody, 0o644); writeErr != nil { //nolint: gosec // it's fine for permissions to be a bit wider
+		return "", errors.Wrap(writeErr, "failed to write compose file to cache")
+	}
+
+	framework.L.Info().Msgf("Cached compose file at: %s", cachedFile)
+	return "file://" + cachedFile, nil
+}
+
 func beholderCmds() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "beholder",
@@ -131,6 +253,7 @@ func beholderCmds() *cobra.Command {
 func startBeholderCmd() *cobra.Command {
 	var (
 		timeout time.Duration
+		port    int
 	)
 	cmd := &cobra.Command{
 		Use:              "start",
@@ -162,7 +285,7 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			startBeholderErr = startBeholder(cmd.Context(), timeout)
+			startBeholderErr = startBeholder(cmd.Context(), timeout, port)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -178,9 +301,20 @@ func startBeholderCmd() *cobra.Command {
 			return nil
 		},
 	}
+
 	cmd.Flags().DurationVarP(&timeout, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
+	cmd.Flags().IntVarP(&port, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
 	return cmd
+}
+
+func mustStringToInt(in string) int {
+	out, err := strconv.Atoi(in)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse default ChIP Ingress port: %w", err))
+	}
+
+	return out
 }
 
 var stopBeholderCmd = &cobra.Command{
@@ -217,9 +351,19 @@ func removeBeholderStateFiles(relativePathToRepoRoot string) error {
 	return os.Remove(absPath)
 }
 
+func isPortAvailable(addr string) bool {
+	lc := net.ListenConfig{}
+	l, err := lc.Listen(context.Background(), "tcp", addr)
+	if err != nil {
+		return false // already in use or permission denied
+	}
+	_ = l.Close()
+	return true
+}
+
 var protoRegistrationErrMsg = "proto registration failed"
 
-func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (startupErr error) {
+func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port int) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -255,6 +399,21 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 	stageGen := stagegen.NewStageGen(3, "STAGE")
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Chip Ingress stack")))
 
+	if !isPortAvailable(":" + strconv.Itoa(port)) {
+		return fmt.Errorf(`port %d is already in use. Most probably an instance of ChIP Test Sink is already running.
+If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
+and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, port)
+	}
+
+	// set both internal and external (host) ChIP Ingress GRPC port to the same value
+	if err := os.Setenv(chipingressset.ChipIngressGRPCHostPortEnvVar, strconv.Itoa(port)); err != nil {
+		return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCHostPortEnvVar, err)
+	}
+
+	if err := os.Setenv(chipingressset.ChipIngressGRPCPortEnvVar, strconv.Itoa(port)); err != nil {
+		return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCPortEnvVar, err)
+	}
+
 	// we want to restore previous configs, because Beholder might be started within the context of a different command,
 	// which is also using CTF_CONFIGS environment variable to load or later store configs
 	previousCTFConfig := os.Getenv("CTF_CONFIGS")
@@ -274,6 +433,15 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 	in, err := framework.Load[envconfig.ChipIngressConfig](nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to load test configuration")
+	}
+
+	// Auto-detect compose file from go.mod if not specified
+	if in.ChipIngress != nil && in.ChipIngress.ComposeFile == "" {
+		composeFile, composeErr := getComposeFileFromGoMod(cmdContext)
+		if composeErr != nil {
+			return errors.Wrap(composeErr, "failed to get compose file from go.mod")
+		}
+		in.ChipIngress.ComposeFile = composeFile
 	}
 
 	out, startErr := chipingressset.NewWithContext(cmdContext, in.ChipIngress)
