@@ -111,9 +111,10 @@ type Don struct {
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
-	Flags                     []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
-	chainCapabilityConfigs    map[string]*ChainCapabilityConfig
-	capabilityConfigOverrides map[string]map[string]any
+	Flags []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
+
+	capabilityConfigs    map[CapabilityFlag]CapabilityConfig
+	chainCapabilityIndex map[CapabilityFlag][]uint64
 }
 
 func (d *Don) Metadata() *DonMetadata {
@@ -123,6 +124,7 @@ func (d *Don) Metadata() *DonMetadata {
 		Flags:         d.Flags,
 		ShardIndex:    d.ShardIndex,
 		NodesMetadata: make([]*NodeMetadata, len(d.Nodes)),
+		CapabilityConfigs: d.capabilityConfigs,
 		// caution: missing NodeSet field, since we don't have it here
 	}
 
@@ -201,12 +203,18 @@ func (d *Don) JDNodeIDs() []string {
 	return nodeIDs
 }
 
-func (d *Don) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
-	return d.chainCapabilityConfigs
+func (d *Don) GetCapabilityConfig(flag CapabilityFlag) (CapabilityConfig, bool) {
+	capConfig, ok := d.capabilityConfigs[flag]
+	return capConfig, ok
 }
 
-func (d *Don) GetCapabilityConfigOverrides() map[string]map[string]any {
-	return d.capabilityConfigOverrides
+func (d *Don) GetEnabledChainIDsForCapability(flag CapabilityFlag) ([]uint64, error) {
+	ids := d.chainCapabilityIndex[flag]
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	return slices.Clone(ids), nil
 }
 
 func (d *Don) GetCapabilityFlags() []string {
@@ -224,8 +232,8 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		ID:                        donMetadata.ID,
 		Flags:                     donMetadata.Flags,
 		ShardIndex:                donMetadata.ShardIndex,
-		chainCapabilityConfigs:    donMetadata.ns.ChainCapabilities,
-		capabilityConfigOverrides: donMetadata.ns.CapabilityOverrides,
+		capabilityConfigs:    	   donMetadata.ns.CapabilityConfigs,
+		chainCapabilityIndex: 	   donMetadata.ns.chainCapabilityIndex,
 	}
 
 	mu := &sync.Mutex{}

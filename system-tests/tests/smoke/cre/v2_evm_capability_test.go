@@ -15,6 +15,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -226,6 +229,18 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 	chainsToTest := make(map[string]blockchains.Blockchain)
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
@@ -239,24 +254,26 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	for chainID, bcOutput := range chainsToTest {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
+
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "LogTrigger capability test failed, Beholder should not return an error")
-
 		message := "Data for log trigger"
-		// start background event emission every 10s while AssertBeholderMessage is running, so that the workflow has events to pick up eventually
+		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
+
+		// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
+		emitCtx, emitCancelFn := context.WithCancel(t.Context())
 		go func() {
-			defer ticker.Stop()
+			defer func() {
+				emitCancelFn()
+				ticker.Stop()
+			}()
 			for {
 				select {
-				case <-listenerCtx.Done():
+				case <-emitCtx.Done():
 					return
 				case <-ticker.C:
 					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
@@ -267,8 +284,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			}
 		}()
 		expectedUserLog := "OnTrigger decoded message: message:" + message
-		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "Expected user log test failed")
+
+		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
+		emitCancelFn()
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)

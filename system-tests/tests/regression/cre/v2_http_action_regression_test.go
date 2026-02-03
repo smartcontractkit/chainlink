@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
+
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
@@ -116,18 +118,25 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	workflowName := "http-action-fail-workflow-" + httpActionTest.method + "-" + uuid.New().String()[0:8]
 
 	// Start Beholder listener BEFORE registering workflow to avoid missing messages
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
 
 	// Now register and deploy the workflow
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// Wait for specific error message in Beholder based on test case
 	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Beholder...", httpActionTest.expectedError)
-	timeout := 60 * time.Second
 
 	// Expect exact error message for this test case - no fallbacks
-	err := t_helpers.AssertBeholderMessage(listenerCtx, t, httpActionTest.expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "Expected HTTP Action failure message '%s' not found in Beholder logs", httpActionTest.expectedError)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, httpActionTest.expectedError, 60*time.Second)
 	testLogger.Info().Msg("HTTP Action failure test completed successfully")
 
 	// Note: Workflow cleanup happens via t.Cleanup() after this function returns

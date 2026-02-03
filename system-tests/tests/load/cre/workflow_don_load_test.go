@@ -120,7 +120,7 @@ type loadTestSetupOutput struct {
 	forwarderAddress      common.Address
 	blockchains           []blockchains.Blockchain
 	dons                  *cretypes.Dons
-	nodeOutput            []*cretypes.WrappedNodeOutput
+	nodeOutput            []*cretypes.NodeSetOutput
 }
 
 func setupLoadTestEnvironment(
@@ -191,16 +191,12 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			{
 				Input:        input[0],
 				Capabilities: []string{cretypes.ConsensusCapability},
-				// TODO quick hack, this needs to be removed after the migration to TOML
-				ComputedCapabilities: []string{cretypes.ConsensusCapability},
-				DONTypes:             []string{cretypes.WorkflowDON},
+				DONTypes:     []string{cretypes.WorkflowDON},
 			},
 			{
 				Input:        input[1],
-				Capabilities: []string{cretypes.MockCapability},
-				// TODO quick hack, this needs to be removed after the migration to TOML
-				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.EVMCapability + "-1337"},
-				DONTypes:             []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				Capabilities: []string{cretypes.MockCapability, cretypes.EVMCapability + "-1337"},
+				DONTypes:     []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 			},
 		}
 	}
@@ -1090,16 +1086,12 @@ func registerEVMWithV1(_ []string, nodeSet *cretypes.NodeSet) ([]keystone_change
 		return nil, errors.New("node set input is nil")
 	}
 
-	// it's fine if there are no chain capabilities
-	if nodeSet.ChainCapabilities == nil {
-		return nil, nil
+	enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(cretypes.WriteEVMCapability)
+	if err != nil {
+		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", cretypes.WriteEVMCapability, nodeSet.Name, err)
 	}
 
-	if _, ok := nodeSet.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
-		return nil, nil
-	}
-
-	for _, chainID := range nodeSet.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
+	for _, chainID := range enabledChainIDs {
 		fullName := evm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 

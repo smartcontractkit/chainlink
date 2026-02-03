@@ -24,12 +24,12 @@ type Topology struct {
 	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
-func NewTopology(nodeSet []*NodeSet, provider infra.Provider) (*Topology, error) {
+func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
 	dm := make([]*DonMetadata, len(nodeSet))
 	for i := range nodeSet {
 		// TODO take more care about the ID assignment, it should match what the capabilities registry will assign
 		// currently we optimistically set the id to the that which the capabilities registry will assign it
-		d, err := NewDonMetadata(nodeSet[i], libc.MustSafeUint64FromInt(i+1), provider)
+		d, err := NewDonMetadata(nodeSet[i], libc.MustSafeUint64FromInt(i+1), provider, capabilityConfigs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create DON metadata: %w", err)
 		}
@@ -95,7 +95,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider) (*Topology, error)
 func (t *Topology) NodeSets() []*NodeSet {
 	sets := make([]*NodeSet, len(t.DonsMetadata.List()))
 	for i, d := range t.DonsMetadata.List() {
-		ns := d.NodeSets()
+		ns := d.MustNodeSet()
 		sets[i] = ns
 	}
 	return sets

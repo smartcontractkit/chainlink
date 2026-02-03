@@ -96,8 +96,9 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 		}
 		acceptProxyOwnerShipProposals = append(acceptProxyOwnerShipProposals, ProposalData{
-			contract: proxyContract.Address().Hex(),
-			tx:       acceptProxyOwnerShipTx,
+			contract:          proxyContract.Address().Hex(),
+			tx:                acceptProxyOwnerShipTx,
+			timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 		})
 
 		proxyAddresses = append(proxyAddresses, proxyContract.Address())
@@ -120,12 +121,14 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 	proposalConfig := MultiChainProposalConfig{
 		c.ChainSelector: []ProposalData{
 			{
-				contract: dataFeedsCache.Address().Hex(),
-				tx:       setFeedConfigTx,
+				contract:          dataFeedsCache.Address().Hex(),
+				tx:                setFeedConfigTx,
+				timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 			},
 			{
-				contract: dataFeedsCache.Address().Hex(),
-				tx:       setProxyMappingTx,
+				contract:          dataFeedsCache.Address().Hex(),
+				tx:                setProxyMappingTx,
+				timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 			},
 		},
 	}
