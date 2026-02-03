@@ -842,7 +842,7 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
 [capability_configs.random-number-generator]
   binary_path = "./binaries/random-number-generator"
 
-[capability_configs.random-number-generator.config]
+[capability_configs.random-number-generator.values]
   # Add default configuration values here
   SeedValue = 42
   MaxRange = 1000
@@ -850,11 +850,13 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
 [capability_configs.gas-estimator]
   binary_path = "./binaries/gas-estimator"
 
-[capability_configs.gas-estimator.config]
+[capability_configs.gas-estimator.values]
   # Add default configuration values here
   DefaultGasLimit = 21000
   MaxGasPrice = 100000000000  # 100 gwei
 ```
+
+`values` are meant for storing values that will be used for capability configuration (be that the job specs or capability registry contract). When you override them (either in the defaults file or per-DON), you must provide the entire structure because individual fields are not merged with previously defined values.
 
 ### Step 6: Register the Capability
 
@@ -894,24 +896,22 @@ import (
 
 ### Step 7: Add to Environment Configurations
 
-To actually use your capability in tests, you need to add it to the relevant environment configurations in `core/scripts/cre/environment/configs/`. Choose the appropriate configuration file based on your testing needs:
+To actually use your capability in tests, add it to the `capabilities` array inside the relevant topology under `core/scripts/cre/environment/configs/`. All capabilities live in this single list:
 
-**For DON-level capabilities** (like random number generator):
 ```toml
 # In workflow-gateway-don.toml, etc.
-capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "random-number-generator"]
+capabilities = [
+  "ocr3",                # DON-wide
+  "custom-compute",
+  "web-api-target",
+  "write-evm-1337",      # chain-scoped (workflow DON on Anvil 1337)
+  "write-evm-2337",
+  "read-contract-2337"   # another per-chain capability
+]
 ```
 
-**For chain-level capabilities** (like gas estimator):
-```toml
-# In workflow-gateway-don.toml, etc.
-capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
-
-# Enable capabilities per chain
-[nodesets.chain_capabilities]
-  write-evm = ["1337", "2337"]
-  gas-estimator = ["1337", "2337"]  # Add your chain-level capability here
-```
+- Include the unsuffixed flag for capabilities that run globally (e.g., `ocr3`, `custom-compute`).
+- Append `-<chainID>` to scope a capability to a specific chain. Each chain you want to target must appear as its own suffixed entry (e.g., `write-evm-1337`).
 
 Common configuration files:
 - `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node
@@ -919,8 +919,8 @@ Common configuration files:
 
 ### Configuration Templates
 
-- **DON-level**: Use simple templates or empty strings for shared configuration
-- **Chain-level**: Use templates with chain-specific variables like `{{.ChainID}}`, `{{.NetworkFamily}}`
+- Use simple templates or empty strings for shared/global configuration.
+- When a capability depends on chain context, reference template variables like `{{.ChainID}}` or `{{.NetworkFamily}}` inside its config and expose it via suffixed flags (`write-evm-1337`).
 
 ### Important Notes
 
@@ -936,27 +936,24 @@ The CRE system supports multiple DONs (Decentralized Oracle Networks) with compl
 
 ### Supported Capabilities
 
-#### DON-level Capabilities
-These capabilities run once per DON and are shared across all nodes:
+All capabilities are declared in the `capabilities` array. Capabilities that operate once per DON are listed without a suffix. Capabilities that target a particular chain append `-<chainID>` (e.g., `write-evm-1337`).
 
-- `ocr3` - OCR3 consensus protocol
-- `consensus` - Consensus protocol v2
-- `cron` - Scheduled task triggers
-- `custom-compute` - Custom computation capabilities
-- `web-api-trigger` - Web API trigger capabilities
-- `web-api-target` - Web API target capabilities
-- `http-trigger` - HTTP trigger capabilities
-- `http-action` - HTTP action capabilities
-- `vault` - Vault integration capabilities
-- `mock` - Mock capabilities for testing
-
-#### Chain-level Capabilities
-These capabilities run per chain and require chain-specific configuration:
-
-- `evm` - EVM chain integration
-- `write-evm` - EVM write operations
-- `read-contract` - Smart contract read operations
-- `log-event-trigger` - Blockchain event triggers
+| Capability | Typical scope | Notes |
+| --- | --- | --- |
+| `ocr3` | DON-wide | Built-in consensus capability |
+| `consensus` | DON-wide | Consensus v2 |
+| `cron` | DON-wide | Requires binary; schedule triggers |
+| `custom-compute` | DON-wide | Built-in custom compute runtime |
+| `web-api-trigger` | DON-wide | HTTP trigger pipeline |
+| `web-api-target` | DON-wide | HTTP target pipeline |
+| `http-trigger` | DON-wide | Requires binary |
+| `http-action` | DON-wide | Requires binary |
+| `vault` | DON-wide | Vault integration |
+| `mock` | DON-wide | Mock/testing capability |
+| `evm-<chainID>` | Chain-scoped | Add a suffixed entry per chain (e.g., `evm-1337`) |
+| `write-evm-<chainID>` | Chain-scoped | Built-in write capability; suffix per chain |
+| `read-contract-<chainID>` | Chain-scoped | Requires binary |
+| `log-event-trigger-<chainID>` | Chain-scoped | Requires binary |
 
 ### DON Types
 
@@ -975,13 +972,15 @@ Each DON is defined as a `nodesets` entry in the TOML configuration:
   don_types = ["workflow"]     # DON type(s) for this nodeset
   override_mode = "all"        # "all" for uniform config, "each" for per-node
 
-  # Capabilities configuration
-  capabilities = ["ocr3", "custom-compute", "cron"]
-
-  # Chain-specific capabilities
-  [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]      # Enable write-evm for specific chains
-    read-contract = ["1337"]          # Enable read-contract for specific chains
+  # Capabilities configuration (mix DON-wide and chain-scoped entries)
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "cron",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-1337"
+  ]
 ```
 
 ### Example: Adding a New Topology
@@ -1048,7 +1047,7 @@ Each nodeset should use a different `http_port_range_start` to avoid port confli
 
 - Only **one** `workflow` DON and **one** `gateway` DON are allowed
 - Multiple `capabilities` DONs are supported
-- Chain-level capabilities must specify which chains they support
+- Chain-scoped capabilities must be listed once per chain using the `capability-<chainID>` suffix
 - Bootstrap nodes can be part of any DON or form a separate DON
 - Gateway nodes are only needed for gateway DONs
 
@@ -1068,44 +1067,25 @@ The `configs/` directory contains several topology configurations:
 
 ### Capability Types and Configuration
 
-#### DON-level Capabilities
-
-These capabilities run once per DON and are configured using the `capabilities` array:
+Declare every capability inside the `capabilities` array. The same list now covers both DON-wide and per-chain functionality:
 
 ```toml
 [[nodesets]]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "web-api-trigger",
+    "vault",
+    "cron",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-2337"
+  ]
 ```
 
-**Available DON-level capabilities:**
-- `ocr3` - OCR3 consensus protocol (built-in)
-- `consensus` - Consensus protocol v2 (built-in)
-- `custom-compute` - Custom computation capabilities (built-in)
-- `web-api-target` - Web API target capabilities (built-in)
-- `web-api-trigger` - Web API trigger capabilities (built-in)
-- `vault` - Vault integration capabilities (built-in)
-- `cron` - Scheduled task triggers (requires binary)
-- `http-trigger` - HTTP trigger capabilities (requires binary)
-- `http-action` - HTTP action capabilities (requires binary)
-- `mock` - Mock capabilities for testing (requires binary)
-
-#### Chain-level Capabilities
-
-These capabilities run per chain and are configured using the `chain_capabilities` section:
-
-```toml
-[nodesets.chain_capabilities]
-  write-evm = ["1337", "2337"]      # Enable for specific chain IDs
-  read-contract = ["1337"]          # Enable for specific chain IDs
-  log-event-trigger = ["1337", "2337"]  # Enable for specific chain IDs
-  evm = ["1337", "2337"]           # Enable for specific chain IDs
-```
-
-**Available chain-level capabilities:**
-- `write-evm` - EVM write operations (built-in)
-- `read-contract` - Smart contract read operations (requires binary)
-- `log-event-trigger` - Blockchain event triggers (requires binary)
-- `evm` - EVM chain integration (requires binary)
+- **DON-wide flags** (no suffix): `ocr3`, `consensus`, `custom-compute`, `web-api-target`, `web-api-trigger`, `vault`, `cron`, `http-trigger`, `http-action`, `mock`.
+- **Chain-scoped bases** (append `-<chainID>`): `evm`, `write-evm`, `read-contract`, `log-event-trigger`, plus any new capability that needs per-chain overrides.
 
 ### Binary Requirements
 
@@ -1130,35 +1110,31 @@ Some capabilities require external binaries to be available. These are specified
 
 ### Enabling Capabilities in Your Topology
 
-#### 1. Add DON-level Capabilities
+#### 1. Declare Capabilities
 
-Edit your chosen topology file (e.g., `workflow-gateway-don.toml`) and add capabilities to the `capabilities` array:
+Edit your topology (e.g., `workflow-gateway-don.toml`) and list every capability the DON should run:
 
 ```toml
 [[nodesets]]
   name = "workflow"
   don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "cron", "http-action"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "cron",
+    "http-action",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-1337"
+  ]
   # ... other configuration
 ```
 
-#### 2. Add Chain-level Capabilities
+- Add the unsuffixed flag once for DON-wide functionality.
+- Add one suffixed entry per chain for every chain-aware capability you need.
 
-Add chain-specific capabilities in the `chain_capabilities` section:
-
-```toml
-[[nodesets]]
-  name = "workflow"
-  don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337"]
-    log-event-trigger = ["1337", "2337"]
-```
-
-#### 3. Provide Required Binaries
+#### 2. Provide Required Binaries
 
 For capabilities that require binaries, either:
 
@@ -1184,10 +1160,13 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   nodes = 5
   name = "workflow"
   don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "cron"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "cron",
+    "write-evm-1337"
+  ]
 ```
 
 #### Example 2: Full Capability Setup
@@ -1197,13 +1176,23 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   nodes = 5
   name = "workflow"
   don_types = ["workflow", "gateway"]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337", "2337"]
-    log-event-trigger = ["1337"]
-    evm = ["1337", "2337"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "web-api-trigger",
+    "vault",
+    "cron",
+    "http-action",
+    "http-trigger",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-1337",
+    "read-contract-2337",
+    "log-event-trigger-1337",
+    "evm-1337",
+    "evm-2337"
+  ]
 ```
 
 #### Example 3: Multi-DON with Specialized Capabilities
@@ -1213,22 +1202,26 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 [[nodesets]]
   name = "workflow"
   don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337"]
-    evm = ["1337"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "write-evm-1337",
+    "evm-1337"
+  ]
 
 # Capabilities DON for data feeds
 [[nodesets]]
   name = "data-feeds"
   don_types = ["capabilities"]
-  capabilities = ["http-action", "cron"]
-
-  [nodesets.chain_capabilities]
-    read-contract = ["1337", "2337"]
-    log-event-trigger = ["1337"]
-    evm = ["1337"]
+  exposes_remote_capabilities = true # IMPORTANT: needs to be set to true if capabilities are to be accessible by the workflow DON
+  capabilities = [
+    "http-action",
+    "cron",
+    "read-contract-1337",
+    "read-contract-2337",
+    "log-event-trigger-1337",
+    "evm-1337"
+  ]
 ```
 
 ### Custom Capability Configuration
@@ -1237,20 +1230,41 @@ You can override default capability configurations by modifying the `capability_
 
 ```toml
 # Override default configuration for custom-compute
-[capability_configs.custom-compute.config]
+[capability_configs.custom-compute.values]
   NumWorkers = 5
   GlobalRPS = 50.0
   GlobalBurst = 100
 
 # Override configuration for cron
-[capability_configs.cron.config]
+[capability_configs.cron.values]
   CustomScheduleFormat = "extended"
+```
+
+To override capability configs for a specific DON, declare a `[nodesets.capability_configs]` table inside that nodeset. Keys must match the capability flag exactly—including any chain suffix—because the override replaces the full config for that capability. Partial overrides are not supported; you must provide every value (and binary path if it differs). Examples:
+
+```toml
+[nodesets.capability_configs]
+  # Global override for a DON-level capability
+  [nodesets.capability_configs.web-api-target.values]
+    GlobalRPS = 2000.0
+    GlobalBurst = 1500
+    PerSenderRPS = 1000.0
+    PerSenderBurst = 1500
+
+  # Chain-specific override keyed by the suffixed flag
+  [nodesets.capability_configs.write-evm-1337.values]
+    GasLimitDefault = 700_000
+    AcceptanceTimeout = "60s"
+
+  # Override binary path (you can optionally add a `.values` table alongside it)
+  [nodesets.capability_configs.read-contract-1337]
+    binary_path = "/some-other/binary_path"
 ```
 
 ### Important Notes
 
 - **Binary availability**: Ensure all required binaries are available before starting the environment
-- **Chain IDs**: Chain-level capabilities must specify valid chain IDs that exist in your blockchain configuration
+- **Chain IDs**: Chain-scoped capability flags (e.g., `write-evm-<chainID>`) must use chain IDs that exist in your blockchain configuration
 - **Port conflicts**: Each nodeset should use different `http_port_range_start` values
 - **DON limitations**: Only one `workflow` DON and one `gateway` DON are allowed per environment
 - **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes
@@ -1487,10 +1501,16 @@ TRON blockchain support is integrated into the CRE environment by configuring TR
 ...
 [[nodesets]]
 ...
-  [nodesets.chain_capabilities]
-    # Tron is configured as an EVM chain so we can use all the EVM capabilities.
-    read-contract = ["1337", "3360022319"]
-    write-evm = ["1337", "3360022319"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "write-evm-1337",
+    "write-evm-3360022319",
+    "read-contract-1337",
+    "read-contract-3360022319"
+  ]
+  # Tron is configured as an EVM chain so we can reuse EVM capabilities by suffixing
+  # the TRON chain ID (3360022319).
 ```
 
 ---
@@ -1637,10 +1657,14 @@ Here's a complete example for connecting to a Kubernetes-deployed DON:
   don_types = ["workflow", "gateway"]
   override_mode = "all"
 
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "web-api-trigger",
+    "vault",
+    "write-evm-1337"
+  ]
 ```
 
 **Service URL Generation:**

@@ -19,11 +19,12 @@ type multiHandler struct {
 	methodToHandler map[string]handlers.Handler
 }
 
-func NewMultiHandler(handlerFactory HandlerFactory, hdlrs []config.Handler, donConfig *config.DONConfig, connMgr *donConnectionManager) (handlers.Handler, error) {
+// NewMultiHandlerSharded creates a multiHandler with sharded DON support.
+func NewMultiHandler(handlerFactory HandlerFactory, hdlrs []config.Handler, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON) (handlers.Handler, error) {
 	methodToHandler := map[string]handlers.Handler{}
 	typeToHandler := map[string]handlers.Handler{}
 	for _, h := range hdlrs {
-		hdlr, err := handlerFactory.NewHandler(h.Name, h.Config, donConfig, connMgr)
+		hdlr, err := handlerFactory.NewHandler(h.Name, h.Config, shardedDONs, shardsConnMgrs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create handler %s: %w", h.Name, err)
 		}

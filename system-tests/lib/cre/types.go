@@ -158,8 +158,6 @@ func ContractVersionsProviderFromDataStore(ds datastore.DataStore) (*contractVer
 
 type CapabilityFlagsProvider interface {
 	SupportedCapabilityFlags() []CapabilityFlag
-	GlobalCapabilityFlags() []CapabilityFlag
-	ChainSpecificCapabilityFlags() []CapabilityFlag
 }
 
 func NewEnvironmentDependencies(
@@ -192,14 +190,6 @@ func (e *envionmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
 	return e.flagsProvider.SupportedCapabilityFlags()
 }
 
-func (e *envionmentDependencies) GlobalCapabilityFlags() []CapabilityFlag {
-	return e.flagsProvider.GlobalCapabilityFlags()
-}
-
-func (e *envionmentDependencies) ChainSpecificCapabilityFlags() []CapabilityFlag {
-	return e.flagsProvider.ChainSpecificCapabilityFlags()
-}
-
 type NodeType = string
 
 const (
@@ -227,11 +217,31 @@ type (
 
 type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 
+// CapabilityConfig holds configuration for a specific capability.
+// When overriding capability configs in TOML, you must provide ALL values
+// for that capability - partial overrides are not supported. If a key exists
+// in the user's config, the entire CapabilityConfig is used as-is without
+// merging individual fields with defaults.
 type CapabilityConfig struct {
-	BinaryPath   string         `toml:"binary_path"`
-	Config       map[string]any `toml:"config"`
-	Chains       []string       `toml:"chains"`
-	ChainConfigs map[string]any `toml:"chain_configs"`
+	BinaryPath string         `toml:"binary_path"`
+	Values     map[string]any `toml:"values"`
+}
+
+// mergeCapabilityConfigs copies entries from src to dst only for keys that
+// do not already exist in dst. This is NOT a deep merge - if a key exists
+// in dst, its entire CapabilityConfig is preserved without modification.
+// Users who override a capability config must provide all required values.
+func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
+	for srcKey, srcValue := range src {
+		if dstValue, exists := dst[srcKey]; !exists {
+			dst[srcKey] = srcValue
+		} else {
+			if srcValue.BinaryPath != "" {
+				dstValue.BinaryPath = srcValue.BinaryPath
+			}
+			dst[srcKey] = dstValue
+		}
+	}
 }
 
 type WorkflowRegistryInput struct {
@@ -353,7 +363,7 @@ func (c *ConfigureDataFeedsCacheInput) Validate() error {
 	return nil
 }
 
-type WrappedNodeOutput struct {
+type NodeSetOutput struct {
 	*ns.Output
 	NodeSetName  string
 	Capabilities []string
@@ -446,8 +456,6 @@ type GenerateConfigsInput struct {
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
-	NodeSet                 *NodeSet
-	CapabilityConfigs       CapabilityConfigs
 	ContractVersions        map[ContractType]*semver.Version
 	Topology                *Topology
 	Provider                infra.Provider
@@ -484,18 +492,60 @@ func (g *GenerateConfigsInput) Validate() error {
 	return nil
 }
 
-type DonMetadata struct {
-	NodesMetadata             []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
-	Flags                     []string        `toml:"flags" json:"flags"`
-	ID                        uint64          `toml:"id" json:"id"`
-	Name                      string          `toml:"name" json:"name"`
-	ExposesRemoteCapabilities bool            `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
-	ShardIndex                uint            `toml:"shard_index" json:"shard_index"`
-
-	ns NodeSet // computed field, not serialized
+func isChainCapability(flag string) bool {
+	_, _, ok, err := parseChainCapabilityFlag(flag)
+	return ok && err == nil
 }
 
-func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadata, error) {
+func parseChainCapabilityFlag(flag string) (CapabilityFlag, uint64, bool, error) {
+	lastIdx := strings.LastIndex(flag, "-")
+	if lastIdx == -1 {
+		return "", 0, false, nil
+	}
+
+	base := flag[:lastIdx]
+	chainPart := flag[lastIdx+1:]
+
+	if base == "" {
+		return "", 0, true, fmt.Errorf("capability flag %q is missing a capability name before the chain suffix", flag)
+	}
+	if chainPart == "" {
+		return base, 0, true, fmt.Errorf("capability flag %q is missing a chain ID suffix", flag)
+	}
+	if !allDigits(chainPart) {
+		return "", 0, false, nil
+	}
+
+	chainID, err := strconv.ParseUint(chainPart, 10, 64)
+	if err != nil {
+		return base, 0, true, err
+	}
+
+	return base, chainID, true, nil
+}
+
+func allDigits(value string) bool {
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+type DonMetadata struct {
+	NodesMetadata             []*NodeMetadata                     `toml:"nodes_metadata" json:"nodes_metadata"`
+	Flags                     []string                            `toml:"flags" json:"flags"`
+	ID                        uint64                              `toml:"id" json:"id"`
+	Name                      string                              `toml:"name" json:"name"`
+	ExposesRemoteCapabilities bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
+	ShardIndex                uint                                `toml:"shard_index" json:"shard_index"`
+	CapabilityConfigs         map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
+
+	ns *NodeSet // computed field, not serialized
+}
+
+func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
 	for i, nodeSpec := range c.NodeSpecs {
 		cfg := NodeMetadataConfig{
@@ -516,17 +566,82 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadat
 	if err != nil {
 		return nil, fmt.Errorf("failed to create nodes metadata: %w", err)
 	}
+
+	capConfigs, capErr := processCapabilityConfigs(c, capabilityConfigs)
+	if capErr != nil {
+		return nil, fmt.Errorf("failed to process capability configs: %w", capErr)
+	}
+
+	// Propagate merged configs back to NodeSet for consistent access across codebase
+	c.CapabilityConfigs = capConfigs
+
 	out := &DonMetadata{
 		ID:                        id,
 		Flags:                     c.Flags(),
 		NodesMetadata:             nodes,
 		Name:                      c.Name,
-		ns:                        *c,
+		ns:                        c,
 		ExposesRemoteCapabilities: c.ExposesRemoteCapabilities,
 		ShardIndex:                c.ShardIndex,
+		CapabilityConfigs:         capConfigs,
 	}
 
 	return out, nil
+}
+
+func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (CapabilityConfigs, error) {
+	for cap := range c.CapabilityConfigs {
+		if !slices.Contains(c.Capabilities, cap) {
+			return nil, fmt.Errorf("config override for capability %s found, but DON %s doesn't have this capability. Fix your TOML config and either move the override to correct DON or add the capability to the DON", cap, c.Name)
+		}
+	}
+
+	chainCapabilitiesFound := []string{}
+
+	// For chain-specific capabilities (e.g., "write-evm-1337"), inherit defaults from
+	// the base capability (e.g., "write-evm") if no explicit config exists.
+	for _, flag := range c.Capabilities {
+		if !isChainCapability(flag) {
+			continue
+		}
+
+		// Already has explicit config for this chain - skip, because all configs must contain all values (we don't allow partial overrides)
+		if _, ok := defaults[flag]; ok {
+			continue
+		}
+
+		// Extract base capability name and copy its defaults to the chain-specific key
+		lastIdx := strings.LastIndex(flag, "-")
+		if lastIdx == -1 {
+			continue
+		}
+
+		flagWithoutChainID := flag[:lastIdx]
+		defaults[flag] = defaults[flagWithoutChainID]
+
+		chainCapabilitiesFound = append(chainCapabilitiesFound, flagWithoutChainID)
+
+		// User must override per-chain, not the base capability
+		if _, exists := c.CapabilityConfigs[flagWithoutChainID]; exists {
+			return nil, fmt.Errorf("nodeset TOML capability config overwrites must be done for each chain separately. Invalid: [nodeset.capability_config.%s]. Valid: [nodeset.capability_config.%s]", flagWithoutChainID, flag)
+		}
+	}
+
+	// Merge: user overrides (c.CapabilityConfigs) take precedence, defaults fill gaps
+	capConfigs := make(map[CapabilityFlag]CapabilityConfig)
+	maps.Copy(capConfigs, c.CapabilityConfigs)
+	mergeCapabilityConfigs(capConfigs, defaults)
+
+	// Remove base capability configs (e.g., "write-evm") when chain-specific variants
+	// exist (e.g., "write-evm-1337") to prevent accidental access to stale configs
+	// Remove configs for capabilities that DON doesn't have
+	for cap := range capConfigs {
+		if !slices.Contains(c.Capabilities, cap) || slices.Contains(chainCapabilitiesFound, cap) {
+			delete(capConfigs, cap)
+		}
+	}
+
+	return capConfigs, nil
 }
 
 func (m *DonMetadata) GatewayConfig(p infra.Provider, gatewayNodeIdx int) (*DonGatewayConfiguration, error) {
@@ -580,8 +695,11 @@ func (m *DonMetadata) HasFlag(flag CapabilityFlag) bool {
 	return HasFlag(m.Flags, flag)
 }
 
-func (m *DonMetadata) NodeSets() *NodeSet {
-	return &m.ns
+func (m *DonMetadata) MustNodeSet() *NodeSet {
+	if m.ns == nil {
+		panic("nodeset is nil on DonMetadata for DON " + m.Name + ". This might be the case if DonMetadata was created by calling don.Metadata(), which does not set the nodeset field.")
+	}
+	return m.ns
 }
 
 func (m *DonMetadata) EVMChains() []uint64 {
@@ -636,7 +754,7 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 	}
 
 	for _, workerNode := range workers {
-		currentConfig := m.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := m.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 
 		var typedConfig corechainlink.Config
 		unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
@@ -684,7 +802,7 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 			return errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 		}
 
-		m.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+		m.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 	}
 
 	return nil
@@ -1068,39 +1186,100 @@ type NodeSet struct {
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
-	SupportedEVMChains   []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
-	EnvVars              map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
-	RawChainCapabilities any               `toml:"chain_capabilities"`
-	// ChainCapabilities allows enabling capabilities per chain with optional per-chain overrides.
-	// Example syntaxes accepted per capability key:
-	//   evm = ["1337", "2337"]
-	//   evm = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { ReceiverGasMinimum = 1000 } } }
-	ChainCapabilities map[string]*ChainCapabilityConfig `toml:"-"`
+	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
+	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
 
-	// CapabilityOverrides allows overriding global capability configuration per DON.
-	// Example: [nodesets.capability_overrides.web-api-target] GlobalRPS = 2000.0
-	CapabilityOverrides map[string]map[string]any `toml:"capability_overrides"`
+	// CapabilityConfigs allows overriding global capability configuration per DON.
+	// Example: [nodesets.capability_configs.web-api-target.config] GlobalRPS = 2000.0
+	CapabilityConfigs map[CapabilityFlag]CapabilityConfig `toml:"capability_configs"`
 
 	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
-	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
-	ComputedCapabilities []string `toml:"computed_capabilities"`
 
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
+
+	chainCapabilityIndex      map[CapabilityFlag][]uint64
+	chainCapabilityIndexBuilt bool
+}
+
+func (c *NodeSet) ensureChainCapabilityIndex() {
+	if c == nil || c.chainCapabilityIndexBuilt {
+		return
+	}
+
+	raw := make(map[CapabilityFlag]map[uint64]struct{})
+
+	for _, cap := range c.Capabilities {
+		baseFlag, chainID, ok, err := parseChainCapabilityFlag(cap)
+		if !ok || err != nil {
+			continue
+		}
+		if _, exists := raw[baseFlag]; !exists {
+			raw[baseFlag] = make(map[uint64]struct{})
+		}
+		raw[baseFlag][chainID] = struct{}{}
+	}
+
+	if len(raw) > 0 {
+		c.chainCapabilityIndex = make(map[CapabilityFlag][]uint64, len(raw))
+		for flag, ids := range raw {
+			flattened := make([]uint64, 0, len(ids))
+			for chainID := range ids {
+				flattened = append(flattened, chainID)
+			}
+			slices.Sort(flattened)
+			c.chainCapabilityIndex[flag] = flattened
+		}
+	} else {
+		c.chainCapabilityIndex = nil
+	}
+
+	c.chainCapabilityIndexBuilt = true
+}
+
+func (c *NodeSet) chainCapabilityIDs() []uint64 {
+	c.ensureChainCapabilityIndex()
+
+	if len(c.chainCapabilityIndex) == 0 {
+		return nil
+	}
+
+	unique := make(map[uint64]struct{})
+	for _, ids := range c.chainCapabilityIndex {
+		for _, chainID := range ids {
+			unique[chainID] = struct{}{}
+		}
+	}
+
+	out := make([]uint64, 0, len(unique))
+	for chainID := range unique {
+		out = append(out, chainID)
+	}
+	slices.Sort(out)
+
+	return out
 }
 
 func (c *NodeSet) Flags() []string {
 	var stringCaps []string
 
-	return append(stringCaps, append(c.ComputedCapabilities, c.DONTypes...)...)
+	return append(stringCaps, append(c.Capabilities, c.DONTypes...)...)
 }
 
-func (c *NodeSet) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
-	return c.ChainCapabilities
+func (c *NodeSet) GetEnabledChainIDsForCapability(flag CapabilityFlag) ([]uint64, error) {
+	c.ensureChainCapabilityIndex()
+
+	ids := c.chainCapabilityIndex[flag]
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	return slices.Clone(ids), nil
 }
 
-func (c *NodeSet) GetCapabilityConfigOverrides() map[string]map[string]any {
-	return c.CapabilityOverrides
+func (c *NodeSet) GetCapabilityConfig(flag CapabilityFlag) (CapabilityConfig, bool) {
+	capConfig, ok := c.CapabilityConfigs[flag]
+	return capConfig, ok
 }
 
 func (c *NodeSet) GetCapabilityFlags() []string {
@@ -1135,23 +1314,7 @@ func (c *NodeSet) EVMChains() []uint64 {
 		return c.SupportedEVMChains
 	}
 
-	t := make(map[uint64]struct{})
-	for _, cc := range c.ChainCapabilities {
-		if cc != nil {
-			for _, chainID := range cc.EnabledChains {
-				t[chainID] = struct{}{}
-			}
-		}
-	}
-
-	// deduplicate
-	out := []uint64{}
-	for chainID := range t {
-		out = append(out, chainID)
-	}
-	slices.Sort(out)
-
-	return out
+	return c.chainCapabilityIDs()
 }
 
 type CapabilitiesPeeringData struct {
@@ -1166,130 +1329,10 @@ type OCRPeeringData struct {
 	Port                 int    `toml:"port" json:"port"`
 }
 
-// ChainCapabilityConfig is a universal, static envelope for per-capability configuration.
-// It supports both simple and complex TOML syntaxes via UnmarshalTOML:
-// - capability = ["1337", "2337"]
-// - capability = { enabled_chains=["1337","2337"], chain_overrides={"1337"={ ... }} }
-type ChainCapabilityConfig struct {
-	EnabledChains  []uint64                  `toml:"-"`
-	ChainOverrides map[uint64]map[string]any `toml:"-"`
-}
-
-// ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the NodeSet.
-// This allows us to handle the flexible chain_capabilities syntax without a complex custom unmarshaler.
-func (c *NodeSet) ParseChainCapabilities() error {
-	c.ChainCapabilities = make(map[string]*ChainCapabilityConfig)
-	c.ComputedCapabilities = append(c.ComputedCapabilities, c.Capabilities...)
-
-	if c.RawChainCapabilities == nil {
-		return nil
-	}
-
-	capMap, ok := c.RawChainCapabilities.(map[string]any)
-	if !ok {
-		return fmt.Errorf("chain_capabilities must be a map, but got %T", c.RawChainCapabilities)
-	}
-
-	parseChainID := func(v any) (uint64, error) {
-		var chainID uint64
-		var err error
-
-		switch t := v.(type) {
-		case string:
-			trimmed := strings.TrimSpace(t)
-			if trimmed == "" {
-				return 0, errors.New("chain id cannot be empty")
-			}
-			chainID, err = strconv.ParseUint(trimmed, 10, 64)
-			if err != nil {
-				return 0, fmt.Errorf("invalid chain id string '%s': %w", trimmed, err)
-			}
-		case int64:
-			if t < 0 {
-				return 0, fmt.Errorf("chain id cannot be negative: %d", t)
-			}
-			chainID = uint64(t)
-		case int:
-			if t < 0 {
-				return 0, fmt.Errorf("chain id cannot be negative: %d", t)
-			}
-			chainID = uint64(t)
-		case uint64:
-			chainID = t
-		default:
-			return 0, fmt.Errorf("invalid chain id type: %T. Supported types are string, int64, int, uint64", v)
-		}
-
-		if chainID == 0 {
-			return 0, errors.New("chain id cannot be zero")
-		}
-
-		return chainID, nil
-	}
-
-	for capName, capValue := range capMap {
-		config := &ChainCapabilityConfig{}
-		computedCapabilities := []string{}
-
-		switch v := capValue.(type) {
-		case []any:
-			// Handle array syntax: capability = ["1337", "2337"]
-			for _, chainIDVal := range v {
-				chainID, err := parseChainID(chainIDVal)
-				if err != nil {
-					return errors.Wrapf(err, "invalid chain ID in %s", capName)
-				}
-				config.EnabledChains = append(config.EnabledChains, chainID)
-				computedCapabilities = append(computedCapabilities, capName+"-"+strconv.FormatUint(chainID, 10))
-			}
-		case map[string]any:
-			// Handle map syntax: capability = { enabled_chains = [...], chain_overrides = {...} }
-			if enabledChainsVal, ok := v["enabled_chains"]; ok {
-				enabledChains, ok := enabledChainsVal.([]any)
-				if !ok {
-					return fmt.Errorf("enabled_chains must be an array in %s", capName)
-				}
-				for _, chainIDVal := range enabledChains {
-					chainID, err := parseChainID(chainIDVal)
-					if err != nil {
-						return errors.Wrapf(err, "invalid chain ID in %s.enabled_chains", capName)
-					}
-					config.EnabledChains = append(config.EnabledChains, chainID)
-					computedCapabilities = append(computedCapabilities, capName+"-"+strconv.FormatUint(chainID, 10))
-				}
-			}
-
-			if chainOverridesVal, ok := v["chain_overrides"]; ok {
-				chainOverrides, ok := chainOverridesVal.(map[string]any)
-				if !ok {
-					return errors.Errorf("chain_overrides must be a map in %s", capName)
-				}
-				config.ChainOverrides = make(map[uint64]map[string]any)
-				for chainIDStr, overrides := range chainOverrides {
-					chainID, err := strconv.ParseUint(chainIDStr, 10, 64)
-					if err != nil {
-						return errors.Wrapf(err, "invalid chain ID key %s in %s.chain_overrides", chainIDStr, capName)
-					}
-
-					if _, ok := overrides.(map[string]any); !ok {
-						return errors.Errorf("chain override for %d in %s must be a map", chainID, capName)
-					}
-					config.ChainOverrides[chainID] = overrides.(map[string]any)
-				}
-			}
-		default:
-			return fmt.Errorf("unsupported chain capability format for %s: %T", capName, capValue)
-		}
-
-		c.ChainCapabilities[capName] = config
-		c.ComputedCapabilities = append(c.ComputedCapabilities, computedCapabilities...)
-	}
-
-	return nil
-}
-
 func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
-	knownChains := []uint64{}
+	c.ensureChainCapabilityIndex()
+
+	knownChains := make(map[uint64]struct{})
 	for _, bc := range bcInput {
 		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
 			continue
@@ -1298,15 +1341,36 @@ func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 		if convErr != nil {
 			return errors.Wrapf(convErr, "failed to convert chain ID %s to uint64", bc.ChainID)
 		}
-		knownChains = append(knownChains, chainIDUint64)
+		knownChains[chainIDUint64] = struct{}{}
 	}
 
-	for capName, chain := range c.ChainCapabilities {
-		for _, chainID := range chain.EnabledChains {
-			if !slices.Contains(knownChains, chainID) {
-				return fmt.Errorf("capability %s is enabled for chain %d, but chain %d is not present in the environment. Make sure you have added it to '[[blockchains]] table'", capName, chainID, chainID)
+	missing := make(map[uint64][]CapabilityFlag)
+	for flag, ids := range c.chainCapabilityIndex {
+		for _, chainID := range ids {
+			if _, exists := knownChains[chainID]; exists {
+				continue
 			}
+			missing[chainID] = append(missing[chainID], flag)
 		}
+	}
+
+	if len(missing) > 0 {
+		unknownChains := make([]uint64, 0, len(missing))
+		for chainID := range missing {
+			unknownChains = append(unknownChains, chainID)
+		}
+		slices.Sort(unknownChains)
+
+		details := make([]string, 0, len(unknownChains))
+		for _, chainID := range unknownChains {
+			flags := missing[chainID]
+			names := make([]string, len(flags))
+			copy(names, flags)
+			slices.Sort(names)
+			details = append(details, fmt.Sprintf("chain %d required by [%s]", chainID, strings.Join(names, ", ")))
+		}
+
+		return fmt.Errorf("capability declarations reference unknown chains: %s", strings.Join(details, "; "))
 	}
 
 	return nil
@@ -1393,7 +1457,7 @@ type Environment struct {
 	Blockchains           []blockchains.Blockchain
 	ContractVersions      map[ContractType]*semver.Version
 	Provider              infra.Provider
-	CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
+	// CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }
 
 func (e *Environment) RegistryChain() (blockchains.Blockchain, error) {
@@ -1418,10 +1482,51 @@ type JobSpecInput struct {
 }
 
 type NodeSetWithCapabilityConfigs interface {
-	GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig
-	GetCapabilityConfigOverrides() map[string]map[string]any
+	GetEnabledChainIDsForCapability(flag CapabilityFlag) ([]uint64, error)
+	GetCapabilityConfig(flag CapabilityFlag) (CapabilityConfig, bool)
 	GetCapabilityFlags() []string
 	GetName() string
+}
+
+// CapabilityScope describes whether a capability lookup should target a DON-level
+// config (no chain) or a specific chain-scoped variant.
+type CapabilityScope struct {
+	chainID *uint64
+}
+
+// ChainCapabilityScope creates a scope value that targets a specific chain ID.
+func ChainCapabilityScope(chainID uint64) CapabilityScope {
+	return CapabilityScope{chainID: ptr.Ptr(chainID)}
+}
+
+// DonCapabilityScope creates a scope value for DON-level capabilities with no chain ID.
+func DonCapabilityScope() CapabilityScope {
+	return CapabilityScope{}
+}
+
+func (s CapabilityScope) qualifiedFlag(flag CapabilityFlag) CapabilityFlag {
+	if s.chainID == nil {
+		return flag
+	}
+	return fmt.Sprintf("%s-%d", flag, *s.chainID)
+}
+
+// ResolveCapabilityConfig fetches the capability configuration for the given scope.
+func ResolveCapabilityConfig(nodeSet NodeSetWithCapabilityConfigs, flag CapabilityFlag, scope CapabilityScope) (CapabilityConfig, error) {
+	if nodeSet == nil {
+		return CapabilityConfig{}, errors.New("node set with capability configs is nil")
+	}
+
+	lookupFlag := scope.qualifiedFlag(flag)
+	config, ok := nodeSet.GetCapabilityConfig(lookupFlag)
+	if !ok {
+		if scope.chainID != nil {
+			return CapabilityConfig{}, fmt.Errorf("capability config not found for flag %s on chain %d", flag, *scope.chainID)
+		}
+		return CapabilityConfig{}, fmt.Errorf("capability config not found for flag %s", flag)
+	}
+
+	return config, nil
 }
 
 // InstallableCapability defines the interface for capabilities that can be dynamically

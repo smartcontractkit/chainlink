@@ -32,6 +32,7 @@ tools/clroot/db.sqlite3-wal
 debug.env
 operator_ui/install
 .devenv
+event_dump.ndjson
 
 # neovim
 .nvim.lua

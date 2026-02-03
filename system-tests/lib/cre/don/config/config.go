@@ -24,6 +24,7 @@ import (
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -113,8 +114,6 @@ func PrepareNodeTOMLs(
 					OCRPeeringData:          ocrPeeringData,
 					RegistryChainSelector:   creEnv.RegistryChainSelector,
 					Topology:                topology,
-					NodeSet:                 localNodeSets[i],
-					CapabilityConfigs:       creEnv.CapabilityConfigs,
 					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
@@ -315,7 +314,7 @@ func addBootstrapNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -392,7 +391,7 @@ func addWorkerNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -639,7 +638,7 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 		}
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		if len(input.DonMetadata.NodeSets().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.NodeSets().EVMChains(), bcOut.ChainID()) {
+		if len(input.DonMetadata.MustNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.MustNodeSet().EVMChains(), bcOut.ChainID()) {
 			continue
 		}
 

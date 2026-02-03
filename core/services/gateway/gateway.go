@@ -43,20 +43,28 @@ type Gateway interface {
 
 type HandlerType = string
 
+// HandlerFactory creates handlers for different handler types.
+// The new signature accepts sharded DON configurations to support multiple DON shards.
 type HandlerFactory interface {
-	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error)
+	NewHandler(
+		handlerType HandlerType,
+		handlerConfig json.RawMessage,
+		shardedDONs []config.ShardedDONConfig,
+		shardsConnMgrs [][]handlers.DON,
+	) (handlers.Handler, error)
 }
 
 type gateway struct {
 	services.StateMachine
 
-	codec              api.Codec
-	httpServer         gw_net.HTTPServer
-	handlers           map[string]handlers.Handler
-	serviceNameToDonID map[string]string
-	connMgr            ConnectionManager
-	gMetrics           *monitoring.GatewayMetrics
-	lggr               logger.Logger
+	codec                 api.Codec
+	httpServer            gw_net.HTTPServer
+	handlers              map[string]handlers.Handler // legacy: keyed by DON ID
+	serviceNameToDonID    map[string]string           // legacy: service name -> DON ID
+	serviceToMultiHandler map[string]handlers.Handler // new: service name -> handler
+	connMgr               ConnectionManager
+	gMetrics              *monitoring.GatewayMetrics
+	lggr                  logger.Logger
 }
 
 func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
@@ -74,67 +82,174 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 		return nil, err
 	}
 
+	var handlerMap map[string]handlers.Handler
+	var serviceNameToDonID map[string]string
+	var serviceToMultiHandler map[string]handlers.Handler
+
+	if len(cfg.Services) > 0 || len(cfg.ShardedDONs) > 0 {
+		lggr.Infow("setting up gateway from config", "nServices", len(cfg.Services), "nShardedDONs", len(cfg.ShardedDONs))
+		var err error
+		serviceToMultiHandler, err = setupFromNewConfig(cfg, handlerFactory, connMgr, lggr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		lggr.Warnw("using legacy config", "nDons", len(cfg.Dons))
+		var err error
+		handlerMap, serviceNameToDonID, err = setupFromLegacyConfig(cfg, handlerFactory, connMgr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, serviceToMultiHandler, connMgr, gMetrics, lggr), nil
+}
+
+// setupFromNewConfig creates handlers using the new Services/ShardedDONs config format.
+// Returns serviceToMultiHandler map (service name -> handler).
+func setupFromNewConfig(
+	cfg *config.GatewayConfig,
+	handlerFactory HandlerFactory,
+	connMgr ConnectionManager,
+	lggr logger.Logger,
+) (map[string]handlers.Handler, error) {
+	serviceToMultiHandler := make(map[string]handlers.Handler)
+
+	donNameToConfig := make(map[string]config.ShardedDONConfig)
+	for _, don := range cfg.ShardedDONs {
+		donNameToConfig[don.DonName] = don
+	}
+
+	assignedDONs := make(map[string]struct{})
+	// For each service, create a MultiHandler with its handlers and attached DONs
+	for _, svc := range cfg.Services {
+		var shardedDONs []config.ShardedDONConfig
+		var shardsConnMgrs [][]handlers.DON
+
+		for _, donName := range svc.DONs {
+			donCfg, ok := donNameToConfig[donName]
+			if !ok {
+				return nil, fmt.Errorf("service %q references unknown DON: %s", svc.ServiceName, donName)
+			}
+			if _, assigned := assignedDONs[donName]; assigned {
+				// NOTE: this check can be relaxed in the future once we clean up all "service.method" strings
+				// and split them correctly in Multihandler
+				return nil, fmt.Errorf("DON %q is assigned to multiple services", donName)
+			}
+			assignedDONs[donName] = struct{}{}
+			shardedDONs = append(shardedDONs, donCfg)
+
+			var shardConnMgrs []handlers.DON
+			for shardIdx := range donCfg.Shards {
+				donID := fmt.Sprintf("%s_%d", donName, shardIdx)
+				donConnMgr := connMgr.DONConnectionManager(donID)
+				if donConnMgr == nil {
+					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
+				}
+				shardConnMgrs = append(shardConnMgrs, donConnMgr)
+			}
+			shardsConnMgrs = append(shardsConnMgrs, shardConnMgrs)
+		}
+
+		handler, err := NewMultiHandler(handlerFactory, svc.Handlers, shardedDONs, shardsConnMgrs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create handler for service %s: %w", svc.ServiceName, err)
+		}
+
+		serviceToMultiHandler[svc.ServiceName] = handler
+
+		// Set (multi)handler on all associated DON connection managers
+		for i, donName := range svc.DONs {
+			for shardIdx := range shardsConnMgrs[i] {
+				donID := fmt.Sprintf("%s_%d", donName, shardIdx)
+				donConnMgr := connMgr.DONConnectionManager(donID)
+				if donConnMgr == nil {
+					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
+				}
+				donConnMgr.SetHandler(handler)
+			}
+		}
+
+		lggr.Infow("created handler for service", "service", svc.ServiceName, "dons", svc.DONs, "handlers", len(svc.Handlers))
+	}
+
+	return serviceToMultiHandler, nil
+}
+
+// setupFromLegacyConfig creates handlers using the legacy Dons config format.
+// Returns handlerMap (DON ID -> handler) and serviceNameToDonID map.
+func setupFromLegacyConfig(
+	cfg *config.GatewayConfig,
+	handlerFactory HandlerFactory,
+	connMgr ConnectionManager,
+) (map[string]handlers.Handler, map[string]string, error) {
 	handlerMap := make(map[string]handlers.Handler)
 	serviceNameToDonID := make(map[string]string)
 
 	for _, donConfig := range cfg.Dons {
 		_, ok := handlerMap[donConfig.DonId]
 		if ok {
-			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
+			return nil, nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
 		}
 		donConnMgr := connMgr.DONConnectionManager(donConfig.DonId)
 		if donConnMgr == nil {
-			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
+			return nil, nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
 		}
 		for idx, nodeConfig := range donConfig.Members {
 			donConfig.Members[idx].Address = strings.ToLower(nodeConfig.Address)
 			if !common.IsHexAddress(nodeConfig.Address) {
-				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
+				return nil, nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
 
-		// Convert old-style handler config to the new style.
-		var handlers []config.Handler
+		// Convert old-style handler config to the new style
+		var hdlrs []config.Handler
 		if donConfig.HandlerName != "" {
-			handlers = append(handlers, config.Handler{
+			hdlrs = append(hdlrs, config.Handler{
 				Name:   donConfig.HandlerName,
 				Config: donConfig.HandlerConfig,
 			})
 		}
+		hdlrs = append(hdlrs, donConfig.Handlers...)
 
-		handlers = append(handlers, donConfig.Handlers...)
-		handler, err := NewMultiHandler(handlerFactory, handlers, &donConfig, donConnMgr)
+		shardedDON := config.ShardedDONConfig{
+			DonName: donConfig.DonId,
+			F:       donConfig.F,
+			Shards:  []config.Shard{{Nodes: donConfig.Members}},
+		}
+
+		handler, err := NewMultiHandler(handlerFactory, hdlrs, []config.ShardedDONConfig{shardedDON}, [][]handlers.DON{{donConnMgr}})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create multi-handler for DON %s: %w", donConfig.DonId, err)
+			return nil, nil, fmt.Errorf("failed to create multi-handler for DON %s: %w", donConfig.DonId, err)
 		}
 
 		handlerMap[donConfig.DonId] = handler
 
-		for _, h := range handlers {
+		for _, h := range hdlrs {
 			if h.ServiceName != "" {
 				_, ok := serviceNameToDonID[h.ServiceName]
 				if ok {
-					return nil, fmt.Errorf("duplicate service name %s for DON ID %s", h.ServiceName, donConfig.DonId)
+					return nil, nil, fmt.Errorf("duplicate service name %s for DON ID %s", h.ServiceName, donConfig.DonId)
 				}
-
 				serviceNameToDonID[h.ServiceName] = donConfig.DonId
 			}
 		}
 
 		donConnMgr.SetHandler(handler)
 	}
-	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, connMgr, gMetrics, lggr), nil
+
+	return handlerMap, serviceNameToDonID, nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HTTPServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, connMgr ConnectionManager, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HTTPServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, serviceToMultiHandler map[string]handlers.Handler, connMgr ConnectionManager, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger) Gateway {
 	gw := &gateway{
-		codec:              codec,
-		httpServer:         httpServer,
-		handlers:           handlers,
-		serviceNameToDonID: serviceNameToDonID,
-		connMgr:            connMgr,
-		gMetrics:           gMetrics,
-		lggr:               logger.Named(lggr, "Gateway"),
+		codec:                 codec,
+		httpServer:            httpServer,
+		handlers:              handlers,
+		serviceNameToDonID:    serviceNameToDonID,
+		serviceToMultiHandler: serviceToMultiHandler,
+		connMgr:               connMgr,
+		gMetrics:              gMetrics,
+		lggr:                  logger.Named(lggr, "Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw
@@ -144,6 +259,11 @@ func (g *gateway) Start(ctx context.Context) error {
 	return g.StartOnce("Gateway", func() error {
 		g.lggr.Info("starting gateway")
 		for _, handler := range g.handlers {
+			if err := handler.Start(ctx); err != nil {
+				return err
+			}
+		}
+		for _, handler := range g.serviceToMultiHandler {
 			if err := handler.Start(ctx); err != nil {
 				return err
 			}
@@ -163,6 +283,9 @@ func (g *gateway) Close() error {
 		for _, handler := range g.handlers {
 			err = errors.Join(err, handler.Close())
 		}
+		for _, handler := range g.serviceToMultiHandler {
+			err = errors.Join(err, handler.Close())
+		}
 		return
 	})
 }
@@ -179,28 +302,37 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 	}
 	var isLegacyRequest = false
+	var h handlers.Handler
 	var handlerKey string
 	if msg == nil || msg.Body.DonId == "" {
-		// if no DON ID is specified, it is a new JsonRPC request. Use the service name as handler key
-		// Let's map the service name to the DON ID and find the handler
-		hk, ok := g.serviceNameToDonID[jsonRequest.ServiceName()]
-		if !ok {
-			return newError(jsonRequest.ID, api.HandlerError, "Service name not found: "+jsonRequest.ServiceName())
+		serviceName := jsonRequest.ServiceName()
+		if handler, ok := g.serviceToMultiHandler[serviceName]; ok {
+			h = handler
+			handlerKey = serviceName
+		} else if donID, ok := g.serviceNameToDonID[serviceName]; ok {
+			// Fallback to legacy service name -> DON ID mapping
+			if handler, ok := g.handlers[donID]; ok {
+				h = handler
+				handlerKey = donID
+			}
 		}
-		handlerKey = hk
+		if h == nil {
+			return newError(jsonRequest.ID, api.HandlerError, "Service name not found: "+serviceName)
+		}
 	} else {
-		// Means legacy request. Proceed to validate it and fetch DonId
+		// Legacy request with DON ID - validate and fetch handler
 		isLegacyRequest = true
 		if err = msg.Validate(); err != nil {
 			return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 		}
 		handlerKey = msg.Body.DonId
+		var ok bool
+		h, ok = g.handlers[handlerKey]
+		if !ok {
+			return newError(jsonRequest.ID, api.UnsupportedDONIdError, "Unsupported DON ID: "+handlerKey)
+		}
 	}
-	h, ok := g.handlers[handlerKey]
-	if !ok {
-		return newError(jsonRequest.ID, api.UnsupportedDONIdError, "Unsupported DON ID or Handler: "+handlerKey)
-	}
-	// send to the right handler
+
 	startTime := time.Now()
 	var method string
 	callback := handlerscommon.NewCallback()
@@ -214,7 +346,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	if err != nil {
 		return newError(jsonRequest.ID, api.HandlerError, err.Error())
 	}
-	// await response
+
 	response, err := callback.Wait(ctx)
 	duration := time.Since(startTime)
 	if err != nil {
