@@ -6,17 +6,19 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_CCIP_with_RMN_enabled(t *testing.T) {
@@ -47,7 +49,7 @@ func Test_CCIP_with_RMN_enabled(t *testing.T) {
 				ccipclient.WithDestChain(dest),
 				ccipclient.WithTestRouter(false),
 				ccipclient.WithMessage(router.ClientEVM2AnyMessage{
-					Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(chainB).Receiver.Address().Bytes(), 32),
+					Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello"),
 					TokenAmounts: nil,
 					FeeToken:     common.HexToAddress("0x0"),
