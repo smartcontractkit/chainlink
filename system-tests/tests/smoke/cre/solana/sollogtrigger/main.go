@@ -4,7 +4,7 @@ package main
 
 import (
 	"crypto/sha256"
-	"encoding/json"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
 
@@ -24,28 +24,18 @@ func getTestEventDiscriminator() [8]byte {
 	return discriminator
 }
 
-func getTestEventIdlJson() ([]byte, error) {
-	idl := map[string]interface{}{
-		"event": map[string]interface{}{
-			"name": "TestEvent",
-			"fields": []map[string]interface{}{
-				{"name": "str_val", "type": "string", "index": false},
-				{"name": "u64_value", "type": "u64", "index": false},
-			},
-		},
-		"types": []interface{}{},
-	}
-	return json.Marshal(idl)
+func getTestEventIdlJson() []byte {
+	return []byte(`{"Event":{"name":"TestEvent","fields":[{"name":"strVal","type":"string","index":false},{"name":"u64Value","type":"u64","index":false}]},"Types":null}`)
 }
 
 func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	logger.Info("RunSolLogTriggerWorkflow called")
 
 	discriminator := getTestEventDiscriminator()
-	eventIdlJson, err := getTestEventIdlJson()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate event IDL JSON: %w", err)
-	}
+	eventIdlJson := getTestEventIdlJson()
+
+	expectedValueBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(expectedValueBytes, cfg.ExpectedU64Value)
 
 	filterLogTriggerRequest := &solana.FilterLogTriggerRequest{
 		Name:         "test-event-filter",
@@ -53,6 +43,20 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 		EventName:    "TestEvent",
 		EventSig:     discriminator[:],
 		EventIdlJson: eventIdlJson,
+		SubkeyPaths: []*solana.SubkeyPath{
+			{Path: []string{"U64Value"}},
+		},
+		SubkeyFilters: []*solana.SubkeyFilterCriteria{
+			{
+				SubkeyIndex: 0,
+				Comparers: []*solana.ValueComparator{
+					{
+						Value:    expectedValueBytes,
+						Operator: solana.ComparisonOperator_EQ,
+					},
+				},
+			},
+		},
 	}
 
 	return cre.Workflow[config.Config]{

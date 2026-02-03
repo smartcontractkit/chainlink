@@ -359,9 +359,12 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 
 	logReadTestProgramID := solanago.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
 
+	const expectedU64Value uint64 = 42
+
 	workflowName := fmt.Sprintf("sol-logtrigger-wf--%04d", 1234)
 	var workflowConfig logtrigger_config.Config
 	workflowConfig.LogReadTestProgramID = logReadTestProgramID
+	workflowConfig.ExpectedU64Value = expectedU64Value
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
@@ -375,7 +378,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	err := t_helpers.AssertBeholderMessage(listenerCtx, t, workflowInitMessage, testLogger, messageChan, kafkaErrChan, 2*time.Minute)
 	require.NoError(t, err, "Workflow should have initialized")
 
-	err = triggerLogReadTestEvent(t.Context(), solChain, logReadTestProgramID, 42)
+	err = triggerLogReadTestEvent(t.Context(), solChain, logReadTestProgramID, expectedU64Value)
 	require.NoError(t, err, "failed to trigger log_read_test event")
 
 	timeout := 5 * time.Minute
