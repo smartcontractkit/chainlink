@@ -31,6 +31,10 @@ func (c BurnMintERC20TransparentChangesetConfig) Validate(e cldf.Environment) er
 
 	for chainSelector, tokens := range c.Tokens {
 		for token, config := range tokens {
+			if config.PreMint == nil {
+				config.PreMint = big.NewInt(0)
+			}
+
 			if config.MaxSupply == nil {
 				return fmt.Errorf("max supply is required for %s token on chain %d", token, chainSelector)
 			}
