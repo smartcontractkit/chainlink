@@ -65,8 +65,9 @@ func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID
 		if err != nil {
 			return err
 		}
-		// TODO: We need TriggerCapID here, not the registration triggerID?
-		if info.ID == triggerID {
+		// TODO: We need TriggerCapID here, not the registration triggerID in order to match?
+		// TODO: Or we call AckEvent on all triggers and they must noop if triggerID doesn't match?
+		if info.ID == triggerID { // '
 			return trigger.AckEvent(ctx, triggerID, eventID)
 		}
 	}
