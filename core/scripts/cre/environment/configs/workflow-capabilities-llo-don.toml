@@ -111,8 +111,8 @@
   supported_evm_chains = [1337]
 
   env_vars = { CL_EVM_CMD = "" }
-  # streams-trigger and ocr3 for LLO E2E; mock for LLO mock test (LLO_MOCK_ENABLED=true)
-  capabilities = ["ocr3", "streams-trigger", "mock"]
+  # ocr3 and streams-trigger for LLO E2E. Use workflow-capabilities-llo-don-mock.toml for mock test.
+  capabilities = ["ocr3", "streams-trigger"]
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]

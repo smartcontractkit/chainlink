@@ -226,6 +226,22 @@ func LocalCREStateFileExists(relativePathToRepoRoot string) bool {
 	return statErr == nil
 }
 
+// RemoveLocalCREStateFileIfExists removes the local CRE state file when it exists.
+// Tests that require the env to be started with a specific config (e.g. different topology)
+// should call this before SetupTestEnvironmentWithConfig so the env is started fresh.
+// relativePathToRepoRoot is the path from the test working dir to the repo root (e.g. "../../../../").
+// Returns (true, nil) if the file was removed, (false, nil) if it did not exist, (false, err) on error.
+func RemoveLocalCREStateFileIfExists(relativePathToRepoRoot string) (bool, error) {
+	p := MustLocalCREStateFileAbsPath(relativePathToRepoRoot)
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		return false, nil
+	}
+	if err := os.Remove(p); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // ResolveCapabilityForChain merges defaults with chain override for a capability on a given chain.
 // Returns (enabled, mergedConfig).
 func ResolveCapabilityForChain(

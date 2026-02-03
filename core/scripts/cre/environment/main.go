@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/environment"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/minio"
@@ -19,8 +18,6 @@ func init() {
 	root.RootCmd.AddCommand(mock.MockCommand)
 	root.RootCmd.AddCommand(environment.BsCmd)
 	root.RootCmd.AddCommand(environment.ObsCmd)
-	root.RootCmd.AddCommand(deploy.DeployCmd)
-	root.RootCmd.AddCommand(deploy.ConfigureCmd)
 }
 
 var (

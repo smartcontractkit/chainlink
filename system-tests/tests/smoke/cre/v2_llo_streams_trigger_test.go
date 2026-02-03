@@ -58,8 +58,15 @@ func Test_CRE_V2_LLO_Streams_Trigger_Mock(t *testing.T) {
 	}
 
 	topology := os.Getenv("TOPOLOGY_NAME")
-	// Use mock-only config so workflow subscribes to mock (not real streams-trigger)
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, lloStreamsMockConfigPath), v2RegistriesFlags...)
+	// Use mock-only config so workflow subscribes to mock (not real streams-trigger).
+	// Remove existing CRE state so the env is started with mock topology (capabilities DON has mock only).
+	tconf := t_helpers.GetTestConfig(t, lloStreamsMockConfigPath)
+	removed, err := t_helpers.RemoveLocalCREStateFileIfExists(tconf.RelativePathToRepoRoot)
+	require.NoError(t, err)
+	if removed {
+		framework.L.Info().Msg("Removed local CRE state file so env is started with mock config")
+	}
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, tconf, v2RegistriesFlags...)
 
 	t.Run("[v2] LLO Streams Trigger (Mock) - "+topology, func(t *testing.T) {
 		ExecuteLLOStreamsTriggerTest(t, testEnv)
@@ -354,7 +361,7 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 
 	// Step 5: Wait for LLO reports with magic numbers (Format 5=424242, Format 7=555555)
 	testLogger.Info().Msg("Step 5: Waiting for LLO reports with magic numbers...")
-	timeout := 3 * time.Minute
+	timeout := 90 * time.Second
 
 	// First, explicitly wait for Format 5 (424242)
 	// Check for "Format=5" to ensure we get Format 5 reports specifically

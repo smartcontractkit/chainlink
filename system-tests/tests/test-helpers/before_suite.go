@@ -90,6 +90,13 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 	}
 }
 
+// RemoveLocalCREStateFileIfExists removes the local CRE state file when it exists.
+// Tests that require the env to be started with a specific config (e.g. different topology)
+// should call this before SetupTestEnvironmentWithConfig so the env is started fresh.
+func RemoveLocalCREStateFileIfExists(relativePathToRepoRoot string) (bool, error) {
+	return envconfig.RemoveLocalCREStateFileIfExists(relativePathToRepoRoot)
+}
+
 func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 	t.Helper()
 
