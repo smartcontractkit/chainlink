@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -238,6 +240,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 }
 
 func TestLogPollerFilterRegistered(t *testing.T) {
+	quarantine.Flaky(t, "DX-1950")
 	t.Parallel()
 	// Instantiate listener.
 	th := setupVRFLogPollerListenerTH(t)
