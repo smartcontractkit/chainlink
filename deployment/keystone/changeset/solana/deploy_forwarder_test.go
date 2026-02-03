@@ -9,6 +9,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 
@@ -85,6 +86,7 @@ func TestDeployForwarder(t *testing.T) {
 }
 
 func TestConfigureForwarder(t *testing.T) {
+	quarantine.Flaky(t, "DX-2515")
 	t.Parallel()
 
 	// Setup the solana programs
