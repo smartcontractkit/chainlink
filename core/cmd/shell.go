@@ -283,7 +283,8 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 		if os.Getenv("CL_SKIP_APP_VERSION_CHECK") == "true" {
 			appLggr.Warn("Skipping app version check")
 		} else {
-			appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version)
+			ignorePrerelease := os.Getenv("CL_IGNORE_PRERELEASE_VERSION_CHECK") == "true"
+			appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version, ignorePrerelease)
 			if err != nil {
 				// Exit immediately and don't touch the database if the app version is too old
 				return fmt.Errorf("CheckVersion: %w", err)
