@@ -252,7 +252,7 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error checking out key from key pool")
 				_ = m.keyPool.DiagnoseAndMonitor(60 * time.Second)
-				if strings.Contains(err.Error(), "all keys have pending transactions") {
+				if strings.Contains(strings.ToLower(err.Error()), "keys have pending transactions") {
 					dropCtx, dropCancelFn := context.WithTimeout(context.Background(), m.keyPool.RecommendedDropTimeout())
 					defer dropCancelFn()
 					dropped, dropErr := m.keyPool.DropPendingTxs(dropCtx)
