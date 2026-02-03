@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -129,7 +130,8 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		f.ned.From:     {Balance: assets.Ether(1000).ToInt()},
 		f.nallory.From: {Balance: assets.Ether(1000).ToInt()},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	// https://github.com/ethereum/go-ethereum/blob/abeb78c647e354ed922726a1d719ac7bc64a07e2/core/state_transition.go#L329-L332
+	gasLimit := min(ethconfig.Defaults.Miner.GasCeil*2, params.MaxTxGas) // gas limit to respect EIP-7825 cap
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))

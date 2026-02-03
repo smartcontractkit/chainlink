@@ -33,8 +33,9 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalConfig) (cld
 		proposals := MultiChainProposalConfig{
 			c.ChainSelector: []ProposalData{
 				{
-					contract: contract.Address().Hex(),
-					tx:       tx,
+					contract:          contract.Address().Hex(),
+					tx:                tx,
+					timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 				},
 			},
 		}

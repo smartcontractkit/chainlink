@@ -55,12 +55,14 @@ func removeFeedLogic(env cldf.Environment, c types.RemoveFeedConfig) (cldf.Chang
 	proposalConfig := MultiChainProposalConfig{
 		c.ChainSelector: []ProposalData{
 			{
-				contract: contract.Address().Hex(),
-				tx:       removeConfigTx,
+				contract:          contract.Address().Hex(),
+				tx:                removeConfigTx,
+				timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 			},
 			{
-				contract: contract.Address().Hex(),
-				tx:       removeProxyMappingTx,
+				contract:          contract.Address().Hex(),
+				tx:                removeProxyMappingTx,
+				timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 			},
 		},
 	}

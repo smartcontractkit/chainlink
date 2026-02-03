@@ -15,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
+
+	"github.com/smartcontractkit/chainlink/devenv/products"
 )
 
 const (
@@ -76,7 +78,7 @@ func FundNodeEIP1559(ctx context.Context, c *ethclient.Client, pkey, recipientAd
 	if err != nil {
 		return err
 	}
-	if _, err := bind.WaitMined(context.Background(), c, signedTx); err != nil {
+	if _, err := products.WaitMinedFast(context.Background(), c, signedTx.Hash()); err != nil {
 		return err
 	}
 	l.Info().Str("Wei", amountWei.String()).Msg("Funded with ETH")

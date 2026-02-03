@@ -108,7 +108,7 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.Response {
 	cfg := m.Cfg.GetFunctionsConfig()
 	if err := ListS4Secrets(m.Resty, &S4SecretsCfg{
 		GatewayURL:            *cfg.Common.GatewayURL,
-		RecieverAddr:          *cfg.Common.Receiver,
+		ReceiverAddr:          *cfg.Common.Receiver,
 		PrivateKey:            m.Cfg.GetNetworkConfig().WalletKeys[network][0],
 		MessageID:             randNum,
 		Method:                m.Method,

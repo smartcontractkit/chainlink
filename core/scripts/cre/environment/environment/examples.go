@@ -55,7 +55,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				workflowRegistryAddress = workflowRegistryAddressFlag
 				contractsVersion = semver.MustParse(contractsVersionFlag)
 			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
 				if addrErr != nil {
 					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
 				}

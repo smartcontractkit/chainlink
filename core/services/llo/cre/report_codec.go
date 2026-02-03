@@ -19,7 +19,6 @@ import (
 )
 
 var _ datastreamsllo.ReportCodec = ReportCodecCapabilityTrigger{}
-var _ datastreamsllo.OptsParser = ReportCodecCapabilityTrigger{}
 
 type ReportCodecCapabilityTrigger struct {
 	lggr  logger.Logger
@@ -61,7 +60,7 @@ func (r *ReportCodecCapabilityTriggerOpts) Encode() ([]byte, error) {
 
 // Encode a report into a capability trigger report
 // the returned byte slice is the marshaled protobuf of [capabilitiespb.OCRTriggerReport]
-func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd llotypes.ChannelDefinition, parsedOpts any) ([]byte, error) {
+func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
 	if len(cd.Streams) != len(report.Values) {
 		// Invariant violation
 		return nil, fmt.Errorf("capability trigger expected %d streams, got %d", len(cd.Streams), len(report.Values))
@@ -72,17 +71,8 @@ func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd ll
 	}
 
 	var opts ReportCodecCapabilityTriggerOpts
-	if parsedOpts != nil {
-		// Use cached opts
-		var ok bool
-		opts, ok = parsedOpts.(ReportCodecCapabilityTriggerOpts)
-		if !ok {
-			return nil, fmt.Errorf("expected ReportCodecCapabilityTriggerOpts, got %T", parsedOpts)
-		}
-	} else {
-		if err := (&opts).Decode(cd.Opts); err != nil {
-			return nil, fmt.Errorf("failed to decode opts; got: '%s'; %w", cd.Opts, err)
-		}
+	if err := (&opts).Decode(cd.Opts); err != nil {
+		return nil, fmt.Errorf("failed to decode opts; got: '%s'; %w", cd.Opts, err)
 	}
 
 	payload := make([]*commonds.LLOStreamDecimal, len(report.Values))
