@@ -52,6 +52,7 @@ func TestBurnMintERC20TransparentValidate(t *testing.T) {
 					},
 				},
 			},
+			wantErr: true,
 		},
 		{
 			name: "missing pre-mint",
@@ -64,6 +65,7 @@ func TestBurnMintERC20TransparentValidate(t *testing.T) {
 					},
 				},
 			},
+			wantErr: true,
 		},
 	}
 

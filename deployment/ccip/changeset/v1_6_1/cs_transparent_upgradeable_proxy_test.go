@@ -99,6 +99,7 @@ func TestTransparentUpgradeableProxyDeploy(t *testing.T) {
 				if tc.deployERC20Transparent {
 					_, tx, contract, err := burn_mint_erc20_transparent.DeployBurnMintERC20Transparent(chain.DeployerKey, chain.Client)
 					require.NoError(t, err)
+
 					_, err = e.Env.BlockChains.EVMChains()[chainSelector].Confirm(tx)
 					require.NoError(t, err)
 
@@ -111,6 +112,7 @@ func TestTransparentUpgradeableProxyDeploy(t *testing.T) {
 				for name, config := range configs {
 					if implementation != nil {
 						config.BurnMintERC20Transparent = implementation.Address()
+						tc.cfg.Tokens[chainSelector][name] = config
 					}
 
 					initData, err := parsedABI.Pack(
@@ -120,7 +122,7 @@ func TestTransparentUpgradeableProxyDeploy(t *testing.T) {
 						config.Decimals,
 						config.MaxSupply,
 						config.PreMint,
-						e.Env.BlockChains.EVMChains()[chainSelector].DeployerKey,
+						e.Env.BlockChains.EVMChains()[chainSelector].DeployerKey.From,
 					)
 					require.NoError(t, err)
 
@@ -136,6 +138,7 @@ func TestTransparentUpgradeableProxyDeploy(t *testing.T) {
 							chain.DeployerKey, chain.Client, config.BurnMintERC20Transparent, chain.DeployerKey.From, initData,
 						)
 						require.NoError(t, err)
+
 						_, err = e.Env.BlockChains.EVMChains()[chainSelector].Confirm(tx)
 						require.NoError(t, err)
 
