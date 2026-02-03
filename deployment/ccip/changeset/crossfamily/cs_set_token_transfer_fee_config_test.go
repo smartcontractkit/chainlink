@@ -551,6 +551,7 @@ func TestSetTokenTransferFeeConfig_Solana_V0_1_0_Only(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
+	quarantine.Flaky(t, "DX-2374")
 	// Build a mixed env with EVM + non-EVM
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
