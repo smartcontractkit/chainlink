@@ -31,8 +31,9 @@ func setFeedAdminLogic(env cldf.Environment, c types.SetFeedAdminConfig) (cldf.C
 		proposalConfig := MultiChainProposalConfig{
 			c.ChainSelector: []ProposalData{
 				{
-					contract: contract.Address().Hex(),
-					tx:       tx,
+					contract:          contract.Address().Hex(),
+					tx:                tx,
+					timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 				},
 			},
 		}
