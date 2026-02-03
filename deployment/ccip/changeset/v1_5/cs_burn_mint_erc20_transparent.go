@@ -33,6 +33,7 @@ func (c BurnMintERC20TransparentChangesetConfig) Validate(e cldf.Environment) er
 		for token, config := range tokens {
 			if config.PreMint == nil {
 				config.PreMint = big.NewInt(0)
+				tokens[token] = config
 			}
 
 			if config.MaxSupply == nil {
