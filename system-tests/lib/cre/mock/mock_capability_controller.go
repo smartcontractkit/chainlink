@@ -267,7 +267,9 @@ func (c *Controller) WaitForCapability(ctx context.Context, capability string, t
 	}
 }
 
-// GetTriggerSubscribers retrieves all subscribers for a specific trigger ID from all nodes
+// GetTriggerSubscribers retrieves all subscribers for a specific trigger ID from all nodes.
+// If the mock returns "trigger not found" (e.g. old mock or trigger not yet registered),
+// we treat it as empty subscribers so callers can keep polling until the trigger exists.
 func (c *Controller) GetTriggerSubscribers(ctx context.Context, triggerID string) (map[string][]string, error) {
 	subscribers := make(map[string][]string, 0)
 
@@ -276,6 +278,11 @@ func (c *Controller) GetTriggerSubscribers(ctx context.Context, triggerID string
 			ID: triggerID,
 		})
 		if err != nil {
+			// Treat "trigger not found" as no subscribers so tests can poll until the mock has the trigger.
+			if strings.Contains(err.Error(), "not found") {
+				subscribers[client.URL] = []string{}
+				continue
+			}
 			return nil, fmt.Errorf("failed to get trigger subscribers from node %s: %w", client.URL, err)
 		}
 

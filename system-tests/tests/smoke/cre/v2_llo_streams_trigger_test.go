@@ -8,14 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	streams "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/streams"
+	crevalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	mockcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	mockpb "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
@@ -121,7 +125,7 @@ func ExecuteLLOStreamsTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 	// Step 2: Wait for capability registration and DON-to-DON discovery
 	testLogger.Info().Msg("Step 2: Waiting for capability discovery...")
-	time.Sleep(30 * time.Second) // Allow time for capability registration and workflow subscription
+	time.Sleep(15 * time.Second) // Allow time for capability registration and workflow subscription
 	testLogger.Info().Msg("✓ Capability discovery period completed")
 
 	// Step 2b: Wait for the workflow to subscribe to streams-trigger on the mock (mock-only config).
@@ -132,7 +136,7 @@ func ExecuteLLOStreamsTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	if err := controller.ConnectAll(getMockCapabilityAddresses(testEnv), true, false); err != nil {
 		require.NoError(t, err, "Failed to connect to mock capability controllers")
 	}
-	err := controller.WaitForTriggerSubscribers(context.Background(), "mock@1.0.0", 90*time.Second)
+	err := controller.WaitForTriggerSubscribers(context.Background(), "mock@1.0.0", 30*time.Second)
 	require.NoError(t, err, "Timeout waiting for workflow to subscribe to mock@1.0.0 on mock - use workflow-capabilities-llo-don-mock.toml (capabilities DON has only mock)")
 
 	// Step 3: Inject mock LLO reports via the mock capability controller
@@ -144,7 +148,7 @@ func ExecuteLLOStreamsTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	// Step 4: Verify workflow received the reports
 	testLogger.Info().Msg("Step 4: Verifying workflow received reports...")
 	expectedLog := "LLO_E2E_VALUE"
-	timeout := 2 * time.Minute
+	timeout := 45 * time.Second
 	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLog, testLogger, messageChan, kafkaErrChan, timeout)
 	require.NoError(t, err, "LLO Streams Trigger E2E test failed - workflow did not receive reports")
 
@@ -172,12 +176,33 @@ func injectMockLLOReports(t *testing.T, testEnv *ttypes.TestEnvironment, count i
 
 	// Send mock reports
 	for i := 0; i < count; i++ {
-		report, err := generateMockLLOReport(uint64(i + 1))
+		eventID := fmt.Sprintf("mock-llo-report-%d", i+1)
+		report, err := generateMockLLOReport(uint64(i+1), eventID)
 		if err != nil {
 			return fmt.Errorf("failed to generate mock report %d: %w", i, err)
 		}
 
-		// Marshal the streams.Report into an anypb.Any
+		// Build OCRTriggerEvent so the mock can set Event.Outputs (required by SignedReportRemoteAggregator).
+		ocrEvent := &capabilities.OCRTriggerEvent{
+			ConfigDigest: report.ConfigDigest,
+			SeqNr:        report.SeqNr,
+			Report:       report.Report,
+			Sigs:         make([]capabilities.OCRAttributedOnchainSignature, len(report.Sigs)),
+		}
+		for j, s := range report.Sigs {
+			ocrEvent.Sigs[j] = capabilities.OCRAttributedOnchainSignature{Signer: s.Signer, Signature: s.Signature}
+		}
+		outputsMap, err := ocrEvent.ToMap()
+		if err != nil {
+			return fmt.Errorf("failed to build OCR event map: %w", err)
+		}
+		// Serialize map to bytes in the format the mock's BytesToMap expects (proto Value with MapValue).
+		outputsBytes, err := proto.Marshal(crevalues.Proto(outputsMap))
+		if err != nil {
+			return fmt.Errorf("failed to marshal outputs map: %w", err)
+		}
+
+		// Marshal the streams.Report into an anypb.Any (Payload is passed through by the mock).
 		anyReport, err := anypb.New(report)
 		if err != nil {
 			return fmt.Errorf("failed to marshal report to Any: %w", err)
@@ -186,8 +211,15 @@ func injectMockLLOReports(t *testing.T, testEnv *ttypes.TestEnvironment, count i
 		req := &mockpb.SendTriggerEventRequest{
 			TriggerID:   "mock@1.0.0", // Must match trigger ID the workflow subscribed to (mock test uses mock@1.0.0)
 			TriggerType: "llo",
-			ID:          fmt.Sprintf("mock-llo-report-%d", i+1),
+			ID:          eventID, // Must match OCRTriggerReport.EventID so aggregator accepts the response
 			Payload:     anyReport,
+			Outputs:     outputsBytes, // Aggregator expects Event.Outputs to parse as OCRTriggerEvent
+			OCREvent: &mockpb.OCRTriggerEvent{
+				ConfigDigest: report.ConfigDigest,
+				SeqNr:        report.SeqNr,
+				Report:       report.Report,
+				Sigs:         convertToMockSigs(report.Sigs),
+			},
 		}
 
 		err = controller.SendTrigger(context.Background(), req)
@@ -202,19 +234,38 @@ func injectMockLLOReports(t *testing.T, testEnv *ttypes.TestEnvironment, count i
 	return nil
 }
 
-// generateMockLLOReport creates a mock LLO report that matches the streams.Report structure.
+// generateMockLLOReport creates a mock LLO report that matches the streams.Report structure
+// and Format 5 (CapabilityTrigger) layout so the workflow's decodeFormat5Report succeeds.
+// eventID must match the trigger event ID (req.ID) so SignedReportRemoteAggregator accepts the response.
 // configDigest is the OCR config digest (32-byte SHA256). For mock tests any fixed digest is fine.
-// In production this comes from the OCR protocol; to obtain or regenerate see libocr ConfigDigest
-// or the contract's latest config digest.
-func generateMockLLOReport(seqNr uint64) (*streams.Report, error) {
+func generateMockLLOReport(seqNr uint64, eventID string) (*streams.Report, error) {
 	timestamp := uint64(time.Now().UnixNano())
 	configDigest, _ := hex.DecodeString("00091599c39d29821b4949b9ba237d2d1d9b7369087a71283c921034898320b0")
 
-	// Create OCR trigger report (the inner report payload)
-	// Note: OCRTriggerReport only has EventID, Timestamp, and Outputs fields
+	// Format 5 expects Outputs.Payload = list of stream maps, each with StreamID and Decimal (shopspring binary).
+	// Workflow uses stream ID 1 and expects MAGIC_NUMBER_FORMAT5 (424242).
+	dec := decimal.NewFromInt(424242)
+	decBytes, err := dec.MarshalBinary()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal decimal: %w", err)
+	}
+	payloadList := valuespb.NewListValue([]*valuespb.Value{
+		valuespb.NewMapValue(map[string]*valuespb.Value{
+			"StreamID": valuespb.NewInt64Value(1),
+			"Decimal":  valuespb.NewBytesValue(decBytes),
+		}),
+	})
+	// payloadList is a *Value wrapping List; we need Outputs = Map with "Payload" -> that Value
+	outputsMap := &valuespb.Map{
+		Fields: map[string]*valuespb.Value{
+			"Payload": payloadList,
+		},
+	}
+
 	ocrReport := &capabilitiespb.OCRTriggerReport{
-		EventID:   fmt.Sprintf("streams_1_%d_f5", timestamp), // Format: streams_DONID_TIMESTAMP_f5
+		EventID:   eventID, // Must match req.ID so aggregator's aggregateProtobuf accepts (rep.EventID == triggerEventID)
 		Timestamp: timestamp,
+		Outputs:   outputsMap,
 	}
 
 	ocrReportBytes, err := proto.Marshal(ocrReport)
@@ -232,6 +283,18 @@ func generateMockLLOReport(seqNr uint64) (*streams.Report, error) {
 			{Signer: 1, Signature: []byte("mock_signature_1")},
 		},
 	}, nil
+}
+
+// convertToMockSigs converts streams.Report signatures to mock pb type for SendTriggerEventRequest.OCREvent.
+func convertToMockSigs(sigs []*streams.OCRSignature) []*mockpb.OCRAttributedOnchainSignature {
+	if len(sigs) == 0 {
+		return nil
+	}
+	out := make([]*mockpb.OCRAttributedOnchainSignature, len(sigs))
+	for i, s := range sigs {
+		out[i] = &mockpb.OCRAttributedOnchainSignature{Signer: s.Signer, Signature: s.Signature}
+	}
+	return out
 }
 
 // getMockCapabilityAddresses returns the addresses of mock capability controllers

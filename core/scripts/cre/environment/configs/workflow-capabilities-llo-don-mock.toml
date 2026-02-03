@@ -1,0 +1,177 @@
+# LLO Streams Trigger mock test config.
+# Capabilities DON has only "mock" (no "streams-trigger") so the workflow subscribes to the mock.
+# The mock must register as streams-trigger@2.0.0 for the workflow to discover and subscribe.
+# Use with LLO_MOCK_ENABLED=true when running Test_CRE_V2_LLO_Streams_Trigger_Mock.
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.22.1"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337]
+
+  env_vars = { CL_EVM_CMD = "" }
+  capabilities = ["ocr3", "consensus", "don-time"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+    read-contract = ["1337"]
+    evm = ["1337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "each"
+  http_port_range_start = 10200
+
+  supported_evm_chains = [1337]
+
+  env_vars = { CL_EVM_CMD = "" }
+  # Mock only: no streams-trigger so workflow subscribes to mock (mock must register as streams-trigger@2.0.0)
+  capabilities = ["ocr3", "mock"]
+
+  # Same pattern as workflow-don-solana.toml: define the mock trigger via DefaultMocks so the mock plugin creates it at init.
+  [nodesets.capability_overrides.mock]
+  [[nodesets.capability_overrides.mock.DefaultMocks]]
+  Id = "mock@1.0.0"
+  Description = "Mock trigger for LLO streams trigger test"
+  Type = "trigger"
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+    read-contract = ["1337"]
+    evm = ["1337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15002:7777"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15003:7777"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15004:7777"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["15005:7777"]
+      user_config_overrides = '''
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+'''

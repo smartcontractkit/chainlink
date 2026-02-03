@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"text/template"
+	"time"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -40,6 +42,20 @@ func (o *Mock) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
+	// Use MinResponsesToAggregate=1 so the workflow DON uses DefaultModeAggregator(1);
+	// no AggregatorConfig so launcher uses Mode (not SignedReport). Required for LLO mock test
+	// so mock reports are aggregated without signature verification.
+	registrationRefresh := 30 * time.Second
+	registrationExpiry := 2 * time.Minute
+	remoteTriggerConfig := &capabilitiespb.RemoteTriggerConfig{
+		RegistrationRefresh:     durationpb.New(registrationRefresh),
+		RegistrationExpiry:      durationpb.New(registrationExpiry),
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           durationpb.New(2 * registrationExpiry),
+		MaxBatchSize:            25,
+		BatchCollectionPeriod:   durationpb.New(200 * time.Millisecond),
+	}
+
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{
 		{
 			Capability: kcr.CapabilitiesRegistryCapability{
@@ -49,6 +65,16 @@ func (o *Mock) PreEnvStartup(
 			},
 			Config: &capabilitiespb.CapabilityConfig{
 				LocalOnly: don.HasOnlyLocalCapabilities(),
+				RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: remoteTriggerConfig,
+				},
+				MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+					"Trigger": {
+						RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+							RemoteTriggerConfig: remoteTriggerConfig,
+						},
+					},
+				},
 			},
 		},
 		// Register as streams-trigger@2.0.0 so LLO mock test can use mock-only config:
@@ -61,6 +87,16 @@ func (o *Mock) PreEnvStartup(
 			},
 			Config: &capabilitiespb.CapabilityConfig{
 				LocalOnly: don.HasOnlyLocalCapabilities(),
+				RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: remoteTriggerConfig,
+				},
+				MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+					"Trigger": {
+						RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+							RemoteTriggerConfig: remoteTriggerConfig,
+						},
+					},
+				},
 			},
 		},
 	}
