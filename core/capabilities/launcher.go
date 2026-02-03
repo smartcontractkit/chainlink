@@ -457,7 +457,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 
 	methodConfig := capabilityConfig.CapabilityMethodConfig
 	if methodConfig != nil { // v2 capability - handle via CombinedClient
-		errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON, localRegistry)
+		errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON)
 		if errAdd != nil {
 			return fmt.Errorf("failed to add remote v2 capability %s: %w", capability.ID, errAdd)
 		}
@@ -492,10 +492,21 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 						w.lggr,
 					)
 				case 2: // LLO
-					// LLO reports are produced by Streams DON consensus. We use DefaultModeAggregator with 2f+1
-					// identical responses (no per-report signature verification); the trigger subscriber waits
-					// for MinResponsesToAggregate (2f+1) before calling Aggregate.
-					aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F*2 + 1))
+					// TODO: add a flag in capability onchain config to indicate whether it's OCR based
+					// the "SignedReport" aggregator is generic
+					signers, err := signersFor(remoteDON, localRegistry)
+					if err != nil {
+						return nil, fmt.Errorf("failed to get signers for llo-trigger: %w", err)
+					}
+
+					const maxAgeSec = 120 // TODO move to capability onchain config
+					aggregator = aggregation.NewSignedReportRemoteAggregator(
+						signers,
+						int(remoteDON.F+1),
+						info.ID,
+						maxAgeSec,
+						w.lggr,
+					)
 				default:
 					return nil, fmt.Errorf("unsupported stream trigger %s", info.ID)
 				}
@@ -870,7 +881,7 @@ func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegis
 }
 
 // Add a V2 capability with multiple methods, using CombinedClient.
-func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
+func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,
@@ -898,35 +909,8 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 				cc.SetTriggerSubscriber(method, sub)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
-
-			// Select aggregator based on AggregatorConfig from on-chain capability registry
-			var agg remotetypes.Aggregator
-			aggregatorType := capabilities.AggregatorType_Mode // default
-			if config.AggregatorConfig != nil {
-				aggregatorType = config.AggregatorConfig.AggregatorType
-			}
-
-			switch aggregatorType {
-			case capabilities.AggregatorType_SignedReport:
-				// OCR-signed reports require cryptographic signature verification
-				// Signers are fetched from the on-chain capabilities registry
-				signers, err := signersFor(remoteDON, localRegistry)
-				if err != nil {
-					return fmt.Errorf("failed to get signers for %s: %w", capID, err)
-				}
-				const maxAgeSec = 120 // TODO: move to capability onchain config
-				agg = aggregation.NewSignedReportRemoteAggregator(
-					signers,
-					int(remoteDON.F+1), // Require F+1 valid signatures for BFT
-					capID,
-					maxAgeSec,
-					w.lggr,
-				)
-			default:
-				// Default MODE aggregator for triggers without signed reports
-				agg = aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
-			}
-
+			// TODO(CRE-590): add support for SignedReportAggregator (needed by LLO Streams Trigger V2)
+			agg := aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
 			if errCfg := sub.SetConfig(config.RemoteTriggerConfig, info, myDON.ID, remoteDON.DON, agg); errCfg != nil {
 				return fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}

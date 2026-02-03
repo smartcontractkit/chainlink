@@ -305,6 +305,7 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 			return
 		case response, ok := <-callbackCh:
 			if !ok {
+				p.lggr.Infow("triggerEventLoop channel closed", "workflowId", key.workflowID)
 				return
 			}
 

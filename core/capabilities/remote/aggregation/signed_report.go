@@ -57,7 +57,7 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
 		if err != nil {
-			a.lggr.Errorw("could not unmarshal capability response", "err", err)
+			a.lggr.Errorw("could not unmarshal one of capability responses (faulty sender?)", "err", err)
 			continue
 		}
 		ocrEvent := &capabilities.OCRTriggerEvent{}
@@ -75,17 +75,21 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			continue
 		}
 		if rep.EventID != triggerEventID {
+			a.lggr.Warnw("unexpected event ID", "expected", triggerEventID, "got", rep.EventID)
 			continue
 		}
 		timeDiff := time.Since(time.Unix(0, int64(rep.Timestamp))).Abs() //nolint:gosec
 		if timeDiff.Nanoseconds() > int64(a.maxAgeSec)*1000000000 {
+			a.lggr.Warnw("aggregation report too old", "age", timeDiff, "maxAge", a.maxAgeSec, "reportTimestamp", rep.Timestamp)
 			continue
 		}
 		if err := a.validateSignatures(ocrEvent); err != nil {
+			a.lggr.Errorw("invalid signatures", "err", err)
 			continue
 		}
 		outputsMap, err := values.FromMapValueProto(rep.Outputs)
 		if err != nil {
+			a.lggr.Errorw("failed to parse OCR report outputs", "err", err)
 			continue
 		}
 		triggerResp.Event.Outputs = outputsMap
