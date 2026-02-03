@@ -314,6 +314,7 @@ func IntListStats(in []int64) (float64, int64, int64, int64, int64) {
 type KeyPool struct {
 	mu        sync.Mutex
 	dropMu    sync.Mutex // protects DropPendingTxs from concurrent calls
+	monitorMu sync.Mutex // protects block monitor state
 	client    *ethclient.Client
 	rpcClient *rpc.Client
 	logger    zerolog.Logger
@@ -322,8 +323,9 @@ type KeyPool struct {
 
 	isAnvil bool
 	// pendingTxs tracks the last pending tx hash for each key index
-	pendingTxs   map[int]common.Hash
-	checkTimeout time.Duration
+	pendingTxs     map[int]common.Hash
+	checkTimeout   time.Duration
+	monitorRunning bool
 }
 
 func NewKeyPool(logger zerolog.Logger, rpcURL string, addrs []common.Address, isAnvil bool) (*KeyPool, error) {
@@ -577,11 +579,26 @@ func (p *KeyPool) dropTransaction(ctx context.Context, txHash common.Hash) error
 // StartBlockMonitor starts a background goroutine that monitors block progress.
 // It logs the current block number every `interval` for `duration`.
 // Useful for debugging when the chain might be stuck.
-// Returns a cancel function to stop monitoring early.
+// Only one monitor can run at a time - subsequent calls are ignored.
+// Returns a cancel function to stop monitoring early (or nil if monitor already running).
 func (p *KeyPool) StartBlockMonitor(duration time.Duration, interval time.Duration) context.CancelFunc {
+	p.monitorMu.Lock()
+	if p.monitorRunning {
+		p.monitorMu.Unlock()
+		p.logger.Debug().Msg("Block monitor already running, skipping")
+		return nil
+	}
+	p.monitorRunning = true
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	p.monitorMu.Unlock()
 
 	go func() {
+		defer func() {
+			p.monitorMu.Lock()
+			p.monitorRunning = false
+			p.monitorMu.Unlock()
+		}()
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
