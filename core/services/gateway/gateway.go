@@ -301,6 +301,10 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	if err != nil {
 		return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 	}
+	if len(jsonRequest.ID) > 200 {
+		// Arbitrary limit to prevent abuse
+		return newError(jsonRequest.ID, api.UserMessageParseError, "request ID is too long: "+fmt.Sprint(len(jsonRequest.ID))+". max is 200 characters")
+	}
 	var isLegacyRequest = false
 	var h handlers.Handler
 	var handlerKey string

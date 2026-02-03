@@ -758,7 +758,9 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 		Method: vaulttypes.MethodPublicKeyGet,
 		Params: nil,
 	}
-	err := h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callback)
+	ar, err := h.(*handler).newActiveRequest(jsonRequest, callback)
+	require.NoError(t, err)
+	err = h.(*handler).handlePublicKeyGet(t.Context(), ar)
 	require.NoError(t, err)
 
 	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
@@ -790,7 +792,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
 
-	// Now let's make another request, it'll have been cached due to the previous call.
+	// Now let's make HandleJSONRPCUserMessage request, it'll have been cached due to the previous call.
 	callback = common.NewCallback()
 	jsonRequest = jsonrpc.Request[json.RawMessage]{
 		ID:     "another_request_id",

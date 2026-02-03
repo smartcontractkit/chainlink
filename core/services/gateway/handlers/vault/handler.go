@@ -237,7 +237,7 @@ func (h *handler) Start(_ context.Context) error {
 					h.removeExpiredRequests(ctx)
 				case <-tickerVaultPublicKeyRefresh.Chan():
 					// periodically, fetch vault public key, so we can cache it
-					h.fetchVaultPublicKey(ctx)
+					_ = h.fetchVaultPublicKey(ctx)
 				case <-h.stopCh:
 					return
 				}
@@ -255,14 +255,14 @@ func (h *handler) Close() error {
 	})
 }
 
-func (h *handler) fetchVaultPublicKey(ctx context.Context) {
+func (h *handler) fetchVaultPublicKey(ctx context.Context) error {
 	ctx, cancel := context.WithDeadline(ctx, h.clock.Now().Add(10*time.Second))
 	defer cancel()
 	param := vaultcommon.GetPublicKeyRequest{}
 	paramBytes, err := json.Marshal(param)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to marshal get public key request", "error", err)
-		return
+		return err
 	}
 	getPublicKeyRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
@@ -272,24 +272,31 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 	}
 	h.lggr.Debugw("fetchVaultPublicKey: trying to fetch vault public key", "request", getPublicKeyRequest)
 	callback := handlerscommon.NewCallback()
-	err = h.HandleJSONRPCUserMessage(ctx, getPublicKeyRequest, callback)
+	ar, err := h.newActiveRequest(getPublicKeyRequest, callback)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to create new activeRequest", "error", err)
+		return err
+	}
+	err = h.handlePublicKeyGet(ctx, ar)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
-		return
+		return err
 	}
 	response, err := callback.Wait(ctx)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
-		return
+		return err
 	}
 	httpStatus := api.ToHttpErrorCode(response.ErrorCode)
 	jsonCodec := api.JsonRPCCodec{}
 	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
 	if httpStatus != http.StatusOK {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
+		return errors.New("failed to fetch vault public key, http status code: " + fmt.Sprint(httpStatus))
 	} else {
 		h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
 	}
+	return nil
 }
 
 // removeExpiredRequests removes expired requests from the pending requests map
@@ -325,23 +332,44 @@ func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ g
 }
 
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
-	// Generate a unique ID for the request.
-	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	if req.ID == "" {
 		return errors.New("request ID cannot be empty")
 	}
+	if len(req.ID) > 200 {
+		// Arbitrary limit to prevent abuse
+		return errors.New("request ID is too long: " + fmt.Sprint(len(req.ID)) + ". max is 200 characters")
+	}
 
 	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID, "request", req)
-	// Public key requests don't require authorization,
-	// Let's process this request right away.
-	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	switch req.Method {
 	case vaulttypes.MethodPublicKeyGet:
-		ar, err := h.newActiveRequest(req, callback)
+		// Public key requests don't require authorization,
+		// Let's process this request right away.
+		// Note we cache this value quite aggressively so don't need to worry about DoS.
+		publicKeyResponseBytes, _, err := h.getCachedPublicKey()
 		if err != nil {
+			h.lggr.Errorw("failed to find cached publicKey", "error", err)
 			return err
 		}
-		return h.handlePublicKeyGet(ctx, ar)
+		h.lggr.Debugw("returning cached public key response")
+
+		resp := jsonrpc.Response[json.RawMessage]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      req.ID,
+			Method:  req.Method,
+			Result:  (*json.RawMessage)(&publicKeyResponseBytes),
+		}
+		rawResponse, err := jsonrpc.EncodeResponse(&resp)
+		if err != nil {
+			h.lggr.Errorw("failed to encode response", "error", err)
+			return errors.New("failed to marshal response: " + err.Error())
+		}
+		successResp := gwhandlers.UserCallbackPayload{
+			RawResponse: rawResponse,
+			ErrorCode:   api.NoError,
+		}
+		callback.SendResponse(successResp)
+		return nil
 	case vaulttypes.MethodSecretsGet:
 		// Secrets get is only allowed in non-production builds for testing purposes
 		// So no authorization is required
@@ -357,7 +385,9 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Errorw("request not authorized", "requestID", req.ID, "owner", owner, "reason:", err)
 		return errors.New("request not authorized: " + err.Error())
 	}
+	// Generate a unique ID for the request.
 	// Prefix request id with owner, to ensure uniqueness across different owners
+	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
 	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
