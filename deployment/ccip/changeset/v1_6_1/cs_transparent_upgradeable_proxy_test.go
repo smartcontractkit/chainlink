@@ -36,7 +36,7 @@ func TestTransparentUpgradeableProxyValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid config - initalize",
+			name: "valid config - initialize",
 			cfg: TransparentUpgradeableProxyChangesetConfig{
 				Tokens: map[uint64]map[string]TransparentUpgradeableProxy{
 					chain1: {
@@ -475,12 +475,7 @@ func TestBeginDefaultAdminTransferTransparentUpgradeableProxy(t *testing.T) {
 					r, err := implementation.PendingDefaultAdmin(nil)
 					require.NoError(t, err)
 
-					if tc.wantNewAdmin {
-						require.Equal(t, config.NewAdmin, r.NewAdmin)
-						
-					} else {
-						require.Equal(t, config.NewAdmin, common.Address{})
-					}
+					require.Equal(t, config.NewAdmin, r.NewAdmin)
 				}
 			}
 		})
