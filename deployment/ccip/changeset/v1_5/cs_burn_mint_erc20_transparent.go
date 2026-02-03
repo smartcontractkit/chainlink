@@ -35,10 +35,6 @@ func (c BurnMintERC20TransparentChangesetConfig) Validate(e cldf.Environment) er
 				return fmt.Errorf("max supply is required for %s token on chain %d", token, chainSelector)
 			}
 
-			if config.PreMint == nil {
-				return fmt.Errorf("pre-mint amount is required for %s token on chain %d", token, chainSelector)
-			}
-
 			chain, ok := e.BlockChains.EVMChains()[chainSelector]
 			if !ok {
 				return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)

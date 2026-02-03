@@ -54,19 +54,6 @@ func TestBurnMintERC20TransparentValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{
-			name: "missing pre-mint",
-			cfg: BurnMintERC20TransparentChangesetConfig{
-				Tokens: map[uint64]map[string]BurnMintERC20Transparent{
-					chain: {
-						"TEST_3": {
-							MaxSupply: big.NewInt(1000),
-						},
-					},
-				},
-			},
-			wantErr: true,
-		},
 	}
 
 	for _, tc := range tests {
