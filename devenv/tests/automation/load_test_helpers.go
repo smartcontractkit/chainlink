@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/rs/zerolog"
-	"go.uber.org/ratelimit"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -247,19 +246,21 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 		go func(a [][]byte, m *LogTriggerGun) {
 			defer wg.Done()
 
-			keyCtx, cancelFn := context.WithTimeout(context.Background(), time.Duration(len(m.keyPool.addresses)*5)*time.Second)
+			keyCtx, cancelFn := context.WithTimeout(context.Background(), m.keyPool.RecommendedCheckoutTimeout())
 			defer cancelFn()
 			keyIndex, nonce, err := m.keyPool.CheckoutKey(keyCtx)
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error checking out key from key pool")
+				_ = m.keyPool.DiagnoseAndMonitor(60 * time.Second)
 				if strings.Contains(err.Error(), "all keys have pending transactions") {
-					dropCtx, dropCancelFn := context.WithTimeout(context.Background(), 60*time.Second)
+					dropCtx, dropCancelFn := context.WithTimeout(context.Background(), m.keyPool.RecommendedDropTimeout())
 					defer dropCancelFn()
 					dropped, dropErr := m.keyPool.DropPendingTxs(dropCtx)
 					if dropErr != nil {
 						m.logger.Error().Err(dropErr).Msg("Error dropping pending transactions")
+					} else {
+						m.logger.Info().Int("dropped", dropped).Msg("Dropped pending transactions")
 					}
-					m.logger.Info().Int("dropped", dropped).Msg("Dropped pending transactions")
 				}
 				resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
 				return
@@ -268,6 +269,7 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 			tx, err := contracts.MultiCallLogTriggerLoadGen(m.client, keyIndex+1, big.NewInt(int64(nonce)), m.multiCallAddress, m.addresses, a) //nolint:gosec // we will never have that many keys to cause an overflow
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
+				_ = m.keyPool.DiagnoseAndMonitor(60 * time.Second)
 				resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
 				return
 			}
@@ -310,14 +312,13 @@ func IntListStats(in []int64) (float64, int64, int64, int64, int64) {
 }
 
 type KeyPool struct {
-	mu          sync.Mutex
-	dropMu      sync.Mutex // protects DropPendingTxs from concurrent calls
-	client      *ethclient.Client
-	rpcClient   *rpc.Client
-	logger      zerolog.Logger
-	addresses   []common.Address
-	nextIndex   int
-	rateLimiter ratelimit.Limiter
+	mu        sync.Mutex
+	dropMu    sync.Mutex // protects DropPendingTxs from concurrent calls
+	client    *ethclient.Client
+	rpcClient *rpc.Client
+	logger    zerolog.Logger
+	addresses []common.Address
+	nextIndex int
 
 	isAnvil bool
 	// pendingTxs tracks the last pending tx hash for each key index
@@ -343,9 +344,36 @@ func NewKeyPool(logger zerolog.Logger, rpcURL string, addrs []common.Address, is
 		addresses:    addrs,
 		pendingTxs:   make(map[int]common.Hash),
 		checkTimeout: 5 * time.Second,
-		rateLimiter:  ratelimit.New(4, ratelimit.WithoutSlack),
 		isAnvil:      isAnvil,
 	}, nil
+}
+
+// RecommendedCheckoutTimeout returns a recommended timeout for CheckoutKey.
+// Based on: keyCount * perKeyTimeout * safetyMultiplier
+// The safety multiplier accounts for potential RPC slowdowns.
+func (p *KeyPool) RecommendedCheckoutTimeout() time.Duration {
+	// Each key check has checkTimeout (5s default), but RPC should be <100ms normally
+	// Use 1s per key as baseline with 30s minimum
+	timeout := time.Duration(len(p.addresses)) * time.Second
+	if timeout < 30*time.Second {
+		timeout = 30 * time.Second
+	}
+	return timeout
+}
+
+// RecommendedDropTimeout returns a recommended timeout for DropPendingTxs.
+// Based on: number of pending txs * perDropTimeout
+func (p *KeyPool) RecommendedDropTimeout() time.Duration {
+	p.mu.Lock()
+	pendingCount := len(p.pendingTxs)
+	p.mu.Unlock()
+
+	// 1s per pending tx with 30s minimum
+	timeout := time.Duration(pendingCount) * time.Second
+	if timeout < 30*time.Second {
+		timeout = 30 * time.Second
+	}
+	return timeout
 }
 
 // CheckoutKey finds the next key with no pending transactions.
@@ -402,6 +430,7 @@ func (p *KeyPool) CheckoutKey(ctx context.Context) (int, uint64, error) {
 
 // checkKey returns current nonce and whether key has pending txs
 func (p *KeyPool) checkKey(ctx context.Context, idx int) (nonce uint64, hasPending bool, err error) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, p.checkTimeout)
 	defer cancel()
 
@@ -409,20 +438,42 @@ func (p *KeyPool) checkKey(ctx context.Context, idx int) (nonce uint64, hasPendi
 
 	var pending, latest uint64
 	var pendingErr, latestErr error
+	var pendingDuration, latestDuration time.Duration
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-		p.rateLimiter.Take()
+		callStart := time.Now()
 		pending, pendingErr = p.client.PendingNonceAt(ctx, addr)
+		pendingDuration = time.Since(callStart)
 	}()
 	go func() {
 		defer wg.Done()
-		p.rateLimiter.Take()
+		callStart := time.Now()
 		latest, latestErr = p.client.NonceAt(ctx, addr, nil)
+		latestDuration = time.Since(callStart)
 	}()
 	wg.Wait()
+
+	totalDuration := time.Since(start)
+
+	// Log timing at trace level (only visible with very verbose logging)
+	p.logger.Trace().
+		Int("keyIndex", idx).
+		Dur("pendingNonceMs", pendingDuration).
+		Dur("latestNonceMs", latestDuration).
+		Dur("totalMs", totalDuration).
+		Msg("checkKey RPC timing")
+
+	// Warn if RPC calls are slow (>500ms)
+	if pendingDuration > 500*time.Millisecond || latestDuration > 500*time.Millisecond {
+		p.logger.Warn().
+			Int("keyIndex", idx).
+			Dur("pendingNonceMs", pendingDuration).
+			Dur("latestNonceMs", latestDuration).
+			Msg("Slow RPC detected in checkKey")
+	}
 
 	if pendingErr != nil {
 		return 0, false, pendingErr
@@ -516,10 +567,95 @@ func (p *KeyPool) dropTransaction(ctx context.Context, txHash common.Hash) error
 	ctx, cancel := context.WithTimeout(ctx, p.checkTimeout)
 	defer cancel()
 
-	p.rateLimiter.Take()
 	var result interface{}
 	if err := p.rpcClient.CallContext(ctx, &result, "anvil_dropTransaction", txHash); err != nil {
 		return fmt.Errorf("anvil_dropTransaction failed: %w", err)
 	}
 	return nil
+}
+
+// StartBlockMonitor starts a background goroutine that monitors block progress.
+// It logs the current block number every `interval` for `duration`.
+// Useful for debugging when the chain might be stuck.
+// Returns a cancel function to stop monitoring early.
+func (p *KeyPool) StartBlockMonitor(duration time.Duration, interval time.Duration) context.CancelFunc {
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		var lastBlock uint64
+		iterations := 0
+
+		p.logger.Info().
+			Dur("duration", duration).
+			Dur("interval", interval).
+			Msg("Starting block progress monitor")
+
+		for {
+			select {
+			case <-ctx.Done():
+				p.logger.Info().
+					Int("iterations", iterations).
+					Msg("Block monitor stopped")
+				return
+			case <-ticker.C:
+				iterations++
+				callStart := time.Now()
+				block, err := p.client.BlockNumber(ctx)
+				callDuration := time.Since(callStart)
+
+				if err != nil {
+					p.logger.Error().
+						Err(err).
+						Dur("rpcLatencyMs", callDuration).
+						Msg("Block monitor: failed to get block number")
+					continue
+				}
+
+				blockDelta := int64(0)
+				if lastBlock > 0 {
+					blockDelta = int64(block) - int64(lastBlock)
+				}
+
+				logEvent := p.logger.Info().
+					Uint64("blockNumber", block).
+					Int64("blockDelta", blockDelta).
+					Dur("rpcLatencyMs", callDuration)
+
+				if blockDelta == 0 && lastBlock > 0 {
+					logEvent.Msg("Block monitor: NO PROGRESS - chain may be stuck!")
+				} else {
+					logEvent.Msg("Block monitor: progress update")
+				}
+
+				lastBlock = block
+			}
+		}
+	}()
+
+	return cancel
+}
+
+// DiagnoseAndMonitor runs diagnostics when checkout fails.
+// It starts block monitoring and logs current state.
+// Call this when CheckoutKey returns an error.
+func (p *KeyPool) DiagnoseAndMonitor(monitorDuration time.Duration) context.CancelFunc {
+	p.mu.Lock()
+	pendingCount := len(p.pendingTxs)
+	pendingKeys := make([]int, 0, pendingCount)
+	for k := range p.pendingTxs {
+		pendingKeys = append(pendingKeys, k)
+	}
+	p.mu.Unlock()
+
+	p.logger.Warn().
+		Int("totalKeys", len(p.addresses)).
+		Int("pendingTxCount", pendingCount).
+		Ints("pendingKeyIndexes", pendingKeys).
+		Msg("Diagnosis: KeyPool state at failure")
+
+	// Start block monitor for the specified duration, checking every 2 seconds
+	return p.StartBlockMonitor(monitorDuration, 2*time.Second)
 }
