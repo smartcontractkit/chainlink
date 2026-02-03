@@ -256,10 +256,10 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	case types.MethodTriggerEventAck:
-		p.lggr.Infof("recieved EventAck method")
+		p.lggr.Infof("received EventAck method")
 		triggerMetadata := msg.GetTriggerEventMetadata()
 		if triggerMetadata == nil {
-			p.lggr.Errorw("recieved empty trigger event ack metadata", "sender", sender)
+			p.lggr.Errorw("received empty trigger event ack metadata", "sender", sender)
 			break
 		}
 		triggerEventID := triggerMetadata.TriggerEventId

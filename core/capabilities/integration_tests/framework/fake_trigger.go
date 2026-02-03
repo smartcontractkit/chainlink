@@ -2,7 +2,6 @@ package framework
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -118,7 +117,7 @@ func (s *fakeTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, er
 }
 
 func (s *fakeTrigger) AckEvent(ctx context.Context, triggerID string, eventID string) error {
-	return fmt.Errorf("unimplemented")
+	return nil
 }
 
 func (s *fakeTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {

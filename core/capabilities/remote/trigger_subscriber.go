@@ -135,11 +135,11 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return cfg.capInfo, nil
 }
 
-func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, eventId string) error {
-	if s.capabilityID != triggerId {
-		return fmt.Errorf("AckEvent invariant violation: triggerId=%q was dispatched to the wrong capability (capabilityID=%q)", triggerId, s.capabilityID)
+func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+	if s.capabilityID != triggerID {
+		return fmt.Errorf("AckEvent invariant violation: triggerID=%q was dispatched to the wrong capability (capabilityID=%q)", triggerID, s.capabilityID)
 	}
-	s.lggr.Infof("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerId, eventId)
+	s.lggr.Infof("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerID, eventID)
 
 	s.mu.RLock()
 	cfg := s.cfg.Load()
@@ -152,8 +152,8 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerId string, even
 			CapabilityMethod: s.capMethodName,
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{
-					TriggerEventId: eventId,
-					TriggerIds:     []string{triggerId},
+					TriggerEventId: eventID,
+					TriggerIds:     []string{triggerID},
 				},
 			},
 		}

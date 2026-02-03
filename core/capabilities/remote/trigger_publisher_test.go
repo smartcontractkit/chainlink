@@ -104,8 +104,8 @@ func TestTriggerPublisher_RecieveTriggerEventAcks(t *testing.T) {
 	ctx := testutils.Context(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
-	eventId := "123"
-	regEvent := newAckEventMessage(t, eventId, workflowDONID, peers[1])
+	eventID := "123"
+	regEvent := newAckEventMessage(t, eventID, workflowDONID, peers[1])
 	publisher.Receive(ctx, regEvent)
 
 	require.True(t, underlyingTriggerCap.eventAckd)
@@ -279,14 +279,14 @@ func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes
 	}
 }
 
-func newAckEventMessage(t *testing.T, eventId string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+func newAckEventMessage(t *testing.T, eventID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
 	return &remotetypes.MessageBody{
 		Sender:      sender[:],
 		Method:      remotetypes.MethodTriggerEventAck,
 		CallerDonId: callerDonID,
 		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
 			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
-				TriggerEventId: eventId,
+				TriggerEventId: eventID,
 			},
 		},
 	}
@@ -312,7 +312,7 @@ func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.Tr
 	return nil
 }
 
-func (tr *testTrigger) AckEvent(_ context.Context, triggerId string, eventId string) error {
+func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string) error {
 	tr.eventAckd = true
 	return nil
 }

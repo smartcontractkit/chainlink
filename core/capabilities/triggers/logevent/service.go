@@ -84,7 +84,7 @@ func (s *TriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo,
 	)
 }
 
-func (s *TriggerService) AckEvent(ctx context.Context, triggerId string, eventId string) error {
+func (s *TriggerService) AckEvent(ctx context.Context, triggerID string, eventID string) error {
 	return nil
 }
 
