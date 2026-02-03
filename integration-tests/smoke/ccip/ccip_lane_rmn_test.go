@@ -59,6 +59,10 @@ func Test_CCIP_with_RMN_enabled(t *testing.T) {
 			return out.RawEvent.(*onramp.OnRampCCIPMessageSent), nil
 		}
 	)
+	latestDestHeader, err := evmChains[chainC].Client.HeaderByNumber(t.Context(), nil)
+	require.NoError(t, err)
+	latestDestBlock := latestDestHeader.Number.Uint64()
+	startBlocks[chainC] = &latestDestBlock
 
 	// send message from chainB to chainC
 	messageSentEvent, err := sendmessage(chainB, chainC, evmChains[chainB].DeployerKey)
@@ -119,7 +123,7 @@ func Test_CCIP_with_RMN_enabled(t *testing.T) {
 	require.NoError(t, err)
 
 	// send message from chainA to chainC, make sure both messages succeed
-	messageSentEvent, err = sendmessage(chainA, chainC, evmChains[chainB].DeployerKey)
+	messageSentEvent, err = sendmessage(chainA, chainC, evmChains[chainA].DeployerKey)
 	require.NoError(t, err)
 	expectedSeqNumExec[testhelpers.SourceDestPair{
 		SourceChainSelector: chainA,
