@@ -78,9 +78,8 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 func makeSinkCh[T any]() chan T {
 	c := make(chan T, 1)
 	go func() {
-		// no:lint:revive
+		//nolint:revive //drain the channel to prevent blocking. Content is processed elsewhere.
 		for range c {
-			// drain the channel as content is processed elsewhere
 		}
 	}()
 
