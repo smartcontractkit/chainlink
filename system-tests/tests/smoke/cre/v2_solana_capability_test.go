@@ -7,13 +7,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	solanago "github.com/gagliardetto/solana-go"
 	solgo "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -76,18 +74,6 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	require.NoError(t, err)
 	copy(workflowConfig.WFName[:], b)
 	workflowConfig.WFOwner = s.WFOwner
-	authority, err := deriveForwarderAuthority(workflowConfig.ForwarderState, workflowConfig.Receiver, workflowConfig.ForwarderProgramID)
-	hash := createReportHash(workflowConfig.FeedID[:], authority.Bytes(), workflowConfig.WFOwner[:], workflowConfig.WFName[:])
-	require.NoError(t, err)
-	log.Printf("~~ repHash:%x dataID: %x,sender:%x  owner: %x, name: %x", hash, workflowConfig.FeedID, authority, workflowConfig.WFOwner, workflowConfig.WFName)
-	writeFlagSeeds := [][]byte{
-		[]byte("permission_flag"),
-		workflowConfig.ReceiverState.Bytes(),
-		hash[:],
-	}
-
-	writeFlagKey, _, err := solgo.FindProgramAddress(writeFlagSeeds, workflowConfig.Receiver)
-	log.Printf("~~~write flag: %x name: %x length: %d", writeFlagKey, b, len(b))
 	const workflowFileLocation = "./solana/solwrite/main.go"
 
 	t_helpers.CompileAndDeployWorkflow(t,
@@ -225,7 +211,7 @@ func parsePackedU128(le [16]byte) (amount *big.Int, block uint64, unused uint8) 
 	return
 }
 
-func getDecimalReportAccount(t *testing.T, s *setup) solanago.PublicKey {
+func getDecimalReportAccount(t *testing.T, s *setup) solgo.PublicKey {
 	dataID, _ := new(big.Int).SetString(s.FeedID, 0)
 	var data [16]byte
 	copy(data[:], dataID.Bytes())
@@ -234,17 +220,17 @@ func getDecimalReportAccount(t *testing.T, s *setup) solanago.PublicKey {
 		s.CacheState.Bytes(),
 		data[:],
 	}
-	decimalReportKey, _, err := solanago.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
+	decimalReportKey, _, err := solgo.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
 	require.NoError(t, err, "failed to derive decimal report key")
 	return decimalReportKey
 }
 
 type setup struct {
 	Selector           uint64
-	ForwarderProgramID solanago.PublicKey
-	ForwarderState     solanago.PublicKey
-	CacheProgramID     solanago.PublicKey
-	CacheState         solanago.PublicKey
+	ForwarderProgramID solgo.PublicKey
+	ForwarderState     solgo.PublicKey
+	CacheProgramID     solgo.PublicKey
+	CacheState         solgo.PublicKey
 
 	FeedID       string
 	Descriptions [][32]byte
@@ -254,9 +240,7 @@ type setup struct {
 
 var (
 	feedID        = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
-	wFName        = "testwf1234"
 	wFDescription = "securemint test"
-	wFOwner       = [20]byte{1, 2, 3}
 	SeqNr         = 5
 	Block         = 10
 	Mintable      = big.NewInt(15)
@@ -289,7 +273,7 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 		ChainSel:           solChain.ChainSelector(),
 		Qualifier:          ks_sol.DefaultForwarderQualifier,
 		Version:            "1.0.0",
-		FeedAdmins:         []solanago.PublicKey{solChain.PrivateKey.PublicKey()},
+		FeedAdmins:         []solgo.PublicKey{solChain.PrivateKey.PublicKey()},
 		ForwarderProgramID: s.ForwarderProgramID,
 	})
 
@@ -327,7 +311,7 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 	s.CacheState = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheState)
 }
 
-func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype datastore.ContractType) solanago.PublicKey {
+func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype datastore.ContractType) solgo.PublicKey {
 	key := datastore.NewAddressRefKey(
 		sel,
 		ctype,
@@ -338,5 +322,5 @@ func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype dat
 
 	require.NoError(t, err)
 
-	return solanago.MustPublicKeyFromBase58(contract.Address)
+	return solgo.MustPublicKeyFromBase58(contract.Address)
 }

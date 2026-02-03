@@ -8,10 +8,11 @@ import (
 	"text/template"
 	"time"
 
-	"cosmossdk.io/errors"
 	"dario.cat/mergo"
+	"github.com/ethereum/go-ethereum/common"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -19,20 +20,28 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
+	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	solchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -69,11 +78,11 @@ func (s *Solana) PreEnvStartup(
 ) (*cre.PreEnvStartupOutput, error) {
 	// 1. Deploy forwarders to solana blockchains
 	solChain := extractSolanaFromEnv(creEnv)
-	programID, state, fErr := solana.DeployForwarder(testLogger, creEnv, solChain)
+	programID, state, fErr := deployForwarder(testLogger, creEnv, solChain)
 	if fErr != nil {
 		return nil, errors.Wrapf(fErr, "failed to deploy forwarder for solana")
 	}
-	input := solana.SolanaInput{
+	input := input{
 		ForwarderAddress: *programID,
 		ForwarderState:   *state,
 	}
@@ -108,11 +117,7 @@ func (s *Solana) PostEnvStartup(
 	// 3. Configure Forwarders
 	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
 	for _, don := range consensusDons {
-		testLogger.Info().Msg("configure forwarder for: " + don.Name)
-		for _, n := range don.Nodes {
-			testLogger.Info().Msg("solana keys: " + n.Keys.OCR2BundleIDs["solana"])
-		}
-		err := solana.ConfigureForwarders(ctx, testLogger, don, dons, creEnv)
+		err := configureForwarders(ctx, testLogger, don, dons, creEnv)
 		if err != nil {
 			return err
 		}
@@ -312,7 +317,7 @@ func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	}
 }
 
-func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data solana.SolanaInput, selector uint64) error {
+func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data input, selector uint64) error {
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
@@ -324,7 +329,7 @@ func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data solan
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := solana.UpdateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
+		updatedConfig, updErr := UpdateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
 		if updErr != nil {
 			return errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -355,8 +360,203 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.NodeSet, curren
 	if mErr != nil {
 		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 	}
-	fmt.Println("solcfg", string(stringifiedConfig))
 	return ptr.Ptr(string(stringifiedConfig)), nil
+}
+
+func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *solchain.Blockchain) (*string, *string, error) {
+	memoryDatastore, err := contracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", err)
+	}
+
+	version := creEnv.ContractVersions[ks_sol.ForwarderContract.String()]
+
+	// Forwarder for solana is predeployed on chain spin-up. We just need to add it to memory datastore here
+	err = memoryDatastore.Addresses().Add(datastore.AddressRef{
+		Address:       solutils.GetProgramID(solutils.ProgKeystoneForwarder),
+		ChainSelector: solChain.ChainSelector(),
+		Type:          ks_sol.ForwarderContract,
+		Version:       version,
+		Qualifier:     ks_sol.DefaultForwarderQualifier,
+	})
+	if err != nil && !errors.Is(err, datastore.ErrAddressRefExists) {
+		return nil, nil, fmt.Errorf("failed to add address to the datastore for Solana Forwarder: %w", err)
+	}
+
+	out, err := operations.ExecuteSequence(
+		creEnv.CldfEnvironment.OperationsBundle,
+		ks_sol_seq.DeployForwarderSeq,
+		ks_sol_op.Deps{
+			Env:       *creEnv.CldfEnvironment,
+			Chain:     creEnv.CldfEnvironment.BlockChains.SolanaChains()[solChain.ChainSelector()],
+			Datastore: memoryDatastore.Seal(),
+		},
+		ks_sol_seq.DeployForwarderSeqInput{
+			ChainSel:     solChain.ChainSelector(),
+			ProgramName:  solutils.ProgKeystoneForwarder,
+			Qualifier:    ks_sol.DefaultForwarderQualifier,
+			ContractType: ks_sol.ForwarderContract,
+			Version:      version,
+		},
+	)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to deploy sol forwarder")
+	}
+
+	err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
+		Address:       out.Output.State.String(),
+		ChainSelector: solChain.ChainSelector(),
+		Version:       creEnv.ContractVersions[ks_sol.ForwarderState.String()],
+		Qualifier:     ks_sol.DefaultForwarderQualifier,
+		Type:          ks_sol.ForwarderState,
+	})
+
+	if err != nil && !errors.Is(err, datastore.ErrAddressRefExists) {
+		return nil, nil, errors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
+	}
+
+	testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", creEnv.ContractVersions[ks_sol.ForwarderContract.String()], solChain.ChainSelector(), out.Output.ProgramID.String(), out.Output.State.String())
+
+	creEnv.CldfEnvironment.DataStore = memoryDatastore.Seal()
+
+	return ptr.Ptr(out.Output.ProgramID.String()), ptr.Ptr(out.Output.State.String()), nil
+}
+
+func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
+	key, ok := workerNode.Keys.Solana[chainID]
+	if !ok {
+		return nil, errors.Errorf("missing Solana key for chainID %s on node index %d", chainID, workerNode.Index)
+	}
+	data.FromAddress = key.PublicAddress
+
+	runtimeValues := map[string]any{
+		"FromAddress":      data.FromAddress.String(),
+		"ForwarderAddress": data.ForwarderAddress,
+		"ForwarderState":   data.ForwarderState,
+	}
+
+	var mErr error
+	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
+	if mErr != nil {
+		return nil, errors.Wrap(mErr, "failed to apply runtime values")
+	}
+
+	var typedConfig corechainlink.Config
+	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+	if unmarshallErr != nil {
+		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+	}
+
+	if len(typedConfig.Solana) != 1 {
+		return nil, fmt.Errorf("only 1 Solana chain is supported, but found %d for node at index %d", len(typedConfig.Solana), workerNode.Index)
+	}
+
+	if typedConfig.Solana[0].ChainID == nil {
+		return nil, fmt.Errorf("solana chainID is nil for node at index %d", workerNode.Index)
+	}
+
+	var solCfg solcfg.WorkflowConfig
+
+	// Execute template with chain's workflow configuration
+	tmpl, err := template.New("solanaWorkflowConfig").Parse(solWorkflowConfigTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Solana workflow config template")
+	}
+	var configBuffer bytes.Buffer
+	if executeErr := tmpl.Execute(&configBuffer, data.WorkflowConfig); executeErr != nil {
+		return nil, errors.Wrap(executeErr, "failed to execute Solana workflow config template")
+	}
+
+	configStr := configBuffer.String()
+
+	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
+		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
+	}
+
+	unmarshallErr = toml.Unmarshal([]byte(configStr), &solCfg)
+	if unmarshallErr != nil {
+		return nil, errors.Wrap(unmarshallErr, "failed to unmarshal Solana.Workflow config")
+	}
+
+	typedConfig.Solana[0].Workflow = solCfg
+
+	stringifiedConfig, mErr := toml.Marshal(typedConfig)
+	if mErr != nil {
+		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+	}
+
+	return ptr.Ptr(string(stringifiedConfig)), nil
+}
+
+type input struct {
+	ChainSelector    uint64
+	FromAddress      solanago.PublicKey
+	ForwarderAddress string
+	ForwarderState   string
+	HasWrite         bool
+	WorkflowConfig   map[string]any // Configuration for Solana.Workflow section
+}
+
+const solWorkflowConfigTemplate = `
+		ForwarderAddress = '{{.ForwarderAddress}}'
+		FromAddress      = '{{.FromAddress}}'
+		ForwarderState   = '{{.ForwarderState}}'
+		PollPeriod = '{{.PollPeriod}}'
+		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
+		TxAcceptanceState = {{printf "%d" .TxAcceptanceState}}
+		Local = {{.Local}}
+	`
+
+func configureForwarders(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	don *cre.Don,
+	dons *cre.Dons,
+	creEnv *cre.Environment,
+) error {
+	solChainsWithForwarder := make(map[uint64]struct{})
+	solForwarders := creEnv.CldfEnvironment.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier))
+	for _, forwarder := range solForwarders {
+		solChainsWithForwarder[forwarder.ChainSelector] = struct{}{}
+	}
+
+	registryChain, rErr := creEnv.RegistryChain()
+	if rErr != nil {
+		return fmt.Errorf("failed to get registry chain: %w", rErr)
+	}
+
+	asEVM, ok := registryChain.(*evmblockchain.Blockchain)
+	if !ok {
+		return fmt.Errorf("registry chain is not *evmblockchain.Blockchain, but %T", registryChain)
+	}
+
+	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	capRegInstance, capErr := kcr.NewCapabilitiesRegistry(common.HexToAddress(capabilitiesRegistryAddress), asEVM.SethClient.Client)
+	if capErr != nil {
+		return fmt.Errorf("failed to create capabilities registry instance: %w", capErr)
+	}
+
+	// configure Solana forwarder only if we have some
+	if len(solChainsWithForwarder) > 0 {
+		cs := commonchangeset.Configure(ks_sol.ConfigureForwarders{},
+			&ks_sol.ConfigureForwarderRequest{
+				WFDonName:        don.Name,
+				WFNodeIDs:        don.KeystoneDONConfig().NodeIDs,
+				RegistryChainSel: creEnv.RegistryChainSelector,
+				Chains:           solChainsWithForwarder,
+				Qualifier:        ks_sol.DefaultForwarderQualifier,
+				Version:          "1.0.0",
+				Registry:         capRegInstance,
+			},
+		)
+
+		_, err := cs.Apply(*creEnv.CldfEnvironment)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure Solana forwarders")
+		}
+	}
+
+	return nil
 }
 
 func findSolFromAddress(workerNode *cre.NodeMetadata, selector uint64) (solanago.PublicKey, error) {
