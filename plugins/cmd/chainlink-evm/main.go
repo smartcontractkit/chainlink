@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -68,13 +68,11 @@ type pluginRelayer struct {
 }
 
 func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keystore, csaKeystore core.Keystore, capRegistry core.CapabilitiesRegistry) (loop.Relayer, error) {
-	d := toml.NewDecoder(strings.NewReader(configTOML))
-	d.DisallowUnknownFields()
 	var cfg struct {
 		EVM evmcfg.EVMConfig
 	}
 
-	if err := d.Decode(&cfg); err != nil {
+	if err := commonconfig.DecodeTOML(strings.NewReader(configTOML), &cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, configTOML)
 	}
 

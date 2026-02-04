@@ -37,9 +37,12 @@ type LoopRegistry struct {
 	cfgTelemetry           config.Telemetry
 	telemetryAuthHeaders   map[string]string
 	telemetryAuthPubKeyHex string
+	cfgLOOPP               config.LOOPP
 }
 
-func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database, mercury config.Mercury, tracing config.Tracing, telemetry config.Telemetry, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string) *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database,
+	mercury config.Mercury, tracing config.Tracing, telemetry config.Telemetry, telemetryAuthHeaders map[string]string,
+	telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},
 		lggr:                   logger.Named(lggr, "LoopRegistry"),
@@ -51,6 +54,7 @@ func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, db
 		cfgTelemetry:           telemetry,
 		telemetryAuthHeaders:   telemetryAuthHeaders,
 		telemetryAuthPubKeyHex: telemetryAuthPubKeyHex,
+		cfgLOOPP:               looppCfg,
 	}
 }
 
@@ -81,6 +85,10 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		AppID:            m.appID,
 		FeatureLogPoller: m.featureLogPoller,
 		PrometheusPort:   ports[0],
+	}
+
+	if m.cfgLOOPP != nil {
+		envCfg.GRPCServerMaxRecvMsgSize = m.cfgLOOPP.GRPCServerMaxRecvMsgSizeBytes()
 	}
 
 	if m.cfgDatabase != nil {
