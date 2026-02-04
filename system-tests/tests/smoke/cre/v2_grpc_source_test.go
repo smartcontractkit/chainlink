@@ -261,7 +261,7 @@ func ExecuteGRPCSourceAuthRejectionTest(t *testing.T, testEnv *ttypes.TestEnviro
 func startWorkflowEventBeholder(t *testing.T, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 
-	beholder, err := t_helpers.NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	beholder, err := t_helpers.NewBeholder(framework.L, testEnv.TestConfig)
 	require.NoError(t, err, "failed to create beholder instance")
 
 	// Register for workflow deployment events
