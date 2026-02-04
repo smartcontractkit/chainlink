@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -125,6 +126,23 @@ func TestActiveRequest_SendResponse(t *testing.T) {
 	// The upstream provider of the callbackCh only expects one response per request.
 	err = activeRequest.SendResponse(resp)
 	require.ErrorContains(t, err, "response already sent: each callback can only be used once")
+}
+
+func TestHandleJSONRPCUserMessage_RequestIDTooLong(t *testing.T) {
+	t.Parallel()
+
+	h, callback, _, _ := setupHandler(t)
+
+	longID := strings.Repeat("x", 201) // > 200 triggers the check
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     longID,
+		Method: vaulttypes.MethodPublicKeyGet,
+		Params: nil,
+	}
+
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+	expected := fmt.Sprintf("request ID is too long: %d. max is 200 characters", len(longID))
+	require.EqualError(t, err, expected)
 }
 
 func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
