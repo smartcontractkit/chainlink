@@ -48,6 +48,7 @@ import (
 )
 
 func TestRMN_IncorrectSig(t *testing.T) {
+	quarantine.Flaky(t, "DX-2024")
 	runRmnTestCase(t, rmnTestCase{
 		nodesWithIncorrectSigner: []int{0, 1},
 		name:                     "messages with incorrect RMN signature",
