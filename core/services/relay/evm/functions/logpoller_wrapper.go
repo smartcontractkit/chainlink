@@ -12,13 +12,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/config"
 )
 
 type logPollerWrapper struct {
@@ -26,7 +26,7 @@ type logPollerWrapper struct {
 	eng *services.Engine
 
 	routerContract            *functions_router.FunctionsRouter
-	pluginConfig              config.PluginConfig
+	relayConfig               config.RelayConfig
 	client                    client.Client
 	logPoller                 logpoller.LogPoller
 	subscribers               map[string]evmconfig.RouteUpdateSubscriber
@@ -57,44 +57,44 @@ const maxLogsToProcess = 1000
 
 var _ evmconfig.LogPollerWrapper = &logPollerWrapper{}
 
-func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig config.PluginConfig, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) (evmconfig.LogPollerWrapper, error) {
+func NewLogPollerWrapper(routerContractAddress common.Address, relayConfig config.RelayConfig, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) (evmconfig.LogPollerWrapper, error) {
 	routerContract, err := functions_router.NewFunctionsRouter(routerContractAddress, client)
 	if err != nil {
 		return nil, err
 	}
-	blockOffset := int64(pluginConfig.MinIncomingConfirmations) - 1
+	blockOffset := int64(relayConfig.MinIncomingConfirmations) - 1
 	if blockOffset < 0 {
-		lggr.Warnw("invalid minIncomingConfirmations, using 1 instead", "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations)
+		lggr.Warnw("invalid minIncomingConfirmations, using 1 instead", "minIncomingConfirmations", relayConfig.MinIncomingConfirmations)
 		blockOffset = 0
 	}
-	requestBlockOffset := int64(pluginConfig.MinRequestConfirmations) - 1
+	requestBlockOffset := int64(relayConfig.MinRequestConfirmations) - 1
 	if requestBlockOffset < 0 {
-		lggr.Warnw("invalid minRequestConfirmations, using minIncomingConfirmations instead", "minRequestConfirmations", pluginConfig.MinRequestConfirmations)
+		lggr.Warnw("invalid minRequestConfirmations, using minIncomingConfirmations instead", "minRequestConfirmations", relayConfig.MinRequestConfirmations)
 		requestBlockOffset = blockOffset
 	}
-	responseBlockOffset := int64(pluginConfig.MinResponseConfirmations) - 1
+	responseBlockOffset := int64(relayConfig.MinResponseConfirmations) - 1
 	if responseBlockOffset < 0 {
-		lggr.Warnw("invalid minResponseConfirmations, using minIncomingConfirmations instead", "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
+		lggr.Warnw("invalid minResponseConfirmations, using minIncomingConfirmations instead", "minResponseConfirmations", relayConfig.MinResponseConfirmations)
 		responseBlockOffset = blockOffset
 	}
-	logPollerCacheDurationSec := int64(pluginConfig.LogPollerCacheDurationSec)
+	logPollerCacheDurationSec := int64(relayConfig.LogPollerCacheDurationSec)
 	if logPollerCacheDurationSec <= 0 {
 		lggr.Warnw("invalid logPollerCacheDuration, using 300 instead", "logPollerCacheDurationSec", logPollerCacheDurationSec)
 		logPollerCacheDurationSec = logPollerCacheDurationSecDefault
 	}
-	pastBlocksToPoll := int64(pluginConfig.PastBlocksToPoll)
+	pastBlocksToPoll := int64(relayConfig.PastBlocksToPoll)
 	if pastBlocksToPoll <= 0 {
 		lggr.Warnw("invalid pastBlocksToPoll, using 50 instead", "pastBlocksToPoll", pastBlocksToPoll)
 		pastBlocksToPoll = pastBlocksToPollDefault
 	}
 	if blockOffset >= pastBlocksToPoll || requestBlockOffset >= pastBlocksToPoll || responseBlockOffset >= pastBlocksToPoll {
-		lggr.Errorw("invalid config: number of required confirmation blocks >= pastBlocksToPoll", "pastBlocksToPoll", pastBlocksToPoll, "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations, "minRequestConfirmations", pluginConfig.MinRequestConfirmations, "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
+		lggr.Errorw("invalid config: number of required confirmation blocks >= pastBlocksToPoll", "pastBlocksToPoll", pastBlocksToPoll, "minIncomingConfirmations", relayConfig.MinIncomingConfirmations, "minRequestConfirmations", relayConfig.MinRequestConfirmations, "minResponseConfirmations", relayConfig.MinResponseConfirmations)
 		return nil, errors.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll")
 	}
 
 	w := &logPollerWrapper{
 		routerContract:            routerContract,
-		pluginConfig:              pluginConfig,
+		relayConfig:               relayConfig,
 		requestBlockOffset:        requestBlockOffset,
 		responseBlockOffset:       responseBlockOffset,
 		pastBlocksToPoll:          pastBlocksToPoll,
@@ -113,10 +113,10 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 }
 
 func (l *logPollerWrapper) start(context.Context) error {
-	l.eng.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
+	l.eng.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.relayConfig.ContractVersion)
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.pluginConfig.ContractVersion != 1 {
+	if l.relayConfig.ContractVersion != 1 {
 		return errors.New("only contract version 1 is supported")
 	}
 	l.eng.Go(l.checkForRouteUpdates)
@@ -296,7 +296,7 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 
 // "internal" method called only by EVM relayer components
 func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberName string, subscriber evmconfig.RouteUpdateSubscriber) {
-	switch l.pluginConfig.ContractVersion {
+	switch l.relayConfig.ContractVersion {
 	case 0:
 		// in V0, immediately set contract address to Oracle contract and never update again
 		if err := subscriber.UpdateRoutes(ctx, l.routerContract.Address(), l.routerContract.Address()); err != nil {
@@ -310,7 +310,7 @@ func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberNam
 }
 
 func (l *logPollerWrapper) checkForRouteUpdates(ctx context.Context) {
-	freqSec := l.pluginConfig.ContractUpdateCheckFrequencySec
+	freqSec := l.relayConfig.ContractUpdateCheckFrequencySec
 	if freqSec == 0 {
 		l.eng.Errorw("LogPollerWrapper: ContractUpdateCheckFrequencySec is zero - route update checks disabled")
 		return
@@ -318,7 +318,7 @@ func (l *logPollerWrapper) checkForRouteUpdates(ctx context.Context) {
 
 	updateOnce := func(ctx context.Context) {
 		// NOTE: timeout == frequency here, could be changed to a separate config value
-		timeout := time.Duration(l.pluginConfig.ContractUpdateCheckFrequencySec) * time.Second
+		timeout := time.Duration(l.relayConfig.ContractUpdateCheckFrequencySec) * time.Second
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		active, proposed, err := l.getCurrentCoordinators(ctx)
@@ -344,11 +344,11 @@ func (l *logPollerWrapper) checkForRouteUpdates(ctx context.Context) {
 }
 
 func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.Address, common.Address, error) {
-	if l.pluginConfig.ContractVersion == 0 {
+	if l.relayConfig.ContractVersion == 0 {
 		return l.routerContract.Address(), l.routerContract.Address(), nil
 	}
 	var donId [32]byte
-	copy(donId[:], []byte(l.pluginConfig.DONID))
+	copy(donId[:], []byte(l.relayConfig.DONID))
 
 	activeCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
 		Pending: false,
@@ -417,7 +417,7 @@ func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordina
 }
 
 func (l *logPollerWrapper) filterPrefix() string {
-	return "FunctionsLogPollerWrapper:" + l.pluginConfig.DONID
+	return "FunctionsLogPollerWrapper:" + l.relayConfig.DONID
 }
 
 func (l *logPollerWrapper) filterName(addr common.Address) string {
