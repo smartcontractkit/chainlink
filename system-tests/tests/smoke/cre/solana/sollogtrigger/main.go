@@ -3,7 +3,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"log/slog"
@@ -16,14 +15,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// getTestEventDiscriminator returns the 8-byte Anchor event discriminator
-func getTestEventDiscriminator() [8]byte {
-	hash := sha256.Sum256([]byte("event:TestEvent"))
-	var discriminator [8]byte
-	copy(discriminator[:], hash[:8])
-	return discriminator
-}
-
 func getTestEventIdlJson() []byte {
 	return []byte(`{"Event":{"name":"TestEvent","fields":[{"name":"strVal","type":"string","index":false},{"name":"u64Value","type":"u64","index":false}]},"Types":null}`)
 }
@@ -31,7 +22,6 @@ func getTestEventIdlJson() []byte {
 func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	logger.Info("RunSolLogTriggerWorkflow called")
 
-	discriminator := getTestEventDiscriminator()
 	eventIdlJson := getTestEventIdlJson()
 
 	expectedValueBytes := make([]byte, 8)
@@ -41,21 +31,14 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 		Name:         "test-event-filter",
 		Address:      cfg.LogReadTestProgramID[:],
 		EventName:    "TestEvent",
-		EventSig:     discriminator[:],
 		EventIdlJson: eventIdlJson,
-		SubkeyPaths: []*solana.SubkeyPath{
-			{Path: []string{"U64Value"}},
-		},
-		SubkeyFilters: []*solana.SubkeyFilterCriteria{
-			{
-				SubkeyIndex: 0,
-				Comparers: []*solana.ValueComparator{
-					{
-						Value:    expectedValueBytes,
-						Operator: solana.ComparisonOperator_EQ,
-					},
+		Subkeys: []*solana.SubkeyConfig{
+			{Path: []string{"U64Value"}, Comparers: []*solana.ValueComparator{
+				{
+					Value:    expectedValueBytes,
+					Operator: solana.ComparisonOperator_COMPARISON_OPERATOR_EQ,
 				},
-			},
+			}},
 		},
 	}
 
