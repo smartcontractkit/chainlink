@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,8 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
@@ -117,16 +114,14 @@ func TestLoad(t *testing.T) {
 			}
 			require.NotNil(t, config, "failed to find matching config with registry version %v; mercury v2: %v, mercury v3: %v", tc.RegistryVersion.String(), isMercuryV02, isMercuryV03)
 
-			pks := []string{products.NetworkPrivateKey()}
-
-			require.Equal(t, "1337", in.Blockchains[0].ChainID, "automation smoke tests can only be run on simulated network. If do want to run on a live network, please read the code, understand the implications (e.g. potential fund loss) and adjust the test accordingly")
-
-			keysRequired := tc.UpkeepCount * 5
-
 			// on simulated network create new ephemeral addresses if insufficient private keys were provided
 			// we ignore key at index 0, because it is the root key, which is not used during the test
 			// for contract deployment and interaction
 			// we create new addresses only on the simulated network to protect against fund loss
+			require.Equal(t, "1337", in.Blockchains[0].ChainID, "automation smoke tests can only be run on simulated network. If do want to run on a live network, please read the code, understand the implications (e.g. potential fund loss) and adjust the test accordingly")
+
+			pks := []string{products.NetworkPrivateKey()}
+			keysRequired := tc.UpkeepCount * 5
 			if in.Blockchains[0].ChainID == "1337" && len(pks)-1 != keysRequired {
 				bcNode := in.Blockchains[0].Out.Nodes[0]
 				c, _, _, err := products.ETHClient(
@@ -277,8 +272,7 @@ func TestLoad(t *testing.T) {
 				Str("Duration", testSetupDuration.String()).
 				Msg("Test setup ended")
 
-			keyLogger := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
-			keyPool, err := NewKeyPool(keyLogger, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, a.ChainClient.Addresses[1:], in.Blockchains[0].Type == blockchain.TypeAnvil)
+			keyPool, err := NewKeyPool(l, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, a.ChainClient.Addresses[1:], in.Blockchains[0].Type == blockchain.TypeAnvil)
 			require.NoError(t, err, "failed to create key pool")
 
 			gun, gErr := NewLogTriggerUser(
