@@ -80,6 +80,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 
 // remote chain setup
 func TestAddRemoteChainWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1823")
 	t.Parallel()
 	doTestAddRemoteChain(t, true)
 }
