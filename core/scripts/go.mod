@@ -56,7 +56,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.13.14-0.20260202230832-eb33f42188d1
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.19-0.20260204080016-11b6304dc841
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.19-0.20260204092817-9352f89e16e7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-20251020210257-0a6ec41648b4

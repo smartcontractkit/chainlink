@@ -619,15 +619,18 @@ and make sure that the sink is pointing to correct upstream endpoint ('localhost
 		return errors.Wrap(err, "failed to ensure chip images exist")
 	}
 
-	// Set image version environment variables for docker-compose
-	if setupCfg.ChipIngress != nil {
-		if err := os.Setenv("CHIP_INGRESS_IMAGE", setupCfg.ChipIngress.BuildConfig.LocalImage); err != nil {
-			return fmt.Errorf("failed to set CHIP_INGRESS_IMAGE environment variable: %w", err)
+	// Don't set image version environment variables for CI environment, since we set them on the GHA workflow level
+	if os.Getenv("CI") != "true" {
+		// Set image version environment variables for docker-compose
+		if setupCfg.ChipIngress != nil {
+			if err := os.Setenv(chipingressset.ChipIngressImageEnvVar, setupCfg.ChipIngress.BuildConfig.LocalImage); err != nil {
+				return fmt.Errorf("failed to set CHIP_INGRESS_IMAGE environment variable: %w", err)
+			}
 		}
-	}
-	if setupCfg.ChipConfig != nil {
-		if err := os.Setenv("CHIP_CONFIG_IMAGE", setupCfg.ChipConfig.BuildConfig.LocalImage); err != nil {
-			return fmt.Errorf("failed to set CHIP_CONFIG_IMAGE environment variable: %w", err)
+		if setupCfg.ChipConfig != nil {
+			if err := os.Setenv(chipingressset.ChipConfigImageEnvVar, setupCfg.ChipConfig.BuildConfig.LocalImage); err != nil {
+				return fmt.Errorf("failed to set CHIP_CONFIG_IMAGE environment variable: %w", err)
+			}
 		}
 	}
 
