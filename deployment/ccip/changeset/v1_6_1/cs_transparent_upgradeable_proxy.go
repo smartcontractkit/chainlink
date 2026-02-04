@@ -292,7 +292,7 @@ func GetRoleFromTransparentUpgradeableProxy(ctx context.Context, transparent *bu
 		return r, nil
 	}
 
-	return [32]byte{}, nil
+	return [32]byte{}, fmt.Errorf("invalid role: %s", role)
 }
 
 // GrantRoleTransparentUpgradeableProxy grants roles on TransparentUpgradeableProxy contracts for the specified tokens on the specified chains.
@@ -333,10 +333,6 @@ func GrantRoleTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgra
 				r, err := GetRoleFromTransparentUpgradeableProxy(e.GetContext(), transparent, config.Role)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to get role from TransparentUpgradeableProxy at %s for %s token on %s: %w", proxy.Address(), token, chain.Name(), err)
-				}
-
-				if r == [32]byte{} {
-					return cldf.ChangesetOutput{}, fmt.Errorf("role %s is invalid for TransparentUpgradeableProxy at %s for %s token on %s", config.Role, proxy.Address(), token, chain.Name())
 				}
 
 				if hasRole, err := transparent.HasRole(&bind.CallOpts{Context: e.GetContext()}, r, config.Account); err != nil {
