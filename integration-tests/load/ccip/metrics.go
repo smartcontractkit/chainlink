@@ -4,8 +4,6 @@ import (
 	"context"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -59,9 +57,18 @@ type messageData struct {
 }
 
 func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig, blockTimes map[uint64]uint64) *MetricManager {
-	// initialize loki using endpoint from user defined env vars
-	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
-	require.NoError(t, err)
+	// initialize loki using endpoint from user defined env vars (optional)
+	var loki *wasp.LokiClient
+	lokiCfg := wasp.NewEnvLokiConfig()
+	if lokiCfg.URL != "" {
+		var err error
+		loki, err = wasp.NewLokiClient(lokiCfg)
+		if err != nil {
+			l.Warnw("Failed to initialize Loki client, metrics will be disabled", "error", err)
+		}
+	} else {
+		l.Infow("Loki URL not configured, metrics will be disabled")
+	}
 	testLabel := "default"
 	if overrides.TestLabel != nil {
 		testLabel = *overrides.TestLabel
@@ -173,6 +180,9 @@ func (mm *MetricManager) Start(ctx context.Context) {
 }
 
 func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[string]string, metrics *LokiMetric) {
+	if lc == nil {
+		return
+	}
 	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
 		l.Error(ErrLokiPush, err)
 	}

@@ -182,9 +182,15 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// Discover lanes from deployed state
 	laneConfig := &crib.LaneConfiguration{}
-	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
+	err = laneConfig.DiscoverLanesFromDeployedState(lggr, *env, &state)
 	require.NoError(t, err)
 	laneConfig.LogLaneConfigInfo(lggr)
+
+	// Fail fast if no lanes discovered — indicates deployment misconfiguration
+	discoveredLanes, err := laneConfig.GetLanes()
+	require.NoError(t, err)
+	require.NotEmpty(t, discoveredLanes,
+		"Lane discovery found zero lanes - verify deployment has configured routes")
 
 	// potential source chains need a subscription
 	for _, cs := range env.BlockChains.ListChainSelectors() {

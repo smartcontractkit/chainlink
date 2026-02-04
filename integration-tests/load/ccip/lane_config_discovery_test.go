@@ -7,6 +7,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -33,7 +34,7 @@ func TestLaneDiscovery_AnyToAny(t *testing.T) {
 
 	// Discover lanes from deployed state
 	laneConfig := &crib.LaneConfiguration{}
-	err = laneConfig.DiscoverLanesFromDeployedState(e, &state)
+	err = laneConfig.DiscoverLanesFromDeployedState(logger.Test(t), e, &state)
 	require.NoError(t, err)
 
 	// Verify discovered lanes
@@ -104,7 +105,7 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 
 	// Discover lanes from deployed state
 	laneConfig := &crib.LaneConfiguration{}
-	err = laneConfig.DiscoverLanesFromDeployedState(e, &state)
+	err = laneConfig.DiscoverLanesFromDeployedState(logger.Test(t), e, &state)
 	require.NoError(t, err)
 
 	// Verify discovered lanes
@@ -171,7 +172,7 @@ func TestLaneDiscovery_EmptyState(t *testing.T) {
 
 	// Discover lanes from deployed state
 	laneConfig := &crib.LaneConfiguration{}
-	err = laneConfig.DiscoverLanesFromDeployedState(e, &state)
+	err = laneConfig.DiscoverLanesFromDeployedState(logger.Test(t), e, &state)
 	require.NoError(t, err)
 
 	// Verify no lanes discovered

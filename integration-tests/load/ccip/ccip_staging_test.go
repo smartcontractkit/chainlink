@@ -99,8 +99,17 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	// Discover lanes from deployed state
 	laneConfig := &crib.LaneConfiguration{}
-	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
+	err = laneConfig.DiscoverLanesFromDeployedState(lggr, *env, &state)
 	require.NoError(t, err)
+
+	// Log discovered lanes for operator verification
+	laneConfig.LogLaneConfigInfo(lggr)
+
+	// Fail fast if no lanes discovered — indicates deployment misconfiguration
+	discoveredLanes, err := laneConfig.GetLanes()
+	require.NoError(t, err)
+	require.NotEmpty(t, discoveredLanes,
+		"Lane discovery found zero lanes - verify staging deployment has configured TON↔EVM routes")
 
 	// Initialize TON source keys
 	tonSourceKeys, initErr := initializeTonSourceKeys(env.GetContext(), lggr, env, *userOverrides.TestnetConfig.TonMnemonic)
@@ -280,6 +289,12 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
 	require.NoError(t, err)
 
+	// Only pass LokiConfig if URL is configured
+	var lokiConfig *wasp.LokiConfig
+	if cfg := wasp.NewEnvLokiConfig(); cfg.URL != "" {
+		lokiConfig = cfg
+	}
+
 	for _, gun := range gunMap {
 		p.Add(wasp.NewGenerator(&wasp.Config{
 			T:           t,
@@ -296,8 +311,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			// so if there are 3 generators, it would be 3 requests per 5 seconds over the network
 			Gun:        gun,
 			Labels:     CommonTestLabels,
-			LokiConfig: wasp.NewEnvLokiConfig(),
-			// use the same loki client using `NewLokiClient` with the same config for sending events
+			LokiConfig: lokiConfig,
 		}))
 	}
 

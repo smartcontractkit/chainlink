@@ -323,7 +323,7 @@ func (lc *LaneConfiguration) GetConnectedChains() []uint64 {
 }
 
 // DiscoverLanesFromDeployedState reverse engineers the lane configuration from deployed state
-func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment, state *stateview.CCIPOnChainState) error {
+func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(lggr logger.Logger, env cldf.Environment, state *stateview.CCIPOnChainState) error {
 	var discoveredLanes []LaneConfig
 
 	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
@@ -335,7 +335,8 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 	allChains = append(allChains, aptosChains...)
 	allChains = append(allChains, tonChains...)
 
-	// Discover EVM to EVM lanes
+	// Discover EVM to EVM lanes (OnRamp query only works with EVM destinations)
+	// EVM to non-EVM lanes (TON, Solana, Aptos) are discovered in their respective sections below
 	for _, srcChain := range evmChains {
 		srcChainState, exists := state.Chains[srcChain]
 		if !exists {
@@ -343,7 +344,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 
 		// Check which destination chains are configured on the OnRamp
-		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, srcChain, allChains)
+		destinations, err := lc.getEnabledDestinationsFromOnRamp(lggr, srcChainState, srcChain, evmChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled destinations for EVM chain %d: %w", srcChain, err)
 		}
@@ -398,19 +399,24 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 	}
 
-	// Discover TON to EVM lanes
+	// Discover TON <-> EVM lanes (bidirectional)
 	// For TON, we assume bidirectional lanes exist with all EVM chains if the TON chain state exists
-	for _, srcChain := range tonChains {
-		_, exists := state.TonChains[srcChain]
+	for _, tonChain := range tonChains {
+		_, exists := state.TonChains[tonChain]
 		if !exists {
 			continue
 		}
 
-		// Add TON -> EVM lanes for all EVM chains
-		for _, dstChain := range evmChains {
+		for _, evmChain := range evmChains {
+			// TON -> EVM
 			discoveredLanes = append(discoveredLanes, LaneConfig{
-				SourceChain:      srcChain,
-				DestinationChain: dstChain,
+				SourceChain:      tonChain,
+				DestinationChain: evmChain,
+			})
+			// EVM -> TON
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      evmChain,
+				DestinationChain: tonChain,
 			})
 		}
 	}
@@ -430,6 +436,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 // getEnabledDestinationsFromOnRamp checks which destinations are enabled on the OnRamp
 func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(
+	lggr logger.Logger,
 	chainState evm.CCIPChainState,
 	srcSelector uint64,
 	candidateDestinations []uint64) ([]uint64, error) {
@@ -442,7 +449,11 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(
 		}
 		isEnabled, err := lc.isDestinationEnabledOnOnRamp(chainState, dstChain)
 		if err != nil {
-			// Log but continue - some destinations might not be configured
+			lggr.Debugw("OnRamp destination check failed (destination may not be configured)",
+				"srcChain", srcSelector,
+				"dstChain", dstChain,
+				"error", err,
+			)
 			continue
 		}
 
@@ -606,6 +617,15 @@ func (lc *LaneConfiguration) GetLaneStats() LaneStats {
 	return stats
 }
 
+// chainFamilyLabel returns the chain family name for a given selector
+func chainFamilyLabel(chainSelector uint64) string {
+	family, err := selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return "unknown"
+	}
+	return string(family)
+}
+
 func (lc *LaneConfiguration) LogLaneConfigInfo(lggr logger.Logger) {
 	if lc == nil {
 		lggr.Warn("LaneConfiguration is nil, cannot log stats")
@@ -613,13 +633,36 @@ func (lc *LaneConfiguration) LogLaneConfigInfo(lggr logger.Logger) {
 	}
 
 	stats := lc.GetLaneStats()
-	lggr.Infow("Lane Configuration Stats",
+
+	// Count lanes by family pair
+	familyCounts := make(map[string]int)
+	for _, lane := range lc.generatedLanes {
+		srcFamily := chainFamilyLabel(lane.SourceChain)
+		dstFamily := chainFamilyLabel(lane.DestinationChain)
+		key := srcFamily + "_to_" + dstFamily
+		familyCounts[key]++
+	}
+
+	lggr.Infow("Lane Configuration Summary",
 		"TotalLanes", stats.TotalLanes,
 		"UniqueChains", stats.UniqueChains,
 		"SourceChains", stats.SourceChains,
 		"DestinationChains", stats.DestinationChains,
-		"GeneratedLanes", lc.generatedLanes,
+		"LanesByFamily", familyCounts,
 	)
+
+	// Log individual lanes for operator verification
+	for i, lane := range lc.generatedLanes {
+		srcFamily := chainFamilyLabel(lane.SourceChain)
+		dstFamily := chainFamilyLabel(lane.DestinationChain)
+		lggr.Infow("Discovered lane",
+			"index", i,
+			"srcChain", lane.SourceChain,
+			"srcFamily", srcFamily,
+			"dstChain", lane.DestinationChain,
+			"dstFamily", dstFamily,
+		)
+	}
 }
 
 // Example TOML configurations:
