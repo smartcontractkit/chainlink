@@ -20,8 +20,8 @@ import (
 	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/config"
 )
 
 type functionsProvider struct {
@@ -80,7 +80,7 @@ func (p *functionsProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keys.Store, pluginType functionsRelay.FunctionsPluginType) (evmconfig.FunctionsProvider, error) {
+func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keys.Store, pluginType functions.FunctionsPluginType) (evmconfig.FunctionsProvider, error) {
 	relayOpts := evmconfig.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -96,12 +96,12 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	if !common.IsHexAddress(rargs.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
-	var pluginConfig config.PluginConfig
-	if err2 := json.Unmarshal(pargs.PluginConfig, &pluginConfig); err2 != nil {
+	var relayFunctionsConfig config.RelayConfig
+	if err2 := json.Unmarshal(pargs.PluginConfig, &relayFunctionsConfig); err2 != nil {
 		return nil, err2
 	}
 	routerContractAddress := common.HexToAddress(rargs.ContractID)
-	logPollerWrapper, err := functionsRelay.NewLogPollerWrapper(routerContractAddress, pluginConfig, chain.Client(), chain.LogPoller(), lggr)
+	logPollerWrapper, err := functions.NewLogPollerWrapper(routerContractAddress, relayFunctionsConfig, chain.Client(), chain.LogPoller(), lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	}
 	var contractTransmitter transmitter.ContractTransmitter
 	if relayConfig.SendingKeys != nil {
-		contractTransmitter, err = newFunctionsContractTransmitter(ctx, pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
+		contractTransmitter, err = newFunctionsContractTransmitter(ctx, relayFunctionsConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -121,20 +121,20 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	return newFunctionsProvider(lggr, configWatcher, contractTransmitter, logPollerWrapper), nil
 }
 
-func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmconfig.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
+func newFunctionsConfigProvider(ctx context.Context, pluginType functions.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmconfig.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 
 	routerContractAddress := common.HexToAddress(args.ContractID)
 
-	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), lggr)
+	cp, err := functions.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), lggr)
 	if err != nil {
 		return nil, err
 	}
 	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsConfigPoller", cp)
 
-	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64())
+	offchainConfigDigester := functions.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64())
 	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsOffchainConfigDigester", offchainConfigDigester)
 
 	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
@@ -182,7 +182,7 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		gasLimit = uint64(*ocr2Limit)
 	}
 
-	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
+	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(
 		configWatcher.chain.Client(),
 		OCR2AggregatorTransmissionContractABI,
 		configWatcher.chain.LogPoller(),

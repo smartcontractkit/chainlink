@@ -307,10 +307,16 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		EnableDeterministicPendingQueue:   configProto.EnableDeterministicPendingQueue,
 	}
 
+	metrics, err := newPluginMetrics(config.ConfigDigest.String())
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create plugin metrics: %w", err)
+	}
+
 	return &ReportingPlugin{
 			lggr:       r.lggr.Named("VaultReportingPlugin"),
 			store:      r.store,
 			cfg:        cfg,
+			metrics:    metrics,
 			onchainCfg: config,
 			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
 				handle := ocr3_1types.BlobHandle{}
@@ -342,6 +348,7 @@ type ReportingPlugin struct {
 	store      *requests.Store[*vaulttypes.Request]
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
+	metrics    *pluginMetrics
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -513,6 +520,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			observedLocalQueue = append(observedLocalQueue, blobHandleBytes)
 
 			if len(observedLocalQueue) > 2*r.cfg.BatchSize.DefaultValue {
+				r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
+					"queueSize", len(observedLocalQueue),
+					"batchSizeLimit", 2*r.cfg.BatchSize.DefaultValue)
+				r.metrics.trackQueueOverflow(ctx, len(observedLocalQueue), r.cfg.BatchSize.DefaultValue)
 				break
 			}
 		}
@@ -1424,6 +1435,8 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 	}
 
 	// Step 4: Sort the kept items by sha(id || salt)
+	// The salt ensures that items are ordered randomly each time, preventing
+	// front-running and dishonest nodes from manipulating the order of items in the pending queue.
 	slices.SortFunc(keptItems, func(i *vaultcommon.StoredPendingQueueItem, j *vaultcommon.StoredPendingQueueItem) int {
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})

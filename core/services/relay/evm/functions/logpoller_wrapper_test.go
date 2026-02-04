@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/config"
 )
 
 type subscriber struct {
@@ -57,7 +57,7 @@ func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, evmconf
 	lggr := logger.Test(t)
 	client := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
-	config := config.PluginConfig{
+	config := config.RelayConfig{
 		ContractUpdateCheckFrequencySec: updateFrequencySec,
 		ContractVersion:                 1,
 	}
