@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -303,7 +304,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	}
 	if len(jsonRequest.ID) > 200 {
 		// Arbitrary limit to prevent abuse
-		return newError(jsonRequest.ID, api.UserMessageParseError, "request ID is too long: "+fmt.Sprint(len(jsonRequest.ID))+". max is 200 characters")
+		return newError(jsonRequest.ID, api.UserMessageParseError, "request ID is too long: "+strconv.Itoa(len(jsonRequest.ID))+". max is 200 characters")
 	}
 	var isLegacyRequest = false
 	var h handlers.Handler
