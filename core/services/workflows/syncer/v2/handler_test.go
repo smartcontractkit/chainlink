@@ -360,7 +360,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
 				me := &mockEngine{}
-				err := h.engineRegistry.Add(wfID, me)
+				err := h.engineRegistry.Add(wfID, event.Source, me)
 				require.NoError(t, err)
 				err = h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
@@ -399,7 +399,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
 				me := &mockEngine{}
 				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
-				err := h.engineRegistry.Add(oldWfIDBytes, me)
+				err := h.engineRegistry.Add(oldWfIDBytes, event.Source, me)
 				require.NoError(t, err)
 				err = h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)

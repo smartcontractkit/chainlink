@@ -180,6 +180,19 @@ func PrepareNodeTOMLs(
 		}
 	}
 
+	// Transform UserConfigOverrides to use platform-specific Docker host addresses.
+	// This handles differences between macOS (host.docker.internal) and Linux (172.17.0.1)
+	// for URLs in user-provided config overrides (e.g., AdditionalSources).
+	for i := range localNodeSets {
+		for j := range localNodeSets[i].NodeSpecs {
+			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
+				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
+					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
+				)
+			}
+		}
+	}
+
 	return localNodeSets, nil
 }
 
@@ -401,6 +414,9 @@ func addWorkerNodeConfig(
 		}
 	}
 
+	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
+	// before resetting Capabilities struct
+	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
@@ -413,6 +429,7 @@ func addWorkerNodeConfig(
 		Dispatcher: coretoml.Dispatcher{
 			SendToSharedPeer: ptr.Ptr(true),
 		},
+		WorkflowRegistry: existingWorkflowRegistry,
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
@@ -433,12 +450,16 @@ func addWorkerNodeConfig(
 	}
 
 	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
+		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields
+		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
+		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
-			NetworkID:       ptr.Ptr("evm"),
-			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-			SyncStrategy:    ptr.Ptr("reconciliation"),
+			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:               ptr.Ptr("evm"),
+			ChainID:                 ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion:         ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:            ptr.Ptr("reconciliation"),
+			AdditionalSourcesConfig: existingAddSources,
 		}
 	}
 
@@ -765,6 +786,50 @@ func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain
 			},
 		},
 	})
+}
+
+// transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+func transformAdditionalSourceURLs(sources []coretoml.AdditionalWorkflowSource) []coretoml.AdditionalWorkflowSource {
+	if len(sources) == 0 {
+		return sources
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	transformed := make([]coretoml.AdditionalWorkflowSource, len(sources))
+	for i, src := range sources {
+		transformed[i] = src
+		if src.URL != nil {
+			// Replace "host.docker.internal" with the platform-specific host
+			url := *src.URL
+			url = strings.Replace(url, "host.docker.internal", dockerHost, 1)
+			transformed[i].URL = &url
+		}
+	}
+
+	return transformed
+}
+
+// transformUserConfigOverrides transforms URLs in a user config overrides string to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+// This is necessary because UserConfigOverrides is passed directly to containers as a
+// separate config file, bypassing the structured config transformation.
+func transformUserConfigOverrides(userConfig string) string {
+	if userConfig == "" {
+		return userConfig
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	// Replace all occurrences of "host.docker.internal" with the platform-specific host
+	return strings.ReplaceAll(userConfig, "host.docker.internal", dockerHost)
 }
 
 // generateInstanceNames creates Kubernetes-compatible instance names for nodes
