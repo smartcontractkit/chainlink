@@ -23,6 +23,16 @@ Slack: #topic-local-dev-environments
    - [Debugging core nodes](#debugging-core-nodes)
    - [Debugging capabilities (mac)](#debugging-capabilities-mac)
    - [Workflow Commands](#workflow-commands)
+   - [Additional Workflow Sources](#additional-workflow-sources)
+     - [Overview](#additional-sources-overview)
+     - [Configuration](#additional-sources-configuration)
+     - [File Source JSON Format](#file-source-json-format)
+     - [Helper Tool: generate_file_source](#helper-tool-generate_file_source)
+     - [Deploying a File-Source Workflow](#deploying-a-file-source-workflow)
+     - [Mixed Sources (Contract + File)](#mixed-sources-contract--file)
+     - [Pausing and Deleting File-Source Workflows](#pausing-and-deleting-file-source-workflows)
+     - [Key Behaviors](#additional-sources-key-behaviors)
+     - [Debugging Additional Sources](#debugging-additional-sources)
    - [Further use](#further-use)
    - [Advanced Usage](#advanced-usage)
    - [Testing Billing](#testing-billing)
@@ -380,6 +390,306 @@ go run . workflow deploy-and-verify-example
 ```
 
 This command uses default values and is useful for testing the workflow deployment process.
+
+---
+
+## Additional Workflow Sources
+
+The workflow registry syncer supports multiple sources of workflow metadata beyond the on-chain contract. This enables flexible deployment scenarios including pure file-based or GRPC-based workflow deployments.
+
+### Additional Sources Overview
+
+Three source types are supported:
+
+1. **ContractWorkflowSource** (optional): Reads from the on-chain workflow registry contract
+2. **GRPCWorkflowSource** (additional): Fetches from external GRPC services
+3. **FileWorkflowSource** (additional): Reads from a local JSON file
+
+**Key Features:**
+- Contract source is optional - enables pure GRPC-only or file-only deployments
+- All additional sources (GRPC and file) are configured via unified `AdditionalSources` config
+- Source type is auto-detected by URL scheme (`file://` for file, otherwise GRPC)
+
+### Additional Sources Configuration
+
+All additional sources are configured via the `AdditionalSources` config in TOML. The source type is auto-detected based on the URL scheme:
+
+**File source (detected by `file://` prefix):**
+```toml
+[WorkflowRegistry]
+Address = "0x1234..."  # Optional - leave empty for pure file-only deployments
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "local-file"
+URL = "file:///tmp/workflows_metadata.json"
+```
+
+**GRPC source (URL without `file://` prefix):**
+```toml
+[WorkflowRegistry]
+Address = "0x1234..."
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "private-registry"
+URL = "grpc.private-registry.example.com:443"
+TLSEnabled = true
+```
+
+**Pure GRPC-only deployment (no contract):**
+```toml
+[WorkflowRegistry]
+# No Address = no contract source
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "private-registry"
+URL = "grpc.private-registry.example.com:443"
+TLSEnabled = true
+```
+
+### File Source JSON Format
+
+The file source reads from the path specified in the URL (e.g., `/tmp/workflows_metadata.json`).
+
+**JSON Schema:**
+```json
+{
+  "workflows": [
+    {
+      "workflow_id": "<32-byte hex string without 0x prefix>",
+      "owner": "<owner address hex without 0x prefix>",
+      "created_at": "<unix timestamp>",
+      "status": "<0=active, 1=paused>",
+      "workflow_name": "<name>",
+      "binary_url": "<URL to fetch binary - same format as contract>",
+      "config_url": "<URL to fetch config - same format as contract>",
+      "tag": "<version tag>",
+      "attributes": "<optional JSON string>",
+      "don_family": "<DON family name>"
+    }
+  ]
+}
+```
+
+**Example:**
+```json
+{
+  "workflows": [
+    {
+      "workflow_id": "0102030405060708091011121314151617181920212223242526272829303132",
+      "owner": "f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "created_at": 1733250000,
+      "status": 0,
+      "workflow_name": "my-file-workflow",
+      "binary_url": "file:///home/chainlink/workflows/my_workflow.wasm",
+      "config_url": "file:///home/chainlink/workflows/my_config.json",
+      "tag": "v1.0.0",
+      "don_family": "workflow"
+    }
+  ]
+}
+```
+
+See [examples/workflows_metadata_example.json](./examples/workflows_metadata_example.json) for a reference file.
+
+### Helper Tool: generate_file_source
+
+A helper tool is provided to generate the workflow metadata JSON with the correct workflowID (which is a hash of the workflow artifacts):
+
+```bash
+cd core/scripts/cre/environment
+go run ./cmd/generate_file_source \
+  --binary /path/to/workflow.wasm \
+  --config /path/to/config.json \
+  --name my-workflow \
+  --owner f39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
+  --output /tmp/workflows_metadata.json \
+  --don-family workflow
+```
+
+**Additional flags:**
+- `--binary-url-prefix`: Prefix for the binary URL in the output (e.g., `file:///home/chainlink/workflows/`)
+- `--config-url-prefix`: Prefix for the config URL in the output
+
+### Deploying a File-Source Workflow
+
+This walkthrough demonstrates deploying a workflow via file source in a local CRE environment.
+
+**Prerequisites:**
+- Local CRE environment set up
+- Docker running
+- Go toolchain installed
+
+**Step-by-step:**
+
+```bash
+# 1. Start the environment
+cd core/scripts/cre/environment
+go run . env start --auto-setup
+
+# 2. Deploy a workflow via contract first (this creates the compiled binary in containers)
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron_contract
+
+# 3. Get the existing workflow binary from a container
+docker cp workflow-node1:/home/chainlink/workflows/cron_contract.wasm /tmp/cron_contract.wasm
+
+# 4. Generate the file source metadata with a DIFFERENT workflow name
+go run ./cmd/generate_file_source \
+  --binary /tmp/cron_contract.wasm \
+  --name file_source_cron \
+  --owner f39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
+  --output /tmp/workflows_metadata.json \
+  --don-family workflow \
+  --binary-url-prefix "file:///home/chainlink/workflows/" \
+  --config-url-prefix "file:///home/chainlink/workflows/"
+
+# 5. Copy the binary to all containers with new name
+docker cp /tmp/cron_contract.wasm workflow-node1:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node2:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node3:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node4:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node5:/home/chainlink/workflows/file_source_workflow.wasm
+
+# 6. Create an empty config file and copy to all containers
+echo '{}' > /tmp/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node1:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node2:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node3:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node4:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node5:/home/chainlink/workflows/file_source_config.json
+
+# 7. Copy the metadata file to all nodes
+docker cp /tmp/workflows_metadata.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node5:/tmp/workflows_metadata.json
+
+# 8. Wait for the syncer to pick up the workflow (default 12 second interval)
+# Check logs for "Loaded workflows from file" messages
+docker logs workflow-node1 2>&1 | grep -i "file"
+
+# 9. Verify the workflow is running
+docker logs workflow-node1 2>&1 | grep -i "workflow engine"
+```
+
+### Mixed Sources (Contract + File)
+
+You can run both contract-deployed and file-source workflows simultaneously:
+
+```bash
+# 1. Deploy workflow via contract
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n contract_workflow
+
+# 2. Add a different workflow via file source (follow steps 3-7 from above)
+
+# 3. Verify both workflows are running
+docker logs workflow-node1 2>&1 | grep -i "Aggregated workflows from all sources"
+# Should show totalWorkflows: 2
+```
+
+### Pausing and Deleting File-Source Workflows
+
+**Pausing a workflow** - Change the `status` field to `1`:
+
+```bash
+# Create updated metadata with status=1 (paused)
+cat > /tmp/workflows_metadata_paused.json << 'EOF'
+{
+  "workflows": [
+    {
+      "workflow_id": "<YOUR_WORKFLOW_ID>",
+      "owner": "f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "status": 1,
+      "workflow_name": "file_source_cron",
+      "binary_url": "file:///home/chainlink/workflows/file_source_workflow.wasm",
+      "config_url": "file:///home/chainlink/workflows/file_source_config.json",
+      "don_family": "workflow"
+    }
+  ]
+}
+EOF
+
+# Copy to all nodes
+docker cp /tmp/workflows_metadata_paused.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node5:/tmp/workflows_metadata.json
+
+# Wait for syncer to detect the change
+docker logs workflow-node1 2>&1 | grep -i "paused"
+```
+
+**Deleting a workflow** - Remove it from the JSON file:
+
+```bash
+# Create empty metadata file
+echo '{"workflows":[]}' > /tmp/empty_metadata.json
+
+# Copy to all nodes
+docker cp /tmp/empty_metadata.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node5:/tmp/workflows_metadata.json
+
+# Contract workflows continue running; file-source workflow is removed
+```
+
+### Additional Sources Key Behaviors
+
+**Source Aggregation:**
+- Workflows from all sources are merged into a single list
+- Only ContractWorkflowSource provides real blockchain head (block height/hash)
+- For pure additional-source deployments, a synthetic head is created (Unix timestamp)
+- If one source fails, others continue to work (graceful degradation)
+
+**Contract Source Optional:**
+- If no contract address is configured, the contract source is skipped
+- Enables pure GRPC-only or file-only workflow deployments
+- Synthetic heads are used when no contract source is present
+
+**File Source Characteristics:**
+- File is read on every sync interval (default 12 seconds)
+- Missing file = empty workflow list (not an error)
+- Invalid JSON entries are skipped with a warning
+- File source is always "ready" (unlike contract source which needs initialization)
+
+**GRPC Source:**
+- Supports JWT-based authentication
+- Includes automatic retry logic with exponential backoff (max 2 retries, 100ms-5s delay)
+- Only transient errors (Unavailable, ResourceExhausted) are retried
+
+**Source Tracking:**
+- Each workflow includes a `Source` field identifying where it was deployed from
+- Source identifiers: `ContractWorkflowSource`, `FileWorkflowSource`, `GRPCWorkflowSource`
+
+### Debugging Additional Sources
+
+**Check if file source is being read:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Loaded workflows from file"
+docker logs workflow-node1 2>&1 | grep "Workflow metadata file does not exist"
+```
+
+**Check aggregated workflows:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Aggregated workflows from all sources"
+docker logs workflow-node1 2>&1 | grep "fetching workflow metadata from all sources"
+```
+
+**Verify workflow engine started:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Creating Workflow Engine for workflow spec"
+```
+
+**Key log messages:**
+- `"Loaded workflows from file"` - File was successfully read
+- `"Workflow metadata file does not exist"` - File doesn't exist (normal if not using file source)
+- `"Source not ready, skipping"` - Contract source not yet initialized
+- `"Aggregated workflows from all sources"` with `totalWorkflows` count - Sync completed
+- `"All workflow sources failed - will retry next cycle"` (WARN) - All sources failed
+- `"Failed to fetch workflows from source"` (ERROR) - Individual source failure
 
 ---
 

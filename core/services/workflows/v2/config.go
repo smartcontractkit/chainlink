@@ -87,11 +87,12 @@ type EngineLimiters struct {
 	LogLine               limits.BoundLimiter[config.Size]
 	ChainAllowed          limits.GateLimiter
 
-	ChainWriteTargets limits.BoundLimiter[int]
-	ChainReadCalls    limits.BoundLimiter[int]
-	ConsensusCalls    limits.BoundLimiter[int]
-	HTTPActionCalls   limits.BoundLimiter[int]
-	SecretsCalls      limits.BoundLimiter[int]
+	ChainWriteTargets     limits.BoundLimiter[int]
+	ChainReadCalls        limits.BoundLimiter[int]
+	ConsensusCalls        limits.BoundLimiter[int]
+	HTTPActionCalls       limits.BoundLimiter[int]
+	ConfidentialHTTPCalls limits.BoundLimiter[int]
+	SecretsCalls          limits.BoundLimiter[int]
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -190,6 +191,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ConfidentialHTTPCalls, err = limits.MakeBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
+	if err != nil {
+		return
+	}
 	l.SecretsCalls, err = limits.MakeBoundLimiter(lf, cfg.Secrets.CallLimit)
 	if err != nil {
 		return
@@ -220,6 +225,7 @@ func (l *EngineLimiters) Close() error {
 		l.ChainReadCalls,
 		l.ConsensusCalls,
 		l.HTTPActionCalls,
+		l.ConfidentialHTTPCalls,
 		l.SecretsCalls,
 	)
 }

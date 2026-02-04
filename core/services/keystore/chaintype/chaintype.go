@@ -89,7 +89,7 @@ func (c ChainType) Type() (uint8, error) {
 	case Sui:
 		return 8, nil
 	case Offchain:
-		return 8, nil
+		return 9, nil
 	default:
 		return 0, fmt.Errorf("unexpected chaintype.ChainType: %#v", c)
 	}
