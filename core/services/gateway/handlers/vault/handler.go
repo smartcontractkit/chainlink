@@ -296,7 +296,6 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 		return
 	}
 	h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
-	return
 }
 
 // removeExpiredRequests removes expired requests from the pending requests map
@@ -351,7 +350,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 			// Not found in cache. Fetch from nodes.
 			ar, err := h.newActiveRequest(req, callback)
 			if err != nil {
-				h.lggr.Errorw("fetchVaultPublicKey: failed to create new activeRequest", "error", err)
+				h.lggr.Errorw("failed to create new activeRequest", "error", err)
 				return err
 			}
 			return h.handlePublicKeyGet(ctx, ar)
