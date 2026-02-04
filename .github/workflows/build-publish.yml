@@ -66,6 +66,7 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
+      github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || '' }}
       docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -103,6 +104,7 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
+      github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || '' }}
       docker-image-tag-override: ${{ needs.checks.outputs.ccip-image-tag }}
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
