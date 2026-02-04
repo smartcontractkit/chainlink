@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
 
-// SethTxHelper wraps Seth's NonceManager to provide tx hash tracking and
+// SethKeyHelper wraps Seth's NonceManager to provide tx hash tracking and
 // Anvil-specific transaction dropping when all keys are stuck.
 // This is a thin wrapper that reuses Seth's AnySyncedKey() logic.
-type SethTxHelper struct {
+type SethKeyHelper struct {
 	mu         sync.Mutex
 	client     *seth.Client
 	rpcClient  *rpc.Client
@@ -27,8 +27,8 @@ type SethTxHelper struct {
 	rpcTimeout time.Duration
 }
 
-// NewSethTxHelper creates a new helper that wraps Seth for tx tracking and recovery.
-func NewSethTxHelper(logger zerolog.Logger, client *seth.Client, rpcURL string, isAnvil bool) (*SethTxHelper, error) {
+// NewSethKeyHelper creates a new helper that wraps Seth for tx tracking and recovery.
+func NewSethKeyHelper(logger zerolog.Logger, client *seth.Client, rpcURL string, isAnvil bool) (*SethKeyHelper, error) {
 	rpcClient, err := rpc.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial RPC: %w", err)
@@ -39,7 +39,7 @@ func NewSethTxHelper(logger zerolog.Logger, client *seth.Client, rpcURL string, 
 		Int("keyCount", len(client.Addresses)).
 		Msg("Initialized SethTxHelper")
 
-	return &SethTxHelper{
+	return &SethKeyHelper{
 		client:     client,
 		rpcClient:  rpcClient,
 		logger:     logger,
@@ -52,7 +52,7 @@ func NewSethTxHelper(logger zerolog.Logger, client *seth.Client, rpcURL string, 
 // GetKey wraps Seth's AnySyncedKey() and handles the TimeoutKeyNum case
 // by dropping pending transactions (on Anvil) and retrying.
 // Returns the key number or an error if no key is available.
-func (h *SethTxHelper) GetKey() (int, error) {
+func (h *SethKeyHelper) GetKey() (int, error) {
 	keyNum := h.client.AnySyncedKey()
 
 	if keyNum == seth.TimeoutKeyNum {
@@ -85,7 +85,7 @@ func (h *SethTxHelper) GetKey() (int, error) {
 
 // calculateDropTimeout returns a reasonable timeout for dropping all pending txs
 // Formula: (pendingCount * rpcTimeout) + 10s buffer, minimum 30s
-func (h *SethTxHelper) calculateDropTimeout() time.Duration {
+func (h *SethKeyHelper) calculateDropTimeout() time.Duration {
 	h.mu.Lock()
 	pendingCount := len(h.pendingTxs)
 	h.mu.Unlock()
@@ -96,7 +96,7 @@ func (h *SethTxHelper) calculateDropTimeout() time.Duration {
 
 // RecordPendingTx stores the transaction hash for a key.
 // Call this after successfully sending a transaction.
-func (h *SethTxHelper) RecordPendingTx(keyNum int, txHash common.Hash) {
+func (h *SethKeyHelper) RecordPendingTx(keyNum int, txHash common.Hash) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.pendingTxs[keyNum] = txHash
@@ -109,7 +109,7 @@ func (h *SethTxHelper) RecordPendingTx(keyNum int, txHash common.Hash) {
 
 // DropPendingTxs drops all tracked pending transactions from Anvil's mempool.
 // Returns the number of transactions dropped.
-func (h *SethTxHelper) DropPendingTxs(ctx context.Context) (int, error) {
+func (h *SethKeyHelper) DropPendingTxs(ctx context.Context) (int, error) {
 	if !h.isAnvil {
 		h.logger.Debug().Msg("DropPendingTxs called but not running on Anvil, skipping")
 		return 0, nil
@@ -165,7 +165,7 @@ func (h *SethTxHelper) DropPendingTxs(ctx context.Context) (int, error) {
 }
 
 // dropTransaction drops a single transaction from Anvil's mempool
-func (h *SethTxHelper) dropTransaction(ctx context.Context, txHash common.Hash) error {
+func (h *SethKeyHelper) dropTransaction(ctx context.Context, txHash common.Hash) error {
 	ctx, cancel := context.WithTimeout(ctx, h.rpcTimeout)
 	defer cancel()
 

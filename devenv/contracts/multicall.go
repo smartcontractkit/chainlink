@@ -38,7 +38,6 @@ type Result struct {
 func MultiCallLogTriggerLoadGen(
 	client *seth.Client,
 	keyIndex int,
-	nonce *big.Int,
 	multiCallAddress string,
 	logTriggerAddress []string,
 	logTriggerData [][]byte,
@@ -57,5 +56,5 @@ func MultiCallLogTriggerLoadGen(
 		call = append(call, data)
 	}
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	return boundContract.Transact(client.NewTXKeyOpts(keyIndex, seth.WithNonce(nonce)), "aggregate3", call)
+	return boundContract.Transact(client.NewTXKeyOpts(keyIndex), "aggregate3", call)
 }

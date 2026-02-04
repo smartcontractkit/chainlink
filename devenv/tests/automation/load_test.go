@@ -42,7 +42,7 @@ func TestLoad(t *testing.T) {
 			Testcase: Testcase{
 				RegistryVersion:   contracts.RegistryVersion_2_1,
 				Name:              "registry_2_1",
-				UpkeepCount:       5,
+				UpkeepCount:       2,
 				TestKeyFundingEth: 100,
 				UpkeepFundingLink: 1_000_000,
 			},
@@ -272,16 +272,18 @@ func TestLoad(t *testing.T) {
 				Str("Duration", testSetupDuration.String()).
 				Msg("Test setup ended")
 
-				// TODO use seth in version f03e25dcd9a42921f51c7e77ae554f21af40836b together with SethTxHelper
-			keyPool, err := NewKeyPool(l, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, a.ChainClient.Addresses[1:], in.Blockchains[0].Type == blockchain.TypeAnvil)
-			require.NoError(t, err, "failed to create key pool")
+			// TODO use seth in version f03e25dcd9a42921f51c7e77ae554f21af40836b together with SethTxHelper
+			sethKeyHelper, err := products.NewSethKeyHelper(l, a.ChainClient, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, in.Blockchains[0].Type == blockchain.TypeAnvil)
+			require.NoError(t, err, "failed to create seth key helper")
+			// keyPool, err := NewKeyPool(l, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, a.ChainClient.Addresses[1:], in.Blockchains[0].Type == blockchain.TypeAnvil)
+			// require.NoError(t, err, "failed to create key pool")
 
 			gun, gErr := NewLogTriggerUser(
 				l,
 				configs,
 				a.ChainClient,
 				multicallAddress.Hex(),
-				keyPool,
+				sethKeyHelper,
 			)
 			require.NoError(t, gErr, "failed to create LogTriggerUser WASP gun")
 

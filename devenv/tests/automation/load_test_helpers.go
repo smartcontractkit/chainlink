@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
+	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 	ctf_concurrency "github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
 )
@@ -171,7 +172,8 @@ type LogTriggerGun struct {
 	client           *seth.Client
 	logger           zerolog.Logger
 
-	keyPool *KeyPool
+	// keyPool *KeyPool
+	sethKeyHelper *products.SethKeyHelper
 }
 
 func generateCallData(int1 int64, int2 int64, count int64) []byte {
@@ -191,7 +193,8 @@ func NewLogTriggerUser(
 	triggerConfigs []LogTriggerConfig,
 	client *seth.Client,
 	multicallAddress string,
-	keyPool *KeyPool,
+	// keyPool *KeyPool,
+	sethKeyHelper *products.SethKeyHelper,
 ) (*LogTriggerGun, error) {
 	var data [][]byte
 	var addresses []string
@@ -225,7 +228,8 @@ func NewLogTriggerUser(
 		logger:           logger,
 		multiCallAddress: multicallAddress,
 		client:           client,
-		keyPool:          keyPool,
+		// keyPool:          keyPool,
+		sethKeyHelper: sethKeyHelper,
 	}, nil
 }
 
@@ -241,42 +245,67 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	resultCh := make(chan *wasp.Response, len(dividedData))
 
+	// for _, a := range dividedData {
+	// 	wg.Add(1)
+	// 	go func(a [][]byte, m *LogTriggerGun) {
+	// 		defer wg.Done()
+
+	// 		keyCtx, cancelFn := context.WithTimeout(context.Background(), m.keyPool.RecommendedCheckoutTimeout())
+	// 		defer cancelFn()
+	// 		keyIndex, nonce, err := m.keyPool.CheckoutKey(keyCtx)
+	// 		if err != nil {
+	// 			m.logger.Error().Err(err).Msg("Error checking out key from key pool")
+	// 			_ = m.keyPool.DiagnoseAndMonitor(60 * time.Second)
+	// 			if strings.Contains(strings.ToLower(err.Error()), "keys have pending transactions") {
+	// 				dropCtx, dropCancelFn := context.WithTimeout(context.Background(), m.keyPool.RecommendedDropTimeout())
+	// 				defer dropCancelFn()
+	// 				dropped, dropErr := m.keyPool.DropPendingTxs(dropCtx)
+	// 				if dropErr != nil {
+	// 					m.logger.Error().Err(dropErr).Msg("Error dropping pending transactions")
+	// 				} else {
+	// 					m.logger.Info().Int("dropped", dropped).Msg("Dropped pending transactions")
+	// 				}
+	// 			}
+	// 			resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
+	// 			return
+	// 		}
+
+	// 		tx, err := contracts.MultiCallLogTriggerLoadGen(m.client, keyIndex+1, big.NewInt(int64(nonce)), m.multiCallAddress, m.addresses, a) //nolint:gosec // we will never have that many keys to cause an overflow
+	// 		if err != nil {
+	// 			m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
+	// 			_ = m.keyPool.DiagnoseAndMonitor(60 * time.Second)
+	// 			resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
+	// 			return
+	// 		}
+	// 		m.keyPool.RecordPendingTx(keyIndex, tx.Hash())
+	// 		resultCh <- &wasp.Response{}
+	// 	}(a, m)
+	// }
+
 	for _, a := range dividedData {
 		wg.Add(1)
 		go func(a [][]byte, m *LogTriggerGun) {
 			defer wg.Done()
 
-			keyCtx, cancelFn := context.WithTimeout(context.Background(), m.keyPool.RecommendedCheckoutTimeout())
-			defer cancelFn()
-			keyIndex, nonce, err := m.keyPool.CheckoutKey(keyCtx)
+			keyIndex, err := m.sethKeyHelper.GetKey()
 			if err != nil {
-				m.logger.Error().Err(err).Msg("Error checking out key from key pool")
-				_ = m.keyPool.DiagnoseAndMonitor(60 * time.Second)
-				if strings.Contains(strings.ToLower(err.Error()), "keys have pending transactions") {
-					dropCtx, dropCancelFn := context.WithTimeout(context.Background(), m.keyPool.RecommendedDropTimeout())
-					defer dropCancelFn()
-					dropped, dropErr := m.keyPool.DropPendingTxs(dropCtx)
-					if dropErr != nil {
-						m.logger.Error().Err(dropErr).Msg("Error dropping pending transactions")
-					} else {
-						m.logger.Info().Int("dropped", dropped).Msg("Dropped pending transactions")
-					}
-				}
+				m.logger.Error().Err(err).Msg("Error getting key from seth key helper")
 				resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
 				return
 			}
 
-			tx, err := contracts.MultiCallLogTriggerLoadGen(m.client, keyIndex+1, big.NewInt(int64(nonce)), m.multiCallAddress, m.addresses, a) //nolint:gosec // we will never have that many keys to cause an overflow
+			tx, err := contracts.MultiCallLogTriggerLoadGen(m.client, keyIndex, m.multiCallAddress, m.addresses, a) //nolint:gosec // we will never have that many keys to cause an overflow
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
-				_ = m.keyPool.DiagnoseAndMonitor(60 * time.Second)
 				resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
 				return
 			}
-			m.keyPool.RecordPendingTx(keyIndex, tx.Hash())
+
+			m.sethKeyHelper.RecordPendingTx(keyIndex, tx.Hash())
 			resultCh <- &wasp.Response{}
 		}(a, m)
 	}
+
 	wg.Wait()
 	close(resultCh)
 
