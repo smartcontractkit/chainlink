@@ -272,6 +272,7 @@ func TestLoad(t *testing.T) {
 				Str("Duration", testSetupDuration.String()).
 				Msg("Test setup ended")
 
+				// TODO use seth in version f03e25dcd9a42921f51c7e77ae554f21af40836b together with SethTxHelper
 			keyPool, err := NewKeyPool(l, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, a.ChainClient.Addresses[1:], in.Blockchains[0].Type == blockchain.TypeAnvil)
 			require.NoError(t, err, "failed to create key pool")
 
