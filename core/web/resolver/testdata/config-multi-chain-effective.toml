@@ -401,6 +401,9 @@ ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
 
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32mb'
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
