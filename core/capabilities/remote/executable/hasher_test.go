@@ -207,6 +207,7 @@ func getWriteReportRequestWithSpendLimits(t *testing.T, data []byte, sigs [][]by
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
 	return &types.MessageBody{
-		Payload: capReqBytes,
+		Payload:      capReqBytes,
+		CapabilityId: "evm:2321",
 	}
 }
