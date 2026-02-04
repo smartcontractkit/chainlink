@@ -238,7 +238,7 @@ func (h *handler) Start(_ context.Context) error {
 					h.removeExpiredRequests(ctx)
 				case <-tickerVaultPublicKeyRefresh.Chan():
 					// periodically, fetch vault public key, so we can cache it
-					_ = h.fetchVaultPublicKey(ctx)
+					h.fetchVaultPublicKey(ctx)
 				case <-h.stopCh:
 					return
 				}
@@ -256,14 +256,14 @@ func (h *handler) Close() error {
 	})
 }
 
-func (h *handler) fetchVaultPublicKey(ctx context.Context) error {
+func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 	ctx, cancel := context.WithDeadline(ctx, h.clock.Now().Add(10*time.Second))
 	defer cancel()
 	param := vaultcommon.GetPublicKeyRequest{}
 	paramBytes, err := json.Marshal(param)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to marshal get public key request", "error", err)
-		return err
+		return
 	}
 	getPublicKeyRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
@@ -276,28 +276,27 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) error {
 	ar, err := h.newActiveRequest(getPublicKeyRequest, callback)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to create new activeRequest", "error", err)
-		return err
+		return
 	}
 	err = h.handlePublicKeyGet(ctx, ar)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
-		return err
+		return
 	}
 	response, err := callback.Wait(ctx)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
-		return err
+		return
 	}
 	httpStatus := api.ToHttpErrorCode(response.ErrorCode)
 	jsonCodec := api.JsonRPCCodec{}
 	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
 	if httpStatus != http.StatusOK {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
-		return errors.New("failed to fetch vault public key, http status code: " + strconv.Itoa(httpStatus))
-	} else {
-		h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
+		return
 	}
-	return nil
+	h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
+	return
 }
 
 // removeExpiredRequests removes expired requests from the pending requests map
@@ -349,27 +348,17 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		// Note we cache this value quite aggressively so don't need to worry about DoS.
 		publicKeyResponseBytes, _, err := h.getCachedPublicKey()
 		if err != nil {
-			h.lggr.Errorw("failed to find cached publicKey", "error", err)
-			return err
+			// Not found in cache. Fetch from nodes.
+			ar, err := h.newActiveRequest(req, callback)
+			if err != nil {
+				h.lggr.Errorw("fetchVaultPublicKey: failed to create new activeRequest", "error", err)
+				return err
+			}
+			return h.handlePublicKeyGet(ctx, ar)
 		}
 		h.lggr.Debugw("returning cached public key response")
+		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 
-		resp := jsonrpc.Response[json.RawMessage]{
-			Version: jsonrpc.JsonRpcVersion,
-			ID:      req.ID,
-			Method:  req.Method,
-			Result:  (*json.RawMessage)(&publicKeyResponseBytes),
-		}
-		rawResponse, err := jsonrpc.EncodeResponse(&resp)
-		if err != nil {
-			h.lggr.Errorw("failed to encode response", "error", err)
-			return errors.New("failed to marshal response: " + err.Error())
-		}
-		successResp := gwhandlers.UserCallbackPayload{
-			RawResponse: rawResponse,
-			ErrorCode:   api.NoError,
-		}
-		return callback.SendResponse(successResp)
 	case vaulttypes.MethodSecretsGet:
 		// Secrets get is only allowed in non-production builds for testing purposes
 		// So no authorization is required
@@ -737,6 +726,32 @@ func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) err
 
 	l.Debugw("cache stale: forwarding request to nodes", "now", h.clock.Now(), "err", err)
 	return h.fanOutToVaultNodes(ctx, l, ar)
+}
+
+func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonrpc.Request[json.RawMessage], publicKeyResponseBytes []byte, callback gwhandlers.Callback) error {
+	resp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&publicKeyResponseBytes),
+	}
+	rawResponse, err := jsonrpc.EncodeResponse(&resp)
+	if err != nil {
+		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("error", api.NodeReponseEncodingError.String()),
+		))
+		h.lggr.Errorw("failed to encode response", "error", err)
+		return errors.New("failed to marshal response: " + err.Error())
+	}
+	successResp := gwhandlers.UserCallbackPayload{
+		RawResponse: rawResponse,
+		ErrorCode:   api.NoError,
+	}
+	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("don_id", h.donConfig.DonId),
+	))
+	return callback.SendResponse(successResp)
 }
 
 func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
