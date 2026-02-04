@@ -138,7 +138,7 @@ func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 			MessageId: s4Cfg.MessageID,
 			Method:    s4Cfg.Method,
 			DonId:     s4Cfg.DonID,
-			Receiver:  s4Cfg.RecieverAddr,
+			Receiver:  s4Cfg.ReceiverAddr,
 		},
 	}
 

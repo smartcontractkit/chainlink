@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
@@ -208,6 +209,7 @@ type ChainlinkApplication struct {
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
 	capabilitiesRegistry     *capabilities.Registry
+	shardOrchestratorClient  *shardorchestrator.Client
 
 	started     bool
 	startStopMu sync.Mutex
@@ -267,6 +269,28 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
+	}
+
+	var shardOrchestratorClient *shardorchestrator.Client
+	shardIdx := cfg.Sharding().ShardIndex()
+
+	shardID := shardIdx // TODO: confirm these are the same or if its going to be derived from it + CSAKey
+	// Shard 1+ runs the gRPC client
+	if shardID > 0 {
+		address := cfg.Sharding().ShardOrchestratorAddress()
+		if address == nil {
+			return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
+		}
+		client, err := shardorchestrator.NewClient(
+			ctx,
+			address.String(),
+			globalLogger.Named("ShardOrchestratorClient"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+		}
+		shardOrchestratorClient = client
+		globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
 	}
 
 	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
@@ -420,6 +444,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		StorageClient:           storageClient,
 		UseLocalTimeProvider:    opts.UseLocalTimeProvider,
 		JWTGenerator:            jwtGenerator,
+		ShardOrchestratorClient: shardOrchestratorClient,
 	}, opts.DonTimeStore, limitsFactory, peerWrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
@@ -711,7 +736,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig, cfg.Sharding())
 
 		ocr2Delegate := ocr2.NewDelegate(
 			ocr2.DelegateOpts{
@@ -857,6 +882,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		loopRegistry:             loopRegistry,
 		loopRegistrarConfig:      loopRegistrarConfig,
 		capabilitiesRegistry:     opts.CapabilitiesRegistry,
+		shardOrchestratorClient:  shardOrchestratorClient,
 
 		ds: opts.DS,
 
@@ -889,6 +915,10 @@ type CREOpts struct {
 	UseLocalTimeProvider bool // Set this to true if the DON Time Plugin is not running
 
 	JWTGenerator nodeauthjwt.JWTGenerator // JWT generator for authenticated services
+
+	// ShardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
+	// This is nil for shard 0.
+	ShardOrchestratorClient *shardorchestrator.Client
 }
 
 type CREServices struct {
@@ -1295,10 +1325,26 @@ func newCREServices(
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 					}
 
+					// Build additional sources configuration from config
+					// JWT auth is always enabled for gRPC sources
+					addSources := capCfg.WorkflowRegistry().AdditionalSources()
+					addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
+					for _, src := range addSources {
+						addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
+							URL:          src.GetURL(),
+							Name:         src.GetName(),
+							TLSEnabled:   src.GetTLSEnabled(),
+							JWTGenerator: opts.JWTGenerator,
+						})
+					}
+
+					// Create syncer - contract address may be empty for pure additional-source deployments
+					// File sources are detected by file:// URL prefix in WithAdditionalSources
 					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
 						lggr,
 						crFactory,
 						capCfg.WorkflowRegistry().Address(),
+						strconv.FormatUint(wrChainDetails.ChainSelector, 10),
 						syncerV2.Config{
 							QueryCount:   100,
 							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
@@ -1306,6 +1352,8 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
+						syncerV2.WithAdditionalSources(addSourceConfigs),
+						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
@@ -1446,6 +1494,11 @@ func (app *ChainlinkApplication) stop() (err error) {
 		if app.FeedsService != nil {
 			app.logger.Debug("Closing Feeds Service...")
 			err = stderrors.Join(err, app.FeedsService.Close())
+		}
+
+		if app.shardOrchestratorClient != nil {
+			app.logger.Debug("Closing ShardOrchestrator gRPC client...")
+			err = stderrors.Join(err, app.shardOrchestratorClient.Close())
 		}
 
 		if app.profiler != nil {

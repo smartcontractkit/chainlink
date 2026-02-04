@@ -279,6 +279,194 @@ func TestTriggerSubscriber_RegistrationLoopWithConfigUpdate(t *testing.T) {
 	require.NoError(t, subscriber.Close())
 }
 
+func TestTriggerSubscriber_MultipleTriggersSameWorkflow(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
+	dispatcher := remoteMocks.NewDispatcher(t)
+	awaitRegistrationMessageCh := make(chan struct{}, 10)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		select {
+		case awaitRegistrationMessageCh <- struct{}{}:
+		default:
+		}
+	})
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+	}
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
+	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
+	require.NoError(t, subscriber.Start(t.Context()))
+
+	// Register two triggers for the same workflow with different triggerIDs
+	req1 := commoncap.TriggerRegistrationRequest{
+		TriggerID: "trigger1",
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+	req2 := commoncap.TriggerRegistrationRequest{
+		TriggerID: "trigger2",
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+
+	callbackCh1, err := subscriber.RegisterTrigger(t.Context(), req1)
+	require.NoError(t, err)
+	callbackCh2, err := subscriber.RegisterTrigger(t.Context(), req2)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req1))
+		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req2))
+		require.NoError(t, subscriber.Close())
+	})
+	<-awaitRegistrationMessageCh
+
+	// Send message for trigger1 - should only go to callbackCh1
+	triggerEvent1Msg := buildTriggerEventWithTriggerID(t, capDon.Members[0][:], workflowID1, "trigger1", "event1")
+	subscriber.Receive(t.Context(), triggerEvent1Msg)
+
+	resp := <-callbackCh1
+	require.NotNil(t, resp.Event.Outputs)
+
+	select {
+	case <-callbackCh2:
+		t.Fatal("did not expect message on callbackCh2")
+	default:
+		// expected - no message on callbackCh2
+	}
+
+	// Send message for trigger2 - should only go to callbackCh2
+	triggerEvent2Msg := buildTriggerEventWithTriggerID(t, capDon.Members[0][:], workflowID1, "trigger2", "event2")
+	subscriber.Receive(t.Context(), triggerEvent2Msg)
+
+	resp = <-callbackCh2
+	require.NotNil(t, resp.Event.Outputs)
+
+	select {
+	case <-callbackCh1:
+		t.Fatal("did not expect another message on callbackCh1")
+	default:
+		// expected - no message on callbackCh1
+	}
+}
+
+func TestTriggerSubscriber_LegacyMessageWithoutTriggerID(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
+	dispatcher := remoteMocks.NewDispatcher(t)
+	awaitRegistrationMessageCh := make(chan struct{}, 10)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		select {
+		case awaitRegistrationMessageCh <- struct{}{}:
+		default:
+		}
+	})
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+	}
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
+	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
+	require.NoError(t, subscriber.Start(t.Context()))
+
+	// Register single trigger (legacy style, with triggerID but receiving messages without it)
+	req := commoncap.TriggerRegistrationRequest{
+		TriggerID: "trigger1",
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+
+	callbackCh, err := subscriber.RegisterTrigger(t.Context(), req)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req))
+		require.NoError(t, subscriber.Close())
+	})
+	<-awaitRegistrationMessageCh
+
+	// Send legacy message without triggerID - should still route to the single registered trigger
+	legacyMsg := buildTriggerEvent(t, capDon.Members[0][:])
+	subscriber.Receive(t.Context(), legacyMsg)
+
+	resp := <-callbackCh
+	require.NotNil(t, resp.Event.Outputs)
+}
+
+func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
+	dispatcher := remoteMocks.NewDispatcher(t)
+	awaitRegistrationMessageCh := make(chan struct{}, 10)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		select {
+		case awaitRegistrationMessageCh <- struct{}{}:
+		default:
+		}
+	})
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+	}
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
+	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
+	require.NoError(t, subscriber.Start(t.Context()))
+
+	// Register two triggers
+	req1 := commoncap.TriggerRegistrationRequest{
+		TriggerID: "trigger1",
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+	req2 := commoncap.TriggerRegistrationRequest{
+		TriggerID: "trigger2",
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+
+	_, err := subscriber.RegisterTrigger(t.Context(), req1)
+	require.NoError(t, err)
+	callbackCh2, err := subscriber.RegisterTrigger(t.Context(), req2)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req2))
+		require.NoError(t, subscriber.Close())
+	})
+	<-awaitRegistrationMessageCh
+
+	// Unregister trigger1
+	require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req1))
+
+	// trigger2 should still work
+	triggerEvent2Msg := buildTriggerEventWithTriggerID(t, capDon.Members[0][:], workflowID1, "trigger2", "event2")
+	subscriber.Receive(t.Context(), triggerEvent2Msg)
+
+	resp := <-callbackCh2
+	require.NotNil(t, resp.Event.Outputs)
+}
+
 func buildTwoTestDONs(t *testing.T, capDonSize int, workflowDonSize int) (commoncap.CapabilityInfo, commoncap.DON, commoncap.DON) {
 	capInfo := commoncap.CapabilityInfo{
 		ID:             "cap_id@1",
@@ -330,6 +518,33 @@ func buildTriggerEvent(t *testing.T, sender []byte) *remotetypes.MessageBody {
 		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
 			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
 				WorkflowIds: []string{workflowID1},
+			},
+		},
+		Payload: marshaled,
+	}
+}
+
+func buildTriggerEventWithTriggerID(t *testing.T, sender []byte, workflowID, triggerID, eventID string) *remotetypes.MessageBody {
+	triggerEventValue, err := values.NewMap(triggerEvent1)
+	require.NoError(t, err)
+	capResponse := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			ID:      eventID,
+			Outputs: triggerEventValue,
+		},
+		Err: nil,
+	}
+	marshaled, err := pb.MarshalTriggerResponse(capResponse)
+	require.NoError(t, err)
+
+	return &remotetypes.MessageBody{
+		Sender: sender,
+		Method: remotetypes.MethodTriggerEvent,
+		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+				TriggerEventId: eventID,
+				WorkflowIds:    []string{workflowID},
+				TriggerIds:     []string{triggerID},
 			},
 		},
 		Payload: marshaled,

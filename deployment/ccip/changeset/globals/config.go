@@ -48,7 +48,7 @@ var (
 		NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
 		MaxReportTransmissionCheckAttempts: 10,
 		RMNSignaturesTimeout:               6900 * time.Millisecond,
-		RMNEnabled:                         true,
+		RMNEnabled:                         false,
 		MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 		SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
 		// TransmissionDelayMultiplier for non-ETH (i.e, typically fast) chains should be pretty aggressive.

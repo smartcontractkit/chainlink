@@ -35,8 +35,9 @@ func confirmAggregatorLogic(env cldf.Environment, c types.ProposeConfirmAggregat
 		proposalConfig := MultiChainProposalConfig{
 			c.ChainSelector: []ProposalData{
 				{
-					contract: aggregatorProxy.Address().Hex(),
-					tx:       tx,
+					contract:          aggregatorProxy.Address().Hex(),
+					tx:                tx,
+					timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 				},
 			},
 		}

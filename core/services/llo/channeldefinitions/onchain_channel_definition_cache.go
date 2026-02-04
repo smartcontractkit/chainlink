@@ -63,10 +63,10 @@ const (
 	// channelDefinitionAddedEventName is the ABI event name for ChannelDefinitionAdded events.
 	channelDefinitionAddedEventName = "ChannelDefinitionAdded"
 
-	// SourceUndefined represents an undefined channel definition source.
-	SourceUndefined uint32 = 0
 	// SourceOwner represents the owner source for channel definitions, which has full authority.
-	SourceOwner uint32 = 1
+	// This defaults to 0 as the SourceOwner has no adder ID and is the contract owner.
+	// Only NewChannelDefinition events are marked as SourceOwner.
+	SourceOwner uint32 = 0
 
 	// SingleChannelDefinitionsFormat is the format of the channel definitions for a single source.
 	SingleChannelDefinitionsFormat uint32 = 0
@@ -260,8 +260,8 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 		if pd != nil {
 			if pd.Format == MultiChannelDefinitionsFormat {
 				var sources map[uint32]types.SourceDefinition
-				if err := json.Unmarshal(pd.Definitions, &sources); err != nil {
-					return fmt.Errorf("failed to unmarshal definitions: %w", err)
+				if sources, err = decodePersistedSourceDefinitions(pd.Definitions); err != nil {
+					return err
 				}
 				c.definitions.Sources = sources
 			}
@@ -633,10 +633,6 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 	for {
 		select {
 		case trigger = <-c.fetchTriggerCh:
-			if trigger.Source == SourceUndefined {
-				c.lggr.Warnw("Undefined source to fetch", "url", trigger.URL, "source", trigger.Source)
-				continue
-			}
 			c.wg.Add(1)
 			go c.fetchLoop(trigger)
 
@@ -931,4 +927,29 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 
 	c.lggr.Debugw("returning merged definitions", "definitions", merged)
 	return merged
+}
+
+func decodePersistedSourceDefinitions(definitionsJSON json.RawMessage) (map[uint32]types.SourceDefinition, error) {
+	var sources map[uint32]types.SourceDefinition
+	if err := json.Unmarshal(definitionsJSON, &sources); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal persisted definitions: %w", err)
+	}
+
+	// Ensure that if we had a channel definition set before
+	// all nodes are migrated to the new SourceOwner format,
+	// we migrate the channel definition to the new SourceOwner format.
+	legacyKey := uint32(1)
+	for sourceID, sourceDefinition := range sources {
+		if sourceID == legacyKey {
+			sourceDefinition.Trigger.Source = SourceOwner
+			for channelID, def := range sourceDefinition.Definitions {
+				def.Source = SourceOwner
+				sourceDefinition.Definitions[channelID] = def
+			}
+			delete(sources, 1)
+			sources[SourceOwner] = sourceDefinition
+		}
+	}
+
+	return sources, nil
 }
