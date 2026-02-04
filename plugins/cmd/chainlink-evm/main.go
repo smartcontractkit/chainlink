@@ -10,9 +10,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/nodeplatform"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -72,6 +74,32 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 	}
 
 	// TODO validate?
+
+	rawURLs := make([]string, 0, len(cfg.EVM.Nodes)*3)
+	for _, n := range cfg.EVM.Nodes {
+		if n == nil {
+			continue
+		}
+		if n.HTTPURL != nil {
+			rawURLs = append(rawURLs, n.HTTPURL.String())
+		}
+		if n.WSURL != nil {
+			rawURLs = append(rawURLs, n.WSURL.String())
+		}
+		if n.HTTPURLExtraWrite != nil {
+			rawURLs = append(rawURLs, n.HTTPURLExtraWrite.String())
+		}
+	}
+	chainID := ""
+	if cfg.EVM.ChainID != nil {
+		chainID = cfg.EVM.ChainID.String()
+	}
+	c.SubService(nodeplatform.NewChainPluginConfigEmitter(
+		c.Logger,
+		beholder.GetClient().Config.AuthPublicKeyHex,
+		chainID,
+		rawURLs,
+	))
 
 	evmKeystore := keys.NewChainStore(keystore, cfg.EVM.ChainID.ToInt())
 
