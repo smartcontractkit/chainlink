@@ -1,0 +1,28 @@
+# Secrets / env
+.env
+.envrc
+.env.*
+.envrc.*
+!.env.example
+!.envrc.example
+!.github/actions/setup-postgres/.env
+.dbenv
+debug.env
+credentials.env
+secrets.toml
+
+# Credentials and keys
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# Cloud config that contains credentials
+.aws/
+.kube/config
+
+# Large dependency dirs / caches
+node_modules/
+.pnpm-store/

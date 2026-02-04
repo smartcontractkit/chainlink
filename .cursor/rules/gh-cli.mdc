@@ -1,0 +1,131 @@
+---
+description: GitHub CLI (gh) usage patterns and safety rules for Chainlink work (PRs, checks, Actions runs, search, and GitHub API queries).
+alwaysApply: true
+---
+
+# GitHub CLI (`gh`) Rules
+
+Use `gh` as the default way to inspect PRs, CI failures, and repo history. If GitHub MCP calls fail, fall back to `gh`.
+
+## Auth / safety
+
+- If GitHub SSH auth prompts or appears stuck, **touch the YubiKey**. Never bypass signing/auth.
+- Treat `gh` as **read-only by default** unless the user explicitly confirms state-changing actions.
+  - OK (read-only): `gh pr view`, `gh pr checks`, `gh repo view`, `gh search prs`, `gh search code`, `gh api ...` (GET)
+  - Needs explicit confirmation: `gh pr create`, `gh pr merge`, `gh repo fork`, rerunning/dispatching workflows, or any other write operation
+
+## PR search (current repo vs cross-repo)
+
+Two main commands:
+- `gh pr list` (current repo)
+- `gh search prs` (across repos/orgs)
+
+Useful filters:
+- State: `--state open|closed|merged|all` (note: `gh pr list` supports `all`)
+- Sorting: `--sort updated|created|comments`
+
+Common patterns:
+
+```bash
+# Current repo PRs
+gh pr list --author <username> --state all --limit 50
+
+# Org-wide PR search
+gh search prs --owner smartcontractkit --author <username> --limit 50
+
+# Keyword search (org-wide)
+gh search prs --owner smartcontractkit "<keyword>" --author <username> --limit 50
+
+# Specific repo search
+gh search prs --repo smartcontractkit/<repo-name> --author <username> --limit 50
+```
+
+Defaults:
+- Always specify `--limit`
+- Prefer `--owner smartcontractkit` for org-wide searches
+
+## Repo browsing / cloning (when needed)
+
+Before cloning, check if it already exists under `~/repos/`. Prefer `gh repo clone` when cloning via GitHub.
+
+```bash
+gh repo clone smartcontractkit/chainlink ~/repos/chainlink
+```
+
+## Inspect a PR (metadata, diffs, checks)
+
+```bash
+# Core PR facts (branch/base/mergeability)
+gh pr view <pr> --json url,title,headRefName,baseRefName,mergeable,headRefOid \
+  --jq '{url,title,head:.headRefName,base:.baseRefName,mergeable,sha:.headRefOid}'
+
+# Required checks (and watch)
+gh pr checks <pr> --required
+gh pr checks <pr> --watch --fail-fast
+```
+
+## GitHub Actions runs (logs + reruns)
+
+```bash
+# Find recent PR runs for a head branch
+HEAD_BRANCH="$(gh pr view <pr> --json headRefName --jq .headRefName)"
+gh run list --branch "$HEAD_BRANCH" --event pull_request -L 10 \
+  --json databaseId,workflowName,status,conclusion,createdAt,url \
+  --jq '.[] | {id:.databaseId, workflow:.workflowName, status, conclusion, createdAt, url}'
+
+# View failing logs
+gh run view <run-id> --log-failed
+
+# Rerun only failed jobs (requires confirmation)
+gh run rerun <run-id> --failed
+
+# Rerun a specific job by databaseId (requires confirmation)
+gh run view <run-id> --json jobs --jq '.jobs[] | {name, databaseId, conclusion}'
+gh run rerun <run-id> --job <databaseId>
+```
+
+## GitHub API (`gh api`) for history and path-based investigation
+
+Use `gh api` with `--jq` for structured outputs.
+
+```bash
+# Recent commits touching a path (example time window: last 7 days, UTC; macOS date)
+gh api repos/smartcontractkit/chainlink/commits \
+  -f path="<path>" \
+  -f since="$(date -v-7d -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --jq '.[] | "\(.commit.committer.date) \(.sha[0:7]) \(.commit.message | split("\n")[0])"'
+
+# View commit details (files + message)
+gh api repos/smartcontractkit/chainlink/commits/<sha> \
+  --jq '{message: .commit.message, author: .commit.author.name, date: .commit.committer.date, files: [.files[].filename]}'
+```
+
+## Browsing paths without cloning
+
+For large repos, discover paths before cloning/sparse checkout:
+
+```bash
+gh api repos/smartcontractkit/<repo>/contents/path/to/check --jq '.[].path'
+gh browse -n smartcontractkit/<repo> -- path/to/subdir
+```
+
+## Wiki pages
+
+GitHub wikis are **not** available via `gh api` (REST/GraphQL). Practical options:
+
+- Print/open the wiki URL:
+
+```bash
+gh browse -n smartcontractkit/chainlink/wiki/Code-Style-Guide
+```
+
+- Fetch the wiki markdown via git (wiki repo):
+
+```bash
+git clone --depth 1 https://github.com/smartcontractkit/chainlink.wiki.git
+```
+
+## PR creation hygiene (if explicitly requested)
+
+- Draft title/body first; wait for explicit confirmation before running `gh pr create`.
+- Never include Cursor attribution in PR titles/descriptions (e.g. “Made with Cursor”).

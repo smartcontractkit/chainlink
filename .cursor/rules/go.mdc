@@ -1,0 +1,48 @@
+---
+description: Go (Golang) coding and testing guidelines for smartcontractkit/chainlink changes, optimized for CI-driven fixes (minimal diffs, explicit errors, gofmt, and targeted tests).
+alwaysApply: true
+---
+
+# Go Guidelines (Chainlink)
+
+## Style + correctness
+
+- Use idiomatic Go. Keep code simple and readable.
+- Keep functions small and focused.
+- Handle errors explicitly; wrap with context when returning.
+- Avoid global mutable state; pass dependencies explicitly.
+- Always format Go code with `gofmt` (and `goimports` when imports change).
+
+## Tests
+
+- Add the minimal tests needed for confidence:
+  - golden path first
+  - then common failure cases
+- Prefer deterministic tests; avoid sleeps/time-based flakiness.
+- When debugging CI, run targeted tests locally when possible:
+
+```bash
+go test ./path/to/pkg -run TestName -count=1
+```
+
+## Modules (Chainlink-specific)
+
+Chainlink has multiple Go modules (root, `integration-tests`, `core/scripts`). When CI errors mention `go.mod`/`go.sum` or dependency drift:
+
+- Prefer the repo helper to keep all modules tidy:
+
+```bash
+make gomodtidy
+```
+
+## Before pushing CI fixes
+
+- `git diff` should show only intended changes.
+- Go files should be formatted.
+- If you touched dependencies, `go.mod`/`go.sum` changes should be consistent across modules.
+
+## References
+
+- Chainlink wiki: [Code Style Guide](https://github.com/smartcontractkit/chainlink/wiki/Code-Style-Guide)
+- Go team: [CodeReviewComments](https://go.dev/wiki/CodeReviewComments)
+- Go team: [Effective Go](https://go.dev/doc/effective_go)

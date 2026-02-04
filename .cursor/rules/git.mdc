@@ -1,0 +1,54 @@
+---
+description: Git workflow and safety rules for working in smartcontractkit/chainlink (staging discipline, rebasing/conflict resolution, worktrees, and non-destructive defaults).
+alwaysApply: true
+---
+
+# Git Rules (Chainlink)
+
+## Safety + auth
+
+- If SSH auth or commit signing prompts/hangs, **touch the YubiKey**. Never bypass signing/auth.
+- Prefer non-destructive commands. Avoid rewriting history unless necessary.
+- Never run destructive commands (`git reset --hard`, `git clean -fd`, force push) unless the user explicitly confirms.
+
+## Repo hygiene
+
+- Before cloning anything, check `~/repos/` first.
+- Prefer `git worktree` over extra clones when juggling multiple branches.
+  - Naming convention: `~/repos/chainlink.wt/{branch-name}`
+
+## Keeping branches up to date (conflicts)
+
+- Prefer rebasing your feature branch onto the base branch (usually `develop`) when resolving merge conflicts:
+
+```bash
+git fetch origin develop
+git rebase origin/develop
+```
+
+- During conflicts:
+  - `git status` to list unmerged paths
+  - resolve conflict markers, keep intended behavior
+  - `git add <files>`
+  - `git rebase --continue`
+
+- If you must update a rebased branch on the remote, use `--force-with-lease` (never plain `--force`) and only with explicit confirmation.
+
+## Staging + commits
+
+- Always review:
+  - `git status`
+  - `git diff`
+  - `git diff --staged`
+- Stage **only** the files you intend to change:
+  - Prefer `git add <specific-file>` (never `git add .` / `git add -A` if there are pre-existing changes).
+- Do not create commits unless explicitly asked.
+  - When asked, propose a short commit title first; add a description only if requested.
+
+## Diffs / reporting
+
+- When showing diffs with stats, avoid truncated paths:
+
+```bash
+git diff --stat=200
+```
