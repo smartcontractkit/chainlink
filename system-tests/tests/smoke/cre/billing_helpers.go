@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"context"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
