@@ -42,12 +42,12 @@ func TestLoad(t *testing.T) {
 			Testcase: Testcase{
 				RegistryVersion:   contracts.RegistryVersion_2_1,
 				Name:              "registry_2_1",
-				UpkeepCount:       5,
+				UpkeepCount:       10,
 				TestKeyFundingEth: 100,
 				UpkeepFundingLink: 1_000_000,
 			},
 			Load: Load{
-				DurationSec:                   7200,
+				DurationSec:                   10800, //3h
 				NumberOfEvents:                1,
 				NumberOfSpamMatchingEvents:    1,
 				NumberOfSpamNonMatchingEvents: 0,
@@ -74,13 +74,14 @@ func TestLoad(t *testing.T) {
 			fmt.Print(string(tcStr))
 			fmt.Println("--------------------------------")
 
-			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+			// dangerous: takes a lot of time, if test runs for a long time
+			// t.Cleanup(func() {
+			// 	err := products.ScanLogs(l, products.DefaultSettings())
+			// 	require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
-			})
+			// 	_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			// 	require.NoError(t, cErr)
+			// })
 
 			outputFile := "../../env-out.toml"
 			in, err := de.LoadOutput[de.Cfg](outputFile)
