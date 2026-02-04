@@ -97,8 +97,9 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 	req.Metadata.SpendLimits = nil
 	family, familyErr := getWriteReportFamily(msg)
 	if familyErr != nil {
-		return [32]byte{}, err
+		return [32]byte{}, familyErr
 	}
+
 	var payload *anypb.Any
 	switch family {
 	case writeReportFamilyEVM:
@@ -106,6 +107,7 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
 			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
 		}
+		fmt.Println("rep", wrReq.Report)
 		if wrReq.Report == nil {
 			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
 		}
@@ -129,6 +131,9 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
 		}
+	default:
+		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
+
 	}
 
 	req.Payload = payload

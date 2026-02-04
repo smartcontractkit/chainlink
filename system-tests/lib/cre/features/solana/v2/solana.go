@@ -18,7 +18,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -36,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
@@ -170,20 +168,20 @@ func createJobs(
 	for _, workerNode := range workerNodes {
 		key, ok := workerNode.Keys.Solana[chainID]
 		if !ok {
-			return fmt.Errorf("failed to get solana key (chainID %d, node index %d)", chainID, workerNode.Index)
+			return fmt.Errorf("failed to get solana key (chainID %s, node index %d)", chainID, workerNode.Index)
 		}
 
 		version := creEnv.ContractVersions[ks_sol.ForwarderContract.String()]
 
 		creForwarderKey := datastore.NewAddressRefKey(
 			solChain.ChainSelector(),
-			datastore.ContractType(ks_sol.ForwarderContract),
+			ks_sol.ForwarderContract,
 			version,
 			ks_sol.DefaultForwarderQualifier,
 		)
 		creForwarderStateKey := datastore.NewAddressRefKey(
 			solChain.ChainSelector(),
-			datastore.ContractType(ks_sol.ForwarderState),
+			ks_sol.ForwarderState,
 			version,
 			ks_sol.DefaultForwarderQualifier,
 		)
@@ -339,30 +337,6 @@ func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data input
 	return nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.NodeSet, currentConfig string, selector uint64) (*string, error) {
-	var typedConfig corechainlink.Config
-	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
-	if unmarshallErr != nil {
-		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
-	}
-
-	// local CRE supports only 1 solana chain per environment
-	if len(typedConfig.Solana) != 1 {
-		return nil, fmt.Errorf("unexpected length of solana chain configs, expected 1, got %d", len(typedConfig.Solana))
-	}
-
-	skip := true
-	typedConfig.Solana[0].Chain.SkipPreflight = &skip
-	t, _ := config.NewDuration(time.Second * 30)
-	typedConfig.Solana[0].Chain.TxRetentionTimeout = &t
-
-	stringifiedConfig, mErr := toml.Marshal(typedConfig)
-	if mErr != nil {
-		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
-	}
-	return ptr.Ptr(string(stringifiedConfig)), nil
-}
-
 func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *solchain.Blockchain) (*string, *string, error) {
 	memoryDatastore, err := contracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
 	if err != nil {
@@ -436,7 +410,7 @@ func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 	}
 
 	var mErr error
-	data.WorkflowConfig, mErr = don.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
+	data.WorkflowConfig, mErr = credon.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
 	if mErr != nil {
 		return nil, errors.Wrap(mErr, "failed to apply runtime values")
 	}
@@ -469,7 +443,7 @@ func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 
 	configStr := configBuffer.String()
 
-	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
+	if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
 		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
@@ -557,20 +531,6 @@ func configureForwarders(
 	}
 
 	return nil
-}
-
-func findSolFromAddress(workerNode *cre.NodeMetadata, selector uint64) (solanago.PublicKey, error) {
-	chainID, chErr := chainselectors.SolanaChainIdFromSelector(selector)
-	if chErr != nil {
-		return solanago.PublicKey{}, errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", selector)
-	}
-
-	key, ok := workerNode.Keys.Solana[chainID]
-	if !ok {
-		return solanago.PublicKey{}, fmt.Errorf("missing Solana key for chainID %s on node index %d", chainID, workerNode.Index)
-	}
-
-	return key.PublicAddress, nil
 }
 
 func extractSolanaFromEnv(creEnv *cre.Environment) *solchain.Blockchain {

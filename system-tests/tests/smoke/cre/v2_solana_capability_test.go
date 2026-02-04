@@ -2,7 +2,6 @@ package cre
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -83,16 +82,6 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	waitForFeedUpdate(t, solChain.SolClient, &s)
 }
 
-func createReportHash(dataID []byte, forwarderAuthority []byte, workflowOwner []byte, workflowName []byte) [32]byte {
-	var data []byte
-	data = append(data, dataID...)
-	data = append(data, forwarderAuthority...)
-	data = append(data, workflowOwner...)
-	data = append(data, workflowName...)
-
-	return sha256.Sum256(data)
-}
-
 func getSolChain(t *testing.T, ds datastore.DataStore, s *setup, bcs []blockchains.Blockchain) *solana.Blockchain {
 	var solChain *solana.Blockchain
 	for _, w := range bcs {
@@ -122,17 +111,6 @@ func dataIDtoBytes(dataID string) ([16]byte, error) {
 
 	copy(out[:], bigID.Bytes())
 	return out, nil
-}
-
-func deriveForwarderAuthority(forwarderState solgo.PublicKey, receiverProgram solgo.PublicKey, forwarderProgram solgo.PublicKey) (solgo.PublicKey, error) {
-	seeds := [][]byte{
-		[]byte("forwarder"),
-		forwarderState[:],
-		receiverProgram[:],
-	}
-	ret, _, err := solgo.FindProgramAddress(seeds, forwarderProgram)
-
-	return ret, err
 }
 
 func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
