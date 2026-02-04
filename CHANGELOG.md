@@ -1,5 +1,21 @@
 # Changelog Chainlink Core
 
+## 2.33.0
+
+### Minor Changes
+
+- [#20749](https://github.com/smartcontractkit/chainlink/pull/20749) [`7c60a20`](https://github.com/smartcontractkit/chainlink/commit/7c60a208545f1d58db39cb8296c6c218a259dac0) - Minor bump to start next version
+
+### Patch Changes
+
+- [#20861](https://github.com/smartcontractkit/chainlink/pull/20861) [`575232b`](https://github.com/smartcontractkit/chainlink/commit/575232b023181091adad65e425ff3e0b86a1083b) - #internal chore(cre): bumps consensus capability to include user error for too large observations
+
+- [#20766](https://github.com/smartcontractkit/chainlink/pull/20766) [`6487df6`](https://github.com/smartcontractkit/chainlink/commit/6487df63fa63a50c9e7408b2c1c8bac66d50b5d9) - #updated chain-selectors version to 1.0.88
+
+- [#20926](https://github.com/smartcontractkit/chainlink/pull/20926) [`42581da`](https://github.com/smartcontractkit/chainlink/commit/42581dad642893b61767ed3e3bf4ce3334b7a29f) - #changed Send custom event on atlas error and split MetaClient errors from RPC errors
+
+- [#20941](https://github.com/smartcontractkit/chainlink/pull/20941) [`2420fc6`](https://github.com/smartcontractkit/chainlink/commit/2420fc6bfe4c8c780cb8948d54363cba22d03d2e) - #internal consistent error handling in app startup
+
 ## 2.32.0
 
 ### Minor Changes
