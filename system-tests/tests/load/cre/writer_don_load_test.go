@@ -152,16 +152,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		return []*cretypes.NodeSet{
 			{
 				Input:        input[0],
-				Capabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability},
-				// TODO quick hack, this needs to be migrated to TOML
-				ChainCapabilities: map[string]*cretypes.ChainCapabilityConfig{
-					cretypes.WriteEVMCapability: {
-						EnabledChains: []uint64{1337},
-					},
-				},
-				// TODO quick hack, this needs to be removed after the migration to TOML
-				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability, "write-evm-1337"},
-				DONTypes:             []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
+				Capabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability, "write-evm-1337"},
+				DONTypes:     []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
 			},
 		}
 	}

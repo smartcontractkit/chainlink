@@ -1074,6 +1074,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			case job.CRESettings:
 				// Only possible to match CRE Setting by external job id
 				// no-op
+			case job.CCVCommitteeVerifier, job.CCVExecutor:
+				// Only possible to match CCV jobs by external job id
+				// no-op
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}

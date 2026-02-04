@@ -145,6 +145,7 @@ func TestNode_ChainConfigs(t *testing.T) {
 					{
 						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+						NetworkType:   chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.NetworkType,
 					}: {
 						KeyBundleID:               "bundle1",
 						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),
@@ -184,6 +185,7 @@ func TestNode_ChainConfigs(t *testing.T) {
 					{
 						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+						NetworkType:   chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.NetworkType,
 					}: {
 						KeyBundleID:               "bundle1",
 						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),
@@ -390,6 +392,7 @@ func TestNewNodeFromJD(t *testing.T) {
 					{
 						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+						NetworkType:   chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.NetworkType,
 					}: {
 						KeyBundleID:               "bundle1",
 						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),

@@ -1485,6 +1485,34 @@ ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 ```
 ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
 
+## Capabilities.WorkflowRegistry.AdditionalSources
+```toml
+[[Capabilities.WorkflowRegistry.AdditionalSources]]
+URL = 'localhost:50051' # Example
+TLSEnabled = true # Default
+Name = 'my-workflow-source' # Example
+```
+
+
+### URL
+```toml
+URL = 'localhost:50051' # Example
+```
+URL is the GRPC endpoint for the additional workflow metadata source.
+This allows workflows to be loaded from sources other than the on-chain registry contract.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS for the GRPC connection. Defaults to true.
+
+### Name
+```toml
+Name = 'my-workflow-source' # Example
+```
+Name is a required unique identifier for this workflow source. Each additional source must have a distinct name to prevent workflow reconciliation conflicts. Names like 'ContractWorkflowSource' are reserved for internal use.
+
 ## Workflows
 ```toml
 [Workflows]

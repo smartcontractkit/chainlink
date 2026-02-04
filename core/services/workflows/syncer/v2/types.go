@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -50,6 +52,12 @@ type WorkflowMetadataView struct {
 	Tag          string
 	Attributes   []byte
 	DonFamily    string
+	// Source identifies where this workflow metadata came from.
+	// Format varies by source type:
+	//   - Onchain contract: "contract:{chain_selector}:{contract_address}"
+	//   - GRPC source:      "grpc:{source_name}:v1"
+	//   - File source:      "file:{source_name}:v1"
+	Source string
 }
 
 type GetWorkflowListByDONParams struct {
@@ -95,6 +103,7 @@ type WorkflowRegisteredEvent struct {
 	ConfigURL     string
 	Tag           string
 	Attributes    []byte
+	Source        string // source that provided this workflow metadata
 }
 
 type WorkflowActivatedEvent struct {
@@ -108,6 +117,7 @@ type WorkflowActivatedEvent struct {
 	ConfigURL     string
 	Tag           string
 	Attributes    []byte
+	Source        string // source that provided this workflow metadata
 }
 
 type WorkflowPausedEvent struct {
@@ -121,8 +131,28 @@ type WorkflowPausedEvent struct {
 	ConfigURL     string
 	Tag           string
 	Attributes    []byte
+	Source        string
 }
 
 type WorkflowDeletedEvent struct {
 	WorkflowID types.WorkflowID
+	Source     string
+}
+
+// WorkflowMetadataSource is an interface for fetching workflow metadata from various sources.
+// This abstraction allows the workflow registry syncer to aggregate workflows from multiple
+// sources (e.g., on-chain contract, file-based, API-based) while treating them uniformly.
+type WorkflowMetadataSource interface {
+	// ListWorkflowMetadata returns all workflow metadata for the given DON.
+	ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error)
+
+	// Name returns a human-readable name for this source.
+	Name() string
+
+	// SourceIdentifier returns the source identifier used in WorkflowMetadataView.Source.
+	// This identifier is used in engine registry lookups and to differeniate between wf registries in workflow events.
+	SourceIdentifier() string
+
+	// Ready returns nil if the source is ready to be queried.
+	Ready() error
 }

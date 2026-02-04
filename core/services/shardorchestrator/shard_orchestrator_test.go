@@ -11,18 +11,17 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator/pb"
-	shardorchestratorservice "github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
 // setupShardOrchestrator creates a test ShardOrchestrator and returns the store, client, and cleanup function
-func setupShardOrchestrator(t *testing.T) (*shardorchestrator.Store, pb.ShardOrchestratorServiceClient, func()) {
+func setupShardOrchestrator(t *testing.T) (*shardorchestrator.Store, ringpb.ShardOrchestratorServiceClient, func()) {
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 
 	ctx := context.Background()
-	orchestrator := shardorchestratorservice.New(0, store, lggr)
+	orchestrator := shardorchestrator.New(0, store, lggr)
 
 	err := orchestrator.Start(ctx)
 	require.NoError(t, err)
@@ -38,7 +37,7 @@ func setupShardOrchestrator(t *testing.T) (*shardorchestrator.Store, pb.ShardOrc
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 
-	client := pb.NewShardOrchestratorServiceClient(conn)
+	client := ringpb.NewShardOrchestratorServiceClient(conn)
 
 	cleanup := func() {
 		conn.Close()
@@ -62,7 +61,7 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 		require.NoError(t, err)
 
 		// Call the gRPC endpoint
-		resp, err := client.GetWorkflowShardMapping(ctx, &pb.GetWorkflowShardMappingRequest{
+		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 			WorkflowIds: []string{"workflow1", "workflow2"},
 		})
 
@@ -81,7 +80,7 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 		ctx := context.Background()
 
 		// Call with empty workflow IDs
-		resp, err := client.GetWorkflowShardMapping(ctx, &pb.GetWorkflowShardMappingRequest{
+		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 			WorkflowIds: []string{},
 		})
 
@@ -99,7 +98,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		ctx := context.Background()
 
 		// Report workflows registered on a shard
-		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &pb.ReportWorkflowTriggerRegistrationRequest{
+		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId: 2,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow1": 1,
@@ -120,7 +119,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		ctx := context.Background()
 
 		// Report with no workflows
-		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &pb.ReportWorkflowTriggerRegistrationRequest{
+		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId:        3,
 			RegisteredWorkflows:  map[string]uint32{},
 			TotalActiveWorkflows: 0,
@@ -138,7 +137,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		ctx := context.Background()
 
 		// Multiple shards reporting different workflows
-		resp1, err := client.ReportWorkflowTriggerRegistration(ctx, &pb.ReportWorkflowTriggerRegistrationRequest{
+		resp1, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId: 1,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow1": 1,
@@ -148,7 +147,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, resp1.Success)
 
-		resp2, err := client.ReportWorkflowTriggerRegistration(ctx, &pb.ReportWorkflowTriggerRegistrationRequest{
+		resp2, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId: 2,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow2": 1,
@@ -174,7 +173,7 @@ func TestShardOrchestrator_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Step 2: Shard 1 reports it has registered workflow-a
-		reportResp, err := client.ReportWorkflowTriggerRegistration(ctx, &pb.ReportWorkflowTriggerRegistrationRequest{
+		reportResp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId: 1,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow-a": 1,
@@ -185,7 +184,7 @@ func TestShardOrchestrator_Integration(t *testing.T) {
 		assert.True(t, reportResp.Success)
 
 		// Step 3: Another shard queries for the mapping
-		mappingResp, err := client.GetWorkflowShardMapping(ctx, &pb.GetWorkflowShardMappingRequest{
+		mappingResp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 			WorkflowIds: []string{"workflow-a", "workflow-b"},
 		})
 		require.NoError(t, err)

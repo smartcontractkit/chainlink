@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -33,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -40,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 const chainID = 1337
@@ -55,7 +56,7 @@ func NewReader(
 	address common.Address,
 	chainReaderConfig config.ChainReaderConfig,
 ) types.ContractReader {
-	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Test(t), logPoller, headTracker, client, chainReaderConfig)
+	cr, err := read.NewChainReaderService(testutils.Context(t), logger.Test(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
 	err = cr.Bind(testutils.Context(t), []types.BoundContract{
 		{
@@ -158,7 +159,7 @@ func (t TestUniverse) NewContractReader(ctx context.Context, cfg []byte) (types.
 	var config config.ChainReaderConfig
 	err := json.Unmarshal(cfg, &config)
 	require.NoError(t.TestingT, err)
-	return evm.NewChainReaderService(ctx, logger.Test(t.TestingT), t.LogPoller, t.HeadTracker, t.SimClient, config)
+	return read.NewChainReaderService(ctx, logger.Test(t.TestingT), t.LogPoller, t.HeadTracker, t.SimClient, config)
 }
 
 func P2pIDsFromInts(ints []int64) [][32]byte {

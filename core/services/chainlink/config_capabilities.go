@@ -232,6 +232,14 @@ func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage 
 	}
 }
 
+func (c *capabilitiesWorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource {
+	sources := make([]config.AdditionalWorkflowSource, len(c.c.AdditionalSourcesConfig))
+	for i, src := range c.c.AdditionalSourcesConfig {
+		sources[i] = &additionalWorkflowSource{c: src}
+	}
+	return sources
+}
+
 type workflowStorage struct {
 	c toml.WorkflowStorage
 }
@@ -246,6 +254,31 @@ func (c *workflowStorage) TLSEnabled() bool {
 
 func (c *workflowStorage) ArtifactStorageHost() string {
 	return *c.c.ArtifactStorageHost
+}
+
+type additionalWorkflowSource struct {
+	c toml.AdditionalWorkflowSource
+}
+
+func (a *additionalWorkflowSource) GetURL() string {
+	if a.c.URL == nil {
+		return ""
+	}
+	return *a.c.URL
+}
+
+func (a *additionalWorkflowSource) GetTLSEnabled() bool {
+	if a.c.TLSEnabled == nil {
+		return true // Default to true
+	}
+	return *a.c.TLSEnabled
+}
+
+func (a *additionalWorkflowSource) GetName() string {
+	if a.c.Name == nil {
+		return ""
+	}
+	return *a.c.Name
 }
 
 type gatewayConnector struct {
