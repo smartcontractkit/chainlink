@@ -70,7 +70,6 @@ func PrepareNodeTOMLs(
 		configsFound := 0
 		secretsFound := 0
 		nodeSet := localNodeSets[i]
-		fmt.Println("nodeset donID:", i, "meta", donMetadata.Name)
 		for _, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestConfigOverrides != "" {
 				configsFound++
