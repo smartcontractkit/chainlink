@@ -32,8 +32,9 @@ func acceptOwnershipLogic(env cldf.Environment, c types.AcceptOwnershipConfig) (
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 		}
 		mcmsProposals = append(mcmsProposals, ProposalData{
-			contract: contract.Address().Hex(),
-			tx:       tx,
+			contract:          contract.Address().Hex(),
+			tx:                tx,
+			timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 		})
 	}
 

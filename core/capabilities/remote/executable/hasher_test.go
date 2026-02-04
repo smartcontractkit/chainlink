@@ -52,7 +52,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
 
-	msgBody := &types.MessageBody{Payload: capReqBytes}
+	msgBody := &types.MessageBody{Payload: capReqBytes, CapabilityId: "evm:123"}
 
 	hasher := NewWriteReportExcludeSignaturesHasher()
 	_, err = hasher.Hash(msgBody)
@@ -149,7 +149,8 @@ func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
 	return &types.MessageBody{
-		Payload: capReqBytes,
+		Payload:      capReqBytes,
+		CapabilityId: "evm:123",
 	}
 }
 
@@ -206,6 +207,7 @@ func getWriteReportRequestWithSpendLimits(t *testing.T, data []byte, sigs [][]by
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
 	return &types.MessageBody{
-		Payload: capReqBytes,
+		Payload:      capReqBytes,
+		CapabilityId: "evm:2321",
 	}
 }

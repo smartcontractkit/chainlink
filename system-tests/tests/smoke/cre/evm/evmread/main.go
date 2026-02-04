@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"runtime/debug"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -26,8 +25,8 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 )
 
 func main() {
@@ -49,36 +48,37 @@ func RunReadWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider sdk
 	}, nil
 }
 
-func onReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Payload) (_ any, _ error) {
+func onReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Payload) (_ any, err error) {
 	runtime.Logger().Info("onReadTrigger called", "payload", payload)
 	defer func() {
 		if r := recover(); r != nil {
-			runtime.Logger().Error("recovered from panic", "recovered", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
 	t := &T{Logger: runtime.Logger()}
 	client := evm.Client{ChainSelector: cfg.ChainSelector}
-	requireBalance(t, runtime, cfg, client)
-	runtime.Logger().Info("Successfully got balance")
+	switch cfg.TestCase {
+	case config.TestCaseEVMReadBalance:
+		requireBalance(t, runtime, cfg, client)
+	case config.TestCaseEVMReadHeaders:
+		requireHeaderByNumber(t, runtime, client)
+	case config.TestCaseEVMReadEvents:
+		requireEvent(t, cfg, runtime, client)
+	case config.TestCaseEVMReadCallContract:
+		requireContractCall(t, cfg, runtime, client)
+	case config.TestCaseEVMReadTransactionReceipt:
+		requireReceipt(t, runtime, cfg, client)
+	case config.TestCaseEVMReadBTx:
+		requireTx(t, runtime, cfg, client)
+	case config.TestCaseEVMEstimateGas:
+		requireEstimatedGas(t, runtime, cfg, client)
+	case config.TestCaseEVMReadNotFoundTx:
+		requireError(t, runtime, cfg, client)
+	default:
+		panic(fmt.Sprintf("unexpected test case: %s", cfg.TestCase))
+	}
 
-	latestHeadNumber := requireLatestBlockNumber(t, runtime, client)
-	runtime.Logger().Info("Successfully got latestHeadNumber")
-
-	requireEvent(t, cfg, runtime, latestHeadNumber, client)
-	runtime.Logger().Info("Successfully got event")
-	requireContractCall(t, cfg, runtime, client)
-	runtime.Logger().Info("Successfully called contract")
-	requireReceipt(t, runtime, cfg, client)
-	runtime.Logger().Info("Successfully got receipt")
-	var expectedTx types.Transaction
-	err := expectedTx.UnmarshalBinary(cfg.ExpectedBinaryTx)
-	require.NoError(t, err)
-	requireTx(t, runtime, &expectedTx, client)
-	runtime.Logger().Info("Successfully got transaction")
-	requireEstimatedGas(t, runtime, cfg, expectedTx.Data(), client)
-	runtime.Logger().Info("Successfully estimated gas")
-	requireError(t, runtime, cfg, client)
-	runtime.Logger().Info("Successfully got error for non-existing transaction")
+	runtime.Logger().Info("Read workflow test case passed", "testCase", cfg.TestCase.String(), "workflow", cfg.WorkflowName)
 	txHash := sendTx(t, runtime, cfg, client, "EVM read workflow executed successfully")
 	runtime.Logger().Info("Successfully sent transaction", "hash", common.Hash(txHash).String())
 	return
@@ -103,11 +103,15 @@ func requireError(t *T, runtime sdk.Runtime, cfg config.Config, client evm.Clien
 	runtime.Logger().Info("Successfully got error for non-existing transaction", "error", err)
 }
 
-func requireEstimatedGas(t *T, runtime sdk.Runtime, cfg config.Config, txData []byte, client evm.Client) {
+func requireEstimatedGas(t *T, runtime sdk.Runtime, cfg config.Config, client evm.Client) {
+	var tx types.Transaction
+	err := tx.UnmarshalBinary(cfg.ExpectedBinaryTx)
+	require.NoError(t, err)
+
 	estimatedGasReply, err := client.EstimateGas(runtime, &evm.EstimateGasRequest{
 		Msg: &evm.CallMsg{
 			To:   cfg.ContractAddress,
-			Data: txData,
+			Data: tx.Data(),
 		},
 	}).Await()
 	require.NoError(t, err, "failed to estimate gas")
@@ -115,7 +119,10 @@ func requireEstimatedGas(t *T, runtime sdk.Runtime, cfg config.Config, txData []
 	require.Greater(t, estimatedGasReply.Gas, uint64(0), "Estimated gas should greater than 0")
 }
 
-func requireTx(t *T, runtime sdk.Runtime, expectedTx *types.Transaction, client evm.Client) {
+func requireTx(t *T, runtime sdk.Runtime, cfg config.Config, client evm.Client) {
+	var expectedTx types.Transaction
+	err := expectedTx.UnmarshalBinary(cfg.ExpectedBinaryTx)
+	require.NoError(t, err)
 	txReply, err := client.GetTransactionByHash(runtime, &evm.GetTransactionByHashRequest{Hash: expectedTx.Hash().Bytes()}).Await()
 	require.NoError(t, err, "failed to get transaction by hash")
 	require.NotNil(t, txReply, "GetTransactionByHashReply should not be nil")
@@ -179,7 +186,7 @@ func requireContractCall(t *T, cfg config.Config, runtime sdk.Runtime, client ev
 	require.Equal(t, "getMessage returns: "+callArg, string(result))
 }
 
-func requireLatestBlockNumber(t *T, runtime sdk.Runtime, client evm.Client) int64 {
+func requireHeaderByNumber(t *T, runtime sdk.Runtime, client evm.Client) {
 	headerToFetch := []rpc.BlockNumber{rpc.FinalizedBlockNumber, rpc.SafeBlockNumber, rpc.LatestBlockNumber}
 	var prevHeaderNumber *big.Int
 	for _, headToFetch := range headerToFetch {
@@ -197,7 +204,6 @@ func requireLatestBlockNumber(t *T, runtime sdk.Runtime, client evm.Client) int6
 		}
 		prevHeaderNumber = headerNumber
 	}
-	return prevHeaderNumber.Int64()
 }
 
 func sendTx(t *T, runtime sdk.Runtime, cfg config.Config, client evm.Client, msg string) []byte {
@@ -219,8 +225,14 @@ func sendTx(t *T, runtime sdk.Runtime, cfg config.Config, client evm.Client, msg
 	require.NotNil(t, reportReply)
 	return reportReply.TxHash
 }
+func requireEvent(t *T, cfg config.Config, runtime sdk.Runtime, client evm.Client) {
+	headerReply, err := client.HeaderByNumber(runtime, &evm.HeaderByNumberRequest{BlockNumber: pb.NewBigIntFromInt(big.NewInt(rpc.LatestBlockNumber.Int64()))}).Await()
+	require.NoError(t, err)
+	require.NotNil(t, headerReply, "HeaderByNumberReply should not be nil")
+	require.NotNil(t, headerReply.Header, "Header should not be nil")
+	latestHeadNumber := pb.NewIntFromBigInt(headerReply.Header.BlockNumber).Int64()
+	runtime.Logger().Info("Fetched latest block", "blockNumber", latestHeadNumber)
 
-func requireEvent(t *T, cfg config.Config, runtime sdk.Runtime, latestHeadNumber int64, client evm.Client) {
 	const blocksStep = 100
 	foundEvent := false
 	for ; latestHeadNumber > 0; latestHeadNumber -= blocksStep {
@@ -247,14 +259,20 @@ func (t *T) Errorf(format string, args ...interface{}) {
 	// if the log was produced by require/assert we need to split it, as engine does not allow logs longer than 1k bytes
 	if len(args) > 0 {
 		if msg, ok := args[0].(string); ok && strings.Contains(msg, "Error:") && strings.Contains(msg, "Error Trace:") {
-			for _, line := range strings.Split(msg, "Error:") {
-				t.Logger.Error(line)
+			var out []string
+			for _, line := range strings.Split(msg, "\n") {
+				if strings.Contains(line, "Error Trace") {
+					continue
+				}
+
+				out = append(out, line)
 			}
+
+			t.Logger.Error(strings.Join(out, ";"))
 			return
 		}
 	}
 	t.Logger.Error(fmt.Sprintf(format, args...))
-	panic(fmt.Sprintf(format, args...)) // panic to stop execution
 }
 
 func (t *T) FailNow() {

@@ -14,41 +14,32 @@ jobs:
     permissions:
       contents: read
     outputs:
-      git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
-      ecr-image-name: ${{ steps.check-git-tag-type.outputs.ecr-image-name }}
       is-release: ${{ steps.release-tag-check.outputs.is-release }}
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
+      ccip-image-tag: ${{ steps.compute-ccip-tag.outputs.ccip-image-tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Check git tag type
-        id: check-git-tag-type
-        shell: bash
-        env:
-          GIT_TAG: ${{ github.ref_name}}
-        run: |
-          # Check if git tag is related to CCIP
-          # Should match:
-          #   v2.23.1-ccip1.5
-          #   v2.23.1-ccip1.5-beta.0
-          #   v2.23.1-ccip1.5-rc.1
-          #   v2.23.1-ccip
-          regex_pattern='^v[0-9]+\.[0-9]+\.[0-9]+-ccip.*$'
-          if [[ $GIT_TAG =~ $regex_pattern ]]; then
-            echo "git-tag-type=ccip" | tee -a "$GITHUB_OUTPUT"
-            echo "ecr-image-name=chainlink/ccip" | tee -a "$GITHUB_OUTPUT"
-          else
-            echo "git-tag-type=core" | tee -a "$GITHUB_OUTPUT"
-            echo "ecr-image-name=chainlink/chainlink" | tee -a "$GITHUB_OUTPUT"
-          fi
       - name: Check release tag
         id: release-tag-check
         uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
+      - name: Compute CCIP image tag
+        id: compute-ccip-tag
+        shell: bash
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          # Compute CCIP-specific image tag by inserting '-ccip' before pre-release identifier
+          # Examples:
+          #   v2.34.0-rc.1   -> 2.34.0-ccip-rc.1
+          #   v2.34.0-beta.0 -> 2.34.0-ccip-beta.0
+          tag_without_v="${GIT_TAG#v}"
+          ccip_tag=$(echo "$tag_without_v" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-(.*)$/\1-ccip-\2/')
+          echo "ccip-image-tag=$ccip_tag" | tee -a "$GITHUB_OUTPUT"
       - name: Check for VERSION file bump on tags
-        # Avoids checking VERSION file bump on forks or from CCIP releases.
-        if: ${{ github.repository == 'smartcontractkit/chainlink' && steps.check-git-tag-type.outputs.git-tag-type == 'core' }}
+        if: ${{ github.repository == 'smartcontractkit/chainlink' }}
         uses: ./.github/actions/version-file-bump
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -57,7 +48,7 @@ jobs:
     needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
-    if: needs.checks.outputs.git-tag-type == 'core' && needs.checks.outputs.is-pre-release == 'true'
+    if: needs.checks.outputs.is-pre-release == 'true'
     permissions:
       contents: read
       id-token: write
@@ -89,7 +80,9 @@ jobs:
 
   docker-ccip:
     needs: [checks]
-    if: needs.checks.outputs.git-tag-type == 'ccip'
+    # No need to build the final image as we promote the last RC to use the final tag
+    # so we only run the builds for pre-releases.
+    if: needs.checks.outputs.is-pre-release == 'true'
     permissions:
       contents: read
       id-token: write
@@ -110,7 +103,7 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
-      docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
+      docker-image-tag-override: ${{ needs.checks.outputs.ccip-image-tag }}
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -124,11 +117,11 @@ jobs:
 
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
-  slack-notify-prereleases:
+  slack-notify-core:
     permissions:
       contents: read
-    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success') && needs.checks.outputs.is-pre-release == 'true'
-    needs: [checks, docker-core, docker-ccip]
+    if: always() && needs.docker-core.result == 'success'
+    needs: [checks, docker-core]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
     with:
@@ -145,12 +138,35 @@ jobs:
       docker-image-name: >-
         ${{
           format(
-            'public.ecr.aws/{0}:{1}',
-            needs.checks.outputs.ecr-image-name,
-            needs.docker-core.outputs.docker-manifest-tag || needs.docker-ccip.outputs.docker-manifest-tag
+            'public.ecr.aws/chainlink/chainlink:{0}',
+            needs.docker-core.outputs.docker-manifest-tag
           )
         }}
-      docker-image-digest: >-
+      docker-image-digest: ${{ needs.docker-core.outputs.docker-manifest-digest }}
+
+  slack-notify-ccip:
+    permissions:
+      contents: read
+    if: always() && needs.docker-ccip.result == 'success'
+    needs: [checks, docker-ccip]
+    uses: ./.github/workflows/release-notifications.yml
+    secrets: inherit
+    with:
+      git-ref: ${{ github.ref_name }}
+      git-ref-type: ${{ github.ref_type }}
+      changelog-url: >-
         ${{
-          needs.docker-core.outputs.docker-manifest-digest || needs.docker-ccip.outputs.docker-manifest-digest
+          format(
+            'https://github.com/{0}/blob/{1}/CHANGELOG.md',
+            github.repository,
+            github.ref_name
+          )
         }}
+      docker-image-name: >-
+        ${{
+          format(
+            'public.ecr.aws/chainlink/ccip:{0}',
+            needs.docker-ccip.outputs.docker-manifest-tag
+          )
+        }}
+      docker-image-digest: ${{ needs.docker-ccip.outputs.docker-manifest-digest }}

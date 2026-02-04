@@ -7,17 +7,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	solanago "github.com/gagliardetto/solana-go"
 	solgo "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-	"github.com/stretchr/testify/require"
 )
 
 var _ rpc.Client
@@ -77,18 +76,6 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	require.NoError(t, err)
 	copy(workflowConfig.WFName[:], b)
 	workflowConfig.WFOwner = s.WFOwner
-	authority, err := deriveForwarderAuthority(workflowConfig.ForwarderState, workflowConfig.Receiver, workflowConfig.ForwarderProgramID)
-	hash := createReportHash(workflowConfig.FeedID[:], authority.Bytes(), workflowConfig.WFOwner[:], workflowConfig.WFName[:])
-	require.NoError(t, err)
-	log.Printf("~~ repHash:%x dataID: %x,sender:%x  owner: %x, name: %x", hash, workflowConfig.FeedID, authority, workflowConfig.WFOwner, workflowConfig.WFName)
-	writeFlagSeeds := [][]byte{
-		[]byte("permission_flag"),
-		workflowConfig.ReceiverState.Bytes(),
-		hash[:],
-	}
-
-	writeFlagKey, _, err := solgo.FindProgramAddress(writeFlagSeeds, workflowConfig.Receiver)
-	log.Printf("~~~write flag: %x name: %x length: %d", writeFlagKey, b, len(b))
 	const workflowFileLocation = "./solana/solwrite/main.go"
 
 	t_helpers.CompileAndDeployWorkflow(t,
@@ -96,16 +83,6 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 		workflowFileLocation)
 
 	waitForFeedUpdate(t, solChain.SolClient, &s)
-}
-
-func createReportHash(dataID []byte, forwarderAuthority []byte, workflowOwner []byte, workflowName []byte) [32]byte {
-	var data []byte
-	data = append(data, dataID...)
-	data = append(data, forwarderAuthority...)
-	data = append(data, workflowOwner...)
-	data = append(data, workflowName...)
-
-	return sha256.Sum256(data)
 }
 
 func getSolChain(t *testing.T, ds datastore.DataStore, s *setup, bcs []blockchains.Blockchain) *solana.Blockchain {
@@ -137,17 +114,6 @@ func dataIDtoBytes(dataID string) ([16]byte, error) {
 
 	copy(out[:], bigID.Bytes())
 	return out, nil
-}
-
-func deriveForwarderAuthority(forwarderState solgo.PublicKey, receiverProgram solgo.PublicKey, forwarderProgram solgo.PublicKey) (solgo.PublicKey, error) {
-	seeds := [][]byte{
-		[]byte("forwarder"),
-		forwarderState[:],
-		receiverProgram[:],
-	}
-	ret, _, err := solgo.FindProgramAddress(seeds, forwarderProgram)
-
-	return ret, err
 }
 
 func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
@@ -226,7 +192,7 @@ func parsePackedU128(le [16]byte) (amount *big.Int, block uint64, unused uint8) 
 	return
 }
 
-func getDecimalReportAccount(t *testing.T, s *setup) solanago.PublicKey {
+func getDecimalReportAccount(t *testing.T, s *setup) solgo.PublicKey {
 	dataID, _ := new(big.Int).SetString(s.FeedID, 0)
 	var data [16]byte
 	copy(data[:], dataID.Bytes())
@@ -235,17 +201,17 @@ func getDecimalReportAccount(t *testing.T, s *setup) solanago.PublicKey {
 		s.CacheState.Bytes(),
 		data[:],
 	}
-	decimalReportKey, _, err := solanago.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
+	decimalReportKey, _, err := solgo.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
 	require.NoError(t, err, "failed to derive decimal report key")
 	return decimalReportKey
 }
 
 type setup struct {
 	Selector           uint64
-	ForwarderProgramID solanago.PublicKey
-	ForwarderState     solanago.PublicKey
-	CacheProgramID     solanago.PublicKey
-	CacheState         solanago.PublicKey
+	ForwarderProgramID solgo.PublicKey
+	ForwarderState     solgo.PublicKey
+	CacheProgramID     solgo.PublicKey
+	CacheState         solgo.PublicKey
 
 	FeedID       string
 	Descriptions [][32]byte
@@ -255,9 +221,7 @@ type setup struct {
 
 var (
 	feedID        = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
-	wFName        = "testwf1234"
 	wFDescription = "securemint test"
-	wFOwner       = [20]byte{1, 2, 3}
 	SeqNr         = 5
 	Block         = 10
 	Mintable      = big.NewInt(15)
@@ -290,7 +254,7 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 		ChainSel:           solChain.ChainSelector(),
 		Qualifier:          ks_sol.DefaultForwarderQualifier,
 		Version:            "1.0.0",
-		FeedAdmins:         []solanago.PublicKey{solChain.PrivateKey.PublicKey()},
+		FeedAdmins:         []solgo.PublicKey{solChain.PrivateKey.PublicKey()},
 		ForwarderProgramID: s.ForwarderProgramID,
 	})
 
@@ -328,7 +292,7 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 	s.CacheState = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheState)
 }
 
-func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype datastore.ContractType) solanago.PublicKey {
+func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype datastore.ContractType) solgo.PublicKey {
 	key := datastore.NewAddressRefKey(
 		sel,
 		ctype,
@@ -339,7 +303,7 @@ func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype dat
 
 	require.NoError(t, err)
 
-	return solanago.MustPublicKeyFromBase58(contract.Address)
+	return solgo.MustPublicKeyFromBase58(contract.Address)
 }
 
 func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironment) {
@@ -357,7 +321,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	}
 	require.NotNil(t, solChain, "Solana blockchain not found in test environment")
 
-	logReadTestProgramID := solanago.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
+	logReadTestProgramID := solgo.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
 
 	const expectedU64Value uint64 = 42
 
@@ -388,7 +352,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	require.NoError(t, err, "Log trigger should have received TestEvent")
 }
 
-func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solanago.PublicKey, value uint64) error {
+func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) error {
 	discriminator := getCreateLogDiscriminator()
 
 	var instructionData []byte
@@ -398,11 +362,11 @@ func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, p
 	binary.LittleEndian.PutUint64(valueBytes, value)
 	instructionData = append(instructionData, valueBytes...)
 
-	instruction := solanago.NewInstruction(
+	instruction := solgo.NewInstruction(
 		programID,
-		solanago.AccountMetaSlice{
+		solgo.AccountMetaSlice{
 			{PublicKey: solChain.PrivateKey.PublicKey(), IsSigner: true, IsWritable: true},
-			{PublicKey: solanago.SystemProgramID, IsSigner: false, IsWritable: false},
+			{PublicKey: solgo.SystemProgramID, IsSigner: false, IsWritable: false},
 		},
 		instructionData,
 	)
@@ -410,7 +374,7 @@ func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, p
 	_, err := solCommonUtil.SendAndConfirm(
 		ctx,
 		solChain.SolClient,
-		[]solanago.Instruction{instruction},
+		[]solgo.Instruction{instruction},
 		solChain.PrivateKey,
 		rpc.CommitmentConfirmed,
 	)

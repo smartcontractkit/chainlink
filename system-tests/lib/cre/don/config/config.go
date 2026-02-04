@@ -24,6 +24,7 @@ import (
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -69,7 +70,6 @@ func PrepareNodeTOMLs(
 		configsFound := 0
 		secretsFound := 0
 		nodeSet := localNodeSets[i]
-		fmt.Println("nodeset donID:", i, "meta", donMetadata.Name)
 		for _, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestConfigOverrides != "" {
 				configsFound++
@@ -113,8 +113,6 @@ func PrepareNodeTOMLs(
 					OCRPeeringData:          ocrPeeringData,
 					RegistryChainSelector:   creEnv.RegistryChainSelector,
 					Topology:                topology,
-					NodeSet:                 localNodeSets[i],
-					CapabilityConfigs:       creEnv.CapabilityConfigs,
 					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
@@ -177,6 +175,19 @@ func PrepareNodeTOMLs(
 
 				// Set TestSecretsOverrides for all providers (needed for features and key access)
 				localNodeSets[i].NodeSpecs[nodeIndex].Node.TestSecretsOverrides = nodeSecretsTOML
+			}
+		}
+	}
+
+	// Transform UserConfigOverrides to use platform-specific Docker host addresses.
+	// This handles differences between macOS (host.docker.internal) and Linux (172.17.0.1)
+	// for URLs in user-provided config overrides (e.g., AdditionalSources).
+	for i := range localNodeSets {
+		for j := range localNodeSets[i].NodeSpecs {
+			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
+				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
+					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
+				)
 			}
 		}
 	}
@@ -315,7 +326,7 @@ func addBootstrapNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -392,7 +403,7 @@ func addWorkerNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -402,6 +413,9 @@ func addWorkerNodeConfig(
 		}
 	}
 
+	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
+	// before resetting Capabilities struct
+	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
@@ -414,6 +428,7 @@ func addWorkerNodeConfig(
 		Dispatcher: coretoml.Dispatcher{
 			SendToSharedPeer: ptr.Ptr(true),
 		},
+		WorkflowRegistry: existingWorkflowRegistry,
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
@@ -434,12 +449,16 @@ func addWorkerNodeConfig(
 	}
 
 	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
+		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields
+		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
+		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
-			NetworkID:       ptr.Ptr("evm"),
-			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-			SyncStrategy:    ptr.Ptr("reconciliation"),
+			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:               ptr.Ptr("evm"),
+			ChainID:                 ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion:         ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:            ptr.Ptr("reconciliation"),
+			AdditionalSourcesConfig: existingAddSources,
 		}
 	}
 
@@ -639,7 +658,7 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 		}
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		if len(input.DonMetadata.NodeSets().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.NodeSets().EVMChains(), bcOut.ChainID()) {
+		if len(input.DonMetadata.MustNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.MustNodeSet().EVMChains(), bcOut.ChainID()) {
 			continue
 		}
 
@@ -766,6 +785,50 @@ func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain
 			},
 		},
 	})
+}
+
+// transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+func transformAdditionalSourceURLs(sources []coretoml.AdditionalWorkflowSource) []coretoml.AdditionalWorkflowSource {
+	if len(sources) == 0 {
+		return sources
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	transformed := make([]coretoml.AdditionalWorkflowSource, len(sources))
+	for i, src := range sources {
+		transformed[i] = src
+		if src.URL != nil {
+			// Replace "host.docker.internal" with the platform-specific host
+			url := *src.URL
+			url = strings.Replace(url, "host.docker.internal", dockerHost, 1)
+			transformed[i].URL = &url
+		}
+	}
+
+	return transformed
+}
+
+// transformUserConfigOverrides transforms URLs in a user config overrides string to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+// This is necessary because UserConfigOverrides is passed directly to containers as a
+// separate config file, bypassing the structured config transformation.
+func transformUserConfigOverrides(userConfig string) string {
+	if userConfig == "" {
+		return userConfig
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	// Replace all occurrences of "host.docker.internal" with the platform-specific host
+	return strings.ReplaceAll(userConfig, "host.docker.internal", dockerHost)
 }
 
 // generateInstanceNames creates Kubernetes-compatible instance names for nodes

@@ -7,11 +7,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 
 	httpactionconfig "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
-	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -120,19 +123,26 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	testID := uuid.New().String()[0:8]
 	workflowName := "http-action-success-workflow-" + httpActionTest.testCase + "-" + testID
-	_ = thelpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-	// Start Beholder listener to capture workflow execution messages
-	listenerCtx, messageChan, kafkaErrChan := thelpers.StartBeholder(t, testLogger, testEnv)
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
 
 	// Wait for workflow execution to complete and verify success
 	testLogger.Info().Msg("Waiting for HTTP Action CRUD operations to complete...")
-	timeout := 60 * time.Second
 
 	// Expect exact success message for this test case
 	expectedMessage := "HTTP Action CRUD success test completed: " + httpActionTest.testCase
-	err := thelpers.AssertBeholderMessage(listenerCtx, t, expectedMessage, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "HTTP Action CRUD success test failed")
+
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedMessage, 4*time.Minute)
 
 	testLogger.Info().Msg("HTTP Action CRUD success test completed")
 }
