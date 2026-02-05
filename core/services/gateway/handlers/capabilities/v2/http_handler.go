@@ -286,6 +286,7 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
 			Headers:                 resp.Headers,
+			MultiHeaders:            resp.MultiHeaders,
 			Body:                    resp.Body,
 			ExternalEndpointLatency: externalEndpointLatency,
 		}
