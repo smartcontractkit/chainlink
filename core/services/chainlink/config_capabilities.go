@@ -1,6 +1,9 @@
 package chainlink
 
 import (
+	"regexp"
+	"sync"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -326,4 +329,82 @@ func (c *connectorGateway) ID() string {
 
 func (c *connectorGateway) URL() string {
 	return *c.c.URL
+}
+
+func (c *capabilitiesConfig) Local() config.LocalCapabilities {
+	return &localCapabilities{c: c.c.Local}
+}
+
+var _ config.LocalCapabilities = (*localCapabilities)(nil)
+
+type localCapabilities struct {
+	c toml.LocalCapabilities
+
+	// compiledRegexes caches compiled regex patterns from RegistryBasedLaunchAllowlist.
+	// Lazily initialized on first call to IsAllowlisted.
+	compiledRegexes []*regexp.Regexp
+	regexOnce       sync.Once
+}
+
+func (l *localCapabilities) RegistryBasedLaunchAllowlist() []string {
+	return l.c.RegistryBasedLaunchAllowlist
+}
+
+func (l *localCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
+	if l.c.Capabilities == nil {
+		return nil
+	}
+	result := make(map[string]config.CapabilityNodeConfig, len(l.c.Capabilities))
+	for k, v := range l.c.Capabilities {
+		result[k] = &capabilityNodeConfig{c: v}
+	}
+	return result
+}
+
+func (l *localCapabilities) compileRegexes() {
+	l.compiledRegexes = make([]*regexp.Regexp, 0, len(l.c.RegistryBasedLaunchAllowlist))
+	for _, pattern := range l.c.RegistryBasedLaunchAllowlist {
+		// Patterns are validated at config load time, so compilation should not fail.
+		// If it does fail (shouldn't happen), skip the invalid pattern.
+		if re, err := regexp.Compile(pattern); err == nil {
+			l.compiledRegexes = append(l.compiledRegexes, re)
+		}
+	}
+}
+
+func (l *localCapabilities) IsAllowlisted(capabilityID string) bool {
+	l.regexOnce.Do(l.compileRegexes)
+	for _, re := range l.compiledRegexes {
+		if re.MatchString(capabilityID) {
+			return true
+		}
+	}
+	return false
+}
+
+func (l *localCapabilities) GetCapabilityConfig(capabilityID string) config.CapabilityNodeConfig {
+	if l.c.Capabilities == nil {
+		return nil
+	}
+	if c, ok := l.c.Capabilities[capabilityID]; ok {
+		return &capabilityNodeConfig{c: c}
+	}
+	return nil
+}
+
+var _ config.CapabilityNodeConfig = (*capabilityNodeConfig)(nil)
+
+type capabilityNodeConfig struct {
+	c toml.CapabilityNodeConfig
+}
+
+func (c *capabilityNodeConfig) BinaryPathOverride() string {
+	if c.c.BinaryPathOverride == nil {
+		return ""
+	}
+	return *c.c.BinaryPathOverride
+}
+
+func (c *capabilityNodeConfig) Config() map[string]string {
+	return c.c.Config
 }
