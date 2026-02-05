@@ -29,6 +29,7 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.Logger.Infow("State view generated, generating NOPs view")
 	nopsView, err := view.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
 	if err != nil {
 		return nil, err

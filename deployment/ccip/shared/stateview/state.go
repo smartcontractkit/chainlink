@@ -577,6 +577,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					m.Store(name, chainView)
 					e.Logger.Infow("Completed view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 				case chain_selectors.FamilySolana:
+					e.Logger.Infow("Generating view for Solana", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 					if _, ok := c.SolChains[chainSelector]; !ok {
 						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
@@ -588,6 +589,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					chainView.ChainSelector = chainSelector
 					chainView.ChainID = id
 					sm.Store(name, chainView)
+					e.Logger.Infow("Completed view for Solana")
 				case chain_selectors.FamilyAptos:
 					chainState, ok := c.AptosChains[chainSelector]
 					if !ok {
@@ -600,6 +602,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					chainView.ChainSelector = chainSelector
 					chainView.ChainID = id
 					am.Store(name, chainView)
+					e.Logger.Infow("Completed view for Aptos")
 				case chain_selectors.FamilyTon:
 					if _, ok := c.TonChains[chainSelector]; !ok {
 						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
@@ -610,6 +613,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 						return err
 					}
 					tm.Store(name, chainView)
+					e.Logger.Infow("Completed view for TON")
 				case chain_selectors.FamilySui:
 					if _, ok := c.SuiChains[chainSelector]; !ok {
 						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
@@ -620,6 +624,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 						return err
 					}
 					suiMap.Store(name, chainView)
+					e.Logger.Infow("Completed view for SUI")
 				default:
 					return fmt.Errorf("unsupported chain family %s", family)
 				}
