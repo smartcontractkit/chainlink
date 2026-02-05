@@ -18,6 +18,7 @@ jobs:
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
       ccip-image-tag: ${{ steps.compute-ccip-tag.outputs.ccip-image-tag }}
       prerelease-phase: ${{ steps.detect-prerelease-phase.outputs.prerelease-phase }}
+      is-hotfix: ${{ steps.detect-hotfix.outputs.is-hotfix }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,6 +61,26 @@ jobs:
             exit 1
           fi
           echo "prerelease-phase=$phase" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Detect hotfix release
+        id: detect-hotfix
+        shell: bash
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          # Extract patch version from tag (e.g., v2.33.1-beta.0 -> 1)
+          # Hotfix releases have non-zero patch versions
+          if [[ "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.([0-9]+) ]]; then
+            patch_version="${BASH_REMATCH[1]}"
+            if [[ "$patch_version" -gt 0 ]]; then
+              echo "is-hotfix=true" | tee -a "$GITHUB_OUTPUT"
+            else
+              echo "is-hotfix=false" | tee -a "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "is-hotfix=false" | tee -a "$GITHUB_OUTPUT"
+            echo "Unable to extract patch version, assuming not a hotfix"
+          fi
 
       - name: Check for VERSION file bump on tags
         if: ${{ github.repository == 'smartcontractkit/chainlink' }}
@@ -143,8 +164,8 @@ jobs:
   deploy:
     name: "Deploy"
     needs: [checks, docker-ccip]
-    # We are only deploying CCIP pre-releases for now.
-    if: needs.checks.outputs.is-pre-release == 'true'
+    # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
+    if: needs.checks.outputs.is-pre-release == 'true' && needs.checks.outputs.is-hotfix == 'false'
     runs-on: ubuntu-latest
     permissions:
       contents: read
