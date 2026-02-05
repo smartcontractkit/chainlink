@@ -59,6 +59,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -84,7 +86,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -713,6 +717,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.FetcherFactoryFn,
 		creServices.orgResolver,
 		atomicSettings,
+		creServices.ocrConfigService,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -762,6 +767,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
 				LimitsFactory:                  limitsFactory,
+				OCRConfigService:               creServices.ocrConfigService,
 			},
 			ocr2DelegateConfig,
 		)
@@ -946,6 +952,9 @@ type CREServices struct {
 
 	// orgResolver provides realtime workflow owner --> orgID resolution
 	orgResolver orgresolver.OrgResolver
+
+	// ocrConfigService provides OCR config from CapabilitiesRegistry
+	ocrConfigService capregconfig.OCRConfigService
 }
 
 func newCREServices(
@@ -963,6 +972,7 @@ func newCREServices(
 	capCfg := cfg.Capabilities()
 	wCfg := cfg.Workflows()
 	var srvcs []services.ServiceCtx
+	var ocrConfigService capregconfig.OCRConfigService
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
@@ -1134,6 +1144,18 @@ func newCREServices(
 				return nil, fmt.Errorf("could not create workflow launcher: %w", err)
 			}
 
+			registryChainID, parseErr := strconv.ParseUint(rid.ChainID, 10, 64)
+			if parseErr != nil {
+				return nil, fmt.Errorf("failed to parse registry chain ID for OCRConfigService: %w", parseErr)
+			}
+			ocrConfigServiceImpl := capregconfig.New(
+				globalLogger,
+				func() ragetypes.PeerID { return don2donSharedPeer.ID() },
+				registryChainID,
+				registryAddress,
+			)
+			ocrConfigService = ocrConfigServiceImpl
+
 			switch externalRegistryVersion.Major() {
 			case 1:
 				registrySyncer, err := registrysyncerV1.New(
@@ -1162,7 +1184,8 @@ func newCREServices(
 				}
 
 				registrySyncer.AddListener(wfLauncher)
-				srvcs = append(srvcs, wfLauncher, registrySyncer)
+				registrySyncer.AddListener(ocrConfigServiceImpl)
+				srvcs = append(srvcs, wfLauncher, ocrConfigServiceImpl, registrySyncer)
 			default:
 				return nil, fmt.Errorf("could not configure capability registry syncer with version: %d", externalRegistryVersion.Major())
 			}
@@ -1379,6 +1402,7 @@ func newCREServices(
 		srvs:                    srvcs,
 		workflowRegistrySyncer:  workflowRegistrySyncerV2,
 		orgResolver:             orgResolver,
+		ocrConfigService:        ocrConfigService,
 	}, nil
 }
 

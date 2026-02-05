@@ -13,10 +13,12 @@ import (
 
 // Metrics holds all the metric instruments for OCRConfigService.
 type Metrics struct {
-	configUpdatesCounter   metric.Int64Counter
-	parseErrorsCounter     metric.Int64Counter
-	configCountGauge       metric.Int64Gauge
-	capabilityConfigErrors metric.Int64Counter
+	configUpdatesCounter        metric.Int64Counter
+	parseErrorsCounter          metric.Int64Counter
+	configCountGauge            metric.Int64Gauge
+	capabilityConfigErrors      metric.Int64Counter
+	trackerLegacyFallbackGauge  metric.Int64Gauge
+	digesterLegacyFallbackGauge metric.Int64Gauge
 }
 
 // InitMetrics initializes the Beholder metrics for OCRConfigService.
@@ -54,6 +56,22 @@ func InitMetrics() (*Metrics, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register capability config errors counter: %w", err)
+	}
+
+	m.trackerLegacyFallbackGauge, err = beholder.GetMeter().Int64Gauge(
+		"platform_ocr_config_service_tracker_legacy_fallback",
+		metric.WithDescription("Indicates whether the config tracker is using legacy fallback (1) or registry config (0)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register tracker legacy fallback gauge: %w", err)
+	}
+
+	m.digesterLegacyFallbackGauge, err = beholder.GetMeter().Int64Gauge(
+		"platform_ocr_config_service_digester_legacy_fallback",
+		metric.WithDescription("Indicates whether the config digester is using legacy fallback (1) or registry config (0)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register digester legacy fallback gauge: %w", err)
 	}
 
 	return m, nil
@@ -99,5 +117,33 @@ func (m *Metrics) IncrementCapabilityConfigErrors(ctx context.Context, capabilit
 	m.capabilityConfigErrors.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("capability_id", capabilityID),
 		attribute.String("don_id", strconv.FormatUint(uint64(donID), 10)),
+	))
+}
+
+func (m *Metrics) SetTrackerLegacyFallback(ctx context.Context, capabilityID string, ocrConfigKey string, isLegacy bool) {
+	if m == nil {
+		return
+	}
+	var value int64
+	if isLegacy {
+		value = 1
+	}
+	m.trackerLegacyFallbackGauge.Record(ctx, value, metric.WithAttributes(
+		attribute.String("capability_id", capabilityID),
+		attribute.String("ocr_config_key", ocrConfigKey),
+	))
+}
+
+func (m *Metrics) SetDigesterLegacyFallback(ctx context.Context, capabilityID string, ocrConfigKey string, isLegacy bool) {
+	if m == nil {
+		return
+	}
+	var value int64
+	if isLegacy {
+		value = 1
+	}
+	m.digesterLegacyFallbackGauge.Record(ctx, value, metric.WithAttributes(
+		attribute.String("capability_id", capabilityID),
+		attribute.String("ocr_config_key", ocrConfigKey),
 	))
 }

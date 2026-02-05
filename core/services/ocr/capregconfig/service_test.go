@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/libocr/ragep2p/types"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -17,18 +17,40 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
+// testPeerID returns a consistent peer ID for use in tests.
+func testPeerID() ragetypes.PeerID {
+	var peerID ragetypes.PeerID
+	copy(peerID[:], []byte("test-peer-id-12345678901234"))
+	return peerID
+}
+
+// testPeerIDProvider returns a peer ID provider function for tests.
+func testPeerIDProvider() PeerIDProvider {
+	return testPeerID
+}
+
 func TestOCRConfigService_StartClose(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
 	require.NoError(t, svc.Close())
 }
 
+func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
+	lggr := logger.Test(t)
+	svc := New(lggr, nil, 1, "0x1234567890abcdef")
+
+	ctx := context.Background()
+	err := svc.Start(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "peerIDProvider function is required")
+}
+
 func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -54,16 +76,19 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes},
-				},
-			},
+			1: don,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
@@ -71,21 +96,20 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify config was stored.
-	impl := svc.(*ocrConfigService)
-	_, ok := impl.getConfig("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	_, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	assert.True(t, ok)
 }
 
 func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
 	// Get tracker without any config - should work with legacy fallback.
-	tracker, err := svc.GetConfigTracker("consensus@1.0.0", 1, "__default__", nil)
+	tracker, err := svc.GetConfigTracker("consensus@1.0.0", "__default__", nil)
 	require.NoError(t, err)
 	require.NotNil(t, tracker)
 
@@ -96,7 +120,7 @@ func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 
 func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -122,16 +146,19 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes},
-				},
-			},
+			1: don,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
@@ -139,7 +166,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get tracker - should return registry-based config.
-	tracker, err := svc.GetConfigTracker("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey, nil)
+	tracker, err := svc.GetConfigTracker("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey, nil)
 	require.NoError(t, err)
 
 	changedInBlock, digest, err := tracker.LatestConfigDetails(ctx)
@@ -157,14 +184,14 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
 	// Get digester without any config.
-	digester, err := svc.GetConfigDigester("consensus@1.0.0", 1, "__default__", nil)
+	digester, err := svc.GetConfigDigester("consensus@1.0.0", "__default__", nil)
 	require.NoError(t, err)
 	require.NotNil(t, digester)
 
@@ -175,7 +202,7 @@ func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -201,16 +228,19 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes},
-				},
-			},
+			1: don,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
@@ -218,7 +248,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get digester - should return registry-based prefix.
-	digester, err := svc.GetConfigDigester("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey, nil)
+	digester, err := svc.GetConfigDigester("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey, nil)
 	require.NoError(t, err)
 
 	prefix, err := digester.ConfigDigestPrefix(ctx)
@@ -228,7 +258,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -254,24 +284,26 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	configBytes1, err := proto.Marshal(capConfig1)
 	require.NoError(t, err)
 
+	don1 := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes1},
+		},
+	}
+	don1.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry1 := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes1},
-				},
-			},
+			1: don1,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry1)
 	require.NoError(t, err)
 
-	impl := svc.(*ocrConfigService)
-	cfg1, ok := impl.getConfig("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	cfg1, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
 	assert.Equal(t, uint64(1), cfg1.ContractConfig.ConfigCount)
 
@@ -295,30 +327,33 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	configBytes2, err := proto.Marshal(capConfig2)
 	require.NoError(t, err)
 
+	don2 := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes2},
+		},
+	}
+	don2.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry2 := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes2},
-				},
-			},
+			1: don2,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry2)
 	require.NoError(t, err)
 
-	cfg2, ok := impl.getConfig("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	cfg2, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
 	assert.Equal(t, uint64(2), cfg2.ContractConfig.ConfigCount)
 }
 
 func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -347,24 +382,26 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes},
-				},
-			},
+			1: don,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
 	require.NoError(t, err)
 
-	impl := svc.(*ocrConfigService)
-	cfg, ok := impl.getConfig("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	cfg, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
 
 	// Verify transmitters are hex-encoded.
@@ -374,7 +411,7 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 
 func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -399,24 +436,26 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes},
-				},
-			},
+			1: don,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
 	require.NoError(t, err)
 
-	impl := svc.(*ocrConfigService)
-	cfg, ok := impl.getConfig("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	cfg, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
 
 	// Verify digest has correct prefix.
@@ -426,14 +465,14 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	err = svc.OnNewRegistry(ctx, registry)
 	require.NoError(t, err)
 
-	cfg2, ok := impl.getConfig("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	cfg2, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
 	assert.Equal(t, cfg.ContractConfig.ConfigDigest, cfg2.ContractConfig.ConfigDigest)
 }
 
 func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -459,28 +498,29 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register the same OCR config under two different capability IDs.
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+			"consensus@2.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes},
-					"consensus@2.0.0": {Config: configBytes},
-				},
-			},
+			1: don,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
 	require.NoError(t, svc.OnNewRegistry(ctx, registry))
 
-	impl := svc.(*ocrConfigService)
-
-	cfg1, ok := impl.getConfig("consensus@1.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	cfg1, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
 
-	cfg2, ok := impl.getConfig("consensus@2.0.0", 1, capabilitiespb.OCR3ConfigDefaultKey)
+	cfg2, ok := svc.getConfig("consensus@2.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
 
 	// Different capability IDs should produce different digests.
@@ -489,7 +529,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 
 func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -502,7 +542,7 @@ func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	}
 
 	// Get tracker before any registry update - should error (no fallback yet).
-	tracker, err := svc.GetConfigTracker("consensus@1.0.0", 1, "__default__", mockTracker)
+	tracker, err := svc.GetConfigTracker("consensus@1.0.0", "__default__", mockTracker)
 	require.NoError(t, err)
 
 	_, _, err = tracker.LatestConfigDetails(ctx)
@@ -512,7 +552,7 @@ func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	registry := &registrysyncer.LocalRegistry{
 		Logger:            lggr,
 		IDsToDONs:         map[registrysyncer.DonID]registrysyncer.DON{},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
@@ -544,7 +584,7 @@ func (m *mockConfigTracker) LatestBlockHeight(ctx context.Context) (uint64, erro
 
 func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, 1, "0x1234567890abcdef")
+	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -581,30 +621,105 @@ func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
 	registry := &registrysyncer.LocalRegistry{
 		Logger: lggr,
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			1: {
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					"consensus@1.0.0": {Config: configBytes},
-				},
-			},
+			1: don,
 		},
-		IDsToNodes:        map[types.PeerID]registrysyncer.NodeInfo{},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
 		IDsToCapabilities: map[string]registrysyncer.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
 	require.NoError(t, err)
 
-	impl := svc.(*ocrConfigService)
-
 	// Verify both configs are stored.
-	blueCfg, ok := impl.getConfig("consensus@1.0.0", 1, "blue")
+	blueCfg, ok := svc.getConfig("consensus@1.0.0", "blue")
 	require.True(t, ok)
 	assert.Equal(t, uint64(1), blueCfg.ContractConfig.ConfigCount)
 
-	greenCfg, ok := impl.getConfig("consensus@1.0.0", 1, "green")
+	greenCfg, ok := svc.getConfig("consensus@1.0.0", "green")
 	require.True(t, ok)
 	assert.Equal(t, uint64(2), greenCfg.ContractConfig.ConfigCount)
+}
+
+func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
+	lggr := logger.Test(t)
+
+	// Create a peer ID for this node.
+	var myPeerID ragetypes.PeerID
+	copy(myPeerID[:], []byte("my-peer-id-1234567890123456"))
+
+	var otherPeerID ragetypes.PeerID
+	copy(otherPeerID[:], []byte("other-peer-id-12345678901234"))
+
+	peerIDProvider := func() ragetypes.PeerID { return myPeerID }
+	svc := New(lggr, peerIDProvider, 1, "0x1234567890abcdef")
+
+	ctx := context.Background()
+	require.NoError(t, svc.Start(ctx))
+	defer svc.Close()
+
+	ocrConfig := &capabilitiespb.OCR3Config{
+		Signers:               [][]byte{[]byte("signer1"), []byte("signer2"), []byte("signer3"), []byte("signer4")},
+		Transmitters:          [][]byte{[]byte("tx1"), []byte("tx2"), []byte("tx3"), []byte("tx4")},
+		F:                     1,
+		OnchainConfig:         []byte("onchain"),
+		OffchainConfigVersion: 1,
+		OffchainConfig:        []byte("offchain"),
+		ConfigCount:           5,
+	}
+
+	capConfig := &capabilitiespb.CapabilityConfig{
+		Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+			capabilitiespb.OCR3ConfigDefaultKey: ocrConfig,
+		},
+	}
+
+	configBytes, err := proto.Marshal(capConfig)
+	require.NoError(t, err)
+
+	// Create capabilities.DON with Members field
+	don1 := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don1.Members = []ragetypes.PeerID{myPeerID, otherPeerID}
+
+	don2 := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"other_cap@1.0.0": {Config: configBytes},
+		},
+	}
+	don2.Members = []ragetypes.PeerID{otherPeerID} // Node not a member
+
+	registry := &registrysyncer.LocalRegistry{
+		Logger: lggr,
+		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+			1: don1,
+			2: don2,
+		},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
+		IDsToCapabilities: map[string]registrysyncer.Capability{},
+	}
+
+	err = svc.OnNewRegistry(ctx, registry)
+	require.NoError(t, err)
+
+	// Config from DON 1 (node is member) should be stored.
+	cfg1, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
+	assert.True(t, ok)
+	assert.Equal(t, uint64(5), cfg1.ContractConfig.ConfigCount)
+
+	// Config from DON 2 (node is NOT member) should NOT be stored.
+	_, ok = svc.getConfig("other_cap@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
+	assert.False(t, ok)
 }
