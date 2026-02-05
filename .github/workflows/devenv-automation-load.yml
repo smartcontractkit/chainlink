@@ -22,6 +22,7 @@ jobs:
       contents: read
       pull-requests: write
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    timeout-minutes: 260
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -79,7 +80,7 @@ jobs:
         working-directory: devenv/tests/automation
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: Registry 2.1"
-          go test -v -timeout 3h -run TestLoad/registry_2_1
+          go test -v -timeout 4h -run TestLoad/registry_2_1
 
       - name: Show Docker containers status
         if: failure()
