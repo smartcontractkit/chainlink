@@ -75,19 +75,36 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 
 	// TODO validate?
 
-	rawURLs := make([]string, 0, len(cfg.EVM.Nodes)*3)
+	rawURLs := make(map[string]string, len(cfg.EVM.Nodes)*3)
+	addURL := func(key, value string) {
+		if value == "" {
+			return
+		}
+		if _, ok := rawURLs[key]; !ok {
+			rawURLs[key] = value
+			return
+		}
+		for i := 1; ; i++ {
+			indexedKey := fmt.Sprintf("%s_%d", key, i)
+			if _, ok := rawURLs[indexedKey]; ok {
+				continue
+			}
+			rawURLs[indexedKey] = value
+			return
+		}
+	}
 	for _, n := range cfg.EVM.Nodes {
 		if n == nil {
 			continue
 		}
 		if n.HTTPURL != nil {
-			rawURLs = append(rawURLs, n.HTTPURL.String())
+			addURL("HTTPURL", n.HTTPURL.String())
 		}
 		if n.WSURL != nil {
-			rawURLs = append(rawURLs, n.WSURL.String())
+			addURL("WSURL", n.WSURL.String())
 		}
 		if n.HTTPURLExtraWrite != nil {
-			rawURLs = append(rawURLs, n.HTTPURLExtraWrite.String())
+			addURL("HTTPURLExtraWrite", n.HTTPURLExtraWrite.String())
 		}
 	}
 	chainID := ""
