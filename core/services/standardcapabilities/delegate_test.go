@@ -1,4 +1,4 @@
-package standardcapabilities_test
+package standardcapabilities
 
 import (
 	"testing"
@@ -7,8 +7,90 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 )
+
+func Test_getCapabilityID(t *testing.T) {
+	tests := []struct {
+		name     string
+		command  string
+		config   string
+		expected string
+	}{
+		{
+			name:     "consensus command",
+			command:  "consensus",
+			config:   "",
+			expected: "consensus@1.0.0",
+		},
+		{
+			name:     "evm command with valid config - mainnet",
+			command:  "/usr/local/bin/evm",
+			config:   `{"chainId": 1}`,
+			expected: "evm:ChainSelector:5009297550715157269@1.0.0",
+		},
+		{
+			name:     "evm command with valid config - sepolia",
+			command:  "/usr/local/bin/evm",
+			config:   `{"chainId": 11155111}`,
+			expected: "evm:ChainSelector:16015286601757825753@1.0.0",
+		},
+		{
+			name:     "evm command with valid config - arbitrum",
+			command:  "/usr/local/bin/evm",
+			config:   `{"chainId": 42161}`,
+			expected: "evm:ChainSelector:4949039107694359620@1.0.0",
+		},
+		{
+			name:     "evm command with additional config fields",
+			command:  "/usr/local/bin/evm",
+			config:   `{"chainId": 1, "network": "mainnet", "otherField": "value"}`,
+			expected: "evm:ChainSelector:5009297550715157269@1.0.0",
+		},
+		{
+			name:     "evm command with invalid JSON",
+			command:  "/usr/local/bin/evm",
+			config:   `{invalid json}`,
+			expected: "",
+		},
+		{
+			name:     "evm command with missing chainId",
+			command:  "/usr/local/bin/evm",
+			config:   `{"network": "mainnet"}`,
+			expected: "", // chainId defaults to 0, which is invalid
+		},
+		{
+			name:     "evm command with zero chain ID",
+			command:  "/usr/local/bin/evm",
+			config:   `{"chainId": 0}`,
+			expected: "",
+		},
+		{
+			name:     "evm command with empty config",
+			command:  "/usr/local/bin/evm",
+			config:   "",
+			expected: "",
+		},
+		{
+			name:     "unknown command",
+			command:  "/usr/local/bin/unknown",
+			config:   "",
+			expected: "",
+		},
+		{
+			name:     "empty command",
+			command:  "",
+			config:   "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getCapabilityID(tt.command, tt.config)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
 
 func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 	type testCase struct {
@@ -119,7 +201,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jobSpec, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(tc.tomlString)
+			jobSpec, err := ValidatedStandardCapabilitiesSpec(tc.tomlString)
 
 			if tc.expectedError != "" {
 				assert.ErrorContains(t, err, tc.expectedError)

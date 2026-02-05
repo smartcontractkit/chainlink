@@ -17,14 +17,16 @@ jobs:
       is-release: ${{ steps.release-tag-check.outputs.is-release }}
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
       ccip-image-tag: ${{ steps.compute-ccip-tag.outputs.ccip-image-tag }}
+      prerelease-phase: ${{ steps.detect-prerelease-phase.outputs.prerelease-phase }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Check release tag
         id: release-tag-check
         uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
+
       - name: Compute CCIP image tag
         id: compute-ccip-tag
         shell: bash
@@ -38,6 +40,27 @@ jobs:
           tag_without_v="${GIT_TAG#v}"
           ccip_tag=$(echo "$tag_without_v" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-(.*)$/\1-ccip-\2/')
           echo "ccip-image-tag=$ccip_tag" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Detect prerelease phase
+        id: detect-prerelease-phase
+        if: ${{ steps.release-tag-check.outputs.is-pre-release == 'true' && (contains(github.ref_name, '-beta.') || contains(github.ref_name, '-rc.')) }}
+        shell: bash
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          phase=""
+
+          if [[ "$GIT_TAG" =~ -beta\.[0-9]+$ ]]; then
+            phase="beta"
+          elif [[ "$GIT_TAG" =~ -rc\.[0-9]+$ ]]; then
+            # Release candidates.
+            phase="rc"
+          else
+            echo "::error::Unable to determine prerelease phase from tag: $GIT_TAG"
+            exit 1
+          fi
+          echo "prerelease-phase=$phase" | tee -a "$GITHUB_OUTPUT"
+
       - name: Check for VERSION file bump on tags
         if: ${{ github.repository == 'smartcontractkit/chainlink' }}
         uses: ./.github/actions/version-file-bump
@@ -116,6 +139,50 @@ jobs:
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_BUILD_PUBLISH_ARN }}
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  deploy:
+    name: "Deploy"
+    needs: [checks, docker-ccip]
+    # We are only deploying CCIP pre-releases for now.
+    if: needs.checks.outputs.is-pre-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Deploy CCIP Beta
+        if: needs.checks.outputs.prerelease-phase == 'beta'
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
+          oci-repository-url: public.ecr.aws/chainlink/ccip
+          pr-close-enabled: false
+          pr-labels: preview-stage,force-preview
+          products: |
+            ccip-prereleases-staging
+
+      - name: Deploy CCIP RC
+        if: needs.checks.outputs.prerelease-phase == 'rc'
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
+          oci-repository-url: public.ecr.aws/chainlink/ccip
+          pr-close-enabled: false
+          pr-labels: preview-stage,force-preview
+          products: |
+            ccip-prereleases-prod-testnet
 
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.

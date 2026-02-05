@@ -8,19 +8,21 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 type oracleFactory struct {
@@ -36,6 +38,8 @@ type oracleFactory struct {
 	relayerSet             *RelayerSet
 	ocrKeystore            keystore.OCR2
 	ethKeystore            keystore.Eth
+	ocrConfigService       capregconfig.OCRConfigService
+	capabilityID           string // Capability ID for registry-based config lookup
 }
 
 type OracleFactoryParams struct {
@@ -50,6 +54,11 @@ type OracleFactoryParams struct {
 	RelayerSet             *RelayerSet
 	OcrKeystore            keystore.OCR2
 	EthKeystore            keystore.Eth
+	// OCRConfigService provides OCR config from the capabilities registry.
+	// When set, the factory will use dynamic tracker/digester that can switch
+	// between registry-based and legacy contract-based config.
+	OCRConfigService capregconfig.OCRConfigService
+	CapabilityID     string
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
@@ -66,6 +75,8 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 		relayerSet:             params.RelayerSet,
 		ocrKeystore:            params.OcrKeystore,
 		ethKeystore:            params.EthKeystore,
+		ocrConfigService:       params.OCRConfigService,
+		capabilityID:           params.CapabilityID,
 	}, nil
 }
 
@@ -101,13 +112,38 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		return nil, fmt.Errorf("error when marshalling relay config: %w", err)
 	}
 
-	configProvider, err := relayer.NewConfigProvider(ctx, core.RelayArgs{
+	legacyConfigProvider, err := relayer.NewConfigProvider(ctx, core.RelayArgs{
 		ContractID:   of.config.OCRContractAddress,
 		ProviderType: string(types.OCR3Capability),
 		RelayConfig:  relayConfigBytes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error when getting config provider: %w", err)
+	}
+
+	// Determine config tracker and digester to use
+	var configTracker ocrtypes.ContractConfigTracker
+	var configDigester ocrtypes.OffchainConfigDigester
+
+	if of.ocrConfigService != nil && of.capabilityID != "" {
+		// Wrap with dynamic tracker/digester from OCRConfigService (with fallback).
+		// NOTE: Standard Capabilities currently support only one OCR instance so we're using OCR3ConfigDefaultKey.
+		configTracker, err = of.ocrConfigService.GetConfigTracker(
+			of.capabilityID, capabilitiespb.OCR3ConfigDefaultKey, legacyConfigProvider.ContractConfigTracker())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config tracker: %w", err)
+		}
+
+		configDigester, err = of.ocrConfigService.GetConfigDigester(
+			of.capabilityID, capabilitiespb.OCR3ConfigDefaultKey, legacyConfigProvider.OffchainConfigDigester())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config digester: %w", err)
+		}
+
+		of.lggr.Infow("Using dynamic OCR config service", "capabilityID", of.capabilityID)
+	} else {
+		configTracker = legacyConfigProvider.ContractConfigTracker()
+		configDigester = legacyConfigProvider.OffchainConfigDigester()
 	}
 
 	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(of.config.BootstrapPeers)
@@ -129,10 +165,8 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 	}
 
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
-		// We are relying on the relayer plugin provider for the offchain config digester
-		// and the contract config tracker to save time.
-		ContractConfigTracker:        configProvider.ContractConfigTracker(),
-		OffchainConfigDigester:       configProvider.OffchainConfigDigester(),
+		ContractConfigTracker:        configTracker,
+		OffchainConfigDigester:       configDigester,
 		LocalConfig:                  args.LocalConfig,
 		ContractTransmitter:          NewContractTransmitter(of.config.TransmitterID, args.ContractTransmitter),
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,

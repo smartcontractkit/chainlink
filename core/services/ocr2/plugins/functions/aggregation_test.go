@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/encoding"
 )
 
 func req(id int, result []byte, err []byte) *encoding.ProcessedRequest {

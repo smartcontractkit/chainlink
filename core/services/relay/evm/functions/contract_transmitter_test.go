@@ -23,8 +23,8 @@ import (
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/encoding"
 )
 
 func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {

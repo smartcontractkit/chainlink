@@ -3,11 +3,15 @@ package standardcapabilities
 import (
 	"context"
 	"crypto"
+	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
@@ -28,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -59,6 +64,7 @@ type Delegate struct {
 	selectorOpts            []func(*gateway.RoundRobinSelector)
 	orgResolver             orgresolver.OrgResolver
 	creSettings             core.SettingsBroadcaster
+	ocrConfigService        capregconfig.OCRConfigService
 
 	isNewlyCreatedJob bool
 }
@@ -68,6 +74,29 @@ const (
 	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
 	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
+
+// WARNING: Hacky and brittle - used only during migration to map job specs to capability IDs
+// before executing the LOOPP. When std cap job specs are deprecated, capability IDs will be known upfront.
+func getCapabilityID(command string, config string) string {
+	switch command {
+	case "/usr/local/bin/evm":
+		var cfg struct {
+			ChainID uint64 `json:"chainId"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return ""
+		}
+		selector, err := chainselectors.SelectorFromChainId(cfg.ChainID)
+		if err != nil {
+			return ""
+		}
+		return "evm:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
+	case "consensus":
+		return "consensus@1.0.0"
+	default:
+		return ""
+	}
+}
 
 type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
@@ -88,6 +117,7 @@ func NewDelegate(
 	fetcherFactoryFn compute.FetcherFactory,
 	orgResolver orgresolver.OrgResolver,
 	creSettings core.SettingsBroadcaster,
+	ocrConfigService capregconfig.OCRConfigService,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
@@ -108,6 +138,7 @@ func NewDelegate(
 		computeFetcherFactoryFn: fetcherFactoryFn,
 		orgResolver:             orgResolver,
 		creSettings:             creSettings,
+		ocrConfigService:        ocrConfigService,
 		selectorOpts:            opts,
 	}
 }
@@ -182,18 +213,26 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 	}
 
+	capabilityID := getCapabilityID(spec.StandardCapabilitiesSpec.Command, spec.StandardCapabilitiesSpec.Config)
+	if d.ocrConfigService != nil && capabilityID == "" {
+		log.Warnw("No capability ID mapping for command, using legacy config only",
+			"command", spec.StandardCapabilitiesSpec.Command)
+	}
+
 	var oracleFactory core.OracleFactory
 	// NOTE: special case for custom Oracle Factory for use in tests
 	if d.newOracleFactoryFn != nil {
 		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
-			Logger:      log,
-			JobORM:      d.jobORM,
-			JobID:       spec.ID,
-			JobName:     spec.Name.ValueOrZero(),
-			KB:          ocrEvmKeyBundle,
-			Config:      spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper: d.ocrPeerWrapper,
-			RelayerSet:  relayerSet,
+			Logger:           log,
+			JobORM:           d.jobORM,
+			JobID:            spec.ID,
+			JobName:          spec.Name.ValueOrZero(),
+			KB:               ocrEvmKeyBundle,
+			Config:           spec.StandardCapabilitiesSpec.OracleFactory,
+			PeerWrapper:      d.ocrPeerWrapper,
+			RelayerSet:       relayerSet,
+			OCRConfigService: d.ocrConfigService,
+			CapabilityID:     capabilityID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
@@ -217,6 +256,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			RelayerSet:             relayerSet,
 			OcrKeystore:            d.ks.OCR2(),
 			EthKeystore:            d.ks.Eth(),
+			OCRConfigService:       d.ocrConfigService,
+			CapabilityID:           capabilityID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
