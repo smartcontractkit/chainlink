@@ -107,6 +107,7 @@ func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, re
 	// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
 	// fetch billing token configs in parallel
 	for _, token := range tokens {
+		token := token
 		eg.Go(func() error {
 			billingConfigPDA, _, err := solState.FindFqBillingTokenConfigPDA(token, program)
 			if err != nil {
