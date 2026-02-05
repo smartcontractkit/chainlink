@@ -165,6 +165,7 @@ jobs:
           oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
           oci-repository-url: public.ecr.aws/chainlink/ccip
           pr-close-enabled: false
+          pr-labels: preview-stage,force-preview
           products: |
             ccip-prereleases-staging
 
@@ -179,6 +180,7 @@ jobs:
           oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
           oci-repository-url: public.ecr.aws/chainlink/ccip
           pr-close-enabled: false
+          pr-labels: preview-stage,force-preview
           products: |
             ccip-prereleases-prod-testnet
 
