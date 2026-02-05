@@ -417,7 +417,6 @@ func addWorkerNodeConfig(
 	// before resetting Capabilities struct
 	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
 
-	fmt.Printf("   WorkflowRegistry.Address: %s", existingConfig.Capabilities.WorkflowRegistry.Address)
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
@@ -454,7 +453,6 @@ func addWorkerNodeConfig(
 		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields
 		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
 		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
-		fmt.Printf("  existingConfig.Capabilities.Address: %s", commonInputs.workflowRegistry.address)
 
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
@@ -510,7 +508,6 @@ func addWorkerNodeConfig(
 			}
 		}
 	}
-
 	return existingConfig, nil
 }
 
