@@ -14,6 +14,7 @@ import (
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
+	"github.com/smartcontractkit/chainlink/devenv/products/keepers"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
@@ -36,6 +37,8 @@ func newProduct(name string) (Product, error) {
 		return ocr2.NewConfigurator(), nil
 	case "automation":
 		return automation.NewConfigurator(), nil
+	case "keepers":
+		return keepers.NewConfigurator(), nil
 	default:
 		return nil, fmt.Errorf("unknown product type: %s", name)
 	}
