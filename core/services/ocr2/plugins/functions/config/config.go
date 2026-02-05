@@ -12,11 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	relayConfig "github.com/smartcontractkit/chainlink-evm/pkg/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 	s4PluginConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
-	relayConfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
