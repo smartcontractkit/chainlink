@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -500,7 +501,7 @@ func configureForwarders(
 				DON: forwarder.DonConfiguration{
 					Name:    don.Name,
 					F:       don.F,
-					ID:      uint32(don.ID),
+					ID:      libc.MustSafeUint32FromUint64(don.ID),
 					NodeIDs: don.KeystoneDONConfig().NodeIDs,
 					Version: 1,
 				},
