@@ -14,7 +14,6 @@ import (
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/nodeplatform"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -99,7 +98,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 	if cfg.EVM.ChainID != nil {
 		chainID = cfg.EVM.ChainID.String()
 	}
-	c.SubService(nodeplatform.NewChainPluginConfigEmitter(
+	c.SubService(loop.NewPluginRelayerConfigEmitter(
 		c.Logger,
 		beholder.GetClient().Config.AuthPublicKeyHex,
 		chainID,
