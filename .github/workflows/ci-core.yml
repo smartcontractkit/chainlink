@@ -340,7 +340,7 @@ jobs:
 
       - name: Analyze and upload test results
         if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
-        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        uses: smartcontractkit/.github/actions/branch-out-upload@5da6c2e0486f91b6209cc5eeb28267e4601a5fef
         with:
           junit-file-path: "./junit.xml"
           trunk-org-slug: chainlink
