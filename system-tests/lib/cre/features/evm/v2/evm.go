@@ -45,7 +45,7 @@ import (
 
 const (
 	flag                = cre.EVMCapability
-	configTemplate      = `{"chainId":{{printf "%d" .ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%d" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%d" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%d" .}}{{end}}}`
+	configTemplate      = `{"chainId":{{printf "%d" .ChainID}}, "network":"{{.Network}}", "logTriggerPollInterval":{{printf "%d" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CREForwarderAddress}}", "forwarderLookbackBlocks":{{printf "%d" .ForwarderLookbackBlocks}}, "receiverGasMinimum":{{printf "%d" .ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}", "observationPollerWorkersCount":{{printf "%d" .ObservationPollerWorkersCount}}, "observationPollPeriod":{{printf "%d" .ObservationPollPeriod}}, "chainHeightPollPeriod":{{printf "%d" .ChainHeightPollPeriod}}, "unknownRequestsTTL":{{printf "%d" .UnknownRequestsTTL}}, "deltaStage":{{printf "%d" .DeltaStage}}{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%d" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%d" .}}{{end}}}`
 	registrationRefresh = 20 * time.Second
 	registrationExpiry  = 60 * time.Second
 	deltaStage          = 500*time.Millisecond + 1*time.Second // block time + 1 second delta
@@ -475,9 +475,10 @@ func createJobs(
 func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, nodeAddress string) map[string]any {
 	return map[string]any{
 		"ChainID":             chainID,
-		"NetworkFamily":       networkFamily,
-		"CreForwarderAddress": creForwarderAddress,
+		"Network":             networkFamily,
+		"CREForwarderAddress": creForwarderAddress,
 		"NodeAddress":         nodeAddress,
+		"DeltaStage":          deltaStage,
 	}
 }
 
@@ -535,8 +536,6 @@ func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	return &capabilitiespb.CapabilityMethodConfig{
 		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 			RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-				TransmissionSchedule:      capabilitiespb.TransmissionSchedule_OneAtATime,
-				DeltaStage:                durationpb.New(deltaStage),
 				RequestTimeout:            durationpb.New(requestTimeout),
 				ServerMaxParallelRequests: 10,
 				RequestHasherType:         capabilitiespb.RequestHasherType_WriteReportExcludeSignatures,
@@ -549,7 +548,6 @@ func readActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	return &capabilitiespb.CapabilityMethodConfig{
 		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 			RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-				TransmissionSchedule:      capabilitiespb.TransmissionSchedule_AllAtOnce,
 				RequestTimeout:            durationpb.New(requestTimeout),
 				ServerMaxParallelRequests: 10,
 				RequestHasherType:         capabilitiespb.RequestHasherType_Simple,
