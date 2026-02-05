@@ -167,8 +167,12 @@ Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOi
 Environment can be setup by running `go run . env setup` inside `core/scripts/cre/environment` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
 - you have AWS CLI installed and configured
 - you have GH CLI installed and authenticated
-- you have required Job Distributor and Chip Ingress (Beholder) images
+- you have required Job Distributor, Chip Ingress, and Chip Config images
 - install and copy all capability binaries to expected location
+
+**Image Versioning:**
+
+Docker images for Beholder services (chip-ingress, chip-config) use commit-based tags instead of mutable tags like `local-cre`. This ensures you always know which version is running and prevents hard-to-debug issues from version mismatches. The exact versions are defined in [configs/setup.toml](configs/setup.toml).
 
 Capability installation is two fold. Private and local plugins are compiled locally and then copied to the running Docker container. Public plugins are installed, when the Docker image is built. The reason is that capability developers need a way to quickly test capabilities they are working on, without having to push the code to remote repository, so that it could be installed in the Docker image (and that's because local capability code is usually located outside Docker build context and thus unavailable).
 
@@ -238,12 +242,28 @@ Once up and running you will be able to access [CRE topic view](http://localhost
 #### Filtering out heartbeats
 Heartbeat messages spam the topic, so it's highly recommended that you add a JavaScript filter that will exclude them using the following code: `return value.msg !== 'heartbeat';`.
 
-If environment is aready running you can start just the Beholder stack (and register protos) with:
+If environment is already running you can start just the Beholder stack (and register protos) with:
 ```bash
 go run . env beholder start
 ```
 
-> This assumes you have `chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf .`
+**Image Requirements:**
+
+Beholder requires `chip-ingress` and `chip-config` Docker images with specific versions defined in [configs/setup.toml](configs/setup.toml). The image tags use commit hashes for version tracking (e.g., `chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f`).
+
+When starting Beholder, the system will:
+- **In CI (`CI=true`)**: Skip image checks (docker-compose will pull at runtime)
+- **Interactive terminal**: Auto-build missing images from sources. If build fails and `AWS_ECR` is set, you'll be offered to pull from ECR instead
+- **Non-interactive (tests, scripts)**: Auto-pull from ECR if `AWS_ECR` is set, otherwise fail with instructions
+
+To manually ensure images are available, run:
+```bash
+# Build from sources
+go run . env setup
+
+# Or pull from ECR (requires AWS SSO access)
+AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup
+```
 
 ### Storage
 

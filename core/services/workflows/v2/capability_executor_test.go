@@ -32,8 +32,8 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	exec := &ExecutionHelper{}
 	exec.initLimiters(limiters)
 
-	// Grab the configured limiter instance for confidential-http SendRequests
-	capCallValue := capCall{name: "confidential-http", method: "SendRequests"}
+	// Grab the configured limiter instance for confidential-http SendRequest
+	capCallValue := capCall{name: "confidential-http", method: "SendRequest"}
 	limiter, ok := exec.callLimiters[capCallValue]
 	require.True(t, ok, "expected confidential-http limiter to be configured")
 
@@ -41,10 +41,10 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	exec.callCounts = make(map[limits.Limiter[int]]int)
 	exec.callCounts[limiter] = 1
 
-	// Prepare a request that will parse to capName == "confidential-http" and method == "SendRequests"
+	// Prepare a request that will parse to capName == "confidential-http" and method == "SendRequest"
 	req := &sdk.CapabilityRequest{
 		Id:         "confidential-http",
-		Method:     "SendRequests",
+		Method:     "SendRequest",
 		CallbackId: 1,
 	}
 

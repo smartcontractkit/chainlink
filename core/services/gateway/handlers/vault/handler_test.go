@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -125,6 +126,23 @@ func TestActiveRequest_SendResponse(t *testing.T) {
 	// The upstream provider of the callbackCh only expects one response per request.
 	err = activeRequest.SendResponse(resp)
 	require.ErrorContains(t, err, "response already sent: each callback can only be used once")
+}
+
+func TestHandleJSONRPCUserMessage_RequestIDTooLong(t *testing.T) {
+	t.Parallel()
+
+	h, callback, _, _ := setupHandler(t)
+
+	longID := strings.Repeat("x", 201) // > 200 triggers the check
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     longID,
+		Method: vaulttypes.MethodPublicKeyGet,
+		Params: nil,
+	}
+
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+	expected := fmt.Sprintf("request ID is too long: %d. max is 200 characters", len(longID))
+	require.EqualError(t, err, expected)
 }
 
 func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
@@ -758,7 +776,9 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 		Method: vaulttypes.MethodPublicKeyGet,
 		Params: nil,
 	}
-	err := h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callback)
+	ar, err := h.(*handler).newActiveRequest(jsonRequest, callback)
+	require.NoError(t, err)
+	err = h.(*handler).handlePublicKeyGet(t.Context(), ar)
 	require.NoError(t, err)
 
 	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
@@ -790,7 +810,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
 
-	// Now let's make another request, it'll have been cached due to the previous call.
+	// Now let's make HandleJSONRPCUserMessage request, it'll have been cached due to the previous call.
 	callback = common.NewCallback()
 	jsonRequest = jsonrpc.Request[json.RawMessage]{
 		ID:     "another_request_id",

@@ -38,6 +38,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	beholderServices "github.com/smartcontractkit/chainlink/v2/core/services/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -321,6 +322,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 	lggr.Infow("configuration args", "config files", s.configFiles, "secret files", s.secretsFiles)
+
+	beholderConfigRecorder := beholderServices.NewConfigRecorder(lggr, 1*time.Hour)
+	if err := beholderConfigRecorder.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start beholder config recorder service: %w", err)
+	}
+	defer beholderConfigRecorder.Close()
 
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
