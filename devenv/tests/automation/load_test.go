@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/leak"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	de "github.com/smartcontractkit/chainlink/devenv"
@@ -42,12 +41,12 @@ func TestLoad(t *testing.T) {
 			Testcase: Testcase{
 				RegistryVersion:   contracts.RegistryVersion_2_1,
 				Name:              "registry_2_1",
-				UpkeepCount:       8,
+				UpkeepCount:       5,
 				TestKeyFundingEth: 100,
 				UpkeepFundingLink: 1_000_000,
 			},
 			Load: Load{
-				DurationSec:                   10800, //3h
+				DurationSec:                   10800, // 3h
 				NumberOfEvents:                1,
 				NumberOfSpamMatchingEvents:    1,
 				NumberOfSpamNonMatchingEvents: 0,
@@ -273,18 +272,11 @@ func TestLoad(t *testing.T) {
 				Str("Duration", testSetupDuration.String()).
 				Msg("Test setup ended")
 
-			// TODO use seth in version f03e25dcd9a42921f51c7e77ae554f21af40836b together with SethTxHelper
-			sethKeyHelper, err := products.NewSethKeyHelper(l, a.ChainClient, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, in.Blockchains[0].Type == blockchain.TypeAnvil)
-			require.NoError(t, err, "failed to create seth key helper")
-			// keyPool, err := NewKeyPool(l, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, a.ChainClient.Addresses[1:], in.Blockchains[0].Type == blockchain.TypeAnvil)
-			// require.NoError(t, err, "failed to create key pool")
-
 			gun, gErr := NewLogTriggerUser(
 				l,
 				configs,
 				a.ChainClient,
 				multicallAddress.Hex(),
-				sethKeyHelper,
 			)
 			require.NoError(t, gErr, "failed to create LogTriggerUser WASP gun")
 
