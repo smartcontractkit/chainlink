@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/encoding"
 )
 
 func TestABICodec_EncodeDecodeV1Success(t *testing.T) {
