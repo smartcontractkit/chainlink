@@ -75,37 +75,25 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 
 	// TODO validate?
 
-	rawURLs := make(map[string]string, len(cfg.EVM.Nodes)*3)
-	addURL := func(key, value string) {
-		if value == "" {
-			return
-		}
-		if _, ok := rawURLs[key]; !ok {
-			rawURLs[key] = value
-			return
-		}
-		for i := 1; ; i++ {
-			indexedKey := fmt.Sprintf("%s_%d", key, i)
-			if _, ok := rawURLs[indexedKey]; ok {
-				continue
-			}
-			rawURLs[indexedKey] = value
-			return
-		}
-	}
+	rawNodes := make([]map[string]string, 0, len(cfg.EVM.Nodes))
 	for _, n := range cfg.EVM.Nodes {
 		if n == nil {
 			continue
 		}
+		nodeURLs := make(map[string]string)
 		if n.HTTPURL != nil {
-			addURL("HTTPURL", n.HTTPURL.String())
+			nodeURLs["HTTPURL"] = n.HTTPURL.String()
 		}
 		if n.WSURL != nil {
-			addURL("WSURL", n.WSURL.String())
+			nodeURLs["WSURL"] = n.WSURL.String()
 		}
 		if n.HTTPURLExtraWrite != nil {
-			addURL("HTTPURLExtraWrite", n.HTTPURLExtraWrite.String())
+			nodeURLs["HTTPURLExtraWrite"] = n.HTTPURLExtraWrite.String()
 		}
+		if len(nodeURLs) == 0 {
+			continue
+		}
+		rawNodes = append(rawNodes, nodeURLs)
 	}
 	chainID := ""
 	if cfg.EVM.ChainID != nil {
@@ -115,7 +103,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 		c.Logger,
 		beholder.GetClient().Config.AuthPublicKeyHex,
 		chainID,
-		rawURLs,
+		rawNodes,
 	))
 
 	evmKeystore := keys.NewChainStore(keystore, cfg.EVM.ChainID.ToInt())
