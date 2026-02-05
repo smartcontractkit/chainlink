@@ -123,9 +123,11 @@ func ExecuteLLOStreamsTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	// Step 1: Deploy the LLO consumer workflow (mock test: subscribe to mock@1.0.0)
 	testLogger.Info().Msg("Step 1: Deploying LLO consumer workflow...")
 	workflowConfig := llo_consumer_config.LLOConsumerConfig{
-		StreamIDs:           []uint32{1},  // Subscribe to stream ID 1
-		MaxFrequencyMs:      1000,         // 1 second max frequency
-		TriggerCapabilityID: "mock@1.0.0", // Mock test uses mock-only DON; workflow must subscribe to mock trigger
+		StreamIDs:             []uint32{1},    // Subscribe to stream ID 1
+		AcceptedReportFormats: []uint32{5},    // DON filters: only Format 5 (mock sends Format 5 only)
+		ExpectedReportFormat:  5,              // Mock does not set report_format on Report; fallback for decode
+		MaxFrequencyMs:       1000,           // 1 second max frequency
+		TriggerCapabilityID:  "mock@1.0.0",   // Mock test uses mock-only DON; workflow must subscribe to mock trigger
 	}
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 	testLogger.Info().Msg("✓ Workflow deployed successfully")
@@ -270,7 +272,7 @@ func generateMockLLOReport(seqNr uint64, eventID string) (*streams.Report, error
 	}
 
 	ocrReport := &capabilitiespb.OCRTriggerReport{
-		EventID:   eventID, // Must match req.ID so aggregator's aggregateProtobuf accepts (rep.EventID == triggerEventID)
+		EventID:   eventID, // Must match req.ID so aggregator accepts (rep.EventID == triggerEventID in SignedReportRemoteAggregator.Aggregate)
 		Timestamp: timestamp,
 		Outputs:   outputsMap,
 	}
@@ -353,8 +355,10 @@ func ExecuteLLOStreamsTriggerE2EWithFullLLO(t *testing.T, testEnv *ttypes.TestEn
 	// Step 4: Deploy the LLO consumer workflow
 	testLogger.Info().Msg("Step 4: Deploying LLO consumer workflow...")
 	workflowConfig := llo_consumer_config.LLOConsumerConfig{
-		StreamIDs:      []uint32{1, 4}, // Subscribe to both Format 5 and Format 7 streams
-		MaxFrequencyMs: 1000,
+		StreamIDs:             []uint32{1, 4},   // Subscribe to both Format 5 and Format 7 streams
+		AcceptedReportFormats: []uint32{5, 7},  // DON filters: only send Format 5 and 7 reports
+		MaxFrequencyMs:        1000,
+		ExpectedReportFormat:   0,               // 0 = use report_format from report (transmitter sets it per report)
 	}
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 	testLogger.Info().Msg("✓ Workflow deployed")

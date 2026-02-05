@@ -433,4 +433,7 @@ require (
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20251014124537-af6b1684fe15
 
+// Use local chainlink-common when it has ReportFormat on streams.Report (e.g. feature/streams-llo-nodag-trigger). Remove before merge if chainlink-common is published with that change.
+replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
+
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall

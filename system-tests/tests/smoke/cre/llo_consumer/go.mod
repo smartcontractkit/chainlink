@@ -40,7 +40,5 @@ require (
 	google.golang.org/grpc v1.75.0 // indirect
 )
 
-// Note: For local WASM development with uncommitted chainlink-common changes,
-// temporarily add:
-// replace github.com/smartcontractkit/chainlink-common => ../../../../../../../../chainlink-common
-// replace github.com/smartcontractkit/chainlink-protos/cre/go => ../../../../../../../../chainlink-protos/cre/go
+// Use local chainlink-common when it has ReportFormat on streams.Report. Remove before merge when chainlink-common is published with that change.
+replace github.com/smartcontractkit/chainlink-common => ../../../../../../chainlink-common

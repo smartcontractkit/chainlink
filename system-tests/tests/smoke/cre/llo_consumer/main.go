@@ -21,19 +21,12 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
-// Magic numbers embedded in different report formats to prove E2E connectivity:
-//
-// Format 5 (CapabilityTrigger) - protobuf encoded:
-//
-//	Stream 1: TEST/USD → MAGIC_NUMBER_FORMAT5 (424242)
-//
-// Format 7 (EVMABIEncodeUnpackedExpr) - ABI encoded:
-//
-//	Stream 4: DATA/USD → MAGIC_NUMBER_FORMAT7 (555555)
-const (
-	MAGIC_NUMBER_FORMAT5 = 424242 // For ReportFormat 5 (CapabilityTrigger)
-	MAGIC_NUMBER_FORMAT7 = 555555 // For ReportFormat 7 (EVMABIEncodeUnpackedExpr)
-)
+// Magic numbers embedded in different report formats to prove E2E connectivity.
+// E2E expected values per stream ID (business logic keys off these for the test).
+var e2eExpectedValuesByStreamID = map[uint32]int64{
+	1: 424242, // Stream 1: Format 5 (CapabilityTrigger) → MAGIC_NUMBER_FORMAT5
+	4: 555555, // Stream 4: Format 7 (EVMABIEncodeUnpackedExpr) → MAGIC_NUMBER_FORMAT7
+}
 
 // DefaultStreamsTriggerCapabilityID is the capability ID used for LLO streams trigger (real DON).
 const DefaultStreamsTriggerCapabilityID = "streams-trigger@2.0.0"
@@ -41,10 +34,22 @@ const DefaultStreamsTriggerCapabilityID = "streams-trigger@2.0.0"
 // MockStreamsTriggerCapabilityID is used when the capabilities DON runs only the mock (mock test).
 const MockStreamsTriggerCapabilityID = "mock@1.0.0"
 
+// Report format identifiers. The payload (streams.Report) includes report_format; the transmitter sets it.
+const (
+	ReportFormat5 = 5 // CapabilityTrigger (protobuf)
+	ReportFormat7 = 7 // EVMABIEncodeUnpackedExpr (ABI)
+)
+
+// StreamValues is stream_id → value (int64). Format 5 decimals are truncated to int via IntPart().
+type StreamValues map[uint32]int64
+
 type WorkflowConfig struct {
-	StreamIDs           []uint32 `yaml:"stream_ids"`
-	MaxFrequencyMs      uint64   `yaml:"max_frequency_ms"`
-	TriggerCapabilityID string   `yaml:"trigger_capability_id"` // optional; default streams-trigger@2.0.0. Use mock@1.0.0 for mock test.
+	StreamIDs             []uint32 `yaml:"stream_ids"`
+	MaxFrequencyMs        uint64   `yaml:"max_frequency_ms"`
+	TriggerCapabilityID   string   `yaml:"trigger_capability_id"`    // optional; default streams-trigger@2.0.0. Use mock@1.0.0 for mock test.
+	AcceptedReportFormats []uint32 `yaml:"accepted_report_formats"`  // Report formats the workflow accepts; DON filters by this. e.g. [5, 7]. Empty = accept all.
+	TransmissionWindowMs  uint64   `yaml:"transmission_window_ms"`   // When > 0, DON delays pushing until next wall-clock boundary. 0 = use runner default or immediate.
+	ExpectedReportFormat int      `yaml:"expected_report_format"`   // Fallback for decode when report does not carry report_format (e.g. mock). 5=protobuf, 7=ABI.
 }
 
 func main() {
@@ -91,16 +96,52 @@ func (t *streamsTrigger) Adapt(report *streams.Report) (*streams.Report, error) 
 }
 
 func RunLLOConsumerWorkflow(config WorkflowConfig, logger *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[WorkflowConfig], error) {
-	logger.Info("LLO_CONSUMER_STARTING", "streams", config.StreamIDs, "triggerCapabilityID", config.TriggerCapabilityID, "MAGIC_FORMAT5", MAGIC_NUMBER_FORMAT5, "MAGIC_FORMAT7", MAGIC_NUMBER_FORMAT7)
+	logger.Info("LLO_CONSUMER_STARTING", "streams", config.StreamIDs, "triggerCapabilityID", config.TriggerCapabilityID)
 
 	trigger := NewStreamsTrigger(&streams.Config{
-		StreamIds:      config.StreamIDs,
-		MaxFrequencyMs: config.MaxFrequencyMs,
+		StreamIds:             config.StreamIDs,
+		MaxFrequencyMs:        config.MaxFrequencyMs,
+		AcceptedReportFormats: config.AcceptedReportFormats,
+		TransmissionWindowMs:  config.TransmissionWindowMs,
 	}, config.TriggerCapabilityID)
 
 	return cre.Workflow[WorkflowConfig]{
 		cre.Handler(trigger, onStreamsTrigger),
 	}, nil
+}
+
+// ExtractReportValues decodes the report. Report type is in the payload: report.GetReportFormat() (5 or 7).
+// If the payload has report_format set, that is used; else config.ExpectedReportFormat (e.g. for mock).
+// Exactly one decoder is used—never "try both". Returns values keyed by stream ID.
+func ExtractReportValues(report *streams.Report, config WorkflowConfig) (values StreamValues, usedFormat int, err error) {
+	if report == nil || len(report.Report) == 0 {
+		return nil, 0, fmt.Errorf("nil or empty report")
+	}
+	data := report.Report
+	streamIDs := config.StreamIDs
+
+	// Report type is in the payload: report.GetReportFormat(). Use it when set; else config.ExpectedReportFormat (e.g. mock).
+	// Never try both decoders—require an explicit format (5 or 7).
+	format := config.ExpectedReportFormat
+	if r := report.GetReportFormat(); r != 0 {
+		format = int(r)
+	}
+	if format != ReportFormat5 && format != ReportFormat7 {
+		return nil, 0, fmt.Errorf("report format must be 5 or 7 (got %d); set expected_report_format in workflow config or ensure transmitter sets report_format on the report", format)
+	}
+
+	if format == ReportFormat5 {
+		values, err = extractFormat5Values(data)
+		if err != nil {
+			return nil, 0, fmt.Errorf("format 5: %w", err)
+		}
+		return values, ReportFormat5, nil
+	}
+	values, err = extractFormat7Values(data, streamIDs)
+	if err != nil {
+		return nil, 0, fmt.Errorf("format 7: %w", err)
+	}
+	return values, ReportFormat7, nil
 }
 
 // onStreamsTrigger processes LLO reports from the Streams DON
@@ -118,209 +159,127 @@ func onStreamsTrigger(config WorkflowConfig, runtime cre.Runtime, report *stream
 		return "", fmt.Errorf("LLO_E2E_ERROR: nil report")
 	}
 
-	// Log basic report info for observability
+	// Report type is in the payload: streams.Report.report_format (5 = protobuf, 7 = ABI). Transmitter sets it.
+	reportFormatFromPayload := report.GetReportFormat()
 	sigCount := len(report.Sigs)
 	configDigest := hex.EncodeToString(report.ConfigDigest)
 	if len(configDigest) > 16 {
 		configDigest = configDigest[:16] + "..."
 	}
-	reportLen := len(report.Report)
+	logger.Info(fmt.Sprintf("LLO_REPORT_RECEIVED[SeqNr=%d]: report_format=%d (from payload), sigs=%d, configDigest=%s, reportLen=%d",
+		report.SeqNr, reportFormatFromPayload, sigCount, configDigest, len(report.Report)))
 
-	logger.Info(fmt.Sprintf("LLO_REPORT_RECEIVED[SeqNr=%d]: %d signatures, configDigest=%s, reportLen=%d",
-		report.SeqNr, sigCount, configDigest, reportLen))
-
-	// Try both Format 5 (protobuf) and Format 7 (ABI) decoding
-	// Log results for both so we can verify both formats are working
-	var results []string
-
-	// Try Format 5 (CapabilityTrigger - protobuf)
-	decF5, errF5 := decodeFormat5Report(report.Report)
-	if errF5 == nil {
-		valueInt := decF5.IntPart()
-		isMatch := valueInt == MAGIC_NUMBER_FORMAT5
-		result := fmt.Sprintf("LLO_E2E_FORMAT5[SeqNr=%d]: Value=%d Expected=%d Match=%v Sigs=%d",
-			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, isMatch, sigCount)
-		logger.Info(result)
-		results = append(results, result)
-		// Log LLO_E2E_VALUE here so it's captured by Beholder before we return
-		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=5 Value=%d Expected=%d Match=%v Sigs=%d",
-			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, isMatch, sigCount)
-		logger.Info(msg)
+	// Top-level extraction: decode report and get values keyed by stream ID (regardless of format).
+	values, usedFormat, err := ExtractReportValues(report, config)
+	if err != nil {
+		return "", fmt.Errorf("LLO_E2E_ERROR[SeqNr=%d]: %w", report.SeqNr, err)
 	}
 
-	// Try Format 7 (EVMABIEncodeUnpackedExpr - ABI)
-	valueF7, errF7 := decodeFormat7Report(report.Report)
-	if errF7 == nil {
-		isMatch := valueF7 == MAGIC_NUMBER_FORMAT7
-		result := fmt.Sprintf("LLO_E2E_FORMAT7[SeqNr=%d]: Value=%d Expected=%d Match=%v Sigs=%d",
-			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, isMatch, sigCount)
-		logger.Info(result)
-		results = append(results, result)
-		// Log LLO_E2E_VALUE here so it's captured by Beholder before we return
-		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=7 Value=%d Expected=%d Match=%v Sigs=%d",
-			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, isMatch, sigCount)
-		logger.Info(msg)
-	}
-
-	// Only log skip messages if BOTH formats failed (to reduce noise)
-	// If one format succeeds, we don't need to log that the other failed
-	if errF5 != nil && errF7 != nil {
-		logger.Info(fmt.Sprintf("LLO_E2E_FORMAT5_SKIP[SeqNr=%d]: %v", report.SeqNr, errF5))
-		logger.Info(fmt.Sprintf("LLO_E2E_FORMAT7_SKIP[SeqNr=%d]: %v", report.SeqNr, errF7))
-	}
-
-	// Return results based on which format was decoded successfully
-	// Format 5 (protobuf) takes priority if both decode (shouldn't happen in practice)
-	// Return success (nil error) when Match=true, error when Match=false
-	// LLO_E2E_VALUE is already logged above so Beholder can capture it
-	if errF5 == nil {
-		valueInt := decF5.IntPart()
-		isMatch := valueInt == MAGIC_NUMBER_FORMAT5
-		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=5 Value=%d Expected=%d Match=%v Sigs=%d",
-			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, isMatch, sigCount)
-		if isMatch {
-			// Success: return message in string, nil error
-			return msg, nil
+	// Business logic: key off stream IDs. For E2E we log and validate—only fail when a present value doesn't match expected (reports can be single-stream).
+	expectedByStream := e2eExpectedValuesByStreamID
+	allMatch := true
+	var resultParts []string
+	for _, streamID := range config.StreamIDs {
+		val, ok := values[streamID]
+		expected, hasExpected := expectedByStream[streamID]
+		match := ok && hasExpected && val == expected
+		logger.Info(fmt.Sprintf("LLO_E2E_STREAM[SeqNr=%d]: streamID=%d value=%d (present=%v) expected=%d match=%v",
+			report.SeqNr, streamID, val, ok, expected, match))
+		resultParts = append(resultParts, fmt.Sprintf("streamID=%d Value=%d", streamID, val))
+		if ok && hasExpected && val != expected {
+			allMatch = false
 		}
-		// Failure: value doesn't match expected
-		return "", fmt.Errorf("LLO_E2E_MISMATCH[SeqNr=%d]: Format=5 Value=%d Expected=%d Match=false Sigs=%d",
-			report.SeqNr, valueInt, MAGIC_NUMBER_FORMAT5, sigCount)
 	}
-
-	if errF7 == nil {
-		isMatch := valueF7 == MAGIC_NUMBER_FORMAT7
-		msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=7 Value=%d Expected=%d Match=%v Sigs=%d",
-			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, isMatch, sigCount)
-		if isMatch {
-			// Success: return message in string, nil error
-			return msg, nil
-		}
-		// Failure: value doesn't match expected
-		return "", fmt.Errorf("LLO_E2E_MISMATCH[SeqNr=%d]: Format=7 Value=%d Expected=%d Match=false Sigs=%d",
-			report.SeqNr, valueF7, MAGIC_NUMBER_FORMAT7, sigCount)
+	msg := fmt.Sprintf("LLO_E2E_VALUE[SeqNr=%d]: Format=%d Sigs=%d %s",
+		report.SeqNr, usedFormat, sigCount, fmt.Sprint(resultParts))
+	logger.Info(msg)
+	if !allMatch {
+		return "", fmt.Errorf("LLO_E2E_MISMATCH[SeqNr=%d]: %s", report.SeqNr, msg)
 	}
-
-	// Neither format decoded successfully
-	return "", fmt.Errorf("LLO_E2E_ERROR[SeqNr=%d]: decode failed - Format5: %v, Format7: %v, reportLen=%d",
-		report.SeqNr, errF5, errF7, reportLen)
+	return msg, nil
 }
 
-// decodeFormat5Report extracts the decimal value from ReportFormat 5 (CapabilityTrigger)
-// This is protobuf encoded with the structure:
-//
-//	OCRTriggerReport {
-//	  Outputs: Map {
-//	    "Payload": List[
-//	      Map { "StreamID": int64, "Decimal": bytes }
-//	    ]
-//	  }
-//	}
-func decodeFormat5Report(data []byte) (decimal.Decimal, error) {
-	// Unmarshal the OCRTriggerReport protobuf
+// extractFormat5Values extracts all stream values from ReportFormat 5 (CapabilityTrigger).
+// Structure: OCRTriggerReport.Outputs["Payload"] = list of maps, each { "StreamID": int64, "Decimal": bytes }.
+func extractFormat5Values(data []byte) (StreamValues, error) {
 	ocrReport := &capabilitiespb.OCRTriggerReport{}
 	if err := proto.Unmarshal(data, ocrReport); err != nil {
-		return decimal.Zero, fmt.Errorf("unmarshal OCRTriggerReport: %w", err)
+		return nil, fmt.Errorf("unmarshal OCRTriggerReport: %w", err)
 	}
-
-	// Get Outputs map
 	outputs := ocrReport.GetOutputs()
 	if outputs == nil || outputs.Fields == nil {
-		return decimal.Zero, fmt.Errorf("no Outputs in report")
+		return nil, fmt.Errorf("no Outputs in report")
 	}
-
-	// Get Payload field (list of stream values)
 	payloadValue, ok := outputs.Fields["Payload"]
 	if !ok || payloadValue == nil {
-		return decimal.Zero, fmt.Errorf("no Payload field in Outputs")
+		return nil, fmt.Errorf("no Payload field in Outputs")
 	}
-
-	// Extract the list
 	payloadList := payloadValue.GetListValue()
 	if payloadList == nil {
-		return decimal.Zero, fmt.Errorf("Payload is not a list")
+		return nil, fmt.Errorf("Payload is not a list")
 	}
-
 	fields := payloadList.GetFields()
 	if len(fields) == 0 {
-		return decimal.Zero, fmt.Errorf("Payload list is empty")
+		return nil, fmt.Errorf("Payload list is empty")
 	}
-
-	// Get first stream value
-	firstStreamValue := fields[0]
-	streamMap := firstStreamValue.GetMapValue()
-	if streamMap == nil || streamMap.Fields == nil {
-		return decimal.Zero, fmt.Errorf("first payload item is not a map")
+	out := make(StreamValues, len(fields))
+	for i, item := range fields {
+		streamMap := item.GetMapValue()
+		if streamMap == nil || streamMap.Fields == nil {
+			return nil, fmt.Errorf("payload item %d is not a map", i)
+		}
+		streamIDVal, ok := streamMap.Fields["StreamID"]
+		if !ok || streamIDVal == nil {
+			return nil, fmt.Errorf("payload item %d: no StreamID", i)
+		}
+		streamID := uint32(streamIDVal.GetInt64Value())
+		decimalVal, ok := streamMap.Fields["Decimal"]
+		if !ok || decimalVal == nil {
+			return nil, fmt.Errorf("payload item %d: no Decimal", i)
+		}
+		decimalBytes := decimalVal.GetBytesValue()
+		if len(decimalBytes) == 0 {
+			return nil, fmt.Errorf("payload item %d: empty Decimal", i)
+		}
+		var dec decimal.Decimal
+		if err := dec.UnmarshalBinary(decimalBytes); err != nil {
+			return nil, fmt.Errorf("payload item %d unmarshal decimal: %w", i, err)
+		}
+		out[streamID] = dec.IntPart()
 	}
-
-	// Get Decimal bytes
-	decimalValue, ok := streamMap.Fields["Decimal"]
-	if !ok || decimalValue == nil {
-		return decimal.Zero, fmt.Errorf("no Decimal field in stream value")
-	}
-
-	decimalBytes := decimalValue.GetBytesValue()
-	if len(decimalBytes) == 0 {
-		return decimal.Zero, fmt.Errorf("Decimal bytes are empty")
-	}
-
-	// Unmarshal the decimal using shopspring/decimal binary format
-	var dec decimal.Decimal
-	if err := dec.UnmarshalBinary(decimalBytes); err != nil {
-		return decimal.Zero, fmt.Errorf("unmarshal decimal: %w", err)
-	}
-
-	return dec, nil
+	return out, nil
 }
 
-// decodeFormat7Report extracts the value from ReportFormat 7 (EVMABIEncodeUnpackedExpr)
-// This is ABI encoded with the structure:
-//
-//	Header (ABI-padded to 32-byte boundaries):
-//	  - FeedID (32 bytes)
-//	  - ValidFromTimestamp (32 bytes, padded)
-//	  - Timestamp (32 bytes, padded)
-//	  - NativeFee (32 bytes)
-//	  - LinkFee (32 bytes)
-//	  - ExpiresAt (32 bytes, padded)
-//
-//	Payload (ABI encoded):
-//	  - Data values as int192
-func decodeFormat7Report(data []byte) (int64, error) {
-	// Format 7 header size: 6 x 32 bytes = 192 bytes (ABI-padded)
+// extractFormat7Values extracts stream values from ReportFormat 7 (EVMABIEncodeUnpackedExpr).
+// Header 192 bytes; payload is a sequence of 32-byte int192 values. Values are paired by index
+// with streamIDs (payload[i] → streamIDs[i]).
+func extractFormat7Values(data []byte, streamIDs []uint32) (StreamValues, error) {
 	const headerSize = 192
-
+	const valueSize = 32
 	if len(data) < headerSize {
-		return 0, fmt.Errorf("report too short for Format 7: %d bytes (need at least %d)", len(data), headerSize)
+		return nil, fmt.Errorf("report too short for Format 7: %d bytes (need at least %d)", len(data), headerSize)
 	}
-
-	// The payload follows the header
 	payload := data[headerSize:]
-
-	if len(payload) < 32 {
-		return 0, fmt.Errorf("payload too short: %d bytes", len(payload))
+	needLen := len(streamIDs) * valueSize
+	if len(payload) < needLen {
+		return nil, fmt.Errorf("payload too short: %d bytes (need %d for %d streams)", len(payload), needLen, len(streamIDs))
 	}
-
-	// The payload contains ABI-encoded int192 values
-	// int192 is encoded as a 32-byte value (left-padded for positive, sign-extended for negative)
-	// We extract the first value which is DATA/USD with MAGIC_NUMBER_FORMAT7
-	valueBytes := payload[:32]
-
-	// Check if it's a negative number (sign bit set)
-	isNegative := valueBytes[0]&0x80 != 0
-	if isNegative {
-		return 0, fmt.Errorf("negative values not supported")
+	out := make(StreamValues, len(streamIDs))
+	for i, streamID := range streamIDs {
+		valueBytes := payload[i*valueSize : (i+1)*valueSize]
+		if valueBytes[0]&0x80 != 0 {
+			return nil, fmt.Errorf("stream %d: negative values not supported", streamID)
+		}
+		value := new(big.Int).SetBytes(valueBytes)
+		if value.IsInt64() {
+			out[streamID] = value.Int64()
+			continue
+		}
+		if len(valueBytes) >= 8 {
+			out[streamID] = int64(binary.BigEndian.Uint64(valueBytes[len(valueBytes)-8:]))
+			continue
+		}
+		return nil, fmt.Errorf("stream %d: unable to decode value", streamID)
 	}
-
-	// For positive numbers, use big.Int for proper handling
-	value := new(big.Int).SetBytes(valueBytes)
-	if value.IsInt64() {
-		return value.Int64(), nil
-	}
-
-	// Fallback: try reading as big-endian uint64 from last 8 bytes
-	if len(valueBytes) >= 8 {
-		return int64(binary.BigEndian.Uint64(valueBytes[len(valueBytes)-8:])), nil
-	}
-
-	return 0, fmt.Errorf("unable to decode value from payload")
+	return out, nil
 }
