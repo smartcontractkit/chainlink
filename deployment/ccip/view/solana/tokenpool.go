@@ -85,6 +85,7 @@ func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, re
 	eg.SetLimit(16)
 	// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
 	for _, token := range tokens {
+		token := token
 		eg.Go(func() error {
 			programData := solTestTokenPool.State{}
 			// fetch token pool states to find which tokens are actually configured
