@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -12,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -48,11 +48,10 @@ func (o *orm) UpsertNodeVersion(ctx context.Context, version NodeVersion) error 
 	}
 
 	return sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
-		if os.Getenv("CL_SKIP_APP_VERSION_CHECK") == "true" {
+		if env.SkipAppVersionCheck.IsTrue() {
 			o.lggr.Warnw("Skipping app version check", "appVersion", version.Version)
 		} else {
-			ignorePrerelease := os.Getenv("CL_IGNORE_PRERELEASE_VERSION_CHECK") == "true"
-			if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version, ignorePrerelease); err != nil {
+			if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version, env.IgnorePrereleaseVersionCheck.IsTrue()); err != nil {
 				return err
 			}
 		}
