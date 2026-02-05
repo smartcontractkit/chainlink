@@ -110,9 +110,10 @@ type HTTPRequest struct {
 }
 
 type HTTPResponse struct {
-	StatusCode int               // HTTP status code
-	Headers    map[string]string // HTTP headers
-	Body       []byte            // HTTP response body
+	StatusCode   int                 // HTTP status code
+	Headers      map[string]string   // HTTP headers (deprecated: use MultiHeaders, contains first value only for backward compatibility)
+	MultiHeaders map[string][]string // HTTP headers with all values preserved
+	Body         []byte              // HTTP response body
 }
 
 type httpClient struct {
@@ -246,18 +247,27 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		c.lggr.Errorw("failed to read HTTP response body", "err", err)
 		return nil, errors.Join(err, ErrHTTPRead)
 	}
+
+	// Store all header values in MultiHeaders and first value in Headers for backward compatibility
+	multiHeaders := make(map[string][]string)
 	headers := make(map[string]string)
 	for k, v := range resp.Header {
-		// header values are usually an array of size 1
-		// joining them to a single string in case array size is greater than 1
+		if len(v) == 0 {
+			continue
+		}
+
+		multiHeaders[k] = v
+
 		headers[k] = strings.Join(v, ",")
 	}
+
 	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode)
 
 	return &HTTPResponse{
-		Headers:    headers,
-		StatusCode: resp.StatusCode,
-		Body:       body,
+		Headers:      headers,
+		MultiHeaders: multiHeaders,
+		StatusCode:   resp.StatusCode,
+		Body:         body,
 	}, nil
 }
 
