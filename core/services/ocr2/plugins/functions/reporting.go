@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	encoding2 "github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
+	"github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 )
@@ -34,7 +34,7 @@ type functionsReporting struct {
 	logger              commontypes.Logger
 	pluginORM           functions.ORM
 	jobID               uuid.UUID
-	reportCodec         encoding2.ReportCodec
+	reportCodec         encoding.ReportCodec
 	genericConfig       *types.ReportingPluginConfig
 	specificConfig      *config.ReportingPluginConfigWrapper
 	contractVersion     uint32
@@ -99,7 +99,7 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(ctx context.Context,
 		})
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	codec, err := encoding2.NewReportCodec(f.ContractVersion)
+	codec, err := encoding.NewReportCodec(f.ContractVersion)
 	if err != nil {
 		f.Logger.Error("unable to create a report codec object", commontypes.LogFields{})
 		return nil, types.ReportingPluginInfo{}, err
@@ -155,7 +155,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		return nil, err
 	}
 
-	queryProto := encoding2.Query{}
+	queryProto := encoding.Query{}
 	var idStrs []string
 	var reportCoordinator *common.Address
 	for _, result := range results {
@@ -195,17 +195,17 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		"oracleID": r.genericConfig.OracleID,
 	})
 
-	queryProto := &encoding2.Query{}
+	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)
 	if err != nil {
 		return nil, err
 	}
 
-	observationProto := encoding2.Observation{}
+	observationProto := encoding.Observation{}
 	processedIds := make(map[[32]byte]bool)
 	var idStrs []string
 	for _, id := range queryProto.RequestIDs {
-		id, err := encoding2.SliceToByte32(id)
+		id, err := encoding.SliceToByte32(id)
 		if err != nil {
 			r.logger.Error("FunctionsReporting Observation invalid ID", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
@@ -230,7 +230,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		}
 		// NOTE: ignoring TIMED_OUT requests, which potentially had ready results
 		if localResult.State == functions.RESULT_READY {
-			resultProto := encoding2.ProcessedRequest{
+			resultProto := encoding.ProcessedRequest{
 				RequestID:       localResult.RequestID[:],
 				Result:          localResult.Result,
 				Error:           localResult.Error,
@@ -270,7 +270,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	})
 	promReportingPluginsReportNumObservations.WithLabelValues(r.jobID.String()).Set(float64(len(obs)))
 
-	queryProto := &encoding2.Query{}
+	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)
 	if err != nil {
 		r.logger.Error("FunctionsReporting Report: unable to decode query!",
@@ -278,7 +278,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		return false, nil, err
 	}
 
-	reqIdToObservationList := make(map[string][]*encoding2.ProcessedRequest)
+	reqIdToObservationList := make(map[string][]*encoding.ProcessedRequest)
 	var uniqueQueryIds []string
 	for _, id := range queryProto.RequestIDs {
 		reqId := formatRequestId(id)
@@ -289,11 +289,11 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			continue
 		}
 		uniqueQueryIds = append(uniqueQueryIds, reqId)
-		reqIdToObservationList[reqId] = []*encoding2.ProcessedRequest{}
+		reqIdToObservationList[reqId] = []*encoding.ProcessedRequest{}
 	}
 
 	for _, ob := range obs {
-		observationProto := &encoding2.Observation{}
+		observationProto := &encoding.Observation{}
 		err = proto.Unmarshal(ob.Observation, observationProto)
 		if err != nil {
 			r.logger.Error("FunctionsReporting Report: unable to decode observation!",
@@ -319,7 +319,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	}
 
 	defaultAggMethod := r.specificConfig.Config.GetDefaultAggregationMethod()
-	var allAggregated []*encoding2.ProcessedRequest
+	var allAggregated []*encoding.ProcessedRequest
 	var allIdStrs []string
 	var totalCallbackGas uint32
 	var reportCoordinator *common.Address
@@ -422,7 +422,7 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		id, err := encoding2.SliceToByte32(item.RequestID)
+		id, err := encoding.SliceToByte32(item.RequestID)
 		if err != nil {
 			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
@@ -483,7 +483,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		id, err := encoding2.SliceToByte32(item.RequestID)
+		id, err := encoding.SliceToByte32(item.RequestID)
 		if err != nil {
 			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue

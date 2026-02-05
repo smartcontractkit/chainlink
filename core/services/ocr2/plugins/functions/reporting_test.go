@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
-	encoding2 "github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
+	"github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 )
 
-func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding2.ReportCodec, *functions_mocks.OffchainTransmitter) {
+func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding.ReportCodec, *functions_mocks.OffchainTransmitter) {
 	lggr := logger.TestLogger(t)
 	ocrLogger := commonlogger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
@@ -48,7 +48,7 @@ func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (typ
 		OffchainConfig: pluginConfigBytes,
 	})
 	require.NoError(t, err)
-	codec, err := encoding2.NewReportCodec(1)
+	codec, err := encoding.NewReportCodec(1)
 	require.NoError(t, err)
 	return plugin, orm, codec, offchainTransmitter
 }
@@ -88,7 +88,7 @@ func newRequestConfirmed() functions_srv.Request {
 }
 
 func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte {
-	queryProto := encoding2.Query{}
+	queryProto := encoding.Query{}
 	queryProto.RequestIDs = [][]byte{}
 	for _, id := range reqIDs {
 		queryProto.RequestIDs = append(queryProto.RequestIDs, id[:])
@@ -98,8 +98,8 @@ func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte 
 	return marshalled
 }
 
-func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *encoding2.ProcessedRequest {
-	return &encoding2.ProcessedRequest{
+func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *encoding.ProcessedRequest {
+	return &encoding.ProcessedRequest{
 		RequestID:           requestId[:],
 		Result:              compResult,
 		Error:               compError,
@@ -107,8 +107,8 @@ func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, c
 	}
 }
 
-func newProcessedRequestWithMeta(requestId functions_srv.RequestID, compResult []byte, compError []byte, callbackGasLimit uint32, coordinatorContract []byte, onchainMetadata []byte) *encoding2.ProcessedRequest {
-	return &encoding2.ProcessedRequest{
+func newProcessedRequestWithMeta(requestId functions_srv.RequestID, compResult []byte, compError []byte, callbackGasLimit uint32, coordinatorContract []byte, onchainMetadata []byte) *encoding.ProcessedRequest {
+	return &encoding.ProcessedRequest{
 		RequestID:           requestId[:],
 		Result:              compResult,
 		Error:               compError,
@@ -118,8 +118,8 @@ func newProcessedRequestWithMeta(requestId functions_srv.RequestID, compResult [
 	}
 }
 
-func newObservation(t *testing.T, observerId uint8, requests ...*encoding2.ProcessedRequest) types.AttributedObservation {
-	observationProto := encoding2.Observation{ProcessedRequests: requests}
+func newObservation(t *testing.T, observerId uint8, requests ...*encoding.ProcessedRequest) types.AttributedObservation {
+	observationProto := encoding.Observation{ProcessedRequests: requests}
 	raw, err := proto.Marshal(&observationProto)
 	require.NoError(t, err)
 	return types.AttributedObservation{
@@ -138,7 +138,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 
-	queryProto := &encoding2.Query{}
+	queryProto := &encoding.Query{}
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
 	require.Len(t, queryProto.RequestIDs, 2)
@@ -158,7 +158,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 
-	queryProto := &encoding2.Query{}
+	queryProto := &encoding.Query{}
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
 	require.Len(t, queryProto.RequestIDs, 1)
@@ -191,7 +191,7 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, query)
 	require.NoError(t, err)
 
-	observationProto := &encoding2.Observation{}
+	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
 	require.NoError(t, err)
 	require.Len(t, observationProto.ProcessedRequests, 2)
@@ -213,14 +213,14 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	// Query asking for 3 requests (with duplicates), out of which:
 	//   - two are invalid
 	//   - one is ready
-	queryProto := encoding2.Query{}
+	queryProto := encoding.Query{}
 	queryProto.RequestIDs = [][]byte{invalidId, req1.RequestID[:], invalidId}
 	marshalled, err := proto.Marshal(&queryProto)
 	require.NoError(t, err)
 
 	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, marshalled)
 	require.NoError(t, err)
-	observationProto := &encoding2.Observation{}
+	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
 	require.NoError(t, err)
 	require.Len(t, observationProto.ProcessedRequests, 1)
@@ -413,10 +413,10 @@ func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getReportBytes(t *testing.T, codec encoding2.ReportCodec, reqs ...functions_srv.Request) []byte {
-	var report []*encoding2.ProcessedRequest
+func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_srv.Request) []byte {
+	var report []*encoding.ProcessedRequest
 	for _, req := range reqs {
-		report = append(report, &encoding2.ProcessedRequest{
+		report = append(report, &encoding.ProcessedRequest{
 			RequestID:           req.RequestID[:],
 			Result:              req.Result,
 			Error:               req.Error,
