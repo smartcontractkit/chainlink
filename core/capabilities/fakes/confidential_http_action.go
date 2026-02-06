@@ -6,13 +6,18 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
@@ -142,9 +147,9 @@ var directConfidentialHTTPActionInfo = commonCap.MustNewCapabilityInfo(
 	"An action that makes a confidential HTTP request with secrets",
 )
 
-// aesGCMEncrypt encrypts plaintext using AES-GCM with the provided key.
+// AESGCMEncrypt encrypts plaintext using AES-GCM with the provided key.
 // Returns nonce || ciphertext || tag.
-func aesGCMEncrypt(plaintext []byte, key []byte) ([]byte, error) {
+func AESGCMEncrypt(plaintext []byte, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -164,6 +169,32 @@ func aesGCMEncrypt(plaintext []byte, key []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
+// AESGCMDecrypt decrypts AES-GCM encrypted data (nonce || ciphertext || tag) with the provided key.
+func AESGCMDecrypt(blob []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(blob) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, ciphertext := blob[:nonceSize], blob[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
+}
+
 // hasEncryptionSecret checks if the VaultDonSecrets contain the magic AES-GCM encryption key.
 func hasEncryptionSecret(secrets []*confidentialhttp.SecretIdentifier) bool {
 	for _, s := range secrets {
@@ -174,17 +205,42 @@ func hasEncryptionSecret(secrets []*confidentialhttp.SecretIdentifier) bool {
 	return false
 }
 
+type SecretsConfig struct {
+	SecretsNames map[string][]string `yaml:"secretsNames"`
+}
+
+type TemplateData struct {
+	Secrets map[string]interface{}
+}
+
 type DirectConfidentialHTTPAction struct {
 	commonCap.CapabilityInfo
 	services.Service
 	eng *services.Engine
 
-	lggr logger.Logger
+	secretsConfig SecretsConfig
+	lggr          logger.Logger
 }
 
 func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTPAction {
 	fc := &DirectConfidentialHTTPAction{
 		lggr: lggr,
+	}
+
+	// Load secrets
+	secretsFile := "secrets.yaml"
+	if envFile := os.Getenv("SECRETS_FILE"); envFile != "" {
+		secretsFile = envFile
+	}
+
+	if data, err := os.ReadFile(secretsFile); err == nil {
+		if err := yaml.Unmarshal(data, &fc.secretsConfig); err != nil {
+			lggr.Warnf("Failed to parse secrets file %s: %v", secretsFile, err)
+		} else {
+			lggr.Infof("Loaded secrets from %s", secretsFile)
+		}
+	} else {
+		lggr.Infof("Could not read secrets file %s: %v. Continuing without local secrets.", secretsFile, err)
 	}
 
 	fc.Service, fc.eng = services.Config{
@@ -195,15 +251,6 @@ func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTP
 
 func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *confidentialhttp.ConfidentialHTTPRequest) (*commonCap.ResponseAndMetadata[*confidentialhttp.HTTPResponse], caperrors.Error) {
 	fh.eng.Infow("Confidential HTTP Action SendRequest Started", "input", input, "secretsCount", len(input.GetVaultDonSecrets()))
-
-	// Note: This fake does not resolve secrets from VaultDON.
-	// Template variables like {{.secretName}} will NOT be substituted.
-	// However, we DO check for the magic AES-GCM encryption key name to determine encryption mode.
-	if len(input.GetVaultDonSecrets()) > 0 {
-		fh.eng.Infow("Secrets requested (template variables will NOT be resolved, but encryption key detection works)",
-			"secretsCount", len(input.GetVaultDonSecrets()),
-			"hasAESKey", hasEncryptionSecret(input.GetVaultDonSecrets()))
-	}
 
 	req := input.GetRequest()
 	if req == nil {
@@ -225,26 +272,65 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	}
 	method = strings.ToUpper(method)
 
-	// Create request body
-	var body io.Reader
-	if bodyStr := req.GetBodyString(); bodyStr != "" {
-		body = bytes.NewReader([]byte(bodyStr))
-	} else if bodyBytes := req.GetBodyBytes(); len(bodyBytes) > 0 {
-		body = bytes.NewReader(bodyBytes)
+	// Prepare template data from loaded secrets
+	templateData := TemplateData{
+		Secrets: make(map[string]interface{}),
+	}
+	for k, v := range fh.secretsConfig.SecretsNames {
+		if len(v) == 1 {
+			templateData.Secrets[k] = v[0]
+		} else {
+			templateData.Secrets[k] = v
+		}
 	}
 
-	// Create the HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, method, req.GetUrl(), body)
+	usesBody := method == "POST" || method == "PUT" || method == "PATCH" || method == "DELETE"
+	bodyString := req.GetBodyString()
+	bodyBytes := req.GetBodyBytes()
+
+	var httpReq *http.Request
+	var err error
+
+	if usesBody && bodyString != "" {
+		processedBody := &bytes.Buffer{}
+		bodyTmpl, err2 := template.New("body").Parse(bodyString)
+		if err2 != nil {
+			fh.eng.Errorf("error parsing body template: %v", err2)
+			return nil, caperrors.NewPublicUserError(fmt.Errorf("error parsing body template"), caperrors.InvalidArgument)
+		}
+		if err2 = bodyTmpl.Execute(processedBody, templateData); err2 != nil {
+			fh.eng.Errorf("error executing body template: %v", err2)
+			return nil, caperrors.NewPublicUserError(fmt.Errorf("error executing body template"), caperrors.InvalidArgument)
+		}
+		httpReq, err = http.NewRequestWithContext(ctx, method, req.GetUrl(), processedBody)
+	} else if usesBody && len(bodyBytes) > 0 {
+		httpReq, err = http.NewRequestWithContext(ctx, method, req.GetUrl(), bytes.NewReader(bodyBytes))
+	} else {
+		httpReq, err = http.NewRequestWithContext(ctx, method, req.GetUrl(), nil)
+	}
+
 	if err != nil {
 		fh.eng.Errorw("Failed to create HTTP request", "error", err)
 		return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to create HTTP request: %w", err), caperrors.InvalidArgument)
 	}
 
-	// Add headers from multi_headers (map[string]*HeaderValues)
+	// Add headers with template processing
 	for name, headerValues := range req.GetMultiHeaders() {
 		if headerValues != nil {
 			for _, value := range headerValues.GetValues() {
-				httpReq.Header.Add(name, value)
+				headerTmpl, tmplErr := template.New("header").Parse(value)
+				if tmplErr != nil {
+					fh.eng.Errorf("error parsing header template for %s: %v", name, tmplErr)
+					return nil, caperrors.NewPublicUserError(fmt.Errorf("error parsing header template"), caperrors.InvalidArgument)
+				}
+
+				var processedHeader bytes.Buffer
+				if tmplErr = headerTmpl.Execute(&processedHeader, templateData); tmplErr != nil {
+					fh.eng.Errorf("error executing header template for %s: %v", name, tmplErr)
+					return nil, caperrors.NewPublicUserError(fmt.Errorf("error executing header template"), caperrors.InvalidArgument)
+				}
+
+				httpReq.Header.Add(name, processedHeader.String())
 			}
 		}
 	}
@@ -266,18 +352,39 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 
 	// Encrypt response if encrypt_output is true
 	if input.GetEncryptOutput() {
-		if hasEncryptionSecret(input.GetVaultDonSecrets()) {
-			// Use AES-GCM encryption with the magic key
-			fh.eng.Infow("Encrypting response body with fake AES-GCM key", "originalSize", len(respBody))
-			encryptedBody, encErr := aesGCMEncrypt(respBody, FakeAESGCMEncryptionKey)
+		// Priority 1: Use real AES key from secrets.yaml if available
+		if secretValues, exists := fh.secretsConfig.SecretsNames[AESGCMEncryptionKeyName]; exists && len(secretValues) > 0 {
+			secretKeyStr := secretValues[0]
+			var secretKey []byte
+
+			// Try hex decoding first
+			if decoded, decErr := hex.DecodeString(secretKeyStr); decErr == nil && len(decoded) == 32 {
+				secretKey = decoded
+			} else {
+				// Use as raw bytes
+				secretKey = []byte(secretKeyStr)
+			}
+
+			fh.eng.Infow("Encrypting response body with AES-GCM key from secrets.yaml", "originalSize", len(respBody))
+			encryptedBody, encErr := AESGCMEncrypt(respBody, secretKey)
 			if encErr != nil {
 				fh.eng.Errorw("Failed to encrypt response body with AES-GCM", "error", encErr)
 				return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to encrypt response body: %w", encErr), caperrors.Internal)
 			}
 			respBody = encryptedBody
-			fh.eng.Infow("Response body encrypted with AES-GCM", "encryptedSize", len(respBody))
+			fh.eng.Infow("Response body encrypted with AES-GCM (secrets.yaml key)", "encryptedSize", len(respBody))
+		} else if hasEncryptionSecret(input.GetVaultDonSecrets()) {
+			// Priority 2: AES key requested in VaultDonSecrets but not in secrets.yaml — use fake test key
+			fh.eng.Infow("Encrypting response body with fake AES-GCM key", "originalSize", len(respBody))
+			encryptedBody, encErr := AESGCMEncrypt(respBody, FakeAESGCMEncryptionKey)
+			if encErr != nil {
+				fh.eng.Errorw("Failed to encrypt response body with AES-GCM", "error", encErr)
+				return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to encrypt response body: %w", encErr), caperrors.Internal)
+			}
+			respBody = encryptedBody
+			fh.eng.Infow("Response body encrypted with AES-GCM (fake key)", "encryptedSize", len(respBody))
 		} else {
-			// Use TDH2 encryption with the fake master public key (mimics real enclave behavior)
+			// Priority 3: No AES key at all — use TDH2
 			fh.eng.Infow("Encrypting response body with fake TDH2 key", "originalSize", len(respBody))
 			encryptedBody, encErr := tdh2Encrypt(respBody)
 			if encErr != nil {

@@ -1,9 +1,6 @@
 package fakes
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,13 +12,13 @@ import (
 func TestAESGCMEncryption(t *testing.T) {
 	plaintext := []byte("Hello, World! This is a test message.")
 
-	encrypted, err := aesGCMEncrypt(plaintext, FakeAESGCMEncryptionKey)
+	encrypted, err := AESGCMEncrypt(plaintext, FakeAESGCMEncryptionKey)
 	require.NoError(t, err)
 	assert.NotEqual(t, plaintext, encrypted)
 	assert.Greater(t, len(encrypted), len(plaintext)) // nonce + ciphertext + tag
 
 	// Verify we can decrypt it
-	decrypted, err := aesGCMDecrypt(encrypted, FakeAESGCMEncryptionKey)
+	decrypted, err := AESGCMDecrypt(encrypted, FakeAESGCMEncryptionKey)
 	require.NoError(t, err)
 	assert.Equal(t, plaintext, decrypted)
 }
@@ -112,23 +109,3 @@ func TestTDH2EncryptionEmptyMessage(t *testing.T) {
 	assert.Empty(t, decrypted) // Use Empty instead of Equal to handle nil vs []byte{}
 }
 
-// aesGCMDecrypt is a helper for testing - decrypts AES-GCM encrypted data
-func aesGCMDecrypt(ciphertext []byte, key []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	return gcm.Open(nil, nonce, ciphertext, nil)
-}
