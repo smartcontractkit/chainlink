@@ -143,9 +143,8 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_Solana_Suite(t *testing.T) {
-	topology := os.Getenv("TOPOLOGY_NAME")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
-	t.Run("[v2] Solana Write - "+topology, func(t *testing.T) {
+	t.Run("[v2] Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
 }
