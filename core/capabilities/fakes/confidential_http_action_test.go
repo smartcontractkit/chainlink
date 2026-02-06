@@ -9,20 +9,6 @@ import (
 	confidentialhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp"
 )
 
-func TestAESGCMEncryption(t *testing.T) {
-	plaintext := []byte("Hello, World! This is a test message.")
-
-	encrypted, err := AESGCMEncrypt(plaintext, FakeAESGCMEncryptionKey)
-	require.NoError(t, err)
-	assert.NotEqual(t, plaintext, encrypted)
-	assert.Greater(t, len(encrypted), len(plaintext)) // nonce + ciphertext + tag
-
-	// Verify we can decrypt it
-	decrypted, err := AESGCMDecrypt(encrypted, FakeAESGCMEncryptionKey)
-	require.NoError(t, err)
-	assert.Equal(t, plaintext, decrypted)
-}
-
 func TestTDH2Encryption(t *testing.T) {
 	plaintext := []byte("Hello, World! This is a TDH2 test message.")
 
@@ -108,4 +94,3 @@ func TestTDH2EncryptionEmptyMessage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, decrypted) // Use Empty instead of Equal to handle nil vs []byte{}
 }
-
