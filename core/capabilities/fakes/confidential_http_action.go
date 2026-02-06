@@ -41,11 +41,6 @@ const ConfidentialHTTPActionServiceName = "ConfidentialHttpActionService"
 // This must match the constant in confidential-compute/types/types.go
 const AESGCMEncryptionKeyName = "san_marino_aes_gcm_encryption_key"
 
-// FakeAESGCMEncryptionKey is a well-known 32-byte test key used by this fake for AES-256-GCM encryption.
-// This allows testing encrypt_output functionality without real VaultDON secrets.
-// WARNING: This key is for testing only and must not be used in production.
-var FakeAESGCMEncryptionKey = []byte("test-key-for-fake-encrypt-32-byt") // exactly 32 bytes for AES-256
-
 // TDH2 test keys for threshold encryption when AES-GCM key is not provided.
 // These are lazily initialized on first use.
 var (
@@ -169,32 +164,6 @@ func AESGCMEncrypt(plaintext []byte, key []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// AESGCMDecrypt decrypts AES-GCM encrypted data (nonce || ciphertext || tag) with the provided key.
-func AESGCMDecrypt(blob []byte, key []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonceSize := gcm.NonceSize()
-	if len(blob) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, ciphertext := blob[:nonceSize], blob[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return plaintext, nil
-}
-
 // hasEncryptionSecret checks if the VaultDonSecrets contain the magic AES-GCM encryption key.
 func hasEncryptionSecret(secrets []*confidentialhttp.SecretIdentifier) bool {
 	for _, s := range secrets {
@@ -207,10 +176,6 @@ func hasEncryptionSecret(secrets []*confidentialhttp.SecretIdentifier) bool {
 
 type SecretsConfig struct {
 	SecretsNames map[string][]string `yaml:"secretsNames"`
-}
-
-type TemplateData struct {
-	Secrets map[string]interface{}
 }
 
 type DirectConfidentialHTTPAction struct {
@@ -273,14 +238,12 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	method = strings.ToUpper(method)
 
 	// Prepare template data from loaded secrets
-	templateData := TemplateData{
-		Secrets: make(map[string]interface{}),
-	}
+	templateData := make(map[string]interface{})
 	for k, v := range fh.secretsConfig.SecretsNames {
 		if len(v) == 1 {
-			templateData.Secrets[k] = v[0]
+			templateData[k] = v[0]
 		} else {
-			templateData.Secrets[k] = v
+			templateData[k] = v
 		}
 	}
 
@@ -374,9 +337,12 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 			respBody = encryptedBody
 			fh.eng.Infow("Response body encrypted with AES-GCM (secrets.yaml key)", "encryptedSize", len(respBody))
 		} else if hasEncryptionSecret(input.GetVaultDonSecrets()) {
-			// Priority 2: AES key requested in VaultDonSecrets but not in secrets.yaml — use fake test key
-			fh.eng.Infow("Encrypting response body with fake AES-GCM key", "originalSize", len(respBody))
-			encryptedBody, encErr := AESGCMEncrypt(respBody, FakeAESGCMEncryptionKey)
+			secretHex := fh.secretsConfig.SecretsNames[AESGCMEncryptionKeyName][0]
+			secretKey, decErr := hex.DecodeString(secretHex)
+			if decErr != nil {
+				return nil, caperrors.NewPublicUserError(fmt.Errorf("could not decode secret key %w", decErr), caperrors.Internal)
+			}
+			encryptedBody, encErr := AESGCMEncrypt(respBody, secretKey)
 			if encErr != nil {
 				fh.eng.Errorw("Failed to encrypt response body with AES-GCM", "error", encErr)
 				return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to encrypt response body: %w", encErr), caperrors.Internal)
