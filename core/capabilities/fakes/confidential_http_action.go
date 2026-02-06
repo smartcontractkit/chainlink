@@ -94,9 +94,13 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 		return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to create HTTP request: %w", err), caperrors.InvalidArgument)
 	}
 
-	// Add headers
-	for name, value := range req.GetHeaders() {
-		httpReq.Header.Set(name, value)
+	// Add headers (supports multiple values per key)
+	for name, headerValues := range req.GetMultiHeaders() {
+		if headerValues != nil {
+			for _, value := range headerValues.GetValues() {
+				httpReq.Header.Add(name, value)
+			}
+		}
 	}
 
 	// Make the HTTP request
@@ -114,22 +118,19 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 		return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to read response body: %w", err), caperrors.InvalidArgument)
 	}
 
-	// Convert response headers to []*Header
-	var responseHeaders []*confidentialhttp.Header
+	// Convert response headers to map[string]*HeaderValues
+	responseHeaders := make(map[string]*confidentialhttp.HeaderValues)
 	for name, values := range resp.Header {
-		for _, value := range values {
-			responseHeaders = append(responseHeaders, &confidentialhttp.Header{
-				Name:  name,
-				Value: value,
-			})
+		responseHeaders[name] = &confidentialhttp.HeaderValues{
+			Values: values,
 		}
 	}
 
 	// Create response
 	response := &confidentialhttp.HTTPResponse{
-		StatusCode: uint32(resp.StatusCode), //nolint:gosec // HTTP status codes are always positive (100-599)
-		Body:       respBody,
-		Headers:    responseHeaders,
+		StatusCode:   uint32(resp.StatusCode), //nolint:gosec // HTTP status codes are always positive (100-599)
+		Body:         respBody,
+		MultiHeaders: responseHeaders,
 	}
 
 	responseAndMetadata := commonCap.ResponseAndMetadata[*confidentialhttp.HTTPResponse]{
