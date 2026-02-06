@@ -69,7 +69,9 @@ jobs:
       - name: Version Info
         id: version-info
         run: |
-          version_tag=$( git describe --always )
+          pkg_version=$(jq -r '.version' ./package.json)
+          short_sha=$(git rev-parse --short HEAD)
+          version_tag="${pkg_version}-${short_sha}"
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
 
   docker-core:
