@@ -98,12 +98,16 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 	if cfg.EVM.ChainID != nil {
 		chainID = cfg.EVM.ChainID.String()
 	}
-	c.SubService(loop.NewPluginRelayerConfigEmitter(
+	emitter := loop.NewPluginRelayerConfigEmitter(
 		c.Logger,
 		beholder.GetClient().Config.AuthPublicKeyHex,
 		chainID,
 		rawNodes,
-	))
+	)
+	c.SubService(emitter)
+	if err := emitter.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start plugin relayer config emitter: %w", err)
+	}
 
 	evmKeystore := keys.NewChainStore(keystore, cfg.EVM.ChainID.ToInt())
 
