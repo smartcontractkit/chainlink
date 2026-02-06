@@ -47,7 +47,7 @@ var (
 	fakeTDH2InitOnce      sync.Once
 	fakeTDH2PublicKey     *tdh2easy.PublicKey
 	fakeTDH2PrivateShares []*tdh2easy.PrivateShare
-	fakeTDH2InitErr       error
+	errFakeTDH2Init       error
 )
 
 // FakeTDH2Threshold is the threshold for the fake TDH2 key setup (k of n).
@@ -61,13 +61,13 @@ func initFakeTDH2Keys() (*tdh2easy.PublicKey, []*tdh2easy.PrivateShare, error) {
 	fakeTDH2InitOnce.Do(func() {
 		_, pubKey, privShares, err := tdh2easy.GenerateKeys(FakeTDH2Threshold, FakeTDH2TotalShares)
 		if err != nil {
-			fakeTDH2InitErr = fmt.Errorf("failed to generate fake TDH2 keys: %w", err)
+			errFakeTDH2Init = fmt.Errorf("failed to generate fake TDH2 keys: %w", err)
 			return
 		}
 		fakeTDH2PublicKey = pubKey
 		fakeTDH2PrivateShares = privShares
 	})
-	return fakeTDH2PublicKey, fakeTDH2PrivateShares, fakeTDH2InitErr
+	return fakeTDH2PublicKey, fakeTDH2PrivateShares, errFakeTDH2Init
 }
 
 // GetFakeTDH2PublicKey returns the fake TDH2 public key used by this fake for encryption.
@@ -93,16 +93,16 @@ func DecryptFakeTDH2Ciphertext(ciphertextBytes []byte) ([]byte, error) {
 	}
 
 	ciphertext := &tdh2easy.Ciphertext{}
-	if err := ciphertext.UnmarshalVerify(ciphertextBytes, pubKey); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal TDH2 ciphertext: %w", err)
+	if unmarshalErr := ciphertext.UnmarshalVerify(ciphertextBytes, pubKey); unmarshalErr != nil {
+		return nil, fmt.Errorf("failed to unmarshal TDH2 ciphertext: %w", unmarshalErr)
 	}
 
 	// Create decryption shares using threshold number of private key shares
 	shares := make([]*tdh2easy.DecryptionShare, FakeTDH2Threshold)
 	for i := 0; i < FakeTDH2Threshold; i++ {
-		share, err := tdh2easy.Decrypt(ciphertext, privShares[i])
-		if err != nil {
-			return nil, fmt.Errorf("failed to create decryption share %d: %w", i, err)
+		share, decryptErr := tdh2easy.Decrypt(ciphertext, privShares[i])
+		if decryptErr != nil {
+			return nil, fmt.Errorf("failed to create decryption share %d: %w", i, decryptErr)
 		}
 		shares[i] = share
 	}
@@ -199,8 +199,8 @@ func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTP
 	}
 
 	if data, err := os.ReadFile(secretsFile); err == nil {
-		if err := yaml.Unmarshal(data, &fc.secretsConfig); err != nil {
-			lggr.Warnf("Failed to parse secrets file %s: %v", secretsFile, err)
+		if marshalErr := yaml.Unmarshal(data, &fc.secretsConfig); marshalErr != nil {
+			lggr.Warnf("Failed to parse secrets file %s: %v", secretsFile, marshalErr)
 		} else {
 			lggr.Infof("Loaded secrets from %s", secretsFile)
 		}
@@ -254,21 +254,22 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	var httpReq *http.Request
 	var err error
 
-	if usesBody && bodyString != "" {
+	switch {
+	case usesBody && bodyString != "":
 		processedBody := &bytes.Buffer{}
 		bodyTmpl, err2 := template.New("body").Parse(bodyString)
 		if err2 != nil {
 			fh.eng.Errorf("error parsing body template: %v", err2)
-			return nil, caperrors.NewPublicUserError(fmt.Errorf("error parsing body template"), caperrors.InvalidArgument)
+			return nil, caperrors.NewPublicUserError(errors.New("error parsing body template"), caperrors.InvalidArgument)
 		}
 		if err2 = bodyTmpl.Execute(processedBody, templateData); err2 != nil {
 			fh.eng.Errorf("error executing body template: %v", err2)
-			return nil, caperrors.NewPublicUserError(fmt.Errorf("error executing body template"), caperrors.InvalidArgument)
+			return nil, caperrors.NewPublicUserError(errors.New("error executing body template"), caperrors.InvalidArgument)
 		}
 		httpReq, err = http.NewRequestWithContext(ctx, method, req.GetUrl(), processedBody)
-	} else if usesBody && len(bodyBytes) > 0 {
+	case usesBody && len(bodyBytes) > 0:
 		httpReq, err = http.NewRequestWithContext(ctx, method, req.GetUrl(), bytes.NewReader(bodyBytes))
-	} else {
+	default:
 		httpReq, err = http.NewRequestWithContext(ctx, method, req.GetUrl(), nil)
 	}
 
@@ -284,13 +285,13 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 				headerTmpl, tmplErr := template.New("header").Parse(value)
 				if tmplErr != nil {
 					fh.eng.Errorf("error parsing header template for %s: %v", name, tmplErr)
-					return nil, caperrors.NewPublicUserError(fmt.Errorf("error parsing header template"), caperrors.InvalidArgument)
+					return nil, caperrors.NewPublicUserError(errors.New("error parsing header template"), caperrors.InvalidArgument)
 				}
 
 				var processedHeader bytes.Buffer
 				if tmplErr = headerTmpl.Execute(&processedHeader, templateData); tmplErr != nil {
 					fh.eng.Errorf("error executing header template for %s: %v", name, tmplErr)
-					return nil, caperrors.NewPublicUserError(fmt.Errorf("error executing header template"), caperrors.InvalidArgument)
+					return nil, caperrors.NewPublicUserError(errors.New("error executing header template"), caperrors.InvalidArgument)
 				}
 
 				httpReq.Header.Add(name, processedHeader.String())
