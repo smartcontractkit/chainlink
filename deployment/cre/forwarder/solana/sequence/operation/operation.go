@@ -114,7 +114,7 @@ func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitF
 
 	instructions := []solana.Instruction{instruction}
 	if err = deps.Chain.Confirm(instructions, solanaUtils.AddSigners(stateKey)); err != nil {
-		return out, errors.New("failed to confirm ")
+		return out, fmt.Errorf("failed to confirm: %w", err)
 	}
 
 	out.StatePubKey = stateKey.PublicKey()

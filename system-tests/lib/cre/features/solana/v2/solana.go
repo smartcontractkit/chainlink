@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"text/template"
 	"time"
@@ -85,12 +86,20 @@ func (s *Solana) PreEnvStartup(
 		ForwarderState:   *state,
 	}
 	// 2. Patch nodes TOML config to include workflow From Address
-	cfgErr := updateNodeConfigs(creEnv, don, input, solChain.ChainSelector())
+	cfgErr := patchNodeTOML(creEnv, don, input, solChain.ChainSelector())
 	if cfgErr != nil {
 		return nil, errors.Wrapf(cfgErr, "failed to update node configs for solana")
 	}
 
-	// 3. Register Solana capability & its methods with Keystone
+	// 3. Patch wf nodes TOML config to enable solana relayer
+	for _, ns := range topology.NodeSets() {
+		if slices.Contains(ns.DONTypes, "workflow") {
+			for _, spec := range ns.NodeSpecs {
+				fmt.Println("test config override:", spec.Node.TestConfigOverrides)
+			}
+		}
+	}
+	// 4. Register Solana capability & its methods with Keystone
 	capabilities := registerSolanaCapability(solChain.ChainSelector())
 
 	return &cre.PreEnvStartupOutput{
@@ -154,6 +163,7 @@ func createJobs(
 		return errors.Wrap(cErr, "failed to get command for cron capability")
 	}
 
+	// PLEX-1918
 	// propose bootstrap job once consensus reads are enabled
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
@@ -296,7 +306,8 @@ func getMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
 	methodConfigs := make(map[string]*capabilitiespb.CapabilityMethodConfig)
 
 	methodConfigs["WriteReport"] = writeReportActionConfig()
-	// Add the rest of solana methods here
+	// PLEX-1828
+	// PLEX-1918 Add the rest of solana methods here
 
 	return methodConfigs
 }
@@ -315,7 +326,7 @@ func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	}
 }
 
-func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data input, selector uint64) error {
+func patchNodeTOML(creEnv *cre.Environment, don *cre.DonMetadata, data input, selector uint64) error {
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
@@ -327,7 +338,7 @@ func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data input
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := UpdateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
+		updatedConfig, updErr := updateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
 		if updErr != nil {
 			return errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -396,7 +407,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 	return ptr.Ptr(out.Output.ProgramID.String()), ptr.Ptr(out.Output.State.String()), nil
 }
 
-func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
 	key, ok := workerNode.Keys.Solana[chainID]
 	if !ok {
 		return nil, errors.Errorf("missing Solana key for chainID %s on node index %d", chainID, workerNode.Index)

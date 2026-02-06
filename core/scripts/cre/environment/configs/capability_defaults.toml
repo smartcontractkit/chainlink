@@ -118,18 +118,6 @@
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
 
-[capability_configs.write-solana.values]
-  # Solana Workflow configuration for write capabilities
-  TxAcceptanceState = 3
-  TxRetentonTimeout = "120s"
-  AcceptanceTimeout = "30s"
-  PollPeriod = "2s"
-  SkipPreflight = true
-  Local = true
-  # Runtime values below are typically filled at runtime, but may be overridden
-  # FromAddress = "0x0000000000000000000000000000000000000000"
-  # ForwarderAddress = "0x0000000000000000000000000000000000000000"
-
 [capability_configs.solana.values]
   TxAcceptanceState = 3
   TxRetentonTimeout = "120s"

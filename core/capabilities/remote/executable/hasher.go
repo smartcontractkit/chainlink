@@ -107,7 +107,6 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
 			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
 		}
-		fmt.Println("rep", wrReq.Report)
 		if wrReq.Report == nil {
 			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
 		}
@@ -153,10 +152,15 @@ var (
 )
 
 func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
-	switch {
-	case strings.HasPrefix(msg.CapabilityId, "evm"):
+	ss := strings.Split(msg.CapabilityId, ":")
+	if len(ss) < 1 {
+		return "", errors.New("failed to parse family from capability id")
+	}
+	family := ss[0]
+	switch family {
+	case "evm":
 		return writeReportFamilyEVM, nil
-	case strings.HasPrefix(msg.CapabilityId, "solana"):
+	case "solana":
 		return writeReportFamilySolana, nil
 	}
 

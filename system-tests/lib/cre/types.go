@@ -60,7 +60,6 @@ const (
 	EVMCapability             CapabilityFlag = "evm"
 	CustomComputeCapability   CapabilityFlag = "custom-compute"
 	WriteEVMCapability        CapabilityFlag = "write-evm"
-	WriteSolanaCapability     CapabilityFlag = "write-solana"
 	ReadContractCapability    CapabilityFlag = "read-contract"
 	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
 	WebAPITargetCapability    CapabilityFlag = "web-api-target"
