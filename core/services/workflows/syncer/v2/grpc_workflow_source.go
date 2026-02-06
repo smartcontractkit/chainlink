@@ -2,10 +2,12 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand/v2"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -329,8 +331,13 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	var workflowID types.WorkflowID
 	copy(workflowID[:], workflowIDBytes)
 
-	// Get owner bytes directly
-	ownerBytes := wf.GetOwner()
+	// Parse owner from hex string (accept optional 0x prefix)
+	ownerHex := strings.TrimPrefix(wf.GetOwner(), "0x")
+	ownerHex = strings.TrimPrefix(ownerHex, "0X")
+	ownerBytes, err := hex.DecodeString(ownerHex)
+	if err != nil {
+		return WorkflowMetadataView{}, fmt.Errorf("invalid owner hex: %w", err)
+	}
 
 	// Get attributes directly (already bytes in proto)
 	attributes := wf.GetAttributes()
