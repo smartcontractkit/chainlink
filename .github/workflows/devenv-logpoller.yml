@@ -18,6 +18,8 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       changes: ${{ steps.changes.outputs.changes }}
     steps:
