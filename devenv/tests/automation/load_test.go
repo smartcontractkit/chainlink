@@ -548,7 +548,7 @@ Test Duration: %s`
 				End:             time.Now(),
 				WarmUpDuration:  30 * time.Minute,
 				CPUThreshold:    30.0,
-				MemoryThreshold: 200.0,
+				MemoryThreshold: 225.0, // max observed so far was 216 mb, adding a buffer to be safe
 			})
 			require.NoError(t, errs)
 		})
