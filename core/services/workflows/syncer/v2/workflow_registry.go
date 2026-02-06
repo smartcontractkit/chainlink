@@ -774,6 +774,12 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, allWorkfl
 		return allWorkflows, nil
 	}
 
+	// If sharding is not enabled or client is not configured, return all workflows (backwards compatible)
+	if !w.shardingEnabled || w.shardOrchestratorClient == nil {
+		w.lggr.Debugw("Sharding not enabled, processing all workflows", "count", len(allWorkflows))
+		return allWorkflows, nil
+	}
+
 	w.lggr.Debugw("Shard filtering workflows", "count", len(allWorkflows))
 
 	workflowIDs := make([]string, 0, len(allWorkflows))
