@@ -3,6 +3,9 @@ package fakes
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -26,11 +29,52 @@ var _ commonCap.ExecutableCapability = (*DirectConfidentialHTTPAction)(nil)
 const ConfidentialHTTPActionID = "confidential-http@1.0.0-alpha"
 const ConfidentialHTTPActionServiceName = "ConfidentialHttpActionService"
 
+// AESGCMEncryptionKeyName is the magic secret key name that triggers AES-GCM encryption.
+// This must match the constant in confidential-compute/types/types.go
+const AESGCMEncryptionKeyName = "san_marino_aes_gcm_encryption_key"
+
+// FakeAESGCMEncryptionKey is a well-known 32-byte test key used by this fake for AES-256-GCM encryption.
+// This allows testing encrypt_output functionality without real VaultDON secrets.
+// WARNING: This key is for testing only and must not be used in production.
+var FakeAESGCMEncryptionKey = []byte("test-key-for-fake-encrypt-32-by") // exactly 32 bytes for AES-256
+
 var directConfidentialHTTPActionInfo = commonCap.MustNewCapabilityInfo(
 	ConfidentialHTTPActionID,
 	commonCap.CapabilityTypeCombined,
 	"An action that makes a confidential HTTP request with secrets",
 )
+
+// aesGCMEncrypt encrypts plaintext using AES-GCM with the provided key.
+// Returns nonce || ciphertext || tag.
+func aesGCMEncrypt(plaintext []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
+}
+
+// hasEncryptionSecret checks if the VaultDonSecrets contain the magic AES-GCM encryption key.
+func hasEncryptionSecret(secrets []*confidentialhttp.SecretIdentifier) bool {
+	for _, s := range secrets {
+		if s.GetKey() == AESGCMEncryptionKeyName {
+			return true
+		}
+	}
+	return false
+}
 
 type DirectConfidentialHTTPAction struct {
 	commonCap.CapabilityInfo
@@ -94,9 +138,13 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 		return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to create HTTP request: %w", err), caperrors.InvalidArgument)
 	}
 
-	// Add headers
-	for name, value := range req.GetHeaders() {
-		httpReq.Header.Set(name, value)
+	// Add headers from multi_headers (map[string]*HeaderValues)
+	for name, headerValues := range req.GetMultiHeaders() {
+		if headerValues != nil {
+			for _, value := range headerValues.GetValues() {
+				httpReq.Header.Add(name, value)
+			}
+		}
 	}
 
 	// Make the HTTP request
@@ -114,22 +162,33 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 		return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to read response body: %w", err), caperrors.InvalidArgument)
 	}
 
-	// Convert response headers to []*Header
-	var responseHeaders []*confidentialhttp.Header
+	// Encrypt response if encrypt_output is true and the magic secret is present
+	if input.GetEncryptOutput() && hasEncryptionSecret(input.GetVaultDonSecrets()) {
+		fh.eng.Infow("Encrypting response body with fake AES-GCM key", "originalSize", len(respBody))
+		encryptedBody, encErr := aesGCMEncrypt(respBody, FakeAESGCMEncryptionKey)
+		if encErr != nil {
+			fh.eng.Errorw("Failed to encrypt response body", "error", encErr)
+			return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to encrypt response body: %w", encErr), caperrors.Internal)
+		}
+		respBody = encryptedBody
+		fh.eng.Infow("Response body encrypted", "encryptedSize", len(respBody))
+	} else if input.GetEncryptOutput() {
+		fh.eng.Warnw("encrypt_output is true but no AES-GCM encryption secret found - response will not be encrypted. TDH2 encryption is not supported by this fake.", "secretsCount", len(input.GetVaultDonSecrets()))
+	}
+
+	// Convert response headers to map[string]*HeaderValues
+	responseHeaders := make(map[string]*confidentialhttp.HeaderValues)
 	for name, values := range resp.Header {
-		for _, value := range values {
-			responseHeaders = append(responseHeaders, &confidentialhttp.Header{
-				Name:  name,
-				Value: value,
-			})
+		responseHeaders[name] = &confidentialhttp.HeaderValues{
+			Values: values,
 		}
 	}
 
 	// Create response
 	response := &confidentialhttp.HTTPResponse{
-		StatusCode: uint32(resp.StatusCode), //nolint:gosec // HTTP status codes are always positive (100-599)
-		Body:       respBody,
-		Headers:    responseHeaders,
+		StatusCode:   uint32(resp.StatusCode), //nolint:gosec // HTTP status codes are always positive (100-599)
+		Body:         respBody,
+		MultiHeaders: responseHeaders,
 	}
 
 	responseAndMetadata := commonCap.ResponseAndMetadata[*confidentialhttp.HTTPResponse]{
