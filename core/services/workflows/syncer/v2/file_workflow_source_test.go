@@ -15,6 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+// File format status values (same as contract: 0=active, 1=paused)
+// These are the values stored in JSON files, which get mapped to internal values.
+const (
+	fileFormatStatusActive uint8 = 0
+	fileFormatStatusPaused uint8 = 1
+)
+
 func TestFileWorkflowSource_FileNotExists(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	_, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", "/nonexistent/path/workflows.json")
@@ -80,7 +87,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 				WorkflowID:   hex.EncodeToString(workflowID),
 				Owner:        hex.EncodeToString(owner),
 				CreatedAt:    1234567890,
-				Status:       WorkflowStatusActive,
+				Status:       fileFormatStatusActive, // File format uses 0=active
 				WorkflowName: "test-workflow",
 				BinaryURL:    "file:///path/to/binary.wasm",
 				ConfigURL:    "file:///path/to/config.json",
@@ -91,7 +98,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 				WorkflowID:   hex.EncodeToString(workflowID),
 				Owner:        hex.EncodeToString(owner),
 				CreatedAt:    1234567891,
-				Status:       WorkflowStatusActive,
+				Status:       fileFormatStatusActive, // File format uses 0=active
 				WorkflowName: "other-workflow",
 				BinaryURL:    "file:///path/to/other.wasm",
 				ConfigURL:    "file:///path/to/other.json",
@@ -156,7 +163,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 			{
 				WorkflowID:   hex.EncodeToString(workflowID1),
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusActive,
+				Status:       fileFormatStatusActive, // File format uses 0=active
 				WorkflowName: "workflow-a",
 				BinaryURL:    "file:///a.wasm",
 				ConfigURL:    "file:///a.json",
@@ -165,7 +172,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 			{
 				WorkflowID:   hex.EncodeToString(workflowID2),
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusActive,
+				Status:       fileFormatStatusActive, // File format uses 0=active
 				WorkflowName: "workflow-b",
 				BinaryURL:    "file:///b.wasm",
 				ConfigURL:    "file:///b.json",
@@ -210,7 +217,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 			{
 				WorkflowID:   hex.EncodeToString(workflowID),
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusPaused, // Paused status
+				Status:       fileFormatStatusPaused, // File format uses 1=paused
 				WorkflowName: "paused-workflow",
 				BinaryURL:    "file:///paused.wasm",
 				ConfigURL:    "file:///paused.json",
@@ -304,7 +311,7 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 			{
 				WorkflowID:   "invalid-hex",
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusActive,
+				Status:       fileFormatStatusActive, // File format uses 0=active
 				WorkflowName: "invalid-workflow",
 				BinaryURL:    "file:///invalid.wasm",
 				ConfigURL:    "file:///invalid.json",

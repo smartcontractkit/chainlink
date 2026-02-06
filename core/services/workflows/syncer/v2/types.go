@@ -6,6 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -17,10 +19,59 @@ const (
 	defaultSyncStrategy        = SyncStrategyReconciliation
 )
 
+// Internal workflow status values - aligned with proto enum for consistency.
+// All external sources (contract, GRPC, file) map their representation to these values.
 const (
-	WorkflowStatusActive uint8 = iota
-	WorkflowStatusPaused
+	WorkflowStatusActive uint8 = 1 // Matches proto WORKFLOW_STATUS_ACTIVE
+	WorkflowStatusPaused uint8 = 2 // Matches proto WORKFLOW_STATUS_PAUSED
 )
+
+// On-chain contract status values (for reference, do not change).
+const (
+	contractStatusActive uint8 = 0
+	contractStatusPaused uint8 = 1
+)
+
+// ContractStatusToInternal converts on-chain contract status values to internal representation.
+// Contract uses: 0=Active, 1=Paused
+// Internal uses: 1=Active, 2=Paused (aligned with proto)
+func ContractStatusToInternal(s uint8) uint8 {
+	switch s {
+	case contractStatusActive:
+		return WorkflowStatusActive
+	case contractStatusPaused:
+		return WorkflowStatusPaused
+	default:
+		// Unknown status defaults to paused
+		return WorkflowStatusPaused
+	}
+}
+
+// FileStatusToInternal converts file source status values to internal representation.
+// File format uses: 0=Active, 1=Paused (same as contract)
+// Internal uses: 1=Active, 2=Paused (aligned with proto)
+func FileStatusToInternal(s uint8) uint8 {
+	// File format uses same values as contract
+	return ContractStatusToInternal(s)
+}
+
+// ProtoStatusToInternal converts proto WorkflowStatus enum to internal representation.
+// Proto uses: UNSPECIFIED=0, ACTIVE=1, PAUSED=2
+// Internal uses: Active=1, Paused=2 (matches proto ACTIVE/PAUSED)
+func ProtoStatusToInternal(s pb.WorkflowStatus, lggr logger.Logger) uint8 {
+	switch s {
+	case pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE:
+		return WorkflowStatusActive
+	case pb.WorkflowStatus_WORKFLOW_STATUS_PAUSED:
+		return WorkflowStatusPaused
+	case pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED:
+		lggr.Warnw("Received WORKFLOW_STATUS_UNSPECIFIED from proto, treating as paused")
+		return WorkflowStatusPaused
+	default:
+		lggr.Warnw("Unknown proto status, treating as paused", "status", s)
+		return WorkflowStatusPaused
+	}
+}
 
 type Head struct {
 	Hash      string

@@ -99,7 +99,7 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 					WorkflowID:   wfMeta.WorkflowId,
 					Owner:        wfMeta.Owner.Bytes(),
 					CreatedAt:    wfMeta.CreatedAt,
-					Status:       wfMeta.Status,
+					Status:       ContractStatusToInternal(wfMeta.Status),
 					WorkflowName: wfMeta.WorkflowName,
 					BinaryURL:    wfMeta.BinaryUrl,
 					ConfigURL:    wfMeta.ConfigUrl,

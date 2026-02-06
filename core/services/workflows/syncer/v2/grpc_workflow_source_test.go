@@ -32,8 +32,6 @@ var (
 )
 
 // mockGRPCClient is a mock implementation of grpcClient for testing.
-// It supports stateless pagination - callers provide all workflow data and the mock
-// returns appropriate slices based on offset/limit parameters.
 type mockGRPCClient struct {
 	// allWorkflows contains all workflows to be returned (used for stateless pagination)
 	allWorkflows []*pb.WorkflowMetadata
@@ -103,9 +101,9 @@ func createTestProtoWorkflow(name string, family string) *pb.WorkflowMetadata {
 
 	return &pb.WorkflowMetadata{
 		WorkflowId:   workflowID[:],
-		Owner:        owner,
+		Owner:        grpcTestOwnerHex, // Proto uses hex string, not bytes
 		CreatedAt:    1234567890,
-		Status:       0, // Active
+		Status:       pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE,
 		WorkflowName: name,
 		BinaryUrl:    grpcTestBinaryURL,
 		ConfigUrl:    grpcTestConfigURL,
