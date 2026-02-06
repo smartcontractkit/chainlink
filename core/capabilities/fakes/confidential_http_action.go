@@ -13,13 +13,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
@@ -41,138 +38,11 @@ const ConfidentialHTTPActionServiceName = "ConfidentialHttpActionService"
 // This must match the constant in confidential-compute/types/types.go
 const AESGCMEncryptionKeyName = "san_marino_aes_gcm_encryption_key"
 
-// TDH2 test keys for threshold encryption when AES-GCM key is not provided.
-// These are lazily initialized on first use.
-var (
-	fakeTDH2InitOnce      sync.Once
-	fakeTDH2PublicKey     *tdh2easy.PublicKey
-	fakeTDH2PrivateShares []*tdh2easy.PrivateShare
-	errFakeTDH2Init       error
-)
-
-// FakeTDH2Threshold is the threshold for the fake TDH2 key setup (k of n).
-const FakeTDH2Threshold = 2
-
-// FakeTDH2TotalShares is the total number of shares for the fake TDH2 key setup.
-const FakeTDH2TotalShares = 3
-
-// initFakeTDH2Keys lazily initializes the fake TDH2 keys.
-func initFakeTDH2Keys() (*tdh2easy.PublicKey, []*tdh2easy.PrivateShare, error) {
-	fakeTDH2InitOnce.Do(func() {
-		_, pubKey, privShares, err := tdh2easy.GenerateKeys(FakeTDH2Threshold, FakeTDH2TotalShares)
-		if err != nil {
-			errFakeTDH2Init = fmt.Errorf("failed to generate fake TDH2 keys: %w", err)
-			return
-		}
-		fakeTDH2PublicKey = pubKey
-		fakeTDH2PrivateShares = privShares
-	})
-	return fakeTDH2PublicKey, fakeTDH2PrivateShares, errFakeTDH2Init
-}
-
-// GetFakeTDH2PublicKey returns the fake TDH2 public key used by this fake for encryption.
-// Tests can use this to verify that encryption occurred or to set up decryption.
-func GetFakeTDH2PublicKey() (*tdh2easy.PublicKey, error) {
-	pubKey, _, err := initFakeTDH2Keys()
-	return pubKey, err
-}
-
-// GetFakeTDH2PrivateShares returns the fake TDH2 private key shares used by this fake.
-// Tests can use these to decrypt responses encrypted with TDH2.
-func GetFakeTDH2PrivateShares() ([]*tdh2easy.PrivateShare, error) {
-	_, privShares, err := initFakeTDH2Keys()
-	return privShares, err
-}
-
-// DecryptFakeTDH2Ciphertext decrypts a TDH2 ciphertext that was encrypted by this fake.
-// This is a helper for tests that need to verify the decrypted content.
-func DecryptFakeTDH2Ciphertext(ciphertextBytes []byte) ([]byte, error) {
-	pubKey, privShares, err := initFakeTDH2Keys()
-	if err != nil {
-		return nil, err
-	}
-
-	ciphertext := &tdh2easy.Ciphertext{}
-	if unmarshalErr := ciphertext.UnmarshalVerify(ciphertextBytes, pubKey); unmarshalErr != nil {
-		return nil, fmt.Errorf("failed to unmarshal TDH2 ciphertext: %w", unmarshalErr)
-	}
-
-	// Create decryption shares using threshold number of private key shares
-	shares := make([]*tdh2easy.DecryptionShare, FakeTDH2Threshold)
-	for i := 0; i < FakeTDH2Threshold; i++ {
-		share, decryptErr := tdh2easy.Decrypt(ciphertext, privShares[i])
-		if decryptErr != nil {
-			return nil, fmt.Errorf("failed to create decryption share %d: %w", i, decryptErr)
-		}
-		shares[i] = share
-	}
-
-	// Aggregate shares to recover plaintext (n = total participants)
-	plaintext, err := tdh2easy.Aggregate(ciphertext, shares, FakeTDH2TotalShares)
-	if err != nil {
-		return nil, fmt.Errorf("failed to aggregate TDH2 shares: %w", err)
-	}
-
-	return plaintext, nil
-}
-
-// tdh2Encrypt encrypts plaintext using TDH2 with the fake public key.
-func tdh2Encrypt(plaintext []byte) ([]byte, error) {
-	pubKey, _, err := initFakeTDH2Keys()
-	if err != nil {
-		return nil, err
-	}
-
-	ciphertext, err := tdh2easy.Encrypt(pubKey, plaintext)
-	if err != nil {
-		return nil, fmt.Errorf("failed to TDH2 encrypt: %w", err)
-	}
-
-	ciphertextBytes, err := ciphertext.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal TDH2 ciphertext: %w", err)
-	}
-
-	return ciphertextBytes, nil
-}
-
 var directConfidentialHTTPActionInfo = commonCap.MustNewCapabilityInfo(
 	ConfidentialHTTPActionID,
 	commonCap.CapabilityTypeCombined,
 	"An action that makes a confidential HTTP request with secrets",
 )
-
-// AESGCMEncrypt encrypts plaintext using AES-GCM with the provided key.
-// Returns nonce || ciphertext || tag.
-func AESGCMEncrypt(plaintext []byte, key []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
-
-	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
-	return ciphertext, nil
-}
-
-// hasEncryptionSecret checks if the VaultDonSecrets contain the magic AES-GCM encryption key.
-func hasEncryptionSecret(secrets []*confidentialhttp.SecretIdentifier) bool {
-	for _, s := range secrets {
-		if s.GetKey() == AESGCMEncryptionKeyName {
-			return true
-		}
-	}
-	return false
-}
 
 type SecretsConfig struct {
 	SecretsNames map[string][]string `yaml:"secretsNames"`
@@ -351,15 +221,7 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 			respBody = encryptedBody
 			fh.eng.Infow("Response body encrypted with AES-GCM (fake key)", "encryptedSize", len(respBody))
 		} else {
-			// Priority 3: No AES key at all — use TDH2
-			fh.eng.Infow("Encrypting response body with fake TDH2 key", "originalSize", len(respBody))
-			encryptedBody, encErr := tdh2Encrypt(respBody)
-			if encErr != nil {
-				fh.eng.Errorw("Failed to encrypt response body with TDH2", "error", encErr)
-				return nil, caperrors.NewPublicUserError(fmt.Errorf("failed to encrypt response body: %w", encErr), caperrors.Internal)
-			}
-			respBody = encryptedBody
-			fh.eng.Infow("Response body encrypted with TDH2", "encryptedSize", len(respBody))
+			fh.eng.Warn("encrypt_output is true but no encryption key found in secrets.yaml or vault DON secrets. Returning plaintext response.")
 		}
 	}
 
@@ -409,4 +271,36 @@ func (fh *DirectConfidentialHTTPAction) RegisterToWorkflow(ctx context.Context, 
 func (fh *DirectConfidentialHTTPAction) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
 	fh.eng.Infow("Unregistered from Direct Confidential Http Action", "workflowID", request.Metadata.WorkflowID)
 	return nil
+}
+
+// AESGCMEncrypt encrypts plaintext using AES-GCM with the provided key.
+// Returns nonce || ciphertext || tag.
+func AESGCMEncrypt(plaintext []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
+}
+
+// hasEncryptionSecret checks if the VaultDonSecrets contain the magic AES-GCM encryption key.
+func hasEncryptionSecret(secrets []*confidentialhttp.SecretIdentifier) bool {
+	for _, s := range secrets {
+		if s.GetKey() == AESGCMEncryptionKeyName {
+			return true
+		}
+	}
+	return false
 }

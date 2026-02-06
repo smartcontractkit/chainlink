@@ -4,41 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	confidentialhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp"
 )
-
-func TestTDH2Encryption(t *testing.T) {
-	plaintext := []byte("Hello, World! This is a TDH2 test message.")
-
-	// Encrypt using the fake TDH2 public key
-	encrypted, err := tdh2Encrypt(plaintext)
-	require.NoError(t, err)
-	assert.NotEqual(t, plaintext, encrypted)
-
-	// Decrypt using the helper function
-	decrypted, err := DecryptFakeTDH2Ciphertext(encrypted)
-	require.NoError(t, err)
-	assert.Equal(t, plaintext, decrypted)
-}
-
-func TestTDH2KeysInitialization(t *testing.T) {
-	// Get public key
-	pubKey, err := GetFakeTDH2PublicKey()
-	require.NoError(t, err)
-	require.NotNil(t, pubKey)
-
-	// Get private shares
-	privShares, err := GetFakeTDH2PrivateShares()
-	require.NoError(t, err)
-	require.Len(t, privShares, FakeTDH2TotalShares)
-
-	// Verify keys are consistent across calls (lazy init)
-	pubKey2, err := GetFakeTDH2PublicKey()
-	require.NoError(t, err)
-	assert.Equal(t, pubKey, pubKey2)
-}
 
 func TestHasEncryptionSecret(t *testing.T) {
 	t.Run("returns true when magic key exists", func(t *testing.T) {
@@ -61,36 +29,4 @@ func TestHasEncryptionSecret(t *testing.T) {
 		assert.False(t, hasEncryptionSecret(nil))
 		assert.False(t, hasEncryptionSecret([]*confidentialhttp.SecretIdentifier{}))
 	})
-}
-
-func TestTDH2EncryptionRoundTrip(t *testing.T) {
-	testCases := []struct {
-		name      string
-		plaintext []byte
-	}{
-		{"short message", []byte("Hi")},
-		{"medium message", []byte("This is a medium length test message for TDH2 encryption.")},
-		{"binary data", []byte{0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD}},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			encrypted, err := tdh2Encrypt(tc.plaintext)
-			require.NoError(t, err)
-
-			decrypted, err := DecryptFakeTDH2Ciphertext(encrypted)
-			require.NoError(t, err)
-			assert.Equal(t, tc.plaintext, decrypted)
-		})
-	}
-}
-
-func TestTDH2EncryptionEmptyMessage(t *testing.T) {
-	// Empty messages are a special case - TDH2 may return nil instead of empty slice
-	encrypted, err := tdh2Encrypt([]byte{})
-	require.NoError(t, err)
-
-	decrypted, err := DecryptFakeTDH2Ciphertext(encrypted)
-	require.NoError(t, err)
-	assert.Empty(t, decrypted) // Use Empty instead of Equal to handle nil vs []byte{}
 }
