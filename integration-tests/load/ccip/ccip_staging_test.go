@@ -94,13 +94,56 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	}
 
 	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, evmChains[:*userOverrides.NumDestinationChains], *userOverrides.TestnetConfig.FundingAmountEth, userOverrides.TestnetConfig.ChainFundingOverrides)
+	// Fund NumDestinationChains + len(tonChains) keys per source so each gun gets its own key (no nonce conflicts)
+	numGuns := *userOverrides.NumDestinationChains + len(tonChains)
+	gunSlice := make([]uint64, numGuns)
+	copy(gunSlice, evmChains[:*userOverrides.NumDestinationChains])
+	copy(gunSlice[*userOverrides.NumDestinationChains:], tonChains)
+	transmitKeys, err := fundAdditionalKeys(lggr, *env, gunSlice, *userOverrides.TestnetConfig.FundingAmountEth, userOverrides.TestnetConfig.ChainFundingOverrides)
 	require.NoError(t, err)
 
-	// Discover lanes from deployed state
+	// Build TON endpoint map from crib chain configs (private liteserver URLs)
+	tonEndpoints := make(map[uint64]string)
+	for _, chainCfg := range cribDeployOutput.Chains {
+		if chainCfg.ChainType == "TON" && len(chainCfg.HTTPRPCs) > 0 && chainCfg.HTTPRPCs[0].External != "" {
+			chainDetails, detailErr := chain_selectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, "ton")
+			if detailErr != nil {
+				lggr.Warnw("Failed to get TON chain selector", "chainID", chainCfg.ChainID, "error", detailErr)
+				continue
+			}
+			tonEndpoints[chainDetails.ChainSelector] = chainCfg.HTTPRPCs[0].External
+			lggr.Infow("Found TON endpoint from crib config", "chainSelector", chainDetails.ChainSelector, "endpoint", chainCfg.HTTPRPCs[0].External)
+		}
+	}
+
+	// Initialize TON source keys before lane discovery so we can reuse the client
+	// to query the TON router for TON→EVM lanes
+	tonSourceKeys, initErr := initializeTonSourceKeys(env.GetContext(), lggr, env, *userOverrides.TestnetConfig.TonMnemonic, tonEndpoints)
+	if initErr != nil {
+		lggr.Warnw("Failed to initialize TON source keys", "error", initErr)
+	}
+
+	// Discover lanes from deployed state (EVM→TON discovered via EVM OnRamp, TON→EVM skipped due to nil client in env)
 	laneConfig := &crib.LaneConfiguration{}
 	err = laneConfig.DiscoverLanesFromDeployedState(lggr, *env, &state)
 	require.NoError(t, err)
+
+	// Discover TON→EVM lanes using the initialized TON client (reuses existing connection)
+	for chainSel, manager := range tonSourceKeys {
+		dests, queryErr := manager.GetEnabledDestinations(ctx)
+		if queryErr != nil {
+			lggr.Warnw("Failed to query TON router for destinations", "chainSelector", chainSel, "error", queryErr)
+			continue
+		}
+		var tonLanes []crib.LaneConfig
+		for _, dst := range dests {
+			tonLanes = append(tonLanes, crib.LaneConfig{SourceChain: chainSel, DestinationChain: dst})
+		}
+		if len(tonLanes) > 0 {
+			laneConfig.AppendLanes(tonLanes)
+			lggr.Infow("Discovered TON→EVM lanes from router", "chainSelector", chainSel, "destinations", dests)
+		}
+	}
 
 	// Log discovered lanes for operator verification
 	laneConfig.LogLaneConfigInfo(lggr)
@@ -111,15 +154,9 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	require.NotEmpty(t, discoveredLanes,
 		"Lane discovery found zero lanes - verify staging deployment has configured TON↔EVM routes")
 
-	// Initialize TON source keys
-	tonSourceKeys, initErr := initializeTonSourceKeys(env.GetContext(), lggr, env, *userOverrides.TestnetConfig.TonMnemonic)
-	if initErr != nil {
-		lggr.Warnw("Failed to initialize TON source keys", "error", initErr)
-	}
-
 	// Initialize TON destination managers for execution event tracking
 	// Reuses clients from tonSourceKeys to use the same private endpoint
-	tonDestManagers, initErr := initializeTonDestinationManagers(lggr, env, tonSourceKeys)
+	tonDestManagers, initErr := initializeTonDestinationManagers(ctx, lggr, env, tonSourceKeys)
 	if initErr != nil {
 		lggr.Warnw("Failed to initialize TON destination managers", "error", initErr)
 	}
@@ -229,9 +266,10 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 		// Get EVM message keys for all EVM source chains
 		messageKeys := make(map[uint64]*bind.TransactOpts)
-		for i, evmChain := range evmChains {
-			if i < len(transmitKeys[evmChain]) {
-				messageKeys[evmChain] = transmitKeys[evmChain][0] // Use first key for TON destinations
+		tonKeyIndex := *userOverrides.NumDestinationChains // TON gun gets its own key index after EVM guns
+		for _, evmChain := range evmChains {
+			if tonKeyIndex < len(transmitKeys[evmChain]) {
+				messageKeys[evmChain] = transmitKeys[evmChain][tonKeyIndex]
 			}
 		}
 
@@ -333,7 +371,11 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	_, err = p.Run(true)
 	require.NoError(t, err)
 
-	lggr.Info("Load test complete, returning funds")
+	lggr.Info("Load test complete, shutting down goroutines")
+	cancel() // Signal all goroutines to stop
+	wg.Wait() // Wait for all goroutines to finish before test cleanup
+
+	lggr.Info("All goroutines stopped, returning funds")
 	// return funds to source address at the end of the test
 	sourcePk, err := crypto.HexToECDSA(*userOverrides.TestnetConfig.EVMPrivateKey)
 	if err != nil {

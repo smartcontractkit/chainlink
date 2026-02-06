@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -83,6 +84,36 @@ func (r *OutputReader) ReadAddressBook() (*cldf.AddressBookMap, error) {
 	}
 
 	return cldf.NewMemoryAddressBookFromMap(result), nil
+}
+
+// ReadDataStore loads the DataStore from address_refs.json and metadata files in the data directory.
+// Falls back gracefully if files are missing (returns empty DataStore).
+func (r *OutputReader) ReadDataStore() (*datastore.MemoryDataStore, error) {
+	ds := datastore.NewMemoryDataStore()
+
+	refs, err := r.readCRIBDataFile(AddressRefsFileName)
+	if err != nil {
+		// address_refs.json is required for a useful DataStore
+		return ds, fmt.Errorf("failed to read %s: %w", AddressRefsFileName, err)
+	}
+	if len(refs) > 0 {
+		if err = json.Unmarshal(refs, &ds.AddressRefStore.Records); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal address refs: %w", err)
+		}
+	}
+
+	// Metadata files are optional — load if present
+	if chainMeta, err := r.readCRIBDataFile(ChainMetadataFileName); err == nil && len(chainMeta) > 0 {
+		_ = json.Unmarshal(chainMeta, &ds.ChainMetadataStore.Records)
+	}
+	if ctrMeta, err := r.readCRIBDataFile(ContractMetadataFileName); err == nil && len(ctrMeta) > 0 {
+		_ = json.Unmarshal(ctrMeta, &ds.ContractMetadataStore.Records)
+	}
+	if envMeta, err := r.readCRIBDataFile(EnvMetadataFileName); err == nil && len(envMeta) > 0 {
+		_ = json.Unmarshal(envMeta, &ds.EnvMetadataStore.Record)
+	}
+
+	return ds, nil
 }
 
 func (r *OutputReader) readCRIBDataFile(fileName string) ([]byte, error) {

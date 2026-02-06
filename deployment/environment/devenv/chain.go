@@ -324,7 +324,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 
 			case TonChainType:
 				// TON requires special initialization with liteserver connections
-				// For now, we store the chain metadata and let the load test handle full initialization
+				// Client is initialized separately by the load test using the liteserver URL from HTTPRPCs
 				tonSyncMap.Store(chainDetails.ChainSelector, cldf_ton.Chain{
 					ChainMetadata: cldf_ton.ChainMetadata{
 						Selector: chainDetails.ChainSelector,

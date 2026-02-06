@@ -23,11 +23,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	tonRouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ton/tvm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	tonState "github.com/smartcontractkit/chainlink-ton/deployment/state"
 )
 
 // LaneConfig represents a unidirectional lane from source to destination
@@ -335,8 +339,8 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(lggr logger.Logger, 
 	allChains = append(allChains, aptosChains...)
 	allChains = append(allChains, tonChains...)
 
-	// Discover EVM to EVM lanes (OnRamp query only works with EVM destinations)
-	// EVM to non-EVM lanes (TON, Solana, Aptos) are discovered in their respective sections below
+	// Discover EVM source lanes via OnRamp query (covers EVM→EVM and EVM→non-EVM destinations)
+	// Non-EVM destinations that fail the query are logged at Debug level and skipped
 	for _, srcChain := range evmChains {
 		srcChainState, exists := state.Chains[srcChain]
 		if !exists {
@@ -344,7 +348,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(lggr logger.Logger, 
 		}
 
 		// Check which destination chains are configured on the OnRamp
-		destinations, err := lc.getEnabledDestinationsFromOnRamp(lggr, srcChainState, srcChain, evmChains)
+		destinations, err := lc.getEnabledDestinationsFromOnRamp(lggr, srcChainState, srcChain, allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled destinations for EVM chain %d: %w", srcChain, err)
 		}
@@ -399,24 +403,28 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(lggr logger.Logger, 
 		}
 	}
 
-	// Discover TON <-> EVM lanes (bidirectional)
-	// For TON, we assume bidirectional lanes exist with all EVM chains if the TON chain state exists
-	for _, tonChain := range tonChains {
-		_, exists := state.TonChains[tonChain]
+	// Discover TON source lanes via router query
+	for _, tonChainSel := range tonChains {
+		tonChainState, exists := state.TonChains[tonChainSel]
 		if !exists {
 			continue
 		}
+		tonChain, exists := env.BlockChains.TonChains()[tonChainSel]
+		if !exists {
+			lggr.Debugw("TON chain not in environment", "chainSelector", tonChainSel)
+			continue
+		}
 
-		for _, evmChain := range evmChains {
-			// TON -> EVM
+		destinations, err := lc.getEnabledDestinationsFromTonRouter(env.GetContext(), lggr, tonChain, tonChainState)
+		if err != nil {
+			lggr.Warnw("Failed to query TON router for destinations", "chainSelector", tonChainSel, "error", err)
+			continue
+		}
+
+		for _, dstChain := range destinations {
 			discoveredLanes = append(discoveredLanes, LaneConfig{
-				SourceChain:      tonChain,
-				DestinationChain: evmChain,
-			})
-			// EVM -> TON
-			discoveredLanes = append(discoveredLanes, LaneConfig{
-				SourceChain:      evmChain,
-				DestinationChain: tonChain,
+				SourceChain:      tonChainSel,
+				DestinationChain: dstChain,
 			})
 		}
 	}
@@ -502,6 +510,30 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromAptosRouter(env cldf.Envi
 	return enabledDestinations, nil
 }
 
+// getEnabledDestinationsFromTonRouter queries the TON router contract for configured destination chains
+func (lc *LaneConfiguration) getEnabledDestinationsFromTonRouter(
+	ctx context.Context,
+	lggr logger.Logger,
+	tonChain cldf_ton.Chain,
+	tonChainState tonState.CCIPChainState,
+) ([]uint64, error) {
+	if tonChain.Client == nil {
+		return nil, fmt.Errorf("TON chain %d has no RPC client (not yet initialized)", tonChain.Selector)
+	}
+
+	routerAddr := tonChainState.Router
+	if routerAddr.IsAddrNone() {
+		return nil, fmt.Errorf("TON chain %d has no router address", tonChain.Selector)
+	}
+
+	destSelectors, err := tvm.CallGetterLatest(ctx, tonChain.Client.WithRetry(), &routerAddr, tonRouter.GetDestChainSelectors)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query TON router dest chain selectors: %w", err)
+	}
+
+	return destSelectors, nil
+}
+
 // isDestinationEnabledOnOnRamp checks if a destination is enabled on the EVM OnRamp
 func (lc *LaneConfiguration) isDestinationEnabledOnOnRamp(chainState evm.CCIPChainState, destinationChain uint64) (bool, error) {
 	destConfig, err := chainState.OnRamp.GetDestChainConfig(&bind.CallOpts{}, destinationChain)
@@ -542,6 +574,17 @@ func (lc *LaneConfiguration) isDestinationEnabledOnAptosRouter(env cldf.Environm
 	}
 
 	return isSupported, nil
+}
+
+// AppendLanes adds additional lanes to the configuration (e.g., lanes discovered outside the standard flow)
+func (lc *LaneConfiguration) AppendLanes(lanes []LaneConfig) {
+	lc.generatedLanes = append(lc.generatedLanes, lanes...)
+	sort.Slice(lc.generatedLanes, func(i, j int) bool {
+		if lc.generatedLanes[i].SourceChain != lc.generatedLanes[j].SourceChain {
+			return lc.generatedLanes[i].SourceChain < lc.generatedLanes[j].SourceChain
+		}
+		return lc.generatedLanes[i].DestinationChain < lc.generatedLanes[j].DestinationChain
+	})
 }
 
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination

@@ -169,6 +169,20 @@ func connectTonClient(ctx context.Context, endpoint string) (*ton.APIClient, err
 	return ton.NewAPIClient(pool, ton.ProofCheckPolicyFast), nil
 }
 
+// GetEnabledDestinations queries the TON router for configured destination chain selectors.
+// This reuses the existing liteserver client connection.
+func (m *TonSourceManager) GetEnabledDestinations(ctx context.Context) ([]uint64, error) {
+	routerAddr := m.chainState.Router
+	if routerAddr.IsAddrNone() {
+		return nil, fmt.Errorf("TON chain %d has no router address", m.chainSel)
+	}
+	destSelectors, err := tvm.CallGetterLatest(ctx, m.client.WithRetry(tonClientRetries), &routerAddr, tonrouter.GetDestChainSelectors)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query TON router dest chain selectors: %w", err)
+	}
+	return destSelectors, nil
+}
+
 // sendTONMessage sends a CCIP message from TON to a destination chain
 // The mutex ensures only one message is sent at a time to prevent transaction conflicts
 // when multiple destination guns try to send from the same TON wallet simultaneously.
@@ -292,6 +306,7 @@ func initializeTonSourceKeys(
 	l logger.Logger,
 	env *cldf.Environment,
 	tonMnemonic string,
+	tonEndpoints map[uint64]string,
 ) (map[uint64]*TonSourceManager, error) {
 	tonSourceKeys := make(map[uint64]*TonSourceManager)
 
@@ -335,8 +350,12 @@ func initializeTonSourceKeys(
 			"onRamp", chainState.OnRamp.String(),
 			"offRamp", chainState.OffRamp.String())
 
-		// Get endpoint - use liteserver from chains-details.json if available
+		// Get endpoint - use crib-provided private liteserver if available, otherwise public config
 		endpoint := "https://ton.org/testnet-global.config.json"
+		if ep, ok := tonEndpoints[chainSel]; ok && ep != "" {
+			endpoint = ep
+			l.Infow("Using crib-provided TON endpoint", "chainSelector", chainSel, "endpoint", endpoint)
+		}
 
 		manager, err := NewTonSourceManager(ctx, l, chainSel, endpoint, tonMnemonic, chainState)
 		if err != nil {
@@ -569,9 +588,11 @@ func subscribeTonExecutionEvents(
 }
 
 // initializeTonDestinationManagers initializes TON destination managers for all TON chains
-// It reuses the existing clients from tonSourceKeys to use the same private endpoint
-// configured for load testing instead of creating new connections.
+// Each manager gets its own client connection to avoid contention with the source manager's
+// sends. Sharing a client causes "too big masterchain block seqno" errors when the logpoller
+// polls concurrently with message sends.
 func initializeTonDestinationManagers(
+	ctx context.Context,
 	l logger.Logger,
 	env *cldf.Environment,
 	tonSourceKeys map[uint64]*TonSourceManager,
@@ -580,7 +601,7 @@ func initializeTonDestinationManagers(
 
 	// Get all TON chain selectors from environment
 	for chainSel := range env.BlockChains.TonChains() {
-		// Check if we have a source manager for this chain (with existing client)
+		// Check if we have a source manager for this chain (to get chainState)
 		sourceManager, hasSourceManager := tonSourceKeys[chainSel]
 		if !hasSourceManager {
 			l.Warnw("No TON source manager available for destination chain, skipping",
@@ -619,11 +640,18 @@ func initializeTonDestinationManagers(
 			continue
 		}
 
-		// Create destination manager reusing the source manager's client
-		manager := NewTonDestinationManagerFromSourceManager(l, sourceManager)
+		// Create destination manager with its own client to avoid contention with sends
+		endpoint := "https://ton.org/testnet-global.config.json"
+		manager, err := NewTonDestinationManager(ctx, l, chainSel, endpoint, sourceManager.chainState)
+		if err != nil {
+			l.Warnw("Failed to create TON destination manager",
+				"chainSelector", chainSel,
+				"error", err)
+			continue
+		}
 
 		tonDestManagers[chainSel] = manager
-		l.Infow("Initialized TON destination manager (reusing source client)",
+		l.Infow("Initialized TON destination manager (separate client)",
 			"chainSelector", chainSel,
 			"receiver", sourceManager.chainState.ReceiverAddress.String())
 	}

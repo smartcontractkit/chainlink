@@ -17,8 +17,9 @@ const (
 
 type DeployOutput struct {
 	NodeIDs     []string
-	Chains      []devenv.ChainConfig // chain selector -> Chain Config
-	AddressBook cldf.AddressBook     // Addresses of all contracts
+	Chains      []devenv.ChainConfig        // chain selector -> Chain Config
+	AddressBook cldf.AddressBook            // Addresses of all contracts (deprecated, use DataStore)
+	DataStore   *datastore.MemoryDataStore  // DataStore loaded from address_refs.json etc.
 }
 
 type DeployCCIPOutput struct {
@@ -32,11 +33,16 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 		return nil, err
 	}
 
+	ds := output.DataStore
+	if ds == nil {
+		ds = datastore.NewMemoryDataStore()
+	}
+
 	return cldf.NewEnvironment(
 		CRIB_ENV_NAME,
 		lggr,
 		output.AddressBook,
-		datastore.NewMemoryDataStore().Seal(),
+		ds.Seal(),
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
 		//nolint:gocritic // intentionally use a lambda to allow dynamic context replacement in Environment Commit 90ee880

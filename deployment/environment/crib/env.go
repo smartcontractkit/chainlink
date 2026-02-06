@@ -12,6 +12,12 @@ const (
 	NodesDetailsFileName      = "nodes-details.json"
 	ChainsConfigsFileName     = "chains-details.json"
 	RMNNodeIdentitiesFileName = "rmn-node-identities.json"
+
+	// DataStore file names (from chainlink-deployments-framework)
+	AddressRefsFileName      = "address_refs.json"
+	ChainMetadataFileName    = "chain_metadata.json"
+	ContractMetadataFileName = "contract_metadata.json"
+	EnvMetadataFileName      = "env_metadata.json"
 )
 
 type CRIBEnv struct {
@@ -73,10 +79,16 @@ func (c CRIBEnv) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
 		return DeployOutput{}, err
 	}
 
+	dataStore, err := reader.ReadDataStore()
+	if err != nil {
+		c.lggr.Warnw("Failed to load datastore files, using empty datastore", "error", err)
+	}
+
 	return DeployOutput{
 		AddressBook: addressBook,
 		NodeIDs:     nodesDetails.NodeIDs,
 		Chains:      chainConfigs,
+		DataStore:   dataStore,
 	}, nil
 }
 
