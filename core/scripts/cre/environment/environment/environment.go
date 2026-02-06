@@ -517,7 +517,7 @@ func startCmd() *cobra.Command {
 }
 
 func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
-	cfg, cfgErr := readConfig(setupCfg.ConfigPath)
+	cfg, cfgErr := ReadSetupConfig(setupCfg.ConfigPath)
 	if cfgErr != nil {
 		return errors.Wrap(cfgErr, "failed to read config")
 	}

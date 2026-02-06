@@ -15,8 +15,9 @@ import (
 	solgo "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/stretchr/testify/require"
+
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
