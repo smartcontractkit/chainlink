@@ -652,6 +652,7 @@ func TestConfig_Marshal(t *testing.T) {
 		IgnoreJoblessBridges: ptr(false),
 	}
 	full.Sharding = toml.Sharding{
+		ShardingEnabled:          ptr(false),
 		ArbiterPort:              ptr[uint16](9876),
 		ArbiterPollInterval:      commoncfg.MustNewDuration(12 * time.Second),
 		ArbiterRetryInterval:     commoncfg.MustNewDuration(12 * time.Second),
