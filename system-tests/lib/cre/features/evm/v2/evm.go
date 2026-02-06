@@ -309,43 +309,6 @@ func createJobs(
 			return errors.Wrapf(err, "failed to get contract address for key %s and chainID %d", ocr3Key, chainID)
 		}
 
-		bootInput := cre_jobs.ProposeJobSpecInput{
-			Domain:      offchain.ProductLabel,
-			Environment: cre.EnvironmentName,
-			DONName:     bootstrap.DON.Name,
-			JobName:     fmt.Sprintf("evm-v2-bootstrap-%d-%s", chainID, don.Name),
-			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
-			},
-			Template: job_types.BootstrapOCR3,
-			Inputs: job_types.JobSpecInput{
-				"chainSelector":     chainSelector,
-				"contractQualifier": qualifier,
-			},
-		}
-
-		bootVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, bootInput)
-		if bootVerErr != nil {
-			return fmt.Errorf("precondition verification failed for EVM v2 bootstrap job for chainID %d: %w", chainID, bootVerErr)
-		}
-
-		bootReport, bootErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, bootInput)
-		if bootErr != nil {
-			return fmt.Errorf("failed to propose EVM v2 bootstrap job spec for chainID %d: %w", chainID, bootErr)
-		}
-
-		for _, r := range bootReport.Reports {
-			out, ok := r.Output.(cre_jobs_ops.ProposeOCR3BootstrapJobOutput)
-			if !ok {
-				return fmt.Errorf("unable to cast to ProposeOCR3BootstrapJobOutput, actual type: %T", r.Output)
-			}
-			mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-			if mErr != nil {
-				return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
-			}
-		}
-
 		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
 		if resolveErr != nil {
 			return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
