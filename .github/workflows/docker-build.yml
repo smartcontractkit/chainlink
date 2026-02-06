@@ -70,8 +70,10 @@ jobs:
         id: version-info
         run: |
           pkg_version=$(jq -r '.version' ./package.json)
+          # Sanitize package version for Docker tag compatibility (e.g., replace '+' with '-')
+          sanitized_pkg_version="${pkg_version//+/-}"
           short_sha=$(git rev-parse --short HEAD)
-          version_tag="${pkg_version}-${short_sha}"
+          version_tag="${sanitized_pkg_version}-${short_sha}"
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
 
   docker-core:
