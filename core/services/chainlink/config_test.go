@@ -565,6 +565,19 @@ func TestConfig_Marshal(t *testing.T) {
 				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
 			},
 		},
+		Local: toml.LocalCapabilities{
+			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			Capabilities: map[string]toml.CapabilityNodeConfig{
+				"http-action@1.0.0": {
+					BinaryPathOverride: ptr("/opt/chainlink/binaries/http_action"),
+					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
+				},
+				"cron@1.0.0": {
+					BinaryPathOverride: ptr("/opt/chainlink/binaries/cron"),
+					Config:             map[string]string{"fastestScheduleIntervalSeconds": "60"},
+				},
+			},
+		},
 	}
 	full.Workflows = toml.Workflows{
 		Limits: toml.Limits{

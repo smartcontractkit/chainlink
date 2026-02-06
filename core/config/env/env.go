@@ -11,13 +11,16 @@ import (
 var (
 	Config                       = Var("CL_CONFIG")
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
-	DatabaseURL                  = Secret("CL_DATABASE_URL")
-	DatabaseBackupURL            = Secret("CL_DATABASE_BACKUP_URL")
-	PasswordKeystore             = Secret("CL_PASSWORD_KEYSTORE")
-	PasswordVRF                  = Secret("CL_PASSWORD_VRF")
-	PyroscopeAuthToken           = Secret("CL_PYROSCOPE_AUTH_TOKEN")
-	PrometheusAuthToken          = Secret("CL_PROMETHEUS_AUTH_TOKEN")
-	ThresholdKeyShare            = Secret("CL_THRESHOLD_KEY_SHARE")
+	IgnorePrereleaseVersionCheck = Var("CL_IGNORE_PRE_RELEASE_VERSION_CHECK")
+	SkipAppVersionCheck          = Var("CL_SKIP_APP_VERSION_CHECK")
+
+	DatabaseURL         = Secret("CL_DATABASE_URL")
+	DatabaseBackupURL   = Secret("CL_DATABASE_BACKUP_URL")
+	PasswordKeystore    = Secret("CL_PASSWORD_KEYSTORE")
+	PasswordVRF         = Secret("CL_PASSWORD_VRF")
+	PyroscopeAuthToken  = Secret("CL_PYROSCOPE_AUTH_TOKEN")
+	PrometheusAuthToken = Secret("CL_PROMETHEUS_AUTH_TOKEN")
+	ThresholdKeyShare   = Secret("CL_THRESHOLD_KEY_SHARE")
 	// Migrations env vars
 	EVMChainIDNotNullMigration0195 = "CL_EVM_CHAINID_NOT_NULL_MIGRATION_0195"
 )
