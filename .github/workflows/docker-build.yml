@@ -70,7 +70,7 @@ jobs:
         id: version-info
         run: |
           pkg_version=$(jq -r '.version' ./package.json)
-          version_tag="${sanitized_pkg_version}-dev"
+          version_tag="${pkg_version}-dev"
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
 
   docker-core:
