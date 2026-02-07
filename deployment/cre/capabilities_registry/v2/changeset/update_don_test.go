@@ -405,3 +405,78 @@ func TestUpdateDONChangeset_ByName_QualifierNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get registry address")
 }
+
+func TestExtractOCR3Configs(t *testing.T) {
+	t.Run("returns nil for nil config", func(t *testing.T) {
+		assert.Nil(t, changeset.ExtractOCR3Configs(nil))
+	})
+
+	t.Run("returns nil when ocr3Configs absent", func(t *testing.T) {
+		assert.Nil(t, changeset.ExtractOCR3Configs(map[string]any{"other": "value"}))
+	})
+
+	t.Run("returns nil when ocr3Configs is not a map", func(t *testing.T) {
+		assert.Nil(t, changeset.ExtractOCR3Configs(map[string]any{"ocr3Configs": "not-a-map"}))
+	})
+
+	t.Run("returns map when present", func(t *testing.T) {
+		inner := map[string]any{"__default__": map[string]any{"f": 2}}
+		result := changeset.ExtractOCR3Configs(map[string]any{"ocr3Configs": inner})
+		require.NotNil(t, result)
+		assert.Equal(t, inner, result)
+	})
+}
+
+func TestNeedsOCR3Generation(t *testing.T) {
+	t.Run("needs generation when signers absent", func(t *testing.T) {
+		assert.True(t, changeset.NeedsOCR3Generation(map[string]any{
+			"deltaProgressMillis": float64(5000),
+		}))
+	})
+
+	t.Run("needs generation when signers is nil", func(t *testing.T) {
+		assert.True(t, changeset.NeedsOCR3Generation(map[string]any{
+			"signers": nil,
+		}))
+	})
+
+	t.Run("needs generation when signers is empty array", func(t *testing.T) {
+		assert.True(t, changeset.NeedsOCR3Generation(map[string]any{
+			"signers": []any{},
+		}))
+	})
+
+	t.Run("does not need generation when signers present", func(t *testing.T) {
+		assert.False(t, changeset.NeedsOCR3Generation(map[string]any{
+			"signers": []any{"AQID"},
+		}))
+	})
+
+	t.Run("does not need generation for non-array signers", func(t *testing.T) {
+		assert.False(t, changeset.NeedsOCR3Generation(map[string]any{
+			"signers": "something",
+		}))
+	})
+}
+
+func TestParseOracleConfig(t *testing.T) {
+	t.Run("parses valid oracle config", func(t *testing.T) {
+		raw := map[string]any{
+			"DeltaProgressMillis":  float64(5000),
+			"DeltaResendMillis":    float64(3000),
+			"MaxFaultyOracles":     float64(2),
+			"TransmissionSchedule": []any{float64(10)},
+		}
+		oc, err := changeset.ParseOracleConfig(raw)
+		require.NoError(t, err)
+		assert.Equal(t, uint32(5000), oc.DeltaProgressMillis)
+		assert.Equal(t, uint32(3000), oc.DeltaResendMillis)
+		assert.Equal(t, 2, oc.MaxFaultyOracles)
+		assert.Equal(t, []int{10}, oc.TransmissionSchedule)
+	})
+
+	t.Run("returns error for invalid input", func(t *testing.T) {
+		_, err := changeset.ParseOracleConfig("not-a-map")
+		require.Error(t, err)
+	})
+}
