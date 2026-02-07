@@ -17,21 +17,16 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
 )
 
 const flag = cre.ConsensusCapabilityV2
@@ -59,6 +54,7 @@ func (c *Consensus) PreEnvStartup(
 		Config: &capabilitiespb.CapabilityConfig{
 			LocalOnly: don.HasOnlyLocalCapabilities(),
 		},
+		UseCapRegOCRConfig: true,
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -80,11 +76,6 @@ func (c *Consensus) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
-	if ocrErr != nil {
-		return fmt.Errorf("failed to deploy OCR3 (consensus v2) contract: %w", ocrErr)
-	}
-
 	jobsErr := createJobs(
 		ctx,
 		don,
@@ -93,53 +84,6 @@ func (c *Consensus) PostEnvStartup(
 	)
 	if jobsErr != nil {
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobsErr)
-	}
-
-	// wait for LP to be started (otherwise it won't pick up contract's configuration events)
-	if err := consensus.WaitForLogPollerToBeHealthy(don); err != nil {
-		return fmt.Errorf("failed while waiting for Log Poller to become healthy: %w", err)
-	}
-
-	ocr3Config, ocr3confErr := contracts.DefaultOCR3Config()
-	if ocr3confErr != nil {
-		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
-	}
-
-	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
-	if !ok {
-		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
-	}
-
-	strategy, err := strategies.CreateStrategy(
-		chain,
-		*creEnv.CldfEnvironment,
-		nil,
-		nil,
-		*ocr3ContractAddr,
-		"PostEnvStartup - Configure OCR3 Contract - v2 Consensus",
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create strategy: %w", err)
-	}
-
-	_, ocr3Err := operations.ExecuteOperation(
-		creEnv.CldfEnvironment.OperationsBundle,
-		ks_contracts_op.ConfigureOCR3Op,
-		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      creEnv.CldfEnvironment,
-			Strategy: strategy,
-		},
-		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress: ocr3ContractAddr,
-			ChainSelector:   creEnv.RegistryChainSelector,
-			DON:             don.KeystoneDONConfig(),
-			Config:          don.ResolveORC3Config(ocr3Config),
-			DryRun:          false,
-		},
-	)
-
-	if ocr3Err != nil {
-		return fmt.Errorf("failed to configure OCR3 contract: %w", ocr3Err)
 	}
 
 	return nil
@@ -294,11 +238,17 @@ func proposeBootstrapJob(creEnv *cre.Environment, bootstrap *cre.Node, don *cre.
 }
 
 func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, bootstrapPeers []string, configStr string) (map[string][]string, error) {
+	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+	if !ok {
+		return nil, errors.New("CapabilitiesRegistry version not found in contract versions")
+	}
+
 	inputs := job_types.JobSpecInput{
-		"command":           command,
-		"chainSelectorEVM":  creEnv.RegistryChainSelector,
-		"contractQualifier": ContractQualifier,
-		"bootstrapPeers":    bootstrapPeers,
+		"command":            command,
+		"chainSelectorEVM":   creEnv.RegistryChainSelector,
+		"bootstrapPeers":     bootstrapPeers,
+		"useCapRegOCRConfig": true,
+		"capRegVersion":      capRegVersion.String(),
 	}
 
 	// Add config if provided (allows overriding limits from capability_defaults.toml)

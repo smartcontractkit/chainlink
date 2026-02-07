@@ -99,8 +99,9 @@ func (v DonCapabilities) N() int {
 }
 
 type DONCapabilityWithConfig struct {
-	Capability kcr.CapabilitiesRegistryCapability
-	Config     *capabilitiespb.CapabilityConfig
+	Capability         kcr.CapabilitiesRegistryCapability
+	Config             *capabilitiespb.CapabilityConfig
+	UseCapRegOCRConfig bool
 }
 
 func (v DonCapabilities) Validate() error {
