@@ -481,7 +481,7 @@ func subscribeSkippedIncorrectNonce(
 // fundAdditionalKeys will create len(targetChains) new addresses, and send funds to them on every targetChain
 // chainFundingOverrides maps chain selectors to funding amounts in wei
 // If a chain is not in overrides, defaultFunding is used
-func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64, defaultFunding uint64, chainFundingOverrides map[uint64]uint64) (map[uint64][]*bind.TransactOpts, error) {
+func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64, defaultFunding uint64, chainFundingOverrides map[uint64]string) (map[uint64][]*bind.TransactOpts, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
@@ -516,14 +516,17 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	for sel, addresses := range addressMap {
 		sel, addresses := sel, addresses
 		// Determine funding amount: check for chain-specific override, else use default
-		funding := defaultFunding
+		fundingBig := new(big.Int).SetUint64(defaultFunding)
 		if chainFundingOverrides != nil {
 			if override, ok := chainFundingOverrides[sel]; ok {
-				funding = override
-				lggr.Infow("using chain-specific funding override", "chainSelector", sel, "amount", funding)
+				parsed, success := new(big.Int).SetString(override, 10)
+				if !success {
+					return nil, fmt.Errorf("invalid funding override for chain %d: %q", sel, override)
+				}
+				fundingBig = parsed
+				lggr.Infow("using chain-specific funding override", "chainSelector", sel, "amount", override)
 			}
 		}
-		fundingBig := new(big.Int).SetUint64(funding)
 		g.Go(func() error {
 			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, fundingBig, sel)
 		})

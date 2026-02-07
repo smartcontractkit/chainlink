@@ -46,10 +46,11 @@ type TestnetConfig struct {
 	FundingAmountEth *uint64 // Default funding for EVM chains
 	FundingAmountSol *uint64
 	FundingAmountApt *uint64
-	// Per-chain funding overrides (chain selector -> amount in wei)
+	// Per-chain funding overrides (chain selector -> amount in wei as string)
 	// Use chain selectors like 14767482510784806043 (Fuji), 3478487238524512106 (Arbitrum Sepolia)
+	// String values bypass TOML's int64 limit, allowing amounts > 9.2 ETH/AVAX
 	// If not specified, falls back to FundingAmountEth
-	ChainFundingOverrides map[uint64]uint64
+	ChainFundingOverrides map[uint64]string
 }
 
 const (
