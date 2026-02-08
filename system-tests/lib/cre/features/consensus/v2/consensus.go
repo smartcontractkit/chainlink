@@ -237,11 +237,17 @@ func proposeBootstrapJob(creEnv *cre.Environment, bootstrap *cre.Node, don *cre.
 }
 
 func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, bootstrapPeers []string, configStr string) (map[string][]string, error) {
+	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+	if !ok {
+		return nil, errors.New("CapabilitiesRegistry version not found in contract versions")
+	}
+
 	inputs := job_types.JobSpecInput{
-		"command":           command,
-		"chainSelectorEVM":  creEnv.RegistryChainSelector,
-		"contractQualifier": ContractQualifier,
-		"bootstrapPeers":    bootstrapPeers,
+		"command":            command,
+		"chainSelectorEVM":   creEnv.RegistryChainSelector,
+		"bootstrapPeers":     bootstrapPeers,
+		"useCapRegOCRConfig": true,
+		"capRegVersion":      capRegVersion.String(),
 	}
 
 	// Add config if provided (allows overriding limits from capability_defaults.toml)

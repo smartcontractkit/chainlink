@@ -27,9 +27,12 @@ type StandardCapabilityJob struct {
 
 	// Additional fields used to drive oracle factory creation/config
 	GenerateOracleFactory bool          // if true, an oracle factory will be generated using the fields below
+	UseCapRegOCRConfig    bool          `yaml:"useCapRegOCRConfig"` // if true, use CapabilitiesRegistry address instead of OCR3 contract for oracle factory
+	CapRegQualifier       string        `yaml:"capRegQualifier"`    // qualifier for the CapabilitiesRegistry contract (used when useCapRegOCRConfig is true)
+	CapRegVersion         string        `yaml:"capRegVersion"`      // version of the CapabilitiesRegistry contract (used when useCapRegOCRConfig is true)
 	OCRSigningStrategy    string        `yaml:"ocrSigningStrategy"` // used to set the signing strategy in the oracle factory
-	ContractQualifier     string        `yaml:"contractQualifier"`  // used to fetch the OCR contract address
-	OCRChainSelector      ChainSelector `yaml:"ocrChainSelector"`   // OCR contract doesn't have to live on the same chain as the evm selector
+	ContractQualifier     string        `yaml:"contractQualifier"`  // used to fetch the OCR3 contract address (not needed when useCapRegOCRConfig is true)
+	OCRChainSelector      ChainSelector `yaml:"ocrChainSelector"`   // contract chain selector, doesn't have to live on the same chain as the evm selector
 
 	ChainSelectorEVM    ChainSelector `yaml:"chainSelectorEVM"`    // used to fetch OCR EVM configs from nodes
 	ChainSelectorAptos  ChainSelector `yaml:"chainSelectorAptos"`  // used to fetch OCR Aptos configs from nodes - optional
@@ -73,7 +76,7 @@ func (s *StandardCapabilityJob) Validate() error {
 		return nil
 	}
 
-	if s.ContractQualifier == "" {
+	if !s.UseCapRegOCRConfig && s.ContractQualifier == "" {
 		return errors.New("contract qualifier cannot be empty")
 	}
 
