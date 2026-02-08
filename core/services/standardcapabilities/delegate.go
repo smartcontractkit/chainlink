@@ -79,7 +79,7 @@ const (
 // before executing the LOOPP. When std cap job specs are deprecated, capability IDs will be known upfront.
 func getCapabilityID(command string, config string) string {
 	switch command {
-	case "/usr/local/bin/evm":
+	case "evm", "/usr/local/bin/evm":
 		var cfg struct {
 			ChainID uint64 `json:"chainId"`
 		}
@@ -91,8 +91,8 @@ func getCapabilityID(command string, config string) string {
 			return ""
 		}
 		return "evm:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
-	case "consensus":
-		return "consensus@1.0.0"
+	case "consensus", "/usr/local/bin/consensus":
+		return "consensus@1.0.0-alpha"
 	default:
 		return ""
 	}

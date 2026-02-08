@@ -3,13 +3,13 @@ package capregconfig
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"slices"
 	"sync"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -233,8 +233,7 @@ func (s *ocrConfigService) parseOCR3Config(
 
 	transmitters := make([]ocrtypes.Account, len(cfg.Transmitters))
 	for i, transmitter := range cfg.Transmitters {
-		// Accounts are hex strings
-		transmitters[i] = ocrtypes.Account(hex.EncodeToString(transmitter))
+		transmitters[i] = ocrtypes.Account(gethCommon.BytesToAddress(transmitter).Hex())
 	}
 
 	digest, err := computeConfigDigest(s.chainID, s.registryAddress, capabilityID, donID, ocrConfigKey, cfg)
@@ -325,7 +324,9 @@ func (t *dynamicConfigTracker) Notify() <-chan struct{} {
 
 func (t *dynamicConfigTracker) LatestConfigDetails(ctx context.Context) (uint64, ocrtypes.ConfigDigest, error) {
 	cfg, ok := t.service.getConfig(t.capabilityID, t.ocrConfigKey)
+	t.lggr.Infow("LatestConfigDetails", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey, "cfg", cfg)
 	if ok {
+		t.lggr.Infow("LatestConfigDetails found in registry", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey, "cfg", cfg)
 		t.service.metrics.SetTrackerLegacyFallback(ctx, t.capabilityID, t.ocrConfigKey, false)
 		return cfg.ContractConfig.ConfigCount, cfg.ContractConfig.ConfigDigest, nil
 	}
@@ -333,25 +334,31 @@ func (t *dynamicConfigTracker) LatestConfigDetails(ctx context.Context) (uint64,
 	// Only fall back to legacy if we've received at least one registry update
 	// and confirmed there's no config for this capability/key.
 	if t.legacyTracker != nil && t.service.hasRefreshedRegistry() {
+		t.lggr.Infow("LatestConfigDetails falling back to legacy", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey)
 		t.service.metrics.SetTrackerLegacyFallback(ctx, t.capabilityID, t.ocrConfigKey, true)
 		return t.legacyTracker.LatestConfigDetails(ctx)
 	}
 
+	t.lggr.Infow("LatestConfigDetails no config available", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey)
 	return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("no config available for %s/%s", t.capabilityID, t.ocrConfigKey)
 }
 
 func (t *dynamicConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	t.lggr.Infow("LatestConfig", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey, "changedInBlock", changedInBlock)
 	cfg, ok := t.service.getConfig(t.capabilityID, t.ocrConfigKey)
 	if ok {
+		t.lggr.Infow("LatestConfig found in registry", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey, "cfg", cfg)
 		t.service.metrics.SetTrackerLegacyFallback(ctx, t.capabilityID, t.ocrConfigKey, false)
 		return cfg.ContractConfig, nil
 	}
 
 	if t.legacyTracker != nil && t.service.hasRefreshedRegistry() {
+		t.lggr.Infow("LatestConfig falling back to legacy", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey)
 		t.service.metrics.SetTrackerLegacyFallback(ctx, t.capabilityID, t.ocrConfigKey, true)
 		return t.legacyTracker.LatestConfig(ctx, changedInBlock)
 	}
 
+	t.lggr.Infow("LatestConfig no config available", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey)
 	return ocrtypes.ContractConfig{}, fmt.Errorf("no config available for %s/%s", t.capabilityID, t.ocrConfigKey)
 }
 
@@ -387,30 +394,38 @@ var _ ocrtypes.OffchainConfigDigester = (*dynamicConfigDigester)(nil)
 func (d *dynamicConfigDigester) ConfigDigest(ctx context.Context, cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
 	// If we have registry config with matching config count, use our pre-computed digest.
 	cfg, ok := d.service.getConfig(d.capabilityID, d.ocrConfigKey)
+	d.lggr.Infow("ConfigDigest", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey, "cc", cc)
 	if ok && cfg.ContractConfig.ConfigCount == cc.ConfigCount {
+		d.lggr.Infow("ConfigDigest found in registry", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey, "cfg", cfg)
 		d.service.metrics.SetDigesterLegacyFallback(ctx, d.capabilityID, d.ocrConfigKey, false)
 		return cfg.ContractConfig.ConfigDigest, nil
 	}
 
 	if d.legacyDigester != nil && d.service.hasRefreshedRegistry() {
+		d.lggr.Infow("ConfigDigest falling back to legacy", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey)
 		d.service.metrics.SetDigesterLegacyFallback(ctx, d.capabilityID, d.ocrConfigKey, true)
 		return d.legacyDigester.ConfigDigest(ctx, cc)
 	}
 
+	d.lggr.Infow("ConfigDigest no digester available", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey)
 	return ocrtypes.ConfigDigest{}, fmt.Errorf("no digester available for %s/%s", d.capabilityID, d.ocrConfigKey)
 }
 
 func (d *dynamicConfigDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
 	_, ok := d.service.getConfig(d.capabilityID, d.ocrConfigKey)
+	d.lggr.Infow("ConfigDigestPrefix", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey)
 	if ok {
+		d.lggr.Infow("ConfigDigestPrefix found in registry", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey)
 		d.service.metrics.SetDigesterLegacyFallback(ctx, d.capabilityID, d.ocrConfigKey, false)
 		return ocrtypes.ConfigDigestPrefixKeystoneOCR3Capability, nil
 	}
 
 	if d.legacyDigester != nil && d.service.hasRefreshedRegistry() {
+		d.lggr.Infow("ConfigDigestPrefix falling back to legacy", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey)
 		d.service.metrics.SetDigesterLegacyFallback(ctx, d.capabilityID, d.ocrConfigKey, true)
 		return d.legacyDigester.ConfigDigestPrefix(ctx)
 	}
 
+	d.lggr.Infow("ConfigDigestPrefix no digester available", "capabilityID", d.capabilityID, "ocrConfigKey", d.ocrConfigKey)
 	return 0, fmt.Errorf("no digester available for %s/%s", d.capabilityID, d.ocrConfigKey)
 }

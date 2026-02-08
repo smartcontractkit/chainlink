@@ -405,8 +405,8 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	require.True(t, ok)
 
 	// Verify transmitters are hex-encoded.
-	assert.Equal(t, ocrtypes.Account("deadbeef00112233445566778899aabbccddeeff"), cfg.ContractConfig.Transmitters[0])
-	assert.Equal(t, ocrtypes.Account("0102030405060708090a0b0c0d0e0f1011121314"), cfg.ContractConfig.Transmitters[1])
+	assert.Equal(t, ocrtypes.Account("0xDeadbEef00112233445566778899AABBccDDeeFf"), cfg.ContractConfig.Transmitters[0])
+	assert.Equal(t, ocrtypes.Account("0x0102030405060708090a0B0c0d0e0f1011121314"), cfg.ContractConfig.Transmitters[1])
 }
 
 func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
