@@ -7,7 +7,7 @@ exec chainlink node -c config.toml start -p password -a creds &
 
 # initialize client
 env NODEURL=http://localhost:$PORT
-exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
+exec curl --retry 30 --retry-delay 2 --retry-max-time 180 --retry-connrefused $NODEURL
 exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
 
 exec chainlink --remote-node-url $NODEURL health

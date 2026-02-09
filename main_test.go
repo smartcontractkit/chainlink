@@ -51,6 +51,11 @@ var (
 		// "TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
 		// "TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
 	}
+
+	// Some scripts are resource-heavy and become flaky when started in parallel with all other scripts.
+	serialScripts = map[string]struct{}{
+		"health/multi-chain-loopp": {},
+	}
 )
 
 // TestScripts walks through the testdata/scripts directory and runs all tests that end in
@@ -64,8 +69,11 @@ func TestScripts(t *testing.T) {
 	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
-		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {
-			t.Parallel()
+		scriptName := strings.TrimPrefix(path, "testdata/scripts/")
+		t.Run(scriptName, func(t *testing.T) {
+			if _, runSerial := serialScripts[scriptName]; !runSerial {
+				t.Parallel()
+			}
 			if message, shouldSkip := skipFlakyTests[t.Name()]; shouldSkip {
 				t.Skipf("Flaky Test: %s", message)
 			}
