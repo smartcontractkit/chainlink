@@ -466,6 +466,65 @@ func (_c *Eth_EnabledKeysForChain_Call) RunAndReturn(run func(context.Context, *
 	return _c
 }
 
+// EnabledKeysWithDeterminism provides a mock function with given fields: ctx, chainID
+func (_m *Eth) EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) ([]ethkey.KeyV2, error) {
+	ret := _m.Called(ctx, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnabledKeysWithDeterminism")
+	}
+
+	var r0 []ethkey.KeyV2
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]ethkey.KeyV2, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []ethkey.KeyV2); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]ethkey.KeyV2)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Eth_EnabledKeysWithDeterminism_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnabledKeysWithDeterminism'
+type Eth_EnabledKeysWithDeterminism_Call struct {
+	*mock.Call
+}
+
+// EnabledKeysWithDeterminism is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainID *big.Int
+func (_e *Eth_Expecter) EnabledKeysWithDeterminism(ctx interface{}, chainID interface{}) *Eth_EnabledKeysWithDeterminism_Call {
+	return &Eth_EnabledKeysWithDeterminism_Call{Call: _e.mock.On("EnabledKeysWithDeterminism", ctx, chainID)}
+}
+
+func (_c *Eth_EnabledKeysWithDeterminism_Call) Run(run func(ctx context.Context, chainID *big.Int)) *Eth_EnabledKeysWithDeterminism_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *Eth_EnabledKeysWithDeterminism_Call) Return(_a0 []ethkey.KeyV2, err error) *Eth_EnabledKeysWithDeterminism_Call {
+	_c.Call.Return(_a0, err)
+	return _c
+}
+
+func (_c *Eth_EnabledKeysWithDeterminism_Call) RunAndReturn(run func(context.Context, *big.Int) ([]ethkey.KeyV2, error)) *Eth_EnabledKeysWithDeterminism_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EnsureKeys provides a mock function with given fields: ctx, chainIDs
 func (_m *Eth) EnsureKeys(ctx context.Context, chainIDs ...*big.Int) error {
 	_va := make([]interface{}, len(chainIDs))
