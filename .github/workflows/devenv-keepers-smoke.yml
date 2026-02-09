@@ -7,10 +7,6 @@ on:
   # TODO: remove after testing
   pull_request:
 
-defaults:
-  run:
-    working-directory: devenv
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
@@ -30,17 +26,18 @@ jobs:
           test_matrix='[
             {
               "test_names": "TestKeeperBasic|TestKeeperSimulation|TestKeeperCheckPerformGasLimit|TestKeeperRegisterUpkeep|TestKeeperAddFunds|TestKeeperRemove|TestKeeperPauseRegistry|TestKeeperMigrateRegistry|TestKeeperJobReplacement",
-              "environments": "../../env.toml,../../products/keepers/basic.toml"
+              "environments": "env.toml,products/keepers/basic.toml"
             },
             {
               "test_names": "TestKeeperNodeDown|TestKeeperPauseUnPauseUpkeep|TestKeeperUpdateCheckData",
-              "environments": "../../env.toml,../../products/keepers/low_bcptr.toml"
+              "environments": "env.toml,products/keepers/low_bcptr.toml"
             },
             {
               "test_names": "TestKeeperBlockCountPerTurn",
-              "environments": "../../env.toml,../../env-geth.toml,../../products/keepers/high_bcptr.toml"
+              "environments": "env.toml,env-geth.toml,products/keepers/high_bcptr.toml"
             }
           ]'
+          test_matrix=$(echo "$test_matrix" | jq -c .)
           echo "matrix=$test_matrix" | tee -a "${GITHUB_OUTPUT}"
 
   smoke:
@@ -91,6 +88,7 @@ jobs:
           cache-dependency-path: devenv/go.sum
 
       - name: Download Go dependencies
+        working-directory: devenv
         run: |
           go mod download
 
@@ -100,6 +98,7 @@ jobs:
           echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)" >> $GITHUB_ENV
 
       - name: Run Automation environment
+        working-directory: devenv
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
