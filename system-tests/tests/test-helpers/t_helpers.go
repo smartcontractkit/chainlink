@@ -43,6 +43,7 @@ import (
 	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -66,6 +67,8 @@ import (
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 )
+
+const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
 
 /////////////////////////
 // ENVIRONMENT HELPERS //
@@ -102,12 +105,10 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 
 	enabledChains := map[string]struct{}{}
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		require.NoError(t, nodeSet.ParseChainCapabilities())
-		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
-			continue
-		}
+		enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(cre.EVMCapability)
+		require.NoError(t, err, "failed to get enabled chain IDs for EVM capability")
 
-		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
+		for _, chainID := range enabledChainIDs {
 			strChainID := strconv.FormatUint(chainID, 10)
 			enabledChains[strChainID] = struct{}{}
 		}
@@ -123,7 +124,7 @@ Recommendation: Use it in tests that need to listen for Beholder messages.
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	beholder, err := NewBeholder(framework.L, testEnv.TestConfig)
 	require.NoError(t, err, "failed to create beholder instance")
 
 	// We are interested in UserLogs (successful execution)
@@ -178,7 +179,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 				// Process received messages
 				switch typedMsg := msg.(type) {
 				case *commonevents.BaseMessage:
-					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
+					if strings.Contains(typedMsg.Msg, WorkflowEngineInitErrorLog) {
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
@@ -284,6 +285,7 @@ type WorkflowConfig interface {
 		logtrigger_config.Config |
 		evmread_negative_config.Config |
 		evmwrite_negative_config.Config |
+		logtrigger_negative_config.Config |
 		http_config.Config |
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config
@@ -323,7 +325,7 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName, workflowDONName string, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation string) (string, string) {
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
@@ -333,8 +335,10 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(workflowDONName), compressedWorkflowWasmPath, workflowConfigFilePath)
-	require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
+	for _, don := range workflowDONs {
+		copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(don.Name), compressedWorkflowWasmPath, workflowConfigFilePath)
+		require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
+	}
 	testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
 
 	return compressedWorkflowWasmPath, workflowConfigFilePath
@@ -405,6 +409,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmwrite-negative workflow config file")
 			testLogger.Info().Msg("EVM Write negative workflow config file created.")
+
+		case *logtrigger_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create logtrigger-negative workflow config file")
+			testLogger.Info().Msg("EVM LogTrigger negative workflow config file created.")
 
 		case *http_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
@@ -536,7 +546,7 @@ Registers a workflow with the specified configuration.
 func registerWorkflow(ctx context.Context, t *testing.T,
 	wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client,
 	testLogger zerolog.Logger,
-) {
+) string {
 	t.Helper()
 
 	t.Cleanup(func() {
@@ -570,6 +580,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
+	return workflowID
 }
 
 /*
@@ -605,22 +616,26 @@ func deleteWorkflows(
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
-) {
+) string {
 	t.Helper()
 
-	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
+	testLogger.Info().
+		Str("workflow_name", workflowName).
+		Str("workflow_file_location", workflowFileLocation).
+		Msgf("compiling and registering workflow '%s'", workflowName)
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
-	workflowDOName := ""
+	workflowDONs := make([]*cre.Don, 0)
 	for _, don := range testEnv.Dons.List() {
-		if don.ID == testEnv.Dons.MustWorkflowDON().ID {
-			workflowDOName = don.Name
-			break
+		if !don.HasFlag(cre.WorkflowDON) {
+			continue
 		}
+		workflowDONs = append(workflowDONs, don)
 	}
-	require.NotEmpty(t, workflowDOName, "failed to find workflow DON in the topology")
 
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDOName, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
+	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
+
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
@@ -636,5 +651,6 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		Blockchains:             testEnv.CreEnvironment.Blockchains,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	return workflowID
 }

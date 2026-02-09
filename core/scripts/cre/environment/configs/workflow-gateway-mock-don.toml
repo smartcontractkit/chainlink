@@ -40,10 +40,7 @@ port = 8666
     http_port_range_start = 10100
 
     env_vars = { CL_EVM_CMD = "" }
-    capabilities = ["ocr3", "custom-compute", "web-api-trigger", "don-time"]
-
-   [nodesets.chain_capabilities]
-    write-evm = ["1337"]
+    capabilities = ["ocr3", "custom-compute", "web-api-trigger", "don-time", "write-evm-1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 

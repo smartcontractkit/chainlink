@@ -265,7 +265,7 @@ func confirmCommitWithExpectedSeqNumRangeSui(
 					return true
 				}
 
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				if !enforceSingleCommit && seenMessages.allCommitted(srcSelector) {
 					t.Logf(
 						"(Sui) All sequence numbers already committed from range [%d, %d]",
 						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),

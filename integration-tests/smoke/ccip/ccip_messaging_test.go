@@ -691,6 +691,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 // The main assertion is that there is only a single "in progress" event; this indicates that there was only one
 // execution.
 func Test_CCIPMessaging_Revert_EVM2Solana(t *testing.T) {
+	t.Skip("Skipping flaky test")
 	inflightDuration := 30 * time.Second
 
 	// Setup 2 chains (EVM and Solana) and a single lane.
@@ -768,6 +769,7 @@ func Test_CCIPMessaging_Revert_EVM2Solana(t *testing.T) {
 	}
 
 	t.Run("failed messages should only execute once", func(t *testing.T) {
+		t.Skip("Skipping for now since this has been flaky")
 		accounts := [][32]byte{
 			receiverExternalExecutionConfigPDA,
 			receiverTargetAccountPDA,

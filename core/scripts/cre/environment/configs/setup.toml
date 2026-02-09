@@ -20,11 +20,11 @@ branch = "master"
 commit = "da84cb72d3a160e02896247d46ab4b9806ebee2f"
 dockerfile = "chip-ingress/Dockerfile"
 docker_ctx = "chip-ingress"
-local_image = "chip-ingress:local-cre"
+local_image = "chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
 pre_run = "pushd chip-ingress && go mod vendor && popd"
 
 [chip_ingress.pull_config]
-local_image = "chip-ingress:local-cre"
+local_image = "chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
 ecr_image = "{{.ECR}}/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
 
 [chip_config.build_config]
@@ -33,11 +33,11 @@ branch = "master"
 commit = "7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
 dockerfile = "chip-config/Dockerfile"
 docker_ctx = "chip-config"
-local_image = "chip-config:local-cre"
+local_image = "chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
 pre_run = "pushd chip-config && go mod vendor && popd"
 
 [chip_config.pull_config]
-local_image = "chip-config:local-cre"
+local_image = "chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
 ecr_image = "{{.ECR}}/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
 
 [billing_platform_service.build_config]

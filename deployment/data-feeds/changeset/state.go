@@ -12,8 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 
@@ -41,8 +39,7 @@ var (
 )
 
 type DataFeedsChainState struct {
-	ABIByAddress map[string]string
-	commonState.MCMSWithTimelockState
+	ABIByAddress    map[string]string
 	DataFeedsCache  map[common.Address]*cache.DataFeedsCache
 	AggregatorProxy map[common.Address]*proxy.AggregatorProxy
 }
@@ -120,12 +117,6 @@ func LoadOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 // LoadChainState Loads all state for a chain into state
 func LoadChainState(logger logger.Logger, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*DataFeedsChainState, error) {
 	var state DataFeedsChainState
-
-	mcmsWithTimelock, err := commonState.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
-	}
-	state.MCMSWithTimelockState = *mcmsWithTimelock
 
 	dfCacheTV := cldf.NewTypeAndVersion("DataFeedsCache", deployment.Version1_0_0)
 	devPlatformCacheTV := cldf.NewTypeAndVersion("DataFeedsCache", deployment.Version1_0_0)

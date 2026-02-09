@@ -10,16 +10,16 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/shardorchestrator"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
-// mockArbiterScalerClient implements pb.ArbiterScalerClient for testing.
+// mockArbiterScalerClient implements ringpb.ArbiterScalerClient for testing.
 // It allows configuring the return values for Status and ConsensusWantShards.
 type mockArbiterScalerClient struct {
 	wantShards   uint32
-	shardStatus  map[uint32]*pb.ShardStatus
+	shardStatus  map[uint32]*ringpb.ShardStatus
 	statusErr    error
 	consensusErr error
 }
@@ -27,21 +27,21 @@ type mockArbiterScalerClient struct {
 func newMockArbiterScalerClient() *mockArbiterScalerClient {
 	return &mockArbiterScalerClient{
 		wantShards:  1,
-		shardStatus: map[uint32]*pb.ShardStatus{0: {IsHealthy: true}},
+		shardStatus: map[uint32]*ringpb.ShardStatus{0: {IsHealthy: true}},
 	}
 }
 
-func (m *mockArbiterScalerClient) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*pb.ReplicaStatus, error) {
+func (m *mockArbiterScalerClient) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*ringpb.ReplicaStatus, error) {
 	if m.statusErr != nil {
 		return nil, m.statusErr
 	}
-	return &pb.ReplicaStatus{
+	return &ringpb.ReplicaStatus{
 		WantShards: m.wantShards,
 		Status:     m.shardStatus,
 	}, nil
 }
 
-func (m *mockArbiterScalerClient) ConsensusWantShards(_ context.Context, _ *pb.ConsensusWantShardsRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *mockArbiterScalerClient) ConsensusWantShards(_ context.Context, _ *ringpb.ConsensusWantShardsRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 	if m.consensusErr != nil {
 		return nil, m.consensusErr
 	}
@@ -59,9 +59,9 @@ func TestRingStoreIntegration(t *testing.T) {
 		require.True(t, health[1])
 
 		// Set steady state routing (required for GetShardForWorkflow without OCR)
-		store.SetRoutingState(&pb.RoutingState{
+		store.SetRoutingState(&ringpb.RoutingState{
 			Id:    1,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: 1},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 1},
 		})
 
 		// Test workflow routing via consistent hashing
@@ -82,9 +82,9 @@ func TestRingStoreIntegration(t *testing.T) {
 		store.SetShardHealth(2, true)
 
 		// Set steady state with 3 shards
-		store.SetRoutingState(&pb.RoutingState{
+		store.SetRoutingState(&ringpb.RoutingState{
 			Id:    1,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: 3},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		})
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -106,9 +106,9 @@ func TestRingStoreIntegration(t *testing.T) {
 		store := ring.NewStore()
 
 		store.SetShardHealth(0, true)
-		store.SetRoutingState(&pb.RoutingState{
+		store.SetRoutingState(&ringpb.RoutingState{
 			Id:    1,
-			State: &pb.RoutingState_RoutableShards{RoutableShards: 1},
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 1},
 		})
 
 		// Manually set a workflow allocation
