@@ -50,7 +50,7 @@ plugins:
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20260207143954-35df3d7576da"
+      gitRef: "v0.0.0-20260209192140-27b7f340a27e"
       installPath: "./cmd/chainlink-ton"
 
   tron:
