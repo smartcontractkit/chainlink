@@ -271,32 +271,37 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
 	}
 
+	// Initialize sharding components only if sharding is explicitly enabled
 	var shardOrchestratorClient *shardorchestrator.Client
-	shardIdx := cfg.Sharding().ShardIndex()
+	if cfg.Sharding().ShardingEnabled() {
+		shardIdx := cfg.Sharding().ShardIndex()
+		shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
 
-	shardID := shardIdx // TODO: confirm these are the same or if its going to be derived from it + CSAKey
-	// Shard 1+ runs the gRPC client
+		var address string
+		if shardIdx == 0 {
+			// TODO: REMOVE THIS currently Shard 0 connects to its own gRPC server
+			address = "127.0.0.1:50051" // default address for shard 0 server
+		} else {
+			// Shard > 0 connects to shard 0's server
+			if shardOrchestratorAddr == nil {
+				return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress when sharding is enabled", shardIdx)
+			}
+			address = shardOrchestratorAddr.String()
+		}
 
-	// TODO: this requires attention and a proper fix!
-	var address string
-	if shardID == 0 {
-		address = "127.0.0.1:50051" // default address for shard 0 server
+		client, err := shardorchestrator.NewClient(
+			ctx,
+			address,
+			globalLogger.Named("ShardOrchestratorClient"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+		}
+		shardOrchestratorClient = client
+		globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", address)
 	} else {
-		address = cfg.Sharding().ShardOrchestratorAddress().String()
+		globalLogger.Debug("Sharding not enabled, running without shard orchestrator client")
 	}
-	//if address == nil {
-	//	return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
-	//}
-	client, err := shardorchestrator.NewClient(
-		ctx,
-		address,
-		globalLogger.Named("ShardOrchestratorClient"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
-	}
-	shardOrchestratorClient = client
-	globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
 
 	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
 	if err != nil {
@@ -1330,30 +1335,45 @@ func newCREServices(
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 					}
 
-					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
-						lggr,
-						crFactory,
-						capCfg.WorkflowRegistry().Address(),
-						syncerV2.Config{
-							QueryCount:   100,
-							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
-						},
-						eventHandler,
-						workflowDonNotifier,
-						engineRegistry,
-						// TODO: make this configurable and backwards compatible
-						syncerV2.WithShardEnabled(true),
-						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
-						syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
-					)
-
+					// Build sharding options if sharding is enabled
+					if cfg.Sharding().ShardingEnabled() && opts.ShardOrchestratorClient != nil {
+						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
+							lggr,
+							crFactory,
+							capCfg.WorkflowRegistry().Address(),
+							syncerV2.Config{
+								QueryCount:   100,
+								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+							},
+							eventHandler,
+							workflowDonNotifier,
+							engineRegistry,
+							syncerV2.WithShardEnabled(true),
+							syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
+							syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
+						)
+					} else {
+						// Sharding is disabled (backwards compatible mode)
+						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
+							lggr,
+							crFactory,
+							capCfg.WorkflowRegistry().Address(),
+							syncerV2.Config{
+								QueryCount:   100,
+								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+							},
+							eventHandler,
+							workflowDonNotifier,
+							engineRegistry,
+							syncerV2.WithShardEnabled(false),
+						)
+					}
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 					}
 
 					srvcs = append(srvcs, workflowRegistrySyncerV2)
 					globalLogger.Debugw("Created WorkflowRegistrySyncer V2")
-
 				default:
 					return nil, fmt.Errorf("unsupported WorkflowRegistry contract version %s", wrVersion)
 				}

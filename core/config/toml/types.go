@@ -2757,6 +2757,7 @@ func (jd *JobDistributor) setFrom(f *JobDistributor) {
 }
 
 type Sharding struct {
+	ShardingEnabled          *bool
 	ArbiterPort              *uint16
 	ArbiterPollInterval      *commonconfig.Duration
 	ArbiterRetryInterval     *commonconfig.Duration
@@ -2766,6 +2767,10 @@ type Sharding struct {
 }
 
 func (s *Sharding) setFrom(f *Sharding) {
+	if f.ShardingEnabled != nil {
+		s.ShardingEnabled = f.ShardingEnabled
+	}
+
 	if f.ArbiterPort != nil {
 		s.ArbiterPort = f.ArbiterPort
 	}
@@ -2792,14 +2797,16 @@ func (s *Sharding) setFrom(f *Sharding) {
 }
 
 func (s *Sharding) ValidateConfig() (err error) {
-	// If ShardIndex > 0, ShardOrchestratorAddress must be specified
-	if s.ShardIndex != nil && *s.ShardIndex > 0 {
-		if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
-			err = errors.Join(err, configutils.ErrInvalid{
-				Name:  "ShardOrchestratorAddress",
-				Value: s.ShardOrchestratorAddress,
-				Msg:   "must be specified when ShardIndex > 0",
-			})
+	// If sharding is enabled and ShardIndex > 0, ShardOrchestratorAddress must be specified
+	if s.ShardingEnabled != nil && *s.ShardingEnabled {
+		if s.ShardIndex != nil && *s.ShardIndex > 0 {
+			if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
+				err = errors.Join(err, configutils.ErrInvalid{
+					Name:  "ShardOrchestratorAddress",
+					Value: s.ShardOrchestratorAddress,
+					Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
+				})
+			}
 		}
 	}
 	return err
