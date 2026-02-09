@@ -60,3 +60,26 @@ secretsNames:
 	require.Len(t, secrets, 1)
 	assert.Equal(t, "resolved-api-key", secrets[0])
 }
+
+func TestDirectConfidentialHTTPAction_SecretsLoading_MissingEnv(t *testing.T) {
+	// Create a temporary secrets.yaml
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, "secrets.yaml")
+	secretsContent := `
+secretsNames:
+  API_KEY:
+    - MISSING_ENV_VAR
+`
+	err := os.WriteFile(secretsFile, []byte(secretsContent), 0600)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, os.Remove(secretsFile)) }()
+
+	lggr := logger.Test(t)
+	action := NewDirectConfidentialHTTPAction(lggr, secretsFile)
+
+	// Verify secret remains as the placeholder when env var is missing
+	secrets, ok := action.secretsConfig.SecretsNames["API_KEY"]
+	require.True(t, ok)
+	require.Len(t, secrets, 1)
+	assert.Equal(t, "MISSING_ENV_VAR", secrets[0])
+}
