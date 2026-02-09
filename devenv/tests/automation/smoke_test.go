@@ -25,7 +25,7 @@ const (
 	defaultLinkFunds                = 9
 	defaultEthFunds                 = 10.0
 	defaultAmountOfUpkeeps          = 2
-	defaultUpkeepExecutionTimeout   = "5m" // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+	defaultUpkeepExecutionTimeout   = "10m" // ~1m for cluster setup, ~7m for performing each upkeep 5 times, ~2m buffer
 	defaultExpectedUpkeepExecutions = 5
 )
 

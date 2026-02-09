@@ -4,8 +4,6 @@ on:
   schedule:
     - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
-  # remove after testing
-  pull_request:
 
 defaults:
   run:
@@ -88,6 +86,11 @@ jobs:
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: ${{ matrix.test }}"
           go test -v -timeout 4h -run ${{ matrix.test }}
+
+      - name: Show Docker containers status
+        if: failure()
+        shell: bash
+        run: docker ps -a
 
       - name: Upload Logs
         if: always()
