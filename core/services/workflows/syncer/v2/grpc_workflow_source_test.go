@@ -103,9 +103,9 @@ func createTestProtoWorkflow(name string, family string) *pb.WorkflowMetadata {
 
 	return &pb.WorkflowMetadata{
 		WorkflowId:   workflowID[:],
-		Owner:        owner,
+		Owner:        "0x" + grpcTestOwnerHex,
 		CreatedAt:    1234567890,
-		Status:       0, // Active
+		Status:       pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE,
 		WorkflowName: name,
 		BinaryUrl:    grpcTestBinaryURL,
 		ConfigUrl:    grpcTestConfigURL,

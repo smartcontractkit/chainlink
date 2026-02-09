@@ -342,10 +342,15 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	// Get attributes directly (already bytes in proto)
 	attributes := wf.GetAttributes()
 
-	// Safe conversion of status (uint32 to uint8)
-	statusVal := wf.GetStatus()
-	if statusVal > 255 {
-		return WorkflowMetadataView{}, fmt.Errorf("status value %d exceeds uint8 range", statusVal)
+	// Map proto status to local status values
+	var statusVal uint8
+	switch wf.GetStatus() {
+	case pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE, pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED:
+		statusVal = WorkflowStatusActive
+	case pb.WorkflowStatus_WORKFLOW_STATUS_PAUSED:
+		statusVal = WorkflowStatusPaused
+	default:
+		return WorkflowMetadataView{}, fmt.Errorf("unknown workflow status %d", wf.GetStatus())
 	}
 
 	return WorkflowMetadataView{

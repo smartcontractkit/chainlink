@@ -2,6 +2,7 @@ package grpcsourcemock
 
 import (
 	"context"
+	"encoding/hex"
 	"log/slog"
 	"os"
 
@@ -16,6 +17,17 @@ var sourceLogger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 type SourceService struct {
 	sourcesv1.UnimplementedWorkflowMetadataSourceServiceServer
 	store *WorkflowStore
+}
+
+func toProtoStatus(status WorkflowStatus) sourcesv1.WorkflowStatus {
+	switch status {
+	case WorkflowStatusActive:
+		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_ACTIVE
+	case WorkflowStatusPaused:
+		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_PAUSED
+	default:
+		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED
+	}
 }
 
 // NewSourceService creates a new SourceService
@@ -68,11 +80,15 @@ func (s *SourceService) ListWorkflowMetadata(ctx context.Context, req *sourcesv1
 		if wf.CreatedAt >= 0 {
 			createdAt = uint64(wf.CreatedAt) // #nosec G115 -- CreatedAt is always positive timestamp
 		}
+		ownerHex := hex.EncodeToString(wf.Registration.Owner)
+		if ownerHex != "" {
+			ownerHex = "0x" + ownerHex
+		}
 		protoWorkflows = append(protoWorkflows, &sourcesv1.WorkflowMetadata{
 			WorkflowId:   wf.Registration.WorkflowID[:],
-			Owner:        wf.Registration.Owner,
+			Owner:        ownerHex,
 			CreatedAt:    createdAt,
-			Status:       uint32(wf.Status),
+			Status:       toProtoStatus(wf.Status),
 			WorkflowName: wf.Registration.WorkflowName,
 			BinaryUrl:    wf.Registration.BinaryURL,
 			ConfigUrl:    wf.Registration.ConfigURL,
