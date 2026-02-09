@@ -1,7 +1,7 @@
 env CL_EVM_CMD=chainlink-evm
 env CL_SOLANA_CMD=chainlink-solana
 
-skip RANE-4333 flaky in CI
+skip
 
 # start node
 exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
