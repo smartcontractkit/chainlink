@@ -15,7 +15,7 @@ import (
 type FeeQuoterView struct {
 	types.ContractMetaData
 	AuthorizedCallers                       []string                                 `json:"authorizedCallers,omitempty"`
-	FeeTokens                               []string                                 `json:"feeTokens,omitempty"`
+	FeeTokens                               []FeeTokensConfig                        `json:"feeTokens,omitempty"`
 	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig"`
 	DestinationChainConfigBasedOnTestRouter map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfigBasedOnTestRouter,omitempty"`
 	DestinationChainConfig                  map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfig,omitempty"`
@@ -54,6 +54,11 @@ type FeeQuoterTokenPriceFeedConfig struct {
 	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
 }
 
+type FeeTokensConfig struct {
+	Address string
+	PremiumMultiplerWeiPerEth uint64
+}
+
 func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router, testRouter *router1_2.Router, tokens []common.Address) (FeeQuoterView, error) {
 	fq := FeeQuoterView{}
 	authorizedCallers, err := fqContract.GetAllAuthorizedCallers(nil)
@@ -72,9 +77,14 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router, testRouter 
 	if err != nil {
 		return FeeQuoterView{}, err
 	}
-	fq.FeeTokens = make([]string, 0, len(feeTokens))
+	fq.FeeTokens = make([]FeeTokensConfig, 0, len(feeTokens))
 	for _, ft := range feeTokens {
-		fq.FeeTokens = append(fq.FeeTokens, ft.Hex())
+    premiumMultipler, _ := fqContract.GetPremiumMultiplierWeiPerEth(nil, ft)
+		fq.FeeTokens = append(fq.FeeTokens, FeeTokensConfig{
+			Address: ft.Hex(),
+			PremiumMultiplerWeiPerEth: premiumMultipler,
+		})
+		fmt.Printf("PremiumMultiplerWeiPerEth %s: %d", ft.Hex(), premiumMultipler)
 	}
 	staticConfig, err := fqContract.GetStaticConfig(nil)
 	if err != nil {
