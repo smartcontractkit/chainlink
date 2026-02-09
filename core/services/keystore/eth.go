@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math/big"
@@ -603,35 +604,18 @@ func (ks *eth) listKeys(chainID *big.Int, sortBy KeySortBy) (keys []ethkey.KeyV2
 	}
 
 	// Sort according to sortBy
-	switch sortBy {
-	case SortBySerialPrimaryKey:
-		// Sort by State.ID (serial primary key, lowest first). Use address as tiebreaker.
-		slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
-			if a.state.ID < b.state.ID {
-				return -1
-			}
-			if a.state.ID > b.state.ID {
-				return 1
-			}
-			return a.key.Cmp(b.key)
-		})
-	case SortByAddress:
-		// Sort by address ascending (lexicographic order)
-		slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
-			return a.key.Cmp(b.key)
-		})
-	default:
-		// Default to creation order if unknown sort type
-		slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
-			if a.state.ID < b.state.ID {
-				return -1
-			}
-			if a.state.ID > b.state.ID {
-				return 1
-			}
-			return a.key.Cmp(b.key)
-		})
+	// Default: Sort by State.ID (serial primary key, lowest first). Use address as tiebreaker.
+	cmpFunc := func(a, b keyWithState) int {
+		return cmp.Or(cmp.Compare(a.state.ID, b.state.ID), a.key.Cmp(b.key))
 	}
+
+	if sortBy == SortByAddress {
+		cmpFunc = func(a, b keyWithState) int {
+			return a.key.Cmp(b.key)
+		}
+	}
+
+	slices.SortFunc(keysWithStates, cmpFunc)
 
 	for _, kws := range keysWithStates {
 		keys = append(keys, kws.key)
