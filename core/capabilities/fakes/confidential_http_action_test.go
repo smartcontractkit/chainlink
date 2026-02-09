@@ -41,8 +41,8 @@ func TestDirectConfidentialHTTPAction_SecretsLoading(t *testing.T) {
 	secretsFile := filepath.Join(tmpDir, "secrets.yaml")
 	secretsContent := `
 secretsNames:
-  CMC_API_KEY:
-    - CMC_API_KEY_ALL
+  API_KEY:
+    - API_KEY_ALL
 `
 	err := os.WriteFile(secretsFile, []byte(secretsContent), 0600)
 	require.NoError(t, err)
@@ -50,13 +50,13 @@ secretsNames:
 
 	// Set environment variables
 	t.Setenv("SECRETS_FILE", secretsFile)
-	t.Setenv("CMC_API_KEY_ALL", "resolved-api-key")
+	t.Setenv("API_KEY_ALL", "resolved-api-key")
 
 	lggr := logger.Test(t)
 	action := NewDirectConfidentialHTTPAction(lggr)
 
 	// Verify secrets were resolved
-	secrets, ok := action.secretsConfig.SecretsNames["CMC_API_KEY"]
+	secrets, ok := action.secretsConfig.SecretsNames["API_KEY"]
 	require.True(t, ok)
 	require.Len(t, secrets, 1)
 	assert.Equal(t, "resolved-api-key", secrets[0])
