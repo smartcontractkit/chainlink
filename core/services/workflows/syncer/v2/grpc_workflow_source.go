@@ -357,7 +357,7 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 		WorkflowID:   workflowID,
 		Owner:        ownerBytes,
 		CreatedAt:    wf.GetCreatedAt(),
-		Status:       uint8(statusVal),
+		Status:       statusVal,
 		WorkflowName: wf.GetWorkflowName(),
 		BinaryURL:    wf.GetBinaryUrl(),
 		ConfigURL:    wf.GetConfigUrl(),
