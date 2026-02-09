@@ -29,7 +29,11 @@ jobs:
               "environments": "env.toml,products/keepers/basic.toml"
             },
             {
-              "test_names": "TestKeeperNodeDown|TestKeeperPauseUnPauseUpkeep|TestKeeperUpdateCheckData",
+              "test_names": "TestKeeperNodeDown",
+              "environments": "env.toml,products/keepers/low_bcptr.toml"
+            },
+            {
+              "test_names": "TestKeeperPauseUnPauseUpkeep|TestKeeperUpdateCheckData",
               "environments": "env.toml,products/keepers/low_bcptr.toml"
             },
             {
