@@ -49,11 +49,10 @@ secretsNames:
 	defer func() { require.NoError(t, os.Remove(secretsFile)) }()
 
 	// Set environment variables
-	t.Setenv("SECRETS_FILE", secretsFile)
 	t.Setenv("API_KEY_ALL", "resolved-api-key")
 
 	lggr := logger.Test(t)
-	action := NewDirectConfidentialHTTPAction(lggr)
+	action := NewDirectConfidentialHTTPAction(lggr, secretsFile)
 
 	// Verify secrets were resolved
 	secrets, ok := action.secretsConfig.SecretsNames["API_KEY"]

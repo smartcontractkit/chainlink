@@ -57,13 +57,13 @@ type DirectConfidentialHTTPAction struct {
 	lggr          logger.Logger
 }
 
-func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTPAction {
+func NewDirectConfidentialHTTPAction(lggr logger.Logger, secretsPath string) *DirectConfidentialHTTPAction {
 	fc := &DirectConfidentialHTTPAction{
 		lggr: lggr,
 	}
 
 	// Load secrets
-	secretsFile := "secrets.yaml"
+	secretsFile := secretsPath
 	if envFile := os.Getenv("SECRETS_FILE"); envFile != "" {
 		secretsFile = envFile
 	}
