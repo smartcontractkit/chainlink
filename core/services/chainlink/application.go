@@ -1148,7 +1148,7 @@ func newCREServices(
 			if parseErr != nil {
 				return nil, fmt.Errorf("failed to parse registry chain ID for OCRConfigService: %w", parseErr)
 			}
-			ocrConfigServiceImpl := capregconfig.New(
+			ocrConfigServiceImpl := capregconfig.NewOCRConfigService(
 				globalLogger,
 				func() ragetypes.PeerID { return don2donSharedPeer.ID() },
 				registryChainID,
