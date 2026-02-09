@@ -27,6 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 )
 
+const (
+	nodeURLKeyHTTP           = "HTTPURL"
+	nodeURLKeyWS             = "WSURL"
+	nodeURLKeyHTTPExtraWrite = "HTTPURLExtraWrite"
+)
+
 func main() {
 	s := loop.MustNewStartedServer("PluginEVM")
 	defer s.Stop()
@@ -81,13 +87,13 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 		}
 		nodeURLs := make(map[string]string)
 		if n.HTTPURL != nil {
-			nodeURLs["HTTPURL"] = n.HTTPURL.String()
+			nodeURLs[nodeURLKeyHTTP] = n.HTTPURL.String()
 		}
 		if n.WSURL != nil {
-			nodeURLs["WSURL"] = n.WSURL.String()
+			nodeURLs[nodeURLKeyWS] = n.WSURL.String()
 		}
 		if n.HTTPURLExtraWrite != nil {
-			nodeURLs["HTTPURLExtraWrite"] = n.HTTPURLExtraWrite.String()
+			nodeURLs[nodeURLKeyHTTPExtraWrite] = n.HTTPURLExtraWrite.String()
 		}
 		if len(nodeURLs) == 0 {
 			continue
@@ -104,10 +110,10 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 		chainID,
 		rawNodes,
 	)
-	c.SubService(emitter)
 	if err := emitter.Start(ctx); err != nil {
 		return nil, fmt.Errorf("failed to start plugin relayer config emitter: %w", err)
 	}
+	c.SubService(emitter)
 
 	evmKeystore := keys.NewChainStore(keystore, cfg.EVM.ChainID.ToInt())
 

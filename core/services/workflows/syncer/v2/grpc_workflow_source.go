@@ -332,11 +332,19 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	copy(workflowID[:], workflowIDBytes)
 
 	// Parse owner from hex string (accept optional 0x prefix)
-	ownerHex := strings.TrimPrefix(wf.GetOwner(), "0x")
+	originalOwner := wf.GetOwner()
+	ownerHex := strings.TrimPrefix(originalOwner, "0x")
 	ownerHex = strings.TrimPrefix(ownerHex, "0X")
 	ownerBytes, err := hex.DecodeString(ownerHex)
 	if err != nil {
-		return WorkflowMetadataView{}, fmt.Errorf("invalid owner hex: %w", err)
+		redactedOwner := originalOwner
+		if len(redactedOwner) > 16 {
+			redactedOwner = redactedOwner[:16] + "..."
+		}
+		return WorkflowMetadataView{}, fmt.Errorf(
+			"invalid owner hex %q (rawLen=%d, normalizedLen=%d): expected hex string with optional 0x/0X prefix: %w",
+			redactedOwner, len(originalOwner), len(ownerHex), err,
+		)
 	}
 
 	// Get attributes directly (already bytes in proto)
@@ -345,12 +353,14 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	// Map proto status to local status values
 	var statusVal uint8
 	switch wf.GetStatus() {
-	case pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE, pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED:
+	case pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE:
 		statusVal = WorkflowStatusActive
 	case pb.WorkflowStatus_WORKFLOW_STATUS_PAUSED:
 		statusVal = WorkflowStatusPaused
+	case pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED:
+		return WorkflowMetadataView{}, fmt.Errorf("unspecified workflow status for workflow_id %s", workflowID.Hex())
 	default:
-		return WorkflowMetadataView{}, fmt.Errorf("unknown workflow status %d", wf.GetStatus())
+		return WorkflowMetadataView{}, fmt.Errorf("unknown workflow status %d for workflow_id %s", wf.GetStatus(), workflowID.Hex())
 	}
 
 	return WorkflowMetadataView{
