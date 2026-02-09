@@ -191,7 +191,7 @@ func Test_EthKeyStore(t *testing.T) {
 		requireEqualKeys(t, key2, keys[0])
 
 		_, err = ethKeyStore.EnabledKeysWithDeterminism(ctx, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.EqualError(t, err, "chainID must be non-nil")
 	})
 
@@ -274,8 +274,8 @@ func Test_EthKeyStore_EnabledKeysWithDeterminism(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify State.IDs are in ascending order (as they were created)
-		require.True(t, state1.ID < state2.ID)
-		require.True(t, state2.ID < state3.ID)
+		require.Less(t, state1.ID, state2.ID)
+		require.Less(t, state2.ID, state3.ID)
 
 		// Get keys sorted by State.ID
 		keys, err := ethKeyStore.EnabledKeysWithDeterminism(ctx, testutils.FixtureChainID)
