@@ -1,4 +1,4 @@
-name: Logpoller Nightly Smoke Tests
+name: Logpoller Smoke Tests
 
 on:
   pull_request:
