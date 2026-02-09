@@ -291,7 +291,13 @@ type gatewayConnector struct {
 func (c *gatewayConnector) ChainIDForNodeKey() string {
 	return *c.c.ChainIDForNodeKey
 }
+
+// NodeAddress is the address used to sign gateway handshakes.
+// Empty string signals auto-discovery.
 func (c *gatewayConnector) NodeAddress() string {
+	if c.c.NodeAddress == nil || *c.c.NodeAddress == "" {
+		return ""
+	}
 	return *c.c.NodeAddress
 }
 

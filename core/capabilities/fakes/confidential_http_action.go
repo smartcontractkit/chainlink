@@ -57,13 +57,13 @@ type DirectConfidentialHTTPAction struct {
 	lggr          logger.Logger
 }
 
-func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTPAction {
+func NewDirectConfidentialHTTPAction(lggr logger.Logger, secretsPath string) *DirectConfidentialHTTPAction {
 	fc := &DirectConfidentialHTTPAction{
 		lggr: lggr,
 	}
 
 	// Load secrets
-	secretsFile := "secrets.yaml"
+	secretsFile := secretsPath
 	if envFile := os.Getenv("SECRETS_FILE"); envFile != "" {
 		secretsFile = envFile
 	}
@@ -73,6 +73,18 @@ func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTP
 			lggr.Warnf("Failed to parse secrets file %s: %v", secretsFile, marshalErr)
 		} else {
 			lggr.Infof("Loaded secrets from %s", secretsFile)
+			// Resolve environment variables
+			for key, val := range fc.secretsConfig.SecretsNames {
+				secrets := val
+				for i, v := range secrets {
+					if envVal := os.Getenv(v); envVal != "" {
+						secrets[i] = envVal
+					} else {
+						lggr.Warnf("Secret environment variable %s not set", v)
+					}
+				}
+				fc.secretsConfig.SecretsNames[key] = secrets
+			}
 		}
 	} else {
 		lggr.Infof("Could not read secrets file %s: %v. Continuing without local secrets.", secretsFile, err)

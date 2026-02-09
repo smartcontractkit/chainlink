@@ -149,43 +149,7 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	bootInput := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
-		DONName:     bootstrap.DON.Name,
-		JobName:     "consensus-v1-bootstrap-" + don.Name,
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
-		},
-		Template: job_types.BootstrapOCR3,
-		Inputs: job_types.JobSpecInput{
-			"chainSelector":     creEnv.RegistryChainSelector,
-			"contractQualifier": ContractQualifier,
-		},
-	}
-
-	bootVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, bootInput)
-	if bootVerErr != nil {
-		return fmt.Errorf("precondition verification failed for Consensus v1 bootstrap job: %w", bootVerErr)
-	}
-
-	bootReport, bootErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, bootInput)
-	if bootErr != nil {
-		return fmt.Errorf("failed to propose Consensus v1 bootstrap job spec: %w", bootErr)
-	}
-
 	specs := make(map[string][]string)
-	for _, r := range bootReport.Reports {
-		out, ok := r.Output.(cre_jobs_ops.ProposeOCR3BootstrapJobOutput)
-		if !ok {
-			return fmt.Errorf("unable to cast to ProposeOCR3BootstrapJobOutput, actual type: %T", r.Output)
-		}
-		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-		if mErr != nil {
-			return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
-		}
-	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
 	if err != nil {

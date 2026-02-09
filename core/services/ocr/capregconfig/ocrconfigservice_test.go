@@ -31,7 +31,7 @@ func testPeerIDProvider() PeerIDProvider {
 
 func TestOCRConfigService_StartClose(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -40,7 +40,7 @@ func TestOCRConfigService_StartClose(t *testing.T) {
 
 func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, nil, 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, nil, 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	err := svc.Start(ctx)
@@ -50,7 +50,7 @@ func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 
 func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -102,7 +102,7 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 
 func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -120,7 +120,7 @@ func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 
 func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -184,7 +184,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -202,7 +202,7 @@ func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -258,7 +258,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -353,7 +353,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 
 func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -405,13 +405,13 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	require.True(t, ok)
 
 	// Verify transmitters are hex-encoded.
-	assert.Equal(t, ocrtypes.Account("deadbeef00112233445566778899aabbccddeeff"), cfg.ContractConfig.Transmitters[0])
-	assert.Equal(t, ocrtypes.Account("0102030405060708090a0b0c0d0e0f1011121314"), cfg.ContractConfig.Transmitters[1])
+	assert.Equal(t, ocrtypes.Account("0xDeadbEef00112233445566778899AABBccDDeeFf"), cfg.ContractConfig.Transmitters[0])
+	assert.Equal(t, ocrtypes.Account("0x0102030405060708090a0B0c0d0e0f1011121314"), cfg.ContractConfig.Transmitters[1])
 }
 
 func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -472,7 +472,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 
 func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -529,7 +529,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 
 func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -584,7 +584,7 @@ func (m *mockConfigTracker) LatestBlockHeight(ctx context.Context) (uint64, erro
 
 func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := New(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
@@ -661,7 +661,7 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 	copy(otherPeerID[:], []byte("other-peer-id-12345678901234"))
 
 	peerIDProvider := func() ragetypes.PeerID { return myPeerID }
-	svc := New(lggr, peerIDProvider, 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, peerIDProvider, 1, "0x1234567890abcdef")
 
 	ctx := context.Background()
 	require.NoError(t, svc.Start(ctx))
