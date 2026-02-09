@@ -25,9 +25,9 @@ import (
 type KeySortBy string
 
 const (
-	// SortBySerialPrimaryKey sorts by State.ID (primary key) ascending, with address as tiebreaker.
+	// SortByInsertOrder sorts by State.ID (primary key) ascending, with address as tiebreaker.
 	// This provides deterministic ordering across time, reflecting when keys were first enabled for the chain.
-	SortBySerialPrimaryKey KeySortBy = "primary"
+	SortByInsertOrder KeySortBy = "insert"
 
 	// SortByAddress sorts by address ascending (lexicographic order).
 	SortByAddress KeySortBy = "address"
@@ -35,7 +35,7 @@ const (
 
 // ListKeysOptions specifies options for listing keys.
 type ListKeysOptions struct {
-	// SortBy specifies how to sort the keys. If nil, defaults to SortByCreation.
+	// SortBy specifies how to sort the keys. If nil, defaults to SortByInsertOrder.
 	SortBy KeySortBy
 }
 
@@ -376,7 +376,7 @@ func (ks *eth) ListKeys(ctx context.Context, chainID *big.Int, opts *ListKeysOpt
 		return nil, ErrLocked
 	}
 
-	sortBy := SortBySerialPrimaryKey
+	sortBy := SortByInsertOrder
 	if opts != nil && opts.SortBy != "" {
 		sortBy = opts.SortBy
 	}

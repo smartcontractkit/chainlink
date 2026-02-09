@@ -95,7 +95,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 				return errors.New("NodeAddress must be configured when ordered key provider is not available")
 			}
 			keys, err := e.okp.ListKeys(ctx, e.chainID, &keystore.ListKeysOptions{
-				SortBy: keystore.SortBySerialPrimaryKey,
+				SortBy: keystore.SortByInsertOrder,
 			})
 			if err != nil {
 				return err
