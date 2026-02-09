@@ -156,8 +156,8 @@ github.com/bits-and-blooms/bitset v1.24.0/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6
 github.com/bketelsen/crypt v0.0.4/go.mod h1:aI6NrJ0pMGgvZKL1iVgXLnfIFJtfV+bKCoqOes/6LfM=
 github.com/blendle/zapdriver v1.3.1 h1:C3dydBOWYRiOk+B8X9IVZ5IOe+7cl+tGOexN4QqHfpE=
 github.com/blendle/zapdriver v1.3.1/go.mod h1:mdXfREi6u5MArG4j9fewC+FGnXaBR+T4Ox4J2u4eHCc=
-github.com/block-vision/sui-go-sdk v1.1.2 h1:p9DPfb51mEcTmF0Lx9ORpH+Nh9Rzg4Sv3Pu5gsJZ2AA=
-github.com/block-vision/sui-go-sdk v1.1.2/go.mod h1:KlibJnwEpWt8qhQkIPxc/2ZE4kwh0Md6LvMHmW5kemA=
+github.com/block-vision/sui-go-sdk v1.1.4 h1:1PPgYxQjo1P9UCgFOPTvDCuGEglRL32NwjKPulR4FQk=
+github.com/block-vision/sui-go-sdk v1.1.4/go.mod h1:t8mWASwfyv+EyqHGO9ZrcDiCJWGOFEXqq50TMJ8GQco=
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btcd v0.22.0-beta.0.20220111032746-97732e52810c/go.mod h1:tjmYdS6MLJ5/s0Fj4DbLgSbDHbEqLJrtnHecBFkdz5M=
@@ -1232,8 +1232,8 @@ github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260121103211-89fe8316543
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260121103211-89fe83165431/go.mod h1:myNwyobcZ7lOiKLzyex5MenJAvjYgVl6YQfXRGPPAr4=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20260124000807-bff5e296dfb7 h1:06HM7tgzZW24XrJEMFcB6U+HwvmGfKU8u2jrI1wrFeI=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20260124000807-bff5e296dfb7/go.mod h1:+AMveUXJgJAUpzDuCuYHarDC46h4Lt9em5FCLtT3WOU=
-github.com/smartcontractkit/chainlink-ton v0.0.0-20260204140636-bdb7490ffb1d h1:zviCFzJpf6jk/801HkyysQUaYFCEi3bbLGwXq+C2cQM=
-github.com/smartcontractkit/chainlink-ton v0.0.0-20260204140636-bdb7490ffb1d/go.mod h1:inuV/00WFuYwAXFUNLfXYc5wcHOEgVd2Ne2vwAp0zj0=
+github.com/smartcontractkit/chainlink-ton v0.0.0-20260207143954-35df3d7576da h1:jfweiJTCnd9JmKnBAyjO3oLd44DLNEu7NZexllOwpHo=
+github.com/smartcontractkit/chainlink-ton v0.0.0-20260207143954-35df3d7576da/go.mod h1:IZvH2r16xcQvVLB7AtjU112wnHfEku+29OlI1vCQHCQ=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 h1:7Ut0g+Pdm+gcu2J/Xv8OpQOVf7uLGErMX8yhC4b4tIA=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9/go.mod h1:h9hMs6K4hT1+mjYnJD3/SW1o7yC/sKjNi0Qh8hLfiCE=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20251014124537-af6b1684fe15 h1:idp/RjsFznR48JWGfZICsrpcl9JTrnMzoUNVz8MhQMI=
