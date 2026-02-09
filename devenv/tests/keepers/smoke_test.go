@@ -24,9 +24,6 @@ import (
 	automation_tests "github.com/smartcontractkit/chainlink/devenv/tests/automation"
 )
 
-// TODO: add environments with other registry settings (e.g. lowBCPTRegistryConfig, highBCPTRegistryConfig)
-// split tests into groups per environment and add to github actions
-
 const (
 	defaultUpkeepGasLimit           = uint32(2500000)
 	defaultLinkFunds                = 9
@@ -78,18 +75,6 @@ var (
 		FallbackGasPrice:     big.NewInt(2e11),
 		FallbackLinkPrice:    big.NewInt(2e18),
 	}
-	highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10000),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-	}
 	zeroAddress = common.Address{}
 )
 
@@ -126,7 +111,6 @@ func TestKeeperBasic(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -240,41 +224,36 @@ func TestKeeperBasic(t *testing.T) {
 	}
 }
 
-// TODO: run with geth!
 func TestKeeperBlockCountPerTurn(t *testing.T) {
 	testcases := []testcase{
 		{
-			Name:                     "registry_1_1",
-			RegistryVersion:          contracts.RegistryVersion_1_1,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_1",
+			RegistryVersion:        contracts.RegistryVersion_1_1,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: defaultUpkeepExecutionTimeout,
 		},
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: defaultUpkeepExecutionTimeout,
 		},
 		{
-			Name:                     "registry_1_3",
-			RegistryVersion:          contracts.RegistryVersion_1_3,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_3",
+			RegistryVersion:        contracts.RegistryVersion_1_3,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: defaultUpkeepExecutionTimeout,
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -334,13 +313,6 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			// since we need geth for it anyway, we could add that high BCPT config to the env config itself
-			err = test.Registry.SetConfig(highBCPTRegistryConfig, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error setting registry config")
-
-			// TODO keep or remove?
-			time.Sleep(30 * time.Second)
-
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
@@ -383,7 +355,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 				}
 			}
 
-			require.GreaterOrEqual(t, 2, len(keepersPerformedLowFreq), "At least 2 different keepers should have been performing upkeeps")
+			require.GreaterOrEqual(t, testcase.UpkeepCount, len(keepersPerformedLowFreq), "At least %d different keepers should have been performing upkeeps", testcase.UpkeepCount)
 
 			// Now set BCPT to be low, so keepers change turn frequently
 			err = test.Registry.SetConfig(lowBCPTRegistryConfig, contracts.OCRv2Config{})
@@ -421,7 +393,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 				}
 			}
 
-			require.GreaterOrEqual(t, 3, len(keepersPerformedHigherFreq), "At least 3 different keepers should have been performing upkeeps after BCPT change")
+			require.GreaterOrEqual(t, testcase.UpkeepCount+1, len(keepersPerformedHigherFreq), "At least %d different keepers should have been performing upkeeps after BCPT change", testcase.UpkeepCount+1)
 
 			var countFreq = func(keepers []string, freqMap map[string]int) {
 				for _, keeper := range keepers {
@@ -463,31 +435,28 @@ func TestKeeperSimulation(t *testing.T) {
 			UpkeepFundingLink:        defaultLinkFunds,
 			TestKeyFundingEth:        defaultEthFunds,
 			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			UpkeepExecutionTimeout:   "1m",
 		},
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_3",
-			RegistryVersion:          contracts.RegistryVersion_1_3,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_3",
+			RegistryVersion:        contracts.RegistryVersion_1_3,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -592,7 +561,7 @@ func TestKeeperSimulation(t *testing.T) {
 				upkeepInfo, err := test.Registry.GetUpkeepInfo(t.Context(), upkeepID)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
 				g.Expect(upkeepInfo.LastKeeper).Should(gomega.Equal(zeroAddress.String()), "Last keeper should be zero address")
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// Set performGas on consumer to be low, so that performUpkeep starts becoming successful
 			err = consumerPerformance.SetPerformGasToBurn(t.Context(), big.NewInt(100000))
@@ -606,7 +575,7 @@ func TestKeeperSimulation(t *testing.T) {
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 				)
 				return nil
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -620,7 +589,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			UpkeepFundingLink:        defaultLinkFunds,
 			TestKeyFundingEth:        defaultEthFunds,
 			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			UpkeepExecutionTimeout:   "3m",
 		},
 		{
 			Name:                     "registry_1_3",
@@ -629,13 +598,12 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			UpkeepFundingLink:        defaultLinkFunds,
 			TestKeyFundingEth:        defaultEthFunds,
 			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			UpkeepExecutionTimeout:   "3m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -734,7 +702,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 						"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
 					)
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// Increase gas limit for the upkeep, higher than the performGasBurn
 			l.Info().Msg("Setting upkeep gas limit higher than performGasBurn")
@@ -753,7 +721,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 						"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 					)
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
 			l.Info().Msg("Setting checkGasBurn higher than performGasBurn")
@@ -785,7 +753,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 						"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 					)
 				}
-			}, "3m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			for i := range upkeepIDs {
 				existingCnt, err := consumersPerformance[i].GetUpkeepCount(t.Context())
@@ -816,7 +784,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 						"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 					)
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -824,37 +792,33 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 func TestKeeperRegisterUpkeep(t *testing.T) {
 	testcases := []testcase{
 		{
-			Name:                     "registry_1_1",
-			RegistryVersion:          contracts.RegistryVersion_1_1,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_1",
+			RegistryVersion:        contracts.RegistryVersion_1_1,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_3",
-			RegistryVersion:          contracts.RegistryVersion_1_3,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_3",
+			RegistryVersion:        contracts.RegistryVersion_1_3,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -957,7 +921,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 				l.Info().Msg("Newly registered upkeeps performed " + strconv.Itoa(int(counter.Int64())) + " times")
 				return nil
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			gom.Eventually(func(g gomega.Gomega) error {
 				for i := range upkeepIDs {
@@ -975,7 +939,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 						initialCounters[i], currentCounter)
 				}
 				return nil
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -983,37 +947,33 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 func TestKeeperAddFunds(t *testing.T) {
 	testcases := []testcase{
 		{
-			Name:                     "registry_1_1",
-			RegistryVersion:          contracts.RegistryVersion_1_1,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_1",
+			RegistryVersion:        contracts.RegistryVersion_1_1,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_3",
-			RegistryVersion:          contracts.RegistryVersion_1_3,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_3",
+			RegistryVersion:        contracts.RegistryVersion_1_3,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -1092,7 +1052,7 @@ func TestKeeperAddFunds(t *testing.T) {
 					g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
 						"Expected consumer counter to remain zero, but got %d", counter.Int64())
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// Grant permission to the registry to fund the upkeep
 			err = test.LinkToken.Approve(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(9e18), big.NewInt(int64(len(upkeepIDs)))))
@@ -1113,7 +1073,7 @@ func TestKeeperAddFunds(t *testing.T) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -1121,37 +1081,33 @@ func TestKeeperAddFunds(t *testing.T) {
 func TestKeeperRemove(t *testing.T) {
 	testcases := []testcase{
 		{
-			Name:                     "registry_1_1",
-			RegistryVersion:          contracts.RegistryVersion_1_1,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_1",
+			RegistryVersion:        contracts.RegistryVersion_1_1,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_3",
-			RegistryVersion:          contracts.RegistryVersion_1_3,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_3",
+			RegistryVersion:        contracts.RegistryVersion_1_3,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -1232,7 +1188,7 @@ func TestKeeperRemove(t *testing.T) {
 					g.Expect(counter.Cmp(big.NewInt(0))).To(gomega.Equal(1), "Expected consumer counter to be greater than 0, but got %s", counter)
 				}
 				return nil
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			keepers, err := test.Registry.GetKeeperList(t.Context())
 			require.NoError(t, err, "Error getting list of Keepers")
@@ -1264,7 +1220,7 @@ func TestKeeperRemove(t *testing.T) {
 						"than initial counter which was %s, but got %s", initialCounters[i], counter)
 				}
 				return nil
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -1272,37 +1228,33 @@ func TestKeeperRemove(t *testing.T) {
 func TestKeeperPauseRegistry(t *testing.T) {
 	testcases := []testcase{
 		{
-			Name:                     "registry_1_1",
-			RegistryVersion:          contracts.RegistryVersion_1_1,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_1",
+			RegistryVersion:        contracts.RegistryVersion_1_1,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 		{
-			Name:                     "registry_1_3",
-			RegistryVersion:          contracts.RegistryVersion_1_3,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_3",
+			RegistryVersion:        contracts.RegistryVersion_1_3,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -1381,7 +1333,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 						"Expected consumer counter to be greater than 0, but got %d")
 				}
 				return nil
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// Pause the registry
 			err = test.Registry.Pause()
@@ -1409,7 +1361,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 						"Expected consumer counter to remain constant at %d, but got %d",
 						countersAfterPause[i].Int64(), latestCounter.Int64())
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -1417,19 +1369,17 @@ func TestKeeperPauseRegistry(t *testing.T) {
 func TestKeeperMigrateRegistry(t *testing.T) {
 	testcases := []testcase{
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "1m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -1591,7 +1541,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 					g.Expect(counterBeforeMigration.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// Migrate the upkeeps from the first to the second registry
 			for i := range upkeepIDs {
@@ -1626,7 +1576,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 					g.Expect(currentCounter.Int64()).Should(gomega.BeNumerically(">", counterAfterMigration.Int64()),
 						"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
 				}
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -1640,13 +1590,12 @@ func TestKeeperJobReplacement(t *testing.T) {
 			UpkeepFundingLink:        defaultLinkFunds,
 			TestKeyFundingEth:        defaultEthFunds,
 			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			UpkeepExecutionTimeout:   "5m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -1721,12 +1670,12 @@ func TestKeeperJobReplacement(t *testing.T) {
 				for i := range upkeepIDs {
 					counter, err := consumers[i].Counter(t.Context())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
-						"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(testcase.ExpectedUpkeepExecutions)),
+						"Expected consumer counter to be greater than %d, but got %d", testcase.ExpectedUpkeepExecutions, counter.Int64())
 					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 				return nil
-			}, "5m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			chainlinkNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 			require.NoError(t, err, "Failed to create chainlink client")
@@ -1736,7 +1685,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 				require.NoError(t, err, "Failed to read jobs")
 				var jobID string
 				for _, job := range jobs.Data {
-					require.IsType(t, job, map[string]interface{}{}, "job data should be a map[string]interface{}")
+					require.IsType(t, map[string]interface{}{}, job, "job data should be a map[string]interface{}")
 					if attr, ok := job["attributes"].(map[string]interface{}); ok {
 						if name, ok := attr["name"].(string); ok && name == "keeper-test-"+test.Registry.Address() {
 							jobID = job["id"].(string)
@@ -1768,51 +1717,46 @@ func TestKeeperJobReplacement(t *testing.T) {
 				for i := range upkeepIDs {
 					counter, err := consumers[i].Counter(t.Context())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
-						"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(testcase.ExpectedUpkeepExecutions)),
+						"Expected consumer counter to be greater than %d, but got %d", testcase.ExpectedUpkeepExecutions, counter.Int64())
 					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 				return nil
-			}, "5m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
 
-// TODO start new env with lowBCPTRegistryConfig config
 func TestKeeperNodeDown(t *testing.T) {
 	testcases := []testcase{
 		{
-			Name:                     "registry_1_1",
-			RegistryVersion:          contracts.RegistryVersion_1_1,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_1",
+			RegistryVersion:        contracts.RegistryVersion_1_1,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "3m",
 		},
 		{
-			Name:                     "registry_1_2",
-			RegistryVersion:          contracts.RegistryVersion_1_2,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_2",
+			RegistryVersion:        contracts.RegistryVersion_1_2,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "3m",
 		},
 		{
-			Name:                     "registry_1_3",
-			RegistryVersion:          contracts.RegistryVersion_1_3,
-			UpkeepCount:              defaultAmountOfUpkeeps,
-			UpkeepFundingLink:        defaultLinkFunds,
-			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			Name:                   "registry_1_3",
+			RegistryVersion:        contracts.RegistryVersion_1_3,
+			UpkeepCount:            defaultAmountOfUpkeeps,
+			UpkeepFundingLink:      defaultLinkFunds,
+			TestKeyFundingEth:      defaultEthFunds,
+			UpkeepExecutionTimeout: "3m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -1894,7 +1838,7 @@ func TestKeeperNodeDown(t *testing.T) {
 						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 				}
 				return nil
-			}, "1m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			chainlinkNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 			require.NoError(t, err, "Failed to create chainlink client")
@@ -1907,7 +1851,7 @@ func TestKeeperNodeDown(t *testing.T) {
 				require.NoError(t, err, "Failed to read jobs")
 				var jobID string
 				for _, job := range jobs.Data {
-					require.IsType(t, job, map[string]interface{}{}, "job data should be a map[string]interface{}")
+					require.IsType(t, map[string]interface{}{}, job, "job data should be a map[string]interface{}")
 					if attr, ok := job["attributes"].(map[string]interface{}); ok {
 						if name, ok := attr["name"].(string); ok && name == "keeper-test-"+test.Registry.Address() {
 							jobID = job["id"].(string)
@@ -1931,7 +1875,7 @@ func TestKeeperNodeDown(t *testing.T) {
 						initialCounters[i], currentCounter)
 				}
 				return nil
-			}, "3m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// Take down the other half of the Keeper nodes
 			secondHalfToTakeDown := chainlinkNodes[cutIndex:]
@@ -1940,7 +1884,7 @@ func TestKeeperNodeDown(t *testing.T) {
 				require.NoError(t, err, "Failed to read jobs")
 				var jobID string
 				for _, job := range jobs.Data {
-					require.IsType(t, job, map[string]interface{}{}, "job data should be a map[string]interface{}")
+					require.IsType(t, map[string]interface{}{}, job, "job data should be a map[string]interface{}")
 					if attr, ok := job["attributes"].(map[string]interface{}); ok {
 						if name, ok := attr["name"].(string); ok && name == "keeper-test-"+test.Registry.Address() {
 							jobID = job["id"].(string)
@@ -1978,12 +1922,11 @@ func TestKeeperNodeDown(t *testing.T) {
 						"Expected consumer counter to not have increased more than %d, but got %d",
 						countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs, latestCounter.Int64())
 				}
-			}, "3m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
 
-// TODO start new env with lowBCPTRegistryConfig config (ASLO!)
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	testcases := []testcase{
 		{
@@ -1992,14 +1935,13 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 			UpkeepCount:              defaultAmountOfUpkeeps,
 			UpkeepFundingLink:        defaultLinkFunds,
 			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			ExpectedUpkeepExecutions: 5,
+			UpkeepExecutionTimeout:   "3m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -2074,12 +2016,12 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 				for i := range upkeepIDs {
 					counter, err := consumers[i].Counter(t.Context())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(5)),
-						"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(testcase.ExpectedUpkeepExecutions)),
+						"Expected consumer counter to be greater than %d, but got %d", testcase.ExpectedUpkeepExecutions, counter.Int64())
 					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 				return nil
-			}, "3m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 
 			// pause all the registered upkeeps via the registry
 			for i := range upkeepIDs {
@@ -2123,12 +2065,12 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 					counter, err := consumers[i].Counter(t.Context())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index %d", i)
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(5)+countersAfterPause[i].Int64()),
-						"Expected consumer counter to be greater than %d, but got %d", int64(5)+countersAfterPause[i].Int64(), counter.Int64())
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(testcase.ExpectedUpkeepExecutions)+countersAfterPause[i].Int64()),
+						"Expected consumer counter to be greater than %d, but got %d", int64(testcase.ExpectedUpkeepExecutions)+countersAfterPause[i].Int64(), counter.Int64())
 					l.Info().Int64("Upkeeps", counter.Int64()).Msg("Upkeeps Performed")
 				}
 				return nil
-			}, "3m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }
@@ -2142,14 +2084,13 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 			UpkeepCount:              defaultAmountOfUpkeeps,
 			UpkeepFundingLink:        defaultLinkFunds,
 			TestKeyFundingEth:        defaultEthFunds,
-			ExpectedUpkeepExecutions: defaultExpectedUpkeepExecutions,
-			UpkeepExecutionTimeout:   defaultUpkeepExecutionTimeout,
+			ExpectedUpkeepExecutions: 5,
+			UpkeepExecutionTimeout:   "3m",
 		},
 	}
 
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-
 			l := framework.L
 			t.Cleanup(func() {
 				err := products.ScanLogs(l, products.DefaultSettings())
@@ -2253,16 +2194,16 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 			}
 
 			gom.Eventually(func(g gomega.Gomega) error {
-				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
+				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than testcase.ExpectedUpkeepExecutions
 				for i := range upkeepIDs {
 					counter, err := performDataChecker[i].Counter(t.Context())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve perform data checker counter for upkeep at index %d", i)
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(5)),
-						"Expected perform data checker counter to be greater than 5, but got %d", counter.Int64())
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(testcase.ExpectedUpkeepExecutions)),
+						"Expected perform data checker counter to be greater than %d, but got %d", testcase.ExpectedUpkeepExecutions, counter.Int64())
 					l.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
 				return nil
-			}, "3m", "1s").Should(gomega.Succeed())
+			}, testcase.UpkeepExecutionTimeout, "1s").Should(gomega.Succeed())
 		})
 	}
 }

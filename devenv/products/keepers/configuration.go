@@ -258,11 +258,11 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 
-	if err := setConfigOnRegistry(L, chainClient, cl, m.Config[instanceIdx]); err != nil {
+	if err := createJobs(L, cl, m.Config[instanceIdx], bc[0].Out.ChainID); err != nil {
 		return err
 	}
 
-	return createJobs(L, cl, m.Config[instanceIdx], bc[0].Out.ChainID)
+	return setConfigOnRegistry(L, chainClient, cl, m.Config[instanceIdx])
 }
 
 func setConfigOnRegistry(l zerolog.Logger, chainClient *seth.Client, chainlinkNodes []*clclient.ChainlinkClient, config *Keepers) error {

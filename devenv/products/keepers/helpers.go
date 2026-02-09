@@ -4,10 +4,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
-	"github.com/stretchr/testify/require"
 )
 
 // DeployKeeperConsumersPerformance sequentially deploys keeper performance consumer contracts.

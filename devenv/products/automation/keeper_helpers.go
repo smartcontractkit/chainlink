@@ -254,7 +254,7 @@ func RegisterNewUpkeeps(
 ) ([]contracts.KeeperConsumer, []*big.Int) {
 	newlyDeployedUpkeeps := DeployKeeperConsumers(t, chainClient, numberOfNewUpkeeps, false, false)
 
-	var addressesOfNewUpkeeps []string
+	addressesOfNewUpkeeps := []string{}
 	for _, upkeep := range newlyDeployedUpkeeps {
 		addressesOfNewUpkeeps = append(addressesOfNewUpkeeps, upkeep.Address())
 	}

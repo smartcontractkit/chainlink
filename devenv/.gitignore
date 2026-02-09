@@ -4,4 +4,4 @@ blockscout
 env-out.toml
 **/alloc.pprof
 
-**/logs/**/*
+**/logs/*
