@@ -73,6 +73,16 @@ func NewDirectConfidentialHTTPAction(lggr logger.Logger) *DirectConfidentialHTTP
 			lggr.Warnf("Failed to parse secrets file %s: %v", secretsFile, marshalErr)
 		} else {
 			lggr.Infof("Loaded secrets from %s", secretsFile)
+			// Resolve environment variables
+			for key, val := range fc.secretsConfig.SecretsNames {
+				for i, v := range val {
+					if envVal := os.Getenv(v); envVal != "" {
+						fc.secretsConfig.SecretsNames[key][i] = envVal
+					} else {
+						lggr.Warnf("Secret environment variable %s not set", v)
+					}
+				}
+			}
 		}
 	} else {
 		lggr.Infof("Could not read secrets file %s: %v. Continuing without local secrets.", secretsFile, err)

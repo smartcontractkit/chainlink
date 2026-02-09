@@ -1,11 +1,15 @@
 package fakes
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	confidentialhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func TestHasEncryptionSecret(t *testing.T) {
@@ -29,4 +33,31 @@ func TestHasEncryptionSecret(t *testing.T) {
 		assert.False(t, hasEncryptionSecret(nil))
 		assert.False(t, hasEncryptionSecret([]*confidentialhttp.SecretIdentifier{}))
 	})
+}
+
+func TestDirectConfidentialHTTPAction_SecretsLoading(t *testing.T) {
+	// Create a temporary secrets.yaml
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, "secrets.yaml")
+	secretsContent := `
+secretsNames:
+  CMC_API_KEY:
+    - CMC_API_KEY_ALL
+`
+	err := os.WriteFile(secretsFile, []byte(secretsContent), 0600)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, os.Remove(secretsFile)) }()
+
+	// Set environment variables
+	t.Setenv("SECRETS_FILE", secretsFile)
+	t.Setenv("CMC_API_KEY_ALL", "resolved-api-key")
+
+	lggr := logger.Test(t)
+	action := NewDirectConfidentialHTTPAction(lggr)
+
+	// Verify secrets were resolved
+	secrets, ok := action.secretsConfig.SecretsNames["CMC_API_KEY"]
+	require.True(t, ok)
+	require.Len(t, secrets, 1)
+	assert.Equal(t, "resolved-api-key", secrets[0])
 }
