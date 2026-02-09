@@ -200,20 +200,17 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 			privilegeConfigBytes, _ := json.Marshal(UpkeepPrivilegeConfig{
 				MercuryEnabled: true,
 			})
-			if err := a.Registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
-				l.Error().Msg("Error when setting upkeep privilege config")
-				return
-			}
+			err := a.Registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes)
+			require.NoError(t, err, "error when setting upkeep privilege config")
+
 			l.Info().Int("Upkeep index", i).Msg("Upkeep privilege config set")
 		}
 	}
 
 	if isLogTrigger || isMercuryV02 {
 		for i := range upkeepIDs {
-			if err := consumers[i].Start(); err != nil {
-				l.Error().Msg("Error when starting consumer")
-				return
-			}
+			err := consumers[i].Start()
+			require.NoError(t, err, "error when starting consumer")
 			l.Info().Int("Consumer index", i).Msg("Consumer started")
 		}
 	}

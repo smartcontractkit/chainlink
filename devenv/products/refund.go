@@ -198,7 +198,7 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 		logger.Info().
 			Msg("Overshot error detected, retrying with less funds")
 		submatches := overshotRe.FindStringSubmatch(txErr.Error())
-		if len(submatches) < 1 {
+		if len(submatches) <= 1 {
 			return fmt.Errorf("error parsing overshot amount in error: %w", txErr)
 		}
 		numberString := submatches[1]

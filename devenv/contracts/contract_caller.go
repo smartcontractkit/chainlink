@@ -42,8 +42,9 @@ func MustNewWrappedContractBackend(ethClient *ethclient.Client, sethClient *seth
 	}
 
 	return &WrappedContractBackend{
-		ethClient:  ethClient,
-		sethClient: sethClient,
+		ethClient:   ethClient,
+		sethClient:  sethClient,
+		maxAttempts: 1, // try at least once
 	}
 }
 
@@ -338,6 +339,7 @@ type ethHeadBanger[ReturnType any] struct {
 	logger      zerolog.Logger
 	maxAttempts uint
 	retryDelay  time.Duration
+	withRetries bool
 }
 
 func newEthHeadBangerFromWrapper[ResultType any](wrapper *WrappedContractBackend) ethHeadBanger[ResultType] {
@@ -345,6 +347,7 @@ func newEthHeadBangerFromWrapper[ResultType any](wrapper *WrappedContractBackend
 		logger:      wrapper.logger,
 		maxAttempts: wrapper.maxAttempts,
 		retryDelay:  wrapper.retryDelay,
+		withRetries: wrapper.withRetries,
 	}
 }
 
@@ -357,6 +360,9 @@ func (e ethHeadBanger[ReturnType]) retry(functionName string, fnToRetry func() (
 		return err
 	},
 		retry.RetryIf(func(err error) bool {
+			if !e.withRetries {
+				return false
+			}
 			if err.Error() == rpc.ErrClientQuit.Error() ||
 				strings.Contains(err.Error(), "connection") ||
 				strings.Contains(err.Error(), "EOF") {

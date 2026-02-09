@@ -299,7 +299,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("About to send funds")
 
-	ctx, cancel = context.WithTimeout(ctx, txTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), txTimeout)
 	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
 	if err != nil {
