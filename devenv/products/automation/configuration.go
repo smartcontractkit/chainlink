@@ -14,6 +14,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
@@ -391,11 +392,30 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("error collecting node details: %w", err)
 	}
 
-	if err := setConfigOnRegistry(nodeDetails, m.Config[instanceIdx], chainClient); err != nil {
+	// it is crucial to create jobs before setting the config on the registry, as otherwise event emitted will not be picked up by the log poller
+	if err := createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[instanceIdx].MustGetRegistryVersion(), m.Config[instanceIdx].DeployedContracts.Registry, m.Config[instanceIdx].GetMercuryCredentialsName()); err != nil { //nolint:gosec // G115: chainID will never be big enough to overflow int
 		return err
 	}
 
-	return createJobs(cl, nodeDetails, int(chainClient.Cfg.Network.ChainID), m.Config[instanceIdx].MustGetRegistryVersion(), m.Config[instanceIdx].DeployedContracts.Registry, m.Config[instanceIdx].GetMercuryCredentialsName()) //nolint:gosec // disable G115
+	if err := waitForConfigWatcherToBeHealthy(cl); err != nil {
+		return fmt.Errorf("failed to wait for ConfigWatcher health check: %w", err)
+	}
+
+	return setConfigOnRegistry(nodeDetails, m.Config[instanceIdx], chainClient)
+}
+
+func waitForConfigWatcherToBeHealthy(nodes []*clclient.ChainlinkClient) error {
+	eg := &errgroup.Group{}
+	for _, node := range nodes {
+		eg.Go(func() error {
+			return node.WaitHealthy(".*ConfigWatcher", "passing", 100)
+		})
+	}
+	if waitErr := eg.Wait(); waitErr != nil {
+		return fmt.Errorf("failed to wait for ConfigWatcher health check: %w", waitErr)
+	}
+
+	return nil
 }
 
 func (m *Automation) MustGetRegistryVersion() contracts.KeeperRegistryVersion {
