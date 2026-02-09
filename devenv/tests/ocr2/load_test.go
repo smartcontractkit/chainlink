@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
-func TestLoad(t *testing.T) {
+func TestOCR2Load(t *testing.T) {
 	ctx := context.Background()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
