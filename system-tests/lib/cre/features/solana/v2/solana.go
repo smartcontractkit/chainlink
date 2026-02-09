@@ -163,8 +163,6 @@ func createJobs(
 		return errors.Wrap(cErr, "failed to get command for cron capability")
 	}
 
-	// PLEX-1918
-	// propose bootstrap job once consensus reads are enabled
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
