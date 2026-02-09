@@ -17,19 +17,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// fakeDeterministicProvider is a simple fake implementation for testing
-type fakeDeterministicProvider struct {
+// fakeOrderedKeyProvider is a simple fake implementation for testing
+type fakeOrderedKeyProvider struct {
 	keys    []ethkey.KeyV2
 	err     error
 	chainID *big.Int
 }
 
-func (f *fakeDeterministicProvider) EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) ([]ethkey.KeyV2, error) {
+func (f *fakeOrderedKeyProvider) ListKeys(ctx context.Context, chainID *big.Int, opts *keystore.ListKeysOptions) ([]ethkey.KeyV2, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -106,7 +107,7 @@ func ptr[T any](t T) *T { return &t }
 func setupAutoDiscoverTest(
 	t *testing.T,
 	nodeAddress *string,
-	deterministicProvider gatewayconnector.DeterministicKeyProvider,
+	orderedKeyProvider gatewayconnector.OrderedKeyProvider,
 	keystoreAddresses []ethkey.KeyV2,
 	addressToPrivateKey map[string]*ecdsa.PrivateKey,
 ) (*gatewayconnector.ServiceWrapper, error) {
@@ -150,7 +151,7 @@ func setupAutoDiscoverTest(
 	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(
 		gc,
 		ethKeystore,
-		deterministicProvider,
+		orderedKeyProvider,
 		chainID,
 		clockwork.NewFakeClock(),
 		logger,
@@ -171,7 +172,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscoverNodeAddress(t *testing.T) {
 	keystoreKeyV2 := ethkey.FromPrivateKey(keystoreKey)
 
 	chainID := big.NewInt(1)
-	deterministicProvider := &fakeDeterministicProvider{
+	orderedKeyProvider := &fakeOrderedKeyProvider{
 		keys:    []ethkey.KeyV2{key1V2, key2V2},
 		chainID: chainID,
 	}
@@ -181,7 +182,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscoverNodeAddress(t *testing.T) {
 		key1V2.Address.Hex():        key1,
 		keystoreKeyV2.Address.Hex(): keystoreKey,
 	}
-	wrapper, err := setupAutoDiscoverTest(t, nil, deterministicProvider, []ethkey.KeyV2{key1V2, keystoreKeyV2}, addressToKey)
+	wrapper, err := setupAutoDiscoverTest(t, nil, orderedKeyProvider, []ethkey.KeyV2{key1V2, keystoreKeyV2}, addressToKey)
 	require.NoError(t, err)
 
 	ctx := testutils.Context(t)
@@ -207,26 +208,26 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                  string
-		nodeAddress           *string
-		deterministicProvider gatewayconnector.DeterministicKeyProvider
-		keystoreKeyCount      int
-		wantErr               bool
-		errContains           string
-		expectedErr           error
+		name               string
+		nodeAddress        *string
+		orderedKeyProvider gatewayconnector.OrderedKeyProvider
+		keystoreKeyCount   int
+		wantErr            bool
+		errContains        string
+		expectedErr        error
 	}{
 		{
-			name:                  "no provider",
-			nodeAddress:           nil,
-			deterministicProvider: nil,
-			keystoreKeyCount:      2,
-			wantErr:               true,
-			errContains:           "NodeAddress must be configured when deterministic key provider is not available",
+			name:               "no provider",
+			nodeAddress:        nil,
+			orderedKeyProvider: nil,
+			keystoreKeyCount:   2,
+			wantErr:            true,
+			errContains:        "NodeAddress must be configured when ordered key provider is not available",
 		},
 		{
 			name:        "no keys",
 			nodeAddress: nil,
-			deterministicProvider: &fakeDeterministicProvider{
+			orderedKeyProvider: &fakeOrderedKeyProvider{
 				keys:    []ethkey.KeyV2{},
 				chainID: big.NewInt(1),
 			},
@@ -237,7 +238,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 		{
 			name:        "provider error",
 			nodeAddress: nil,
-			deterministicProvider: &fakeDeterministicProvider{
+			orderedKeyProvider: &fakeOrderedKeyProvider{
 				keys:    nil,
 				err:     assert.AnError,
 				chainID: big.NewInt(1),
@@ -258,7 +259,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 				keystoreKeysV2[i] = ethkey.FromPrivateKey(key)
 			}
 
-			wrapper, err := setupAutoDiscoverTest(t, tt.nodeAddress, tt.deterministicProvider, keystoreKeysV2, nil)
+			wrapper, err := setupAutoDiscoverTest(t, tt.nodeAddress, tt.orderedKeyProvider, keystoreKeysV2, nil)
 			require.NoError(t, err)
 
 			ctx := testutils.Context(t)

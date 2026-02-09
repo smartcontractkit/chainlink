@@ -20,6 +20,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+// KeySortBy specifies how to sort keys when listing them.
+type KeySortBy string
+
+const (
+	// SortBySerialPrimaryKey sorts by State.ID (primary key) ascending, with address as tiebreaker.
+	// This provides deterministic ordering across time, reflecting when keys were first enabled for the chain.
+	SortBySerialPrimaryKey KeySortBy = "primary"
+
+	// SortByAddress sorts by address ascending (lexicographic order).
+	SortByAddress KeySortBy = "address"
+)
+
+// ListKeysOptions specifies options for listing keys.
+type ListKeysOptions struct {
+	// SortBy specifies how to sort the keys. If nil, defaults to SortByCreation.
+	SortBy KeySortBy
+}
+
 // Eth is the external interface for EthKeyStore
 type Eth interface {
 	Get(ctx context.Context, id string) (ethkey.KeyV2, error)
@@ -36,7 +54,7 @@ type Eth interface {
 	EnsureKeys(ctx context.Context, chainIDs ...*big.Int) error
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
-	EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
+	ListKeys(ctx context.Context, chainID *big.Int, opts *ListKeysOptions) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
 	CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error
 
@@ -345,10 +363,9 @@ func (ks *eth) EnabledKeysForChain(ctx context.Context, chainID *big.Int) (sendi
 	return ks.enabledKeysForChain(chainID), nil
 }
 
-// EnabledKeysForChainByID returns all keys that are enabled for the given chain,
-// sorted by State.ID (which reflects when the key was first enabled for the chain).
-// This provides deterministic ordering across time, unlike address-based sorting.
-func (ks *eth) EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error) {
+// ListKeys returns enabled keys for the given chain, sorted according to the options.
+// If opts is nil, defaults to SortByCreation.
+func (ks *eth) ListKeys(ctx context.Context, chainID *big.Int, opts *ListKeysOptions) (keys []ethkey.KeyV2, err error) {
 	if chainID == nil {
 		return nil, errors.New("chainID must be non-nil")
 	}
@@ -357,7 +374,13 @@ func (ks *eth) EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int)
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
-	return ks.enabledKeysWithDeterminism(chainID), nil
+
+	sortBy := SortBySerialPrimaryKey
+	if opts != nil && opts.SortBy != "" {
+		sortBy = opts.SortBy
+	}
+
+	return ks.listKeys(chainID, sortBy), nil
 }
 
 func (ks *eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, whitelist ...common.Address) (common.Address, error) {
@@ -560,7 +583,7 @@ func (ks *eth) enabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2) {
 }
 
 // caller must hold lock!
-func (ks *eth) enabledKeysWithDeterminism(chainID *big.Int) (keys []ethkey.KeyV2) {
+func (ks *eth) listKeys(chainID *big.Int, sortBy KeySortBy) (keys []ethkey.KeyV2) {
 	states := ks.keyStates.ChainIDKeyID[chainID.String()]
 	if states == nil {
 		return
@@ -579,16 +602,36 @@ func (ks *eth) enabledKeysWithDeterminism(chainID *big.Int) (keys []ethkey.KeyV2
 		}
 	}
 
-	// Sort by State.ID (serial primary key, lowest first). Use address as tiebreaker.
-	slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
-		if a.state.ID < b.state.ID {
-			return -1
-		}
-		if a.state.ID > b.state.ID {
-			return 1
-		}
-		return a.key.Cmp(b.key)
-	})
+	// Sort according to sortBy
+	switch sortBy {
+	case SortBySerialPrimaryKey:
+		// Sort by State.ID (serial primary key, lowest first). Use address as tiebreaker.
+		slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
+			if a.state.ID < b.state.ID {
+				return -1
+			}
+			if a.state.ID > b.state.ID {
+				return 1
+			}
+			return a.key.Cmp(b.key)
+		})
+	case SortByAddress:
+		// Sort by address ascending (lexicographic order)
+		slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
+			return a.key.Cmp(b.key)
+		})
+	default:
+		// Default to creation order if unknown sort type
+		slices.SortFunc(keysWithStates, func(a, b keyWithState) int {
+			if a.state.ID < b.state.ID {
+				return -1
+			}
+			if a.state.ID > b.state.ID {
+				return 1
+			}
+			return a.key.Cmp(b.key)
+		})
+	}
 
 	for _, kws := range keysWithStates {
 		keys = append(keys, kws.key)

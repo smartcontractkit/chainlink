@@ -15,6 +15,7 @@ import (
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
@@ -23,10 +24,10 @@ type Keystore interface {
 	keys.MessageSigner
 }
 
-// DeterministicKeyProvider is an interface for keystores that support
-// deterministic key discovery. This allows auto-discovery of node addresses.
-type DeterministicKeyProvider interface {
-	EnabledKeysWithDeterminism(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
+// OrderedKeyProvider is an interface for keystores that support
+// ordered key discovery. This allows auto-discovery of node addresses.
+type OrderedKeyProvider interface {
+	ListKeys(ctx context.Context, chainID *big.Int, opts *keystore.ListKeysOptions) (keys []ethkey.KeyV2, err error)
 }
 
 type ServiceWrapper struct {
@@ -35,7 +36,7 @@ type ServiceWrapper struct {
 
 	config                config.GatewayConnector
 	keystore              Keystore
-	deterministicProvider DeterministicKeyProvider
+	okp                   OrderedKeyProvider
 	chainID               *big.Int
 	connector             connector.GatewayConnector
 	lggr                  logger.Logger
@@ -63,24 +64,23 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
 // keystore is used for signing operations.
-// deterministicProvider is used for auto-discovering the node address if not configured.
 // chainID is the chain ID for which keys should be discovered.
 func NewGatewayConnectorServiceWrapper(
 	config config.GatewayConnector,
 	keystore Keystore,
-	deterministicProvider DeterministicKeyProvider,
+	okp OrderedKeyProvider,
 	chainID *big.Int,
 	clock clockwork.Clock,
 	lggr logger.Logger,
 ) *ServiceWrapper {
 	return &ServiceWrapper{
-		stopCh:                make(services.StopChan),
-		config:                config,
-		keystore:              keystore,
-		deterministicProvider: deterministicProvider,
-		chainID:               chainID,
-		clock:                 clock,
-		lggr:                  logger.Named(lggr, "GatewayConnectorServiceWrapper"),
+		stopCh:   make(services.StopChan),
+		config:   config,
+		keystore: keystore,
+		okp:      okp,
+		chainID:  chainID,
+		clock:    clock,
+		lggr:     logger.Named(lggr, "GatewayConnectorServiceWrapper"),
 	}
 }
 
@@ -91,16 +91,20 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 
 		// Auto-discover node address if not configured
 		if nodeAddress == "" {
-			if e.deterministicProvider == nil {
-				return errors.New("NodeAddress must be configured when deterministic key provider is not available")
+			if e.okp == nil {
+				return errors.New("NodeAddress must be configured when ordered key provider is not available")
 			}
-			keys, err := e.deterministicProvider.EnabledKeysWithDeterminism(ctx, e.chainID)
+			keys, err := e.okp.ListKeys(ctx, e.chainID, &keystore.ListKeysOptions{
+				SortBy: keystore.SortBySerialPrimaryKey,
+			})
 			if err != nil {
 				return err
 			}
+
 			if len(keys) == 0 {
 				return errors.New("no enabled keys found for auto-discovery")
 			}
+
 			// Use the first account (lowest State.ID) as the node address
 			nodeAddress = keys[0].Address.String()
 			e.discoveredNodeAddress = nodeAddress
