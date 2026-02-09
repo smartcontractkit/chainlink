@@ -208,7 +208,7 @@ var testCmd = &cobra.Command{
 		if len(args) != 1 {
 			return errors.New("specify the 'go test -run' filter, ex.: $TestName/$subtest")
 		}
-		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", args[0])
+		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", args[0]) //nolint:gosec //nothing else can run here except tests
 		testCmd.Dir = filepath.Join("tests", "ocr2")
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr
