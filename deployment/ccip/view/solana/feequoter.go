@@ -111,7 +111,7 @@ func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, re
 		eg.Go(func() error {
 			billingConfigPDA, _, err := solState.FindFqBillingTokenConfigPDA(token, program)
 			if err != nil {
-				return nil // skip
+				return fmt.Errorf("failed to find billing token config pda (mint: %s, feeQuoter: %s): %w", token.String(), program.String(), err)
 			}
 			var tokenConfigAccount solFeeQuoter.BillingTokenConfigWrapper
 			if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &tokenConfigAccount); err != nil {
@@ -178,7 +178,7 @@ func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, re
 			eg2.Go(func() error {
 				remoteBillingPDA, _, err := solState.FindFqPerChainPerTokenConfigPDA(remote, token, program)
 				if err != nil {
-					return nil
+					return fmt.Errorf("failed to find remote billing token config pda for (remoteSelector: %d, mint: %s, feeQuoter: %s): %w", remote, token, program, err)
 				}
 				var remoteBillingAccount solFeeQuoter.PerChainPerTokenConfig
 				if err := chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount); err != nil {
