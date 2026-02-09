@@ -3,7 +3,7 @@ package versioning
 import (
 	"context"
 	"database/sql"
-	"os"
+	"fmt"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -47,10 +48,12 @@ func (o *orm) UpsertNodeVersion(ctx context.Context, version NodeVersion) error 
 	}
 
 	return sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
-		if os.Getenv("CL_SKIP_APP_VERSION_CHECK") == "true" {
+		if env.SkipAppVersionCheck.IsTrue() {
 			o.lggr.Warnw("Skipping app version check", "appVersion", version.Version)
-		} else if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version); err != nil {
-			return err
+		} else {
+			if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version, env.IgnorePrereleaseVersionCheck.IsTrue()); err != nil {
+				return err
+			}
 		}
 
 		stmt := `
@@ -67,8 +70,9 @@ created_at = EXCLUDED.created_at
 }
 
 // CheckVersion returns an error if there is a valid semver version in the
-// node_versions table that is higher than the current app version
-func CheckVersion(ctx context.Context, ds sqlutil.DataSource, lggr logger.Logger, appVersion string) (appv, dbv *semver.Version, err error) {
+// node_versions table that is higher than the current app version.
+// If ignorePrerelease is true, pre-release information is ignored when comparing versions.
+func CheckVersion(ctx context.Context, ds sqlutil.DataSource, lggr logger.Logger, appVersion string, ignorePrerelease bool) (appv, dbv *semver.Version, err error) {
 	lggr = lggr.Named("Version")
 	var dbVersion string
 	err = ds.GetContext(ctx, &dbVersion, `SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`)
@@ -94,7 +98,25 @@ func CheckVersion(ctx context.Context, ds sqlutil.DataSource, lggr logger.Logger
 	if apperr != nil {
 		return nil, nil, errors.Errorf("Application version %q is not valid semver", appVersion)
 	}
-	if dbv.GreaterThan(appv) {
+
+	var dbvToCompare, appvToCompare *semver.Version
+	if ignorePrerelease {
+		dbvWithoutPre, err := dbv.SetPrerelease("")
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not generate db version without pre-release: %w", err)
+		}
+		appvWithoutPre, err := appv.SetPrerelease("")
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not generate app version without pre-release: %w", err)
+		}
+		dbvToCompare = &dbvWithoutPre
+		appvToCompare = &appvWithoutPre
+	} else {
+		dbvToCompare = dbv
+		appvToCompare = appv
+	}
+
+	if dbvToCompare.GreaterThan(appvToCompare) {
 		return nil, nil, errors.Errorf("Application version (%s) is lower than database version (%s). Only Chainlink %s or higher can be run on this database", appv, dbv, dbv)
 	}
 	return appv, dbv, nil
