@@ -1,4 +1,5 @@
 .git-together
+.git
 .DS_Store
 .envrc
 *.log
@@ -10,6 +11,7 @@ tmp/
 contracts/node_modules
 examples/
 
+devenv/
 deployment/
 integration/
 integration-scripts/
