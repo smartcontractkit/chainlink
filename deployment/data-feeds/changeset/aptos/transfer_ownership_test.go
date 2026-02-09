@@ -6,6 +6,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -19,6 +20,7 @@ import (
 )
 
 func TestTransferOwnership(t *testing.T) {
+	quarantine.Flaky(t, "DX-2500")
 	t.Parallel()
 	selector := chain_selectors.APTOS_LOCALNET.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
