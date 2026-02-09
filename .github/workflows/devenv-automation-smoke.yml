@@ -87,6 +87,11 @@ jobs:
           echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: ${{ matrix.test }}"
           go test -v -timeout 4h -run ${{ matrix.test }}
 
+      - name: Show Docker containers status
+        if: failure()
+        shell: bash
+        run: docker ps -a
+
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v4
