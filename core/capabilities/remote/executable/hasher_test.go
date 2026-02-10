@@ -52,12 +52,13 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
 
-	msgBody := &types.MessageBody{Payload: capReqBytes, CapabilityId: "evm:123"}
-
-	hasher := NewWriteReportExcludeSignaturesHasher()
-	_, err = hasher.Hash(msgBody)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "WriteReportRequest.Report is nil")
+	msgBodies := []*types.MessageBody{{Payload: capReqBytes, CapabilityId: "evm:123"}, {Payload: capReqBytes, CapabilityId: "solana:123"}}
+	for _, msgBody := range msgBodies {
+		hasher := NewWriteReportExcludeSignaturesHasher()
+		_, err = hasher.Hash(msgBody)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "WriteReportRequest.Report is nil")
+	}
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
