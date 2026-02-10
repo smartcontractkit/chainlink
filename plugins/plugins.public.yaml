@@ -22,8 +22,6 @@ plugins:
 
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
-      # Git reference - can be a tag, branch, or commit hash
-      # If not specified, uses the latest version.
       gitRef: "v0.5.2-0.20260219133256-b46d473fd6f5"
       installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
       # These will be copied into /usr/lib in the container.
