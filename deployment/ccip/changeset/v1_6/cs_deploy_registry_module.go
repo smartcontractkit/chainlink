@@ -20,7 +20,7 @@ import (
 var _ cldf.ChangeSet[DeployRegistryModuleConfig] = DeployRegistryModuleChangeset
 
 type DeployRegistryModuleConfig struct {
-	ChainSelectors []uint64 //which chains to deploy the registry module on
+	ChainSelectors []uint64 // which chains to deploy the registry module on
 }
 
 func (c DeployRegistryModuleConfig) Validate(e cldf.Environment) error {

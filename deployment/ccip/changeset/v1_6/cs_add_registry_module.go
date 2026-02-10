@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,15 +21,15 @@ type AddRegistryModuleConfig struct {
 
 func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 	if len(c.ChainSelectors) == 0 {
-		return fmt.Errorf("no chain selectors provided")
+		return errors.New("no chain selectors provided")
 	}
 
 	if len(c.RegistryModuleAddrs) == 0 {
-		return fmt.Errorf("no registry module addresses provided")
+		return errors.New("no registry module addresses provided")
 	}
 
 	if len(c.ChainSelectors) != len(c.RegistryModuleAddrs) {
-		return fmt.Errorf("chain selectors and registry module addresses must have the same length")
+		return errors.New("chain selectors and registry module addresses must have the same length")
 	}
 
 	for _, chainSel := range c.ChainSelectors {
@@ -89,27 +90,26 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 					"chain", chainSel,
 					"registryModule", registryModuleAddr.Hex())
 				continue
-			} else {
-				// It's not a 1.6 module, remove the old one and add the new one
-				e.Logger.Infow("Found non-1.6 RegistryModule, updating to 1.6",
-					"chain", chainSel,
-					"oldRegistryModule", registryModuleAddr.Hex())
-
-				// Remove the old registry module
-				removeTx, err := chainState.TokenAdminRegistry.RemoveRegistryModule(chain.DeployerKey, registryModuleAddr)
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove old registry module from TokenAdminRegistry on chain %d: %w", chainSel, err)
-				}
-
-				_, err = chain.Confirm(removeTx)
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm registry module removal transaction on chain %d: %w", chainSel, err)
-				}
-
-				e.Logger.Infow("Removed old RegistryModule from TokenAdminRegistry",
-					"chain", chainSel,
-					"registryModule", registryModuleAddr.Hex())
 			}
+			// It's not a 1.6 module, remove the old one and add the new one
+			e.Logger.Infow("Found non-1.6 RegistryModule, updating to 1.6",
+				"chain", chainSel,
+				"oldRegistryModule", registryModuleAddr.Hex())
+
+			// Remove the old registry module
+			removeTx, err := chainState.TokenAdminRegistry.RemoveRegistryModule(chain.DeployerKey, registryModuleAddr)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove old registry module from TokenAdminRegistry on chain %d: %w", chainSel, err)
+			}
+
+			_, err = chain.Confirm(removeTx)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm registry module removal transaction on chain %d: %w", chainSel, err)
+			}
+
+			e.Logger.Infow("Removed old RegistryModule from TokenAdminRegistry",
+				"chain", chainSel,
+				"registryModule", registryModuleAddr.Hex())
 		}
 
 		// Add the RegistryModule to TokenAdminRegistry. Case: no registry module existed OR removed the old one
