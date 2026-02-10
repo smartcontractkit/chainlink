@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
+	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
@@ -45,14 +46,18 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 
 func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	nilReq := &evmcappb.WriteReportRequest{Report: nil}
+	nilReqSol := &solcappb.WriteReportRequest{Report: nil}
 	nilPb, err := anypb.New(nilReq)
 	require.NoError(t, err)
-
+	nilPbSol, err := anypb.New(nilReqSol)
 	capReq := capabilities.CapabilityRequest{Payload: nilPb}
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
+	capReqSol := capabilities.CapabilityRequest{Payload: nilPbSol}
+	capReqBytesSol, err := pb.MarshalCapabilityRequest(capReqSol)
+	require.NoError(t, err)
 
-	msgBodies := []*types.MessageBody{{Payload: capReqBytes, CapabilityId: "evm:123"}, {Payload: capReqBytes, CapabilityId: "solana:123"}}
+	msgBodies := []*types.MessageBody{{Payload: capReqBytes, CapabilityId: "evm:123"}, {Payload: capReqBytesSol, CapabilityId: "solana:123"}}
 	for _, msgBody := range msgBodies {
 		hasher := NewWriteReportExcludeSignaturesHasher()
 		_, err = hasher.Hash(msgBody)
