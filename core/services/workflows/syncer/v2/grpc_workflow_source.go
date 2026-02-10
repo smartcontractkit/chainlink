@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/grpcsource"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -133,7 +133,7 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 	}
 
 	return &GRPCWorkflowSource{
-		lggr:           lggr.Named(cfg.Name),
+		lggr:           logger.Named(lggr, cfg.Name),
 		client:         client,
 		name:           cfg.Name,
 		pageSize:       pageSize,
@@ -172,7 +172,7 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		for _, wf := range workflows {
 			view, err := g.toWorkflowMetadataView(wf)
 			if err != nil {
-				g.lggr.Warnw("Failed to parse workflow metadata, skipping",
+				g.lggr.Warn("Failed to parse workflow metadata, skipping",
 					"workflowName", wf.GetWorkflowName(),
 					"error", err)
 				continue
@@ -189,7 +189,7 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		start += g.pageSize
 	}
 
-	g.lggr.Debugw("Loaded workflows from GRPC source",
+	g.lggr.Debug("Loaded workflows from GRPC source",
 		"count", len(allViews),
 		"donID", don.ID,
 		"donFamilies", don.Families)
@@ -216,7 +216,7 @@ func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []
 
 		// Check if this is a retryable error
 		if !g.isRetryableError(err) {
-			g.lggr.Errorw("Non-retryable error from GRPC source",
+			g.lggr.Error("Non-retryable error from GRPC source",
 				"error", err,
 				"start", start,
 				"pageSize", g.pageSize)
@@ -224,14 +224,14 @@ func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []
 		}
 
 		// Log retry attempt
-		g.lggr.Warnw("Retryable error from GRPC source",
+		g.lggr.Warn("Retryable error from GRPC source",
 			"error", err,
 			"attempt", attempt+1,
 			"maxRetries", g.maxRetries)
 
 		// If we've exhausted retries, return the error
 		if attempt >= g.maxRetries {
-			g.lggr.Errorw("Max retries exceeded for GRPC request",
+			g.lggr.Error("Max retries exceeded for GRPC request",
 				"error", err,
 				"maxRetries", g.maxRetries)
 			return nil, false, fmt.Errorf("max retries exceeded: %w", err)
@@ -245,7 +245,7 @@ func (g *GRPCWorkflowSource) fetchPageWithRetry(ctx context.Context, families []
 		case <-ctx.Done():
 			return nil, false, ctx.Err()
 		case <-time.After(backoff):
-			g.lggr.Debugw("Retrying GRPC request",
+			g.lggr.Debug("Retrying GRPC request",
 				"attempt", attempt+1,
 				"delay", backoff,
 				"lastError", lastErr)

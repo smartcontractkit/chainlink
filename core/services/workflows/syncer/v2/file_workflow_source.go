@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -72,7 +72,7 @@ func NewFileWorkflowSourceWithPath(lggr logger.Logger, name string, path string)
 		return nil, errors.New("workflow metadata file does not exist: " + path)
 	}
 	return &FileWorkflowSource{
-		lggr:     lggr.Named(name),
+		lggr:     logger.Named(lggr, name),
 		filePath: path,
 		name:     name,
 	}, nil
@@ -95,7 +95,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 
 	// Handle empty file
 	if len(data) == 0 {
-		f.lggr.Debugw("Workflow metadata file is empty, returning empty list", "path", filePath)
+		f.lggr.Debug("Workflow metadata file is empty, returning empty list", "path", filePath)
 		return []WorkflowMetadataView{}, f.syntheticHead(), nil
 	}
 
@@ -122,7 +122,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		// Convert to WorkflowMetadataView
 		view, err := f.toWorkflowMetadataView(wf)
 		if err != nil {
-			f.lggr.Warnw("Failed to parse workflow metadata, skipping",
+			f.lggr.Warn("Failed to parse workflow metadata, skipping",
 				"source", f.name,
 				"workflowName", wf.WorkflowName,
 				"error", err)
@@ -132,7 +132,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		workflows = append(workflows, view)
 	}
 
-	f.lggr.Debugw("Loaded workflows from file",
+	f.lggr.Debug("Loaded workflows from file",
 		"path", filePath,
 		"totalInFile", len(sourceData.Workflows),
 		"matchingDON", len(workflows),

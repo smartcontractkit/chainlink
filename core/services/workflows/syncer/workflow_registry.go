@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -26,7 +27,6 @@ import (
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -236,7 +236,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 			reader, err := w.newWorkflowRegistryContractReader(ctx)
 			if err != nil {
-				w.lggr.Criticalf("contract reader unavailable : %s", err)
+				logger.Sugared(w.lggr).Criticalf("contract reader unavailable : %s", err)
 				return
 			}
 

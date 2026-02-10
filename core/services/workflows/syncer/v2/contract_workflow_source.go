@@ -10,11 +10,11 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
 
@@ -43,7 +43,7 @@ func NewContractWorkflowSource(
 	chainSelector string,
 ) *ContractWorkflowSource {
 	return &ContractWorkflowSource{
-		lggr:                    lggr.Named(ContractWorkflowSourceName),
+		lggr:                    logger.Named(lggr, ContractWorkflowSourceName),
 		contractReaderFn:        contractReaderFn,
 		workflowRegistryAddress: workflowRegistryAddress,
 		chainSelector:           chainSelector,
