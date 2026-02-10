@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/e
 go 1.25.5
 
 require (
-	github.com/smartcontractkit/cre-sdk-go v0.10.0
+	github.com/smartcontractkit/cre-sdk-go v1.2.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
