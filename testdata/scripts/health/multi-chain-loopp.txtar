@@ -1,5 +1,6 @@
 env CL_EVM_CMD=chainlink-evm
 env CL_SOLANA_CMD=chainlink-solana
+env TMPDIR=/tmp
 
 # start node
 exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
@@ -124,8 +125,7 @@ ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
 	service is "Unstarted", not started
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter
-	service is "Unstarted", not started
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.BlockHistoryEstimator
@@ -184,8 +184,6 @@ ok WorkflowStore
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
-	service is "Unstarted", not started
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter
 	service is "Unstarted", not started
 
 -- out.json --
@@ -364,11 +362,11 @@ ok WorkflowStore
     },
     {
       "type": "checks",
-      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter",
       "attributes": {
-        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
       }
     },
     {
@@ -867,15 +865,6 @@ ok WorkflowStore
       "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
       "attributes": {
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
-      }
-    },
-    {
-      "type": "checks",
-      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
-      "attributes": {
-        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
         "status": "failing",
         "output": "service is \"Unstarted\", not started"
       }
