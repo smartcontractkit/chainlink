@@ -1010,9 +1010,12 @@ func newCREServices(
 		if !ok {
 			return nil, fmt.Errorf("failed to parse gateway connector chain ID as integer: %s", capCfg.GatewayConnector().ChainIDForNodeKey())
 		}
+		ethKeystore := keyStore.Eth()
 		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
 			capCfg.GatewayConnector(),
-			keys.NewStore(keystore.NewEthSigner(keyStore.Eth(), chainID)),
+			keys.NewStore(keystore.NewEthSigner(ethKeystore, chainID)),
+			ethKeystore,
+			chainID,
 			clockwork.NewRealClock(),
 			globalLogger)
 		srvcs = append(srvcs, gatewayConnectorWrapper)

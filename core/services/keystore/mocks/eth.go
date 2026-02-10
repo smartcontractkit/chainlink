@@ -12,6 +12,8 @@ import (
 
 	keys "github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
+	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -1068,6 +1070,66 @@ func (_c *Eth_Import_Call) Return(_a0 ethkey.KeyV2, _a1 error) *Eth_Import_Call 
 }
 
 func (_c *Eth_Import_Call) RunAndReturn(run func(context.Context, []byte, string, ...*big.Int) (ethkey.KeyV2, error)) *Eth_Import_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListKeys provides a mock function with given fields: ctx, chainID, opts
+func (_m *Eth) ListKeys(ctx context.Context, chainID *big.Int, opts *keystore.ListKeysOptions) ([]ethkey.KeyV2, error) {
+	ret := _m.Called(ctx, chainID, opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListKeys")
+	}
+
+	var r0 []ethkey.KeyV2
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *keystore.ListKeysOptions) ([]ethkey.KeyV2, error)); ok {
+		return rf(ctx, chainID, opts)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *keystore.ListKeysOptions) []ethkey.KeyV2); ok {
+		r0 = rf(ctx, chainID, opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]ethkey.KeyV2)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, *keystore.ListKeysOptions) error); ok {
+		r1 = rf(ctx, chainID, opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Eth_ListKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListKeys'
+type Eth_ListKeys_Call struct {
+	*mock.Call
+}
+
+// ListKeys is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainID *big.Int
+//   - opts *keystore.ListKeysOptions
+func (_e *Eth_Expecter) ListKeys(ctx interface{}, chainID interface{}, opts interface{}) *Eth_ListKeys_Call {
+	return &Eth_ListKeys_Call{Call: _e.mock.On("ListKeys", ctx, chainID, opts)}
+}
+
+func (_c *Eth_ListKeys_Call) Run(run func(ctx context.Context, chainID *big.Int, opts *keystore.ListKeysOptions)) *Eth_ListKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int), args[2].(*keystore.ListKeysOptions))
+	})
+	return _c
+}
+
+func (_c *Eth_ListKeys_Call) Return(_a0 []ethkey.KeyV2, err error) *Eth_ListKeys_Call {
+	_c.Call.Return(_a0, err)
+	return _c
+}
+
+func (_c *Eth_ListKeys_Call) RunAndReturn(run func(context.Context, *big.Int, *keystore.ListKeysOptions) ([]ethkey.KeyV2, error)) *Eth_ListKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }

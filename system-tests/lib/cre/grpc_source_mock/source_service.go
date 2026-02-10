@@ -103,3 +103,17 @@ func (s *SourceService) ListWorkflowMetadata(ctx context.Context, req *sourcesv1
 		HasMore:   end < totalCount,
 	}, nil
 }
+
+// workflowStatusToProto converts store WorkflowStatus to proto WorkflowStatus.
+// Store uses: Active=0, Paused=1
+// Proto uses: UNSPECIFIED=0, ACTIVE=1, PAUSED=2
+func workflowStatusToProto(status WorkflowStatus) sourcesv1.WorkflowStatus {
+	switch status {
+	case WorkflowStatusActive:
+		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_ACTIVE
+	case WorkflowStatusPaused:
+		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_PAUSED
+	default:
+		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED
+	}
+}
