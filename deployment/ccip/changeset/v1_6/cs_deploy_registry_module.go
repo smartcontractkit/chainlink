@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -25,7 +26,7 @@ type DeployRegistryModuleConfig struct {
 
 func (c DeployRegistryModuleConfig) Validate(e cldf.Environment) error {
 	if len(c.ChainSelectors) == 0 {
-		return fmt.Errorf("no chain selectors provided")
+		return errors.New("no chain selectors provided")
 	}
 
 	for _, chainSel := range c.ChainSelectors {
