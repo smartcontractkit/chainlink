@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -241,8 +242,9 @@ func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*Registere
 	}
 
 	di, err := capReg.GetDONs(nil)
+	code, err2 := env.BlockChains.EVMChains()[cfg.RegistryChainSel].Client.CodeAt(context.TODO(), capReg.Address(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get dons: %w", err)
+		return nil, fmt.Errorf("failed to get dons: %w, address: %s len code: %d err2: %w", err, capReg.Address(), len(code), err2)
 	}
 	// load the nodes from the offchain client
 	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)

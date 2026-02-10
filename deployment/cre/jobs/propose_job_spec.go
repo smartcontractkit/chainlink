@@ -61,6 +61,10 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
+	case job_types.Solana:
+		if err := verifySolanaJobSpecInputs(config.Inputs); err != nil {
+			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
+		}
 	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract:
 	case job_types.CRESettings:
 		if err := verifyCRESettingsSpecInputs(config.Inputs); err != nil {
@@ -85,7 +89,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	var report operations.Report[any, any]
 	switch input.Template {
 	// This will hold all standard capabilities jobs as we add support for them.
-	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract:
+	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract, job_types.Solana:
 		// Only consensus generates an oracle factory, for now...
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName, input.Template == job_types.Consensus)
 		if err != nil {
