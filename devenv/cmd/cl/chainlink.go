@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -201,27 +202,14 @@ var obsRestartCmd = &cobra.Command{
 }
 
 var testCmd = &cobra.Command{
-	Use:     "test",
-	Aliases: []string{"t"},
-	Short:   "Run the tests",
+	Use:   "ocr2:test",
+	Short: "Run the OCR2 tests",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return errors.New("specify the test suite: soak, gas or chaos")
+			return errors.New("specify the 'go test -run' filter, ex.: $TestName/$subtest")
 		}
-		var testPattern string
-		switch args[0] {
-		case "soak":
-			testPattern = "TestLoad/clean"
-		case "gas":
-			testPattern = "TestLoad/gas_spikes"
-		case "chaos":
-			testPattern = "TestLoad/chaos"
-		default:
-			return fmt.Errorf("test suite %s is unknown, choose between smoke or load", args[0])
-		}
-
-		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", testPattern, "./...")
-		testCmd.Dir = "./tests"
+		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", args[0]) //nolint:gosec //nothing else can run here except tests
+		testCmd.Dir = filepath.Join("tests", "ocr2")
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr
 		testCmd.Stdin = os.Stdin

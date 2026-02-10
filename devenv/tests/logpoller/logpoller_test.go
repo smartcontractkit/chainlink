@@ -399,7 +399,9 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 		// ignore error, we will see failures in the logs anyway
 		cl, err := clclient.New(lpTestEnv.nodes.Out.CLNodes)
 		require.NoError(t, err, "failed to create chainlink clients")
-		_ = products.ReturnFundsFromNodes(l, chainClient, cl)
+		if in.Blockchains[0].ChainID != "1337" {
+			_ = products.ReturnFundsFromNodes(l, chainClient, cl)
+		}
 	})
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
@@ -559,7 +561,9 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	t.Cleanup(func() {
 		// ignore error, we will see failures in the logs anyway
-		_ = products.ReturnFundsFromNodes(l, chainClient, cl)
+		if in.Blockchains[0].ChainID != "1337" {
+			_ = products.ReturnFundsFromNodes(l, chainClient, cl)
+		}
 	})
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs

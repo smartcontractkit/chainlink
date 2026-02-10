@@ -225,7 +225,7 @@ var defaultAllowedMessages = []AllowedLogMessage{
 	),
 }
 
-var defaulSettings = ChainlinkNodeLogScannerSettings{
+var defaultSettings = ChainlinkNodeLogScannerSettings{
 	FailingLogLevel: zapcore.DPanicLevel,
 	Threshold:       1, // we want to fail on the first concerning log
 	AllowedMessages: defaultAllowedMessages,
@@ -235,8 +235,8 @@ func DefaultSettings(extraAllowedMessages ...AllowedLogMessage) ChainlinkNodeLog
 	allowedMessages := append([]AllowedLogMessage{}, defaultAllowedMessages...)
 	allowedMessages = append(allowedMessages, extraAllowedMessages...)
 	return ChainlinkNodeLogScannerSettings{
-		FailingLogLevel: defaulSettings.FailingLogLevel,
-		Threshold:       defaulSettings.Threshold,
+		FailingLogLevel: defaultSettings.FailingLogLevel,
+		Threshold:       defaultSettings.Threshold,
 		AllowedMessages: allowedMessages,
 	}
 }

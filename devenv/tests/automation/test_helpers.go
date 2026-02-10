@@ -375,12 +375,12 @@ func (a *Test) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash, maxC
 		return nil, fmt.Errorf("failed to confirm all upkeeps. Expected %d, got %d", len(registrationTxHashes), len(results))
 	}
 
-	seen := make(map[*big.Int]bool)
+	seen := make(map[string]bool)
 	for _, upkeepID := range results {
-		if seen[upkeepID] {
+		if seen[upkeepID.String()] {
 			return nil, fmt.Errorf("duplicate upkeep id: %s. Something went wrong during upkeep confirmation. Please check the test code", upkeepID.String())
 		}
-		seen[upkeepID] = true
+		seen[upkeepID.String()] = true
 	}
 
 	a.Logger.Info().Msg("Successfully confirmed all upkeeps")

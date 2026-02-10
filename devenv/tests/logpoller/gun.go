@@ -14,19 +14,19 @@ import (
 
 /* LogEmitterGun is a gun that constantly emits logs from a contract  */
 type LogEmitterGun struct {
-	contract     *contracts.LogEmitter
+	contract     contracts.LogEmitter
 	eventsToEmit []abi.Event
 	logger       zerolog.Logger
 	eventsPerTx  int
 }
 
 type Counter struct {
-	mu    *sync.Mutex
+	mu    sync.Mutex
 	value int
 }
 
 func NewLogEmitterGun(
-	contract *contracts.LogEmitter,
+	contract contracts.LogEmitter,
 	eventsToEmit []abi.Event,
 	eventsPerTx int,
 	logger zerolog.Logger,
@@ -41,7 +41,7 @@ func NewLogEmitterGun(
 
 func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.Response {
 	localCounter := 0
-	logEmitter := (*m.contract)
+	logEmitter := m.contract
 	address := logEmitter.Address()
 	for _, event := range m.eventsToEmit {
 		m.logger.Debug().Str("Emitter address", address.String()).Str("Event type", event.Name).Msg("Emitting log from emitter")

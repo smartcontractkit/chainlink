@@ -153,12 +153,12 @@ type ExpectedFilter struct {
 }
 
 // getExpectedFilters returns a slice of ExpectedFilter structs based on the provided log emitters and config
-func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []ExpectedFilter {
+func getExpectedFilters(logEmitters []contracts.LogEmitter, cfg *Config) []ExpectedFilter {
 	expectedFilters := make([]ExpectedFilter, 0)
 	for _, emitter := range logEmitters {
 		for _, event := range cfg.General.EventsToEmit {
 			expectedFilters = append(expectedFilters, ExpectedFilter{
-				emitterAddress: (*emitter).Address(),
+				emitterAddress: emitter.Address(),
 				topic:          event.ID,
 			})
 		}
@@ -482,7 +482,7 @@ func missingLogs(
 				logs := make([]logpoller.Log, 0)
 
 				for j := range testEnv.logEmitters {
-					address := (*testEnv.logEmitters[j]).Address()
+					address := testEnv.logEmitters[j].Address()
 
 					for _, event := range cfg.General.EventsToEmit {
 						l.Trace().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching single emitter's logs")
@@ -674,10 +674,10 @@ func printMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Log
 
 // getEVMLogs returns a slice of all logs emitted by the provided log emitters in the provided block range,
 // which are present in the EVM node to which the provided evm client is connected
-func getEVMLogs(ctx context.Context, startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, client *seth.Client, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
+func getEVMLogs(ctx context.Context, startBlock, endBlock int64, logEmitters []contracts.LogEmitter, client *seth.Client, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
 	for j := range logEmitters {
-		address := (*logEmitters[j]).Address()
+		address := logEmitters[j].Address()
 		for _, event := range cfg.General.EventsToEmit {
 			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching logs from EVM node")
 			logsInEVMNode, err := client.Client.FilterLogs(ctx, geth.FilterQuery{
@@ -705,7 +705,7 @@ func getEVMLogs(ctx context.Context, startBlock, endBlock int64, logEmitters []*
 }
 
 // executeGenerator executes the configured generator and returns the total number of logs emitted
-func executeGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
+func executeGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitters []contracts.LogEmitter) (int, error) {
 	if cfg.General.Generator == GeneratorType_WASP {
 		return runWaspGenerator(t, cfg, logEmitters)
 	}
@@ -714,7 +714,7 @@ func executeGenerator(t *testing.T, cfg *Config, client *seth.Client, logEmitter
 }
 
 // runWaspGenerator runs the wasp generator and returns the total number of logs emitted
-func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
+func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []contracts.LogEmitter) (int, error) {
 	l := framework.L
 
 	var RPSprime int64
@@ -734,7 +734,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 	}
 
 	counter := &Counter{
-		mu:    &sync.Mutex{},
+		mu:    sync.Mutex{},
 		value: 0,
 	}
 
@@ -744,7 +744,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 		g, err := wasp.NewGenerator(&wasp.Config{
 			T:                     t,
 			LoadType:              wasp.RPS,
-			GenName:               "log_poller_gen_" + (*logEmitter).Address().String(),
+			GenName:               "log_poller_gen_" + logEmitter.Address().String(),
 			RateLimitUnitDuration: cfg.Wasp.RateLimitUnitDuration,
 			CallTimeout:           cfg.Wasp.CallTimeout,
 			Schedule: wasp.Plain(
@@ -772,7 +772,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 }
 
 type logEmissionTask struct {
-	emitter      *contracts.LogEmitter
+	emitter      contracts.LogEmitter
 	eventsToEmit []abi.Event
 	eventsPerTx  int
 }
@@ -786,7 +786,7 @@ func (d emittedLogsData) GetResult() emittedLogsData {
 }
 
 // runLoopedGenerator runs the looped generator and returns the total number of logs emitted
-func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
+func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []contracts.LogEmitter) (int, error) {
 	l := framework.L
 
 	tasks := make([]logEmissionTask, 0)
@@ -812,20 +812,20 @@ func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []*contrac
 	var emitAllEventsFn = func(resultCh chan emittedLogsData, errorCh chan error, _ int, task logEmissionTask) {
 		current := atomicCounter.Add(1)
 
-		address := (*task.emitter).Address().String()
+		address := task.emitter.Address().String()
 
 		for _, event := range cfg.General.EventsToEmit {
 			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
 			var err error
 			switch event.Name {
 			case "Log1":
-				_, err = client.Decode((*task.emitter).EmitLogIntsFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogIntsFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log2":
-				_, err = client.Decode((*task.emitter).EmitLogIntsIndexedFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogIntsIndexedFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log3":
-				_, err = client.Decode((*task.emitter).EmitLogStringsFromKey(getStringSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogStringsFromKey(getStringSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log4":
-				_, err = client.Decode((*task.emitter).EmitLogIntMultiIndexedFromKey(1, 1, cfg.General.EventsPerTx, client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogIntMultiIndexedFromKey(1, 1, cfg.General.EventsPerTx, client.AnySyncedKey()))
 			default:
 				err = fmt.Errorf("unknown event name: %s", event.Name)
 			}
@@ -1067,11 +1067,11 @@ var (
 )
 
 // uploadLogEmitterContracts uploads the configured number of log emitter contracts
-func uploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Client, config *Config) []*contracts.LogEmitter {
-	logEmitters := make([]*contracts.LogEmitter, 0)
+func uploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Client, config *Config) []contracts.LogEmitter {
+	logEmitters := make([]contracts.LogEmitter, 0)
 	for i := 0; i < config.General.Contracts; i++ {
 		logEmitter, err := contracts.DeployLogEmitterContract(l, client)
-		logEmitters = append(logEmitters, &logEmitter)
+		logEmitters = append(logEmitters, logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
 		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
 		time.Sleep(200 * time.Millisecond)
@@ -1094,10 +1094,10 @@ func assertUpkeepIDsUniqueness(upkeepIDs []*big.Int) error {
 }
 
 // assertContractAddressUniquneness asserts that the provided contract addresses are unique
-func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error {
+func assertContractAddressUniquneness(logEmitters []contracts.LogEmitter) error {
 	contractAddressSeen := make(map[string]bool)
 	for _, logEmitter := range logEmitters {
-		address := (*logEmitter).Address().String()
+		address := logEmitter.Address().String()
 		if _, ok := contractAddressSeen[address]; ok {
 			return fmt.Errorf("duplicate contract address %s", address)
 		}
@@ -1109,13 +1109,13 @@ func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error
 
 // registerFiltersAndAssertUniquness registers the configured log filters and asserts that the filters are unique
 // meaning that for each log emitter address and topic there is only one filter
-func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
+func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
 	uniqueFilters := make(map[string]bool)
 
 	upkeepIDIndex := 0
 	for i := range logEmitters {
 		for j := 0; j < len(cfg.General.EventsToEmit); j++ {
-			emitterAddress := (*logEmitters[i]).Address()
+			emitterAddress := logEmitters[i].Address()
 			topicID := cfg.General.EventsToEmit[j].ID
 
 			upkeepID := upkeepIDs[upkeepIDIndex]
@@ -1184,7 +1184,7 @@ type logPollerEnvironment struct {
 
 	config *automation.Automation
 
-	logEmitters   []*contracts.LogEmitter
+	logEmitters   []contracts.LogEmitter
 	upkeepIDs     []*big.Int
 	upKeepsNeeded int
 

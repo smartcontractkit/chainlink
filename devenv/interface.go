@@ -14,7 +14,7 @@ type Product interface {
 	// Load describes how to load your product-specific config
 	Load() error
 
-	// Store describes how to store your product-speicifc config output
+	// Store describes how to store your product-specific config output
 	// The output may include URLs to you services, CLDF contracts addresses and more
 	Store(path string, instanceIdx int) error
 
@@ -38,7 +38,7 @@ type Product interface {
 
 	// ConfigureJobsAndContracts describe how to configure jobs and contracts
 	// specifically to your product deployed on multiple blockchains and nodesets
-	// Configuration may be called multiple times if "instances" key is specificed in "env.toml"
+	// Configuration may be called multiple times if "instances" key is specified in "env.toml"
 	// the implementation should be aware of it and be able to configure multiple instances of the product
 	ConfigureJobsAndContracts(
 		ctx context.Context,
