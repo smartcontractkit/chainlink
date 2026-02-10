@@ -48,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
@@ -235,7 +236,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
-	creOpts := chainlink.CREOpts{
+	creOpts := cre.Opts{
 		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
@@ -245,7 +246,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts:                  creOpts,
+		Opts:                     creOpts,
 		Config:                   cfg,
 		DS:                       ds,
 		KeyStore:                 keyStore,
