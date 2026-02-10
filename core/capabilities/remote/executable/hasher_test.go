@@ -49,13 +49,14 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	nilReqSol := &solcappb.WriteReportRequest{Report: nil}
 	nilPb, err := anypb.New(nilReq)
 	require.NoError(t, err)
-	nilPbSol, err := anypb.New(nilReqSol)
+	nilPbSol, err2 := anypb.New(nilReqSol)
 	capReq := capabilities.CapabilityRequest{Payload: nilPb}
-	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
-	require.NoError(t, err)
+	require.NoError(t, err2)
+	capReqBytes, err3 := pb.MarshalCapabilityRequest(capReq)
+	require.NoError(t, err3)
 	capReqSol := capabilities.CapabilityRequest{Payload: nilPbSol}
-	capReqBytesSol, err := pb.MarshalCapabilityRequest(capReqSol)
-	require.NoError(t, err)
+	capReqBytesSol, err4 := pb.MarshalCapabilityRequest(capReqSol)
+	require.NoError(t, err4)
 
 	msgBodies := []*types.MessageBody{{Payload: capReqBytes, CapabilityId: "evm:123"}, {Payload: capReqBytesSol, CapabilityId: "solana:123"}}
 	for _, msgBody := range msgBodies {
