@@ -3,13 +3,13 @@ package capregconfig
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"slices"
 	"sync"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -55,7 +55,7 @@ type cachedConfig struct {
 	ContractConfig ocrtypes.ContractConfig
 }
 
-func New(lggr logger.Logger, peerIDProviderFn PeerIDProvider, chainID uint64, registryAddress string) *ocrConfigService {
+func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, chainID uint64, registryAddress string) *ocrConfigService {
 	namedLggr := logger.Named(lggr, "OCRConfigService")
 
 	metrics, err := InitMetrics()
@@ -233,8 +233,8 @@ func (s *ocrConfigService) parseOCR3Config(
 
 	transmitters := make([]ocrtypes.Account, len(cfg.Transmitters))
 	for i, transmitter := range cfg.Transmitters {
-		// Accounts are hex strings
-		transmitters[i] = ocrtypes.Account(hex.EncodeToString(transmitter))
+		// Accounts have to be checksummed hex strings with a "0x" prefix, to match the format expected by libocr.
+		transmitters[i] = ocrtypes.Account(gethCommon.BytesToAddress(transmitter).Hex())
 	}
 
 	digest, err := computeConfigDigest(s.chainID, s.registryAddress, capabilityID, donID, ocrConfigKey, cfg)
@@ -326,6 +326,12 @@ func (t *dynamicConfigTracker) Notify() <-chan struct{} {
 func (t *dynamicConfigTracker) LatestConfigDetails(ctx context.Context) (uint64, ocrtypes.ConfigDigest, error) {
 	cfg, ok := t.service.getConfig(t.capabilityID, t.ocrConfigKey)
 	if ok {
+		t.lggr.Debugw("LatestConfigDetails config found in registry",
+			"capabilityID", t.capabilityID,
+			"ocrConfigKey", t.ocrConfigKey,
+			"digest", cfg.ContractConfig.ConfigDigest.Hex(),
+			"configCount", cfg.ContractConfig.ConfigCount,
+		)
 		t.service.metrics.SetTrackerLegacyFallback(ctx, t.capabilityID, t.ocrConfigKey, false)
 		return cfg.ContractConfig.ConfigCount, cfg.ContractConfig.ConfigDigest, nil
 	}
@@ -333,10 +339,12 @@ func (t *dynamicConfigTracker) LatestConfigDetails(ctx context.Context) (uint64,
 	// Only fall back to legacy if we've received at least one registry update
 	// and confirmed there's no config for this capability/key.
 	if t.legacyTracker != nil && t.service.hasRefreshedRegistry() {
+		t.lggr.Debugw("LatestConfigDetails falling back to legacy", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey)
 		t.service.metrics.SetTrackerLegacyFallback(ctx, t.capabilityID, t.ocrConfigKey, true)
 		return t.legacyTracker.LatestConfigDetails(ctx)
 	}
 
+	t.lggr.Debugw("LatestConfigDetails no config available", "capabilityID", t.capabilityID, "ocrConfigKey", t.ocrConfigKey)
 	return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("no config available for %s/%s", t.capabilityID, t.ocrConfigKey)
 }
 

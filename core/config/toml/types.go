@@ -2512,6 +2512,30 @@ type Capabilities struct {
 	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
 	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
 	GatewayConnector GatewayConnector         `toml:",omitempty"`
+	Local            LocalCapabilities        `toml:",omitempty"`
+}
+
+// LocalCapabilities configures registry-based capability launching.
+// Capabilities in RegistryBasedLaunchAllowlist are started from the on-chain registry
+// instead of via job specs.
+type LocalCapabilities struct {
+	// RegistryBasedLaunchAllowlist contains regex patterns that match capability IDs to be
+	// launched from the capabilities registry instead of via job specs.
+	// Examples (regex patterns):
+	//   - "^cron@1\.0\.0$" matches exactly "cron@1.0.0"
+	//   - "^http-action@.*$" matches any version of http-action
+	//   - ".*" matches all capabilities
+	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
+	// Capabilities contains per-capability node configuration, keyed by capability ID.
+	Capabilities map[string]CapabilityNodeConfig `toml:",omitempty"`
+}
+
+// CapabilityNodeConfig contains node-specific configuration for a capability.
+type CapabilityNodeConfig struct {
+	// BinaryPathOverride overrides the default binary path for a LOOP capability.
+	BinaryPathOverride *string `toml:",omitempty"`
+	// Config contains capability-specific configuration as key-value pairs.
+	Config map[string]string `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
@@ -2522,6 +2546,68 @@ func (c *Capabilities) setFrom(f *Capabilities) {
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)
 	c.GatewayConnector.setFrom(&f.GatewayConnector)
+	c.Local.setFrom(&f.Local)
+}
+
+func (l *LocalCapabilities) setFrom(f *LocalCapabilities) {
+	if f.RegistryBasedLaunchAllowlist != nil {
+		l.RegistryBasedLaunchAllowlist = f.RegistryBasedLaunchAllowlist
+	}
+	if f.Capabilities != nil {
+		if l.Capabilities == nil {
+			l.Capabilities = make(map[string]CapabilityNodeConfig)
+		}
+		for k, v := range f.Capabilities {
+			existing := l.Capabilities[k]
+			existing.setFrom(&v)
+			l.Capabilities[k] = existing
+		}
+	}
+}
+
+func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
+	if f.BinaryPathOverride != nil {
+		c.BinaryPathOverride = f.BinaryPathOverride
+	}
+	if f.Config != nil {
+		if c.Config == nil {
+			c.Config = make(map[string]string)
+		}
+		for k, v := range f.Config {
+			c.Config[k] = v
+		}
+	}
+}
+
+// capabilityIDRegex matches capability IDs in the format "name@version" where:
+// - name: lowercase letters, numbers, and hyphens (e.g., "http-action", "cron")
+// - version: semantic version (e.g., "1.0.0", "1.0.0-alpha")
+var capabilityIDRegex = regexp.MustCompile(`^[a-z][a-z0-9-]*@[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$`)
+
+// ValidateCapabilityID validates that a capability ID matches the expected format "name@version".
+func ValidateCapabilityID(capID string) error {
+	if !capabilityIDRegex.MatchString(capID) {
+		return configutils.ErrInvalid{
+			Name:  "CapabilityID",
+			Value: capID,
+			Msg:   "must be in format 'name@version' (e.g., 'http-action@1.0.0')",
+		}
+	}
+	return nil
+}
+
+func (l *LocalCapabilities) ValidateConfig() (err error) {
+	for _, pattern := range l.RegistryBasedLaunchAllowlist {
+		if _, regexErr := regexp.Compile(pattern); regexErr != nil {
+			err = errors.Join(err, fmt.Errorf("Capabilities.Local.RegistryBasedLaunchAllowlist: invalid regex pattern %q: %w", pattern, regexErr))
+		}
+	}
+	for capID := range l.Capabilities {
+		if capErr := ValidateCapabilityID(capID); capErr != nil {
+			err = errors.Join(err, fmt.Errorf("Capabilities.Local.Capabilities: %w", capErr))
+		}
+	}
+	return err
 }
 
 type ThresholdKeyShareSecrets struct {

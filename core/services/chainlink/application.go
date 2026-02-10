@@ -1010,9 +1010,12 @@ func newCREServices(
 		if !ok {
 			return nil, fmt.Errorf("failed to parse gateway connector chain ID as integer: %s", capCfg.GatewayConnector().ChainIDForNodeKey())
 		}
+		ethKeystore := keyStore.Eth()
 		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
 			capCfg.GatewayConnector(),
-			keys.NewStore(keystore.NewEthSigner(keyStore.Eth(), chainID)),
+			keys.NewStore(keystore.NewEthSigner(ethKeystore, chainID)),
+			ethKeystore,
+			chainID,
 			clockwork.NewRealClock(),
 			globalLogger)
 		srvcs = append(srvcs, gatewayConnectorWrapper)
@@ -1148,7 +1151,7 @@ func newCREServices(
 			if parseErr != nil {
 				return nil, fmt.Errorf("failed to parse registry chain ID for OCRConfigService: %w", parseErr)
 			}
-			ocrConfigServiceImpl := capregconfig.New(
+			ocrConfigServiceImpl := capregconfig.NewOCRConfigService(
 				globalLogger,
 				func() ragetypes.PeerID { return don2donSharedPeer.ID() },
 				registryChainID,

@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -78,8 +79,8 @@ const (
 // WARNING: Hacky and brittle - used only during migration to map job specs to capability IDs
 // before executing the LOOPP. When std cap job specs are deprecated, capability IDs will be known upfront.
 func getCapabilityID(command string, config string) string {
-	switch command {
-	case "/usr/local/bin/evm":
+	switch filepath.Base(command) {
+	case "evm":
 		var cfg struct {
 			ChainID uint64 `json:"chainId"`
 		}
@@ -92,7 +93,7 @@ func getCapabilityID(command string, config string) string {
 		}
 		return "evm:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
 	case "consensus":
-		return "consensus@1.0.0"
+		return "consensus@1.0.0-alpha"
 	default:
 		return ""
 	}

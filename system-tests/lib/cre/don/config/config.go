@@ -578,16 +578,10 @@ func addGatewayNodeConfig(
 		}
 	}
 
-	// TODO: remove once gateway connector is not required by workflow registry syncer
-	evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
-	if !ok {
-		return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
-	}
 	if len(existingConfig.Capabilities.GatewayConnector.Gateways) == 0 {
 		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
 			DonID:             ptr.Ptr("doesn't-matter-for-gateway-node"),
 			ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
 		}
 	}
 
