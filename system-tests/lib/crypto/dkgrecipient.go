@@ -3,7 +3,7 @@ package crypto
 import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

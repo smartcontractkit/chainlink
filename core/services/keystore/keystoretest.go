@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/models"
+	"github.com/smartcontractkit/chainlink-common/keystore/scrypt"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -16,7 +18,7 @@ import (
 // Note: we store `q` on the struct since `saveEncryptedKeyRing` needs
 // to support DB callbacks.
 type memoryORM struct {
-	keyRing *encryptedKeyRing
+	keyRing *models.EncryptedKeyRing
 	ds      sqlutil.DataSource
 	mu      sync.RWMutex
 }
@@ -25,7 +27,7 @@ func (o *memoryORM) isEmpty(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (o *memoryORM) saveEncryptedKeyRing(ctx context.Context, kr *encryptedKeyRing, callbacks ...func(sqlutil.DataSource) error) (err error) {
+func (o *memoryORM) saveEncryptedKeyRing(ctx context.Context, kr *models.EncryptedKeyRing, callbacks ...func(sqlutil.DataSource) error) (err error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.keyRing = kr
@@ -35,11 +37,11 @@ func (o *memoryORM) saveEncryptedKeyRing(ctx context.Context, kr *encryptedKeyRi
 	return
 }
 
-func (o *memoryORM) getEncryptedKeyRing(ctx context.Context) (encryptedKeyRing, error) {
+func (o *memoryORM) getEncryptedKeyRing(ctx context.Context) (models.EncryptedKeyRing, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	if o.keyRing == nil {
-		return encryptedKeyRing{}, nil
+		return models.EncryptedKeyRing{}, nil
 	}
 	return *o.keyRing, nil
 }
@@ -57,7 +59,7 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, logf Lo
 	km := &keyManager{
 		orm:          memoryORM,
 		keystateORM:  dbORM,
-		scryptParams: scryptParams,
+		scryptParams: scrypt.DefaultScryptParams,
 		lock:         &sync.RWMutex{},
 		announce:     announcer(logf),
 	}

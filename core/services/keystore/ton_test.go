@@ -7,12 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commontestutils "github.com/smartcontractkit/chainlink-common/keystore/corekeys/testutils"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 )
 
 func Test_TONKeyStore_E2E(t *testing.T) {
@@ -48,7 +49,7 @@ func Test_TONKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, key, retrievedKey)
+		commontestutils.RequireEqualKeys(t, key, retrievedKey)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
@@ -73,7 +74,7 @@ func Test_TONKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, importedKey, retrievedKey)
+		commontestutils.RequireEqualKeys(t, importedKey, retrievedKey)
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {

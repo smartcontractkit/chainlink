@@ -25,6 +25,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -40,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	beholderServices "github.com/smartcontractkit/chainlink/v2/core/services/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
@@ -430,30 +430,30 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.OCR2().Enabled() {
-		var enabledChains []chaintype.ChainType
+		var enabledChains []types.ChainType
 		if s.Config.EVMEnabled() {
-			enabledChains = append(enabledChains, chaintype.EVM)
+			enabledChains = append(enabledChains, types.EVM)
 		}
 		if s.Config.CosmosEnabled() {
-			enabledChains = append(enabledChains, chaintype.Cosmos)
+			enabledChains = append(enabledChains, types.Cosmos)
 		}
 		if s.Config.SolanaEnabled() {
-			enabledChains = append(enabledChains, chaintype.Solana)
+			enabledChains = append(enabledChains, types.Solana)
 		}
 		if s.Config.StarkNetEnabled() {
-			enabledChains = append(enabledChains, chaintype.StarkNet)
+			enabledChains = append(enabledChains, types.StarkNet)
 		}
 		if s.Config.AptosEnabled() {
-			enabledChains = append(enabledChains, chaintype.Aptos)
+			enabledChains = append(enabledChains, types.Aptos)
 		}
 		if s.Config.TronEnabled() {
-			enabledChains = append(enabledChains, chaintype.Tron)
+			enabledChains = append(enabledChains, types.Tron)
 		}
 		if s.Config.TONEnabled() {
-			enabledChains = append(enabledChains, chaintype.TON)
+			enabledChains = append(enabledChains, types.TON)
 		}
 		if s.Config.SuiEnabled() {
-			enabledChains = append(enabledChains, chaintype.Sui)
+			enabledChains = append(enabledChains, types.Sui)
 		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {

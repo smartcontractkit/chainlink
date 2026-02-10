@@ -46,11 +46,11 @@ import (
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	writertestutils "github.com/smartcontractkit/chainlink-evm/pkg/writer/testutils"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
 

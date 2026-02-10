@@ -2,6 +2,8 @@ package utils
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+
+	"github.com/smartcontractkit/chainlink-common/keystore/scrypt"
 )
 
 const (
@@ -31,9 +33,9 @@ var DefaultScryptParams = ScryptParams{N: keystore.StandardScryptN, P: keystore.
 var FastScryptParams = ScryptParams{N: FastN, P: FastP}
 
 // GetScryptParams fetches ScryptParams from a ScryptConfigReader
-func GetScryptParams(config ScryptConfigReader) ScryptParams {
+func GetScryptParams(config ScryptConfigReader) scrypt.ScryptParams {
 	if config.InsecureFastScrypt() {
-		return FastScryptParams
+		return scrypt.FastScryptParams
 	}
-	return DefaultScryptParams
+	return scrypt.DefaultScryptParams
 }

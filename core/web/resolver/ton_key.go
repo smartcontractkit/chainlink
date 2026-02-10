@@ -3,7 +3,7 @@ package resolver
 import (
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 )
 
 type TONKeyResolver struct {

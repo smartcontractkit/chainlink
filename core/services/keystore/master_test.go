@@ -6,10 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestMasterKeystore_Unlock_Save(t *testing.T) {
@@ -27,7 +25,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 
 	t.Run("can be unlocked more than once, as long as the passwords match", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
@@ -36,7 +34,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 
 	t.Run("saves an empty keyRing", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 		cltest.AssertCount(t, db, tableName, 1)
 		require.NoError(t, keyStore.ExportedSave(ctx))
@@ -45,7 +43,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 
 	t.Run("won't load a saved keyRing if the password is incorrect", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 		cltest.MustInsertRandomKey(t, keyStore.Eth()) // need at least 1 key to encrypt
 		cltest.AssertCount(t, db, tableName, 1)
@@ -57,7 +55,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 
 	t.Run("loads a saved keyRing if the password is correct", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 		require.NoError(t, keyStore.ExportedSave(ctx))
 		keyStore.ResetXXXTestOnly()
@@ -65,12 +63,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 	})
 }
 
-func requireEqualKeys(t *testing.T, a, b interface {
-	ID() string
-	Raw() internal.Raw
-}) {
-	t.Helper()
-	require.Equal(t, a.ID(), b.ID(), "ids be equal")
-	require.Equal(t, a.Raw(), b.Raw(), "raw bytes must be equal")
-	require.EqualExportedValues(t, a, b)
-}
+//func commontestutils.RequireEqualKeys(t *testing.T, a, b interface {
+//}) {
+//	testutils.RequireEqualKeys(t, a, b)
+//}

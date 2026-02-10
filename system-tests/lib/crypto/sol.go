@@ -5,7 +5,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
