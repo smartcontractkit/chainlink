@@ -18,12 +18,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/mockjd"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
+const MockJDImage = "mock"
+
 type StartedJD struct {
-	JDOutput *jd.Output
-	Client   *cldf_jd.JobDistributor
+	JDOutput   *jd.Output
+	Client     *cldf_jd.JobDistributor
+	MockServer *mockjd.Server
 }
 
 // getJDCredentials determines the appropriate gRPC credentials for JD connection
@@ -61,8 +65,25 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 
 	var jdOutput *jd.Output
 	var jdErr error
+	var mockServer *mockjd.Server
 
-	if infraInput.Type == infra.CRIB {
+	if jdInput.Image == MockJDImage {
+		lggr.Info().Msg("Using mock Job Distributor (in-process)")
+		mockServer, jdErr = mockjd.NewServer(jdInput.CSAEncryptionKey)
+		if jdErr != nil {
+			return nil, pkgerrors.Wrap(jdErr, "failed to create mock JD server")
+		}
+		if err := mockServer.Start(); err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to start mock JD server")
+		}
+		addr := mockServer.Addr()
+		jdOutput = &jd.Output{
+			UseCache:         false,
+			ExternalGRPCUrl:  addr,
+			InternalGRPCUrl:  addr,
+			InternalWSRPCUrl: addr,
+		}
+	} else if infraInput.Type == infra.CRIB {
 		deployCribJdInput := &crib.DeployCribJdInput{
 			JDInput:        jdInput,
 			CribConfigsDir: infra.CribConfigsDir,
@@ -74,7 +95,6 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
 		}
 	} else if infraInput.IsKubernetes() {
-		// For Kubernetes, JD is already running in the cluster, generate service URLs
 		lggr.Info().Msg("Generating Kubernetes service URLs for Job Distributor (already running in cluster)")
 		jdOutput, jdErr = infra.GenerateKubernetesJDOutput(&infraInput, lggr)
 		if jdErr != nil {
@@ -82,13 +102,11 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 		}
 	}
 
-	// Only start JD container for Docker provider
 	if jdOutput == nil {
 		jdOutput, jdErr = jd.NewWithContext(ctx, &jdInput)
 		if jdErr != nil {
 			jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
 
-			// useful end user messages
 			if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
 				jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
 			}
@@ -99,7 +117,6 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 		}
 	}
 
-	// Configure gRPC credentials for JD connection
 	creds := getJDCredentials(lggr, infraInput, jdOutput)
 
 	jdConfig := cldf_jd.JDConfig{
@@ -112,13 +129,17 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 
 	jdClient, jdErr := cldf_jd.NewJDClient(jdConfig)
 	if jdErr != nil {
+		if mockServer != nil {
+			mockServer.Stop()
+		}
 		return nil, pkgerrors.Wrap(jdErr, "failed to create JD client")
 	}
 
 	lggr.Info().Msgf("Job Distributor started in %.2f seconds", time.Since(startTime).Seconds())
 
 	return &StartedJD{
-		JDOutput: jdOutput,
-		Client:   jdClient,
+		JDOutput:   jdOutput,
+		Client:     jdClient,
+		MockServer: mockServer,
 	}, nil
 }

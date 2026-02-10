@@ -241,13 +241,6 @@ func startCmd() *cobra.Command {
 				StartCmdRecoverHandlerFunc(recover(), cleanupOnFailure, cleanupWait)
 			}()
 
-			if doSetup {
-				setupErr := RunSetup(cmd.Context(), SetupConfig{ConfigPath: DefaultSetupConfigPath}, true, false, withBilling, relativePathToRepoRoot)
-				if setupErr != nil {
-					return errors.Wrap(setupErr, "failed to run setup")
-				}
-			}
-
 			PrintCRELogo()
 
 			if err := setDefaultCtfConfigs(); err != nil {
@@ -270,6 +263,14 @@ func startCmd() *cobra.Command {
 
 			if err := in.Load(os.Getenv("CTF_CONFIGS")); err != nil {
 				return errors.Wrap(err, "failed to load environment configuration")
+			}
+
+			if doSetup {
+				skipJD := in.JD != nil && in.JD.Image == creenv.MockJDImage
+				setupErr := RunSetup(cmd.Context(), SetupConfig{ConfigPath: DefaultSetupConfigPath}, true, false, withBilling, skipJD, relativePathToRepoRoot)
+				if setupErr != nil {
+					return errors.Wrap(setupErr, "failed to run setup")
+				}
 			}
 
 			// Skip Docker operations for Kubernetes provider (Docker not needed)
@@ -893,7 +894,7 @@ func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *env
 		}
 	}
 
-	if in.JD != nil {
+	if in.JD != nil && in.JD.Image != creenv.MockJDImage {
 		if err := ensureDockerImageExists(ctx, logger, in.JD.Image); err != nil {
 			return errors.Wrapf(err, "Job Distributor image '%s' not found. Make sure it exists locally or run 'go run . env setup' to pull it and other dependencies that also might be missing", in.JD.Image)
 		}

@@ -27,18 +27,18 @@ pre_run = "pushd chip-ingress && go mod vendor && popd"
 local_image = "chip-ingress:local-cre"
 ecr_image = "{{.ECR}}/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
 
-[chip_config.build_config]
-repository = "https://github.com/smartcontractkit/atlas"
-branch = "master"
-commit = "7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
-dockerfile = "chip-config/Dockerfile"
-docker_ctx = "chip-config"
-local_image = "chip-config:local-cre"
-pre_run = "pushd chip-config && go mod vendor && popd"
+#[chip_config.build_config]
+#repository = "https://github.com/smartcontractkit/atlas"
+#branch = "master"
+#commit = "7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
+#dockerfile = "chip-config/Dockerfile"
+#docker_ctx = "chip-config"
+#local_image = "chip-config:local-cre"
+#pre_run = "pushd chip-config && go mod vendor && popd"
 
-[chip_config.pull_config]
-local_image = "chip-config:local-cre"
-ecr_image = "{{.ECR}}/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
+#[chip_config.pull_config]
+#local_image = "chip-config:local-cre"
+#ecr_image = "{{.ECR}}/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
 
 [billing_platform_service.build_config]
 repository = "https://github.com/smartcontractkit/billing-platform-service"

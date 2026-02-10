@@ -37,6 +37,7 @@ func init() {
 		noPrompt    bool
 		purge       bool
 		withBilling bool
+		skipJD      bool
 	)
 
 	SetupCmd = &cobra.Command{
@@ -44,7 +45,7 @@ func init() {
 		Short: "Setup the CRE environment prerequisites",
 		Long:  `Checks and sets up prerequisites for the CRE environment including Docker, AWS, Job Distributor, and CRE CLI`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunSetup(cmd.Context(), config, noPrompt, purge, withBilling, relativePathToRepoRoot)
+			return RunSetup(cmd.Context(), config, noPrompt, purge, withBilling, skipJD, relativePathToRepoRoot)
 		},
 	}
 
@@ -52,6 +53,7 @@ func init() {
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
 	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
+	SetupCmd.Flags().BoolVar(&skipJD, "skip-jd", false, "Skip Job Distributor image setup (use with mock JD)")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
 
@@ -394,7 +396,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 }
 
 // RunSetup performs the setup for the CRE environment
-func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBilling bool, relativePathToRepoRoot string) (setupErr error) {
+func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBilling, skipJD bool, relativePathToRepoRoot string) (setupErr error) {
 	logger := framework.L
 	var localDXTracker tracking.Tracker
 	localDXTracker = &tracking.NoOpTracker{}
@@ -489,15 +491,22 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
-	jdConfig := ImageConfig{
-		BuildConfig: cfg.JobDistributor.BuildConfig,
-		PullConfig:  cfg.JobDistributor.PullConfig,
-	}
+	var jdLocalImage string
+	if skipJD {
+		logger.Info().Msg("Skipping Job Distributor image setup (--skip-jd flag or mock mode)")
+		jdLocalImage = "mock (skipped)"
+	} else {
+		jdConfig := ImageConfig{
+			BuildConfig: cfg.JobDistributor.BuildConfig,
+			PullConfig:  cfg.JobDistributor.PullConfig,
+		}
 
-	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
-	if jdErr != nil {
-		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
-		return
+		var jdErr error
+		jdLocalImage, jdErr = jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		if jdErr != nil {
+			setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
+			return
+		}
 	}
 
 	var chipIngressLocalImage string
