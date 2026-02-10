@@ -444,6 +444,7 @@ flowchart LR
 	chainlink/deployment --> chainlink-sui/deployment
 	chainlink/deployment --> chainlink-ton/deployment
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
+	chainlink/devenv --> chainlink-automation
 	chainlink/devenv --> chainlink-evm
 	chainlink/devenv --> chainlink-protos/job-distributor
 	chainlink/devenv --> chainlink-testing-framework/framework/components/fake
