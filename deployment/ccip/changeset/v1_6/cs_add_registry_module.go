@@ -8,15 +8,14 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 )
 
 var _ cldf.ChangeSet[AddRegistryModuleConfig] = AddRegistryModuleChangeset
 
 type AddRegistryModuleConfig struct {
-	ChainSelectors     []uint64       // which chains to add registry modules on
-	RegistryModuleAddr common.Address // address of the registry module to add (if same across chains)
-	// Optional: map of chain selector to registry module address if different per chain
-	RegistryModuleAddrs map[uint64]common.Address
+	ChainSelectors      []uint64         // which chains to add registry modules on
+	RegistryModuleAddrs []common.Address // addresses of the registry modules to add (must match length of ChainSelectors)
 }
 
 func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
@@ -24,14 +23,12 @@ func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("no chain selectors provided")
 	}
 
-	// Either use single address or per-chain addresses, not both
-	if (c.RegistryModuleAddr != common.Address{}) && len(c.RegistryModuleAddrs) > 0 {
-		return fmt.Errorf("cannot specify both single registry module address and per-chain addresses")
+	if len(c.RegistryModuleAddrs) == 0 {
+		return fmt.Errorf("no registry module addresses provided")
 	}
 
-	// Must specify at least one way to get the address
-	if (c.RegistryModuleAddr == common.Address{}) && len(c.RegistryModuleAddrs) == 0 {
-		return fmt.Errorf("must specify registry module address(es)")
+	if len(c.ChainSelectors) != len(c.RegistryModuleAddrs) {
+		return fmt.Errorf("chain selectors and registry module addresses must have the same length")
 	}
 
 	for _, chainSel := range c.ChainSelectors {
@@ -42,12 +39,11 @@ func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 		if _, exists := e.BlockChains.EVMChains()[chainSel]; !exists {
 			return fmt.Errorf("chain %d not found in environment", chainSel)
 		}
+	}
 
-		// If using per-chain addresses, ensure all chains have an address
-		if len(c.RegistryModuleAddrs) > 0 {
-			if _, exists := c.RegistryModuleAddrs[chainSel]; !exists {
-				return fmt.Errorf("no registry module address specified for chain %d", chainSel)
-			}
+	for i, addr := range c.RegistryModuleAddrs {
+		if addr == (common.Address{}) {
+			return fmt.Errorf("registry module address at index %d is zero address", i)
 		}
 	}
 
@@ -64,7 +60,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	for _, chainSel := range cfg.ChainSelectors {
+	for i, chainSel := range cfg.ChainSelectors {
 		chain := e.BlockChains.EVMChains()[chainSel]
 		chainState, exists := state.Chains[chainSel]
 
@@ -77,13 +73,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("TokenAdminRegistry not found on chain %d", chainSel)
 		}
 
-		// Get the registry module address for this chain
-		var registryModuleAddr common.Address
-		if len(cfg.RegistryModuleAddrs) > 0 {
-			registryModuleAddr = cfg.RegistryModuleAddrs[chainSel]
-		} else {
-			registryModuleAddr = cfg.RegistryModuleAddr
-		}
+		registryModuleAddr := cfg.RegistryModuleAddrs[i]
 
 		// Check if registry module is already added
 		isAlreadyModule, err := chainState.TokenAdminRegistry.IsRegistryModule(nil, registryModuleAddr)
@@ -92,14 +82,38 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		}
 
 		if isAlreadyModule {
-			e.Logger.Infow("RegistryModule already added to TokenAdminRegistry",
-				"chain", chainSel,
-				"registryModule", registryModuleAddr.Hex())
-			continue
+			// Check if it's a 1.6 registry module
+			is16Module := isRegistryModule16(chainState, registryModuleAddr)
+			if is16Module {
+				e.Logger.Infow("RegistryModule 1.6 already added to TokenAdminRegistry",
+					"chain", chainSel,
+					"registryModule", registryModuleAddr.Hex())
+				continue
+			} else {
+				// It's not a 1.6 module, remove the old one and add the new one
+				e.Logger.Infow("Found non-1.6 RegistryModule, updating to 1.6",
+					"chain", chainSel,
+					"oldRegistryModule", registryModuleAddr.Hex())
+
+				// Remove the old registry module
+				removeTx, err := chainState.TokenAdminRegistry.RemoveRegistryModule(chain.DeployerKey, registryModuleAddr)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove old registry module from TokenAdminRegistry on chain %d: %w", chainSel, err)
+				}
+
+				_, err = chain.Confirm(removeTx)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm registry module removal transaction on chain %d: %w", chainSel, err)
+				}
+
+				e.Logger.Infow("Removed old RegistryModule from TokenAdminRegistry",
+					"chain", chainSel,
+					"registryModule", registryModuleAddr.Hex())
+			}
 		}
 
-		// Add the RegistryModule to TokenAdminRegistry
-		e.Logger.Infow("Adding RegistryModule to TokenAdminRegistry",
+		// Add the RegistryModule to TokenAdminRegistry. Case: no registry module existed OR removed the old one
+		e.Logger.Infow("Adding RegistryModule 1.6 to TokenAdminRegistry",
 			"chain", chainSel,
 			"registryModule", registryModuleAddr.Hex())
 
@@ -113,10 +127,21 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm registry module registration transaction on chain %d: %w", chainSel, err)
 		}
 
-		e.Logger.Infow("Successfully added RegistryModule to TokenAdminRegistry",
+		e.Logger.Infow("Successfully added RegistryModule 1.6 to TokenAdminRegistry",
 			"chain", chainSel,
 			"registryModule", registryModuleAddr.Hex())
 	}
 
 	return cldf.ChangesetOutput{}, nil
+}
+
+// isRegistryModule16 checks if the given registry module address is a 1.6 version
+func isRegistryModule16(chainState evm.CCIPChainState, registryModuleAddr common.Address) bool {
+	// Check if the address exists in the 1.6 registry modules map
+	for _, module16 := range chainState.RegistryModules1_6 {
+		if module16.Address() == registryModuleAddr {
+			return true
+		}
+	}
+	return false
 }
