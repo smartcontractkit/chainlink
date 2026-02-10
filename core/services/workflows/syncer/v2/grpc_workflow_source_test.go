@@ -247,33 +247,6 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 	assert.NotEmpty(t, head.Height)
 }
 
-func TestGRPCWorkflowSource_toWorkflowMetadataView_InvalidOwnerHex(t *testing.T) {
-	source := &GRPCWorkflowSource{name: "test-source"}
-
-	workflow := createTestProtoWorkflow("workflow-1", "family-a")
-	workflow.Owner = "0xzz11223344556677889900"
-
-	_, err := source.toWorkflowMetadataView(workflow)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid owner hex")
-	assert.Contains(t, err.Error(), "expected hex string with optional 0x/0X prefix")
-	assert.Contains(t, err.Error(), "rawLen=")
-	assert.Contains(t, err.Error(), "normalizedLen=")
-	assert.Contains(t, err.Error(), "...")
-}
-
-func TestGRPCWorkflowSource_toWorkflowMetadataView_UnspecifiedStatus(t *testing.T) {
-	source := &GRPCWorkflowSource{name: "test-source"}
-
-	workflow := createTestProtoWorkflow("workflow-1", "family-a")
-	workflow.Status = pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED
-
-	_, err := source.toWorkflowMetadataView(workflow)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unspecified workflow status")
-	assert.Contains(t, err.Error(), hex.EncodeToString(workflow.GetWorkflowId()))
-}
-
 func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()

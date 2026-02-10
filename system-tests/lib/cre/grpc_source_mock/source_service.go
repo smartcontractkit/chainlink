@@ -19,17 +19,6 @@ type SourceService struct {
 	store *WorkflowStore
 }
 
-func toProtoStatus(status WorkflowStatus) sourcesv1.WorkflowStatus {
-	switch status {
-	case WorkflowStatusActive:
-		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_ACTIVE
-	case WorkflowStatusPaused:
-		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_PAUSED
-	default:
-		return sourcesv1.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED
-	}
-}
-
 // NewSourceService creates a new SourceService
 func NewSourceService(store *WorkflowStore) *SourceService {
 	return &SourceService{
@@ -80,15 +69,11 @@ func (s *SourceService) ListWorkflowMetadata(ctx context.Context, req *sourcesv1
 		if wf.CreatedAt >= 0 {
 			createdAt = uint64(wf.CreatedAt) // #nosec G115 -- CreatedAt is always positive timestamp
 		}
-		ownerHex := hex.EncodeToString(wf.Registration.Owner)
-		if ownerHex != "" {
-			ownerHex = "0x" + ownerHex
-		}
 		protoWorkflows = append(protoWorkflows, &sourcesv1.WorkflowMetadata{
 			WorkflowId:   wf.Registration.WorkflowID[:],
-			Owner:        ownerHex,
+			Owner:        hex.EncodeToString(wf.Registration.Owner),
 			CreatedAt:    createdAt,
-			Status:       toProtoStatus(wf.Status),
+			Status:       workflowStatusToProto(wf.Status),
 			WorkflowName: wf.Registration.WorkflowName,
 			BinaryUrl:    wf.Registration.BinaryURL,
 			ConfigUrl:    wf.Registration.ConfigURL,
