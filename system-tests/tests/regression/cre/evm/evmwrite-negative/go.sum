@@ -31,8 +31,8 @@ github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9 h1:QRWXJusIj/IRY5Pl3JclNvDre0cZPd/5NbILwc4RV2M=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9/go.mod h1:jUC52kZzEnWF9tddHh85zolKybmLpbQ1oNA4FjOHt1Q=
-github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18 h1:x8NX+vQzScvg4XbKDA0NF8hfxpruOjR78fag3SxhwOo=
-github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18/go.mod h1:sgiRyHUiPcxp1e/EMnaJ+ddMFL4MbE3UMZ2MORAAS9U=
+github.com/smartcontractkit/cre-sdk-go v1.2.0 h1:CAZkJuku0faMlhK5biRL962DNnCSyMuf6ZCygI+k7RQ=
+github.com/smartcontractkit/cre-sdk-go v1.2.0/go.mod h1:sgiRyHUiPcxp1e/EMnaJ+ddMFL4MbE3UMZ2MORAAS9U=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0 h1:G0w0cLzHy/5m74IzSGz1Ynjffym4ZxLeUrRLp8EFP5w=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0/go.mod h1:VVJ4mvA7wOU1Ic5b/vTaBMHEUysyxd0gdPPXkAu8CmY=
 github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0 h1:g7UrVaNKVEmIhVkJTk4f8raCM8Kp/RTFnAT64wqNmTY=
