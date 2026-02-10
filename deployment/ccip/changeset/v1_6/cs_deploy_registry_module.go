@@ -121,23 +121,6 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 		e.Logger.Infow("Successfully deployed RegistryModuleOwnerCustom 1.6.0",
 			"chain", chainSel,
 			"address", registryModule.Address.Hex())
-
-		// Add the RegistryModule entry to TokenAdminRegistry
-		e.Logger.Infow("Adding RegistryModule to TokenAdminRegistry", "chain", chainSel, "registryModule", registryModule.Address.Hex())
-
-		tx, err := chainState.TokenAdminRegistry.AddRegistryModule(chain.DeployerKey, registryModule.Address)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add registry module to TokenAdminRegistry on chain %d: %w", chainSel, err)
-		}
-
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm registry module registration transaction on chain %d: %w", chainSel, err)
-		}
-
-		e.Logger.Infow("Successfully deployed and registered RegistryModuleOwnerCustom 1.6.0",
-			"chain", chainSel,
-			"address", registryModule.Address.Hex())
 	}
 
 	return cldf.ChangesetOutput{
