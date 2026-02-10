@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -18,6 +19,38 @@ const (
 )
 
 var CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
+
+// AdminSlot is the specific storage location defined by EIP-1967 to store the Proxy Admin address.
+//
+// Background:
+// Proxies must store their admin address in a storage slot that does not collide
+// with the storage layout of the Logic (Implementation) contract.
+//
+// Formula:
+// bytes32(uint256(keccak256('eip1967.proxy.admin')) - 1)
+//
+// Result:
+// 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103
+//
+// This guarantees that reading this slot returns the Admin address without
+// interfering with the ERC20 token state (Balances, Supply, etc).
+var AdminSlot = common.HexToHash("0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103")
+
+// TUPImplementationSlot is the specific storage location defined by EIP-1967 to store the
+// address of the Logic (Implementation) contract.
+//
+// Background:
+// Proxies must store the address of the code they delegate to in a slot that does
+// not collide with the storage layout of the Logic contract itself.
+//
+// Formula:
+// bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
+//
+// Result:
+// 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+//
+// Reading this slot returns the address of the BurnMintERC20Transparent contract.
+var TUPImplementationSlot = common.HexToHash("0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc")
 
 func GetCCIPDonsFromCapRegistry(ctx context.Context, capRegistry *capabilities_registry.CapabilitiesRegistry) ([]capabilities_registry.CapabilitiesRegistryDONInfo, error) {
 	if capRegistry == nil {

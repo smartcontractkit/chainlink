@@ -172,6 +172,29 @@ func Test_EthKeyStore(t *testing.T) {
 		assert.EqualError(t, err, "chainID must be non-nil")
 	})
 
+	t.Run("ListKeys with specified chain ID", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		defer reset()
+		key, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		key2, err := ethKeyStore.Create(ctx, big.NewInt(1337))
+		require.NoError(t, err)
+
+		keys, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		requireEqualKeys(t, key, keys[0])
+
+		keys, err = ethKeyStore.ListKeys(ctx, big.NewInt(1337), nil)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		requireEqualKeys(t, key2, keys[0])
+
+		_, err = ethKeyStore.ListKeys(ctx, nil, nil)
+		require.Error(t, err)
+		assert.EqualError(t, err, "chainID must be non-nil")
+	})
+
 	t.Run("EnabledAddressesForChain with specified chain ID", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		defer reset()
@@ -212,6 +235,170 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, enabledAddresses, 1)
 		require.Equal(t, key2.Address, enabledAddresses[0])
+	})
+}
+
+func Test_EthKeyStore_ListKeys(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+
+	setup := func() (keystore.Master, keystore.Eth) {
+		// Clean database first
+		cleanCtx := context.Background()
+		require.NoError(t, commonutils.JustError(db.ExecContext(cleanCtx, "DELETE FROM encrypted_key_rings")))
+		require.NoError(t, commonutils.JustError(db.ExecContext(cleanCtx, "DELETE FROM evm.key_states")))
+		// Create fresh keystore for each test
+		keyStore := cltest.NewKeyStore(t, db)
+		return keyStore, keyStore.Eth()
+	}
+
+	t.Run("returns keys sorted by State.ID (lowest first)", func(t *testing.T) {
+		_, ethKeyStore := setup()
+		// Create multiple keys for the same chain
+		// The order they are enabled determines their State.ID
+		key1, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		state1, err := ethKeyStore.GetState(ctx, key1.Address.Hex(), testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		key2, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		state2, err := ethKeyStore.GetState(ctx, key2.Address.Hex(), testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		key3, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		state3, err := ethKeyStore.GetState(ctx, key3.Address.Hex(), testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		// Verify State.IDs are in ascending order (as they were created)
+		require.Less(t, state1.ID, state2.ID)
+		require.Less(t, state2.ID, state3.ID)
+
+		// Get keys sorted by State.ID (default SortByCreation)
+		keys, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+		require.Len(t, keys, 3)
+
+		// Verify ordering matches State.ID order
+		requireEqualKeys(t, key1, keys[0])
+		requireEqualKeys(t, key2, keys[1])
+		requireEqualKeys(t, key3, keys[2])
+	})
+
+	t.Run("excludes disabled keys", func(t *testing.T) {
+		_, ethKeyStore := setup()
+		key1, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		key2, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		key3, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		// Disable the middle key
+		err = ethKeyStore.Disable(ctx, key2.Address, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		keys, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+		require.Len(t, keys, 2)
+		requireEqualKeys(t, key1, keys[0])
+		requireEqualKeys(t, key3, keys[1])
+
+		// Verify key2 is not in the list
+		for _, k := range keys {
+			require.NotEqual(t, key2.Address, k.Address)
+		}
+	})
+
+	t.Run("returns empty list when no keys exist for chain", func(t *testing.T) {
+		_, ethKeyStore := setup()
+		keys, err := ethKeyStore.ListKeys(ctx, big.NewInt(9999), nil)
+		require.NoError(t, err)
+		require.Empty(t, keys)
+	})
+
+	t.Run("returns empty list when all keys are disabled", func(t *testing.T) {
+		_, ethKeyStore := setup()
+		key1, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		key2, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		err = ethKeyStore.Disable(ctx, key1.Address, testutils.FixtureChainID)
+		require.NoError(t, err)
+		err = ethKeyStore.Disable(ctx, key2.Address, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		keys, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+		require.Empty(t, keys)
+	})
+
+	t.Run("deterministic ordering across multiple calls", func(t *testing.T) {
+		_, ethKeyStore := setup()
+		_, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		_, err = ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		_, err = ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		// Call multiple times and verify same order
+		keys1, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+		keys2, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+		keys3, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+
+		require.Len(t, keys1, 3)
+		require.Len(t, keys2, 3)
+		require.Len(t, keys3, 3)
+
+		for i := range keys1 {
+			requireEqualKeys(t, keys1[i], keys2[i])
+			requireEqualKeys(t, keys1[i], keys3[i])
+		}
+	})
+	t.Run("handles keys enabled for multiple chains correctly", func(t *testing.T) {
+		_, ethKeyStore := setup()
+		key1, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		key2, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		// Enable key1 for a second chain
+		err = ethKeyStore.Add(ctx, key1.Address, testutils.SimulatedChainID)
+		require.NoError(t, err)
+		err = ethKeyStore.Enable(ctx, key1.Address, testutils.SimulatedChainID)
+		require.NoError(t, err)
+
+		// Get keys for FixtureChainID - should have both key1 and key2
+		keysFixture, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
+		require.NoError(t, err)
+		require.Len(t, keysFixture, 2)
+		// Verify both keys are present
+		keyAddresses := make(map[common.Address]bool)
+		for _, k := range keysFixture {
+			keyAddresses[k.Address] = true
+		}
+		require.True(t, keyAddresses[key1.Address], "key1 should be in FixtureChainID keys")
+		require.True(t, keyAddresses[key2.Address], "key2 should be in FixtureChainID keys")
+
+		// Get keys for SimulatedChainID - should only have key1
+		keysSimulated, err := ethKeyStore.ListKeys(ctx, testutils.SimulatedChainID, nil)
+		require.NoError(t, err)
+		require.Len(t, keysSimulated, 1)
+		requireEqualKeys(t, key1, keysSimulated[0])
+	})
+
+	t.Run("errors on nil chainID", func(t *testing.T) {
+		_, ethKeyStore := setup()
+		_, err := ethKeyStore.ListKeys(ctx, nil, nil)
+		require.Error(t, err)
+		assert.EqualError(t, err, "chainID must be non-nil")
 	})
 }
 

@@ -40,7 +40,7 @@ This test validates the SetupSharding functionality which:
 Prerequisites:
 - Start the environment with the sharded DON config:
   cd core/scripts/cre/environment
-  CTF_CONFIGS=configs/workflow-gateway-sharded-don.toml go run . env start --with-beholder --with-contracts-version v2
+  CTF_CONFIGS=configs/workflow-gateway-sharded-don.toml go run . env start --with-contracts-version v2
 
 - Run the test:
   go test -timeout 20m -run "^Test_CRE_V2_Sharding$" -v

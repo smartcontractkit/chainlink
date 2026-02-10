@@ -19,9 +19,12 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -42,7 +45,7 @@ var httpNegativeTests = []httpNegativeTest{
 	{
 		name:          "invalid AuthorizedKey.Type",
 		testCase:      "invalid-key-type",
-		expectedError: "invalid key type",
+		expectedError: "unsupported key type",
 	},
 	{
 		name:          "invalid AuthorizedKey.PublicKey format",
@@ -76,7 +79,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	const workflowFileLocation = "./http/main.go"
 
 	// Generate a valid key pair for comparison
-	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
+	_, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
 	require.NoError(t, newKeysErr, "failed to generate new public key")
 
 	// Get a free port for this test
@@ -96,19 +99,31 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	}()
 
 	// Start Beholder listener to capture error messages
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+	// drain user logs channel in the background, we are not asserting anything on it
+	t_helpers.IgnoreUserLogs(t.Context(), userLogsCh)
 	testLogger.Info().Msg("Creating HTTP negative test workflow configuration...")
 
 	// Determine the authorized key to use based on test case
 	var authorizedKeyToUse string
 	switch httpNegativeTest.testCase {
 	case "invalid-public-key":
-		authorizedKeyToUse = "invalid-public-key-format"
+		authorizedKeyToUse = "0x000000000000000000000000000000000000000"
 	case "non-existing-public-key":
 		authorizedKeyToUse = "0x0000000000000000000000000000000000000000"
 	default:
-		authorizedKeyToUse = publicKeyAddr.Hex()
+		dkgKey, dErr := dkgrecipientkey.New()
+		require.NoError(t, dErr, "failed to generate new DKG recipient key")
+		authorizedKeyToUse = dkgKey.PublicKeyString()
 	}
 
 	workflowConfig := http_config.Config{
@@ -133,21 +148,12 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 		}
 	}
 
-	expectedError := httpNegativeTest.expectedError
-	timeout := 2 * time.Minute
-	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-
-	// For invalid key type and invalid public key format, we expect engine initialization failure
-	// This is the correct behavior - the workflow engine should fail to initialize with invalid configs
-	if err != nil && (httpNegativeTest.testCase == "invalid-key-type" || httpNegativeTest.testCase == "invalid-public-key") {
-		errorMsg := err.Error()
-		if strings.Contains(errorMsg, "found engine initialization failure message") {
-			testLogger.Info().Msgf("HTTP Trigger Fail test successfully completed - engine initialization failed as expected for %s", httpNegativeTest.testCase)
-			return
-		}
-	}
-
-	require.NoError(t, err, "HTTP Trigger Fail test failed")
+	// expect engine initialisation failure due to incorrect trigger configuration
+	baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, 2*time.Minute)
+	require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
+	require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
+	require.Contains(t, baseMsg.Labels["err"], httpNegativeTest.expectedError, "expected error message to contain "+httpNegativeTest.expectedError)
+	testLogger.Info().Msgf("Found expected error - %s - in base message's labels", httpNegativeTest.expectedError)
 	testLogger.Info().Msg("HTTP Trigger Fail test successfully completed")
 }
 

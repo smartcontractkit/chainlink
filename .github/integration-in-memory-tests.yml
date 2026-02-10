@@ -224,6 +224,16 @@ runner-test-matrix:
     test_cmd: cd smoke/ccip && go test ccip_reader_test.go -timeout 5m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_lane_rmn_test.go:*
+    path: integration-tests/smoke/ccip/ccip_lane_rmn_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test ccip_lane_rmn_test.go -timeout 5m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
   - id: smoke/ccip/ccip_usdc_test.go:*
     path: integration-tests/smoke/ccip/ccip_usdc_test.go
     test_env_type: in-memory

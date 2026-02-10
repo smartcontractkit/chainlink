@@ -188,13 +188,6 @@ func createJobs(
 
 	specs := make(map[string][]string)
 
-	// Create bootstrap job
-	if bootSpecs, err := proposeBootstrapJob(creEnv, bootstrap, don); err != nil {
-		return err
-	} else if err := mergo.Merge(&specs, bootSpecs, mergo.WithAppendSlice); err != nil {
-		return fmt.Errorf("failed to merge bootstrap job specs: %w", err)
-	}
-
 	// Create node job
 	if nodeSpecs, err := proposeNodeJob(creEnv, don, command, []string{formatBootstrapPeer(bootstrap)}, configStr); err != nil {
 		return err

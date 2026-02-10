@@ -33,7 +33,6 @@ import (
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	cre_jobs_seq "github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -278,43 +277,7 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	bootInput := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
-		DONName:     bootstrap.DON.Name,
-		JobName:     "vault-bootstrap-" + don.Name,
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
-		},
-		Template: job_types.BootstrapVault,
-		Inputs: job_types.JobSpecInput{
-			"chainSelector":           creEnv.RegistryChainSelector,
-			"contractQualifierPrefix": ContractQualifier,
-		},
-	}
-
-	bootVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, bootInput)
-	if bootVerErr != nil {
-		return fmt.Errorf("precondition verification failed for Vault bootstrap job: %w", bootVerErr)
-	}
-
-	bootReport, bootErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, bootInput)
-	if bootErr != nil {
-		return fmt.Errorf("failed to propose Vault bootstrap job spec: %w", bootErr)
-	}
-
 	specs := make(map[string][]string)
-	for _, r := range bootReport.Reports {
-		out, ok := r.Output.(cre_jobs_seq.ProposeVaultBootstrapJobsOutput)
-		if !ok {
-			return fmt.Errorf("unable to cast to ProposeVaultBootstrapJobsOutput, actual type: %T", r.Output)
-		}
-		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-		if mErr != nil {
-			return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
-		}
-	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
 	if err != nil {
