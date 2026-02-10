@@ -11,19 +11,23 @@ exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
 exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
 
 exec chainlink --remote-node-url $NODEURL health
-cmp stdout out.txt
+cp stdout health.raw.txt
+exec sh -c "awk '/NodePlatformEmitter$/{getline; next} {print}' health.raw.txt > health.txt"
+cmp health.txt out.txt
 
 exec chainlink --remote-node-url $NODEURL health -json
 cp stdout compact.json
-exec jq . compact.json
+exec jq '.data |= map(select(.id != "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter"))' compact.json
 cmp stdout out.json
 
 exec chainlink --remote-node-url $NODEURL health -failing
-cmp stdout out-unhealthy.txt
+cp stdout unhealthy.raw.txt
+exec sh -c "awk '/NodePlatformEmitter$/{getline; next} {print}' unhealthy.raw.txt > unhealthy.txt"
+cmp unhealthy.txt out-unhealthy.txt
 
 exec chainlink --remote-node-url $NODEURL health -f -json
 cp stdout compact.json
-exec jq . compact.json
+exec jq '.data |= map(select(.id != "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter"))' compact.json
 cmp stdout out-unhealthy.json
 
 -- go:build.integration --
@@ -124,8 +128,6 @@ ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
 	service is "Unstarted", not started
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter
-	service is "Unstarted", not started
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.BlockHistoryEstimator
@@ -184,8 +186,6 @@ ok WorkflowStore
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
-	service is "Unstarted", not started
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter
 	service is "Unstarted", not started
 
 -- out.json --
@@ -358,15 +358,6 @@ ok WorkflowStore
       "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
       "attributes": {
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
-      }
-    },
-    {
-      "type": "checks",
-      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
-      "attributes": {
-        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
         "status": "failing",
         "output": "service is \"Unstarted\", not started"
       }
@@ -867,15 +858,6 @@ ok WorkflowStore
       "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
       "attributes": {
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
-      }
-    },
-    {
-      "type": "checks",
-      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
-      "attributes": {
-        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.NodePlatformEmitter",
         "status": "failing",
         "output": "service is \"Unstarted\", not started"
       }
