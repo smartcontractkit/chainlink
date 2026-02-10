@@ -122,7 +122,7 @@ jobs:
         run: docker ps -a
 
       - name: Upload Logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke-${{ strategy.job-index }}
