@@ -41,7 +41,7 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solan
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/avast/retry-go/v4 v4.6.1
+	github.com/avast/retry-go/v4 v4.7.0
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/ethereum/go-ethereum v1.16.8
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
