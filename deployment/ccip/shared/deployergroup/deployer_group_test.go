@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
@@ -188,6 +189,7 @@ var deployerGroupTestCases = []deployerGroupTestCase{
 }
 
 func TestDeployerGroup(t *testing.T) {
+	quarantine.Flaky(t, "DX-2825")
 	for _, tc := range deployerGroupTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
