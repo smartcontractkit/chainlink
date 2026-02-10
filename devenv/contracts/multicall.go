@@ -38,8 +38,7 @@ type Result struct {
 func MultiCallLogTriggerLoadGen(
 	client *seth.Client,
 	multiCallAddress string,
-	logTriggerAddress []string,
-	logTriggerData [][]byte,
+	calls []Call,
 ) (*types.Transaction, error) {
 	contractAddress := common.HexToAddress(multiCallAddress)
 	multiCallABI, err := abi.JSON(strings.NewReader(MultiCallABI))
@@ -49,11 +48,6 @@ func MultiCallLogTriggerLoadGen(
 	wrapper := MustNewWrappedContractBackend(nil, client)
 	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, wrapper, wrapper, wrapper)
 
-	call := []Call{}
-	for i, d := range logTriggerData {
-		data := Call{Target: common.HexToAddress(logTriggerAddress[i]), AllowFailure: false, CallData: d}
-		call = append(call, data)
-	}
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	return boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call)
+	return boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", calls)
 }

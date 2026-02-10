@@ -18,6 +18,12 @@ import (
 	ctf_concurrency "github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
 )
 
+// logTriggerCall pairs an address with its calldata to ensure they stay together when chunking
+type logTriggerCall struct {
+	address  string
+	callData []byte
+}
+
 type DeploymentData struct {
 	ConsumerContracts []contracts.KeeperConsumer
 	TriggerContracts  []contracts.LogEmitter
@@ -159,8 +165,7 @@ type LogTriggerConfig struct {
 }
 
 type LogTriggerGun struct {
-	data             [][]byte
-	addresses        []string
+	calls            []logTriggerCall
 	multiCallAddress string
 	client           *seth.Client
 	logger           zerolog.Logger
@@ -184,8 +189,7 @@ func NewLogTriggerUser(
 	client *seth.Client,
 	multicallAddress string,
 ) (*LogTriggerGun, error) {
-	var data [][]byte
-	var addresses []string
+	var calls []logTriggerCall
 
 	// we need to sync nodes manually, because we are not using ephemeral addresses
 	if err := client.NonceManager.UpdateNonces(); err != nil {
@@ -195,24 +199,20 @@ func NewLogTriggerUser(
 	for _, c := range triggerConfigs {
 		if c.NumberOfEvents > 0 {
 			d := generateCallData(1, 1, c.NumberOfEvents)
-			data = append(data, d)
-			addresses = append(addresses, c.Address)
+			calls = append(calls, logTriggerCall{address: c.Address, callData: d})
 		}
 		if c.NumberOfSpamMatchingEvents > 0 {
 			d := generateCallData(1, 2, c.NumberOfSpamMatchingEvents)
-			data = append(data, d)
-			addresses = append(addresses, c.Address)
+			calls = append(calls, logTriggerCall{address: c.Address, callData: d})
 		}
 		if c.NumberOfSpamNonMatchingEvents > 0 {
 			d := generateCallData(2, 2, c.NumberOfSpamNonMatchingEvents)
-			data = append(data, d)
-			addresses = append(addresses, c.Address)
+			calls = append(calls, logTriggerCall{address: c.Address, callData: d})
 		}
 	}
 
 	return &LogTriggerGun{
-		addresses:        addresses,
-		data:             data,
+		calls:            calls,
 		logger:           logger,
 		multiCallAddress: multicallAddress,
 		client:           client,
@@ -221,22 +221,33 @@ func NewLogTriggerUser(
 
 func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	var wg sync.WaitGroup
-	var dividedData [][][]byte
-	d := m.data
+
+	// Chunk the paired calls to ensure addresses stay aligned with their calldata
+	var dividedCalls [][]logTriggerCall
 	chunkSize := 100
-	for i := 0; i < len(d); i += chunkSize {
-		end := min(i+chunkSize, len(d))
-		dividedData = append(dividedData, d[i:end])
+	for i := 0; i < len(m.calls); i += chunkSize {
+		end := min(i+chunkSize, len(m.calls))
+		dividedCalls = append(dividedCalls, m.calls[i:end])
 	}
 
-	resultCh := make(chan *wasp.Response, len(dividedData))
+	resultCh := make(chan *wasp.Response, len(dividedCalls))
 
-	for _, a := range dividedData {
+	for _, chunk := range dividedCalls {
 		wg.Add(1)
-		go func(a [][]byte, m *LogTriggerGun) {
+		go func(chunk []logTriggerCall, m *LogTriggerGun) {
 			defer wg.Done()
 
-			_, err := contracts.MultiCallLogTriggerLoadGen(m.client, m.multiCallAddress, m.addresses, a)
+			// Convert to contracts.Call slice
+			calls := make([]contracts.Call, len(chunk))
+			for i, c := range chunk {
+				calls[i] = contracts.Call{
+					Target:       common.HexToAddress(c.address),
+					AllowFailure: false,
+					CallData:     c.callData,
+				}
+			}
+
+			_, err := contracts.MultiCallLogTriggerLoadGen(m.client, m.multiCallAddress, calls)
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
 				resultCh <- &wasp.Response{Error: err.Error(), Failed: true}
@@ -244,7 +255,7 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 			}
 
 			resultCh <- &wasp.Response{}
-		}(a, m)
+		}(chunk, m)
 	}
 
 	wg.Wait()

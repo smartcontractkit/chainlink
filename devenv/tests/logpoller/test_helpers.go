@@ -744,7 +744,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []contracts.LogEmit
 		g, err := wasp.NewGenerator(&wasp.Config{
 			T:                     t,
 			LoadType:              wasp.RPS,
-			GenName:               "log_poller_gen_" + (*logEmitter).Address().String(),
+			GenName:               "log_poller_gen_" + logEmitter.Address().String(),
 			RateLimitUnitDuration: cfg.Wasp.RateLimitUnitDuration,
 			CallTimeout:           cfg.Wasp.CallTimeout,
 			Schedule: wasp.Plain(
@@ -772,7 +772,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []contracts.LogEmit
 }
 
 type logEmissionTask struct {
-	emitter      *contracts.LogEmitter
+	emitter      contracts.LogEmitter
 	eventsToEmit []abi.Event
 	eventsPerTx  int
 }
@@ -786,7 +786,7 @@ func (d emittedLogsData) GetResult() emittedLogsData {
 }
 
 // runLoopedGenerator runs the looped generator and returns the total number of logs emitted
-func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
+func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []contracts.LogEmitter) (int, error) {
 	l := framework.L
 
 	tasks := make([]logEmissionTask, 0)
@@ -812,20 +812,20 @@ func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []*contrac
 	var emitAllEventsFn = func(resultCh chan emittedLogsData, errorCh chan error, _ int, task logEmissionTask) {
 		current := atomicCounter.Add(1)
 
-		address := (*task.emitter).Address().String()
+		address := task.emitter.Address().String()
 
 		for _, event := range cfg.General.EventsToEmit {
 			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
 			var err error
 			switch event.Name {
 			case "Log1":
-				_, err = client.Decode((*task.emitter).EmitLogIntsFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogIntsFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log2":
-				_, err = client.Decode((*task.emitter).EmitLogIntsIndexedFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogIntsIndexedFromKey(getIntSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log3":
-				_, err = client.Decode((*task.emitter).EmitLogStringsFromKey(getStringSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogStringsFromKey(getStringSlice(cfg.General.EventsPerTx), client.AnySyncedKey()))
 			case "Log4":
-				_, err = client.Decode((*task.emitter).EmitLogIntMultiIndexedFromKey(1, 1, cfg.General.EventsPerTx, client.AnySyncedKey()))
+				_, err = client.Decode(task.emitter.EmitLogIntMultiIndexedFromKey(1, 1, cfg.General.EventsPerTx, client.AnySyncedKey()))
 			default:
 				err = fmt.Errorf("unknown event name: %s", event.Name)
 			}
