@@ -6,6 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -17,10 +19,48 @@ const (
 	defaultSyncStrategy        = SyncStrategyReconciliation
 )
 
+// Workflow status values. These match the on-chain contract status values
+// (0=Active, 1=Paused) to avoid any translation errors.
 const (
-	WorkflowStatusActive uint8 = iota
-	WorkflowStatusPaused
+	WorkflowStatusActive uint8 = 0
+	WorkflowStatusPaused uint8 = 1
 )
+
+// ContractStatusToInternal converts on-chain contract status to internal representation.
+// Contract and internal use the same values (0=Active, 1=Paused).
+func ContractStatusToInternal(s uint8) uint8 {
+	switch s {
+	case WorkflowStatusActive, WorkflowStatusPaused:
+		return s
+	default:
+		// Unknown status defaults to paused
+		return WorkflowStatusPaused
+	}
+}
+
+// FileStatusToInternal converts file source status to internal representation.
+// File format uses same values as contract (0=Active, 1=Paused).
+func FileStatusToInternal(s uint8) uint8 {
+	return ContractStatusToInternal(s)
+}
+
+// GRPCStatusToInternal converts proto WorkflowStatus enum to internal representation.
+// Proto uses: UNSPECIFIED=0, ACTIVE=1, PAUSED=2
+// Internal uses: Active=0, Paused=1
+func GRPCStatusToInternal(s pb.WorkflowStatus, lggr logger.Logger) uint8 {
+	switch s {
+	case pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE:
+		return WorkflowStatusActive
+	case pb.WorkflowStatus_WORKFLOW_STATUS_PAUSED:
+		return WorkflowStatusPaused
+	case pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED:
+		lggr.Warnw("Received WORKFLOW_STATUS_UNSPECIFIED from proto, treating as paused")
+		return WorkflowStatusPaused
+	default:
+		lggr.Warnw("Unknown proto status, treating as paused", "status", s)
+		return WorkflowStatusPaused
+	}
+}
 
 type Head struct {
 	Hash      string
