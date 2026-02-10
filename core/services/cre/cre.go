@@ -14,6 +14,8 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -27,7 +29,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
@@ -54,8 +56,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
-
-	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -153,9 +153,9 @@ func (s *Services) newSubservices(
 
 	if capCfg.GatewayConnector().DonID() != "" {
 		lggr.Debugw("Creating GatewayConnector wrapper", "donID", capCfg.GatewayConnector().DonID())
-		gatewayConnectorWrapper, err := newGatewayConnectorWrapper(capCfg, keyStore, lggr)
-		if err != nil {
-			return nil, fmt.Errorf("could not create gateway connector wrapper: %w", err)
+		gatewayConnectorWrapper, ierr := newGatewayConnectorWrapper(capCfg, keyStore, lggr)
+		if ierr != nil {
+			return nil, fmt.Errorf("could not create gateway connector wrapper: %w", ierr)
 		}
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
@@ -163,9 +163,9 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		orgResolver, err := newOrgResolver(ctx, cfg, capCfg, keyStore, opts, lggr)
-		if err != nil {
-			return nil, fmt.Errorf("could not create org resolver: %w", err)
+		orgResolver, ierr := newOrgResolver(ctx, cfg, capCfg, keyStore, opts, lggr)
+		if ierr != nil {
+			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
 		s.OrgResolver = orgResolver
 		srvs = append(srvs, orgResolver)
@@ -476,6 +476,7 @@ func (w *dispatcherWrapper) newSubservices(
 	capCfg := cfg.Capabilities()
 
 	if !capCfg.Peering().Enabled() && !capCfg.SharedPeering().Enabled() {
+		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		return nil, nil
 	}
 
@@ -770,7 +771,7 @@ func newWorkflowRegistrySyncerV1(
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate contract reader factory")
+		return nil, errors.New("failed to instantiate contract reader factory")
 	}
 
 	wfSyncer, err := syncerV1.NewWorkflowRegistry(
@@ -928,7 +929,7 @@ func newWorkflowRegistrySyncerV2(
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to instantiate contract reader factory")
+		return nil, nil, errors.New("failed to instantiate contract reader factory")
 	}
 
 	shardOrchestratorClient, err := newShardOrchestratorClient(ctx, cfg, lggr)
