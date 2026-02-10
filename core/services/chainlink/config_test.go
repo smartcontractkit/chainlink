@@ -679,6 +679,9 @@ func TestConfig_Marshal(t *testing.T) {
 		ShardOrchestratorPort:    ptr[uint16](50051),
 		ShardOrchestratorAddress: &commoncfg.URL{},
 	}
+	full.LOOPP = toml.LOOPP{
+		GRPCServerMaxRecvMsgSize: ptr[utils.FileSize](42 * utils.MB),
+	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
 	}

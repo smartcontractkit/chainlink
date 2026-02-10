@@ -442,6 +442,9 @@ ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
 
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32.00mb'
+
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 
 -- err.txt --

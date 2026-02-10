@@ -26,7 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/latest/link_token"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -54,17 +54,12 @@ type OCR2 struct {
 	CLNodesFundingLink       float64                `toml:"cl_nodes_funding_link"`
 	ChainFinalityDepth       int64                  `toml:"chain_finality_depth"`
 	VerificationTimeoutSec   int64                  `toml:"verification_timeout_sec"`
-	GasSettings              *GasSettings           `toml:"gas_settings"`
+	GasSettings              *products.GasSettings  `toml:"gas_settings"`
 	DeployedContracts        *DeployedContracts     `toml:"deployed_contracts"`
 }
 
 type DeployedContracts struct {
 	OCRv2AggregatorAddr string `toml:"ocr2_aggregator_address"`
-}
-
-type GasSettings struct {
-	FeeCapMultiplier int64 `toml:"fee_cap_multiplier"`
-	TipCapMultiplier int64 `toml:"tip_cap_multiplier"`
 }
 
 type MedianOffchainConfig struct {
@@ -129,7 +124,7 @@ type Configurator struct {
 	Config []*OCR2 `toml:"ocr2"`
 }
 
-func NewOCR2Configurator() *Configurator {
+func NewConfigurator() *Configurator {
 	return &Configurator{}
 }
 
@@ -149,11 +144,16 @@ func (m *Configurator) Store(path string, idx int) error {
 	return nil
 }
 
-func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *blockchain.Input) (string, error) {
+func (m *Configurator) GenerateNodesConfig(
+	ctx context.Context,
+	_ *fake.Input,
+	bc []*blockchain.Input,
+	_ []*nodeset.Input,
+) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
 	// configure node set and generate CL nodes configs
-	node := bc.Out.Nodes[0]
-	chainID := bc.Out.ChainID
+	node := bc[0].Out.Nodes[0]
+	chainID := bc[0].Out.ChainID
 	netConfig := fmt.Sprintf(`
        [[EVM]]
        LogPollInterval = '1s'
@@ -212,18 +212,28 @@ func (m *Configurator) GenerateCLNodesBlockchainConfig(ctx context.Context, bc *
 	return netConfig, nil
 }
 
+func (m *Configurator) GenerateNodesSecrets(
+	_ context.Context,
+	_ *fake.Input,
+	_ []*blockchain.Input,
+	_ []*nodeset.Input,
+) (string, error) {
+	return "", nil
+}
+
 func (m *Configurator) ConfigureJobsAndContracts(
 	ctx context.Context,
+	_ int,
 	fake *fake.Input,
-	bc *blockchain.Input,
-	ns *nodeset.Input,
+	bc []*blockchain.Input,
+	ns []*nodeset.Input,
 ) error {
 	L.Info().Msg("Connecting to CL nodes")
-	cl, err := clclient.New(ns.Out.CLNodes)
+	cl, err := clclient.New(ns[0].Out.CLNodes)
 	if err != nil {
 		return err
 	}
-	pkey := getNetworkPrivateKey()
+	pkey := products.NetworkPrivateKey()
 	if pkey == "" {
 		return errors.New("PRIVATE_KEY environment variable not set")
 	}
@@ -231,7 +241,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	transmitters := make([]common.Address, 0)
 	ethKeyAddresses := make([]string, 0)
 	for i, nc := range cl {
-		addr, cErr := nc.ReadPrimaryETHKey(bc.Out.ChainID)
+		addr, cErr := nc.ReadPrimaryETHKey(bc[0].Out.ChainID)
 		if cErr != nil {
 			return cErr
 		}
@@ -242,8 +252,8 @@ func (m *Configurator) ConfigureJobsAndContracts(
 			Str("ETH", addr.Attributes.Address).
 			Msg("Node info")
 	}
-	bcNode := bc.Out.Nodes[0]
-	c, auth, rootAddr, err := ETHClient(
+	bcNode := bc[0].Out.Nodes[0]
+	c, auth, rootAddr, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
 		m.Config[0].GasSettings.FeeCapMultiplier,
@@ -253,7 +263,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
 	for _, addr := range ethKeyAddresses {
-		if cErr := FundNodeEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
+		if cErr := products.FundAddressEIP1559(ctx, c, pkey, addr, m.Config[0].CLNodesFundingETH); cErr != nil {
 			return cErr
 		}
 	}
@@ -270,7 +280,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return err
 	}
 	m.Config[0].OCR2SetConfigOut = ocrv2Config
-	if cErr := m.configureJobs(ctx, fake, bc, ns, cl, ocr2Addr); cErr != nil {
+	if cErr := m.configureJobs(ctx, fake, bc[0], ns[0], cl, ocr2Addr); cErr != nil {
 		return cErr
 	}
 	r := resty.New().SetBaseURL(fake.Out.BaseURLHost)
@@ -325,7 +335,7 @@ func UpdateOCR2ConfigOffChainValues(ctx context.Context, bc *blockchain.Input, o
 	if o2 == nil {
 		return nil
 	}
-	c, auth, _, err := ETHClient(
+	c, auth, _, err := products.ETHClient(
 		ctx,
 		bc.Out.Nodes[0].ExternalHTTPUrl,
 		o.GasSettings.FeeCapMultiplier,
@@ -411,6 +421,7 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	}
 	L.Info().Str("Address", ocr2addr.String()).Msg("Deployed OCRv2 Aggregator contract")
 	tx, err = ocr2i.SetPayees(auth, transmitters, []common.Address{
+		common.HexToAddress(rootAddr),
 		common.HexToAddress(rootAddr),
 		common.HexToAddress(rootAddr),
 		common.HexToAddress(rootAddr),

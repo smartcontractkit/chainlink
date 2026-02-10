@@ -5,7 +5,7 @@
   docker_cmd_params = ["-b", "5"]
 
 [[blockchains]]
-  chain_id = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+  chain_id = "22222222222222222222222222222222222222222222"
   port = "8550"
   type = "solana"
   public_key = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"
@@ -15,8 +15,8 @@
     data_feeds_cache = "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa"
 
 [jd]
-  # change to your version
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  # change to your version
   image = "job-distributor:0.22.1"
 
 [fake]
@@ -43,21 +43,14 @@
   nodes = 4
   name = "workflow"
   don_types = ["workflow"]
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10100
 
-  supported_evm_chains = [1337] # even though this nodeset has no capability that requires connection to this chain we need it since it is the registry chain
-  env_vars = { CL_EVM_CMD = "" }
+  supported_evm_chains = [1337]
+  supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
-  capabilities = ["ocr3", "custom-compute", "mock", "write-solana", "don-time"]
-  supported_sol_chains = ["5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"]
-  [nodesets.capability_configs.mock.values]
-    Port = 7777
-    # add as many as you want:
-    [[nodesets.capability_configs.mock.values.DefaultMocks]]
-      Id = "securemint-trigger@1.0.0"
-      Description = "trigger mock for secure mint"
-      Type="trigger"
+  env_vars = { CL_EVM_CMD = "" }
+  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -65,40 +58,42 @@
     image = "postgres:12.0"
     port = 13000
 
-  [[nodesets.node_specs]]
+ [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
-      custom_ports = ["13402:7777"]   # External:internal port mapping
-      #image = "chainlink-tmp:latest"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 10200
+
+  # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
+  # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
+  supported_evm_chains = [1337]
+  supported_sol_chains = ["22222222222222222222222222222222222222222222"]
+
+  env_vars = { CL_EVM_CMD = "" }
+  capabilities = ["web-api-target", "vault", "solana"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
-      custom_ports = ["13403:7777"]   # External:internal port mapping
-      #image = "chainlink-tmp:latest"
-      user_config_overrides = ""
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      custom_ports = ["13404:7777"]   # External:internal port mapping
-      user_config_overrides = ""
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      custom_ports = ["13405:7777"]   # External:internal port mapping
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""
 
 [[nodesets]]
@@ -109,7 +104,7 @@
   http_port_range_start = 10300
 
   env_vars = { CL_EVM_CMD = "" }
-  supported_evm_chains = [1337, 2337]
+  supported_evm_chains = [1337]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -123,6 +118,6 @@
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
-      custom_ports = ["13401:7777","5002:5002","15002:15002"]
+      custom_ports = ["5002:5002","15002:15002"]
       # image = "chainlink-tmp:latest"
       user_config_overrides = ""

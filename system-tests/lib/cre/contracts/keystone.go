@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -105,8 +107,10 @@ type donConfig struct {
 }
 
 type dons struct {
-	c        map[string]donConfig
-	offChain offchain.Client
+	c                     map[string]donConfig
+	offChain              offchain.Client
+	env                   *cldf.Environment
+	registryChainSelector uint64
 }
 
 func (d *dons) donsOrderedByID() []donConfig {
@@ -129,6 +133,53 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 		out = append(out, don.DonCapabilities)
 	}
 	return out
+}
+
+// embedOCR3Config computes the full OCR3 configuration for a consensus V2 DON
+// and embeds it in the capability config proto's Ocr3Configs map.
+func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64) error {
+	oracleConfig, err := DefaultOCR3Config()
+	if err != nil {
+		return fmt.Errorf("failed to get default OCR3 config: %w", err)
+	}
+	oracleConfig.TransmissionSchedule = []int{len(don.Nops[0].Nodes)}
+
+	var allNodeIDs []string
+	for _, nop := range don.Nops {
+		allNodeIDs = append(allNodeIDs, nop.Nodes...)
+	}
+
+	nodes, err := deployment.NodeInfo(allNodeIDs, d.offChain)
+	if err != nil {
+		return fmt.Errorf("failed to get node info: %w", err)
+	}
+
+	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil)
+	if err != nil {
+		return fmt.Errorf("failed to generate OCR3 config: %w", err)
+	}
+
+	transmitterBytes := make([][]byte, len(ocrConfig.Transmitters))
+	for i, t := range ocrConfig.Transmitters {
+		transmitterBytes[i] = t.Bytes()
+	}
+
+	ocr3Proto := &capabilitiespb.OCR3Config{
+		Signers:               ocrConfig.Signers,
+		Transmitters:          transmitterBytes,
+		F:                     uint32(ocrConfig.F),
+		OnchainConfig:         ocrConfig.OnchainConfig,
+		OffchainConfigVersion: ocrConfig.OffchainConfigVersion,
+		OffchainConfig:        ocrConfig.OffchainConfig,
+		ConfigCount:           1,
+	}
+
+	if capConfig.Ocr3Configs == nil {
+		capConfig.Ocr3Configs = make(map[string]*capabilitiespb.OCR3Config)
+	}
+	capConfig.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey] = ocr3Proto
+
+	return nil
 }
 
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
@@ -212,7 +263,11 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
 			configBytes := []byte("{}")
 			if cap.Config != nil {
-				// Convert proto config to bytes if needed
+				if cap.UseCapRegOCRConfig {
+					if err := d.embedOCR3Config(cap.Config, don, chainSelector); err != nil {
+						panic(fmt.Sprintf("failed to embed OCR3 config for consensus V2: %s", err))
+					}
+				}
 				if protoBytes, err := proto.Marshal(cap.Config); err == nil {
 					configBytes = protoBytes
 				}
@@ -303,8 +358,10 @@ func generateAdminAddresses(count int) ([]common.Address, error) {
 
 func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 	dons := &dons{
-		c:        make(map[string]donConfig),
-		offChain: input.CldEnv.Offchain,
+		c:                     make(map[string]donConfig),
+		offChain:              input.CldEnv.Offchain,
+		env:                   input.CldEnv,
+		registryChainSelector: input.ChainSelector,
 	}
 
 	for donIdx, donMetadata := range input.Topology.DonsMetadata.List() {

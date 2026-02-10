@@ -180,6 +180,11 @@ func (s *Services) newSubservices(
 	s.GetPeerID = dispatcherWrapper.GetPeerID
 	srvs = append(srvs, dispatcherWrapper)
 
+	if dispatcherWrapper.dispatcher == nil {
+		lggr.Warn("Skipping capabilities and workflow registry syncer, no dispatcher configured (peering disabled)")
+		return srvs, nil
+	}
+
 	if capCfg.ExternalRegistry().Address() == "" {
 		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
 		return srvs, nil
@@ -483,7 +488,7 @@ func (w *dispatcherWrapper) newSubservices(
 	if opts.CapabilitiesDispatcher != nil {
 		w.dispatcher = opts.CapabilitiesDispatcher
 		w.externalPeerWrapper = opts.CapabilitiesPeerWrapper
-		return nil, nil
+		return []commonsrv.Service{w.externalPeerWrapper, w.dispatcher}, nil
 	}
 
 	var subs []commonsrv.Service
