@@ -25,12 +25,6 @@ const (
 	testConfigURL    = "https://example.com/config.json"
 )
 
-// On-chain contract status values (for test data - same as what the contract returns)
-const (
-	testContractStatusActive uint8 = 0
-	testContractStatusPaused uint8 = 1
-)
-
 // testBinaryContent and testConfigContent are mock content used for canonical workflowID calculation
 var (
 	testBinaryContent = []byte("mock-wasm-binary-content")
@@ -92,7 +86,7 @@ func createTestWorkflowMetadata(name string, family string) workflow_registry_wr
 		WorkflowId:   workflowID,
 		Owner:        owner,
 		CreatedAt:    1234567890,
-		Status:       testContractStatusActive, // On-chain contract uses 0=active
+		Status:       WorkflowStatusActive,
 		WorkflowName: name,
 		BinaryUrl:    testBinaryURL,
 		ConfigUrl:    testConfigURL,

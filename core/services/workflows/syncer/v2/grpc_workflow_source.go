@@ -342,7 +342,7 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	attributes := wf.GetAttributes()
 
 	// Map proto status enum to internal representation
-	statusVal := ProtoStatusToInternal(wf.GetStatus(), g.lggr)
+	statusVal := GRPCStatusToInternal(wf.GetStatus(), g.lggr)
 
 	return WorkflowMetadataView{
 		WorkflowID:   workflowID,
