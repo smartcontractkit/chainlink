@@ -187,7 +187,7 @@ func (f *FileWorkflowSource) toWorkflowMetadataView(wf FileWorkflowMetadata) (Wo
 		WorkflowID:   workflowID,
 		Owner:        ownerBytes,
 		CreatedAt:    wf.CreatedAt,
-		Status:       wf.Status,
+		Status:       FileStatusToInternal(wf.Status),
 		WorkflowName: wf.WorkflowName,
 		BinaryURL:    wf.BinaryURL,
 		ConfigURL:    wf.ConfigURL,

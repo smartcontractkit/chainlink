@@ -2,10 +2,12 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand/v2"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -329,23 +331,24 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	var workflowID types.WorkflowID
 	copy(workflowID[:], workflowIDBytes)
 
-	// Get owner bytes directly
-	ownerBytes := wf.GetOwner()
+	// Parse owner from hex string (proto changed from bytes to string)
+	ownerStr := wf.GetOwner()
+	ownerBytes, err := hex.DecodeString(strings.TrimPrefix(ownerStr, "0x"))
+	if err != nil {
+		return WorkflowMetadataView{}, fmt.Errorf("invalid owner hex string: %w", err)
+	}
 
 	// Get attributes directly (already bytes in proto)
 	attributes := wf.GetAttributes()
 
-	// Safe conversion of status (uint32 to uint8)
-	statusVal := wf.GetStatus()
-	if statusVal > 255 {
-		return WorkflowMetadataView{}, fmt.Errorf("status value %d exceeds uint8 range", statusVal)
-	}
+	// Map proto status enum to internal representation
+	statusVal := GRPCStatusToInternal(wf.GetStatus(), g.lggr)
 
 	return WorkflowMetadataView{
 		WorkflowID:   workflowID,
 		Owner:        ownerBytes,
 		CreatedAt:    wf.GetCreatedAt(),
-		Status:       uint8(statusVal),
+		Status:       statusVal,
 		WorkflowName: wf.GetWorkflowName(),
 		BinaryURL:    wf.GetBinaryUrl(),
 		ConfigURL:    wf.GetConfigUrl(),
