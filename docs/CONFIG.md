@@ -2722,6 +2722,20 @@ ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
 
+## LOOPP
+```toml
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+Local Out-Of-Process Plugins
+
+### GRPCServerMaxRecvMsgSize
+```toml
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+GRPCServerMaxRecvMsgSize is the maximum received message size configured for grpc servers.
+We use a higher limit than the grpc default of 4mb.
+
 ## EVM
 EVM defaults depend on ChainID:
 

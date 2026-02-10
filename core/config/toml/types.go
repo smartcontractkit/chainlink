@@ -65,6 +65,7 @@ type Core struct {
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
+	LOOPP                LOOPP                `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -112,6 +113,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
 
 	c.Sharding.setFrom(&f.Sharding)
+	c.LOOPP.setFrom(&f.LOOPP)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -3005,4 +3007,14 @@ func (s *Sharding) ValidateConfig() (err error) {
 		}
 	}
 	return err
+}
+
+type LOOPP struct {
+	GRPCServerMaxRecvMsgSize *utils.FileSize
+}
+
+func (l *LOOPP) setFrom(f *LOOPP) {
+	if f.GRPCServerMaxRecvMsgSize != nil {
+		l.GRPCServerMaxRecvMsgSize = f.GRPCServerMaxRecvMsgSize
+	}
 }

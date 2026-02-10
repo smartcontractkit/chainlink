@@ -11,22 +11,40 @@ import (
 
 // Product describes a minimal set of methods that each legacy product must implement
 type Product interface {
-	// Load loads product-specific config part from TOML
+	// Load describes how to load your product-specific config
 	Load() error
-	// Store stores product-specific config part to TOML
-	// since product may have multiple "instances" which configure on-chain part and jobs
-	// here we also provide an instance index
+
+	// Store describes how to store your product-specific config output
+	// The output may include URLs to you services, CLDF contracts addresses and more
 	Store(path string, instanceIdx int) error
-	// GenerateCLNodesBlockchainConfig generates configuration for CL nodes for blockchain connection
-	GenerateCLNodesBlockchainConfig(
-		ctx context.Context,
-		bc *blockchain.Input,
-	) (string, error)
-	// ConfigureJobsAndContracts configures both on-chain and off-chain parts of a product
-	ConfigureJobsAndContracts(
+
+	// GenerateNodesSecrets describes how to generate secrets for Chainlink nodes for your product
+	// deployed on multiple blockchains and nodesets
+	GenerateNodesSecrets(
 		ctx context.Context,
 		fs *fake.Input,
-		bc *blockchain.Input,
-		ns *nodeset.Input,
+		bc []*blockchain.Input,
+		ns []*nodeset.Input,
+	) (string, error)
+
+	// GenerateNodesConfig describes how to generate Chainlink node config
+	// specific to your product deployed on multiple blockchains and nodesets
+	GenerateNodesConfig(
+		ctx context.Context,
+		fs *fake.Input,
+		bc []*blockchain.Input,
+		ns []*nodeset.Input,
+	) (string, error)
+
+	// ConfigureJobsAndContracts describe how to configure jobs and contracts
+	// specifically to your product deployed on multiple blockchains and nodesets
+	// Configuration may be called multiple times if "instances" key is specified in "env.toml"
+	// the implementation should be aware of it and be able to configure multiple instances of the product
+	ConfigureJobsAndContracts(
+		ctx context.Context,
+		instanceIdx int,
+		fs *fake.Input,
+		bc []*blockchain.Input,
+		ns []*nodeset.Input,
 	) error
 }

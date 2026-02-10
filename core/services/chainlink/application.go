@@ -314,7 +314,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
-	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
+		cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
@@ -454,13 +455,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices.srvs...)
-	// LOOPs can be created as options, in the  case of LOOP relayers, or
-	// as OCR2 job implementations, in the case of Median today.
-	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
-	// we need to initialize in case we serve OCR2 LOOPs
-	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.AppID().String(), opts.Config.Feature().LogPoller(), opts.Config.Database(), opts.Config.Mercury(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
-	}
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
