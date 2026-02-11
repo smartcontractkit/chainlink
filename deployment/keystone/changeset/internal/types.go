@@ -18,6 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -103,6 +104,9 @@ type DONCapabilityWithConfig struct {
 	Capability         kcr.CapabilitiesRegistryCapability
 	Config             *capabilitiespb.CapabilityConfig
 	UseCapRegOCRConfig bool
+
+	// Used only by LocalCRE
+	OverrideOCR3Config *ocr3.OracleConfig
 }
 
 func (v DonCapabilities) Validate() error {

@@ -24,6 +24,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
@@ -55,6 +56,7 @@ func (c *Consensus) PreEnvStartup(
 			LocalOnly: don.HasOnlyLocalCapabilities(),
 		},
 		UseCapRegOCRConfig: true,
+		OverrideOCR3Config: contracts.DefaultOCR3Config(),
 	}}
 
 	return &cre.PreEnvStartupOutput{

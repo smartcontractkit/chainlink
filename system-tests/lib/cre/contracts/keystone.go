@@ -137,11 +137,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 
 // embedOCR3Config computes the full OCR3 configuration for a consensus V2 DON
 // and embeds it in the capability config proto's Ocr3Configs map.
-func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64) error {
-	oracleConfig, err := DefaultOCR3Config()
-	if err != nil {
-		return fmt.Errorf("failed to get default OCR3 config: %w", err)
-	}
+func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, oracleConfig *ocr3.OracleConfig) error {
 	oracleConfig.TransmissionSchedule = []int{len(don.Nops[0].Nodes)}
 
 	var allNodeIDs []string
@@ -264,7 +260,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			configBytes := []byte("{}")
 			if cap.Config != nil {
 				if cap.UseCapRegOCRConfig {
-					if err := d.embedOCR3Config(cap.Config, don, chainSelector); err != nil {
+					if err := d.embedOCR3Config(cap.Config, don, chainSelector, cap.OverrideOCR3Config); err != nil {
 						panic(fmt.Sprintf("failed to embed OCR3 config for consensus V2: %s", err))
 					}
 				}
