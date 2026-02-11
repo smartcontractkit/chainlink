@@ -41,7 +41,7 @@ type mockTrigger struct {
 	capabilities.CapabilityInfo
 }
 
-func (m *mockTrigger) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+func (m *mockTrigger) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
 	return nil
 }
 

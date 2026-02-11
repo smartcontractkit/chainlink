@@ -55,7 +55,7 @@ func (f *ManualHTTPTriggerService) UnregisterTrigger(ctx context.Context, trigge
 	return nil
 }
 
-func (f *ManualHTTPTriggerService) AckEvent(ctx context.Context, triggerID string, eventID string) caperrors.Error {
+func (f *ManualHTTPTriggerService) AckEvent(ctx context.Context, triggerID string, eventID string, method string) caperrors.Error {
 	return nil
 }
 

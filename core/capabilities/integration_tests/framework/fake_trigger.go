@@ -116,7 +116,7 @@ func (s *fakeTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, er
 	), nil
 }
 
-func (s *fakeTrigger) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+func (s *fakeTrigger) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
 	return nil
 }
 

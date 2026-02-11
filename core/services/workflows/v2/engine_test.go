@@ -2071,7 +2071,7 @@ type TriggerCapabilityWrapper struct {
 
 var _ capabilities.TriggerCapability = &TriggerCapabilityWrapper{}
 
-func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
 	return nil
 }
 

@@ -312,7 +312,7 @@ func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.Tr
 	return nil
 }
 
-func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string) error {
+func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
 	tr.eventAckd = true
 	return nil
 }
@@ -446,7 +446,7 @@ func (tr *multiTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error
 	return tr.info, nil
 }
 
-func (tr *multiTrigger) AckEvent(_ context.Context, triggerID string, eventID string) error {
+func (tr *multiTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
 	return nil
 }
 
