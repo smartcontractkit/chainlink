@@ -99,7 +99,7 @@ jobs:
         run: |
           echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)" >> $GITHUB_ENV
 
-      - name: Run Automation environment
+      - name: Run Keepers environment
         working-directory: devenv
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
