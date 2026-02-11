@@ -729,6 +729,18 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 1. **Choose the Right Topology**
    - For a single DON with all capabilities, but with a separate gateway and bootstrap node: `configs/workflow-gateway-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-gateway-capabilities-don.toml`
+   - Use the topology CLI to inspect and compare configs before startup:
+     ```bash
+     # list available topology configs
+     go run . topology list
+
+     # show compact DON + capability matrix view for one config
+     go run . topology show --config configs/workflow-gateway-capabilities-don.toml
+
+     # regenerate topology docs
+     go run . topology generate
+     ```
+   - `env start` now prints a compact topology summary with a capability matrix.
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
    - If your use case requires them, you should build them manually by:
