@@ -57,7 +57,7 @@ func GRPCStatusToInternal(s pb.WorkflowStatus, lggr logger.Logger) uint8 {
 		lggr.Warn("Received WORKFLOW_STATUS_UNSPECIFIED from proto, treating as paused")
 		return WorkflowStatusPaused
 	default:
-		lggr.Warn("Unknown proto status, treating as paused", "status", s)
+		lggr.Warnw("Unknown proto status, treating as paused", "status", s)
 		return WorkflowStatusPaused
 	}
 }

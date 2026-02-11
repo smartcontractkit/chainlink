@@ -362,13 +362,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices)
-	// LOOPs can be created as options, in the  case of LOOP relayers, or
-	// as OCR2 job implementations, in the case of Median today.
-	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
-	// we need to initialize in case we serve OCR2 LOOPs
-	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.AppID().String(), opts.Config.Feature().LogPoller(), opts.Config.Database(), opts.Config.Mercury(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex, opts.Config.LOOPP())
-	}
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {

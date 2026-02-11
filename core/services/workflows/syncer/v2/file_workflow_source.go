@@ -95,7 +95,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 
 	// Handle empty file
 	if len(data) == 0 {
-		f.lggr.Debug("Workflow metadata file is empty, returning empty list", "path", filePath)
+		f.lggr.Debugw("Workflow metadata file is empty, returning empty list", "path", filePath)
 		return []WorkflowMetadataView{}, f.syntheticHead(), nil
 	}
 
@@ -122,7 +122,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		// Convert to WorkflowMetadataView
 		view, err := f.toWorkflowMetadataView(wf)
 		if err != nil {
-			f.lggr.Warn("Failed to parse workflow metadata, skipping",
+			f.lggr.Warnw("Failed to parse workflow metadata, skipping",
 				"source", f.name,
 				"workflowName", wf.WorkflowName,
 				"error", err)
@@ -132,7 +132,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 		workflows = append(workflows, view)
 	}
 
-	f.lggr.Debug("Loaded workflows from file",
+	f.lggr.Debugw("Loaded workflows from file",
 		"path", filePath,
 		"totalInFile", len(sourceData.Workflows),
 		"matchingDON", len(workflows),
