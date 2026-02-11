@@ -68,8 +68,9 @@ func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 
 		mockPub.PublishMetric(context.Background(), "test_metric", 1.0, nil)
 
-		metrics := mockPub.getMetrics()
-		require.Len(t, metrics, 1)
-		// Should not panic
+		assert.NotPanics(t, func() {
+			metrics := mockPub.getMetrics()
+			require.Len(t, metrics, 1)
+		})
 	})
 }

@@ -878,10 +878,11 @@ func (i *pluginOracleCreator) setupObservationMetricsCollector(
 
 	// Define Beholder labels with detailed information
 	beholderLabels := map[string]string{
-		"pluginType":  pluginTypeName,
-		"chainId":     chainID,
-		"chainFamily": chainFamily,
-		"networkName": networkName,
+		"pluginType":    pluginTypeName,
+		"chainId":       chainID,
+		"chainFamily":   chainFamily,
+		"networkName":   networkName,
+		"chainSelector": strconv.FormatUint(chainSelector, 10),
 	}
 
 	// Create a Beholder publisher to send observation metrics to Beholder
