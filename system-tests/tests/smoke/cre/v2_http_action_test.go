@@ -1,9 +1,11 @@
 package cre
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -16,6 +18,12 @@ import (
 	httpactionconfig "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
+)
+
+// HTTP Action multi-headers test: workflow asserts response MultiHeaders contain multiple Set-Cookie values.
+const (
+	multiHeadersTestCase   = "multi-headers"
+	multiHeadersSuccessMsg = "HTTP Action multi-headers test completed"
 )
 
 // HTTP Action test cases for successful CRUD operations
@@ -66,6 +74,15 @@ var httpActionSuccessTests = []httpActionSuccessTest{
 		endpoint:   "/api/resources/test-resource-3",
 		url:        "",
 	},
+	{
+		name:       "multi-headers response",
+		testCase:   "multi-headers",
+		method:     "GET",
+		body:       ``,
+		statusCode: 200,
+		endpoint:   "/api/multi-headers",
+		url:        "",
+	},
 }
 
 // ExecuteHTTPActionCRUDSuccessTest executes HTTP Action CRUD operations success test
@@ -85,6 +102,22 @@ func ExecuteHTTPActionCRUDSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironm
 	}
 
 	for _, testCase := range httpActionSuccessTests {
+		if testCase.testCase == multiHeadersTestCase {
+			err = fake.Func("GET", testCase.endpoint, func(c *gin.Context) {
+				for name, values := range c.Request.Header {
+					for _, value := range values {
+						c.Writer.Header().Add(name, value)
+					}
+				}
+				c.Writer.Header().Add("Set-Cookie", "sessionid=multi-e2e-1; Path=/")
+				c.Writer.Header().Add("Set-Cookie", "csrf=multi-e2e-2; Path=/")
+				c.Writer.Header().Add("Set-Cookie", "pref=multi-e2e-3; Path=/")
+				c.JSON(http.StatusOK, response)
+			})
+			require.NoError(t, err, "failed to set up %s endpoint for %s", testCase.endpoint, testCase.method)
+			continue
+		}
+
 		err = fake.JSON(testCase.method, testCase.endpoint, response, testCase.statusCode)
 		require.NoError(t, err, "failed to set up %s endpoint for %s", testCase.endpoint, testCase.method)
 	}
@@ -139,8 +172,12 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	// Wait for workflow execution to complete and verify success
 	testLogger.Info().Msg("Waiting for HTTP Action CRUD operations to complete...")
 
-	// Expect exact success message for this test case
-	expectedMessage := "HTTP Action CRUD success test completed: " + httpActionTest.testCase
+	var expectedMessage string
+	if httpActionTest.testCase == multiHeadersTestCase {
+		expectedMessage = multiHeadersSuccessMsg
+	} else {
+		expectedMessage = "HTTP Action CRUD success test completed: " + httpActionTest.testCase
+	}
 
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedMessage, 4*time.Minute)
 
