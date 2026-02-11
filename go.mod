@@ -14,7 +14,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/buraksezer/consistent v0.10.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.1
+	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.2
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/cosmos/cosmos-sdk v0.50.14
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -60,7 +60,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/leanovate/gopter v0.2.11
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.11.1
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
@@ -199,7 +199,7 @@ require (
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.16.1 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.2 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
