@@ -135,7 +135,7 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return cfg.capInfo, nil
 }
 
-func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
 	s.lggr.Debugf("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerID, eventID)
 
 	s.mu.RLock()

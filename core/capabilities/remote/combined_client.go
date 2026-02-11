@@ -57,21 +57,15 @@ func (c *combinedClient) UnregisterTrigger(ctx context.Context, request capabili
 	return subscriber.UnregisterTrigger(ctx, request)
 }
 
-func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID string) error {
+func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, trigger := range c.triggerSubscribers {
-		info, err := trigger.Info(ctx)
-		if err != nil {
-			return err
-		}
-		// TODO: We need TriggerCapID here, not the registration triggerID in order to match?
-		// TODO: Or we call AckEvent on all triggers and they must noop if triggerID doesn't match?
-		if info.ID == triggerID { // '
-			return trigger.AckEvent(ctx, triggerID, eventID)
-		}
+	trigger, ok := c.triggerSubscribers[method]
+	c.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("method %s not defined", method)
 	}
-	return fmt.Errorf("could not find trigger %q triggerID", triggerID)
+	return trigger.AckEvent(ctx, triggerID, eventID, method)
 }
 
 func (c *combinedClient) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

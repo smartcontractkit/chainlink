@@ -756,7 +756,7 @@ func (e *Engine) ackTriggerEvent(ctx context.Context, triggerCapID string, trigg
 		}
 		if info.ID == triggerCapID {
 			e.lggr.Debugf("Calling AackEvent on trigger capability (triggerID=%s, eventID=%s)", triggerRegistrationID, te.ID)
-			return trigger.AckEvent(ctx, triggerRegistrationID, te.ID)
+			return trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
 		}
 	}
 	return fmt.Errorf("failed to find trigger %s", triggerCapID)
