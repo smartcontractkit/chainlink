@@ -2,10 +2,13 @@ package oraclecreator
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"strings"
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
+	prometheus_dto "github.com/prometheus/client_model/go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -62,50 +65,77 @@ func (c *ObservationMetricsCollector) Close() error {
 	return nil
 }
 
-// wrappedCounter wraps a Prometheus counter to intercept Inc() calls
+// wrappedCounter wraps a Prometheus collector (which may be a counter or wrappingCollector)
+// to intercept Collect() calls and track value changes
 type wrappedCounter struct {
-	prometheus.Counter
-	metricName string
-	labels     map[string]string // Beholder labels (for metrics publishing)
-	publisher  ObservationMetricsPublisher
-	logger     logger.Logger
-	value      atomic.Uint64
+	prometheus.Collector
+	metricName    string
+	labels        map[string]string // Beholder labels (for metrics publishing)
+	publisher     ObservationMetricsPublisher
+	logger        logger.Logger
+	lastValueBits uint64 // stores float64 as bits for atomic operations
 }
 
-// Inc increments the counter and publishes the delta (1)
-func (w *wrappedCounter) Inc() {
-	w.Counter.Inc()
-	newValue := w.value.Add(1)
+// Collect intercepts metric collection to detect counter increments
+func (w *wrappedCounter) Collect(ch chan<- prometheus.Metric) {
+	// Create a channel to intercept metrics
+	interceptCh := make(chan prometheus.Metric, 10)
 
-	w.logger.Debugw("Observation metric incremented",
-		"metric", w.metricName,
-		"value", newValue,
-		"delta", 1,
-		"labels", w.labels,
-	)
+	// Collect from the underlying collector
+	go func() {
+		w.Collector.Collect(interceptCh)
+		close(interceptCh)
+	}()
 
-	if w.publisher != nil {
-		// Publish the delta (1), not the cumulative value, since Beholder counters are cumulative
-		w.publisher.PublishMetric(context.Background(), w.metricName, 1.0, w.labels)
+	// Forward metrics and track counter value
+	for m := range interceptCh {
+		// Try to extract the counter value from the metric
+		var metricValue float64
+		if err := extractCounterValue(m, &metricValue); err == nil {
+			// Load the last value atomically
+			lastBits := atomic.LoadUint64(&w.lastValueBits)
+			lastValue := math.Float64frombits(lastBits)
+
+			if metricValue > lastValue {
+				delta := metricValue - lastValue
+				// Store the new value atomically
+				atomic.StoreUint64(&w.lastValueBits, math.Float64bits(metricValue))
+
+				w.logger.Debugw("Observation metric incremented",
+					"metric", w.metricName,
+					"value", metricValue,
+					"delta", delta,
+					"labels", w.labels,
+				)
+
+				if w.publisher != nil {
+					// Publish the delta, not the cumulative value
+					w.publisher.PublishMetric(context.Background(), w.metricName, delta, w.labels)
+				}
+			}
+		}
+
+		// Forward the metric to the actual channel
+		ch <- m
 	}
 }
 
-// Add increments the counter by the given value and publishes the delta
-func (w *wrappedCounter) Add(val float64) {
-	w.Counter.Add(val)
-	newValue := w.value.Add(uint64(val))
-
-	w.logger.Debugw("Observation metric incremented",
-		"metric", w.metricName,
-		"value", newValue,
-		"delta", val,
-		"labels", w.labels,
-	)
-
-	if w.publisher != nil {
-		// Publish the delta (val), not the cumulative value, since Beholder counters are cumulative
-		w.publisher.PublishMetric(context.Background(), w.metricName, val, w.labels)
+// extractCounterValue extracts the value from a prometheus.Metric
+// This uses the prometheus dto.Metric structure
+func extractCounterValue(m prometheus.Metric, value *float64) error {
+	// Create a DTO metric to write into
+	dto := &prometheus_dto.Metric{}
+	if err := m.Write(dto); err != nil {
+		return err
 	}
+
+	// Check if it's a counter
+	if dto.Counter != nil {
+		*value = dto.Counter.GetValue()
+		return nil
+	}
+
+	return fmt.Errorf("metric is not a counter")
 }
 
 // Describe implements prometheus.Collector
@@ -136,14 +166,24 @@ type interceptingRegisterer struct {
 
 func (r *interceptingRegisterer) Register(c prometheus.Collector) error {
 	// Try to intercept counter registration
+	// This returns either our wrappedCounter (for observation metrics)
+	// or the original collector (for other metrics)
 	wrapped := r.maybeWrapCollector(c)
-	return r.base.Register(wrapped)
+
+	// If we wrapped it with our wrappedCounter, we still need to add Prometheus labels
+	// If we didn't wrap it, we need to add Prometheus labels to maintain existing behavior
+	wrappedWithLabels := prometheus.WrapCollectorWith(r.collector.constantLabels, wrapped)
+
+	return r.base.Register(wrappedWithLabels)
 }
 
 func (r *interceptingRegisterer) MustRegister(cs ...prometheus.Collector) {
 	wrapped := make([]prometheus.Collector, len(cs))
 	for i, c := range cs {
-		wrapped[i] = r.maybeWrapCollector(c)
+		// Try to intercept and wrap with our custom wrapper
+		maybeWrapped := r.maybeWrapCollector(c)
+		// Add Prometheus labels to maintain existing behavior
+		wrapped[i] = prometheus.WrapCollectorWith(r.collector.constantLabels, maybeWrapped)
 	}
 	r.base.MustRegister(wrapped...)
 }
@@ -162,36 +202,36 @@ func (r *interceptingRegisterer) maybeWrapCollector(c prometheus.Collector) prom
 	}()
 
 	for desc := range descChan {
-		// Try to get counter type
-		if counter, ok := c.(prometheus.Counter); ok {
-			// Check the descriptor's fqName to see if it matches our target metrics
-			descString := desc.String()
+		descString := desc.String()
+		// Check if this is one of our target metrics
+		if strings.Contains(descString, "ocr3_sent_observations_total") {
+			r.collector.logger.Info("Wrapping ocr3_sent_observations_total counter")
 
-			if strings.Contains(descString, "ocr3_sent_observations_total") {
-				r.collector.logger.Info("Wrapping ocr3_sent_observations_total counter")
-				wrapped := &wrappedCounter{
-					Counter:    counter,
-					metricName: "ocr3_sent_observations_total",
-					labels:     r.collector.beholderLabels,
-					publisher:  r.collector.publisher,
-					logger:     r.collector.logger,
-				}
-				r.collector.sentObservationsCounter = wrapped
-				return wrapped
+			// Wrap the collector (whether it's a raw Counter or wrappingCollector)
+			wrapped := &wrappedCounter{
+				Collector:  c,
+				metricName: "ocr3_sent_observations_total",
+				labels:     r.collector.beholderLabels,
+				publisher:  r.collector.publisher,
+				logger:     r.collector.logger,
 			}
+			r.collector.sentObservationsCounter = wrapped
+			return wrapped
+		}
 
-			if strings.Contains(descString, "ocr3_included_observations_total") {
-				r.collector.logger.Info("Wrapping ocr3_included_observations_total counter")
-				wrapped := &wrappedCounter{
-					Counter:    counter,
-					metricName: "ocr3_included_observations_total",
-					labels:     r.collector.beholderLabels,
-					publisher:  r.collector.publisher,
-					logger:     r.collector.logger,
-				}
-				r.collector.includedObservationsCounter = wrapped
-				return wrapped
+		if strings.Contains(descString, "ocr3_included_observations_total") {
+			r.collector.logger.Info("Wrapping ocr3_included_observations_total counter")
+
+			// Wrap the collector (whether it's a raw Counter or wrappingCollector)
+			wrapped := &wrappedCounter{
+				Collector:  c,
+				metricName: "ocr3_included_observations_total",
+				labels:     r.collector.beholderLabels,
+				publisher:  r.collector.publisher,
+				logger:     r.collector.logger,
 			}
+			r.collector.includedObservationsCounter = wrapped
+			return wrapped
 		}
 	}
 

@@ -915,12 +915,10 @@ func (i *pluginOracleCreator) setupObservationMetricsCollector(
 	i.metricsCollector = metricsCollector
 
 	// Create a wrapped registerer that intercepts observation metric registrations
-	// Use Prometheus labels for WrapRegistererWith (no breaking changes)
-	baseRegisterer := prometheus.WrapRegistererWith(
-		prometheusLabels,
-		prometheus.DefaultRegisterer,
-	)
-	wrappedRegisterer := metricsCollector.CreateWrappedRegisterer(baseRegisterer)
+	// Don't use WrapRegistererWith here as it would wrap the collectors and prevent
+	// us from intercepting Inc() calls on counters. Instead, we'll handle the wrapping
+	// ourselves in the intercepting registerer.
+	wrappedRegisterer := metricsCollector.CreateWrappedRegisterer(prometheus.DefaultRegisterer)
 
 	return wrappedRegisterer, nil
 }

@@ -64,12 +64,12 @@ func TestObservationMetricsCollector(t *testing.T) {
 	}
 
 	collector := NewObservationMetricsCollector(lggr, mockPub, constantLabels, beholderLabels)
-	defer collector.Close()
+	defer func() { _ = collector.Close() }()
 
-	// Create a test registerer with WrapRegistererWith to simulate the real scenario
+	// Create a test registerer - we don't use WrapRegistererWith here anymore
+	// as the collector handles the label wrapping internally
 	registry := prometheus.NewRegistry()
-	baseRegisterer := prometheus.WrapRegistererWith(constantLabels, registry)
-	wrappedRegisterer := collector.CreateWrappedRegisterer(baseRegisterer)
+	wrappedRegisterer := collector.CreateWrappedRegisterer(registry)
 
 	// Simulate libocr registering the sent observations counter
 	sentCounter := prometheus.NewCounter(prometheus.CounterOpts{
@@ -92,9 +92,16 @@ func TestObservationMetricsCollector(t *testing.T) {
 	// Wait a moment for registration to complete
 	time.Sleep(100 * time.Millisecond)
 
-	// Use the wrapped counters stored in the collector (this simulates what libocr would do)
-	// In real usage, libocr would only have access to the wrapped counter returned by Register
-	collector.sentObservationsCounter.Inc()
+	// Increment the counters (simulating what libocr does)
+	sentCounter.Inc()
+
+	// Trigger a collection to detect the increment
+	metricChan := make(chan prometheus.Metric, 10)
+	collector.sentObservationsCounter.Collect(metricChan)
+	close(metricChan)
+	// Drain the channel
+	for range metricChan {
+	}
 
 	// Wait for async publishing
 	time.Sleep(100 * time.Millisecond)
@@ -105,7 +112,7 @@ func TestObservationMetricsCollector(t *testing.T) {
 
 	if len(metrics) > 0 {
 		assert.Equal(t, "ocr3_sent_observations_total", metrics[0].name)
-		assert.Equal(t, 1, int(metrics[0].value))
+		assert.InEpsilon(t, 1.0, metrics[0].value, 0.01)
 		// Verify Beholder labels are present
 		assert.Equal(t, "commit", metrics[0].labels["pluginType"])
 		assert.Equal(t, "1", metrics[0].labels["chainId"])
@@ -113,10 +120,27 @@ func TestObservationMetricsCollector(t *testing.T) {
 		assert.Equal(t, "Ethereum", metrics[0].labels["networkName"])
 	}
 
-	// Increment multiple times using the wrapped counters
-	collector.sentObservationsCounter.Inc()
-	collector.includedObservationsCounter.Inc()
-	collector.includedObservationsCounter.Inc()
+	// Increment multiple times and trigger collections
+	sentCounter.Inc()
+	metricChan = make(chan prometheus.Metric, 10)
+	collector.sentObservationsCounter.Collect(metricChan)
+	close(metricChan)
+	for range metricChan {
+	}
+
+	includedCounter.Inc()
+	metricChan = make(chan prometheus.Metric, 10)
+	collector.includedObservationsCounter.Collect(metricChan)
+	close(metricChan)
+	for range metricChan {
+	}
+
+	includedCounter.Inc()
+	metricChan = make(chan prometheus.Metric, 10)
+	collector.includedObservationsCounter.Collect(metricChan)
+	close(metricChan)
+	for range metricChan {
+	}
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -165,21 +189,26 @@ func TestWrappedCounter(t *testing.T) {
 	}
 
 	wrapped := &wrappedCounter{
-		Counter:    baseCounter,
+		Collector:  baseCounter,
 		metricName: "test_counter",
 		labels:     allLabels,
 		publisher:  mockPub,
 		logger:     lggr,
 	}
 
-	// Test Inc()
-	wrapped.Inc()
+	// Test Inc() - increment the base counter and trigger collection
+	baseCounter.Inc()
+	metricChan := make(chan prometheus.Metric, 10)
+	wrapped.Collect(metricChan)
+	close(metricChan)
+	for range metricChan {
+	}
 	time.Sleep(50 * time.Millisecond)
 
 	metrics := mockPub.getMetrics()
 	require.Len(t, metrics, 1)
 	assert.Equal(t, "test_counter", metrics[0].name)
-	assert.Equal(t, 1, int(metrics[0].value)) // Delta of 1
+	assert.InEpsilon(t, 1.0, metrics[0].value, 0.01) // Delta of 1
 
 	// Verify Beholder labels are present
 	assert.Equal(t, "exec", metrics[0].labels["pluginType"])
@@ -187,13 +216,18 @@ func TestWrappedCounter(t *testing.T) {
 	assert.Equal(t, "evm", metrics[0].labels["chainFamily"])
 	assert.Equal(t, "Arbitrum", metrics[0].labels["networkName"])
 
-	// Test Add()
-	wrapped.Add(5.0)
+	// Test Add() - increment by 5 and trigger collection
+	baseCounter.Add(5.0)
+	metricChan = make(chan prometheus.Metric, 10)
+	wrapped.Collect(metricChan)
+	close(metricChan)
+	for range metricChan {
+	}
 	time.Sleep(50 * time.Millisecond)
 
 	metrics = mockPub.getMetrics()
 	require.Len(t, metrics, 2)
-	assert.Equal(t, 5, int(metrics[1].value)) // Delta of 5, not cumulative 6
+	assert.InEpsilon(t, 5.0, metrics[1].value, 0.01) // Delta of 5, not cumulative 6
 
 	// Verify labels are still present in the second metric
 	assert.Equal(t, "exec", metrics[1].labels["pluginType"])
@@ -215,7 +249,7 @@ func TestWrappedCounter_AtomicOperations(t *testing.T) {
 	})
 
 	wrapped := &wrappedCounter{
-		Counter:    baseCounter,
+		Collector:  baseCounter,
 		metricName: "concurrent_test_counter",
 		labels:     map[string]string{"test": "concurrent"},
 		publisher:  mockPub,
@@ -230,7 +264,7 @@ func TestWrappedCounter_AtomicOperations(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			for j := 0; j < incrementsPerGoroutine; j++ {
-				wrapped.Inc()
+				baseCounter.Inc()
 			}
 			done <- true
 		}()
@@ -241,17 +275,21 @@ func TestWrappedCounter_AtomicOperations(t *testing.T) {
 		<-done
 	}
 
+	// Trigger a collection to detect all the increments
+	metricChan := make(chan prometheus.Metric, 10)
+	wrapped.Collect(metricChan)
+	close(metricChan)
+	for range metricChan {
+	}
+
 	time.Sleep(100 * time.Millisecond)
 
-	// Verify total number of published metrics
+	// Verify that we published the total delta
 	metrics := mockPub.getMetrics()
-	expectedTotal := numGoroutines * incrementsPerGoroutine
-	assert.Len(t, metrics, expectedTotal, "Expected all increments to be published")
+	require.Len(t, metrics, 1, "Expected one metric published with total delta")
 
-	// Verify all deltas are 1.0
-	for _, m := range metrics {
-		assert.Equal(t, 1, int(m.value), "Each increment should publish delta of 1")
-	}
+	expectedTotal := float64(numGoroutines * incrementsPerGoroutine)
+	assert.InEpsilon(t, expectedTotal, metrics[0].value, 0.01, "Should publish total delta")
 }
 
 // TestWrappedCounter_DeltaPublishing verifies that deltas (not cumulative values) are published
@@ -267,37 +305,47 @@ func TestWrappedCounter_DeltaPublishing(t *testing.T) {
 	})
 
 	wrapped := &wrappedCounter{
-		Counter:    baseCounter,
+		Collector:  baseCounter,
 		metricName: "delta_test_counter",
 		labels:     map[string]string{"test": "delta"},
 		publisher:  mockPub,
 		logger:     lggr,
 	}
 
+	// Helper function to increment and collect
+	collectMetrics := func() {
+		metricChan := make(chan prometheus.Metric, 10)
+		wrapped.Collect(metricChan)
+		close(metricChan)
+		for range metricChan {
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	// Test sequence: Inc(), Inc(), Add(5), Inc(), Add(10)
-	wrapped.Inc() // Should publish 1
-	time.Sleep(10 * time.Millisecond)
+	baseCounter.Inc() // Should publish 1
+	collectMetrics()
 
-	wrapped.Inc() // Should publish 1 (not 2)
-	time.Sleep(10 * time.Millisecond)
+	baseCounter.Inc() // Should publish 1 (not 2)
+	collectMetrics()
 
-	wrapped.Add(5.0) // Should publish 5 (not 7)
-	time.Sleep(10 * time.Millisecond)
+	baseCounter.Add(5.0) // Should publish 5 (not 7)
+	collectMetrics()
 
-	wrapped.Inc() // Should publish 1 (not 8)
-	time.Sleep(10 * time.Millisecond)
+	baseCounter.Inc() // Should publish 1 (not 8)
+	collectMetrics()
 
-	wrapped.Add(10.0) // Should publish 10 (not 18)
-	time.Sleep(10 * time.Millisecond)
+	baseCounter.Add(10.0) // Should publish 10 (not 18)
+	collectMetrics()
 
 	metrics := mockPub.getMetrics()
 	require.Len(t, metrics, 5)
 
 	// Verify each published value is the delta, not cumulative
-	expectedDeltas := []int{1, 1, 5, 1, 10}
+	expectedDeltas := []float64{1, 1, 5, 1, 10}
 	for i, expected := range expectedDeltas {
-		assert.Equal(t, expected, int(metrics[i].value),
-			"Metric %d should publish delta %d, not cumulative value", i, expected)
+		assert.InEpsilon(t, expected, metrics[i].value, 0.01,
+			"Metric %d should publish delta %f, not cumulative value", i, expected)
 	}
 
 	// If we were to sum the deltas, we should get the cumulative value
@@ -321,27 +369,36 @@ func TestWrappedCounter_AddWithFractionalValues(t *testing.T) {
 	})
 
 	wrapped := &wrappedCounter{
-		Counter:    baseCounter,
+		Collector:  baseCounter,
 		metricName: "fractional_test_counter",
 		labels:     map[string]string{"test": "fractional"},
 		publisher:  mockPub,
 		logger:     lggr,
 	}
 
-	// Test with fractional values (though atomic.Uint64 will truncate)
-	wrapped.Add(2.7)
-	time.Sleep(10 * time.Millisecond)
+	// Helper function to collect metrics
+	collectMetrics := func() {
+		metricChan := make(chan prometheus.Metric, 10)
+		wrapped.Collect(metricChan)
+		close(metricChan)
+		for range metricChan {
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
-	wrapped.Add(1.3)
-	time.Sleep(10 * time.Millisecond)
+	// Test with fractional values
+	baseCounter.Add(2.7)
+	collectMetrics()
+
+	baseCounter.Add(1.3)
+	collectMetrics()
 
 	metrics := mockPub.getMetrics()
 	require.Len(t, metrics, 2)
 
-	// Note: Due to uint64 truncation, 2.7 becomes 2 and 1.3 becomes 1 in internal counter
-	// But the published values should still be the original deltas (as float64)
-	assert.InDelta(t, 2.7, metrics[0].value, 0.001)
-	assert.InDelta(t, 1.3, metrics[1].value, 0.001)
+	// Verify the published deltas are correct (fractional values)
+	assert.InEpsilon(t, 2.7, metrics[0].value, 0.01)
+	assert.InEpsilon(t, 1.3, metrics[1].value, 0.01)
 }
 
 // TestObservationMetricsCollector_NonTargetMetrics verifies non-observation metrics pass through unchanged
@@ -359,7 +416,7 @@ func TestObservationMetricsCollector_NonTargetMetrics(t *testing.T) {
 	}
 
 	collector := NewObservationMetricsCollector(lggr, mockPub, prometheusLabels, beholderLabels)
-	defer collector.Close()
+	defer func() { _ = collector.Close() }()
 
 	registry := prometheus.NewRegistry()
 	wrappedRegisterer := collector.CreateWrappedRegisterer(registry)
@@ -422,7 +479,7 @@ func TestWrappedCounter_NilPublisher(t *testing.T) {
 	})
 
 	wrapped := &wrappedCounter{
-		Counter:    baseCounter,
+		Collector:  baseCounter,
 		metricName: "nil_publisher_test",
 		labels:     map[string]string{"test": "nil"},
 		publisher:  nil, // Explicitly nil
@@ -431,7 +488,14 @@ func TestWrappedCounter_NilPublisher(t *testing.T) {
 
 	// Should not panic
 	require.NotPanics(t, func() {
-		wrapped.Inc()
-		wrapped.Add(5.0)
+		baseCounter.Inc()
+		baseCounter.Add(5.0)
+
+		// Trigger collection
+		metricChan := make(chan prometheus.Metric, 10)
+		wrapped.Collect(metricChan)
+		close(metricChan)
+		for range metricChan {
+		}
 	})
 }
