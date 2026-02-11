@@ -6,20 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestExport(t *testing.T) {
 	var tt = []struct {
-		chain chaintype.ChainType
+		chain corekeys.ChainType
 	}{
-		{chain: chaintype.EVM},
-		{chain: chaintype.Cosmos},
-		{chain: chaintype.Solana},
-		{chain: chaintype.StarkNet},
-		{chain: chaintype.Aptos},
-		{chain: chaintype.Tron},
+		{chain: corekeys.EVM},
+		{chain: corekeys.Cosmos},
+		{chain: corekeys.Solana},
+		{chain: corekeys.StarkNet},
+		{chain: corekeys.Aptos},
+		{chain: corekeys.Tron},
 	}
 	for _, tc := range tt {
 		t.Run(string(tc.chain), func(t *testing.T) {

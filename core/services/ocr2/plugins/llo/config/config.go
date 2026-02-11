@@ -13,9 +13,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -160,7 +160,7 @@ func validateKeyBundleIDs(keyBundleIDs map[string]string) error {
 		if _, err := llotypes.ReportFormatFromString(k); err != nil {
 			return fmt.Errorf("llo: KeyBundleIDs: key must be a recognized report format, got: %s (err: %w)", k, err)
 		}
-		if !chaintype.IsSupportedChainType(chaintype.ChainType(k)) {
+		if !corekeys.IsSupportedChainType(corekeys.ChainType(k)) {
 			return fmt.Errorf("llo: KeyBundleIDs: key must be a supported chain type, got: %s", k)
 		}
 	}

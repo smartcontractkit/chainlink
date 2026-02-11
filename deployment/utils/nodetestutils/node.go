@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -50,7 +51,6 @@ import (
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -266,24 +266,24 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 		}
 
 		var keyBundle *nodev1.OCR2Config_OCRKeyBundle
-		var ocrtype chaintype.ChainType
+		var ocrtype corekeys.ChainType
 		switch family {
 		case chainsel.FamilyEVM:
-			ocrtype = chaintype.EVM
+			ocrtype = corekeys.EVM
 		case chainsel.FamilySolana:
-			ocrtype = chaintype.Solana
+			ocrtype = corekeys.Solana
 		case chainsel.FamilyStarknet:
-			ocrtype = chaintype.StarkNet
+			ocrtype = corekeys.StarkNet
 		case chainsel.FamilyCosmos:
-			ocrtype = chaintype.Cosmos
+			ocrtype = corekeys.Cosmos
 		case chainsel.FamilyAptos:
-			ocrtype = chaintype.Aptos
+			ocrtype = corekeys.Aptos
 		case chainsel.FamilySui:
-			ocrtype = chaintype.Sui
+			ocrtype = corekeys.Sui
 		case chainsel.FamilyTon:
-			ocrtype = chaintype.TON
+			ocrtype = corekeys.TON
 		case chainsel.FamilyTron:
-			ocrtype = chaintype.Tron
+			ocrtype = corekeys.Tron
 		default:
 			return nil, fmt.Errorf("unsupported chain family %v", family)
 		}
@@ -514,7 +514,7 @@ func NewNode(
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
 	require.NoError(t, master.Workflow().EnsureKey(ctx))
-	require.NoError(t, master.OCR2().EnsureKeys(ctx, chaintype.EVM, chaintype.Solana, chaintype.Aptos))
+	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		CREOpts: chainlink.CREOpts{
@@ -588,7 +588,7 @@ type Keys struct {
 	CSA           csakey.KeyV2
 	WorkflowKey   workflowkey.Key
 	Transmitters  map[uint64]string // chainSelector => address
-	OCRKeyBundles map[chaintype.ChainType]ocr2key.KeyBundle
+	OCRKeyBundles map[corekeys.ChainType]ocr2key.KeyBundle
 }
 
 func CreateKeys(t *testing.T,
@@ -615,9 +615,9 @@ func CreateKeys(t *testing.T,
 	peerID := p2pIDs[0].PeerID()
 	// create a transmitter for each chain
 	transmitters := make(map[uint64]string)
-	keybundles := make(map[chaintype.ChainType]ocr2key.KeyBundle)
+	keybundles := make(map[corekeys.ChainType]ocr2key.KeyBundle)
 	for _, chain := range chains {
-		ctype := chaintype.EVM
+		ctype := corekeys.EVM
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
@@ -684,7 +684,7 @@ func CreateKeys(t *testing.T,
 	// }
 
 	if len(solchains) > 0 {
-		ctype := chaintype.Solana
+		ctype := corekeys.Solana
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
@@ -708,7 +708,7 @@ func CreateKeys(t *testing.T,
 	}
 
 	if len(aptoschains) > 0 {
-		ctype := chaintype.Aptos
+		ctype := corekeys.Aptos
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
@@ -730,7 +730,7 @@ func CreateKeys(t *testing.T,
 	}
 
 	if len(tonchains) > 0 {
-		ctype := chaintype.TON
+		ctype := corekeys.TON
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
@@ -752,7 +752,7 @@ func CreateKeys(t *testing.T,
 	}
 
 	if len(suichains) > 0 {
-		ctype := chaintype.Sui
+		ctype := corekeys.Sui
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
@@ -774,7 +774,7 @@ func CreateKeys(t *testing.T,
 	}
 
 	if len(tronchains) > 0 {
-		ctype := chaintype.Tron
+		ctype := corekeys.Tron
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)

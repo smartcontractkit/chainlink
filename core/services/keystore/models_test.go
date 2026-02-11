@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -32,8 +32,8 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		ocrkey.MustNewV2XXXTestingOnly(big.NewInt(2)),
 	}
 	var ocr2 []ocr2key.KeyBundle
-	ocr2Raw := make([][]byte, 0, len(chaintype.SupportedChainTypes))
-	for _, chain := range chaintype.SupportedChainTypes {
+	ocr2Raw := make([][]byte, 0, len(corekeys.SupportedChainTypes))
+	for _, chain := range corekeys.SupportedChainTypes {
 		key := ocr2key.MustNewInsecure(rand.Reader, chain)
 		ocr2 = append(ocr2, key)
 		ocr2Raw = append(ocr2Raw, internal.RawBytes(key))
@@ -91,7 +91,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, internal.RawBytes(originalKeyRing.OCR[ocr[1].ID()]), internal.RawBytes(decryptedKeyRing.OCR[ocr[1].ID()]))
 		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[1].ID()].OffChainEncryption)
 		// compare ocr2 keys
-		require.Len(t, decryptedKeyRing.OCR2, len(chaintype.SupportedChainTypes))
+		require.Len(t, decryptedKeyRing.OCR2, len(corekeys.SupportedChainTypes))
 		for i := range ocr2 {
 			id := ocr2[i].ID()
 			require.Equal(t, originalKeyRing.OCR2[id].ID(), decryptedKeyRing.OCR2[id].ID())

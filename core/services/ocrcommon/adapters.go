@@ -16,8 +16,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -99,7 +99,7 @@ func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.Onch
 func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrtypes.OnchainPublicKey, error) {
 	var pubKeys [][]byte
 	for k, pubKey := range ost {
-		typ, err := chaintype.ChainType(k).Type()
+		typ, err := corekeys.ChainType(k).Type()
 		if err != nil {
 			// skipping unknown key type
 			continue
@@ -149,7 +149,7 @@ func UnmarshalMultichainPublicKey(d []byte) (map[string]ocrtypes.OnchainPublicKe
 			return nil, io.EOF
 		}
 
-		k, err := chaintype.NewChainType(typ)
+		k, err := corekeys.NewChainType(typ)
 		if err != nil {
 			// skipping unknown key type
 			continue
