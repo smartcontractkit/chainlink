@@ -595,8 +595,8 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.18
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260209205928-e7e034ed7976 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260209205928-e7e034ed7976 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260211155338-cd4708d2b938 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260211155338-cd4708d2b938 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 // indirect
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative v0.0.0-20251015074515-1acc1d3fb4c0
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction v0.0.0-20251015074515-1acc1d3fb4c0

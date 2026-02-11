@@ -107,8 +107,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260205231316-3b9c600dd791
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260209164410-3aec83b0246f
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260124000807-bff5e296dfb7
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260209205928-e7e034ed7976
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260205175622-33e65031f9a9
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260211155338-cd4708d2b938
 	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
@@ -232,6 +232,7 @@ require (
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
+	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.5 // indirect
 	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
