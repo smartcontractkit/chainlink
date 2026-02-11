@@ -1,4 +1,4 @@
-package keystore
+package models
 
 import (
 	"crypto/rand"
@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -161,4 +162,10 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		_, err = originalKeyRing.LegacyKeys.UnloadUnsupported(nil)
 		require.Error(t, err)
 	})
+}
+
+func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
+	key, err := ethkey.NewV2()
+	require.NoError(t, err)
+	return &key
 }

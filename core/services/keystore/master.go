@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -175,20 +177,20 @@ func (ks *master) DKGRecipient() DKGRecipient {
 
 type ORM interface {
 	isEmpty(context.Context) (bool, error)
-	saveEncryptedKeyRing(context.Context, *encryptedKeyRing, ...func(sqlutil.DataSource) error) error
-	getEncryptedKeyRing(context.Context) (encryptedKeyRing, error)
+	saveEncryptedKeyRing(context.Context, *models.EncryptedKeyRing, ...func(sqlutil.DataSource) error) error
+	getEncryptedKeyRing(context.Context) (models.EncryptedKeyRing, error)
 }
 
 type keystateORM interface {
-	loadKeyStates(context.Context) (*keyStates, error)
+	loadKeyStates(context.Context) (*models.KeyStates, error)
 }
 
 type keyManager struct {
 	orm          ORM
 	keystateORM  keystateORM
 	scryptParams keystore.ScryptParams
-	keyRing      *keyRing
-	keyStates    *keyStates
+	keyRing      *models.KeyRing
+	keyStates    *models.KeyStates
 	lock         *sync.RWMutex
 	password     string
 	announce     func(Key)
