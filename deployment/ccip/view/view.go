@@ -170,6 +170,7 @@ type CCIPView struct {
 	TonChains   map[string]tonstate.TONChainView `json:"tonChains,omitempty"`
 	SuiChains   map[string]suistate.SuiChainView `json:"suiChains,omitempty"`
 	Nops        map[string]view.NopView          `json:"nops,omitempty"`
+	V16Nops     map[string]view.NopView          `json:"v16Nops,omitempty"`
 }
 
 func (v CCIPView) MarshalJSON() ([]byte, error) {
