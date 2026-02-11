@@ -100,7 +100,7 @@ func TestObservationMetricsCollector(t *testing.T) {
 	collector.sentObservationsCounter.Collect(metricChan)
 	close(metricChan)
 	// Drain the channel
-	for range metricChan {
+	for range metricChan { //nolint:revive // Intentionally draining channel
 	}
 
 	// Wait for async publishing
@@ -125,21 +125,21 @@ func TestObservationMetricsCollector(t *testing.T) {
 	metricChan = make(chan prometheus.Metric, 10)
 	collector.sentObservationsCounter.Collect(metricChan)
 	close(metricChan)
-	for range metricChan {
+	for range metricChan { //nolint:revive // Intentionally draining channel
 	}
 
 	includedCounter.Inc()
 	metricChan = make(chan prometheus.Metric, 10)
 	collector.includedObservationsCounter.Collect(metricChan)
 	close(metricChan)
-	for range metricChan {
+	for range metricChan { //nolint:revive // Intentionally draining channel
 	}
 
 	includedCounter.Inc()
 	metricChan = make(chan prometheus.Metric, 10)
 	collector.includedObservationsCounter.Collect(metricChan)
 	close(metricChan)
-	for range metricChan {
+	for range metricChan { //nolint:revive // Intentionally draining channel
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -201,7 +201,7 @@ func TestWrappedCounter(t *testing.T) {
 	metricChan := make(chan prometheus.Metric, 10)
 	wrapped.Collect(metricChan)
 	close(metricChan)
-	for range metricChan {
+	for range metricChan { //nolint:revive // Intentionally draining channel
 	}
 	time.Sleep(50 * time.Millisecond)
 
@@ -221,7 +221,7 @@ func TestWrappedCounter(t *testing.T) {
 	metricChan = make(chan prometheus.Metric, 10)
 	wrapped.Collect(metricChan)
 	close(metricChan)
-	for range metricChan {
+	for range metricChan { //nolint:revive // Intentionally draining channel
 	}
 	time.Sleep(50 * time.Millisecond)
 
@@ -279,7 +279,7 @@ func TestWrappedCounter_AtomicOperations(t *testing.T) {
 	metricChan := make(chan prometheus.Metric, 10)
 	wrapped.Collect(metricChan)
 	close(metricChan)
-	for range metricChan {
+	for range metricChan { //nolint:revive // Intentionally draining channel
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -317,7 +317,7 @@ func TestWrappedCounter_DeltaPublishing(t *testing.T) {
 		metricChan := make(chan prometheus.Metric, 10)
 		wrapped.Collect(metricChan)
 		close(metricChan)
-		for range metricChan {
+		for range metricChan { //nolint:revive // Intentionally draining channel
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -381,7 +381,7 @@ func TestWrappedCounter_AddWithFractionalValues(t *testing.T) {
 		metricChan := make(chan prometheus.Metric, 10)
 		wrapped.Collect(metricChan)
 		close(metricChan)
-		for range metricChan {
+		for range metricChan { //nolint:revive // Intentionally draining channel
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -495,7 +495,7 @@ func TestWrappedCounter_NilPublisher(t *testing.T) {
 		metricChan := make(chan prometheus.Metric, 10)
 		wrapped.Collect(metricChan)
 		close(metricChan)
-		for range metricChan {
+		for range metricChan { //nolint:revive // Intentionally draining channel
 		}
 	})
 }

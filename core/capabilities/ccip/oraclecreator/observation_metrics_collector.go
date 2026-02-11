@@ -2,7 +2,7 @@ package oraclecreator
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math"
 	"strings"
 	"sync/atomic"
@@ -135,7 +135,7 @@ func extractCounterValue(m prometheus.Metric, value *float64) error {
 		return nil
 	}
 
-	return fmt.Errorf("metric is not a counter")
+	return errors.New("metric is not a counter")
 }
 
 // Describe implements prometheus.Collector
