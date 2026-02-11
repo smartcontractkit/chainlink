@@ -13,6 +13,7 @@ import (
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
@@ -22,7 +23,6 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
@@ -107,7 +107,7 @@ func NewFakeStreamsTrigger(lggr logger.Logger, nSigners int) *fakeStreamsTrigger
 	signers := make([]ocr2key.KeyBundle, nSigners)
 	rawSigners := make([][]byte, nSigners)
 	for i := range nSigners {
-		signers[i], _ = ocr2key.New(chaintype.EVM)
+		signers[i], _ = ocr2key.New(corekeys.EVM)
 		rawSigners[i] = signers[i].PublicKey()
 	}
 

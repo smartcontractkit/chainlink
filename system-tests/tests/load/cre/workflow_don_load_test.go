@@ -34,6 +34,7 @@ import (
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -59,7 +60,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -777,7 +777,7 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 				return nil, fmt.Errorf("failed to read key bundle file %s: %w", file.Name(), err)
 			}
 
-			kb, err := ocr2key.New(chaintype.EVM)
+			kb, err := ocr2key.New(corekeys.EVM)
 			if err != nil {
 				return nil, fmt.Errorf("cannot create new key bundle from %s: %w", file.Name(), err)
 			}
