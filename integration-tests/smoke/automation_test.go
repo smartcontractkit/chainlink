@@ -61,6 +61,7 @@ func upgradeChainlinkNodeVersionsLocal(
 	return nil
 }
 
+// Deprecated: run tests from devenv/tests/automation/smoke_test.go
 func TestMain(m *testing.M) {
 	logging.Init()
 	// config, err := tc.GetConfig(tc.NoTest, tc.Smoke, tc.Automation)
@@ -73,10 +74,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// Deprecated: run tests from devenv/tests/automation/smoke_test.go
 func TestAutomationBasic(t *testing.T) {
 	SetupAutomationBasic(t, false)
 }
 
+// Deprecated: run tests from devenv/tests/automation/smoke_test.go
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 

@@ -9,7 +9,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -31,7 +31,7 @@ type KeyBundle interface {
 	OCR3SignerVerifier
 
 	ID() string
-	ChainType() chaintype.ChainType
+	ChainType() corekeys.ChainType
 	Marshal() ([]byte, error)
 	Unmarshal(b []byte) (err error)
 	Raw() internal.Raw
@@ -52,55 +52,55 @@ var _ KeyBundle = &keyBundle[*ed25519Keyring]{}
 var curve = secp256k1.S256()
 
 // New returns key bundle based on the chain type
-func New(chainType chaintype.ChainType) (KeyBundle, error) {
+func New(chainType corekeys.ChainType) (KeyBundle, error) {
 	switch chainType {
-	case chaintype.EVM:
-		return newKeyBundleRand(chaintype.EVM, newEVMKeyring)
-	case chaintype.Cosmos:
-		return newKeyBundleRand(chaintype.Cosmos, newCosmosKeyring)
-	case chaintype.Solana:
-		return newKeyBundleRand(chaintype.Solana, newSolanaKeyring)
-	case chaintype.StarkNet:
-		return newKeyBundleRand(chaintype.StarkNet, starkkey.NewOCR2Key)
-	case chaintype.Aptos:
-		return newKeyBundleRand(chaintype.Aptos, newEd25519Keyring)
-	case chaintype.Tron:
-		return newKeyBundleRand(chaintype.Tron, newEVMKeyring)
-	case chaintype.TON:
-		return newKeyBundleRand(chaintype.TON, newTONKeyring)
-	case chaintype.Sui:
-		return newKeyBundleRand(chaintype.Sui, newEd25519Keyring)
+	case corekeys.EVM:
+		return newKeyBundleRand(corekeys.EVM, newEVMKeyring)
+	case corekeys.Cosmos:
+		return newKeyBundleRand(corekeys.Cosmos, newCosmosKeyring)
+	case corekeys.Solana:
+		return newKeyBundleRand(corekeys.Solana, newSolanaKeyring)
+	case corekeys.StarkNet:
+		return newKeyBundleRand(corekeys.StarkNet, starkkey.NewOCR2Key)
+	case corekeys.Aptos:
+		return newKeyBundleRand(corekeys.Aptos, newEd25519Keyring)
+	case corekeys.Tron:
+		return newKeyBundleRand(corekeys.Tron, newEVMKeyring)
+	case corekeys.TON:
+		return newKeyBundleRand(corekeys.TON, newTONKeyring)
+	case corekeys.Sui:
+		return newKeyBundleRand(corekeys.Sui, newEd25519Keyring)
 	}
-	return nil, chaintype.NewErrInvalidChainType(chainType)
+	return nil, corekeys.NewErrInvalidChainType(chainType)
 }
 
 // MustNewInsecure returns key bundle based on the chain type or panics
-func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle {
+func MustNewInsecure(reader io.Reader, chainType corekeys.ChainType) KeyBundle {
 	switch chainType {
-	case chaintype.EVM:
-		return mustNewKeyBundleInsecure(chaintype.EVM, newEVMKeyring, reader)
-	case chaintype.Cosmos:
-		return mustNewKeyBundleInsecure(chaintype.Cosmos, newCosmosKeyring, reader)
-	case chaintype.Solana:
-		return mustNewKeyBundleInsecure(chaintype.Solana, newSolanaKeyring, reader)
-	case chaintype.StarkNet:
-		return mustNewKeyBundleInsecure(chaintype.StarkNet, starkkey.NewOCR2Key, reader)
-	case chaintype.Aptos:
-		return mustNewKeyBundleInsecure(chaintype.Aptos, newEd25519Keyring, reader)
-	case chaintype.Tron:
-		return mustNewKeyBundleInsecure(chaintype.Tron, newEVMKeyring, reader)
-	case chaintype.TON:
-		return mustNewKeyBundleInsecure(chaintype.TON, newTONKeyring, reader)
-	case chaintype.Sui:
-		return mustNewKeyBundleInsecure(chaintype.Sui, newEd25519Keyring, reader)
+	case corekeys.EVM:
+		return mustNewKeyBundleInsecure(corekeys.EVM, newEVMKeyring, reader)
+	case corekeys.Cosmos:
+		return mustNewKeyBundleInsecure(corekeys.Cosmos, newCosmosKeyring, reader)
+	case corekeys.Solana:
+		return mustNewKeyBundleInsecure(corekeys.Solana, newSolanaKeyring, reader)
+	case corekeys.StarkNet:
+		return mustNewKeyBundleInsecure(corekeys.StarkNet, starkkey.NewOCR2Key, reader)
+	case corekeys.Aptos:
+		return mustNewKeyBundleInsecure(corekeys.Aptos, newEd25519Keyring, reader)
+	case corekeys.Tron:
+		return mustNewKeyBundleInsecure(corekeys.Tron, newEVMKeyring, reader)
+	case corekeys.TON:
+		return mustNewKeyBundleInsecure(corekeys.TON, newTONKeyring, reader)
+	case corekeys.Sui:
+		return mustNewKeyBundleInsecure(corekeys.Sui, newEd25519Keyring, reader)
 	}
-	panic(chaintype.NewErrInvalidChainType(chainType))
+	panic(corekeys.NewErrInvalidChainType(chainType))
 }
 
 type keyBundleBase struct {
 	offchainKeyring
 	id        models.Sha256Hash
-	chainType chaintype.ChainType
+	chainType corekeys.ChainType
 }
 
 func (kb keyBundleBase) ID() string {
@@ -108,32 +108,32 @@ func (kb keyBundleBase) ID() string {
 }
 
 // ChainType gets the chain type from the key bundle
-func (kb keyBundleBase) ChainType() chaintype.ChainType {
+func (kb keyBundleBase) ChainType() corekeys.ChainType {
 	return kb.chainType
 }
 
 func KeyFor(raw internal.Raw) (kb KeyBundle) {
-	var temp struct{ ChainType chaintype.ChainType }
+	var temp struct{ ChainType corekeys.ChainType }
 	err := json.Unmarshal(internal.Bytes(raw), &temp)
 	if err != nil {
 		panic(err)
 	}
 	switch temp.ChainType {
-	case chaintype.EVM:
+	case corekeys.EVM:
 		kb = newKeyBundle(new(evmKeyring))
-	case chaintype.Cosmos:
+	case corekeys.Cosmos:
 		kb = newKeyBundle(new(cosmosKeyring))
-	case chaintype.Solana:
+	case corekeys.Solana:
 		kb = newKeyBundle(new(solanaKeyring))
-	case chaintype.StarkNet:
+	case corekeys.StarkNet:
 		kb = newKeyBundle(new(starkkey.OCR2Key))
-	case chaintype.Aptos:
+	case corekeys.Aptos:
 		kb = newKeyBundle(new(ed25519Keyring))
-	case chaintype.Tron:
+	case corekeys.Tron:
 		kb = newKeyBundle(new(evmKeyring))
-	case chaintype.TON:
+	case corekeys.TON:
 		kb = newKeyBundle(new(tonKeyring))
-	case chaintype.Sui:
+	case corekeys.Sui:
 		kb = newKeyBundle(new(ed25519Keyring))
 	default:
 		return nil

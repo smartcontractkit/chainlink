@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/encoding"
 )
 
 func CanAggregate(N int, F int, observations []*encoding.ProcessedRequest) bool {

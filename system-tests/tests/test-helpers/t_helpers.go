@@ -46,6 +46,7 @@ import (
 	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
+	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -288,7 +289,8 @@ type WorkflowConfig interface {
 		logtrigger_negative_config.Config |
 		http_config.Config |
 		httpaction_smoke_config.Config |
-		httpaction_negative_config.Config
+		httpaction_negative_config.Config |
+		solwrite_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -433,7 +435,11 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create httpaction negative workflow config file")
 			testLogger.Info().Msg("HTTP Action negative workflow config file created.")
-
+		case *solwrite_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solwrite workflow config file")
+			testLogger.Info().Msg("Solana write workflow config file created.")
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}

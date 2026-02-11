@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -280,10 +281,10 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 			return fmt.Errorf("failed to parse application version: %w", err)
 		}
 
-		if os.Getenv("CL_SKIP_APP_VERSION_CHECK") == "true" {
+		if env.SkipAppVersionCheck.IsTrue() {
 			appLggr.Warn("Skipping app version check")
 		} else {
-			appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version)
+			appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version, env.IgnorePrereleaseVersionCheck.IsTrue())
 			if err != nil {
 				// Exit immediately and don't touch the database if the app version is too old
 				return fmt.Errorf("CheckVersion: %w", err)

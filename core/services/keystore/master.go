@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -332,7 +332,7 @@ func announcer(logf Logf) func(key Key) {
 		if err != nil {
 			kind = "[" + err.Error() + "]"
 		}
-		if ct, ok := key.(interface{ ChainType() chaintype.ChainType }); ok {
+		if ct, ok := key.(interface{ ChainType() corekeys.ChainType }); ok {
 			logf("Created %s key with ID %s for chain %s", kind, key.ID(), ct.ChainType())
 		} else {
 			logf("Created %s key with ID %s", kind, key.ID())

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -58,7 +59,7 @@ var restartCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to clean Docker resources: %w", err)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 		defer cancel()
 		return de.NewEnvironment(ctx)
 	},
@@ -79,7 +80,7 @@ var upCmd = &cobra.Command{
 		framework.L.Info().Str("Config", configFile).Msg("Creating development environment")
 		_ = os.Setenv("CTF_CONFIGS", configFile)
 		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 		defer cancel()
 		return de.NewEnvironment(ctx)
 	},
@@ -201,27 +202,14 @@ var obsRestartCmd = &cobra.Command{
 }
 
 var testCmd = &cobra.Command{
-	Use:     "test",
-	Aliases: []string{"t"},
-	Short:   "Run the tests",
+	Use:   "ocr2:test",
+	Short: "Run the OCR2 tests",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return errors.New("specify the test suite: soak, gas or chaos")
+			return errors.New("specify the 'go test -run' filter, ex.: $TestName/$subtest")
 		}
-		var testPattern string
-		switch args[0] {
-		case "soak":
-			testPattern = "TestLoad/clean"
-		case "gas":
-			testPattern = "TestLoad/gas_spikes"
-		case "chaos":
-			testPattern = "TestLoad/chaos"
-		default:
-			return fmt.Errorf("test suite %s is unknown, choose between smoke or load", args[0])
-		}
-
-		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", testPattern, "./...")
-		testCmd.Dir = "./tests"
+		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", args[0]) //nolint:gosec //nothing else can run here except tests
+		testCmd.Dir = filepath.Join("tests", "ocr2")
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr
 		testCmd.Stdin = os.Stdin

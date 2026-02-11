@@ -14,6 +14,7 @@ import (
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -21,7 +22,6 @@ import (
 
 	// "github.com/smartcontractkit/chainlink/common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -29,20 +29,20 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	t.Parallel()
 
 	// Setup test keys
-	kb1, err := ocr2key.New(chaintype.EVM)
+	kb1, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 	addr1 := common.BytesToAddress(kb1.PublicKey())
 
-	kb2, err := ocr2key.New(chaintype.EVM)
+	kb2, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 	addr2 := common.BytesToAddress(kb2.PublicKey())
 
-	kb3, err := ocr2key.New(chaintype.EVM)
+	kb3, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 	addr3 := common.BytesToAddress(kb3.PublicKey())
 
 	// kb4 is an unauthorized signer
-	kb4, err := ocr2key.New(chaintype.EVM)
+	kb4, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 
 	// Setup test data

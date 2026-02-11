@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	chaintype "github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	corekeys "github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -73,7 +73,7 @@ func (_c *OCR2_Add_Call) RunAndReturn(run func(context.Context, ocr2key.KeyBundl
 }
 
 // Create provides a mock function with given fields: _a0, _a1
-func (_m *OCR2) Create(_a0 context.Context, _a1 chaintype.ChainType) (ocr2key.KeyBundle, error) {
+func (_m *OCR2) Create(_a0 context.Context, _a1 corekeys.ChainType) (ocr2key.KeyBundle, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -82,10 +82,10 @@ func (_m *OCR2) Create(_a0 context.Context, _a1 chaintype.ChainType) (ocr2key.Ke
 
 	var r0 ocr2key.KeyBundle
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chaintype.ChainType) (ocr2key.KeyBundle, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, corekeys.ChainType) (ocr2key.KeyBundle, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, chaintype.ChainType) ocr2key.KeyBundle); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, corekeys.ChainType) ocr2key.KeyBundle); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
@@ -93,7 +93,7 @@ func (_m *OCR2) Create(_a0 context.Context, _a1 chaintype.ChainType) (ocr2key.Ke
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, chaintype.ChainType) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, corekeys.ChainType) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -109,14 +109,14 @@ type OCR2_Create_Call struct {
 
 // Create is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 chaintype.ChainType
+//   - _a1 corekeys.ChainType
 func (_e *OCR2_Expecter) Create(_a0 interface{}, _a1 interface{}) *OCR2_Create_Call {
 	return &OCR2_Create_Call{Call: _e.mock.On("Create", _a0, _a1)}
 }
 
-func (_c *OCR2_Create_Call) Run(run func(_a0 context.Context, _a1 chaintype.ChainType)) *OCR2_Create_Call {
+func (_c *OCR2_Create_Call) Run(run func(_a0 context.Context, _a1 corekeys.ChainType)) *OCR2_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(chaintype.ChainType))
+		run(args[0].(context.Context), args[1].(corekeys.ChainType))
 	})
 	return _c
 }
@@ -126,7 +126,7 @@ func (_c *OCR2_Create_Call) Return(_a0 ocr2key.KeyBundle, _a1 error) *OCR2_Creat
 	return _c
 }
 
-func (_c *OCR2_Create_Call) RunAndReturn(run func(context.Context, chaintype.ChainType) (ocr2key.KeyBundle, error)) *OCR2_Create_Call {
+func (_c *OCR2_Create_Call) RunAndReturn(run func(context.Context, corekeys.ChainType) (ocr2key.KeyBundle, error)) *OCR2_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -179,7 +179,7 @@ func (_c *OCR2_Delete_Call) RunAndReturn(run func(context.Context, string) error
 }
 
 // EnsureKeys provides a mock function with given fields: ctx, enabledChains
-func (_m *OCR2) EnsureKeys(ctx context.Context, enabledChains ...chaintype.ChainType) error {
+func (_m *OCR2) EnsureKeys(ctx context.Context, enabledChains ...corekeys.ChainType) error {
 	_va := make([]interface{}, len(enabledChains))
 	for _i := range enabledChains {
 		_va[_i] = enabledChains[_i]
@@ -194,7 +194,7 @@ func (_m *OCR2) EnsureKeys(ctx context.Context, enabledChains ...chaintype.Chain
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, ...chaintype.ChainType) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ...corekeys.ChainType) error); ok {
 		r0 = rf(ctx, enabledChains...)
 	} else {
 		r0 = ret.Error(0)
@@ -210,18 +210,18 @@ type OCR2_EnsureKeys_Call struct {
 
 // EnsureKeys is a helper method to define mock.On call
 //   - ctx context.Context
-//   - enabledChains ...chaintype.ChainType
+//   - enabledChains ...corekeys.ChainType
 func (_e *OCR2_Expecter) EnsureKeys(ctx interface{}, enabledChains ...interface{}) *OCR2_EnsureKeys_Call {
 	return &OCR2_EnsureKeys_Call{Call: _e.mock.On("EnsureKeys",
 		append([]interface{}{ctx}, enabledChains...)...)}
 }
 
-func (_c *OCR2_EnsureKeys_Call) Run(run func(ctx context.Context, enabledChains ...chaintype.ChainType)) *OCR2_EnsureKeys_Call {
+func (_c *OCR2_EnsureKeys_Call) Run(run func(ctx context.Context, enabledChains ...corekeys.ChainType)) *OCR2_EnsureKeys_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := make([]chaintype.ChainType, len(args)-1)
+		variadicArgs := make([]corekeys.ChainType, len(args)-1)
 		for i, a := range args[1:] {
 			if a != nil {
-				variadicArgs[i] = a.(chaintype.ChainType)
+				variadicArgs[i] = a.(corekeys.ChainType)
 			}
 		}
 		run(args[0].(context.Context), variadicArgs...)
@@ -234,7 +234,7 @@ func (_c *OCR2_EnsureKeys_Call) Return(_a0 error) *OCR2_EnsureKeys_Call {
 	return _c
 }
 
-func (_c *OCR2_EnsureKeys_Call) RunAndReturn(run func(context.Context, ...chaintype.ChainType) error) *OCR2_EnsureKeys_Call {
+func (_c *OCR2_EnsureKeys_Call) RunAndReturn(run func(context.Context, ...corekeys.ChainType) error) *OCR2_EnsureKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -414,7 +414,7 @@ func (_c *OCR2_GetAll_Call) RunAndReturn(run func() ([]ocr2key.KeyBundle, error)
 }
 
 // GetAllOfType provides a mock function with given fields: _a0
-func (_m *OCR2) GetAllOfType(_a0 chaintype.ChainType) ([]ocr2key.KeyBundle, error) {
+func (_m *OCR2) GetAllOfType(_a0 corekeys.ChainType) ([]ocr2key.KeyBundle, error) {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
@@ -423,10 +423,10 @@ func (_m *OCR2) GetAllOfType(_a0 chaintype.ChainType) ([]ocr2key.KeyBundle, erro
 
 	var r0 []ocr2key.KeyBundle
 	var r1 error
-	if rf, ok := ret.Get(0).(func(chaintype.ChainType) ([]ocr2key.KeyBundle, error)); ok {
+	if rf, ok := ret.Get(0).(func(corekeys.ChainType) ([]ocr2key.KeyBundle, error)); ok {
 		return rf(_a0)
 	}
-	if rf, ok := ret.Get(0).(func(chaintype.ChainType) []ocr2key.KeyBundle); ok {
+	if rf, ok := ret.Get(0).(func(corekeys.ChainType) []ocr2key.KeyBundle); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
@@ -434,7 +434,7 @@ func (_m *OCR2) GetAllOfType(_a0 chaintype.ChainType) ([]ocr2key.KeyBundle, erro
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(chaintype.ChainType) error); ok {
+	if rf, ok := ret.Get(1).(func(corekeys.ChainType) error); ok {
 		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
@@ -449,14 +449,14 @@ type OCR2_GetAllOfType_Call struct {
 }
 
 // GetAllOfType is a helper method to define mock.On call
-//   - _a0 chaintype.ChainType
+//   - _a0 corekeys.ChainType
 func (_e *OCR2_Expecter) GetAllOfType(_a0 interface{}) *OCR2_GetAllOfType_Call {
 	return &OCR2_GetAllOfType_Call{Call: _e.mock.On("GetAllOfType", _a0)}
 }
 
-func (_c *OCR2_GetAllOfType_Call) Run(run func(_a0 chaintype.ChainType)) *OCR2_GetAllOfType_Call {
+func (_c *OCR2_GetAllOfType_Call) Run(run func(_a0 corekeys.ChainType)) *OCR2_GetAllOfType_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(chaintype.ChainType))
+		run(args[0].(corekeys.ChainType))
 	})
 	return _c
 }
@@ -466,7 +466,7 @@ func (_c *OCR2_GetAllOfType_Call) Return(_a0 []ocr2key.KeyBundle, _a1 error) *OC
 	return _c
 }
 
-func (_c *OCR2_GetAllOfType_Call) RunAndReturn(run func(chaintype.ChainType) ([]ocr2key.KeyBundle, error)) *OCR2_GetAllOfType_Call {
+func (_c *OCR2_GetAllOfType_Call) RunAndReturn(run func(corekeys.ChainType) ([]ocr2key.KeyBundle, error)) *OCR2_GetAllOfType_Call {
 	_c.Call.Return(run)
 	return _c
 }

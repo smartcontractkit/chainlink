@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -37,6 +38,13 @@ type UpdateDONInput struct {
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
 	Force bool `json:"force" yaml:"force"`
+
+	// FirstOCR3ConfigCapabilities lists capability IDs (e.g. "consensus@1.0.0")
+	// for which this is the first OCR3 config (no existing config on-chain).
+	// Without listing a capability here, the changeset will fail if it cannot
+	// read the current config count from the registry, preventing accidental
+	// config count collisions.
+	FirstOCR3ConfigCapabilities []string `json:"firstOCR3ConfigCapabilities" yaml:"firstOCR3ConfigCapabilities"`
 
 	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
@@ -83,6 +91,41 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 	don, nodes, err := sequences.GetDonNodes(config.DONName, capReg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get DON %s nodes: %w", config.DONName, err)
+	}
+
+	// Generate OCR3 configs for capability entries that need them.
+	ocr3CapConfigs := make([]ocr3CapConfig, len(config.CapabilityConfigs))
+	for i, cc := range config.CapabilityConfigs {
+		ocr3CapConfigs[i] = ocr3CapConfig{CapabilityID: cc.Capability.CapabilityID, Config: cc.Config}
+	}
+
+	// fetch and increment existing count or start from 1 for FirstOCR3ConfigCapabilities
+	configCountFn := func(capID, ocrConfigKey string) (uint64, error) {
+		isFirst := isFirstOCR3Config(config.FirstOCR3ConfigCapabilities, capID)
+
+		currentCount, err := ocr3.GetCurrentOCR3ConfigCount(
+			capReg, config.DONName, capID, ocrConfigKey,
+		)
+		if err != nil {
+			if !isFirst {
+				return 0, fmt.Errorf(
+					"failed to read current OCR3 config count for capability %q[%q]: %w. "+
+						"Add %q to firstOCR3ConfigCapabilities if this is the initial OCR3 config for this capability",
+					capID, ocrConfigKey, err, capID)
+			}
+			currentCount = 0
+		}
+		if currentCount == 0 && !isFirst {
+			return 0, fmt.Errorf(
+				"OCR3 config count is 0 for capability %q[%q], which suggests no prior config exists. "+
+					"Add %q to firstOCR3ConfigCapabilities to confirm this is the initial OCR3 config",
+				capID, ocrConfigKey, capID)
+		}
+		return currentCount + 1, nil
+	}
+
+	if err := expandOCR3Configs(e, config.RegistryChainSel, nodes, ocr3CapConfigs, configCountFn); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to process OCR3 configs: %w", err)
 	}
 
 	p2pIDs := make([]p2pkey.PeerID, 0)
@@ -142,4 +185,15 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 		Reports:               []operations.Report[any, any]{updateDonReport.ToGenericReport()},
 		MCMSTimelockProposals: proposals,
 	}, nil
+}
+
+// isFirstOCR3Config returns true if capID is listed in the
+// firstOCR3ConfigCapabilities slice.
+func isFirstOCR3Config(firstCaps []string, capID string) bool {
+	for _, c := range firstCaps {
+		if c == capID {
+			return true
+		}
+	}
+	return false
 }

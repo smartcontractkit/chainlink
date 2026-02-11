@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -29,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
@@ -78,8 +79,8 @@ const (
 // WARNING: Hacky and brittle - used only during migration to map job specs to capability IDs
 // before executing the LOOPP. When std cap job specs are deprecated, capability IDs will be known upfront.
 func getCapabilityID(command string, config string) string {
-	switch command {
-	case "/usr/local/bin/evm":
+	switch filepath.Base(command) {
+	case "evm":
 		var cfg struct {
 			ChainID uint64 `json:"chainId"`
 		}
@@ -92,7 +93,7 @@ func getCapabilityID(command string, config string) string {
 		}
 		return "evm:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
 	case "consensus":
-		return "consensus@1.0.0"
+		return "consensus@1.0.0-alpha"
 	default:
 		return ""
 	}
@@ -195,14 +196,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(chaintype.EVM)
+	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(corekeys.EVM)
 	if err != nil {
 		return nil, err
 	}
 
 	var ocrEvmKeyBundle ocr2key.KeyBundle
 	if len(ocrEvmKeyBundles) == 0 {
-		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, chaintype.EVM)
+		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create OCR key bundle")
 		}
