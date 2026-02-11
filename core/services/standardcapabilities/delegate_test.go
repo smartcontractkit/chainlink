@@ -169,7 +169,6 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			ocr_contract_address = "0x2C84cff4cd5fA5a0c17dbc710fcCb8FC6A03dEEd"
 			ocr_key_bundle_id = "5fbb7d5dc1e592142a979b7014552e07a78cb89b1a8626c6412f12f2adfcb240"
 			chain_id = "11155111"
-			transmitter_id = "0x60042fBB756f736744C334c463BeBE1A72Add04F"
 			[oracle_factory.onchainSigningStrategy]
 			strategyName = "multi-chain"
 			[oracle_factory.onchainSigningStrategy.config]
@@ -186,7 +185,6 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 					OCRContractAddress: "0x2C84cff4cd5fA5a0c17dbc710fcCb8FC6A03dEEd",
 					OCRKeyBundleID:     "5fbb7d5dc1e592142a979b7014552e07a78cb89b1a8626c6412f12f2adfcb240",
 					ChainID:            "11155111",
-					TransmitterID:      "0x60042fBB756f736744C334c463BeBE1A72Add04F",
 					OnchainSigning: job.OnchainSigningStrategy{
 						StrategyName: "multi-chain",
 						Config: map[string]string{

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -98,14 +99,38 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		return nil, fmt.Errorf("expected relayer to be of type relayerWrapper, got %T", relayer)
 	}
 
+	chainIDBigInt, ok := new(big.Int).SetString(of.config.ChainID, 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse chain ID %q", of.config.ChainID)
+	}
+
+	enabledKeys, err := of.ethKeystore.EnabledKeysForChain(ctx, chainIDBigInt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enabled eth keys for chain %s: %w", of.config.ChainID, err)
+	}
+	if len(enabledKeys) == 0 {
+		return nil, fmt.Errorf("no enabled eth keys found for chain %s", of.config.ChainID)
+	}
+	if len(enabledKeys) > 1 {
+		of.lggr.Warnw("Multiple enabled eth keys found for chain, using first one", "chainID", of.config.ChainID)
+	}
+
+	transmitterID := enabledKeys[0].Address.Hex()
+	of.lggr.Infow("Using transmitter ID", "transmitterID", transmitterID, "chainID", of.config.ChainID)
+
+	sendingKeys := make([]string, len(enabledKeys))
+	for i, k := range enabledKeys {
+		sendingKeys[i] = k.Address.Hex()
+	}
+
 	var relayConfig = struct {
 		ChainID                string   `json:"chainID"`
 		EffectiveTransmitterID string   `json:"effectiveTransmitterID"`
 		SendingKeys            []string `json:"sendingKeys"`
 	}{
 		ChainID:                of.config.ChainID,
-		EffectiveTransmitterID: of.config.TransmitterID,
-		SendingKeys:            []string{of.config.TransmitterID},
+		EffectiveTransmitterID: transmitterID,
+		SendingKeys:            sendingKeys,
 	}
 	relayConfigBytes, err := json.Marshal(relayConfig)
 	if err != nil {
@@ -168,7 +193,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		ContractConfigTracker:        configTracker,
 		OffchainConfigDigester:       configDigester,
 		LocalConfig:                  args.LocalConfig,
-		ContractTransmitter:          NewContractTransmitter(of.config.TransmitterID, args.ContractTransmitter),
+		ContractTransmitter:          NewContractTransmitter(transmitterID, args.ContractTransmitter),
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
 		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,

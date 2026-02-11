@@ -1041,7 +1041,6 @@ type OracleFactoryConfig struct {
 	OCRContractAddress string                 `toml:"ocr_contract_address"`
 	OCRKeyBundleID     string                 `toml:"ocr_key_bundle_id"`
 	ChainID            string                 `toml:"chain_id"`
-	TransmitterID      string                 `toml:"transmitter_id"`
 	OnchainSigning     OnchainSigningStrategy `toml:"onchainSigningStrategy"`
 }
 
