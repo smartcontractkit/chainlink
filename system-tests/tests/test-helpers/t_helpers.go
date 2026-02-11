@@ -46,6 +46,7 @@ import (
 	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
+	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -105,7 +106,6 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 
 	enabledChains := map[string]struct{}{}
 	for _, nodeSet := range testEnv.Config.NodeSets {
-
 		enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(cre.EVMCapability)
 		require.NoError(t, err, "failed to get enabled chain IDs for EVM capability")
 
@@ -289,7 +289,8 @@ type WorkflowConfig interface {
 		logtrigger_negative_config.Config |
 		http_config.Config |
 		httpaction_smoke_config.Config |
-		httpaction_negative_config.Config
+		httpaction_negative_config.Config |
+		solwrite_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -326,7 +327,7 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName, workflowDONName string, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation string) (string, string) {
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
@@ -336,8 +337,10 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(workflowDONName), compressedWorkflowWasmPath, workflowConfigFilePath)
-	require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
+	for _, don := range workflowDONs {
+		copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(don.Name), compressedWorkflowWasmPath, workflowConfigFilePath)
+		require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
+	}
 	testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
 
 	return compressedWorkflowWasmPath, workflowConfigFilePath
@@ -432,7 +435,11 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create httpaction negative workflow config file")
 			testLogger.Info().Msg("HTTP Action negative workflow config file created.")
-
+		case *solwrite_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solwrite workflow config file")
+			testLogger.Info().Msg("Solana write workflow config file created.")
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}
@@ -624,16 +631,17 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		Msgf("compiling and registering workflow '%s'", workflowName)
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
-	workflowDOName := ""
+	workflowDONs := make([]*cre.Don, 0)
 	for _, don := range testEnv.Dons.List() {
-		if don.ID == testEnv.Dons.MustWorkflowDON().ID {
-			workflowDOName = don.Name
-			break
+		if !don.HasFlag(cre.WorkflowDON) {
+			continue
 		}
+		workflowDONs = append(workflowDONs, don)
 	}
-	require.NotEmpty(t, workflowDOName, "failed to find workflow DON in the topology")
 
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDOName, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
+	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
+
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	workflowRegConfig := &WorkflowRegistrationConfig{

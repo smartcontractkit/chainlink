@@ -307,7 +307,7 @@ var evmNegativeTestsWriteReportInvalidGas = []evmNegativeTest{
 	// malformed values
 	{"zero", "0", writeReportInvalidGas, expectedWriteReportInvalidGas},
 	{"low", "100000", writeReportInvalidGas, expectedWriteReportInvalidGas},
-	{"too high", "100000000000", writeReportInvalidGas, expectedWriteReportInvalidGas},
+	{"too high", "100000000000", writeReportInvalidGas, "gas limit exceeds configured limit"},
 }
 
 var evmNegativeTestsLogTriggerInvalidAddress = []evmNegativeTest{

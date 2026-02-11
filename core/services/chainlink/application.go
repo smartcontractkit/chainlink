@@ -59,6 +59,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -84,7 +86,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -310,7 +314,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
-	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
+		cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
@@ -450,13 +455,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices.srvs...)
-	// LOOPs can be created as options, in the  case of LOOP relayers, or
-	// as OCR2 job implementations, in the case of Median today.
-	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
-	// we need to initialize in case we serve OCR2 LOOPs
-	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.AppID().String(), opts.Config.Feature().LogPoller(), opts.Config.Database(), opts.Config.Mercury(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
-	}
 
 	// If the audit logger is enabled
 	if auditLogger.Ready() == nil {
@@ -713,6 +711,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.FetcherFactoryFn,
 		creServices.orgResolver,
 		atomicSettings,
+		creServices.ocrConfigService,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -762,6 +761,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
 				LimitsFactory:                  limitsFactory,
+				OCRConfigService:               creServices.ocrConfigService,
 			},
 			ocr2DelegateConfig,
 		)
@@ -946,6 +946,9 @@ type CREServices struct {
 
 	// orgResolver provides realtime workflow owner --> orgID resolution
 	orgResolver orgresolver.OrgResolver
+
+	// ocrConfigService provides OCR config from CapabilitiesRegistry
+	ocrConfigService capregconfig.OCRConfigService
 }
 
 func newCREServices(
@@ -963,6 +966,7 @@ func newCREServices(
 	capCfg := cfg.Capabilities()
 	wCfg := cfg.Workflows()
 	var srvcs []services.ServiceCtx
+	var ocrConfigService capregconfig.OCRConfigService
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
@@ -1000,9 +1004,12 @@ func newCREServices(
 		if !ok {
 			return nil, fmt.Errorf("failed to parse gateway connector chain ID as integer: %s", capCfg.GatewayConnector().ChainIDForNodeKey())
 		}
+		ethKeystore := keyStore.Eth()
 		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
 			capCfg.GatewayConnector(),
-			keys.NewStore(keystore.NewEthSigner(keyStore.Eth(), chainID)),
+			keys.NewStore(keystore.NewEthSigner(ethKeystore, chainID)),
+			ethKeystore,
+			chainID,
 			clockwork.NewRealClock(),
 			globalLogger)
 		srvcs = append(srvcs, gatewayConnectorWrapper)
@@ -1134,6 +1141,18 @@ func newCREServices(
 				return nil, fmt.Errorf("could not create workflow launcher: %w", err)
 			}
 
+			registryChainID, parseErr := strconv.ParseUint(rid.ChainID, 10, 64)
+			if parseErr != nil {
+				return nil, fmt.Errorf("failed to parse registry chain ID for OCRConfigService: %w", parseErr)
+			}
+			ocrConfigServiceImpl := capregconfig.NewOCRConfigService(
+				globalLogger,
+				func() ragetypes.PeerID { return don2donSharedPeer.ID() },
+				registryChainID,
+				registryAddress,
+			)
+			ocrConfigService = ocrConfigServiceImpl
+
 			switch externalRegistryVersion.Major() {
 			case 1:
 				registrySyncer, err := registrysyncerV1.New(
@@ -1162,7 +1181,8 @@ func newCREServices(
 				}
 
 				registrySyncer.AddListener(wfLauncher)
-				srvcs = append(srvcs, wfLauncher, registrySyncer)
+				registrySyncer.AddListener(ocrConfigServiceImpl)
+				srvcs = append(srvcs, wfLauncher, ocrConfigServiceImpl, registrySyncer)
 			default:
 				return nil, fmt.Errorf("could not configure capability registry syncer with version: %d", externalRegistryVersion.Major())
 			}
@@ -1325,10 +1345,26 @@ func newCREServices(
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 					}
 
+					// Build additional sources configuration from config
+					// JWT auth is always enabled for gRPC sources
+					addSources := capCfg.WorkflowRegistry().AdditionalSources()
+					addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
+					for _, src := range addSources {
+						addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
+							URL:          src.GetURL(),
+							Name:         src.GetName(),
+							TLSEnabled:   src.GetTLSEnabled(),
+							JWTGenerator: opts.JWTGenerator,
+						})
+					}
+
+					// Create syncer - contract address may be empty for pure additional-source deployments
+					// File sources are detected by file:// URL prefix in WithAdditionalSources
 					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
 						lggr,
 						crFactory,
 						capCfg.WorkflowRegistry().Address(),
+						strconv.FormatUint(wrChainDetails.ChainSelector, 10),
 						syncerV2.Config{
 							QueryCount:   100,
 							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
@@ -1336,6 +1372,7 @@ func newCREServices(
 						eventHandler,
 						workflowDonNotifier,
 						engineRegistry,
+						syncerV2.WithAdditionalSources(addSourceConfigs),
 						syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
 					)
 					if err != nil {
@@ -1362,6 +1399,7 @@ func newCREServices(
 		srvs:                    srvcs,
 		workflowRegistrySyncer:  workflowRegistrySyncerV2,
 		orgResolver:             orgResolver,
+		ocrConfigService:        ocrConfigService,
 	}, nil
 }
 

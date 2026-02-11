@@ -76,6 +76,9 @@
 [capability_configs.http-action]
   binary_path = "./binaries/http_action"
 
+[capability_configs.solana]
+  binary_path = "./binaries/solana"
+
 [capability_configs.http-action.values]
   # HTTP Action capability configuration
   ProxyMode = "gateway"
@@ -118,13 +121,22 @@
 [capability_configs.write-solana.values]
   # Solana Workflow configuration for write capabilities
   TxAcceptanceState = 3
-  PollPeriod = "2s"
+  TxRetentionTimeout = "120s"
   AcceptanceTimeout = "30s"
-  TxRetentionTimeout = "60s"
+  PollPeriod = "2s"
+  SkipPreflight = true
   Local = true
   # Runtime values below are typically filled at runtime, but may be overridden
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
+
+[capability_configs.solana.values]
+  TxAcceptanceState = 3
+  TxRetentonTimeout = "120s"
+  AcceptanceTimeout = "30s"
+  PollPeriod = "2s"
+  SkipPreflight = true
+  Local = true
 
 [capability_configs.mock]
   binary_path = "./binaries/mock"

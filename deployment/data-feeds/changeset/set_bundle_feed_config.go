@@ -33,8 +33,9 @@ func setBundleFeedConfigLogic(env cldf.Environment, c types.SetFeedBundleConfig)
 		proposals := MultiChainProposalConfig{
 			c.ChainSelector: []ProposalData{
 				{
-					contract: contract.Address().Hex(),
-					tx:       tx,
+					contract:          contract.Address().Hex(),
+					tx:                tx,
+					timeLockQualifier: c.McmsConfig.TimeLockQualifier,
 				},
 			},
 		}

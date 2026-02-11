@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"bufio"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go/v4"
+	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -363,6 +365,207 @@ func isPortAvailable(addr string) bool {
 
 var protoRegistrationErrMsg = "proto registration failed"
 
+// MissingImage represents an image that needs to be built or pulled
+type MissingImage struct {
+	Name        string
+	Tag         string
+	FullImage   string
+	BuildConfig BuildConfig
+	PullConfig  PullConfig
+}
+
+// ensureChipImagesExist checks if required chip images exist and auto-builds them if missing.
+// In CI environments (CI=true), this check is skipped as images will be pulled at runtime.
+func ensureChipImagesExist(ctx context.Context, cfg *SetupConfigFile) error {
+	// Skip checks in CI environment - docker-compose will pull at runtime
+	if os.Getenv("CI") == "true" {
+		framework.L.Info().Msg("CI environment detected, skipping chip image pre-check")
+		return nil
+	}
+
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return errors.Wrap(err, "failed to create Docker client")
+	}
+	defer dockerClient.Close()
+
+	// Check if Docker is running
+	_, err = dockerClient.Ping(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Docker is not running")
+	}
+
+	// Collect required images
+	var requiredImages []MissingImage
+
+	if cfg.ChipIngress != nil {
+		requiredImages = append(requiredImages, MissingImage{
+			Name:        "chip-ingress",
+			Tag:         cfg.ChipIngress.BuildConfig.Commit,
+			FullImage:   cfg.ChipIngress.BuildConfig.LocalImage,
+			BuildConfig: cfg.ChipIngress.BuildConfig,
+			PullConfig:  cfg.ChipIngress.PullConfig,
+		})
+	}
+
+	if cfg.ChipConfig != nil {
+		requiredImages = append(requiredImages, MissingImage{
+			Name:        "chip-config",
+			Tag:         cfg.ChipConfig.BuildConfig.Commit,
+			FullImage:   cfg.ChipConfig.BuildConfig.LocalImage,
+			BuildConfig: cfg.ChipConfig.BuildConfig,
+			PullConfig:  cfg.ChipConfig.PullConfig,
+		})
+	}
+
+	// Find missing images
+	var missing []MissingImage
+	for _, img := range requiredImages {
+		_, err := dockerClient.ImageInspect(ctx, img.FullImage)
+		if err != nil {
+			framework.L.Info().Msgf("Image %s not found locally", img.FullImage)
+			missing = append(missing, img)
+		} else {
+			framework.L.Info().Msgf("✓ Image %s is available", img.FullImage)
+		}
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+
+	ecrURL := os.Getenv("AWS_ECR")
+	interactive := isInteractiveTerminal()
+
+	// Non-interactive mode handling
+	if !interactive {
+		if ecrURL != "" {
+			// Non-interactive with AWS_ECR - pull images
+			framework.L.Info().Msgf("Non-interactive mode with AWS_ECR set. Pulling %d missing image(s) from ECR...", len(missing))
+			return pullAllImages(ctx, cfg, missing)
+		}
+		// Non-interactive without AWS_ECR - fail with instructions
+		framework.L.Error().Msgf("Missing %d required image(s) and AWS_ECR is not set:", len(missing))
+		for _, img := range missing {
+			framework.L.Error().Msgf("  - %s", img.FullImage)
+		}
+		printChipImagePullInstructions()
+		return errors.Errorf("missing %d required image(s). Set AWS_ECR to enable auto-pull or run 'go run . env setup' manually", len(missing))
+	}
+
+	// Interactive mode - try building first
+	framework.L.Info().Msgf("Building %d missing image(s) from sources...", len(missing))
+
+	var failedBuilds []MissingImage
+	var buildErrors []error
+
+	for _, img := range missing {
+		framework.L.Info().Msgf("🔨 Building %s from sources...", img.FullImage)
+
+		_, buildErr := img.BuildConfig.Build(ctx)
+		if buildErr != nil {
+			framework.L.Error().Msgf("Failed to build %s: %v", img.FullImage, buildErr)
+			failedBuilds = append(failedBuilds, img)
+			buildErrors = append(buildErrors, buildErr)
+		} else {
+			framework.L.Info().Msgf("✓ %s built successfully", img.FullImage)
+		}
+	}
+
+	// If all builds succeeded, we're done
+	if len(failedBuilds) == 0 {
+		return nil
+	}
+
+	// Some builds failed - offer to pull all failed images
+	return handleChipImageBuildFailures(ctx, cfg, failedBuilds, buildErrors)
+}
+
+// pullAllImages pulls all specified images from ECR
+func pullAllImages(ctx context.Context, cfg *SetupConfigFile, images []MissingImage) error {
+	for _, img := range images {
+		framework.L.Info().Msgf("Pulling %s from ECR...", img.Name)
+		_, pullErr := img.PullConfig.Pull(ctx, cfg.General.AWSProfile)
+		if pullErr != nil {
+			return errors.Wrapf(pullErr, "failed to pull %s", img.Name)
+		}
+		framework.L.Info().Msgf("✓ %s pulled successfully", img.FullImage)
+	}
+	return nil
+}
+
+// isInteractiveTerminal checks if stdin is connected to an interactive terminal
+func isInteractiveTerminal() bool {
+	fileInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	// Check if stdin is a character device (terminal)
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
+
+// handleChipImageBuildFailures handles build failures by offering to pull all failed images
+func handleChipImageBuildFailures(ctx context.Context, cfg *SetupConfigFile, failedImages []MissingImage, buildErrors []error) error {
+	// List all failed images
+	fmt.Println()
+	framework.L.Error().Msgf("Failed to build %d image(s):", len(failedImages))
+	for i, img := range failedImages {
+		framework.L.Error().Msgf("  - %s: %v", img.FullImage, buildErrors[i])
+	}
+
+	ecrURL := os.Getenv("AWS_ECR")
+	if ecrURL != "" {
+		shouldPull := false
+
+		if isInteractiveTerminal() {
+			// Interactive mode - ask user
+			fmt.Println()
+			fmt.Printf("AWS_ECR is set. Would you like to pull all %d failed image(s) from ECR instead? [Y/n] ", len(failedImages))
+
+			reader := bufio.NewReader(os.Stdin)
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(strings.ToLower(input))
+
+			shouldPull = input == "" || input == "y" || input == "yes"
+		} else {
+			// Non-interactive mode (e.g., automated tests) - auto-pull
+			framework.L.Info().Msg("Non-interactive mode detected. Auto-pulling failed images from ECR...")
+			shouldPull = true
+		}
+
+		if shouldPull {
+			// Pull all failed images
+			for _, img := range failedImages {
+				framework.L.Info().Msgf("Pulling %s from ECR...", img.Name)
+				_, pullErr := img.PullConfig.Pull(ctx, cfg.General.AWSProfile)
+				if pullErr != nil {
+					return errors.Wrapf(pullErr, "failed to pull %s", img.Name)
+				}
+				framework.L.Info().Msgf("✓ %s pulled successfully", img.FullImage)
+			}
+			return nil
+		}
+	}
+
+	// Show manual instructions
+	printChipImagePullInstructions()
+	return errors.Errorf("failed to build %d image(s)", len(failedImages))
+}
+
+// printChipImagePullInstructions prints helpful instructions for pulling images manually
+func printChipImagePullInstructions() {
+	fmt.Println()
+	fmt.Println("────────────────────────────────────────────────────────────────")
+	fmt.Println("To pull pre-built images instead, run:")
+	fmt.Println()
+	fmt.Println("  AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup")
+	fmt.Println()
+	fmt.Println("Replace <account-id> with prod AWS account number.")
+	fmt.Println("See: https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923")
+	fmt.Println("────────────────────────────────────────────────────────────────")
+	fmt.Println()
+}
+
 func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port int) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
@@ -403,6 +606,32 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port i
 		return fmt.Errorf(`port %d is already in use. Most probably an instance of ChIP Test Sink is already running.
 If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
 and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, port)
+	}
+
+	// Load setup config to check for required images
+	setupCfg, setupCfgErr := ReadSetupConfig(DefaultSetupConfigPath)
+	if setupCfgErr != nil {
+		return errors.Wrap(setupCfgErr, "failed to read setup config")
+	}
+
+	// Ensure required chip images exist (auto-builds if missing, skipped in CI)
+	if err := ensureChipImagesExist(cmdContext, setupCfg); err != nil {
+		return errors.Wrap(err, "failed to ensure chip images exist")
+	}
+
+	// Don't set image version environment variables for CI environment, since we set them on the GHA workflow level
+	if os.Getenv("CI") != "true" {
+		// Set image version environment variables for docker-compose
+		if setupCfg.ChipIngress != nil {
+			if err := os.Setenv(chipingressset.ChipIngressImageEnvVar, setupCfg.ChipIngress.BuildConfig.LocalImage); err != nil {
+				return fmt.Errorf("failed to set CHIP_INGRESS_IMAGE environment variable: %w", err)
+			}
+		}
+		if setupCfg.ChipConfig != nil {
+			if err := os.Setenv(chipingressset.ChipConfigImageEnvVar, setupCfg.ChipConfig.BuildConfig.LocalImage); err != nil {
+				return fmt.Errorf("failed to set CHIP_CONFIG_IMAGE environment variable: %w", err)
+			}
+		}
 	}
 
 	// set both internal and external (host) ChIP Ingress GRPC port to the same value

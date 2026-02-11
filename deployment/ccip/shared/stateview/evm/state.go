@@ -8,9 +8,11 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/burn_mint_with_external_minter_token_pool"
-	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
-	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/token_governor"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/burn_mint_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/hybrid_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/proxy_admin"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/token_governor"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
@@ -52,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
@@ -116,6 +119,7 @@ type CCIPChainState struct {
 	BurnMintERC20                  map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
 	BurnMintERC20WithDrip          map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip
 	TokenGovernor                  map[shared.TokenSymbol]*token_governor.TokenGovernor
+	BurnMintERC20Transparent       map[shared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
@@ -165,6 +169,10 @@ type CCIPChainState struct {
 
 	// Base Attestation contracts
 	SignerRegistry *signer_registry.SignerRegistry
+
+	// OpenZeppelin
+	TransparentUpgradeableProxy map[shared.TokenSymbol]*transparent_upgradeable_proxy.TransparentUpgradeableProxy
+	ProxyAdmin                  map[shared.TokenSymbol]*proxy_admin.ProxyAdmin
 }
 
 // ValidateHomeChain validates the home chain contracts and their configurations after complete setup.
@@ -625,6 +633,9 @@ func (c CCIPChainState) TokenAddressBySymbol() (map[shared.TokenSymbol]common.Ad
 	for symbol, token := range c.BurnMintERC20 {
 		tokenAddresses[symbol] = token.Address()
 	}
+	for symbol, token := range c.BurnMintERC20Transparent {
+		tokenAddresses[symbol] = token.Address()
+	}
 	var err error
 	tokenAddresses[shared.LinkSymbol], err = c.LinkTokenAddress()
 	if err != nil {
@@ -653,6 +664,9 @@ func (c CCIPChainState) TokenDetailsBySymbol() (map[shared.TokenSymbol]shared.To
 		tokenDetails[symbol] = token
 	}
 	for symbol, token := range c.BurnMintERC20 {
+		tokenDetails[symbol] = token
+	}
+	for symbol, token := range c.BurnMintERC20Transparent {
 		tokenDetails[symbol] = token
 	}
 	if c.LinkToken != nil {

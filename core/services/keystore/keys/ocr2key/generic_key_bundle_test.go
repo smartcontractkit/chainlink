@@ -8,22 +8,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 )
 
 type (
 	XXXOldEVMKeyBundleRawData struct {
-		ChainType       chaintype.ChainType
+		ChainType       corekeys.ChainType
 		OffchainKeyring []byte
 		EVMKeyring      []byte
 	}
 	XXXOldSolanaKeyBundleRawData struct {
-		ChainType       chaintype.ChainType
+		ChainType       corekeys.ChainType
 		OffchainKeyring []byte
 		SolanaKeyring   []byte
 	}
 	XXXOldV1GenericKeyBundleRawData struct {
-		ChainType       chaintype.ChainType
+		ChainType       corekeys.ChainType
 		OffchainKeyring []byte
 		Keyring         []byte
 		// missing ID
@@ -46,7 +46,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 
 		// marshal old key format
 		oldKey := XXXOldEVMKeyBundleRawData{
-			ChainType:       chaintype.EVM,
+			ChainType:       corekeys.EVM,
 			OffchainKeyring: offBytes,
 			EVMKeyring:      onBytes,
 		}
@@ -82,7 +82,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 
 		// marshal old key format
 		oldKey := XXXOldSolanaKeyBundleRawData{
-			ChainType:       chaintype.Solana,
+			ChainType:       corekeys.Solana,
 			OffchainKeyring: offBytes,
 			SolanaKeyring:   onBytes,
 		}
@@ -111,7 +111,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 
 	t.Run("Cosmos", func(t *testing.T) {
 		// onchain key
-		bundle, err := newKeyBundleRand(chaintype.Cosmos, newCosmosKeyring)
+		bundle, err := newKeyBundleRand(corekeys.Cosmos, newCosmosKeyring)
 		require.NoError(t, err)
 		bundleBytes, err := bundle.Marshal()
 		require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 
 		// build key without ID parameter
 		oldKey := XXXOldV1GenericKeyBundleRawData{
-			ChainType:       chaintype.EVM,
+			ChainType:       corekeys.EVM,
 			OffchainKeyring: offBytes,
 			Keyring:         onBytes,
 		}

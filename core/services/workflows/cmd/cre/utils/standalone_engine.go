@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -319,7 +319,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	nSigners := 4
 	signers := []ocr2key.KeyBundle{}
 	for range nSigners {
-		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), chaintype.EVM)
+		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), corekeys.EVM)
 		lggr.Infow("Generated new consensus signer", "addrss", common.BytesToAddress(signer.PublicKey()))
 		signers = append(signers, signer)
 	}
