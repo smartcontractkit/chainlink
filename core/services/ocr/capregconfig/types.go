@@ -2,6 +2,9 @@ package capregconfig
 
 import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 // OCRConfigService provides OCR configuration from CapabilitiesRegistry.
@@ -15,6 +18,9 @@ import (
 // The returned Tracker and Digester implementations dynamically switch between
 // registry-based config and legacy contract-based config based on availability.
 type OCRConfigService interface {
+	services.Service
+	registrysyncer.Listener
+
 	// GetConfigTracker returns a ContractConfigTracker for the specified capability.
 	//
 	// The returned tracker dynamically selects between registry-based and legacy config:

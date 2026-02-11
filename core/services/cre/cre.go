@@ -190,7 +190,7 @@ func (s *Services) newSubservices(
 		return srvs, nil
 	}
 
-	registrySyncerServices, donNotifier, err := newRegistrySyncer(
+	registrySyncerServices, donNotifier, ocrConfigService, err := newRegistrySyncer(
 		lggr,
 		cfg,
 		relayerChainInterops,
@@ -201,6 +201,7 @@ func (s *Services) newSubservices(
 	if err != nil {
 		return nil, err
 	}
+	s.OCRConfigService = ocrConfigService
 	srvs = append(srvs, registrySyncerServices...)
 
 	if capCfg.WorkflowRegistry().Address() == "" {
@@ -344,13 +345,13 @@ func newRegistrySyncerV2(
 	relayer loop.Relayer,
 	registryAddress string,
 	ds sqlutil.DataSource,
-	rid commontypes.RelayID,
 	don2donSharedPeer p2ptypes.SharedPeer,
 	externalPeerWrapper p2ptypes.PeerWrapper,
 	streamConfig config.StreamConfig,
 	dispatcher remotetypes.Dispatcher,
 	capabilitiesRegistry *capabilities.Registry,
 	donNotifier capabilities.DonNotifier,
+	ocrConfigService capregconfig.OCRConfigService,
 ) ([]commonsrv.Service, error) {
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
@@ -376,20 +377,7 @@ func newRegistrySyncerV2(
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
-	registrySyncer.AddListener(wfLauncher)
-
-	registryChainID, parseErr := strconv.ParseUint(rid.ChainID, 10, 64)
-	if parseErr != nil {
-		return nil, fmt.Errorf("failed to parse registry chain ID for OCRConfigService: %w", parseErr)
-	}
-	ocrConfigService := capregconfig.NewOCRConfigService(
-		lggr,
-		func() ragetypes.PeerID { return don2donSharedPeer.ID() },
-		registryChainID,
-		registryAddress,
-	)
-
-	registrySyncer.AddListener(ocrConfigService)
+	registrySyncer.AddListener(wfLauncher, ocrConfigService)
 	return []commonsrv.Service{wfLauncher, registrySyncer, ocrConfigService}, nil
 }
 
@@ -401,7 +389,7 @@ func newRegistrySyncer(
 	ds sqlutil.DataSource,
 	opts Opts,
 	dispatcherWrapper *dispatcherWrapper,
-) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, error) {
+) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, capregconfig.OCRConfigService, error) {
 	var srvcs []commonsrv.Service
 
 	capCfg := cfg.Capabilities()
@@ -410,7 +398,7 @@ func newRegistrySyncer(
 	registryAddress := capCfg.ExternalRegistry().Address()
 	relayer, err := relayerChainInterops.Get(rid)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		return nil, nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
 	}
 
 	var streamConfig config.StreamConfig
@@ -420,9 +408,14 @@ func newRegistrySyncer(
 
 	donNotifier := capabilities.NewDonNotifier()
 
+	ocrConfigService, ocrErr := newOCRConfigService(lggr, rid, registryAddress, dispatcherWrapper)
+	if ocrErr != nil {
+		return nil, nil, nil, ocrErr
+	}
+
 	externalRegistryVersion, err := semver.NewVersion(capCfg.ExternalRegistry().ContractVersion())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	switch externalRegistryVersion.Major() {
@@ -441,10 +434,10 @@ func newRegistrySyncer(
 			donNotifier,
 		)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		srvcs = append(srvcs, srvs...)
-		return srvcs, donNotifier, nil
+		return srvcs, donNotifier, ocrConfigService, nil
 	case 2:
 		srvs, err := newRegistrySyncerV2(
 			lggr,
@@ -452,22 +445,40 @@ func newRegistrySyncer(
 			relayer,
 			registryAddress,
 			ds,
-			rid,
 			dispatcherWrapper.don2DonSharedPeer,
 			dispatcherWrapper.externalPeerWrapper,
 			streamConfig,
 			dispatcherWrapper.dispatcher,
 			opts.CapabilitiesRegistry,
 			donNotifier,
+			ocrConfigService,
 		)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		srvcs = append(srvcs, srvs...)
-		return srvcs, donNotifier, nil
+		return srvcs, donNotifier, ocrConfigService, nil
 	}
 
-	return nil, nil, fmt.Errorf("could not configure capability registry syncer with version: %d", externalRegistryVersion.Major())
+	return nil, nil, nil, fmt.Errorf("could not configure capability registry syncer with version: %d", externalRegistryVersion.Major())
+}
+
+func newOCRConfigService(
+	lggr logger.Logger,
+	rid commontypes.RelayID,
+	registryAddress string,
+	dispatcherWrapper *dispatcherWrapper,
+) (capregconfig.OCRConfigService, error) {
+	registryChainID, err := strconv.ParseUint(rid.ChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse registry chain ID for OCRConfigService: %w", err)
+	}
+	return capregconfig.NewOCRConfigService(
+		lggr,
+		func() ragetypes.PeerID { return dispatcherWrapper.don2DonSharedPeer.ID() },
+		registryChainID,
+		registryAddress,
+	), nil
 }
 
 func (w *dispatcherWrapper) newSubservices(
