@@ -29,7 +29,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -120,13 +119,6 @@ func SetupTestEnvironment(
 
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
-	}
-
-	if input.Provider.Type == infra.CRIB {
-		cribErr := crib.Bootstrap(ctx, input.Provider)
-		if cribErr != nil {
-			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
-		}
 	}
 
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
@@ -353,7 +345,7 @@ func SetupTestEnvironment(
 	}
 
 	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
-		// we currently have no way of checking if filters were registered, when code runs in CRIB or Kubernetes
+		// we currently have no way of checking if filters were registered in Kubernetes mode
 		// as we don't have a way to get its database connection string
 		if !input.Provider.IsDocker() {
 			return nil

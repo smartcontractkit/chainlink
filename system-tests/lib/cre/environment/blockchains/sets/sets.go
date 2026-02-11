@@ -11,9 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func NewDeployerSet(testLogger zerolog.Logger, provider *infra.Provider, cribConfigsDir string) map[blockchain.ChainFamily]blockchains.Deployer {
+func NewDeployerSet(testLogger zerolog.Logger, provider *infra.Provider) map[blockchain.ChainFamily]blockchains.Deployer {
 	return map[blockchain.ChainFamily]blockchains.Deployer{
-		blockchain.FamilyEVM:    evm.NewDeployer(testLogger, provider, cribConfigsDir),
+		blockchain.FamilyEVM:    evm.NewDeployer(testLogger, provider),
 		blockchain.FamilySolana: solana.NewDeployer(testLogger, provider),
 		blockchain.FamilyTron:   tron.NewDeployer(testLogger, provider),
 	}
