@@ -46,7 +46,7 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	}, nil
 }
 
-// filiter nopsView to only NOPs active in V1.6 DONs with their V1.6 chain keys - this is needed for NOPs billing & NOPs JIRA
+// filter nopsView to only NOPs active in V1.6 DONs with their V1.6 chain keys - this is needed for NOPs billing & NOPs JIRA
 func filterNopsForV16(stateView CCIPStateView, nopsView map[string]view.NopView) map[string]view.NopView {
 	activeP2PIDs, activeChainNames := make(map[string]struct{}), make(map[string]struct{})
 
