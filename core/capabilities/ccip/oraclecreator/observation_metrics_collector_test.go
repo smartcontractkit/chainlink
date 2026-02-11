@@ -57,10 +57,11 @@ func TestObservationMetricsCollector(t *testing.T) {
 
 	// Define Beholder labels with more details
 	beholderLabels := map[string]string{
-		"pluginType":  "commit",
-		"chainId":     "1",
-		"chainFamily": "evm",
-		"networkName": "Ethereum",
+		"pluginType":    "commit",
+		"chainId":       "1",
+		"chainFamily":   "evm",
+		"networkName":   "Ethereum",
+		"chainSelector": "1234",
 	}
 
 	collector := NewObservationMetricsCollector(lggr, mockPub, constantLabels, beholderLabels)
@@ -118,6 +119,7 @@ func TestObservationMetricsCollector(t *testing.T) {
 		assert.Equal(t, "1", metrics[0].labels["chainId"])
 		assert.Equal(t, "evm", metrics[0].labels["chainFamily"])
 		assert.Equal(t, "Ethereum", metrics[0].labels["networkName"])
+		assert.Equal(t, "1234", metrics[0].labels["chainSelector"])
 	}
 
 	// Increment multiple times and trigger collections
@@ -156,6 +158,7 @@ func TestObservationMetricsCollector(t *testing.T) {
 		assert.Equal(t, "1", m.labels["chainId"], "Expected Beholder label 'chainId' to be present")
 		assert.Equal(t, "evm", m.labels["chainFamily"], "Expected Beholder label 'chainFamily' to be present")
 		assert.Equal(t, "Ethereum", m.labels["networkName"], "Expected Beholder label 'networkName' to be present")
+		assert.Equal(t, "1234", m.labels["chainSelector"], "Expected Beholder label 'chainSelector' to be present")
 
 		switch m.name {
 		case "ocr3_sent_observations_total":
@@ -182,10 +185,11 @@ func TestWrappedCounter(t *testing.T) {
 
 	// Use Beholder-style labels
 	allLabels := map[string]string{
-		"pluginType":  "exec",
-		"chainId":     "42161",
-		"chainFamily": "evm",
-		"networkName": "Arbitrum",
+		"pluginType":    "exec",
+		"chainId":       "42161",
+		"chainFamily":   "evm",
+		"networkName":   "Arbitrum",
+		"chainSelector": "42161",
 	}
 
 	wrapped := &wrappedCounter{
