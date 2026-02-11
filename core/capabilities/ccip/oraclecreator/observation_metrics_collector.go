@@ -203,8 +203,13 @@ func (r *interceptingRegisterer) maybeWrapCollector(c prometheus.Collector) prom
 
 	for desc := range descChan {
 		descString := desc.String()
-		// Check if this is one of our target metrics
-		if strings.Contains(descString, "ocr3_sent_observations_total") {
+
+		// We need to extract the fqName from the descriptor string
+		// Format: Desc{fqName: "metric_name", help: "...", ...}
+		// We'll check if the fqName matches exactly, not just contains
+
+		// Check if this is one of our target metrics by matching the fqName field
+		if strings.Contains(descString, `fqName: "ocr3_sent_observations_total"`) {
 			r.collector.logger.Info("Wrapping ocr3_sent_observations_total counter")
 
 			// Wrap the collector (whether it's a raw Counter or wrappingCollector)
@@ -219,7 +224,7 @@ func (r *interceptingRegisterer) maybeWrapCollector(c prometheus.Collector) prom
 			return wrapped
 		}
 
-		if strings.Contains(descString, "ocr3_included_observations_total") {
+		if strings.Contains(descString, `fqName: "ocr3_included_observations_total"`) {
 			r.collector.logger.Info("Wrapping ocr3_included_observations_total counter")
 
 			// Wrap the collector (whether it's a raw Counter or wrappingCollector)
