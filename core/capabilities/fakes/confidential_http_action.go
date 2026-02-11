@@ -197,7 +197,7 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	}
 
 	// Encrypt response if encrypt_output is true
-	if input.GetEncryptOutput() {
+	if input.GetRequest().GetEncryptOutput() {
 		// Priority 1: Use real AES key from secrets.yaml if available
 		if secretValues, exists := fh.secretsConfig.SecretsNames[AESGCMEncryptionKeyName]; exists && len(secretValues) > 0 {
 			secretKeyStr := secretValues[0]

@@ -43,16 +43,17 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260129103204-4c8453dd8139
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260206035200-f68f1905d71d
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260209213544-a82fa419e483
 	github.com/smartcontractkit/chainlink-deployments-framework v0.80.1-0.20260209182815-b296b7df28a6
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260205183656-836ec9472717
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-e86785845942
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260206000552-087e235a7963
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260209203401-a488315d180f
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260121103211-89fe83165431
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260209164410-3aec83b0246f
+	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260209164410-3aec83b0246f
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260205175622-33e65031f9a9
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260124000807-bff5e296dfb7
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.13.14-0.20260202230832-eb33f42188d1
@@ -73,7 +74,7 @@ require (
 	github.com/xssnick/tonutils-go v1.14.1
 	github.com/zksync-sdk/zksync2-go v1.1.1-0.20250620124214-2c742ee399c6
 	go.uber.org/zap v1.27.1
-	golang.org/x/crypto v0.47.0
+	golang.org/x/crypto v0.48.0
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96
 	golang.org/x/mod v0.32.0
 	golang.org/x/oauth2 v0.32.0
@@ -433,6 +434,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b // indirect
+	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260205130626-db2a2aab956b // indirect
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
@@ -505,10 +507,10 @@ require (
 	go.uber.org/ratelimit v0.3.1 // indirect
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260109210033-bd525da824e2 // indirect
-	golang.org/x/term v0.39.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/term v0.40.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
