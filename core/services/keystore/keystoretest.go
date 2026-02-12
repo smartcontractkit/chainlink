@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // memoryORM is an in-memory version of the keystore. This is
