@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -1347,7 +1348,7 @@ type OCR2 struct {
 	ContractSubscribeInterval          *commonconfig.Duration
 	ContractTransmitterTransmitTimeout *commonconfig.Duration
 	DatabaseTimeout                    *commonconfig.Duration
-	KeyBundleID                        *models.Sha256Hash
+	KeyBundleID                        *keys.Sha256Hash
 	CaptureEATelemetry                 *bool
 	CaptureAutomationCustomTelemetry   *bool
 	AllowNoBootstrappers               *bool
@@ -1417,7 +1418,7 @@ type OCR struct {
 	ContractSubscribeInterval    *commonconfig.Duration
 	DefaultTransactionQueueDepth *uint32
 	// Optional
-	KeyBundleID          *models.Sha256Hash
+	KeyBundleID          *keys.Sha256Hash
 	SimulateTransactions *bool
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool

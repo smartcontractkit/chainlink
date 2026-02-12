@@ -12,7 +12,7 @@ import (
 	"github.com/urfave/cli"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -160,7 +160,7 @@ func (s *Shell) DeleteOCRKeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
-	id, err := models.Sha256HashFromHex(c.Args().Get(0))
+	id, err := keys.Sha256HashFromHex(c.Args().Get(0))
 	if err != nil {
 		return s.errorOut(err)
 	}
