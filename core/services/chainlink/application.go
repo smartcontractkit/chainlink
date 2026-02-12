@@ -67,6 +67,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -695,7 +696,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
 
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
-	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
+	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
 		opts.DS, jobORM,
 		opts.CapabilitiesRegistry,
@@ -713,6 +714,27 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		atomicSettings,
 		creServices.ocrConfigService,
 	)
+	delegates[job.StandardCapabilities] = stdcapDelegate
+
+	// Wire LocalCapabilityManager into the launcher if local capabilities are configured.
+	if creServices.setLocalCapMgr != nil {
+		localCfg := cfg.Capabilities().Local()
+		if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
+			serviceBuilder := func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error) {
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{})
+			}
+			localCapMgr, lcmErr := localcapmgr.New(localcapmgr.Params{
+				Logger:        globalLogger,
+				LocalConfig:   localCfg,
+				BuildServices: serviceBuilder,
+			})
+			if lcmErr != nil {
+				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
+			}
+			creServices.setLocalCapMgr(localCapMgr)
+			srvcs = append(srvcs, localCapMgr)
+		}
+	}
 
 	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
@@ -949,6 +971,11 @@ type CREServices struct {
 
 	// ocrConfigService provides OCR config from CapabilitiesRegistry
 	ocrConfigService capregconfig.OCRConfigService
+
+	// setLocalCapMgr is a callback to wire the LocalCapabilityManager into the launcher.
+	// It's set when the launcher is created inside newCREServices and called from NewApplication
+	// where all required dependencies are available.
+	setLocalCapMgr func(localcapmgr.LocalCapabilityManager)
 }
 
 func newCREServices(
@@ -967,6 +994,7 @@ func newCREServices(
 	wCfg := cfg.Workflows()
 	var srvcs []services.ServiceCtx
 	var ocrConfigService capregconfig.OCRConfigService
+	var setLocalCapMgr func(localcapmgr.LocalCapabilityManager)
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
@@ -1140,6 +1168,7 @@ func newCREServices(
 			if err != nil {
 				return nil, fmt.Errorf("could not create workflow launcher: %w", err)
 			}
+			setLocalCapMgr = wfLauncher.SetLocalCapabilityManager
 
 			registryChainID, parseErr := strconv.ParseUint(rid.ChainID, 10, 64)
 			if parseErr != nil {
@@ -1401,6 +1430,7 @@ func newCREServices(
 		workflowRegistrySyncer:  workflowRegistrySyncerV2,
 		orgResolver:             orgResolver,
 		ocrConfigService:        ocrConfigService,
+		setLocalCapMgr:          setLocalCapMgr,
 	}, nil
 }
 
