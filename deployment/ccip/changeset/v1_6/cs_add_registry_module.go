@@ -1,7 +1,6 @@
 package v1_6
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,24 +14,16 @@ import (
 var _ cldf.ChangeSet[AddRegistryModuleConfig] = AddRegistryModuleChangeset
 
 type AddRegistryModuleConfig struct {
-	ChainSelectors      []uint64         // which chains to add registry modules on
-	RegistryModuleAddrs []common.Address // addresses of the registry modules to add (must match length of ChainSelectors)
+	// Map of chain selector to registry module address
+	RegistryModuleAddrs map[uint64]common.Address
 }
 
 func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
-	if len(c.ChainSelectors) == 0 {
-		return errors.New("no chain selectors provided")
-	}
-
 	if len(c.RegistryModuleAddrs) == 0 {
-		return errors.New("no registry module addresses provided")
+		return fmt.Errorf("no registry module addresses provided")
 	}
 
-	if len(c.ChainSelectors) != len(c.RegistryModuleAddrs) {
-		return errors.New("chain selectors and registry module addresses must have the same length")
-	}
-
-	for _, chainSel := range c.ChainSelectors {
+	for chainSel, addr := range c.RegistryModuleAddrs {
 		if err := cldf.IsValidChainSelector(chainSel); err != nil {
 			return fmt.Errorf("invalid chain selector %d: %w", chainSel, err)
 		}
@@ -40,11 +31,9 @@ func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 		if _, exists := e.BlockChains.EVMChains()[chainSel]; !exists {
 			return fmt.Errorf("chain %d not found in environment", chainSel)
 		}
-	}
 
-	for i, addr := range c.RegistryModuleAddrs {
 		if addr == (common.Address{}) {
-			return fmt.Errorf("registry module address at index %d is zero address", i)
+			return fmt.Errorf("registry module address for chain %d is zero address", chainSel)
 		}
 	}
 
@@ -61,7 +50,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	for i, chainSel := range cfg.ChainSelectors {
+	for chainSel, registryModuleAddr := range cfg.RegistryModuleAddrs {
 		chain := e.BlockChains.EVMChains()[chainSel]
 		chainState, exists := state.Chains[chainSel]
 
@@ -73,8 +62,6 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		if chainState.TokenAdminRegistry == nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("TokenAdminRegistry not found on chain %d", chainSel)
 		}
-
-		registryModuleAddr := cfg.RegistryModuleAddrs[i]
 
 		// Check if registry module is already added
 		isAlreadyModule, err := chainState.TokenAdminRegistry.IsRegistryModule(nil, registryModuleAddr)

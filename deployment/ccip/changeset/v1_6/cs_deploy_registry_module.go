@@ -1,13 +1,14 @@
 package v1_6
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
@@ -26,7 +27,13 @@ type DeployRegistryModuleConfig struct {
 
 func (c DeployRegistryModuleConfig) Validate(e cldf.Environment) error {
 	if len(c.ChainSelectors) == 0 {
-		return errors.New("no chain selectors provided")
+		return fmt.Errorf("no chain selectors provided")
+	}
+
+	// Load state to validate chain states and TokenAdminRegistry
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	for _, chainSel := range c.ChainSelectors {
@@ -36,6 +43,17 @@ func (c DeployRegistryModuleConfig) Validate(e cldf.Environment) error {
 
 		if _, exists := e.BlockChains.EVMChains()[chainSel]; !exists {
 			return fmt.Errorf("chain %d not found in environment", chainSel)
+		}
+
+		// Check if chain state exists
+		chainState, exists := state.Chains[chainSel]
+		if !exists {
+			return fmt.Errorf("chain state not found for chain %d", chainSel)
+		}
+
+		// Check if TokenAdminRegistry exists
+		if chainState.TokenAdminRegistry == nil {
+			return fmt.Errorf("TokenAdminRegistry not found on chain %d", chainSel)
 		}
 	}
 
@@ -53,25 +71,14 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	for _, chainSel := range cfg.ChainSelectors {
 		chain := e.BlockChains.EVMChains()[chainSel]
-		chainState, exists := state.Chains[chainSel]
-
-		if !exists {
-			return cldf.ChangesetOutput{}, fmt.Errorf("chain state not found for chain %d", chainSel)
-		}
-
-		// Check if TokenAdminRegistry exists
-		if chainState.TokenAdminRegistry == nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("TokenAdminRegistry not found on chain %d", chainSel)
-		}
+		chainState := state.Chains[chainSel]
 
 		// Check if we need to deploy RegistryModuleOwnerCustom 1.6.0
-		needsDeploy, err := needsRegistryModule16Deployment(chainState)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check registry module status on chain %d: %w", chainSel, err)
-		}
+		needsDeploy := NeedsRegistryModule16Deployment(chainState)
 
 		if !needsDeploy {
 			e.Logger.Infow("RegistryModuleOwnerCustom 1.6.0 already deployed", "chain", chainSel)
@@ -116,7 +123,21 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 			})
 
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy registry module on chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{DataStore: ds}, fmt.Errorf("failed to deploy registry module on chain %d: %w", chainSel, err)
+		}
+
+		// Add the address reference to the datastore
+		if err = ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSel,
+			Address:       registryModule.Address.Hex(),
+			Type:          datastore.ContractType(shared.RegistryModule),
+			Version:       semver.MustParse("1.6.0"),
+			Labels: datastore.NewLabelSet(
+				"RegistryModuleOwnerCustom 1.6.0",
+			),
+		}); err != nil {
+			return cldf.ChangesetOutput{DataStore: ds},
+				fmt.Errorf("failed to save address ref for chain %d: %w", chainSel, err)
 		}
 
 		e.Logger.Infow("Successfully deployed RegistryModuleOwnerCustom 1.6.0",
@@ -126,6 +147,7 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -133,13 +155,7 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 // Returns true if:
 // - No 1.6.0 registry modules exist on the chain
 // - Only non-1.6.0 versions exist
-func needsRegistryModule16Deployment(chainState evm.CCIPChainState) (bool, error) {
+func NeedsRegistryModule16Deployment(chainState evm.CCIPChainState) bool {
 	// Check if any 1.6.0 registry modules exist
-	if len(chainState.RegistryModules1_6) > 0 {
-		// 1.6.0 version already exists
-		return false, nil
-	}
-
-	// No 1.6.0 version exists, we need to deploy it
-	return true, nil
+	return len(chainState.RegistryModules1_6) <= 0
 }
