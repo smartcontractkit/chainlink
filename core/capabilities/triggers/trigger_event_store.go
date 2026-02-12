@@ -54,25 +54,25 @@ ON CONFLICT (trigger_id, event_id) DO UPDATE SET
 	return nil
 }
 
-func (s triggerEventStore) UpdateDelivery(ctx context.Context, triggerId string, eventId string, lastSentAt time.Time, attempts int) error {
+func (s triggerEventStore) UpdateDelivery(ctx context.Context, triggerID string, eventID string, lastSentAt time.Time, attempts int) error {
 	const q = `
 UPDATE ` + triggerPendingEventsTable + `
 SET last_sent_at = $3, attempts = $4
 WHERE trigger_id = $1 AND event_id = $2
 `
-	var lastSent interface{} = nil
+	var lastSent interface{}
 	if !lastSentAt.IsZero() {
 		lastSent = lastSentAt
 	}
-	res, err := s.ds.ExecContext(ctx, q, triggerId, eventId, lastSent, attempts)
+	res, err := s.ds.ExecContext(ctx, q, triggerID, eventID, lastSent, attempts)
 	if err != nil {
-		return fmt.Errorf("failed to update delivery metadata for trigger_id=%s event_id=%s: %w", triggerId, eventId, err)
+		return fmt.Errorf("failed to update delivery metadata for trigger_id=%s event_id=%s: %w", triggerID, eventID, err)
 	}
 
 	// verify an event was actually updated
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected while updating delivery for trigger_id=%s event_id=%s: %w", triggerId, eventId, err)
+		return fmt.Errorf("failed to get rows affected while updating delivery for trigger_id=%s event_id=%s: %w", triggerID, eventID, err)
 	}
 	if rows == 0 {
 		return sql.ErrNoRows
@@ -128,13 +128,13 @@ ORDER BY first_at ASC
 	return out, nil
 }
 
-func (s triggerEventStore) DeleteEvent(ctx context.Context, triggerId, eventId string) error {
+func (s triggerEventStore) DeleteEvent(ctx context.Context, triggerID, eventID string) error {
 	const q = `
 DELETE FROM ` + triggerPendingEventsTable + `
 WHERE trigger_id = $1 AND event_id = $2
 `
-	if _, err := s.ds.ExecContext(ctx, q, triggerId, eventId); err != nil {
-		return fmt.Errorf("failed to delete pending event trigger_id=%s event_id=%s: %w", triggerId, eventId, err)
+	if _, err := s.ds.ExecContext(ctx, q, triggerID, eventID); err != nil {
+		return fmt.Errorf("failed to delete pending event trigger_id=%s event_id=%s: %w", triggerID, eventID, err)
 	}
 	return nil
 }
