@@ -57,6 +57,7 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 		Bucket: SuiteBucketA,
 		Scenarios: []SuiteScenario{
 			SuiteScenarioProofOfReserve,
+			SuiteScenarioHTTPTriggerAction,
 			SuiteScenarioDONTime,
 			SuiteScenarioConsensus,
 		},
@@ -65,7 +66,6 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 		Bucket: SuiteBucketB,
 		Scenarios: []SuiteScenario{
 			SuiteScenarioVaultDON,
-			SuiteScenarioHTTPTriggerAction,
 		},
 	},
 	{
