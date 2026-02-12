@@ -39,3 +39,13 @@ func RunKeyExportImportTestcase(t *testing.T, createKey CreateKeyFunc, decrypt D
 	require.Equal(t, key.ID(), imported.ID())
 	require.Equal(t, internal.RawBytes(key), internal.RawBytes(imported))
 }
+
+func RequireEqualKeys(t *testing.T, a, b interface {
+	ID() string
+	Raw() internal.Raw
+}) {
+	t.Helper()
+	require.Equal(t, a.ID(), b.ID(), "ids be equal")
+	require.Equal(t, a.Raw(), b.Raw(), "raw bytes must be equal")
+	require.EqualExportedValues(t, a, b)
+}

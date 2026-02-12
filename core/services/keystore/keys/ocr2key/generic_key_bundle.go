@@ -14,8 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
+
+type Sha256Hash [32]byte
+
+var EmptySha256Hash = new(Sha256Hash)
 
 type (
 	keyring interface {
@@ -34,7 +37,7 @@ type (
 		ChainType       corekeys.ChainType
 		OffchainKeyring []byte
 		Keyring         []byte
-		ID              models.Sha256Hash // tracked to preserve bundle ID in case of migrations
+		ID              Sha256Hash // tracked to preserve bundle ID in case of migrations
 
 		// old chain specific format for migrating
 		EVMKeyring    []byte `json:",omitempty"`
@@ -183,7 +186,7 @@ func (kbraw *keyBundleRawData) Migrate(b []byte) error {
 
 	// if key does not have an ID associated with it (old formats),
 	// derive the key ID and preserve it
-	if bytes.Equal(kbraw.ID[:], models.EmptySha256Hash[:]) {
+	if bytes.Equal(kbraw.ID[:], EmptySha256Hash[:]) {
 		kbraw.ID = sha256.Sum256(b)
 	}
 

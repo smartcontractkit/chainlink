@@ -12,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestEVMKeyring_SignVerify(t *testing.T) {
@@ -54,10 +52,10 @@ func TestEVMKeyring_Sign3Verify3(t *testing.T) {
 	kr2, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 
-	digest, err := types.BytesToConfigDigest(testutils.MustRandBytes(32))
+	digest, err := types.BytesToConfigDigest(mustRandBytes(32))
 	require.NoError(t, err)
 	seqNr := rand.Uint64()
-	r := ocrtypes.Report(testutils.MustRandBytes(rand.Intn(1024)))
+	r := ocrtypes.Report(mustRandBytes(rand.Intn(1024)))
 
 	t.Run("can verify", func(t *testing.T) {
 		sig, err := kr1.Sign3(digest, seqNr, r)
@@ -159,4 +157,13 @@ func TestRawReportContext3(t *testing.T) {
 			assert.Equal(t, tc.expected, actual, "unexpected result")
 		})
 	}
+}
+
+func mustRandBytes(n int) (b []byte) {
+	b = make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 )
 
@@ -49,7 +50,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, key, retrievedKey)
+		keys.RequireEqualKeys(t, key, retrievedKey)
 
 		t.Run("prevents creating more than one key", func(t *testing.T) {
 			ctx := testutils.Context(t)
@@ -77,7 +78,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, importedKey, retrievedKey)
+		keys.RequireEqualKeys(t, importedKey, retrievedKey)
 
 		t.Run("prevents importing more than one key", func(t *testing.T) {
 			k, err2 := ks.Import(testutils.Context(t), exportJSON, cltest.Password)
