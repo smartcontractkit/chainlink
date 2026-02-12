@@ -1,0 +1,122 @@
+# ----- LOAD TEST: EVM Log Trigger + HTTP Trigger @ 400 RPM -----
+# Target: 400 new workflow triggers per minute, each execution taking ~77 seconds.
+# At steady state there will be ~513 concurrent workflow executions in flight.
+# Test runs for 10 minutes to observe sustained throughput and latency.
+
+# ----- BLOCKCHAIN CONFIGURATION -----
+# Local Anvil chain with fast 0.5s block time for high-throughput log trigger testing
+[[blockchains]]
+chain_id = "1337"
+type = "anvil"
+docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+# ----- JOB DISTRIBUTOR -----
+[jd]
+csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+image = "job-distributor:0.22.1"
+
+# ----- FAKE SERVICES -----
+[fake]
+port = 8171
+
+[fake_http]
+port = 8666
+
+# ----- TEST CONFIGURATION -----
+[logtrigger_http_load]
+rpm = 400                              # RPM target per trigger type
+expected_execution_seconds = 77        # Expected execution time per workflow (seconds)
+duration_seconds = 180                 # Test duration (seconds) – 3 min for iterative tuning
+call_timeout_seconds = 150             # Max time to wait for a single workflow execution (must exceed expected_execution_seconds)
+
+# ----- INFRASTRUCTURE SETUP -----
+[infra]
+type = "docker"
+
+# ----- WORKFLOW NODES CONFIGURATION -----
+# 4-node Workflow DON with all required capabilities for log trigger + HTTP trigger
+[[nodesets]]
+nodes = 4
+name = "workflow"
+don_types = ["workflow"]
+override_mode = "all"
+http_port_range_start = 10100
+
+env_vars = { CL_EVM_CMD = "", CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"HTTPTrigger":{"RateLimit":"every150ms:100"},"LogTrigger":{"EventRateLimit":"every150ms:100"},"ExecutionConcurrencyLimit":"1000"},"PerOwner":{"WorkflowExecutionConcurrencyLimit":"1000"},"WorkflowExecutionConcurrencyLimit":"5000"}' }
+capabilities = [
+  "ocr3",
+  "custom-compute",
+  "web-api-target",
+  "web-api-trigger",
+  "vault",
+  "http-action",
+  "http-trigger",
+  "consensus",
+  "don-time",
+  "write-evm-1337",
+  "evm-1337",
+  "read-contract-1337",
+  "log-event-trigger-1337",
+]
+
+[nodesets.db]
+image = "postgres:12.0"
+port = 13000
+
+[[nodesets.node_specs]]
+roles = ["plugin"]
+[nodesets.node_specs.node]
+docker_ctx = "../../../.."
+docker_file = "core/chainlink.Dockerfile"
+docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+user_config_overrides = """
+    [Log]
+    Level = 'info'
+    JSONConsole = true
+
+    [Feature]
+    LogPoller = true
+    FeedsManager = true
+
+    [OCR2]
+    Enabled = true
+    DatabaseTimeout = '1s'
+    """
+
+# ----- BOOTSTRAP + GATEWAY NODE -----
+[[nodesets]]
+nodes = 1
+name = "bootstrap-gateway"
+don_types = ["bootstrap", "gateway"]
+override_mode = "each"
+http_port_range_start = 10300
+
+env_vars = { CL_EVM_CMD = "", CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"HTTPTrigger":{"RateLimit":"every150ms:100"},"LogTrigger":{"EventRateLimit":"every150ms:100"},"ExecutionConcurrencyLimit":"1000"},"PerOwner":{"WorkflowExecutionConcurrencyLimit":"1000"},"WorkflowExecutionConcurrencyLimit":"5000"}' }
+supported_evm_chains = [1337]
+
+[nodesets.db]
+image = "postgres:12.0"
+port = 13200
+
+[[nodesets.node_specs]]
+roles = ["bootstrap", "gateway"]
+[nodesets.node_specs.node]
+docker_ctx = "../../../.."
+docker_file = "core/chainlink.Dockerfile"
+docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+# 5002 is the web API capabilities port for incoming requests
+# 15002 is the vault port for incoming requests
+custom_ports = ["5002:5002", "15002:15002"]
+user_config_overrides = """
+    [Log]
+    Level = 'info'
+    JSONConsole = true
+
+    [Feature]
+    LogPoller = true
+    FeedsManager = true
+
+    [OCR2]
+    Enabled = true
+    DatabaseTimeout = '1s'
+    """

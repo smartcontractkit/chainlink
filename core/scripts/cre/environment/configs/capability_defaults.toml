@@ -81,29 +81,32 @@
 
 [capability_configs.http-action.values]
   # HTTP Action capability configuration
+  # Rate limits raised for load testing: both workflows make HTTP action calls at 400 RPM each
+  # (800 RPM total, ~13.3 calls/sec per node with 4 nodes)
   ProxyMode = "gateway"
-  IncomingGlobalBurst = 10
-  IncomingGlobalRPS = 50
-  IncomingPerSenderBurst = 10
-  IncomingPerSenderRPS = 10
-  OutgoingGlobalBurst = 10
-  OutgoingGlobalRPS = 50
-  OutgoingPerSenderBurst = 10
-  OutgoingPerSenderRPS = 10
+  IncomingGlobalBurst = 100
+  IncomingGlobalRPS = 200
+  IncomingPerSenderBurst = 50
+  IncomingPerSenderRPS = 100
+  OutgoingGlobalBurst = 100
+  OutgoingGlobalRPS = 200
+  OutgoingPerSenderBurst = 50
+  OutgoingPerSenderRPS = 100
 
 [capability_configs.http-trigger]
   binary_path = "./binaries/http_trigger"
 
 [capability_configs.http-trigger.values]
   # HTTP Trigger capability configuration
-  IncomingGlobalBurst = 10
-  IncomingGlobalRPS = 50
-  IncomingPerSenderBurst = 10
-  IncomingPerSenderRPS = 10
-  OutgoingGlobalBurst = 10
-  OutgoingGlobalRPS = 50
-  OutgoingPerSenderBurst = 10
-  OutgoingPerSenderRPS = 10
+  # Rate limits raised for load testing: 400 RPM HTTP trigger throughput
+  IncomingGlobalBurst = 100
+  IncomingGlobalRPS = 200
+  IncomingPerSenderBurst = 50
+  IncomingPerSenderRPS = 100
+  OutgoingGlobalBurst = 100
+  OutgoingGlobalRPS = 200
+  OutgoingPerSenderBurst = 50
+  OutgoingPerSenderRPS = 100
 
 [capability_configs.write-evm]
   # No binary_path needed - this is a built-in capability, it doesn't exist as a separate binary

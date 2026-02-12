@@ -326,8 +326,9 @@ func startCmd() *cobra.Command {
 
 			features := feature_set.New()
 			gatewayWhitelistConfig := gateway.WhitelistConfig{
-				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
-				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
+				ExtraAllowedPorts:        append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
+				ExtraAllowedIPsCIDR:      []string{"0.0.0.0/0"},
+				GatewayRequestTimeoutSec: 180, // Increased from default 12s to support long-running workflow executions (77s sleep + consensus overhead under load)
 			}
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, withPluginsDockerImage, nil, features, nil, envDependencies, gatewayWhitelistConfig)
 			if startErr != nil {

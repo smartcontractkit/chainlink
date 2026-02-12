@@ -55,7 +55,6 @@ type OrderResponse struct {
 func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, error) {
 	logger := runtime.Logger()
 	logger.Info("Simple HTTP workflow triggered.")
-
 	logger.Info("Processing order with inputs", "inputs", string(trigger.Input))
 
 	orderPromise := sdk.RunInNodeMode(cfg, runtime,
@@ -69,9 +68,9 @@ func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, 
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
-				Timeout: &durationpb.Duration{
-					Seconds: 5,
-				},
+		Timeout: &durationpb.Duration{
+			Seconds: 9,
+		},
 			}
 
 			resp, err := client.SendRequest(nodeRuntime, req).Await()

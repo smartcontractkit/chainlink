@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,18 +53,18 @@ func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64
 func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
 	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := &keystone_changeset.OracleConfig{
-		DeltaProgressMillis:               5000,
-		DeltaResendMillis:                 5000,
+		DeltaProgressMillis:               1000,  // 5s→1s: faster leader handoff under load
+		DeltaResendMillis:                 2000,  // 5s→2s: faster resends
 		DeltaInitialMillis:                5000,
-		DeltaRoundMillis:                  2000,
-		DeltaGraceMillis:                  500,
+		DeltaRoundMillis:                  500,   // 2s→500ms: 4x more consensus rounds per second
+		DeltaGraceMillis:                  200,   // 500ms→200ms: less waiting for stragglers
 		DeltaCertifiedCommitRequestMillis: 1000,
-		DeltaStageMillis:                  30000,
-		MaxRoundsPerEpoch:                 10,
-		MaxDurationQueryMillis:            1000,
-		MaxDurationObservationMillis:      1000,
-		MaxDurationShouldAcceptMillis:     1000,
-		MaxDurationShouldTransmitMillis:   1000,
+		DeltaStageMillis:                  150000, // 150s – allow consensus stages to complete for long-running workflows
+		MaxRoundsPerEpoch:                 100,   // 10→100: avoid costly epoch transitions during sustained load
+		MaxDurationQueryMillis:            5000,
+		MaxDurationObservationMillis:      120000, // 120s – allow HTTP actions up to 77s+ during observation phase
+		MaxDurationShouldAcceptMillis:     5000,
+		MaxDurationShouldTransmitMillis:   5000,
 		MaxFaultyOracles:                  1,
 		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
 			MaxQueryLengthBytes:       1000000,
@@ -71,6 +72,7 @@ func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
 			MaxOutcomeLengthBytes:     1000000,
 			MaxReportLengthBytes:      1000000,
 			MaxBatchSize:              1000,
+			RequestTimeout:            120 * time.Second, // Support long-running workflow executions (e.g. 77s HTTP actions)
 		},
 		UniqueReports: true,
 	}

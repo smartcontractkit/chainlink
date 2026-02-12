@@ -19,8 +19,9 @@ var (
 )
 
 type WhitelistConfig struct {
-	ExtraAllowedPorts   []int
-	ExtraAllowedIPsCIDR []string
+	ExtraAllowedPorts        []int
+	ExtraAllowedIPsCIDR      []string
+	GatewayRequestTimeoutSec int // If > 0, overrides the default gateway HTTP request timeout (default: 12s)
 }
 
 func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayConfigs []cre.GatewayConfig, whitelistConfig WhitelistConfig) error {
@@ -36,6 +37,18 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 			return fmt.Errorf("could not find gateway node with UUID %s in DON topology", config.NodeUUID)
 		}
 
+		inputs := job_types.JobSpecInput{
+			"dons":                    gatewayConfigs,
+			"allowedPorts":            append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
+			"allowedSchemes":          []string{"http", "https"},
+			"allowedIPsCIDR":          whitelistConfig.ExtraAllowedIPsCIDR,
+			"gatewayKeyChainSelector": creEnv.RegistryChainSelector,
+			"authGatewayID":           config.AuthGatewayID,
+		}
+		if whitelistConfig.GatewayRequestTimeoutSec > 0 {
+			inputs["gatewayRequestTimeoutSec"] = whitelistConfig.GatewayRequestTimeoutSec
+		}
+
 		workerInput := cre_jobs.ProposeJobSpecInput{
 			Domain:      offchain.ProductLabel,
 			Environment: cre.EnvironmentName,
@@ -45,14 +58,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 				{Key: offchain.FilterKeyDONName, Value: gatewayNode.DON.Name},
 			},
 			Template: job_types.Gateway,
-			Inputs: job_types.JobSpecInput{
-				"dons":                    gatewayConfigs,
-				"allowedPorts":            append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
-				"allowedSchemes":          []string{"http", "https"},
-				"allowedIPsCIDR":          whitelistConfig.ExtraAllowedIPsCIDR,
-				"gatewayKeyChainSelector": creEnv.RegistryChainSelector,
-				"authGatewayID":           config.AuthGatewayID,
-			},
+			Inputs:   inputs,
 		}
 
 		workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
