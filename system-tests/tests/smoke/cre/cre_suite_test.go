@@ -1,11 +1,14 @@
 package cre
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	v2suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/v2suite/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -80,51 +83,90 @@ To execute tests with v2 contracts start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder --with-contracts-version v2`
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
-func Test_CRE_V2_Suite(t *testing.T) {
-	topology := os.Getenv("TOPOLOGY_NAME")
-	t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
-		ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
-	})
-
-	t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteVaultTest(t, testEnv)
-	})
-
-	t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteCronBeholderTest(t, testEnv)
-	})
-
-	t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteHTTPTriggerActionTest(t, testEnv)
-	})
-
-	t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
-	})
-
-	t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteDonTimeTest(t, testEnv)
-	})
-	t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteConsensusTest(t, testEnv)
-	})
+func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
+	runV2SuiteBucket(t, v2suite_config.SuiteBucketA)
 }
 
-func Test_CRE_V2_EVM_Suite(t *testing.T) {
+func Test_CRE_V2_Suite_Bucket_B(t *testing.T) {
+	runV2SuiteBucket(t, v2suite_config.SuiteBucketB)
+}
+
+func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
+	runV2SuiteBucket(t, v2suite_config.SuiteBucketC)
+}
+
+func runV2SuiteBucket(t *testing.T, bucket v2suite_config.SuiteBucket) {
+	topology := os.Getenv("TOPOLOGY_NAME")
+	require.NoError(t, v2suite_config.ValidateSuiteBucketRegistry(), "invalid V2 suite bucket registry")
+
+	scenarios, err := v2suite_config.ScenariosForSuiteBucket(bucket)
+	require.NoErrorf(t, err, "failed to load V2 suite bucket %q", bucket)
+
+	executeV2SuiteScenarios(t, topology, scenarios)
+}
+
+func executeV2SuiteScenarios(t *testing.T, topology string, scenarios []v2suite_config.SuiteScenario) {
+	require.NotEmpty(t, scenarios, "no V2 suite scenarios selected")
+
+	seen := make(map[v2suite_config.SuiteScenario]struct{}, len(scenarios))
+	for _, scenario := range scenarios {
+		require.GreaterOrEqualf(t, scenario, v2suite_config.SuiteScenario(0), "invalid scenario %d", scenario)
+		require.Lessf(t, scenario, v2suite_config.SuiteScenarioLen, "invalid scenario %d", scenario)
+		if _, alreadySeen := seen[scenario]; alreadySeen {
+			require.Failf(t, "duplicate scenario", "scenario %q selected more than once", scenario.String())
+		}
+		seen[scenario] = struct{}{}
+	}
+
+	for _, scenario := range scenarios {
+		runV2SuiteScenario(t, topology, scenario)
+	}
+}
+
+func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.SuiteScenario) {
+	switch scenario {
+	case v2suite_config.SuiteScenarioProofOfReserve:
+		t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
+			ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
+		})
+	case v2suite_config.SuiteScenarioVaultDON:
+		t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			ExecuteVaultTest(t, testEnv)
+		})
+	case v2suite_config.SuiteScenarioCronBeholder:
+		t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			ExecuteCronBeholderTest(t, testEnv)
+		})
+	case v2suite_config.SuiteScenarioHTTPTriggerAction:
+		t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			ExecuteHTTPTriggerActionTest(t, testEnv)
+		})
+	case v2suite_config.SuiteScenarioHTTPActionCRUD:
+		t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
+		})
+	case v2suite_config.SuiteScenarioDONTime:
+		t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			ExecuteDonTimeTest(t, testEnv)
+		})
+	case v2suite_config.SuiteScenarioConsensus:
+		t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			ExecuteConsensusTest(t, testEnv)
+		})
+	default:
+		require.Failf(t, "unsupported V2 suite scenario", "scenario %q is not supported by the runner", scenario.String())
+	}
+}
+
+func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
@@ -133,12 +175,33 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
 
-	t.Run("[v2] EVM Read - "+topology, func(t *testing.T) {
-		ExecuteEVMReadTest(t, testEnv)
-	})
-
 	t.Run("[v2] EVM LogTrigger - "+topology, func(t *testing.T) {
 		ExecuteEVMLogTriggerTest(t, testEnv)
+	})
+}
+
+func Test_CRE_V2_EVM_Read_HeavyCalls(t *testing.T) {
+	runV2EVMReadBucket(t, evm_config.ReadBucketHeavyCalls)
+}
+
+func Test_CRE_V2_EVM_Read_StateQueries(t *testing.T) {
+	runV2EVMReadBucket(t, evm_config.ReadBucketStateQueries)
+}
+
+func Test_CRE_V2_EVM_Read_TxArtifacts(t *testing.T) {
+	runV2EVMReadBucket(t, evm_config.ReadBucketTxArtifacts)
+}
+
+func runV2EVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
+	topology := os.Getenv("TOPOLOGY_NAME")
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry")
+
+	testCases, err := evm_config.CasesForReadBucket(bucket)
+	require.NoErrorf(t, err, "failed to load EVM read bucket %q", bucket)
+
+	t.Run(fmt.Sprintf("[v2] EVM Read (%s) - %s", bucket, topology), func(t *testing.T) {
+		ExecuteEVMReadTestForCases(t, testEnv, testCases)
 	})
 }
 
