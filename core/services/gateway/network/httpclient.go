@@ -100,9 +100,11 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 type HTTPRequest struct {
 	Method  string
 	URL     string
-	Headers map[string]string
-	Body    []byte
-	Timeout time.Duration
+	Headers map[string]string // request headers (deprecated: use MultiHeaders when multiple values per key are needed)
+	// MultiHeaders holds multiple values per header name; when set, Headers is ignored for the outgoing request.
+	MultiHeaders map[string][]string
+	Body         []byte
+	Timeout      time.Duration
 
 	// Maximum number of bytes to read from the response body.  If 0, the default value is used.
 	// Does not override a request specific value gte 0.
@@ -193,6 +195,18 @@ func (c *httpClient) validateHeaders(headers map[string]string) error {
 	return nil
 }
 
+func (c *httpClient) validateMultiHeaders(multiHeaders map[string][]string) error {
+	for headerName := range multiHeaders {
+		headerNameLower := strings.ToLower(headerName)
+		for _, blockedHeader := range c.config.BlockedHeaders {
+			if strings.ToLower(blockedHeader) == headerNameLower {
+				return fmt.Errorf("%w: HTTP header not allowed: %s", ErrBlockedRequest, headerName)
+			}
+		}
+	}
+	return nil
+}
+
 // Send executes an http request that is always time limited by at least the
 // default timeout.  Override the default timeout with a non-zero duration by
 // passing a Timeout value on the request.
@@ -200,7 +214,11 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	if err := c.validateMethod(req.Method); err != nil {
 		return nil, err
 	}
-	if err := c.validateHeaders(req.Headers); err != nil {
+	if len(req.MultiHeaders) > 0 {
+		if err := c.validateMultiHeaders(req.MultiHeaders); err != nil {
+			return nil, err
+		}
+	} else if err := c.validateHeaders(req.Headers); err != nil {
 		return nil, err
 	}
 
@@ -223,8 +241,16 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		return nil, err
 	}
 
-	for k, v := range req.Headers {
-		r.Header.Add(k, v)
+	if len(req.MultiHeaders) > 0 {
+		for k, values := range req.MultiHeaders {
+			for _, v := range values {
+				r.Header.Add(k, v)
+			}
+		}
+	} else {
+		for k, v := range req.Headers {
+			r.Header.Add(k, v)
+		}
 	}
 
 	resp, err := c.client.Do(r)
