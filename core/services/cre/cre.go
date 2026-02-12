@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 	"google.golang.org/grpc/credentials"
 
@@ -32,9 +33,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -44,6 +47,7 @@ import (
 	registrysyncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	artifactsV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -107,6 +111,9 @@ type Services struct {
 	OrgResolver orgresolver.OrgResolver
 
 	OCRConfigService capregconfig.OCRConfigService
+
+	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
+	SetDelegatesDeps func(*standardcapabilities.Delegate) error
 }
 
 func (s *Services) close() error {
@@ -191,7 +198,7 @@ func (s *Services) newSubservices(
 		return srvs, nil
 	}
 
-	registrySyncerServices, donNotifier, ocrConfigService, err := newRegistrySyncer(
+	registrySyncerServices, donNotifier, err := s.newRegistrySyncer(
 		lggr,
 		cfg,
 		relayerChainInterops,
@@ -202,7 +209,6 @@ func (s *Services) newSubservices(
 	if err != nil {
 		return nil, err
 	}
-	s.OCRConfigService = ocrConfigService
 	srvs = append(srvs, registrySyncerServices...)
 
 	if capCfg.WorkflowRegistry().Address() == "" {
@@ -304,26 +310,9 @@ func newRegistrySyncerV1(
 	registryAddress string,
 	ds sqlutil.DataSource,
 	externalPeerWrapper p2ptypes.PeerWrapper,
-	don2donSharedPeer p2ptypes.SharedPeer,
-	streamConfig config.StreamConfig,
-	dispatcher remotetypes.Dispatcher,
-	capabilitiesRegistry *capabilities.Registry,
-	donNotifier capabilities.DonNotifier,
 	ocrConfigService capregconfig.OCRConfigService,
+	wfLauncher registrysyncerV1.Listener,
 ) ([]commonsrv.Service, error) {
-	wfLauncher, err := capabilities.NewLauncher(
-		lggr,
-		externalPeerWrapper,
-		don2donSharedPeer,
-		streamConfig,
-		dispatcher,
-		capabilitiesRegistry,
-		donNotifier,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create workflow launcher: %w", err)
-	}
-
 	registrySyncer, err := registrysyncerV1.New(
 		lggr,
 		getPeerID,
@@ -336,7 +325,7 @@ func newRegistrySyncerV1(
 	}
 
 	registrySyncer.AddListener(wfLauncher, ocrConfigService)
-	return []commonsrv.Service{wfLauncher, registrySyncer, ocrConfigService}, nil
+	return []commonsrv.Service{registrySyncer, ocrConfigService}, nil
 }
 
 func newRegistrySyncerV2(
@@ -345,27 +334,9 @@ func newRegistrySyncerV2(
 	relayer loop.Relayer,
 	registryAddress string,
 	ds sqlutil.DataSource,
-	don2donSharedPeer p2ptypes.SharedPeer,
-	externalPeerWrapper p2ptypes.PeerWrapper,
-	streamConfig config.StreamConfig,
-	dispatcher remotetypes.Dispatcher,
-	capabilitiesRegistry *capabilities.Registry,
-	donNotifier capabilities.DonNotifier,
 	ocrConfigService capregconfig.OCRConfigService,
+	wfLauncher registrysyncerV1.Listener,
 ) ([]commonsrv.Service, error) {
-	wfLauncher, err := capabilities.NewLauncher(
-		lggr,
-		externalPeerWrapper,
-		don2donSharedPeer,
-		streamConfig,
-		dispatcher,
-		capabilitiesRegistry,
-		donNotifier,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create workflow launcher: %w", err)
-	}
-
 	registrySyncer, err := registrysyncerV2.New(
 		lggr,
 		getPeerID,
@@ -378,18 +349,18 @@ func newRegistrySyncerV2(
 	}
 
 	registrySyncer.AddListener(wfLauncher, ocrConfigService)
-	return []commonsrv.Service{wfLauncher, registrySyncer, ocrConfigService}, nil
+	return []commonsrv.Service{registrySyncer, ocrConfigService}, nil
 }
 
 // newRegistrySyncer creates a registry syncer based on the external registry version
-func newRegistrySyncer(
+func (s *Services) newRegistrySyncer(
 	lggr logger.Logger,
 	cfg Config,
 	relayerChainInterops RelayerChainInterops,
 	ds sqlutil.DataSource,
 	opts Opts,
 	dispatcherWrapper *dispatcherWrapper,
-) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, capregconfig.OCRConfigService, error) {
+) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, error) {
 	var srvcs []commonsrv.Service
 
 	capCfg := cfg.Capabilities()
@@ -398,7 +369,7 @@ func newRegistrySyncer(
 	registryAddress := capCfg.ExternalRegistry().Address()
 	relayer, err := relayerChainInterops.Get(rid)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		return nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
 	}
 
 	var streamConfig config.StreamConfig
@@ -410,12 +381,46 @@ func newRegistrySyncer(
 
 	ocrConfigService, ocrErr := newOCRConfigService(lggr, rid, registryAddress, dispatcherWrapper)
 	if ocrErr != nil {
-		return nil, nil, nil, ocrErr
+		return nil, nil, ocrErr
 	}
+	s.OCRConfigService = ocrConfigService
 
 	externalRegistryVersion, err := semver.NewVersion(capCfg.ExternalRegistry().ContractVersion())
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
+	}
+
+	wfLauncher, err := capabilities.NewLauncher(
+		lggr,
+		dispatcherWrapper.externalPeerWrapper,
+		dispatcherWrapper.don2DonSharedPeer,
+		streamConfig,
+		dispatcherWrapper.dispatcher,
+		opts.CapabilitiesRegistry,
+		donNotifier,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
+	}
+	srvcs = append(srvcs, wfLauncher)
+
+	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
+	localCfg := cfg.Capabilities().Local()
+	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
+		// will be called when the Delegate is ready
+		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) error {
+			// abstraction for the Delegate
+			newServicesFn := func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error) {
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{})
+			}
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
+			if lcmErr != nil {
+				return fmt.Errorf("could not create local capability manager: %w", lcmErr)
+			}
+			wfLauncher.SetLocalCapabilityManager(localCapMgr)
+			srvcs = append(srvcs, localCapMgr) // srvcs is still valid when the callback is called
+			return nil
+		}
 	}
 
 	switch externalRegistryVersion.Major() {
@@ -427,18 +432,14 @@ func newRegistrySyncer(
 			registryAddress,
 			ds,
 			dispatcherWrapper.externalPeerWrapper,
-			dispatcherWrapper.don2DonSharedPeer,
-			streamConfig,
-			dispatcherWrapper.dispatcher,
-			opts.CapabilitiesRegistry,
-			donNotifier,
 			ocrConfigService,
+			wfLauncher,
 		)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		srvcs = append(srvcs, srvs...)
-		return srvcs, donNotifier, ocrConfigService, nil
+		return srvcs, donNotifier, nil
 	case 2:
 		srvs, err := newRegistrySyncerV2(
 			lggr,
@@ -446,22 +447,17 @@ func newRegistrySyncer(
 			relayer,
 			registryAddress,
 			ds,
-			dispatcherWrapper.don2DonSharedPeer,
-			dispatcherWrapper.externalPeerWrapper,
-			streamConfig,
-			dispatcherWrapper.dispatcher,
-			opts.CapabilitiesRegistry,
-			donNotifier,
 			ocrConfigService,
+			wfLauncher,
 		)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		srvcs = append(srvcs, srvs...)
-		return srvcs, donNotifier, ocrConfigService, nil
+		return srvcs, donNotifier, nil
 	}
 
-	return nil, nil, nil, fmt.Errorf("could not configure capability registry syncer with version: %d", externalRegistryVersion.Major())
+	return nil, nil, fmt.Errorf("could not configure capability registry syncer with version: %d", externalRegistryVersion.Major())
 }
 
 func newOCRConfigService(

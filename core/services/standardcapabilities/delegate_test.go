@@ -1,96 +1,16 @@
 package standardcapabilities
 
 import (
+	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
-
-func Test_getCapabilityID(t *testing.T) {
-	tests := []struct {
-		name     string
-		command  string
-		config   string
-		expected string
-	}{
-		{
-			name:     "consensus command",
-			command:  "consensus",
-			config:   "",
-			expected: "consensus@1.0.0-alpha",
-		},
-		{
-			name:     "evm command with valid config - mainnet",
-			command:  "/usr/local/bin/evm",
-			config:   `{"chainId": 1}`,
-			expected: "evm:ChainSelector:5009297550715157269@1.0.0",
-		},
-		{
-			name:     "evm command with valid config - sepolia",
-			command:  "/usr/local/bin/evm",
-			config:   `{"chainId": 11155111}`,
-			expected: "evm:ChainSelector:16015286601757825753@1.0.0",
-		},
-		{
-			name:     "evm command with valid config - arbitrum",
-			command:  "/usr/local/bin/evm",
-			config:   `{"chainId": 42161}`,
-			expected: "evm:ChainSelector:4949039107694359620@1.0.0",
-		},
-		{
-			name:     "evm command with additional config fields",
-			command:  "/usr/local/bin/evm",
-			config:   `{"chainId": 1, "network": "mainnet", "otherField": "value"}`,
-			expected: "evm:ChainSelector:5009297550715157269@1.0.0",
-		},
-		{
-			name:     "evm command with invalid JSON",
-			command:  "/usr/local/bin/evm",
-			config:   `{invalid json}`,
-			expected: "",
-		},
-		{
-			name:     "evm command with missing chainId",
-			command:  "/usr/local/bin/evm",
-			config:   `{"network": "mainnet"}`,
-			expected: "", // chainId defaults to 0, which is invalid
-		},
-		{
-			name:     "evm command with zero chain ID",
-			command:  "/usr/local/bin/evm",
-			config:   `{"chainId": 0}`,
-			expected: "",
-		},
-		{
-			name:     "evm command with empty config",
-			command:  "/usr/local/bin/evm",
-			config:   "",
-			expected: "",
-		},
-		{
-			name:     "unknown command",
-			command:  "/usr/local/bin/unknown",
-			config:   "",
-			expected: "",
-		},
-		{
-			name:     "empty command",
-			command:  "",
-			config:   "",
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getCapabilityID(tt.command, tt.config)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
 
 func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 	type testCase struct {
@@ -214,4 +134,104 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
+	t.Run("allowlisted consensus capability is rejected", func(t *testing.T) {
+		d := &Delegate{
+			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"consensus@1.0.0-alpha": true}},
+		}
+		spec := job.Job{
+			ExternalJobID:            uuid.New(),
+			StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{Command: "consensus"},
+		}
+		_, err := d.ServicesForSpec(context.Background(), spec)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "RegistryBasedLaunchAllowlist")
+		assert.Contains(t, err.Error(), "LocalCapabilityManager")
+		assert.Contains(t, err.Error(), "consensus@1.0.0-alpha")
+	})
+
+	t.Run("allowlisted cron trigger is rejected", func(t *testing.T) {
+		d := &Delegate{
+			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"cron-trigger@1.0.0": true}},
+		}
+		spec := job.Job{
+			ExternalJobID:            uuid.New(),
+			StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{Command: "cron"},
+		}
+		_, err := d.ServicesForSpec(context.Background(), spec)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "RegistryBasedLaunchAllowlist")
+		assert.Contains(t, err.Error(), "cron-trigger@1.0.0")
+	})
+
+	t.Run("allowlisted http trigger is rejected", func(t *testing.T) {
+		d := &Delegate{
+			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"http-trigger@1.0.0-alpha": true}},
+		}
+		spec := job.Job{
+			ExternalJobID:            uuid.New(),
+			StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{Command: "http_trigger"},
+		}
+		_, err := d.ServicesForSpec(context.Background(), spec)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "RegistryBasedLaunchAllowlist")
+	})
+
+	t.Run("non-allowlisted capability passes through", func(t *testing.T) {
+		d := &Delegate{
+			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{}},
+		}
+		spec := job.Job{
+			ExternalJobID:            uuid.New(),
+			StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{Command: "consensus"},
+		}
+		// The allowlist check should pass; the call will panic deeper in NewServices due to
+		// nil dependencies. A panic (not an allowlist error) proves the check passed.
+		assert.Panics(t, func() {
+			_, _ = d.ServicesForSpec(context.Background(), spec)
+		})
+	})
+
+	t.Run("nil localCfg allows all capabilities", func(t *testing.T) {
+		d := &Delegate{}
+		spec := job.Job{
+			ExternalJobID:            uuid.New(),
+			StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{Command: "consensus"},
+		}
+		assert.Panics(t, func() {
+			_, _ = d.ServicesForSpec(context.Background(), spec)
+		})
+	})
+
+	t.Run("unknown command bypasses allowlist check", func(t *testing.T) {
+		d := &Delegate{
+			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"consensus@1.0.0-alpha": true}},
+		}
+		spec := job.Job{
+			ExternalJobID:            uuid.New(),
+			StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{Command: "unknown-binary"},
+		}
+		// Unknown commands have no capability ID mapping, so the allowlist check is skipped.
+		assert.Panics(t, func() {
+			_, _ = d.ServicesForSpec(context.Background(), spec)
+		})
+	})
+}
+
+// stubLocalCapabilities is a minimal test implementation of config.LocalCapabilities.
+type stubLocalCapabilities struct {
+	allowlisted map[string]bool
+}
+
+func (s *stubLocalCapabilities) RegistryBasedLaunchAllowlist() []string { return nil }
+func (s *stubLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
+	return nil
+}
+func (s *stubLocalCapabilities) IsAllowlisted(capabilityID string) bool {
+	return s.allowlisted[capabilityID]
+}
+func (s *stubLocalCapabilities) GetCapabilityConfig(string) config.CapabilityNodeConfig {
+	return nil
 }
