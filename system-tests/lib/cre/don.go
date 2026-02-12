@@ -287,16 +287,10 @@ func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 				return fmt.Errorf("failed to set up job distributor in node %s: %w", node.Name, setupErr)
 			}
 
-			for _, role := range node.Roles {
-				switch role {
-				case RoleWorker, RoleBootstrap:
-					if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
-						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
-					}
-				case RoleGateway:
-					// no chains configuration needed for gateway nodes
-				default:
-					return fmt.Errorf("unknown node role: %s", role)
+			needsChainConfigs := node.HasRole(RoleWorker) || node.HasRole(RoleBootstrap)
+			if needsChainConfigs {
+				if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
+					return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 				}
 			}
 
@@ -551,8 +545,10 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				Ocr2KeyBundleID:  ocr2BundleID,
 				Ocr2Plugins:      `{}`,
 			})
-			// TODO: add a check if the chain config failed because of a duplicate in that case, should we update or return success?
 			if createErr != nil {
+				if strings.Contains(createErr.Error(), "duplicate key value") {
+					return nil
+				}
 				return createErr
 			}
 
