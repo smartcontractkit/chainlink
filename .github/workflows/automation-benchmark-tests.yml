@@ -31,7 +31,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1
     with:
       test_path: .github/e2e-tests.yml
-      test_ids: '${{ inputs.testType }}/automation_test.go:TestAutomationBenchmark'
+      test_ids: "${{ inputs.testType }}/automation_test.go:TestAutomationBenchmark"
       test_config_override_path: ${{ inputs.test_config_override_path }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_CHANNEL: C03KJ5S7KEK
