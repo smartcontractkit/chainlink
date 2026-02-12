@@ -10,16 +10,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-type TriggerEventStore interface {
-	capabilities.EventStore
-}
-
 // triggerEventStore is a Postgres-backed implementation of capabilities.EventStore.
 type triggerEventStore struct {
 	ds sqlutil.DataSource
 }
 
-var _ TriggerEventStore = (*triggerEventStore)(nil)
+var _ capabilities.EventStore = (*triggerEventStore)(nil)
 
 func NewTriggerEventStore(ds sqlutil.DataSource) triggerEventStore {
 	return triggerEventStore{ds: ds}
