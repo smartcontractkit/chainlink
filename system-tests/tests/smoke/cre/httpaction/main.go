@@ -57,6 +57,40 @@ const (
 	setCookiePref    = "pref=multi-e2e-3"
 )
 
+// bothSetRegressionExpectedSubstrings are substrings that must appear in the capability's user error
+// when both Headers and MultiHeaders are set on a request (validation rejects).
+const (
+	bothSetRegressionExpected1 = "Headers or MultiHeaders"
+	bothSetRegressionExpected2 = "not both"
+	bothSetRegressionSuccess   = "HTTP Action multi-headers regression completed"
+)
+
+// runBothSetRegressionTest sends a request with both Headers and MultiHeaders set; the capability
+// must reject it with a user error. This is a regression test to ensure validation is enforced.
+func runBothSetRegressionTest(cfg config.Config, nodeRuntime cre.NodeRuntime, client *http.Client, log interface{ Info(string, ...any) }) (string, error) {
+	timeout := &durationpb.Duration{Seconds: 10}
+	req := &http.Request{
+		Url:     cfg.URL,
+		Method:  cfg.Method,
+		Headers: map[string]string{"X-Test": "value"},
+		MultiHeaders: map[string]*http.HeaderValues{
+			"Accept": {Values: []string{"application/json"}},
+		},
+		Body:    []byte(cfg.Body),
+		Timeout: timeout,
+	}
+	_, err := client.SendRequest(nodeRuntime, req).Await()
+	if err == nil {
+		return "", fmt.Errorf("multi-headers regression: expected user error when both Headers and MultiHeaders are set, but request succeeded")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, bothSetRegressionExpected1) || !strings.Contains(errStr, bothSetRegressionExpected2) {
+		return "", fmt.Errorf("multi-headers regression: expected user error containing %q and %q, got: %w", bothSetRegressionExpected1, bothSetRegressionExpected2, err)
+	}
+	log.Info("HTTP Action multi-headers regression passed: both Headers and MultiHeaders set correctly rejected")
+	return bothSetRegressionSuccess, nil
+}
+
 // runMultiHeadersTest sends two requests (Headers-only and MultiHeaders-only), then asserts
 // backwards compatibility (response Headers) and the new feature (response MultiHeaders).
 func runMultiHeadersTest(cfg config.Config, nodeRuntime cre.NodeRuntime, client *http.Client, log interface{ Info(string, ...any) }) (string, error) {
@@ -101,6 +135,7 @@ func runMultiHeadersTest(cfg config.Config, nodeRuntime cre.NodeRuntime, client 
 	if !ok {
 		return "", fmt.Errorf("HTTP Action multi-headers test failed: Set-Cookie not in response Headers (backwards compat)")
 	}
+
 	if !strings.Contains(setCookieJoined, setCookieSession) || !strings.Contains(setCookieJoined, setCookieCSRF) || !strings.Contains(setCookieJoined, setCookiePref) {
 		return "", fmt.Errorf("HTTP Action multi-headers test failed: Set-Cookie in Headers should be comma-joined with all three values, got %q", setCookieJoined)
 	}
@@ -127,31 +162,31 @@ func runMultiHeadersTest(cfg config.Config, nodeRuntime cre.NodeRuntime, client 
 	}
 	mh := resp2.GetMultiHeaders()
 	if mh == nil {
-		return "", fmt.Errorf("HTTP Action multi-headers test failed: response MultiHeaders is nil")
+		return "", fmt.Errorf("response MultiHeaders is nil")
 	}
 	for name, wantHV := range sentMultiHeaders {
 		gotHV, ok := mh[name]
 		if !ok || gotHV == nil {
-			return "", fmt.Errorf("HTTP Action multi-headers test failed: sent header %q not in response MultiHeaders", name)
+			return "", fmt.Errorf("sent header %q not in response MultiHeaders", name)
 		}
 		gotVals := gotHV.GetValues()
 		wantVals := wantHV.GetValues()
 		if len(gotVals) != len(wantVals) {
-			return "", fmt.Errorf("HTTP Action multi-headers test failed: response MultiHeaders[%q] has %d values, want %d", name, len(gotVals), len(wantVals))
+			return "", fmt.Errorf("response MultiHeaders[%q] has %d values, want %d", name, len(gotVals), len(wantVals))
 		}
 		for i, w := range wantVals {
 			if i >= len(gotVals) || gotVals[i] != w {
-				return "", fmt.Errorf("HTTP Action multi-headers test failed: response MultiHeaders[%q] = %v, want %v", name, gotVals, wantVals)
+				return "", fmt.Errorf("response MultiHeaders[%q] = %v, want %v", name, gotVals, wantVals)
 			}
 		}
 	}
 	setCookieHV, ok := mh["Set-Cookie"]
 	if !ok || setCookieHV == nil {
-		return "", fmt.Errorf("HTTP Action multi-headers test failed: Set-Cookie not in MultiHeaders")
+		return "", fmt.Errorf("Set-Cookie not in MultiHeaders")
 	}
 	vals := setCookieHV.GetValues()
 	if len(vals) != 3 {
-		return "", fmt.Errorf("HTTP Action multi-headers test failed: Set-Cookie in MultiHeaders should have 3 distinct values, got %d: %v", len(vals), vals)
+		return "", fmt.Errorf("Set-Cookie in MultiHeaders should have 3 distinct values, got %d: %v", len(vals), vals)
 	}
 	seen := map[string]bool{}
 	for _, v := range vals {
@@ -166,7 +201,7 @@ func runMultiHeadersTest(cfg config.Config, nodeRuntime cre.NodeRuntime, client 
 			}
 		}
 		if !found {
-			return "", fmt.Errorf("HTTP Action multi-headers test failed: Set-Cookie MultiHeaders missing expected value containing %q, got %v", sub, vals)
+			return "", fmt.Errorf("Set-Cookie MultiHeaders missing expected value containing %q, got %v", sub, vals)
 		}
 	}
 	log.Info("HTTP Action multi-headers test passed", "setCookieCount", len(vals))
@@ -191,6 +226,9 @@ func runCRUDSuccessTest(wfCfg config.Config, runtime cre.Runtime) (string, error
 
 			if cfg.TestCase == "multi-headers" {
 				return runMultiHeadersTest(cfg, nodeRuntime, client, logger)
+			}
+			if cfg.TestCase == "mh-regression-both" {
+				return runBothSetRegressionTest(cfg, nodeRuntime, client, logger)
 			}
 
 			req := &http.Request{
