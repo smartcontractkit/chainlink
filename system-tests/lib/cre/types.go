@@ -1115,7 +1115,7 @@ type NodeMetadata struct {
 	Keys  *secrets.NodeKeys `toml:"keys" json:"keys"`
 	Host  string            `toml:"host" json:"host"`
 	Roles []string          `toml:"roles" json:"roles"`
-	Index int               `toml:"index" json:"index"` // hopefully we can remove it later, but for now we need it to construct urls in CRIB
+	Index int               `toml:"index" json:"index"` // hopefully we can remove it later, but for now we need it for node URL construction
 	UUID  string            `toml:"uuid" json:"uuid"`
 }
 

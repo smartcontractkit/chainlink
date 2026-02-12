@@ -31,13 +31,8 @@
 #  console_port = 9001
 
 [infra]
-  # either "docker" or "crib"
+  # either "docker" or "kubernetes"
   type = "docker"
-
-#[infra.crib]
-#  namespace = "crib-local"
-#  folder_location = "/absolute/path/to/crib/deployments/cre"
-#  provider = "kind"  # or "aws"
 
 [[nodesets]]
   nodes = 4

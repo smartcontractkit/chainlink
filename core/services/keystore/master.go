@@ -9,13 +9,15 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -26,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -79,11 +80,11 @@ type master struct {
 
 type Logf func(string, ...any)
 
-func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, announce Logf) Master {
+func New(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, announce Logf) Master {
 	return newMaster(ds, scryptParams, announce)
 }
 
-func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, announce Logf) *master {
+func newMaster(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, announce Logf) *master {
 	orm := NewORM(ds)
 	km := &keyManager{
 		orm:          orm,
@@ -175,20 +176,20 @@ func (ks *master) DKGRecipient() DKGRecipient {
 
 type ORM interface {
 	isEmpty(context.Context) (bool, error)
-	saveEncryptedKeyRing(context.Context, *encryptedKeyRing, ...func(sqlutil.DataSource) error) error
-	getEncryptedKeyRing(context.Context) (encryptedKeyRing, error)
+	saveEncryptedKeyRing(context.Context, *models.EncryptedKeyRing, ...func(sqlutil.DataSource) error) error
+	getEncryptedKeyRing(context.Context) (models.EncryptedKeyRing, error)
 }
 
 type keystateORM interface {
-	loadKeyStates(context.Context) (*keyStates, error)
+	loadKeyStates(context.Context) (*models.KeyStates, error)
 }
 
 type keyManager struct {
 	orm          ORM
 	keystateORM  keystateORM
-	scryptParams utils.ScryptParams
-	keyRing      *keyRing
-	keyStates    *keyStates
+	scryptParams keystore.ScryptParams
+	keyRing      *models.KeyRing
+	keyStates    *models.KeyStates
 	lock         *sync.RWMutex
 	password     string
 	announce     func(Key)
@@ -332,7 +333,7 @@ func announcer(logf Logf) func(key Key) {
 		if err != nil {
 			kind = "[" + err.Error() + "]"
 		}
-		if ct, ok := key.(interface{ ChainType() chaintype.ChainType }); ok {
+		if ct, ok := key.(interface{ ChainType() corekeys.ChainType }); ok {
 			logf("Created %s key with ID %s for chain %s", kind, key.ID(), ct.ChainType())
 		} else {
 			logf("Created %s key with ID %s", kind, key.ID())

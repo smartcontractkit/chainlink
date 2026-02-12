@@ -14,6 +14,7 @@ import (
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -24,7 +25,6 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -142,7 +142,7 @@ func TestStreamsTrigger(t *testing.T) {
 func newNodes(t *testing.T, N int) []node {
 	nodes := make([]node, N)
 	for i := range N {
-		bundle, err := ocr2key.New(chaintype.EVM)
+		bundle, err := ocr2key.New(corekeys.EVM)
 		require.NoError(t, err)
 		nodes[i].bundle = bundle
 		nodes[i].peerID = newPeerID(t)
