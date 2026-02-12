@@ -2057,7 +2057,8 @@ type StreamsSecretConfig struct {
 }
 
 type CreSecrets struct {
-	Streams *StreamsSecretConfig `toml:",omitempty"`
+	Streams      *StreamsSecretConfig `toml:",omitempty"`
+	LocalSecrets map[string]string    `toml:",omitempty"`
 }
 
 func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
@@ -2078,6 +2079,11 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 		}
 	}
 
+	if f.LocalSecrets != nil {
+		c.LocalSecrets = make(map[string]string, len(f.LocalSecrets))
+		maps.Copy(c.LocalSecrets, f.LocalSecrets)
+	}
+
 	return nil
 }
 
@@ -2089,6 +2095,9 @@ func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
 		if c.Streams.APISecret != nil && f.Streams.APISecret != nil {
 			err = errors.Join(err, configutils.ErrOverride{Name: "Streams.APISecret"})
 		}
+	}
+	if len(c.LocalSecrets) > 0 && len(f.LocalSecrets) > 0 {
+		err = errors.Join(err, configutils.ErrOverride{Name: "LocalSecrets"})
 	}
 	return err
 }
