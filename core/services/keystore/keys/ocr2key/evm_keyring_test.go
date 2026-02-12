@@ -161,7 +161,7 @@ func TestRawReportContext3(t *testing.T) {
 
 func mustRandBytes(n int) (b []byte) {
 	b = make([]byte, n)
-	_, err := rand.Read(b)
+	_, err := cryptorand.Read(b)
 	if err != nil {
 		panic(err)
 	}
