@@ -140,7 +140,7 @@ func setupLoadTestEnvironment(
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
-		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
@@ -351,7 +351,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		cacheClients = true
 		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
 
-		// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+		// Export key bundles so we can import them later in another test.
 		require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
 	}
 	testLogger.Info().Msg("Connecting to mock capabilities...")
@@ -370,9 +370,13 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				}
 			}
 		}
-	} else {
+	} else if in.Infra.Kubernetes != nil {
+		domain := in.Infra.Kubernetes.ExternalDomain
+		if domain == "" {
+			domain = "main.stage.cldev.sh"
+		}
 		for i := range setupOutput.nodeOutput[1].CLNodes {
-			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1))
+			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.%s:443", in.Infra.Kubernetes.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1, domain))
 		}
 	}
 

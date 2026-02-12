@@ -3,8 +3,8 @@ package p2pkey
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "P2P"
@@ -32,7 +32,7 @@ func (x EncryptedP2PKeyExport) GetCrypto() keystore.CryptoJSON {
 	return x.Crypto
 }
 
-func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+func (key KeyV2) ToEncryptedJSON(password string, scryptParams commonkeystore.ScryptParams) (export []byte, err error) {
 	return internal.ToEncryptedJSON(
 		keyTypeIdentifier,
 		key,

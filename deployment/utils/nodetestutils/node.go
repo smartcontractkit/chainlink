@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -57,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 
@@ -509,7 +509,7 @@ func NewNode(
 		}
 	}
 
-	master := keystore.New(db, utils.FastScryptParams, lggr.Infof)
+	master := keystore.New(db, commonkeystore.FastScryptParams, lggr.Infof)
 	ctx := t.Context()
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))

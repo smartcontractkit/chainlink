@@ -3,96 +3,50 @@
 ## Table of Contents
 
 - [Test Modification and Execution Guide](#test-modification-and-execution-guide)
-  - [Table of Contents](#table-of-contents)
-  - [Test Modification and Execution Guide](#test-modification-and-execution-guide-1)
-  - [0. Smoke vs Regression suites](#0-smoke-vs-regression-suites)
-  - [1. Running the Test](#1-running-the-test)
-    - [Chainlink Node Image](#chainlink-node-image)
-    - [Environment Variables](#environment-variables)
-    - [`cron` Capability Binary](#cron-capability-binary)
-    - [Test Timeout](#test-timeout)
-    - [Visual Studio Code Debug Configuration](#visual-studio-code-debug-configuration)
-  - [2. Using the CLI](#2-using-the-cli)
-  - [3. Docker vs Kubernetes (k8s)](#3-docker-vs-kubernetes-k8s)
-  - [4. CRIB Requirements](#4-crib-requirements)
-  - [5. Setting Docker Images for CRIB Execution](#5-setting-docker-images-for-crib-execution)
-    - [Notes](#notes)
-    - [Job Distributor (JD) Image in CRIB](#job-distributor-jd-image-in-crib)
-      - [AWS Provider](#aws-provider)
-      - [Kind Provider](#kind-provider)
-  - [6. Running Tests in Local Kubernetes (`kind`)](#6-running-tests-in-local-kubernetes-kind)
-- [Caution: this section is outdated. We no longer use `devspace`](#caution-this-section-is-outdated-we-no-longer-use-devspace)
-    - [Docker Registry Setup](#docker-registry-setup)
-    - [Hostname Routing with `/etc/hosts`](#hostname-routing-with-etchosts)
-      - [Solutions](#solutions)
-      - [Example Manual Entries](#example-manual-entries)
-    - [Automating Host Setup with `devspace`](#automating-host-setup-with-devspace)
-  - [7. CRIB Deployment Flow](#7-crib-deployment-flow)
-- [Caution: this section is outdated. We no longer use `devspace`](#caution-this-section-is-outdated-we-no-longer-use-devspace-1)
-  - [8. Switching from `kind` to AWS Provider](#8-switching-from-kind-to-aws-provider)
-  - [9. CRIB Limitations \& Considerations](#9-crib-limitations--considerations)
-- [Caution: this section is partially outdated. We no longer use `devspace`](#caution-this-section-is-partially-outdated-we-no-longer-use-devspace)
-    - [Mocked Price Provider](#mocked-price-provider)
-    - [Environment Variables](#environment-variables-1)
-    - [DNS Propagation (AWS only)](#dns-propagation-aws-only)
-    - [Ingress Check (local `kind` only)](#ingress-check-local-kind-only)
-    - [Connectivity Troubleshooting](#connectivity-troubleshooting)
-  - [11. Using a New Workflow](#11-using-a-new-workflow)
-    - [Workflow Compilation Process](#workflow-compilation-process)
-      - [Compilation Example](#compilation-example)
-      - [Compilation Requirements](#compilation-requirements)
-    - [Workflow Configuration](#workflow-configuration)
-      - [Creating Configuration Files (Optional)](#creating-configuration-files-optional)
-    - [File Distribution to Containers](#file-distribution-to-containers)
-      - [Copying Files to Containers](#copying-files-to-containers)
-      - [Container Discovery](#container-discovery)
-    - [Workflow Registration](#workflow-registration)
-      - [Registration Process](#registration-process)
-      - [Registration Parameters](#registration-parameters)
-      - [URL Resolution Process](#url-resolution-process)
-    - [Complete Workflow Setup Example](#complete-workflow-setup-example)
-    - [12. Workflow Secrets](#12-workflow-secrets)
-      - [How Secrets Work](#how-secrets-work)
-      - [Creating Secrets Configuration](#creating-secrets-configuration)
-      - [Environment Variable Naming](#environment-variable-naming)
-      - [Using Secrets in Workflows](#using-secrets-in-workflows)
-      - [Secrets Encryption Process](#secrets-encryption-process)
-      - [Encrypted Secrets File Structure](#encrypted-secrets-file-structure)
-      - [Security Considerations](#security-considerations)
-      - [Complete Example](#complete-example)
-    - [13. YAML Workflows (Data Feeds DSL)](#13-yaml-workflows-data-feeds-dsl)
-  - [14. Adding a New Test to the CI](#14-adding-a-new-test-to-the-ci)
-    - [How Auto-Discovery Works](#how-auto-discovery-works)
-    - [Test Architecture Pattern](#test-architecture-pattern)
-      - [Supported DON Topologies](#supported-don-topologies)
-    - [What You Need to Do](#what-you-need-to-do)
-      - [1. Create Your Test Function](#1-create-your-test-function)
-      - [2. Follow Test Naming Convention](#2-follow-test-naming-convention)
-      - [3. Use Standard Test Structure](#3-use-standard-test-structure)
-    - [CI Configuration Details](#ci-configuration-details)
-    - [Environment Setup](#environment-setup)
-    - [Test Execution](#test-execution)
-    - [Important Notes](#important-notes)
-    - [Troubleshooting](#troubleshooting)
-  - [15. Price Data Source](#15-price-data-source)
-    - [PriceProvider Interface](#priceprovider-interface)
-    - [Live Price Source (TrueUSDPriceProvider)](#live-price-source-trueusdpriceprovider)
-    - [Mocked Price Source (FakePriceProvider)](#mocked-price-source-fakepriceprovider)
-    - [Mock Server Implementation](#mock-server-implementation)
-    - [Price Validation Logic](#price-validation-logic)
-      - [Live Provider Validation](#live-provider-validation)
-      - [Mock Provider Validation](#mock-provider-validation)
-    - [Configuration](#configuration)
-      - [TOML Configuration](#toml-configuration)
-      - [Programmatic Configuration](#programmatic-configuration)
-    - [Usage in Tests](#usage-in-tests)
-    - [Key Benefits](#key-benefits)
+- [0. Smoke vs Regression suites](#0-smoke-vs-regression-suites)
+- [1. Running the Test](#1-running-the-test)
+  - [Chainlink Node Image](#chainlink-node-image)
+  - [Environment Variables](#environment-variables)
+  - [`cron` Capability Binary](#cron-capability-binary)
+  - [Test Timeout](#test-timeout)
+  - [Visual Studio Code Debug Configuration](#visual-studio-code-debug-configuration)
+- [2. Using the CLI](#2-using-the-cli)
+- [3. Docker vs Kubernetes (k8s)](#3-docker-vs-kubernetes-k8s)
+- [5. Setting Docker Images for Kubernetes Execution](#5-setting-docker-images-for-kubernetes-execution)
+  - [Notes](#notes)
+  - [Job Distributor (JD) Image in Kubernetes](#job-distributor-jd-image-in-kubernetes)
+- [11. Using a New Workflow](#11-using-a-new-workflow)
+  - [Workflow Compilation Process](#workflow-compilation-process)
+  - [Workflow Configuration](#workflow-configuration)
+  - [File Distribution to Containers](#file-distribution-to-containers)
+  - [Workflow Registration](#workflow-registration)
+  - [Complete Workflow Setup Example](#complete-workflow-setup-example)
+  - [12. Workflow Secrets](#12-workflow-secrets)
+  - [13. YAML Workflows (Data Feeds DSL)](#13-yaml-workflows-data-feeds-dsl)
+- [14. Adding a New Test to the CI](#14-adding-a-new-test-to-the-ci)
+  - [How Auto-Discovery Works](#how-auto-discovery-works)
+  - [Test Architecture Pattern](#test-architecture-pattern)
+  - [What You Need to Do](#what-you-need-to-do)
+  - [CI Configuration Details](#ci-configuration-details)
+  - [Environment Setup](#environment-setup)
+  - [Test Execution](#test-execution)
+  - [Important Notes](#important-notes)
+  - [Troubleshooting](#troubleshooting)
+- [15. Price Data Source](#15-price-data-source)
+  - [PriceProvider Interface](#priceprovider-interface)
+  - [Live Price Source (TrueUSDPriceProvider)](#live-price-source-trueusdpriceprovider)
+  - [Mocked Price Source (FakePriceProvider)](#mocked-price-source-fakepriceprovider)
+  - [Mock Server Implementation](#mock-server-implementation)
+  - [Price Validation Logic](#price-validation-logic)
+  - [Configuration](#configuration)
+  - [Usage in Tests](#usage-in-tests)
+  - [Key Benefits](#key-benefits)
 
 ---
 
 ## Test Modification and Execution Guide
 
-This guide explains how to set up and run system tests for Chainlink workflows using the CRE (Composable Runtime Environment) framework. It includes support for Docker and Kubernetes (via CRIB), multiple capabilities, and integration with Chainlink nodes and job distributor services.
+This guide explains how to set up and run system tests for Chainlink workflows using the CRE (Composable Runtime Environment) framework. It includes support for Docker and Kubernetes, multiple capabilities, and integration with Chainlink nodes and job distributor services.
 
 ---
 
@@ -202,74 +156,25 @@ The environment type is set in your TOML config:
 
 ```toml
 [infra]
-  type = "crib"  # Options: "docker" or "crib"
+  type = "kubernetes"  # Options: "docker" or "kubernetes"
 ```
 
-To run tests in Kubernetes, you must use the `crib` option. CRIB supports both:
+To run tests in Kubernetes, use the `kubernetes` option.
 
-- **Local cluster (`kind`)**
 - **AWS cloud provider**
 
-Example TOML for CRIB:
+Example TOML for Kubernetes:
 
 ```toml
-[infra.crib]
-  namespace = "crib-local"
-  folder_location = "/absolute/path/to/crib/deployments/cre"
-  provider = "kind"  # or "aws"
+[infra.kubernetes]
+  namespace = "kubernetes-local"
 ```
 
 ---
 
-## 4. CRIB Requirements
+## 5. Setting Docker Images for Kubernetes Execution
 
-Before using CRIB, ensure the following:
-
-1. **Read the CRIB Setup Guide**
-   Follow the official [CRIB deployment instructions](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/660145339/General+CRIB+-+Deploy+Access+Instructions).
-
-2. **AWS Role (for AWS provider)**
-   Required only for AWS. Local `kind` setup does not require role access.
-
-3. **Pull Local Registry Image** (for `kind` only):
-
-   ```bash
-   docker pull registry:2
-   ```
-
-4. **Clone CRIB Repository**
-
-   ```bash
-   git clone https://github.com/smartcontractkit/crib
-   cd crib
-   pwd  # to get absolute path for config
-   ```
-
-5. **Update `folder_location` in TOML**:
-
-   ```toml
-   folder_location = "/your/absolute/path/to/crib/deployments/cre"
-   ```
-
-6. **Add Cost Attribution (for AWS)**:
-
-   ```toml
-   [infra.crib.team_input]
-     team = "your-team"
-     product = "product-name"
-     cost_center = "crib"
-     component = "crib"
-   ```
-
-7. **Connect VPN** (for AWS provider only)
-
-8. **Install `telepresence`**.  CRIB requires telepresence for connecting to the services deployed within a cluster. You can install it with `brew install telepresenceio/telepresence/telepresence-oss` or with [other methods listed here](https://telepresence.io/docs/install/client#install-with-brew)
-
----
-
-## 5. Setting Docker Images for CRIB Execution
-
-CRIB does **not** support building Docker images from source during test runtime.
+Kubernetes mode does **not** build Docker images during test runtime.
 
 ❌ Not allowed:
 
@@ -283,19 +188,7 @@ CRIB does **not** support building Docker images from source during test runtime
 
 ```toml
 [nodesets.node_specs.node]
-  image = "localhost:5001/chainlink:112b9323-plugins-cron"
-```
-
-`localhost:5001` is the repository name for local Kind registry. In order to push your image there you need:
-
-- **tag a Docker image with prefix**, e.g. `docker tag chainlink-tmp:latest localhost:5001/chainlink:latest`
-- **push it to the local registry**, e.g. `docker push localhost:5001/chainlink:latest`
-
-**Also, it is crucial that you use an image, where default user is `chainlink`**. That's because Helm charts used for k8s deployment will start that container as that user and if your image was created using a different default user (e.g. `root`), then Chainlink application won't even start due to incorrect filesystem permissions. If you are building the image locally, use the following command:
-
-```bash
-# run in root of chainlink repository
-docker build -t localhost:5001/chainlink:<your-tag>> --build-arg CHAINLINK_USER=chainlink -f core/chainlink.Dockerfile
+  image = "chainlink:112b9323-plugins-cron"
 ```
 
 ### Notes
@@ -303,11 +196,7 @@ docker build -t localhost:5001/chainlink:<your-tag>> --build-arg CHAINLINK_USER=
 - All nodes in a single nodeset **must** use the same image.
 - You must specify an image tag explicitly (e.g., `:v1.2.3`).
 
-### Job Distributor (JD) Image in CRIB
-
-#### AWS Provider
-
-If you're working with AWS you will need to set the JD image URL in the `overrides.toml`
+### Job Distributor (JD) Image in Kubernetes
 
 ```toml
 [jd]
@@ -315,186 +204,6 @@ If you're working with AWS you will need to set the JD image URL in the `overrid
 ```
 
 Replace `<PROD_ECR_REGISTRY_URL>` placeholder with the actual value.
-
-#### Kind Provider
-
-When working with kind provider, it will require pulling and pushing an image to local registry, similar as with CL node explained before.
-
-```shell
-docker pull <PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1
-docker tag <PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1 localhost:5001/job-distributor:0.22.1
-docker push localhost:5001/job-distributor:0.22.1
-```
-
-Now, you can set:
-
-```toml
-[jd]
-  image = "localhost:5001/job-distributor:0.22.1"
-```
-
----
-
-## 6. Running Tests in Local Kubernetes (`kind`)
-
-# Caution: this section is outdated. We no longer use `devspace`
-
-### Docker Registry Setup
-
-Pull the required local registry image:
-
-```bash
-docker pull registry:2
-```
-
-### Hostname Routing with `/etc/hosts`
-
-CRIB dynamically creates hostname entries, but modifying `/etc/hosts` requires root. Tests fail if routing isn't set up.
-
-#### Solutions
-
-1. **Manually add host entries**.
-2. **Run `devspace` manually before starting tests** to allow interactive root access.
-
-#### Example Manual Entries
-
-**Geth Chain**:
-
-```bash
-127.0.0.1 crib-local-geth-1337-http.main.stage.cldev.sh
-127.0.0.1 crib-local-geth-1337-ws.main.stage.cldev.sh
-```
-
-**Job Distributor**:
-
-```bash
-127.0.0.1 crib-local-job-distributor-grpc.main.stage.cldev.sh
-```
-
-**Chainlink Nodes (1 bootstrap, 3 workers)**:
-
-```bash
-127.0.0.1 crib-local-workflow-bt-0.main.stage.cldev.sh
-127.0.0.1 crib-local-workflow-0.main.stage.cldev.sh
-127.0.0.1 crib-local-workflow-1.main.stage.cldev.sh
-127.0.0.1 crib-local-workflow-2.main.stage.cldev.sh
-```
-
-### Automating Host Setup with `devspace`
-
-From within `cre/deployment` and a `nix develop` shell:
-
-**Deploy Geth Chain**:
-
-```bash
-CHAIN_ID=<id> devspace run deploy-custom-geth-chain
-```
-
-**Deploy JD**:
-
-```bash
-devspace run deploy-jd
-```
-
-**Deploy DON**:
-
-```bash
-DON_TYPE=<name> DON_NODE_COUNT=<n> DON_BOOT_NODE_COUNT=<b> devspace run deploy-don
-```
-
-Ensure DON type matches the `name` field in your TOML config.
-
----
-
-## 7. CRIB Deployment Flow
-
-# Caution: this section is outdated. We no longer use `devspace`
-
-1. **Start a `nix develop` shell**, set:
-
-   - `PROVIDER`, `DEVSPACE_NAMESPACE`, `CONFIG_OVERRIDES_DIR`
-
-2. **Deploy chains**:
-
-   ```bash
-   CHAIN_ID=<id>
-   devspace run deploy-custom-geth-chain
-   ```
-
-   Read endpoints from `chain-<CHAIN_ID>-urls.json`
-
-3. **Deploy Keystone contracts**
-
-4. **Generate CL node configs and secrets** (`./crib-configs`)
-
-5. **Start each DON**:
-
-   - Set `DEVSPACE_IMAGE`, `DEVSPACE_IMAGE_TAG`, `DON_BOOT_NODE_COUNT`, `DON_NODE_COUNT`, `DON_TYPE`
-   - Run: `devspace run deploy-don`
-   - Get URLs from `don-<DON_TYPE>-urls.json`
-   - Copy binaries (if needed): `devspace run copy-to-pods`
-
-6. **Deploy JD**:
-
-   - Set `JOB_DISTRIBUTOR_IMAGE_TAG`
-   - Run: `devspace run deploy-jd`
-   - Get JD URLs from `jd-url.json`
-
-7. **Create jobs and configure CRE contracts**
-   - Same as Docker-based flow
-
-...
-
----
-
-## 8. Switching from `kind` to AWS Provider
-
-When switching from a local `kind` setup to AWS:
-
-- **Remove `/etc/hosts` entries** added by CRIB for the `kind` namespace. If reused, these entries will redirect traffic incorrectly to `localhost`.
-- **Use a new namespace** in your TOML config to avoid DNS conflicts.
-
-Recommended: Always switch namespaces when changing providers.
-
----
-
-## 9. CRIB Limitations & Considerations
-
-# Caution: this section is partially outdated. We no longer use `devspace`
-
-### Mocked Price Provider
-
-- Not supported in CRIB
-- CRIB can only use **live endpoints**
-
-### Environment Variables
-
-- Some are set by Go code, others by `.env` in `deployments/cre`
-- Avoid overlapping values to prevent inconsistent behavior
-
-### DNS Propagation (AWS only)
-
-- DNS may take time to propagate
-- If tests fail early, retry after a few minutes
-
-### Ingress Check (local `kind` only)
-
-- May fail even when the environment is healthy
-- If this happens, re-run the test
-
-### Connectivity Troubleshooting
-
-Check pod status:
-
-```bash
-kubectl get pods
-```
-
-Inspect logs:
-
-```bash
-kubectl logs <POD_NAME>
-```
 
 ---
 
