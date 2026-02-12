@@ -20,6 +20,7 @@ import (
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
@@ -31,6 +32,7 @@ import (
 )
 
 const flag = cre.ConsensusCapabilityV2
+const consensusLabelledName = "consensus"
 
 type Consensus struct{}
 
@@ -47,7 +49,7 @@ func (c *Consensus) PreEnvStartup(
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
-			LabelledName:   "consensus",
+			LabelledName:   consensusLabelledName,
 			Version:        "1.0.0-alpha",
 			CapabilityType: 2, // CONSENSUS
 			ResponseType:   0, // REPORT
@@ -56,11 +58,13 @@ func (c *Consensus) PreEnvStartup(
 			LocalOnly: don.HasOnlyLocalCapabilities(),
 		},
 		UseCapRegOCRConfig: true,
-		OverrideOCR3Config: contracts.DefaultOCR3Config(),
 	}}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
+		CapabilityToOCR3Config: map[string]*ocr3.OracleConfig{
+			consensusLabelledName: contracts.DefaultOCR3Config(),
+		},
 	}, nil
 }
 

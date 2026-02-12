@@ -24,6 +24,7 @@ import (
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
@@ -122,12 +123,17 @@ func (o *EVM) PreEnvStartup(
 				LocalOnly:     don.HasOnlyLocalCapabilities(),
 			},
 			UseCapRegOCRConfig: true,
-			OverrideOCR3Config: contracts.DefaultChainCapabilityOCR3Config(),
 		})
+	}
+
+	capabilityToOCR3Config := make(map[string]*ocr3.OracleConfig, len(capabilities))
+	for _, cap := range capabilities {
+		capabilityToOCR3Config[cap.Capability.LabelledName] = contracts.DefaultChainCapabilityOCR3Config()
 	}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
+		CapabilityToOCR3Config:  capabilityToOCR3Config,
 	}, nil
 }
 

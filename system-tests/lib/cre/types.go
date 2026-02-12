@@ -25,6 +25,7 @@ import (
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -390,6 +391,9 @@ type ConfigureCapabilityRegistryInput struct {
 	WithV2Registries bool
 
 	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
+
+	// keyed by LabelledName
+	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -1605,4 +1609,6 @@ type Feature interface {
 
 type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
+	// keyed by LabelledName
+	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
 }
