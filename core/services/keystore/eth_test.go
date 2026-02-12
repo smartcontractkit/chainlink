@@ -15,12 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	keystorekeys "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	keystorekeys "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
