@@ -215,7 +215,7 @@ jobs:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
-      dockerfile: plugins/chainlink.Dockerfile
+      dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink

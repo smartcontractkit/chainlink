@@ -1,20 +1,26 @@
 ##
-# Build image: Chainlink binary with plugins for testing purposes only.
-# XXX: Experimental -- not to be used to build images for production use.
-# See: ../core/chainlink.Dockerfile for the production Dockerfile.
+# Build image: Chainlink binary with plugins.
 ##
 FROM golang:1.25.5-bookworm AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
+# Set GIT_CONFIG_GLOBAL early - required by setup_git_auth.sh for private deps
+ENV GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
+
 WORKDIR /chainlink
 
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
+COPY ./plugins/scripts/setup_git_auth.sh ./
 
 ADD go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
+    --mount=type=cache,target=/go/pkg/mod \
+    set -e && \
+    trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
+    ./setup_git_auth.sh && \
+    GOPRIVATE=github.com/smartcontractkit/* go mod download
 COPY . .
 
 # Install Delve for debugging with cache mounts
@@ -22,20 +28,17 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
-# Flag to control installation of private plugins (default: false).
-ARG CL_INSTALL_PRIVATE_PLUGINS=false
+# Flag to control installation of private plugins (default: true).
+ARG CL_INSTALL_PRIVATE_PLUGINS=true
 # Flag to control installation of testing plugins (default: false).
 ARG CL_INSTALL_TESTING_PLUGINS=false
-# Flag to control whether this is a prod build (default: true)
-ARG CL_IS_PROD_BUILD=true
-# Flags for Go Delve debugger
-ARG GO_GCFLAGS
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG VERSION_TAG
+# Flag to control whether this is a prod build (default: true)
+ARG CL_IS_PROD_BUILD=true
 
-ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
-    GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
+ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -60,11 +63,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # Build chainlink.
 RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/root/.cache/go-build \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
-          GOBIN=/gobins make install-chainlink-dev; \
+          GOPRIVATE=github.com/smartcontractkit/* GOBIN=/gobins make install-chainlink-dev; \
       else \
-          GOBIN=/gobins make install-chainlink; \
+          GOPRIVATE=github.com/smartcontractkit/* GOBIN=/gobins make install-chainlink; \
       fi
 
 ##
@@ -85,16 +89,13 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
 USER ${CHAINLINK_USER}
 
-# Copy Delve debugger from build stage.
-COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
-
 # Set plugin environment variable configuration.
-ENV CL_MEDIAN_CMD=chainlink-feeds
-ARG CL_SOLANA_CMD=chainlink-solana
-ENV CL_SOLANA_CMD=${CL_SOLANA_CMD}
-# Experimental environment variables:
-ENV CL_EVM_CMD=chainlink-evm
-ENV CL_MERCURY_CMD=chainlink-mercury
+ENV CL_SOLANA_CMD=chainlink-solana
+
+ARG CL_MEDIAN_CMD
+ENV CL_MEDIAN_CMD=${CL_MEDIAN_CMD}
+ARG CL_EVM_CMD
+ENV CL_EVM_CMD=${CL_EVM_CMD}
 
 # CCIP specific
 COPY ./cci[p]/confi[g] /ccip-config
@@ -105,12 +106,20 @@ ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 COPY --from=buildgo /gobins/ /usr/local/bin/
 # Copy shared libraries from the build stage.
 COPY --from=buildgo /tmp/lib /usr/lib/
+# Copy dlv (Delve debugger) from the build stage.
+COPY --from=buildgo /go/bin/dlv /usr/local/bin/
+
 
 WORKDIR /home/${CHAINLINK_USER}
 
 # Explicitly set the cache dir. Needed so both root and non-root user has an explicit location.
 ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
+
+# Set up env and dir for go coverage profiling https://go.dev/doc/build-cover#FAQ
+ARG GO_COVER_DIR="/var/tmp/go-coverage"
+ENV GOCOVERDIR=${GO_COVER_DIR}
+RUN mkdir -p $GO_COVER_DIR
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
