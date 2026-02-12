@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -72,6 +74,7 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 }
 
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
+	quarantine.Flaky(t, "DX-2847")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
