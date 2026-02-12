@@ -3,8 +3,8 @@ package starkkey
 import (
 	"testing"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestStarkNetKeys_ExportImport(t *testing.T) {
@@ -26,6 +26,6 @@ type TestWrapped struct {
 	Key
 }
 
-func (w TestWrapped) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) ([]byte, error) {
+func (w TestWrapped) ToEncryptedJSON(password string, scryptParams commonkeystore.ScryptParams) ([]byte, error) {
 	return ToEncryptedJSON(w.Key, password, scryptParams)
 }

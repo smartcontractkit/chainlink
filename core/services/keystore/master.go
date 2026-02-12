@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -79,11 +79,11 @@ type master struct {
 
 type Logf func(string, ...any)
 
-func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, announce Logf) Master {
+func New(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, announce Logf) Master {
 	return newMaster(ds, scryptParams, announce)
 }
 
-func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, announce Logf) *master {
+func newMaster(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, announce Logf) *master {
 	orm := NewORM(ds)
 	km := &keyManager{
 		orm:          orm,
@@ -186,7 +186,7 @@ type keystateORM interface {
 type keyManager struct {
 	orm          ORM
 	keystateORM  keystateORM
-	scryptParams utils.ScryptParams
+	scryptParams keystore.ScryptParams
 	keyRing      *keyRing
 	keyStates    *keyStates
 	lock         *sync.RWMutex

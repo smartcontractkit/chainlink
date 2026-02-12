@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const password = "password"
@@ -60,7 +60,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	require.NoError(t, kerr)
 
 	t.Run("test encrypt/decrypt", func(t *testing.T) {
-		encryptedKr, err := originalKeyRing.Encrypt(password, utils.FastScryptParams)
+		encryptedKr, err := originalKeyRing.Encrypt(password, keystore.FastScryptParams)
 		require.NoError(t, err)
 		decryptedKeyRing, err := encryptedKr.Decrypt(password)
 		require.NoError(t, err)

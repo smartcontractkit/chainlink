@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
@@ -19,7 +19,7 @@ func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
 }
 
 func ExposedNewMaster(t *testing.T, ds sqlutil.DataSource) *master {
-	return newMaster(ds, utils.FastScryptParams, logger.Test(t).Infof)
+	return newMaster(ds, keystore.FastScryptParams, logger.Test(t).Infof)
 }
 
 func (m *master) ExportedSave(ctx context.Context) error {
