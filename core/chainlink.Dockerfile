@@ -5,6 +5,9 @@ FROM golang:1.25.5-bookworm AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
+# Set GIT_CONFIG_GLOBAL early - required by setup_git_auth.sh for private deps
+ENV GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
+
 WORKDIR /chainlink
 
 COPY GNUmakefile package.json ./
@@ -14,6 +17,8 @@ COPY ./plugins/scripts/setup_git_auth.sh ./
 ADD go.mod go.sum ./
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/go/pkg/mod \
+    set -e && \
+    trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./setup_git_auth.sh && \
     GOPRIVATE=github.com/smartcontractkit/* go mod download
 COPY . .
@@ -33,8 +38,7 @@ ARG VERSION_TAG
 # Flag to control whether this is a prod build (default: true)
 ARG CL_IS_PROD_BUILD=true
 
-ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
-    GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
+ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
