@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -16,7 +16,7 @@ const keyTypeIdentifier = "OCR2"
 // EncryptedOCRKeyExport represents encrypted OCR key export
 type EncryptedOCRKeyExport struct {
 	KeyType           string              `json:"keyType"`
-	ChainType         chaintype.ChainType `json:"chainType"`
+	ChainType         corekeys.ChainType  `json:"chainType"`
 	ID                string              `json:"id"`
 	OnchainPublicKey  string              `json:"onchainPublicKey"`
 	OffChainPublicKey string              `json:"offchainPublicKey"`
@@ -38,24 +38,24 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 		func(export EncryptedOCRKeyExport, rawPrivKey internal.Raw) (KeyBundle, error) {
 			var kb KeyBundle
 			switch export.ChainType {
-			case chaintype.EVM:
+			case corekeys.EVM:
 				kb = newKeyBundle(new(evmKeyring))
-			case chaintype.Cosmos:
+			case corekeys.Cosmos:
 				kb = newKeyBundle(new(cosmosKeyring))
-			case chaintype.Solana:
+			case corekeys.Solana:
 				kb = newKeyBundle(new(solanaKeyring))
-			case chaintype.StarkNet:
+			case corekeys.StarkNet:
 				kb = newKeyBundle(new(starkkey.OCR2Key))
-			case chaintype.Aptos:
+			case corekeys.Aptos:
 				kb = newKeyBundle(new(ed25519Keyring))
-			case chaintype.Tron:
+			case corekeys.Tron:
 				kb = newKeyBundle(new(evmKeyring))
-			case chaintype.TON:
+			case corekeys.TON:
 				kb = newKeyBundle(new(tonKeyring))
-			case chaintype.Sui:
+			case corekeys.Sui:
 				kb = newKeyBundle(new(ed25519Keyring))
 			default:
-				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
+				return nil, corekeys.NewErrInvalidChainType(export.ChainType)
 			}
 			if err := kb.Unmarshal(internal.Bytes(rawPrivKey)); err != nil {
 				return nil, err

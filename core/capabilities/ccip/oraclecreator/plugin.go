@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -76,6 +77,7 @@ type pluginOracleCreator struct {
 	relayers              map[types.RelayID]loop.Relayer
 	addressCodec          ccipcommon.AddressCodec
 	p2pID                 p2pkey.KeyV2
+	metricsCollector      *ObservationMetricsCollector
 }
 
 func NewPluginOracleCreator(
@@ -265,6 +267,12 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get telemetry type: %w", err)
 	}
 
+	// Initialize the observation metrics collector to wrap OCR3 metrics
+	wrappedRegisterer, err := i.setupObservationMetricsCollector(pluginType, telemetryType, chainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup observation metrics collector: %w", err)
+	}
+
 	oracleArgs := libocr3.OCR3OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: i.peerWrapper.Peer2,
 		Database:                     i.db,
@@ -281,7 +289,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 				Named(offrampAddrStr),
 			false,
 			func(ctx context.Context, msg string) {}),
-		MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"name": fmt.Sprintf("commit-%d", config.Config.ChainSelector)}, prometheus.DefaultRegisterer),
+		MetricsRegisterer: wrappedRegisterer,
 		MonitoringEndpoint: i.monitoringEndpointGen.GenMonitoringEndpoint(
 			destChainFamily,
 			destRelayID.ChainID,
@@ -298,13 +306,15 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, err
 	}
 
-	closers := make([]io.Closer, 0, len(extendedReaders)+len(chainWriters))
+	closers := make([]io.Closer, 0, len(extendedReaders)+len(chainWriters)+1)
 	for _, cr := range contractReaders {
 		closers = append(closers, cr)
 	}
 	for _, cw := range chainWriters {
 		closers = append(closers, cw)
 	}
+	// Add metrics collector to closers so it's properly shut down
+	closers = append(closers, i.metricsCollector)
 	return newWrappedOracle(oracle, closers), nil
 }
 
@@ -835,4 +845,81 @@ func pluginTypeToTelemetryType(pluginType cctypes.PluginType) (synchronization.T
 	default:
 		return "", fmt.Errorf("unknown plugin type %d", pluginType)
 	}
+}
+
+// setupObservationMetricsCollector initializes the observation metrics collector for intercepting
+// OCR3 observation metrics and publishing them to Beholder.
+func (i *pluginOracleCreator) setupObservationMetricsCollector(
+	pluginType cctypes.PluginType,
+	telemetryType synchronization.TelemetryType,
+	chainSelector uint64,
+) (prometheus.Registerer, error) {
+	// Get chain details for Beholder labels
+	chainID, err := chainsel.GetChainIDFromSelector(chainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", chainSelector, err)
+	}
+
+	chainFamily, err := chainsel.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", chainSelector, err)
+	}
+
+	networkName, err := chainsel.GetChainNameFromSelector(chainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network name from selector %d: %w", chainSelector, err)
+	}
+
+	// Determine the plugin type name for labels
+	pluginTypeName := "commit"
+	if pluginType == cctypes.PluginTypeCCIPExec {
+		pluginTypeName = "exec"
+	}
+
+	// Define Beholder labels with detailed information
+	beholderLabels := map[string]string{
+		"pluginType":    pluginTypeName,
+		"chainId":       chainID,
+		"chainFamily":   chainFamily,
+		"networkName":   networkName,
+		"chainSelector": strconv.FormatUint(chainSelector, 10),
+	}
+
+	// Create a Beholder publisher to send observation metrics to Beholder
+	metricsPublisher, err := NewBeholderMetricsPublisher(
+		i.lggr.
+			Named("ObservationMetricsPublisher").
+			Named(strconv.FormatUint(chainSelector, 10)),
+		string(telemetryType), // Use telemetryType (ocr3-ccip-commit or ocr3-ccip-exec)
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Beholder metrics publisher: %w", err)
+	}
+
+	// Define Prometheus constant labels (keep existing format to avoid breaking changes)
+	prometheusLabels := map[string]string{
+		"name": fmt.Sprintf("%s-%d", pluginTypeName, chainSelector),
+	}
+
+	// Create the collector that will wrap the observation counters
+	// Pass both Prometheus labels and Beholder labels
+	metricsCollector := NewObservationMetricsCollector(
+		i.lggr.
+			Named("ObservationMetricsCollector").
+			Named(strconv.FormatUint(chainSelector, 10)),
+		metricsPublisher,
+		prometheusLabels,
+		beholderLabels,
+	)
+
+	// Store the collector so we can close it later
+	i.metricsCollector = metricsCollector
+
+	// Create a wrapped registerer that intercepts observation metric registrations
+	// Don't use WrapRegistererWith here as it would wrap the collectors and prevent
+	// us from intercepting Inc() calls on counters. Instead, we'll handle the wrapping
+	// ourselves in the intercepting registerer.
+	wrappedRegisterer := metricsCollector.CreateWrappedRegisterer(prometheus.DefaultRegisterer)
+
+	return wrappedRegisterer, nil
 }

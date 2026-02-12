@@ -12,12 +12,12 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
@@ -33,9 +33,9 @@ func TestCodec_WrapUnwrap(t *testing.T) {
 	reportCtx := ocrTypes.ReportContext{}
 	rawCtx := rawReportContext(reportCtx)
 
-	keyBundle1, err := ocr2key.New(chaintype.EVM)
+	keyBundle1, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
-	keyBundle2, err := ocr2key.New(chaintype.EVM)
+	keyBundle2, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 
 	signatureK1R1, err := keyBundle1.Sign(reportCtx, report1)

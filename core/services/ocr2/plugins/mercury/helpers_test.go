@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -163,7 +163,7 @@ func setupNode(
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(int64(port))
-	ocr2kb = ocr2key.MustNewInsecure(rdr, chaintype.EVM)
+	ocr2kb = ocr2key.MustNewInsecure(rdr, corekeys.EVM)
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
