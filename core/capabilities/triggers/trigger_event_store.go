@@ -58,6 +58,32 @@ ON CONFLICT (trigger_id, event_id) DO UPDATE SET
 	return nil
 }
 
+func (s triggerEventStore) UpdateDelivery(ctx context.Context, triggerId string, eventId string, lastSentAt time.Time, attempts int) error {
+	const q = `
+UPDATE ` + triggerPendingEventsTable + `
+SET last_sent_at = $3, attempts = $4
+WHERE trigger_id = $1 AND event_id = $2
+`
+	var lastSent interface{} = nil
+	if !lastSentAt.IsZero() {
+		lastSent = lastSentAt
+	}
+	res, err := s.ds.ExecContext(ctx, q, triggerId, eventId, lastSent, attempts)
+	if err != nil {
+		return fmt.Errorf("failed to update delivery metadata for trigger_id=%s event_id=%s: %w", triggerId, eventId, err)
+	}
+
+	// verify an event was actually updated
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected while updating delivery for trigger_id=%s event_id=%s: %w", triggerId, eventId, err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (s triggerEventStore) List(ctx context.Context) ([]capabilities.PendingEvent, error) {
 	const q = `
 SELECT

@@ -95,3 +95,30 @@ func TestTriggerEventStore_InsertIdempotent_UpdatesPayload(t *testing.T) {
 	require.Len(t, recs, 1)
 	require.Equal(t, []byte("second"), recs[0].Payload)
 }
+
+func TestTriggerEventStore_UpdateDelivery(t *testing.T) {
+	ctx := context.Background()
+	ds := pgtest.NewSqlxDB(t)
+	store := trigger.NewTriggerEventStore(ds)
+
+	triggerID := "trig-" + uuid.NewString()
+	eventID := "evt-update"
+
+	pe := makePendingEvent(triggerID, eventID, []byte("payload"), -1*time.Minute)
+	require.NoError(t, store.Insert(ctx, pe))
+
+	// Update delivery metadata
+	attempts := 5
+	lastSent := time.Now().UTC().Truncate(time.Second)
+	require.NoError(t, store.UpdateDelivery(ctx, triggerID, eventID, lastSent, attempts))
+
+	// Verify persisted fields
+	recs, err := store.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, recs, 1)
+	require.Equal(t, attempts, recs[0].Attempts)
+	require.True(t, recs[0].LastSentAt.Truncate(time.Second).Equal(lastSent))
+
+	err = store.UpdateDelivery(ctx, "no-such-trigger", "no-such-event", time.Now(), 1)
+	require.Error(t, err)
+}
