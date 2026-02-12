@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
@@ -112,6 +114,7 @@ func TestFingerprint(t *testing.T) {
 
 // TestSample ensures Sample() correctly chooses which messages to send.
 func TestSample(t *testing.T) {
+	quarantine.Flaky(t, "DX-2446")
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
