@@ -3,9 +3,9 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpac
 go 1.25.5
 
 require (
-	github.com/smartcontractkit/cre-sdk-go v1.2.1-0.20260211213201-e36f4118eb32
-	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.0.0-20260211213201-e36f4118eb32
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20260211213201-e36f4118eb32
+	github.com/smartcontractkit/cre-sdk-go v1.3.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )
