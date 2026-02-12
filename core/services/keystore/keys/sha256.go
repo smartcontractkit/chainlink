@@ -69,7 +69,7 @@ func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {
 func (s *Sha256Hash) Scan(value any) error {
 	bytes, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed to unmarshal Sha256Hash value: %v", value)
+		return fmt.Errorf("failed to unmarshal Sha256Hash value: %v", value)
 	}
 	if s == nil {
 		*s = Sha256Hash{}
