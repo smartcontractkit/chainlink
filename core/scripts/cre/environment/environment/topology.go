@@ -336,14 +336,14 @@ func writeOrCheck(targetPath, expected string, checkOnly bool) (bool, error) {
 	if err != nil && !os.IsNotExist(err) {
 		return false, errors.Wrapf(err, "failed to read file: %s", targetPath)
 	}
-	changed := string(currentBytes) != expected
+	outdated := string(currentBytes) != expected
 	if checkOnly {
-		return changed, nil
+		return outdated, nil
 	}
-	if !changed {
+	if !outdated {
 		return false, nil
 	}
-	if err := os.WriteFile(targetPath, []byte(expected), 0o600); err != nil {
+	if err := os.WriteFile(targetPath, []byte(expected), 0o644); err != nil { //nolint:gosec // we want the documentation to be readable by everyone
 		return false, errors.Wrapf(err, "failed to write file: %s", targetPath)
 	}
 	return false, nil

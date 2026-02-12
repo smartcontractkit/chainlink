@@ -93,10 +93,10 @@ func WriteArtifacts(summary *TopologySummary, outputDir string) (*Artifacts, err
 	mdPath := filepath.Join(outputDir, "topology.md")
 	jsonPath := filepath.Join(outputDir, "topology.json")
 
-	if err := os.WriteFile(asciiPath, []byte(RenderASCII(summary)), 0o600); err != nil {
+	if err := os.WriteFile(asciiPath, []byte(RenderASCII(summary)), 0o644); err != nil { //nolint:gosec // we want the documentation to be readable by everyone
 		return nil, errors.Wrap(err, "failed to write topology ascii summary")
 	}
-	if err := os.WriteFile(mdPath, []byte(RenderMarkdown(summary)), 0o600); err != nil {
+	if err := os.WriteFile(mdPath, []byte(RenderMarkdown(summary)), 0o644); err != nil { //nolint:gosec // we want the documentation to be readable by everyone
 		return nil, errors.Wrap(err, "failed to write topology markdown")
 	}
 
