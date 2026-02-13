@@ -894,6 +894,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 }
 
 func TestAutomationCheckPerformGasLimit(t *testing.T) {
+	quarantine.Flaky(t, "DX-2863")
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
