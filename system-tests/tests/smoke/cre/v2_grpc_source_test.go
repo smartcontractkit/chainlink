@@ -15,6 +15,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/quarantine"
+
 	workflowsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -96,6 +98,7 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 //  1. Start CRE: go run . env start --with-beholder --with-contracts-version v2
 //  2. Run test: go test -timeout 15m -run "^Test_CRE_GRPCSource_AuthRejection$"
 func Test_CRE_GRPCSource_AuthRejection(t *testing.T) {
+	quarantine.Flaky(t, "DX-2787")
 	// Set up test environment
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-contracts-version", "v2")
 
