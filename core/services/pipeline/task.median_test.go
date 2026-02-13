@@ -143,14 +143,13 @@ func TestMedianTask(t *testing.T) {
 			pipeline.Result{Error: pipeline.ErrTooManyErrors},
 		},
 		{
-			// Replicates the holiday outage: expand-network returned HTTP 200 with valid schema
-			// but null numeric values. The nil passes through FilterErrors (it's not an error),
-			// then hits DecimalSliceParam.UnmarshalPipelineParam which fails hard on nil.
-			// The entire median task errors out even though 3 valid values were available,
-			// causing NOPs to stop producing observations on affected streams.
-			"(outage scenario) single nil from bridge returning null kills entire median",
+			// A bridge returning HTTP 200 with null numeric values produces a nil result.
+			// The nil passes through FilterErrors (it's not an error), then hits
+			// DecimalSliceParam.UnmarshalPipelineParam which fails hard on nil.
+			// The entire median task errors out even though 3 valid values were available.
+			"single nil from bridge returning null kills entire median",
 			[]pipeline.Result{
-				{},                           // expand-network returned HTTP 200 with null value
+				{},                           // bridge returned HTTP 200 with null value
 				{Value: mustDecimal(t, "1")}, // 3 valid bridges — enough for a median
 				{Value: mustDecimal(t, "2")},
 				{Value: mustDecimal(t, "3")},
@@ -279,7 +278,7 @@ func TestMedianTask_CountNilsAsFaults(t *testing.T) {
 		want              pipeline.Result
 	}{
 		{
-			name: "holiday scenario: 1 nil + 7 errors exceeds allowedFaults",
+			name: "1 nil + 7 errors exceeds allowedFaults",
 			inputs: []pipeline.Result{
 				{}, // nil
 				{Value: errors.New("e1")}, {Value: errors.New("e2")}, {Value: errors.New("e3")},
@@ -291,13 +290,12 @@ func TestMedianTask_CountNilsAsFaults(t *testing.T) {
 			want:              pipeline.Result{Error: pipeline.ErrTooManyErrors},
 		},
 		{
-			// Same scenario as the holiday outage, but with countNilsAsFaults enabled.
-			// The nil is counted as a fault (1 fault total) which is within allowedFaults=3,
-			// then filtered out before decimal parsing. Median proceeds on the 3 valid values
-			// instead of crashing with ErrBadInput.
-			name: "(outage scenario) countNilsAsFaults prevents nil from killing median",
+			// With countNilsAsFaults enabled, the nil is counted as a fault (1 fault total)
+			// which is within allowedFaults=3, then filtered out before decimal parsing.
+			// Median proceeds on the 3 valid values instead of crashing with ErrBadInput.
+			name: "countNilsAsFaults prevents nil from killing median",
 			inputs: []pipeline.Result{
-				{},                           // expand-network returned HTTP 200 with null value
+				{},                           // bridge returned HTTP 200 with null value
 				{Value: mustDecimal(t, "1")}, // 3 valid bridges
 				{Value: mustDecimal(t, "2")},
 				{Value: mustDecimal(t, "3")},
@@ -309,7 +307,7 @@ func TestMedianTask_CountNilsAsFaults(t *testing.T) {
 		{
 			// Nils and errors are both counted as faults. Together they exceed allowedFaults,
 			// so the task correctly fails even though valid values exist.
-			name: "(outage scenario) combined nils and errors exceed allowedFaults",
+			name: "combined nils and errors exceed allowedFaults",
 			inputs: []pipeline.Result{
 				{},                           // nil (1 fault)
 				{},                           // nil (2 faults)
