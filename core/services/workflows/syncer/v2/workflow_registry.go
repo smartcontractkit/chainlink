@@ -634,6 +634,31 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 	}
 }
 
+func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows []WorkflowMetadataView) ([]WorkflowMetadataView, error) {
+	if w.shardOrchestratorClient == nil {
+		return workflows, nil
+	}
+	if len(workflows) == 0 {
+		return workflows, nil
+	}
+	workflowIDs := make([]string, 0, len(workflows))
+	for _, wf := range workflows {
+		workflowIDs = append(workflowIDs, wf.WorkflowID.Hex())
+	}
+	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get workflow shard mapping: %w", err)
+	}
+	filtered := make([]WorkflowMetadataView, 0, len(workflows))
+	for _, wf := range workflows {
+		id := wf.WorkflowID.Hex()
+		if shardID, ok := resp.Mappings[id]; ok && shardID == w.myShardID {
+			filtered = append(filtered, wf)
+		}
+	}
+	return filtered, nil
+}
+
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
 // This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
@@ -699,7 +724,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						continue
 					}
 					w.lggr.Debugw("filtered workflows by shard",
-						"total", len(allWorkflowsMetadata),
+						"total", len(workflows),
 						"filtered", len(filteredWorkflowsMetadata),
 						"shardID", w.myShardID,
 						"source", sourceName,
