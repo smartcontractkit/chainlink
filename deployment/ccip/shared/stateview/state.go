@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_pausable_freezable_transparent"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
@@ -1512,11 +1513,25 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.SignerRegistry = signerRegistry
 			state.ABIByAddress[address] = signer_registry.SignerRegistryABI
 		case cldf.NewTypeAndVersion(ccipshared.TransparentUpgradeableProxy, deployment.Version1_6_1).String():
-			token, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(common.HexToAddress(address), chain.Client)
+			var (
+				symbol   string
+				err      error
+				isPaused bool
+			)
+			standardToken, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
+			pausableToken, err := burn_mint_erc20_pausable_freezable_transparent.NewBurnMintERC20PausableFreezableTransparent(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if _, isPausedErr := pausableToken.Paused(&bind.CallOpts{Context: ctx}); isPausedErr == nil {
+				isPaused = true
+				symbol, err = pausableToken.Symbol(&bind.CallOpts{Context: ctx})
+			} else {
+				symbol, err = standardToken.Symbol(&bind.CallOpts{Context: ctx})
+			}
 			if err != nil {
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
@@ -1529,7 +1544,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				return state, fmt.Errorf("failed to get storage at slot %s for TransparentUpgradeableProxy at %s for %s token on %s: %w", ccipshared.TUPImplementationSlot, transparent.Address(), symbol, chain, err)
 			}
 			erc20Address := common.BytesToAddress(storageBytes)
-			token, err = burn_mint_erc20_transparent.NewBurnMintERC20Transparent(erc20Address, chain.Client)
+			standardToken, err = burn_mint_erc20_transparent.NewBurnMintERC20Transparent(erc20Address, chain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -1542,8 +1557,11 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, err
 			}
-			if state.BurnMintERC20Transparent == nil {
+			if !isPaused && state.BurnMintERC20Transparent == nil {
 				state.BurnMintERC20Transparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent)
+			}
+			if isPaused && state.BurnMintERC20PausableFreezableTransparent == nil {
+				state.BurnMintERC20PausableFreezableTransparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparent)
 			}
 			if state.ProxyAdmin == nil {
 				state.ProxyAdmin = make(map[ccipshared.TokenSymbol]*proxy_admin.ProxyAdmin)
@@ -1551,8 +1569,13 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if state.TransparentUpgradeableProxy == nil {
 				state.TransparentUpgradeableProxy = make(map[ccipshared.TokenSymbol]*transparent_upgradeable_proxy.TransparentUpgradeableProxy)
 			}
-			state.BurnMintERC20Transparent[ccipshared.TokenSymbol(symbol)] = token
-			state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_transparent.BurnMintERC20TransparentABI
+			if isPaused {
+				state.BurnMintERC20PausableFreezableTransparent[ccipshared.TokenSymbol(symbol)] = pausableToken
+				state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparentABI
+			} else {
+				state.BurnMintERC20Transparent[ccipshared.TokenSymbol(symbol)] = standardToken
+				state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_transparent.BurnMintERC20TransparentABI
+			}
 			state.ProxyAdmin[ccipshared.TokenSymbol(symbol)] = proxy
 			state.ABIByAddress[proxyAdmin.String()] = proxy_admin.ProxyAdminABI
 			state.TransparentUpgradeableProxy[ccipshared.TokenSymbol(symbol)] = transparent
@@ -1588,10 +1611,10 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				continue
 			}
 
-			// BurnMintERC20Transparent represent implementation of TransparentUpgradeableProxy and because of that
+			// BurnMintERC20Transparent and BurnMintERC20PausableFreezableTransparentToken represent implementation of TransparentUpgradeableProxy and because of that
 			// mapping from symbol to address is not possible. We skip it here since it's already loaded above when loading
 			// TransparentUpgradeableProxy
-			if tvStr.Type == ccipshared.BurnMintERC20TransparentToken {
+			if tvStr.Type == ccipshared.BurnMintERC20TransparentToken || tvStr.Type == ccipshared.BurnMintERC20PausableFreezableTransparentToken {
 				continue
 			}
 			return state, fmt.Errorf("unknown contract %s", tvStr)
