@@ -224,6 +224,158 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	assert.True(t, proto.Equal(expectedResponse, typedResponse))
 }
 
+func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
+	testCases := []struct {
+		name          string
+		workflowOwner string
+		secretOwners  []string
+		shouldReject  bool
+	}{
+		{
+			name:          "mismatched owner",
+			workflowOwner: "0xABCDef1234567890abcdef1234567890abcdef12",
+			secretOwners:  []string{"0x1111111111111111111111111111111111111111"},
+			shouldReject:  true,
+		},
+		{
+			name:          "second secret has mismatched owner",
+			workflowOwner: "0xABCDef1234567890abcdef1234567890abcdef12",
+			secretOwners: []string{
+				"0xABCDef1234567890abcdef1234567890abcdef12",
+				"0x1111111111111111111111111111111111111111",
+			},
+			shouldReject: true,
+		},
+		{
+			name:          "matching with different casing",
+			workflowOwner: "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
+			secretOwners:  []string{"0xabcdef1234567890abcdef1234567890abcdef12"},
+			shouldReject:  false,
+		},
+		{
+			name:          "matching with 0x prefix vs without",
+			workflowOwner: "0xabcdef1234567890abcdef1234567890abcdef12",
+			secretOwners:  []string{"abcdef1234567890abcdef1234567890abcdef12"},
+			shouldReject:  false,
+		},
+		{
+			name:          "matching without 0x prefix vs with",
+			workflowOwner: "abcdef1234567890abcdef1234567890abcdef12",
+			secretOwners:  []string{"0xabcdef1234567890abcdef1234567890abcdef12"},
+			shouldReject:  false,
+		},
+		{
+			name:          "matching with mixed casing and prefix difference",
+			workflowOwner: "0xAbCdEf1234567890AbCdEf1234567890AbCdEf12",
+			secretOwners:  []string{"abcdef1234567890abcdef1234567890abcdef12"},
+			shouldReject:  false,
+		},
+		{
+			name:          "both without prefix and same case",
+			workflowOwner: "abcdef1234567890abcdef1234567890abcdef12",
+			secretOwners:  []string{"abcdef1234567890abcdef1234567890abcdef12"},
+			shouldReject:  false,
+		},
+	}
+
+	expectedResponse := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "placeholder",
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: "encrypted-value",
+					},
+				},
+			},
+		},
+	}
+	responseData, err := proto.Marshal(expectedResponse)
+	require.NoError(t, err)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			lggr := logger.TestLogger(t)
+			clock := clockwork.NewFakeClock()
+			expiry := 10 * time.Second
+			store := requests.NewStore[*vaulttypes.Request]()
+			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+			reg := coreCapabilities.NewRegistry(lggr)
+			lf := limits.Factory{Settings: cresettings.DefaultGetter}
+			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+			require.NoError(t, err)
+			servicetest.Run(t, capability)
+
+			requestID := fmt.Sprintf("%s::%s::%s", "wf-id", "exec-id", "ref-id")
+
+			reqs := []*vault.SecretRequest{}
+			for _, s := range tc.secretOwners {
+				reqs = append(reqs, &vault.SecretRequest{
+					Id: &vault.SecretIdentifier{
+						Key:       "Foo",
+						Namespace: "Bar",
+						Owner:     s,
+					},
+					EncryptionKeys: []string{"key"},
+				})
+			}
+
+			gsr := &vault.GetSecretsRequest{
+				Requests: reqs,
+			}
+			anyproto, err := anypb.New(gsr)
+			require.NoError(t, err)
+
+			if !tc.shouldReject {
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for {
+						select {
+						case <-t.Context().Done():
+							return
+						default:
+							reqs := store.GetByIDs([]string{requestID})
+							if len(reqs) == 1 {
+								reqs[0].SendResponse(t.Context(), &vaulttypes.Response{
+									ID:      requestID,
+									Payload: responseData,
+								})
+								return
+							}
+						}
+					}
+				}()
+				defer wg.Wait()
+			}
+
+			_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+				Payload: anyproto,
+				Method:  vault.MethodGetSecrets,
+				Metadata: capabilities.RequestMetadata{
+					WorkflowOwner:       tc.workflowOwner,
+					WorkflowID:          "wf-id",
+					WorkflowExecutionID: "exec-id",
+					ReferenceID:         "ref-id",
+				},
+			})
+
+			if tc.shouldReject {
+				require.ErrorContains(t, err, "secret identifier owner")
+				require.ErrorContains(t, err, "does not match workflow owner")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
