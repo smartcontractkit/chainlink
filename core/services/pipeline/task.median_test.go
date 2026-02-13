@@ -321,8 +321,8 @@ func TestMedianTask_CountNilsAsFaults(t *testing.T) {
 		{
 			name: "nils and errors within threshold returns valid median",
 			inputs: []pipeline.Result{
-				{},                          // nil (counted as fault)
-				{Value: errors.New("err")},  // error (counted as fault)
+				{},                           // nil (counted as fault)
+				{Value: errors.New("err")},   // error (counted as fault)
 				{Value: mustDecimal(t, "2")}, // valid
 				{Value: mustDecimal(t, "4")}, // valid
 			},
@@ -463,7 +463,7 @@ func TestMedianTask_CountNilsAsFaults_Unmarshal(t *testing.T) {
 		if task.Type() == pipeline.TaskTypeMedian {
 			require.Equal(t, "5", task.(*pipeline.MedianTask).AllowedFaults)
 			require.Equal(t, "true", task.(*pipeline.MedianTask).CountNilsAsFaults)
-			require.Equal(t, "", task.(*pipeline.MedianTask).Lax)
+			require.Empty(t, task.(*pipeline.MedianTask).Lax)
 		}
 	}
 }
