@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -222,6 +223,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
+	quarantine.Flaky(t, "DX-2196")
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
