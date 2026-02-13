@@ -12,6 +12,8 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 	sethUtils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
@@ -56,6 +58,7 @@ var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithE
  * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
+	quarantine.Flaky(t, "DX-2647")
 	c, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 	require.NoError(t, err, "Error getting config")
 
