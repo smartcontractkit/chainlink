@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
@@ -336,8 +337,18 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		srvcs = append(srvcs, peerWrapper)
 	}
 
+	workflowKey, err := keystore.GetDefault(ctx, keyStore.Workflow())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default workflow key: %w", err)
+	}
+
+	csaSigner, csaPubKey, err := keystore.BuildNodeAuth(ctx, csaKeystore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build node auth: %w", err)
+	}
+	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
+
 	creServices, err := cre.NewServices(
-		ctx,
 		globalLogger,
 		opts.DS,
 		keyStore,
@@ -356,6 +367,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			DonTimeStore:            opts.DonTimeStore,
 			LimitsFactory:           limitsFactory,
 			UseLocalTimeProvider:    opts.UseLocalTimeProvider,
+			WorkflowKey:             workflowKey,
+			JWTGenerator:            jwtGenerator,
 		},
 	)
 	if err != nil {

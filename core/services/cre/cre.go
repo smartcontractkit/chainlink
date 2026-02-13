@@ -31,6 +31,7 @@ import (
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -84,7 +85,8 @@ type Opts struct {
 
 	UseLocalTimeProvider bool
 
-	JWTGenerator nodeauthjwt.JWTGenerator // optional override, created automatically if nil
+	WorkflowKey  workflowkey.Key
+	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
 // Services contains all CRE-related services
@@ -115,7 +117,6 @@ func (s *Services) close() error {
 
 // newSubservices initializes and returns all CRE child services
 func (s *Services) newSubservices(
-	ctx context.Context,
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	keyStore Keystore,
@@ -165,7 +166,7 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		orgResolver, ierr := newOrgResolver(ctx, cfg, capCfg, keyStore, opts, lggr)
+		orgResolver, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
@@ -212,9 +213,7 @@ func (s *Services) newSubservices(
 	}
 
 	wfSyncer, billingClient, wfSyncerSrvcs, err := newWorkflowRegistrySyncer(
-		ctx,
 		cfg,
-		keyStore,
 		relayerChainInterops,
 		opts,
 		lggr,
@@ -572,10 +571,8 @@ func newDispatcherWrapper(
 
 // newOrgResolver creates a new OrgResolver if configured
 func newOrgResolver(
-	ctx context.Context,
 	cfg Config,
 	capCfg config.Capabilities,
-	keyStore Keystore,
 	opts Opts,
 	lggr logger.Logger,
 ) (orgresolver.OrgResolver, error) {
@@ -596,15 +593,13 @@ func newOrgResolver(
 		TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
 		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
 		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
+		JWTGenerator:                  opts.JWTGenerator,
 	}
 
-	jwtGenerator, err := newJWTGenerator(ctx, keyStore, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWT generator for org resolver: %w", err)
-	}
-	orgResolverConfig.JWTGenerator = jwtGenerator
-
-	var resolver orgresolver.OrgResolver
+	var (
+		resolver orgresolver.OrgResolver
+		err      error
+	)
 	if opts.LinkingClient != nil {
 		resolver, err = orgresolver.NewOrgResolverWithClient(orgResolverConfig, opts.LinkingClient, lggr)
 	} else {
@@ -617,19 +612,7 @@ func newOrgResolver(
 	return resolver, nil
 }
 
-func newJWTGenerator(ctx context.Context, keyStore Keystore, opts Opts) (nodeauthjwt.JWTGenerator, error) {
-	if opts.JWTGenerator != nil {
-		return opts.JWTGenerator, nil
-	}
-	csaKeystore := &keystore.CSASigner{CSA: keyStore.CSA()}
-	signer, csaPubKey, err := keystore.BuildNodeAuth(ctx, csaKeystore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build node auth: %w", err)
-	}
-	return nodeauthjwt.NewNodeJWTGenerator(signer, csaPubKey), nil
-}
-
-func newBillingClient(ctx context.Context, lggr logger.Logger, cfg Config, keyStore Keystore, opts Opts) (metering.BillingClient, error) {
+func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.BillingClient, error) {
 	if opts.BillingClient != nil {
 		return opts.BillingClient, nil
 	}
@@ -638,13 +621,8 @@ func newBillingClient(ctx context.Context, lggr logger.Logger, cfg Config, keySt
 		return nil, nil
 	}
 
-	jwtGenerator, err := newJWTGenerator(ctx, keyStore, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWT generator for billing client: %w", err)
-	}
-
 	workflowOpts := []billing.WorkflowClientOpt{
-		billing.WithJWTGenerator(jwtGenerator),
+		billing.WithJWTGenerator(opts.JWTGenerator),
 	}
 	if cfg.Billing().TLSEnabled() {
 		workflowOpts = append(workflowOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
@@ -709,7 +687,6 @@ func newFetcherFuncV1(lggr logger.Logger, optsFetcherFunc wftypes.FetcherFunc, g
 }
 
 func newWorkflowRegistrySyncerV1(
-	ctx context.Context,
 	capCfg config.Capabilities,
 	relayerChainInterops RelayerChainInterops,
 	billingClient metering.BillingClient,
@@ -722,7 +699,6 @@ func newWorkflowRegistrySyncerV1(
 	workflowDonNotifier capabilities.DonNotifyWaitSubscriber,
 	lf limits.Factory,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
-	keyStore Keystore,
 ) ([]commonsrv.Service, error) {
 	var srvcs []commonsrv.Service
 
@@ -732,10 +708,7 @@ func newWorkflowRegistrySyncerV1(
 	}
 	srvcs = append(srvcs, srvs...)
 
-	key, err := keystore.GetDefault(ctx, keyStore.Workflow())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
-	}
+	key := opts.WorkflowKey
 
 	artifactsStore := artifactsV1.NewStore(
 		lggr,
@@ -813,10 +786,8 @@ func newWorkflowRegistrySyncerV1(
 }
 
 func newFetcherServiceV2(
-	ctx context.Context,
 	opts Opts,
 	capCfg config.Capabilities,
-	keyStore Keystore,
 	lggr logger.Logger,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 ) (wftypes.FetcherFunc, wftypes.LocationRetrieverFunc, []commonsrv.Service, error) {
@@ -830,12 +801,8 @@ func newFetcherServiceV2(
 
 	storageClient := opts.StorageClient
 	if capCfg.WorkflowRegistry().WorkflowStorage().URL() != "" {
-		jwtGenerator, err := newJWTGenerator(ctx, keyStore, opts)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to create JWT generator for storage client: %w", err)
-		}
 		workflowOpts := []storage.WorkflowClientOpt{
-			storage.WithJWTGenerator(jwtGenerator),
+			storage.WithJWTGenerator(opts.JWTGenerator),
 		}
 		if capCfg.WorkflowRegistry().WorkflowStorage().TLSEnabled() {
 			workflowOpts = append(workflowOpts, storage.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
@@ -858,7 +825,6 @@ func newFetcherServiceV2(
 }
 
 func newWorkflowRegistrySyncerV2(
-	ctx context.Context,
 	cfg Config,
 	relayerChainInterops RelayerChainInterops,
 	billingClient metering.BillingClient,
@@ -872,15 +838,11 @@ func newWorkflowRegistrySyncerV2(
 	lf limits.Factory,
 	orgResolver orgresolver.OrgResolver,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
-	keyStore Keystore,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
-	key, err := keystore.GetDefault(ctx, keyStore.Workflow())
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get all workflow keys: %w", err)
-	}
+	key := opts.WorkflowKey
 
-	fetcherFunc, retrieverFunc, srvcs, err := newFetcherServiceV2(ctx, opts, capCfg, keyStore, lggr, gatewayConnectorWrapper)
+	fetcherFunc, retrieverFunc, srvcs, err := newFetcherServiceV2(opts, capCfg, lggr, gatewayConnectorWrapper)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -956,16 +918,12 @@ func newWorkflowRegistrySyncerV2(
 	addSources := capCfg.WorkflowRegistry().AdditionalSources()
 	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
 	if len(addSources) > 0 {
-		jwtGenerator, jwtErr := newJWTGenerator(ctx, keyStore, opts)
-		if jwtErr != nil {
-			return nil, nil, fmt.Errorf("failed to create JWT generator for additional sources: %w", jwtErr)
-		}
 		for _, src := range addSources {
 			addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
 				URL:          src.GetURL(),
 				Name:         src.GetName(),
 				TLSEnabled:   src.GetTLSEnabled(),
-				JWTGenerator: jwtGenerator,
+				JWTGenerator: opts.JWTGenerator,
 			})
 		}
 	}
@@ -996,9 +954,7 @@ func newWorkflowRegistrySyncerV2(
 
 // newWorkflowRegistrySyncer creates a workflow registry syncer based on the contract version
 func newWorkflowRegistrySyncer(
-	ctx context.Context,
 	cfg Config,
-	keyStore Keystore,
 	relayerChainInterops RelayerChainInterops,
 	opts Opts,
 	lggr logger.Logger,
@@ -1016,7 +972,7 @@ func newWorkflowRegistrySyncer(
 	lggr.Debugw("Creating WorkflowRegistrySyncer")
 	lggr = logger.Named(lggr, "WorkflowRegistrySyncer")
 
-	billingClient, err := newBillingClient(ctx, lggr, cfg, keyStore, opts)
+	billingClient, err := newBillingClient(lggr, cfg, opts)
 	if err != nil {
 		lggr.Infof("failed to create billing client: %s", err)
 	}
@@ -1029,7 +985,6 @@ func newWorkflowRegistrySyncer(
 	switch wrVersion.Major() {
 	case 1:
 		srvcs, err := newWorkflowRegistrySyncerV1(
-			ctx,
 			capCfg,
 			relayerChainInterops,
 			billingClient,
@@ -1042,12 +997,10 @@ func newWorkflowRegistrySyncer(
 			workflowDonNotifier,
 			lf,
 			gatewayConnectorWrapper,
-			keyStore,
 		)
 		return nil, billingClient, srvcs, err
 	case 2:
 		syncer, srvcs, err := newWorkflowRegistrySyncerV2(
-			ctx,
 			cfg,
 			relayerChainInterops,
 			billingClient,
@@ -1061,7 +1014,6 @@ func newWorkflowRegistrySyncer(
 			lf,
 			orgResolver,
 			gatewayConnectorWrapper,
-			keyStore,
 		)
 		return syncer, billingClient, srvcs, err
 	default:
@@ -1071,7 +1023,6 @@ func newWorkflowRegistrySyncer(
 
 // NewServices creates and initializes all CRE services
 func NewServices(
-	ctx context.Context,
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	keyStore Keystore,
@@ -1087,7 +1038,6 @@ func NewServices(
 		Name: "CRE",
 		NewSubServices: func(subLggr logger.Logger) []commonsrv.Service {
 			srvs, err := s.newSubservices(
-				ctx,
 				subLggr,
 				ds,
 				keyStore,
