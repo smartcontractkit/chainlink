@@ -5,16 +5,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_pausable_freezable_transparent"
 	"github.com/smartcontractkit/chainlink/deployment"
