@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/quarantine"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -84,7 +85,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -2111,7 +2111,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ctx := testutils.Context(t)
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
+	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	ec := clienttest.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()

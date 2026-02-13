@@ -20,9 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -38,7 +38,7 @@ func TestJob(t *testing.T) {
 
 	// Used in OCR tests
 	var ocrKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
-	ocrKeyID := models.MustSha256HashFromHex(ocrKeyBundleID)
+	ocrKeyID := keys.MustSha256HashFromHex(ocrKeyBundleID)
 	transmitterAddress, err := types.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
 	require.NoError(t, err)
 

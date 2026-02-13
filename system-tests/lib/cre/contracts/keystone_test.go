@@ -1,17 +1,96 @@
 package contracts
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
+
+// fakeOffchainClient implements offchain.Client; only ListNodes and
+// ListNodeChainConfigs are wired, every other method panics via the embedded
+// nil interface.
+type fakeOffchainClient struct {
+	cldf_offchain.Client
+	nodesByID map[string]*fakeNodeInfo
+}
+
+type fakeNodeInfo struct {
+	id           string
+	name         string
+	csaKey       string
+	workflowKey  string
+	p2pID        string
+	chainConfigs []*nodev1.ChainConfig
+}
+
+func newFakeOffchainClient(nodes []*fakeNodeInfo) *fakeOffchainClient {
+	f := &fakeOffchainClient{nodesByID: make(map[string]*fakeNodeInfo)}
+	for _, n := range nodes {
+		f.nodesByID[n.id] = n
+	}
+	return f
+}
+
+func (f *fakeOffchainClient) ListNodes(_ context.Context, in *nodev1.ListNodesRequest, _ ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
+	var wantP2P map[string]bool
+	if in.Filter != nil {
+		for _, sel := range in.Filter.Selectors {
+			if sel.Key == "p2p_id" && sel.Op == ptypes.SelectorOp_IN && sel.Value != nil {
+				wantP2P = make(map[string]bool)
+				for _, v := range strings.Split(*sel.Value, ",") {
+					wantP2P[v] = true
+				}
+			}
+		}
+	}
+
+	out := make([]*nodev1.Node, 0, len(f.nodesByID))
+	for _, n := range f.nodesByID {
+		if wantP2P != nil && !wantP2P[n.p2pID] {
+			continue
+		}
+		p2pVal := n.p2pID
+		wfKey := n.workflowKey
+		out = append(out, &nodev1.Node{
+			Id:          n.id,
+			Name:        n.name,
+			PublicKey:   n.csaKey,
+			WorkflowKey: &wfKey,
+			IsEnabled:   true,
+			Labels:      []*ptypes.Label{{Key: "p2p_id", Value: &p2pVal}},
+		})
+	}
+	return &nodev1.ListNodesResponse{Nodes: out}, nil
+}
+
+func (f *fakeOffchainClient) ListNodeChainConfigs(_ context.Context, in *nodev1.ListNodeChainConfigsRequest, _ ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
+	if in.Filter == nil || len(in.Filter.NodeIds) == 0 {
+		return nil, errors.New("filter with node IDs required")
+	}
+	n, ok := f.nodesByID[in.Filter.NodeIds[0]]
+	if !ok {
+		return nil, fmt.Errorf("node not found: %s", in.Filter.NodeIds[0])
+	}
+	return &nodev1.ListNodeChainConfigsResponse{ChainConfigs: n.chainConfigs}, nil
+}
 
 func TestDonsOrderedByID(t *testing.T) {
 	// Test donsOrderedByID sorts by id ascending
@@ -34,16 +113,77 @@ func TestDonsOrderedByID(t *testing.T) {
 }
 
 func TestToV2ConfigureInput(t *testing.T) {
-	// Create test peer IDs
-	peerID1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID().String()
-	peerID2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2)).PeerID().String()
+	chainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+	chainID, err := chainselectors.GetChainIDFromSelector(chainSel)
+	require.NoError(t, err)
 
-	// Create test dons with sample data
-	d := &dons{
-		c: make(map[string]donConfig),
+	key1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	key2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
+	peerID1 := key1.PeerID().String()
+	peerID2 := key2.PeerID().String()
+
+	fakeNodes := []*fakeNodeInfo{
+		{
+			id:          "node_01",
+			name:        "test-node-1",
+			csaKey:      "403b72f0b1b3b5f5a91bcfedb7f28599767502a04b5b7e067fcf3782e23eeb9c",
+			workflowKey: "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+			p2pID:       peerID1,
+			chainConfigs: []*nodev1.ChainConfig{{
+				Chain: &nodev1.Chain{
+					Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+					Id:   chainID,
+				},
+				Ocr2Config: &nodev1.OCR2Config{
+					OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+						OffchainPublicKey:     "03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+						OnchainSigningAddress: "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
+						ConfigPublicKey:       "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+						BundleId:              "665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea",
+					},
+					P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+						PeerId: peerID1,
+					},
+					IsBootstrap: false,
+				},
+				AccountAddress: "0x2877F08d9c5Cc9F401F730Fa418fAE563A9a2FF3",
+			}},
+		},
+		{
+			id:          "node_02",
+			name:        "test-node-2",
+			csaKey:      "28b91143ec9111796a7d63e14c1cf6bb01b4ed59667ab54f5bc72ebe49c881be",
+			workflowKey: "2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+			p2pID:       peerID2,
+			chainConfigs: []*nodev1.ChainConfig{{
+				Chain: &nodev1.Chain{
+					Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+					Id:   chainID,
+				},
+				Ocr2Config: &nodev1.OCR2Config{
+					OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+						OffchainPublicKey:     "255096a3b7ade10e29c648e0b407fc486180464f713446b1da04f013df6179c8",
+						OnchainSigningAddress: "8258f4c4761cc445333017608044a204fd0c006a",
+						ConfigPublicKey:       "2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+						BundleId:              "7a9b75510b8d09932b98142419bef52436ff725dd9395469473b487ef87fdfb0",
+					},
+					P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+						PeerId: peerID2,
+					},
+					IsBootstrap: false,
+				},
+				AccountAddress: "0x415aa1E9a1bcB3929ed92bFa1F9735Dc0D45AD31",
+			}},
+		},
 	}
 
-	// Add a DON with capabilities and nodes
+	offchainClient := newFakeOffchainClient(fakeNodes)
+
+	d := &dons{
+		c:        make(map[string]donConfig),
+		offChain: offchainClient,
+	}
+
 	d.c["test-don"] = donConfig{
 		id: 1,
 		DonCapabilities: keystone_changeset.DonCapabilities{
@@ -68,58 +208,23 @@ func TestToV2ConfigureInput(t *testing.T) {
 		},
 	}
 
-	// Call the method under test
-	result := d.mustToV2ConfigureInput(123, "0x1234567890abcdef")
+	result := d.mustToV2ConfigureInput(chainSel, "0x1234567890abcdef", nil)
 
-	// Verify the transformation
-	if result.RegistryChainSel != 123 {
-		t.Errorf("expected RegistryChainSel 123, got %d", result.RegistryChainSel)
-	}
+	require.Equal(t, chainSel, result.RegistryChainSel)
 
-	if result.ContractAddress != "0x1234567890abcdef" { //nolint:staticcheck // we won't migrate tests
-		t.Errorf("expected ContractAddress 0x1234567890abcdef, got %s", result.ContractAddress) //nolint:staticcheck // we won't migrate tests
-	}
+	require.Len(t, result.Nops, 1)
+	require.Equal(t, "test-nop", result.Nops[0].Name)
 
-	if len(result.Nops) != 1 {
-		t.Fatalf("expected 1 NOP, got %d", len(result.Nops))
-	}
+	require.Len(t, result.Nodes, 2)
 
-	if result.Nops[0].Name != "test-nop" {
-		t.Errorf("expected NOP name 'test-nop', got %s", result.Nops[0].Name)
-	}
+	require.Len(t, result.Capabilities, 1)
+	require.Equal(t, "test-capability@1.0.0", result.Capabilities[0].CapabilityID)
 
-	if len(result.Nodes) != 2 {
-		t.Fatalf("expected 2 nodes, got %d", len(result.Nodes))
-	}
-
-	if len(result.Capabilities) != 1 {
-		t.Fatalf("expected 1 capability, got %d", len(result.Capabilities))
-	}
-
-	expectedCapID := "test-capability@1.0.0"
-	if result.Capabilities[0].CapabilityID != expectedCapID {
-		t.Errorf("expected capability ID '%s', got %s", expectedCapID, result.Capabilities[0].CapabilityID)
-	}
-
-	if len(result.DONs) != 1 {
-		t.Fatalf("expected 1 DON, got %d", len(result.DONs))
-	}
-
-	if result.DONs[0].Name != "test-don" {
-		t.Errorf("expected DON name 'test-don', got %s", result.DONs[0].Name)
-	}
-
-	if result.DONs[0].F != 1 {
-		t.Errorf("expected DON F value 1, got %d", result.DONs[0].F)
-	}
-
-	if len(result.DONs[0].Nodes) != 2 {
-		t.Errorf("expected DON to have 2 nodes, got %d", len(result.DONs[0].Nodes))
-	}
-
-	if len(result.DONs[0].CapabilityConfigurations) != 1 {
-		t.Errorf("expected DON to have 1 capability configuration, got %d", len(result.DONs[0].CapabilityConfigurations))
-	}
+	require.Len(t, result.DONs, 1)
+	require.Equal(t, "test-don", result.DONs[0].Name)
+	require.Equal(t, uint8(1), result.DONs[0].F)
+	require.Len(t, result.DONs[0].Nodes, 2)
+	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
 }
 
 // TestGenerateAdminAddresses contains all the test cases for the function.

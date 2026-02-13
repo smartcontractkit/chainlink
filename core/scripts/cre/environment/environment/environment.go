@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const (
@@ -729,7 +728,7 @@ func StartCLIEnvironment(
 		StageGen:                initLocalCREStageGen(in),
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
-		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
+		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

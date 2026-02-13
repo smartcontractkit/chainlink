@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
@@ -71,7 +72,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -1055,7 +1055,7 @@ func (k *ksa) CSA() keystore.CSA {
 
 func NewKsa(db *sqlx.DB, csa keystore.CSA, logf keystore.Logf) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, logf),
+		Master: keystore.New(db, commonkeystore.FastScryptParams, logf),
 		csa:    csa,
 	}
 }

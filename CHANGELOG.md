@@ -1,5 +1,13 @@
 # Changelog Chainlink Core
 
+## 2.34.0
+
+### Minor Changes
+
+- [#21015](https://github.com/smartcontractkit/chainlink/pull/21015) [`d23bf1d`](https://github.com/smartcontractkit/chainlink/commit/d23bf1d1f6ff912a7dd587dab031c8881d1b53ba) - Minor bump to start next version
+
+- [#20960](https://github.com/smartcontractkit/chainlink/pull/20960) [`4fe9eaa`](https://github.com/smartcontractkit/chainlink/commit/4fe9eaa80eeace375f42abb50f67f7ad97327ebe) - #added adds the option to not specify a node address in gateway connector config
+
 ## 2.33.0
 
 ### Minor Changes

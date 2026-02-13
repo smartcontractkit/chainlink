@@ -15,6 +15,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -368,7 +369,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 	transmitterAddress, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
-	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	keyBundleID := keys.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
 	testCases := []GQLTestCase{
 		{
@@ -465,7 +466,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	transmitterAddress, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
-	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	keyBundleID := keys.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
 	relayConfig := map[string]any{
 		"chainID": 1337,

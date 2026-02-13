@@ -3,6 +3,7 @@ package plugins
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 
@@ -11,6 +12,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -149,6 +151,13 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	// Add auth header after logging config
 	if m.cfgTelemetry != nil {
 		envCfg.TelemetryAuthHeaders = m.telemetryAuthHeaders
+	}
+
+	if s, ok := os.LookupEnv(cresettings.EnvNameSettings); ok {
+		envCfg.CRESettings = s
+	}
+	if s, ok := os.LookupEnv(cresettings.EnvNameSettingsDefault); ok {
+		envCfg.CRESettingsDefault = s
 	}
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}

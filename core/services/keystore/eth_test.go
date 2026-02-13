@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	keystorekeys "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
@@ -52,7 +53,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, key.Address, retrievedKeys[0].Address)
 		foundKey, err := ethKeyStore.Get(ctx, key.Address.Hex())
 		require.NoError(t, err)
-		requireEqualKeys(t, key, foundKey)
+		keystorekeys.RequireEqualKeys(t, key, foundKey)
 		// adds ethkey.State
 		cltest.AssertCount(t, db, statesTableName, 1)
 		var state ethkey.State
@@ -90,7 +91,7 @@ func Test_EthKeyStore(t *testing.T) {
 		sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
 
 		for i := range keys {
-			requireEqualKeys(t, keys[i], retrievedKeys[i])
+			keystorekeys.RequireEqualKeys(t, keys[i], retrievedKeys[i])
 		}
 	})
 
@@ -145,7 +146,7 @@ func Test_EthKeyStore(t *testing.T) {
 
 		require.Len(t, sendingKeys2, 1)
 		for i := range sendingKeys1 {
-			requireEqualKeys(t, sendingKeys1[i], sendingKeys2[i])
+			keystorekeys.RequireEqualKeys(t, sendingKeys1[i], sendingKeys2[i])
 		}
 	})
 
@@ -160,12 +161,12 @@ func Test_EthKeyStore(t *testing.T) {
 		keys, err := ethKeyStore.EnabledKeysForChain(ctx, testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
-		requireEqualKeys(t, key, keys[0])
+		keystorekeys.RequireEqualKeys(t, key, keys[0])
 
 		keys, err = ethKeyStore.EnabledKeysForChain(ctx, big.NewInt(1337))
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
-		requireEqualKeys(t, key2, keys[0])
+		keystorekeys.RequireEqualKeys(t, key2, keys[0])
 
 		_, err = ethKeyStore.EnabledKeysForChain(ctx, nil)
 		assert.Error(t, err)
@@ -183,12 +184,12 @@ func Test_EthKeyStore(t *testing.T) {
 		keys, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
-		requireEqualKeys(t, key, keys[0])
+		keystorekeys.RequireEqualKeys(t, key, keys[0])
 
 		keys, err = ethKeyStore.ListKeys(ctx, big.NewInt(1337), nil)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
-		requireEqualKeys(t, key2, keys[0])
+		keystorekeys.RequireEqualKeys(t, key2, keys[0])
 
 		_, err = ethKeyStore.ListKeys(ctx, nil, nil)
 		require.Error(t, err)
@@ -283,9 +284,9 @@ func Test_EthKeyStore_ListKeys(t *testing.T) {
 		require.Len(t, keys, 3)
 
 		// Verify ordering matches State.ID order
-		requireEqualKeys(t, key1, keys[0])
-		requireEqualKeys(t, key2, keys[1])
-		requireEqualKeys(t, key3, keys[2])
+		keystorekeys.RequireEqualKeys(t, key1, keys[0])
+		keystorekeys.RequireEqualKeys(t, key2, keys[1])
+		keystorekeys.RequireEqualKeys(t, key3, keys[2])
 	})
 
 	t.Run("excludes disabled keys", func(t *testing.T) {
@@ -304,8 +305,8 @@ func Test_EthKeyStore_ListKeys(t *testing.T) {
 		keys, err := ethKeyStore.ListKeys(ctx, testutils.FixtureChainID, nil)
 		require.NoError(t, err)
 		require.Len(t, keys, 2)
-		requireEqualKeys(t, key1, keys[0])
-		requireEqualKeys(t, key3, keys[1])
+		keystorekeys.RequireEqualKeys(t, key1, keys[0])
+		keystorekeys.RequireEqualKeys(t, key3, keys[1])
 
 		// Verify key2 is not in the list
 		for _, k := range keys {
@@ -359,8 +360,8 @@ func Test_EthKeyStore_ListKeys(t *testing.T) {
 		require.Len(t, keys3, 3)
 
 		for i := range keys1 {
-			requireEqualKeys(t, keys1[i], keys2[i])
-			requireEqualKeys(t, keys1[i], keys3[i])
+			keystorekeys.RequireEqualKeys(t, keys1[i], keys2[i])
+			keystorekeys.RequireEqualKeys(t, keys1[i], keys3[i])
 		}
 	})
 	t.Run("handles keys enabled for multiple chains correctly", func(t *testing.T) {
@@ -391,7 +392,7 @@ func Test_EthKeyStore_ListKeys(t *testing.T) {
 		keysSimulated, err := ethKeyStore.ListKeys(ctx, testutils.SimulatedChainID, nil)
 		require.NoError(t, err)
 		require.Len(t, keysSimulated, 1)
-		requireEqualKeys(t, key1, keysSimulated[0])
+		keystorekeys.RequireEqualKeys(t, key1, keysSimulated[0])
 	})
 
 	t.Run("errors on nil chainID", func(t *testing.T) {
