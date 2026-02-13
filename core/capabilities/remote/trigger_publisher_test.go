@@ -100,7 +100,7 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
-func TestTriggerPublisher_RecieveTriggerEventAcks(t *testing.T) {
+func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
 	ctx := testutils.Context(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
