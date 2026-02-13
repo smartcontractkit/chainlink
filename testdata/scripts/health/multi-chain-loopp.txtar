@@ -177,7 +177,6 @@ ok Tron.1001.RelayerService.PluginRelayerClient
 ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron
 ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronRelayer
 ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm
-ok WorkflowExecutionLimiter
 ok WorkflowStore
 
 -- out-unhealthy.txt --
@@ -833,15 +832,6 @@ ok WorkflowStore
       "id": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm",
       "attributes": {
         "name": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowExecutionLimiter",
-      "attributes": {
-        "name": "WorkflowExecutionLimiter",
         "status": "passing",
         "output": ""
       }

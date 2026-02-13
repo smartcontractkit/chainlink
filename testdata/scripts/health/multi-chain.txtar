@@ -87,7 +87,6 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
-ok WorkflowExecutionLimiter
 ok WorkflowStore
 
 -- out-unhealthy.txt --
@@ -381,15 +380,6 @@ ok WorkflowStore
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowExecutionLimiter",
-      "attributes": {
-        "name": "WorkflowExecutionLimiter",
         "status": "passing",
         "output": ""
       }

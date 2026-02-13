@@ -290,15 +290,6 @@
     },
     {
       "type": "checks",
-      "id": "WorkflowExecutionLimiter",
-      "attributes": {
-        "name": "WorkflowExecutionLimiter",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
       "id": "WorkflowStore",
       "attributes": {
         "name": "WorkflowStore",
