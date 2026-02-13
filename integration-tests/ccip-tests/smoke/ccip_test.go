@@ -799,6 +799,7 @@ func TestSmokeCCIPMulticall(t *testing.T) {
 }
 
 func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *testing.T) {
+	quarantine.Flaky(t, "DX-2149")
 	t.Parallel()
 	log := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
