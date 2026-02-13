@@ -112,6 +112,10 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 
 	normalizedWorkflowOwner := normalizeOwner(request.Metadata.WorkflowOwner)
 	for idx, req := range r.Requests {
+		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
+			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
+		}
+
 		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
 		}
