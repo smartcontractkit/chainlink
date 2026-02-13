@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -68,33 +70,25 @@ var (
 
 func (c *HTTPClientConfig) ApplyDefaults() {
 	if len(c.AllowedPorts) == 0 {
-		c.AllowedPorts = defaultAllowedPorts
+		c.AllowedPorts = slices.Clone(defaultAllowedPorts)
 	}
-
 	if len(c.AllowedSchemes) == 0 {
-		c.AllowedSchemes = defaultAllowedSchemes
+		c.AllowedSchemes = slices.Clone(defaultAllowedSchemes)
 	}
-
 	if len(c.AllowedMethods) == 0 {
-		c.AllowedMethods = defaultAllowedMethods
+		c.AllowedMethods = slices.Clone(defaultAllowedMethods)
 	}
-
 	if len(c.BlockedHeaders) == 0 {
-		c.BlockedHeaders = defaultBlockedHeaders
+		c.BlockedHeaders = slices.Clone(defaultBlockedHeaders)
 	}
-
 	if c.MaxResponseBytes == 0 {
 		c.MaxResponseBytes = defaultMaxResponseBytes
 	}
-
 	if c.DefaultTimeout == 0 {
 		c.DefaultTimeout = defaultTimeout
 	}
-
 	c.maxRequestDuration = defaultMaxRequestDuration
-
-	// safeurl automatically blocks internal IPs so no need
-	// to set defaults here.
+	// safeurl automatically blocks internal IPs so no need to set defaults here.
 }
 
 type HTTPRequest struct {
@@ -116,6 +110,37 @@ type HTTPResponse struct {
 	Headers      map[string]string   // HTTP headers (deprecated: use MultiHeaders, contains first value only for backward compatibility)
 	MultiHeaders map[string][]string // HTTP headers with all values preserved
 	Body         []byte              // HTTP response body
+}
+
+// requestToNetHeader builds net/http.Header from req. Uses MultiHeaders when set, otherwise Headers.
+func requestToNetHeader(req HTTPRequest) http.Header {
+	out := make(http.Header)
+	if len(req.MultiHeaders) > 0 {
+		for k, values := range req.MultiHeaders {
+			for _, v := range values {
+				out.Add(k, v)
+			}
+		}
+		return out
+	}
+	for k, v := range req.Headers {
+		out.Add(k, v)
+	}
+	return out
+}
+
+// responseHeadersFromNetHeader builds Headers (comma-joined) and MultiHeaders from net/http.Header. Skips keys with no values.
+func responseHeadersFromNetHeader(h http.Header) (map[string]string, map[string][]string) {
+	headers := make(map[string]string, len(h))
+	multiHeaders := make(map[string][]string, len(h))
+	for k, v := range h {
+		if len(v) == 0 {
+			continue
+		}
+		multiHeaders[k] = slices.Clone(v)
+		headers[k] = strings.Join(v, ",")
+	}
+	return headers, multiHeaders
 }
 
 type httpClient struct {
@@ -174,37 +199,35 @@ func isBlockedRequest(err error) bool {
 }
 
 func (c *httpClient) validateMethod(method string) error {
-	methodUpper := strings.ToUpper(method)
-	for _, allowedMethod := range c.config.AllowedMethods {
-		if strings.ToUpper(allowedMethod) == methodUpper {
-			return nil
-		}
+	isAllowed := func(allowed string) bool {
+		return strings.EqualFold(allowed, method)
+	}
+	if slices.ContainsFunc(c.config.AllowedMethods, isAllowed) {
+		return nil
 	}
 	return fmt.Errorf("%w: HTTP method not allowed: %s", ErrBlockedRequest, method)
 }
 
-func (c *httpClient) validateHeaders(headers map[string]string) error {
-	for headerName := range headers {
-		headerNameLower := strings.ToLower(headerName)
-		for _, blockedHeader := range c.config.BlockedHeaders {
-			if strings.ToLower(blockedHeader) == headerNameLower {
-				return fmt.Errorf("%w: HTTP header not allowed: %s", ErrBlockedRequest, headerName)
-			}
+// validateHeaderNames checks that none of the given header names are in the blocked list (case-insensitive).
+func (c *httpClient) validateHeaderNames(names []string) error {
+	blockedSet := make(map[string]struct{}, len(c.config.BlockedHeaders))
+	for _, b := range c.config.BlockedHeaders {
+		blockedSet[strings.ToLower(b)] = struct{}{}
+	}
+	for _, name := range names {
+		if _, blocked := blockedSet[strings.ToLower(name)]; blocked {
+			return fmt.Errorf("%w: HTTP header not allowed: %s", ErrBlockedRequest, name)
 		}
 	}
 	return nil
 }
 
+func (c *httpClient) validateHeaders(headers map[string]string) error {
+	return c.validateHeaderNames(slices.Collect(maps.Keys(headers)))
+}
+
 func (c *httpClient) validateMultiHeaders(multiHeaders map[string][]string) error {
-	for headerName := range multiHeaders {
-		headerNameLower := strings.ToLower(headerName)
-		for _, blockedHeader := range c.config.BlockedHeaders {
-			if strings.ToLower(blockedHeader) == headerNameLower {
-				return fmt.Errorf("%w: HTTP header not allowed: %s", ErrBlockedRequest, headerName)
-			}
-		}
-	}
-	return nil
+	return c.validateHeaderNames(slices.Collect(maps.Keys(multiHeaders)))
 }
 
 // Send executes an http request that is always time limited by at least the
@@ -240,15 +263,8 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	if err != nil {
 		return nil, err
 	}
-
-	if len(req.MultiHeaders) > 0 {
-		for k, values := range req.MultiHeaders {
-			for _, v := range values {
-				r.Header.Add(k, v)
-			}
-		}
-	} else {
-		for k, v := range req.Headers {
+	for k, values := range requestToNetHeader(req) {
+		for _, v := range values {
 			r.Header.Add(k, v)
 		}
 	}
@@ -274,21 +290,8 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		return nil, errors.Join(err, ErrHTTPRead)
 	}
 
-	// Store all header values in MultiHeaders and first value in Headers for backward compatibility
-	multiHeaders := make(map[string][]string)
-	headers := make(map[string]string)
-	for k, v := range resp.Header {
-		if len(v) == 0 {
-			continue
-		}
-
-		multiHeaders[k] = v
-
-		headers[k] = strings.Join(v, ",")
-	}
-
+	headers, multiHeaders := responseHeadersFromNetHeader(resp.Header)
 	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode)
-
 	return &HTTPResponse{
 		Headers:      headers,
 		MultiHeaders: multiHeaders,
@@ -306,12 +309,5 @@ func maxReadBytes(sizes readSize) uint32 {
 	if sizes.requestSize == 0 {
 		return sizes.defaultSize
 	}
-	return minUint32(sizes.defaultSize, sizes.requestSize)
-}
-
-func minUint32(a, b uint32) uint32 {
-	if a < b {
-		return a
-	}
-	return b
+	return min(sizes.defaultSize, sizes.requestSize)
 }
