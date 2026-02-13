@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -626,9 +625,9 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.Contains(t, response.MultiHeaders["Via"], "1.1 proxy2")
 
 		// Verify Headers field is also set (for backward compatibility)
-		require.NotNil(t, response.Headers, "Headers should not be nil")                           //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
-		require.NotEmpty(t, response.Headers["Set-Cookie"], "Headers should contain Set-Cookie")   //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
-		require.NotEmpty(t, response.Headers["Via"], "Headers should contain Via")                 //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.NotNil(t, response.Headers, "Headers should not be nil")                         //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.NotEmpty(t, response.Headers["Set-Cookie"], "Headers should contain Set-Cookie") //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.NotEmpty(t, response.Headers["Via"], "Headers should contain Via")               //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
 
 		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
 		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders) //nolint:staticcheck // SA1019: intentionally asserting deprecated Headers for backward compatibility

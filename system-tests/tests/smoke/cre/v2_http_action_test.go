@@ -11,10 +11,8 @@ import (
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
-
 	httpactionconfig "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -22,9 +20,9 @@ import (
 
 // HTTP Action multi-headers test: workflow asserts response MultiHeaders contain multiple Set-Cookie values.
 const (
-	multiHeadersTestCase            = "multi-headers"
-	multiHeadersSuccessMsg          = "HTTP Action multi-headers test completed"
-	multiHeadersRegressionTestCase  = "mh-regression-both" // short to stay under workflow name length limit (64)
+	multiHeadersTestCase             = "multi-headers"
+	multiHeadersSuccessMsg           = "HTTP Action multi-headers test completed"
+	multiHeadersRegressionTestCase   = "mh-regression-both" // short to stay under workflow name length limit (64)
 	multiHeadersRegressionSuccessMsg = "HTTP Action multi-headers regression completed"
 )
 
