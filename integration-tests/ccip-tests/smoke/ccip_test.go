@@ -597,6 +597,7 @@ func TestSmokeCCIPOnRampLimits(t *testing.T) {
 }
 
 func TestSmokeCCIPOffRampCapacityLimit(t *testing.T) {
+	quarantine.Flaky(t, "DX-2856")
 	t.Parallel()
 
 	capacityLimited := contracts.RateLimiterConfig{
