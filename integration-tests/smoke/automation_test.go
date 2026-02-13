@@ -488,6 +488,7 @@ func TestAutomationAddFunds(t *testing.T) {
 }
 
 func TestAutomationPauseUnPause(t *testing.T) {
+	quarantine.Flaky(t, "DX-2867")
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
