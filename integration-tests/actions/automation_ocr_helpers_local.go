@@ -18,6 +18,7 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -25,7 +26,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 func ReadRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
@@ -293,7 +293,7 @@ func CreateOCRKeeperJobsLocal(
 		}
 		var nodeOCRKeyId []string
 		for _, key := range nodeOCRKeys.Data {
-			if key.Attributes.ChainType == string(chaintype.EVM) {
+			if key.Attributes.ChainType == string(corekeys.EVM) {
 				nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
 				break
 			}

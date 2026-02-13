@@ -1,8 +1,7 @@
-package keystore
+package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/keystore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
@@ -28,17 +27,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type encryptedKeyRing struct {
+type EncryptedKeyRing struct {
 	UpdatedAt     time.Time
 	EncryptedKeys []byte
 }
 
-func (ekr encryptedKeyRing) Decrypt(password string) (*keyRing, error) {
+func (ekr EncryptedKeyRing) Decrypt(password string) (*KeyRing, error) {
 	if len(ekr.EncryptedKeys) == 0 {
-		return newKeyRing(), nil
+		return NewKeyRing(), nil
 	}
 	var cryptoJSON gethkeystore.CryptoJSON
 	err := json.Unmarshal(ekr.EncryptedKeys, &cryptoJSON)
@@ -68,7 +66,7 @@ func (ekr encryptedKeyRing) Decrypt(password string) (*keyRing, error) {
 	return ring, nil
 }
 
-type keyStates struct {
+type KeyStates struct {
 	// Key ID => chain ID => state
 	KeyIDChainID map[string]map[string]*ethkey.State
 	// Chain ID => Key ID => state
@@ -76,8 +74,8 @@ type keyStates struct {
 	All          []*ethkey.State
 }
 
-func newKeyStates() *keyStates {
-	return &keyStates{
+func NewKeyStates() *KeyStates {
+	return &KeyStates{
 		KeyIDChainID: make(map[string]map[string]*ethkey.State),
 		ChainIDKeyID: make(map[string]map[string]*ethkey.State),
 	}
@@ -85,7 +83,7 @@ func newKeyStates() *keyStates {
 
 // warning: not thread-safe! caller must sync
 // adds or replaces a state
-func (ks *keyStates) add(state *ethkey.State) {
+func (ks *KeyStates) Add(state *ethkey.State) {
 	cid := state.EVMChainID.String()
 	kid := state.KeyID()
 
@@ -117,7 +115,7 @@ func (ks *keyStates) add(state *ethkey.State) {
 }
 
 // warning: not thread-safe! caller must sync
-func (ks *keyStates) get(addr common.Address, chainID *big.Int) *ethkey.State {
+func (ks *KeyStates) Get(addr common.Address, chainID *big.Int) *ethkey.State {
 	chainStates, exists := ks.KeyIDChainID[addr.Hex()]
 	if !exists {
 		return nil
@@ -126,21 +124,21 @@ func (ks *keyStates) get(addr common.Address, chainID *big.Int) *ethkey.State {
 }
 
 // warning: not thread-safe! caller must sync
-func (ks *keyStates) disable(addr common.Address, chainID *big.Int, updatedAt time.Time) {
-	state := ks.get(addr, chainID)
+func (ks *KeyStates) Disable(addr common.Address, chainID *big.Int, updatedAt time.Time) {
+	state := ks.Get(addr, chainID)
 	state.Disabled = true
 	state.UpdatedAt = updatedAt
 }
 
 // warning: not thread-safe! caller must sync
-func (ks *keyStates) enable(addr common.Address, chainID *big.Int, updatedAt time.Time) {
-	state := ks.get(addr, chainID)
+func (ks *KeyStates) Enable(addr common.Address, chainID *big.Int, updatedAt time.Time) {
+	state := ks.Get(addr, chainID)
 	state.Disabled = false
 	state.UpdatedAt = updatedAt
 }
 
 // warning: not thread-safe! caller must sync
-func (ks *keyStates) delete(addr common.Address) {
+func (ks *KeyStates) Delete(addr common.Address) {
 	var chainIDs []*big.Int
 	for i := len(ks.All) - 1; i >= 0; i-- {
 		if ks.All[i].Address.Address() == addr {
@@ -154,7 +152,7 @@ func (ks *keyStates) delete(addr common.Address) {
 	}
 }
 
-type keyRing struct {
+type KeyRing struct {
 	CSA          map[string]csakey.KeyV2
 	Eth          map[string]ethkey.KeyV2
 	OCR          map[string]ocrkey.KeyV2
@@ -173,8 +171,8 @@ type keyRing struct {
 	LegacyKeys   LegacyKeyStorage
 }
 
-func newKeyRing() *keyRing {
-	return &keyRing{
+func NewKeyRing() *KeyRing {
+	return &KeyRing{
 		CSA:          make(map[string]csakey.KeyV2),
 		Eth:          make(map[string]ethkey.KeyV2),
 		OCR:          make(map[string]ocrkey.KeyV2),
@@ -193,7 +191,7 @@ func newKeyRing() *keyRing {
 	}
 }
 
-func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ekr encryptedKeyRing, err error) {
+func (kr *KeyRing) Encrypt(password string, scryptParams keystore.ScryptParams) (ekr EncryptedKeyRing, err error) {
 	marshalledRawKeyRingJson, err := json.Marshal(kr.raw())
 	if err != nil {
 		return ekr, err
@@ -201,7 +199,7 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 
 	marshalledRawKeyRingJson, err = kr.LegacyKeys.UnloadUnsupported(marshalledRawKeyRingJson)
 	if err != nil {
-		return encryptedKeyRing{}, err
+		return EncryptedKeyRing{}, err
 	}
 
 	cryptoJSON, err := gethkeystore.EncryptDataV3(
@@ -217,12 +215,12 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 	if err != nil {
 		return ekr, errors.Wrapf(err, "could not encode cryptoJSON")
 	}
-	return encryptedKeyRing{
+	return EncryptedKeyRing{
 		EncryptedKeys: encryptedKeys,
 	}, nil
 }
 
-func (kr *keyRing) raw() (rawKeys rawKeyRing) {
+func (kr *KeyRing) raw() (rawKeys rawKeyRing) {
 	for _, csaKey := range kr.CSA {
 		rawKeys.CSA = append(rawKeys.CSA, internal.RawBytes(csaKey))
 	}
@@ -271,121 +269,7 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	return rawKeys
 }
 
-func (kr *keyRing) logPubKeys(lggr logger.Logger) {
-	lggr = logger.Named(lggr, "KeyRing")
-	var csaIDs []string
-	for _, CSAKey := range kr.CSA {
-		csaIDs = append(csaIDs, CSAKey.ID())
-	}
-	var ethIDs []string
-	for _, ETHKey := range kr.Eth {
-		ethIDs = append(ethIDs, ETHKey.ID())
-	}
-	var ocrIDs []string
-	for _, OCRKey := range kr.OCR {
-		ocrIDs = append(ocrIDs, OCRKey.ID())
-	}
-	var ocr2IDs []string
-	for _, OCR2Key := range kr.OCR2 {
-		ocr2IDs = append(ocr2IDs, OCR2Key.ID())
-	}
-	var p2pIDs []string
-	for _, P2PKey := range kr.P2P {
-		p2pIDs = append(p2pIDs, P2PKey.ID())
-	}
-	var cosmosIDs []string
-	for _, cosmosKey := range kr.Cosmos {
-		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
-	}
-	var solanaIDs []string
-	for _, solanaKey := range kr.Solana {
-		solanaIDs = append(solanaIDs, solanaKey.ID())
-	}
-	var starknetIDs []string
-	for _, starkkey := range kr.StarkNet {
-		starknetIDs = append(starknetIDs, starkkey.ID())
-	}
-	var aptosIDs []string
-	for _, aptosKey := range kr.Aptos {
-		aptosIDs = append(aptosIDs, aptosKey.ID())
-	}
-	tronIDs := []string{}
-	for _, tronKey := range kr.Tron {
-		tronIDs = append(tronIDs, tronKey.ID())
-	}
-	tonIDs := []string{}
-	for _, tonKey := range kr.TON {
-		tonIDs = append(tonIDs, tonKey.ID())
-	}
-	suiIDs := []string{}
-	for _, suiKey := range kr.Sui {
-		suiIDs = append(suiIDs, suiKey.ID())
-	}
-	var vrfIDs []string
-	for _, VRFKey := range kr.VRF {
-		vrfIDs = append(vrfIDs, VRFKey.ID())
-	}
-	dkgRecipientIDs := []string{}
-	for _, dkgRecipientKey := range kr.DKGRecipient {
-		dkgRecipientIDs = append(dkgRecipientIDs, dkgRecipientKey.ID())
-	}
-	workflowIDs := make([]string, len(kr.Workflow))
-	i := 0
-	for _, workflowKey := range kr.Workflow {
-		workflowIDs[i] = workflowKey.ID()
-		i++
-	}
-	if len(csaIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d CSA keys", len(csaIDs)), "keys", csaIDs)
-	}
-	if len(ethIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d ETH keys", len(ethIDs)), "keys", ethIDs)
-	}
-	if len(ocrIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d OCR keys", len(ocrIDs)), "keys", ocrIDs)
-	}
-	if len(ocr2IDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d OCR2 keys", len(ocr2IDs)), "keys", ocr2IDs)
-	}
-	if len(p2pIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d P2P keys", len(p2pIDs)), "keys", p2pIDs)
-	}
-	if len(cosmosIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Cosmos keys", len(cosmosIDs)), "keys", cosmosIDs)
-	}
-	if len(solanaIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
-	}
-	if len(starknetIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d StarkNet keys", len(starknetIDs)), "keys", starknetIDs)
-	}
-	if len(aptosIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Aptos keys", len(aptosIDs)), "keys", aptosIDs)
-	}
-	if len(tronIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Tron keys", len(tronIDs)), "keys", tronIDs)
-	}
-	if len(tonIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d TON keys", len(tonIDs)), "keys", tonIDs)
-	}
-	if len(suiIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Sui keys", len(suiIDs)), "keys", suiIDs)
-	}
-	if len(vrfIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
-	}
-	if len(dkgRecipientIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d DKGRecipient keys", len(dkgRecipientIDs)), "keys", dkgRecipientIDs)
-	}
-	if len(workflowIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Workflow keys", len(workflowIDs)), "keys", workflowIDs)
-	}
-	if len(kr.LegacyKeys.legacyRawKeys) > 0 {
-		lggr.Infow(fmt.Sprintf("%d keys stored in legacy system", kr.LegacyKeys.legacyRawKeys.len()))
-	}
-}
-
-// rawKeyRing is an intermediate struct for encrypting / decrypting keyRing
+// rawKeyRing is an intermediate struct for encrypting / decrypting KeyRing
 // it holds only the essential key information to avoid adding unnecessary data
 // (like public keys) to the database
 type rawKeyRing struct {
@@ -407,8 +291,8 @@ type rawKeyRing struct {
 	LegacyKeys   LegacyKeyStorage `json:"-"`
 }
 
-func (rawKeys rawKeyRing) keys() (*keyRing, error) {
-	keyRing := newKeyRing()
+func (rawKeys rawKeyRing) keys() (*KeyRing, error) {
+	keyRing := NewKeyRing()
 	for _, rawCSAKey := range rawKeys.CSA {
 		csaKey := csakey.KeyFor(internal.NewRaw(rawCSAKey))
 		keyRing.CSA[csaKey.ID()] = csaKey

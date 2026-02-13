@@ -17,6 +17,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	chainlinkevmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
@@ -282,7 +282,7 @@ func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter commo
 	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapPeerID := "peerId"
 
-	kb, _ := ks.OCR2().Create(ctx, chaintype.EVM)
+	kb, _ := ks.OCR2().Create(ctx, corekeys.EVM)
 	_, registry := cltest.MustInsertRandomKey(t, ks.Eth())
 
 	ocr2Keeper21Job := fmt.Sprintf(ocr2Keeper21JobSpecTemplate, registry.String(), kb.ID(), transmitter,

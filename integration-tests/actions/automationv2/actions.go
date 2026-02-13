@@ -28,6 +28,7 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -44,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 type NodeDetails struct {
@@ -382,7 +382,7 @@ func (a *AutomationTest) CollectNodeDetails() error {
 			return errors.Join(err, fmt.Errorf("failed to read OCR2 keys from node %d", i))
 		}
 		for _, key := range OCR2Keys.Data {
-			if key.Attributes.ChainType == string(chaintype.EVM) {
+			if key.Attributes.ChainType == string(corekeys.EVM) {
 				nodeDetail.OCR2ConfigPublicKey = key.Attributes.ConfigPublicKey
 				nodeDetail.OCR2OffchainPublicKey = key.Attributes.OffChainPublicKey
 				nodeDetail.OCR2OnChainPublicKey = key.Attributes.OnChainPublicKey

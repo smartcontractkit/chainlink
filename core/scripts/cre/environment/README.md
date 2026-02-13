@@ -11,7 +11,6 @@ Slack: #topic-local-dev-environments
 1. [Using the CLI](#using-the-cli)
    - [Installing the binary](#installing-the-binary)
    - [Prerequisites (for Docker)](#prerequisites-for-docker)
-   - [Prerequisites For CRIB](#prerequisites-for-crib)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
       - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
@@ -145,11 +144,6 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
   - Job Distributor
 
   Git access to `Capabilities` repository is required in order to build capability binaries. Unless you plan on only using Docker images with all capabilities baked in.
-
-
-## Prerequisites For CRIB ###
-1. telepresence installed: `brew install telepresenceio/telepresence/telepresence-oss`
-2. Telepresence will update the /etc/resolver configs and will require to enter sudo password the first time you run it
 
 # QUICKSTART
 ```
@@ -764,7 +758,7 @@ Optional environment variables used by the CLI:
 - `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
 - `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
 
-When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
+When starting the environment in AWS-managed Kubernetes, make sure required ingress/domain environment variables are set before running commands.
 
 ### Testing Billing
 Spin up the billing service and necessary migrations in the `billing-platform-service` repo.
@@ -1392,7 +1386,6 @@ This section explains how to enable already implemented capabilities in existing
 The `configs/` directory contains several topology configurations:
 - `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node (default)
 - `workflow-gateway-capabilities-don.toml` - Full topology with multiple DONs
-- `workflow-don-crib.toml` - CRIB/Kubernetes deployment configuration
 - `capability_defaults.toml` - Default capability configurations and binary paths
 
 ### Capability Types and Configuration
@@ -1885,7 +1878,7 @@ Check [workflow-gateway-don.toml](configs/workflow-gateway-don.toml) for an exam
 
 ## Kubernetes Deployment
 
-This section explains how to deploy and connect to Chainlink nodes running in an existing Kubernetes cluster. Unlike Docker (which starts containers locally) or CRIB (which deploys nodes via devspace), Kubernetes mode assumes nodes are **already running** in the cluster and generates the appropriate service URLs to connect to them.
+This section explains how to deploy and connect to Chainlink nodes running in an existing Kubernetes cluster. Unlike Docker (which starts containers locally), Kubernetes mode assumes nodes are **already running** in the cluster and generates the appropriate service URLs to connect to them.
 
 The support for Kubernetes is designed to work with an internal platform for running and managing containerized applications. For more details on where to find domain names and how to configure a DON running on it, please check the internal docs.
 

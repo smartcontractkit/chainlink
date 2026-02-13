@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -21,7 +21,7 @@ func TestOCR2Keys_New(t *testing.T) {
 	var keys []ocr2key.KeyBundle
 
 	// create two keys for each chain type
-	for _, chain := range chaintype.SupportedChainTypes {
+	for _, chain := range corekeys.SupportedChainTypes {
 		pk0, err := ocr2key.New(chain)
 		require.NoError(t, err)
 		pk1, err := ocr2key.New(chain)
@@ -53,7 +53,7 @@ func TestOCR2Keys_New(t *testing.T) {
 func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 	t.Parallel()
 
-	for _, chain := range chaintype.SupportedChainTypes {
+	for _, chain := range corekeys.SupportedChainTypes {
 		kb, err := ocr2key.New(chain)
 		require.NoError(t, err)
 
