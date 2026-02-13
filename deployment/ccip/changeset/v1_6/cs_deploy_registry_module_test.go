@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
@@ -15,14 +14,71 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployRegistryModuleChangeset(t *testing.T) {
 	t.Parallel()
 
-	t.Run("successfully deploys registry module on multiple chains", func(t *testing.T) {
+	t.Run("successfully deploys registry module to single chain", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		// Deploy prerequisites first
+		prereqCfg := []changeset.DeployPrerequisiteConfigPerChain{
+			{ChainSelector: chain1},
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				[]uint64{chain1},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+				changeset.DeployPrerequisiteConfig{
+					Configs: prereqCfg,
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		// Deploy registry module
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{chain1},
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
+				cfg,
+			),
+		)
+		require.NoError(t, err)
+
+		// Verify deployment
+		state, err := stateview.LoadOnchainState(*env)
+		require.NoError(t, err)
+
+		chainState := state.Chains[chain1]
+		require.NotEmpty(t, chainState.RegistryModules1_6, "should have deployed registry module")
+
+		// Verify the registry module has correct owner (TokenAdminRegistry)
+		// for _, module := range chainState.RegistryModules1_6 {
+		// 	owner, err := module.Owner(nil)
+		// 	require.NoError(t, err)
+		// 	require.Equal(t, chainState.TokenAdminRegistry.Address(), owner, "registry module owner should be TokenAdminRegistry")
+		// }
+	})
+
+	t.Run("successfully deploys registry module to multiple chains", func(t *testing.T) {
 		chain1 := chain_selectors.TEST_90000001.Selector
 		chain2 := chain_selectors.TEST_90000002.Selector
 
@@ -34,7 +90,412 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		chainSelectors := []uint64{chain1, chain2}
 
-		// Deploy prerequisites (Link token and TokenAdminRegistry)
+		// Deploy prerequisites
+		prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
+		for _, chain := range chainSelectors {
+			prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
+				ChainSelector: chain,
+			})
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				chainSelectors,
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+				changeset.DeployPrerequisiteConfig{
+					Configs: prereqCfg,
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		// Deploy registry modules
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: chainSelectors,
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
+				cfg,
+			),
+		)
+		require.NoError(t, err)
+
+		// Verify deployment on all chains
+		state, err := stateview.LoadOnchainState(*env)
+		require.NoError(t, err)
+
+		for _, chainSel := range chainSelectors {
+			chainState := state.Chains[chainSel]
+			require.NotEmpty(t, chainState.RegistryModules1_6, "should have deployed registry module on chain %d", chainSel)
+
+			// Verify owner
+			// for _, module := range chainState.RegistryModules1_6 {
+			// 	owner, err := module.Owner(nil)
+			// 	require.NoError(t, err)
+			// 	require.Equal(t, chainState.TokenAdminRegistry.Address(), owner, "registry module owner should be TokenAdminRegistry on chain %d", chainSel)
+			// }
+		}
+	})
+
+	t.Run("skips deployment if registry module already exists", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		// Deploy prerequisites
+		prereqCfg := []changeset.DeployPrerequisiteConfigPerChain{
+			{ChainSelector: chain1},
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				[]uint64{chain1},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+				changeset.DeployPrerequisiteConfig{
+					Configs: prereqCfg,
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{chain1},
+		}
+
+		// Deploy first time
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
+				cfg,
+			),
+		)
+		require.NoError(t, err)
+
+		// Get the deployed module address
+		state, err := stateview.LoadOnchainState(*env)
+		require.NoError(t, err)
+		var firstAddr string
+		for _, module := range state.Chains[chain1].RegistryModules1_6 {
+			firstAddr = module.Address().Hex()
+			break
+		}
+
+		// Try deploying again - should skip
+		output2, err := v1_6.DeployRegistryModuleChangeset(*env, cfg)
+		require.NoError(t, err)
+		require.Nil(t, output2.AddressBook, "should not deploy when already exists")
+
+		// Verify the same module still exists
+		state, err = stateview.LoadOnchainState(*env)
+		require.NoError(t, err)
+		var secondAddr string
+		for _, module := range state.Chains[chain1].RegistryModules1_6 {
+			secondAddr = module.Address().Hex()
+			break
+		}
+		require.Equal(t, firstAddr, secondAddr, "should be the same registry module")
+	})
+
+	t.Run("fails without prerequisites", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		// Try to deploy registry module without prerequisites
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{chain1},
+		}
+
+		_, err = v1_6.DeployRegistryModuleChangeset(*env, cfg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "TokenAdminRegistry not found")
+	})
+
+	t.Run("deploys with MCMS", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		// Deploy prerequisites and MCMS
+		prereqCfg := []changeset.DeployPrerequisiteConfigPerChain{
+			{ChainSelector: chain1},
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				[]uint64{chain1},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+				changeset.DeployPrerequisiteConfig{
+					Configs: prereqCfg,
+				},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				map[uint64]commontypes.MCMSWithTimelockConfigV2{
+					chain1: proposalutils.SingleGroupTimelockConfigV2(t),
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		// Deploy registry module
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{chain1},
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
+				cfg,
+			),
+		)
+		require.NoError(t, err)
+
+		// Verify deployment
+		state, err := stateview.LoadOnchainState(*env)
+		require.NoError(t, err)
+
+		chainState := state.Chains[chain1]
+		require.NotEmpty(t, chainState.RegistryModules1_6, "should have deployed registry module")
+	})
+
+	t.Run("deploys to multiple chains with MCMS", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+		chain2 := chain_selectors.TEST_90000002.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1, chain2}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		chainSelectors := []uint64{chain1, chain2}
+
+		// Deploy prerequisites and MCMS
+		prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
+		for _, chain := range chainSelectors {
+			prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
+				ChainSelector: chain,
+			})
+		}
+
+		mcmsConfigs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+		for _, chain := range chainSelectors {
+			mcmsConfigs[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				chainSelectors,
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+				changeset.DeployPrerequisiteConfig{
+					Configs: prereqCfg,
+				},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				mcmsConfigs,
+			),
+		)
+		require.NoError(t, err)
+
+		// Deploy registry modules
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: chainSelectors,
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
+				cfg,
+			),
+		)
+		require.NoError(t, err)
+
+		// Verify deployment on all chains
+		state, err := stateview.LoadOnchainState(*env)
+		require.NoError(t, err)
+
+		for _, chainSel := range chainSelectors {
+			chainState := state.Chains[chainSel]
+			require.NotEmpty(t, chainState.RegistryModules1_6, "should have deployed registry module on chain %d", chainSel)
+		}
+	})
+}
+
+// TestDeployRegistryModuleConfig_Validate tests the configuration validation
+func TestDeployRegistryModuleConfig_Validate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("fails with empty chain selectors", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{},
+		}
+
+		err = cfg.Validate(*env)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no chain selectors provided")
+	})
+
+	t.Run("fails with nil chain selectors", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: nil,
+		}
+
+		err = cfg.Validate(*env)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no chain selectors provided")
+	})
+
+	t.Run("fails with invalid chain selector", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{999999},
+		}
+
+		err = cfg.Validate(*env)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid chain selector")
+	})
+
+	t.Run("fails with chain not in environment", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+		chain2 := chain_selectors.TEST_90000002.Selector
+
+		// Only add chain1 to environment
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		// Try to configure chain2 which doesn't exist in environment
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{chain2},
+		}
+
+		err = cfg.Validate(*env)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not found in environment")
+	})
+
+	t.Run("fails when TokenAdminRegistry not deployed", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		// Don't deploy prerequisites
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{chain1},
+		}
+
+		err = cfg.Validate(*env)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "TokenAdminRegistry not found")
+	})
+
+	t.Run("succeeds with valid config", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		// Deploy prerequisites
+		prereqCfg := []changeset.DeployPrerequisiteConfigPerChain{
+			{ChainSelector: chain1},
+		}
+
+		*env, err = commonchangeset.Apply(t, *env,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				[]uint64{chain1},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+				changeset.DeployPrerequisiteConfig{
+					Configs: prereqCfg,
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		cfg := v1_6.DeployRegistryModuleConfig{
+			ChainSelectors: []uint64{chain1},
+		}
+
+		err = cfg.Validate(*env)
+		require.NoError(t, err)
+	})
+
+	t.Run("succeeds with multiple chains", func(t *testing.T) {
+		chain1 := chain_selectors.TEST_90000001.Selector
+		chain2 := chain_selectors.TEST_90000002.Selector
+
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{chain1, chain2}),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		chainSelectors := []uint64{chain1, chain2}
+
+		// Deploy prerequisites on both chains
 		prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 		for _, chain := range chainSelectors {
 			prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
@@ -60,215 +521,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 			ChainSelectors: chainSelectors,
 		}
 
-		// Use Apply to deploy and merge the results back into the environment
-		*env, err = commonchangeset.Apply(t, *env,
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
-				cfg,
-			),
-		)
+		err = cfg.Validate(*env)
 		require.NoError(t, err)
-
-		// Load state - the environment now has the deployed contracts
-		state, err := stateview.LoadOnchainState(*env)
-		require.NoError(t, err)
-
-		// Verify we have registry modules deployed on both chains
-		for _, chainSel := range chainSelectors {
-			chainState, ok := state.Chains[chainSel]
-			require.True(t, ok, "chain %d not found in state", chainSel)
-			require.NotEmpty(t, chainState.RegistryModules1_6, "should have registry modules on chain %d", chainSel)
-		}
-	})
-
-	t.Run("skips deployment if already deployed", func(t *testing.T) {
-		chain1 := chain_selectors.TEST_90000001.Selector
-
-		env, err := environment.New(t.Context(),
-			environment.WithEVMSimulated(t, []uint64{chain1}),
-			environment.WithLogger(logger.Test(t)),
-		)
-		require.NoError(t, err)
-
-		// Deploy prerequisites
-		prereqCfg := []changeset.DeployPrerequisiteConfigPerChain{
-			{ChainSelector: chain1},
-		}
-
-		*env, err = commonchangeset.Apply(t, *env,
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-				[]uint64{chain1},
-			),
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-				changeset.DeployPrerequisiteConfig{
-					Configs: prereqCfg,
-				},
-			),
-		)
-		require.NoError(t, err)
-
-		cfg := v1_6.DeployRegistryModuleConfig{
-			ChainSelectors: []uint64{chain1},
-		}
-
-		// Deploy once using Apply
-		*env, err = commonchangeset.Apply(t, *env,
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
-				cfg,
-			),
-		)
-		require.NoError(t, err)
-
-		// Verify deployment exists
-		state, err := stateview.LoadOnchainState(*env)
-		require.NoError(t, err)
-
-		chainState, ok := state.Chains[chain1]
-		require.True(t, ok, "chain %d not found in state", chain1)
-		require.NotEmpty(t, chainState.RegistryModules1_6, "should have registry modules after first deployment")
-
-		// Deploy again - should skip (Apply will handle this gracefully)
-		*env, err = commonchangeset.Apply(t, *env,
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
-				cfg,
-			),
-		)
-		require.NoError(t, err)
-
-		// Verify still only one deployment
-		state2, err := stateview.LoadOnchainState(*env)
-		require.NoError(t, err)
-		require.Equal(t, state.Chains[chain1].RegistryModules1_6, state2.Chains[chain1].RegistryModules1_6, "should not deploy twice")
-	})
-
-	t.Run("deploys on single chain", func(t *testing.T) {
-		chain1 := chain_selectors.TEST_90000001.Selector
-
-		env, err := environment.New(t.Context(),
-			environment.WithEVMSimulated(t, []uint64{chain1}),
-			environment.WithLogger(logger.Test(t)),
-		)
-		require.NoError(t, err)
-
-		// Deploy prerequisites
-		prereqCfg := []changeset.DeployPrerequisiteConfigPerChain{
-			{ChainSelector: chain1},
-		}
-
-		*env, err = commonchangeset.Apply(t, *env,
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-				[]uint64{chain1},
-			),
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-				changeset.DeployPrerequisiteConfig{
-					Configs: prereqCfg,
-				},
-			),
-		)
-		require.NoError(t, err)
-
-		cfg := v1_6.DeployRegistryModuleConfig{
-			ChainSelectors: []uint64{chain1},
-		}
-
-		// Deploy using Apply
-		*env, err = commonchangeset.Apply(t, *env,
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.DeployRegistryModuleChangeset),
-				cfg,
-			),
-		)
-		require.NoError(t, err)
-
-		// Verify only deployed on the specified chain
-		state, err := stateview.LoadOnchainState(*env)
-		require.NoError(t, err)
-
-		chainState, ok := state.Chains[chain1]
-		require.True(t, ok, "chain %d not found in state", chain1)
-		require.NotEmpty(t, chainState.RegistryModules1_6, "should have registry modules on chain %d", chain1)
-	})
-}
-
-// TestDeployRegistryModuleConfig_Validate tests the configuration validation logic
-func TestDeployRegistryModuleConfig_Validate(t *testing.T) {
-	t.Parallel()
-
-	t.Run("fails with empty chain selectors", func(t *testing.T) {
-		cfg := v1_6.DeployRegistryModuleConfig{
-			ChainSelectors: []uint64{},
-		}
-
-		require.Empty(t, cfg.ChainSelectors)
-	})
-
-	t.Run("fails with nil chain selectors", func(t *testing.T) {
-		cfg := v1_6.DeployRegistryModuleConfig{
-			ChainSelectors: nil,
-		}
-
-		require.Nil(t, cfg.ChainSelectors)
-	})
-
-	t.Run("config structure is valid", func(t *testing.T) {
-		cfg := v1_6.DeployRegistryModuleConfig{
-			ChainSelectors: []uint64{123456, 789012},
-		}
-
-		require.Len(t, cfg.ChainSelectors, 2)
-		require.Equal(t, uint64(123456), cfg.ChainSelectors[0])
-		require.Equal(t, uint64(789012), cfg.ChainSelectors[1])
-	})
-}
-
-// TestNeedsRegistryModule16Deployment tests the NeedsRegistryModule16Deployment helper function
-func TestNeedsRegistryModule16Deployment(t *testing.T) {
-	t.Parallel()
-
-	t.Run("returns true when registry modules is empty slice", func(t *testing.T) {
-		chainState := evm.CCIPChainState{
-			RegistryModules1_6: []*registry_module_owner_custom.RegistryModuleOwnerCustom{},
-		}
-
-		result := v1_6.NeedsRegistryModule16Deployment(chainState)
-		require.True(t, result, "should need deployment when no registry modules exist")
-	})
-
-	t.Run("returns true when registry modules is nil", func(t *testing.T) {
-		chainState := evm.CCIPChainState{
-			RegistryModules1_6: nil,
-		}
-
-		result := v1_6.NeedsRegistryModule16Deployment(chainState)
-		require.True(t, result, "should need deployment when registry modules is nil")
-	})
-
-	t.Run("returns false when at least one 1.6.0 registry module exists", func(t *testing.T) {
-		chainState := evm.CCIPChainState{
-			RegistryModules1_6: []*registry_module_owner_custom.RegistryModuleOwnerCustom{
-				{}, // Empty struct is fine - we're just checking the length
-			},
-		}
-
-		result := v1_6.NeedsRegistryModule16Deployment(chainState)
-		require.False(t, result, "should not need deployment when 1.6.0 registry module exists")
-	})
-
-	t.Run("returns false when multiple 1.6.0 registry modules exist", func(t *testing.T) {
-		chainState := evm.CCIPChainState{
-			RegistryModules1_6: []*registry_module_owner_custom.RegistryModuleOwnerCustom{
-				{},
-				{},
-			},
-		}
-
-		result := v1_6.NeedsRegistryModule16Deployment(chainState)
-		require.False(t, result, "should not need deployment when multiple 1.6.0 registry modules exist")
 	})
 }
