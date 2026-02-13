@@ -446,6 +446,21 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 		return nil, errors.Wrap(dErr, "failed to map input to dons")
 	}
 	if !input.WithV2Registries {
+		for _, don := range dons.donsOrderedByID() {
+			for i, cap := range don.Capabilities {
+				if !cap.UseCapRegOCRConfig || cap.Config == nil {
+					continue
+				}
+				ocrConfig := input.CapabilityToOCR3Config[cap.Capability.LabelledName]
+				if ocrConfig == nil {
+					return nil, fmt.Errorf("no OCR3 config found for capability %s", cap.Capability.LabelledName)
+				}
+				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig); err != nil {
+					return nil, fmt.Errorf("failed to embed OCR3 config for capability %s: %w", cap.Capability.LabelledName, err)
+				}
+			}
+		}
+
 		_, seqErr := operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
