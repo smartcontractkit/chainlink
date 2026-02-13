@@ -4,6 +4,7 @@ package network
 import (
 	"context"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -829,9 +830,9 @@ func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 }
 
 // verifyBackwardCompatibility checks that all keys in MultiHeaders are also present in Headers
-// with non-empty values, ensuring backward compatibility with the deprecated Headers field.
+// with non-empty values.
 func verifyBackwardCompatibility(t *testing.T, headers map[string]string, multiHeaders map[string][]string) {
-	for key := range multiHeaders {
+	for key := range maps.Keys(multiHeaders) {
 		require.NotEmpty(t, headers[key], "Headers should contain %s for backward compatibility", key)
 	}
 }

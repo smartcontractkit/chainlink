@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"testing"
 	"time"
 
@@ -497,9 +498,9 @@ func createTestHandler(t *testing.T) *gatewayHandler {
 }
 
 // verifyBackwardCompatibility checks that all keys in MultiHeaders are also present in Headers
-// with non-empty values, ensuring backward compatibility with the deprecated Headers field.
+// with non-empty values. Same logic as in gateway/network/httpclient_test.go (package boundary).
 func verifyBackwardCompatibility(t *testing.T, headers map[string]string, multiHeaders map[string][]string) {
-	for key := range multiHeaders {
+	for key := range maps.Keys(multiHeaders) {
 		require.NotEmpty(t, headers[key], "Headers should contain %s for backward compatibility", key)
 	}
 }
@@ -591,6 +592,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 			StatusCode: 200,
 			Headers: map[string]string{
 				"Set-Cookie": "sessionid=abc123; Path=/; HttpOnly, csrf_token=xyz789; Path=/; Secure",
+				"Via":        "1.0 proxy1,1.1 proxy2",
 			},
 			MultiHeaders: map[string][]string{
 				"Set-Cookie": {
@@ -626,6 +628,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		// Verify Headers field is also set (for backward compatibility)
 		require.NotNil(t, response.Headers, "Headers should not be nil")
 		require.NotEmpty(t, response.Headers["Set-Cookie"], "Headers should contain Set-Cookie")
+		require.NotEmpty(t, response.Headers["Via"], "Headers should contain Via")
 
 		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
 		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders)

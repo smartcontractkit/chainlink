@@ -64,7 +64,7 @@ func RunHTTPActionSuccessWorkflow(wfCfg config.Config, _ *slog.Logger, _ cre.Sec
 	}, nil
 }
 
-func onCronTrigger(wfCfg config.Config, runtime cre.Runtime, payload *cron.Payload) (_ any, _ error) {
+func onCronTrigger(wfCfg config.Config, runtime cre.Runtime, payload *cron.Payload) (any, error) {
 	logger := runtime.Logger()
 	logger.Info(
 		"HTTP Action workflow triggered",
