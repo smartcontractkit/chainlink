@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"strconv"
 
@@ -110,6 +109,10 @@ type Services struct {
 	OCRConfigService capregconfig.OCRConfigService
 }
 
+func (s *Services) close() error {
+	return s.WorkflowLimits.Close()
+}
+
 // newSubservices initializes and returns all CRE child services
 func (s *Services) newSubservices(
 	ctx context.Context,
@@ -149,7 +152,6 @@ func (s *Services) newSubservices(
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
 	}
 	s.WorkflowLimits = workflowLimits
-	srvs = append(srvs, closerService{name: "WorkflowExecutionLimiter", Closer: workflowLimits})
 
 	if capCfg.GatewayConnector().DonID() != "" {
 		lggr.Debugw("Creating GatewayConnector wrapper", "donID", capCfg.GatewayConnector().DonID())
@@ -650,7 +652,7 @@ func newBillingClient(ctx context.Context, lggr logger.Logger, cfg Config, keySt
 	return billing.NewWorkflowClient(lggr, cfg.Billing().URL(), workflowOpts...)
 }
 
-func newShardOrchestratorClient(ctx context.Context, cfg Config, lggr logger.Logger) (*shardorchestrator.Client, error) {
+func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestrator.Client, error) {
 	shardID := cfg.Sharding().ShardIndex()
 	if shardID == 0 {
 		return nil, nil
@@ -661,7 +663,7 @@ func newShardOrchestratorClient(ctx context.Context, cfg Config, lggr logger.Log
 		return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
 	}
 
-	client, err := shardorchestrator.NewClient(ctx, address.String(), lggr)
+	client, err := shardorchestrator.NewClient(address.String(), lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
 	}
@@ -757,7 +759,6 @@ func newWorkflowRegistrySyncerV1(
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
-	srvcs = append(srvcs, closerService{name: "WorkflowEngineLimiters", Closer: engineLimiters})
 
 	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
 	if err != nil {
@@ -787,7 +788,7 @@ func newWorkflowRegistrySyncerV1(
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
 	if err != nil {
-		return nil, errors.New("failed to instantiate contract reader factory")
+		return nil, fmt.Errorf("failed to instantiate contract reader factory: %w", err)
 	}
 
 	wfSyncer, err := syncerV1.NewWorkflowRegistry(
@@ -914,7 +915,6 @@ func newWorkflowRegistrySyncerV2(
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
-	srvcs = append(srvcs, closerService{name: "WorkflowEngineLimiters", Closer: engineLimiters})
 
 	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
 	if err != nil {
@@ -948,12 +948,9 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, errors.New("failed to instantiate contract reader factory")
 	}
 
-	shardOrchestratorClient, err := newShardOrchestratorClient(ctx, cfg, lggr)
+	shardOrchestratorClient, err := newShardOrchestratorClient(cfg, lggr)
 	if err != nil {
 		return nil, nil, err
-	}
-	if shardOrchestratorClient != nil {
-		srvcs = append(srvcs, closerService{name: "ShardOrchestratorClient", Closer: shardOrchestratorClient})
 	}
 
 	addSources := capCfg.WorkflowRegistry().AdditionalSources()
@@ -1105,6 +1102,7 @@ func NewServices(
 			}
 			return srvs
 		},
+		Close: s.close,
 	}.NewServiceEngine(lggr)
 
 	if subservicesErr != nil {
@@ -1113,19 +1111,3 @@ func NewServices(
 
 	return s, nil
 }
-
-var _ commonsrv.Service = closerService{}
-
-// closerService extends an io.Closer to implement [services.ServiceCtx]
-type closerService struct {
-	name string
-	io.Closer
-}
-
-func (c closerService) Start(ctx context.Context) error { return nil }
-
-func (c closerService) Ready() error { return nil }
-
-func (c closerService) HealthReport() map[string]error { return map[string]error{c.Name(): nil} }
-
-func (c closerService) Name() string { return c.name }

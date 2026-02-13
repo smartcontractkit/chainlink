@@ -366,7 +366,11 @@ func (w *workflowRegistry) Close() error {
 	return w.StopOnce(w.Name(), func() error {
 		close(w.stopCh)
 		w.wg.Wait()
-		return w.handler.Close()
+		svcs := []io.Closer{w.handler}
+		if w.shardOrchestratorClient != nil {
+			svcs = append(svcs, w.shardOrchestratorClient)
+		}
+		return services.CloseAll(svcs...)
 	})
 }
 
