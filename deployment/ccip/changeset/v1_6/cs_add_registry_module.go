@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -60,6 +61,11 @@ func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 		if chainState.TokenAdminRegistry == nil {
 			return fmt.Errorf("TokenAdminRegistry not found on chain %d", chainSel)
 		}
+
+		if c.MCMSConfig == nil {
+			return errors.New("mcmsConfig is required for this changeset")
+		}
+
 	}
 
 	return nil
@@ -77,6 +83,8 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 
 	// Collect operations per chain
 	ops := make([]mcmstypes.BatchOperation, 0)
+	chainsNeedingOps := make([]uint64, 0) // Track which chains need operations
+
 	timelocks := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
@@ -101,6 +109,8 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 				"registryModule", registryModuleAddr.Hex())
 			continue
 		}
+		// Track that this chain needs an operation
+		chainsNeedingOps = append(chainsNeedingOps, chainSel)
 
 		// Create add operation for new 1.6 module
 		addTx, err := chainState.TokenAdminRegistry.AddRegistryModule(nil, registryModuleAddr)
@@ -117,9 +127,9 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 			"newModule", registryModuleAddr.Hex())
 	}
 
-	// If no operations needed, return early
-	if len(ops) == 0 {
-		e.Logger.Info("No registry module operations needed")
+	// If no operations were needed, return early
+	if len(chainsNeedingOps) == 0 {
+		e.Logger.Info("No registry module operations needed - all modules already registered")
 		return cldf.ChangesetOutput{}, nil
 	}
 
@@ -127,23 +137,41 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
-	// Generate MCMS proposal using proposalutils
+
+	// Only iterate over chains that need operations
+	for _, chainSel := range chainsNeedingOps {
+		chainState := state.Chains[chainSel]
+		// Safe to access Timelock here because validation already checked it exists
+		timelocks[chainSel] = chainState.Timelock.Address().Hex()
+
+		inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+		}
+		inspectors[chainSel] = inspector
+	}
+
+	mcmsContractByChain, err = deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig, nil)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
+
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
 		inspectors,
 		ops,
-		"PermaBless commit stores on RMN",
+		"Add Registry Module 1.6 to TokenAdminRegistry",
 		*cfg.MCMSConfig,
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
 	}
 
-	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{
-		*proposal,
-	}}, nil
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
+	}, nil
 }
 
 // isRegistryModule16 checks if the given registry module address is a 1.6 version
