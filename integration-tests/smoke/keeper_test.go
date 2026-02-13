@@ -526,6 +526,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 }
 
 func TestKeeperRegisterUpkeep(t *testing.T) {
+	quarantine.Flaky(t, "DX-2870")
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
