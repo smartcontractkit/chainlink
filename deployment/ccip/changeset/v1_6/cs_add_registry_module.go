@@ -2,25 +2,40 @@ package v1_6
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var _ cldf.ChangeSet[AddRegistryModuleConfig] = AddRegistryModuleChangeset
 
 type AddRegistryModuleConfig struct {
-	// Map of chain selector to registry module address
+	// Map of chain selector to registry module 1.6 address
 	RegistryModuleAddrs map[uint64]common.Address
+	// MCMS config
+	MCMSConfig *proposalutils.TimelockConfig
 }
 
 func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 	if len(c.RegistryModuleAddrs) == 0 {
 		return fmt.Errorf("no registry module addresses provided")
+	}
+
+	// Load state to check TokenAdminRegistry exists
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	for chainSel, addr := range c.RegistryModuleAddrs {
@@ -34,6 +49,16 @@ func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 
 		if addr == (common.Address{}) {
 			return fmt.Errorf("registry module address for chain %d is zero address", chainSel)
+		}
+
+		// Check if TokenAdminRegistry exists on the chain
+		chainState, exists := state.Chains[chainSel]
+		if !exists {
+			return fmt.Errorf("chain state not found for chain %d", chainSel)
+		}
+
+		if chainState.TokenAdminRegistry == nil {
+			return fmt.Errorf("TokenAdminRegistry not found on chain %d", chainSel)
 		}
 	}
 
@@ -50,76 +75,75 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	// Collect operations per chain
+	ops := make([]mcmstypes.BatchOperation, 0)
+	timelocks := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, registryModuleAddr := range cfg.RegistryModuleAddrs {
-		chain := e.BlockChains.EVMChains()[chainSel]
-		chainState, exists := state.Chains[chainSel]
+		chainState := state.Chains[chainSel]
+		timelocks[chainSel] = chainState.Timelock.Address().Hex()
 
-		if !exists {
-			return cldf.ChangesetOutput{}, fmt.Errorf("chain state not found for chain %d", chainSel)
+		inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 		}
 
-		// Check if TokenAdminRegistry exists
-		if chainState.TokenAdminRegistry == nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("TokenAdminRegistry not found on chain %d", chainSel)
-		}
-
-		// Check if registry module is already added
+		// Check if the 1.6 registry module we want to add is already registered
 		isAlreadyModule, err := chainState.TokenAdminRegistry.IsRegistryModule(nil, registryModuleAddr)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if registry module is already added on chain %d: %w", chainSel, err)
 		}
 
 		if isAlreadyModule {
-			// Check if it's a 1.6 registry module
-			is16Module := isRegistryModule16(chainState, registryModuleAddr)
-			if is16Module {
-				e.Logger.Infow("RegistryModule 1.6 already added to TokenAdminRegistry",
-					"chain", chainSel,
-					"registryModule", registryModuleAddr.Hex())
-				continue
-			}
-			// It's not a 1.6 module, remove the old one and add the new one
-			e.Logger.Infow("Found non-1.6 RegistryModule, updating to 1.6",
-				"chain", chainSel,
-				"oldRegistryModule", registryModuleAddr.Hex())
-
-			// Remove the old registry module
-			removeTx, err := chainState.TokenAdminRegistry.RemoveRegistryModule(chain.DeployerKey, registryModuleAddr)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove old registry module from TokenAdminRegistry on chain %d: %w", chainSel, err)
-			}
-
-			_, err = chain.Confirm(removeTx)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm registry module removal transaction on chain %d: %w", chainSel, err)
-			}
-
-			e.Logger.Infow("Removed old RegistryModule from TokenAdminRegistry",
+			e.Logger.Infow("RegistryModule 1.6 already added to TokenAdminRegistry, skipping",
 				"chain", chainSel,
 				"registryModule", registryModuleAddr.Hex())
+			continue
 		}
 
-		// Add the RegistryModule to TokenAdminRegistry. Case: no registry module existed OR removed the old one
-		e.Logger.Infow("Adding RegistryModule 1.6 to TokenAdminRegistry",
-			"chain", chainSel,
-			"registryModule", registryModuleAddr.Hex())
-
-		tx, err := chainState.TokenAdminRegistry.AddRegistryModule(chain.DeployerKey, registryModuleAddr)
+		// Create add operation for new 1.6 module
+		addTx, err := chainState.TokenAdminRegistry.AddRegistryModule(nil, registryModuleAddr)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add registry module to TokenAdminRegistry on chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create addRegistryModule transaction on chain %d: %w", chainSel, err)
 		}
+		op, err := proposalutils.BatchOperationForChain(
+			chainSel, chainState.TokenAdminRegistry.Address().String(), addTx.Data(), big.NewInt(0), shared.TokenAdminRegistry.String(), nil)
 
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm registry module registration transaction on chain %d: %w", chainSel, err)
-		}
+		ops = append(ops, op)
 
-		e.Logger.Infow("Successfully added RegistryModule 1.6 to TokenAdminRegistry",
+		e.Logger.Infow("Added add operation to batch",
 			"chain", chainSel,
-			"registryModule", registryModuleAddr.Hex())
+			"newModule", registryModuleAddr.Hex())
 	}
 
-	return cldf.ChangesetOutput{}, nil
+	// If no operations needed, return early
+	if len(ops) == 0 {
+		e.Logger.Info("No registry module operations needed")
+		return cldf.ChangesetOutput{}, nil
+	}
+
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig, nil)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
+	// Generate MCMS proposal using proposalutils
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e,
+		timelocks,
+		mcmsContractByChain,
+		inspectors,
+		ops,
+		"PermaBless commit stores on RMN",
+		*cfg.MCMSConfig,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
+	}
+
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{
+		*proposal,
+	}}, nil
 }
 
 // isRegistryModule16 checks if the given registry module address is a 1.6 version
