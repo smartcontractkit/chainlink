@@ -226,7 +226,7 @@ func TestHandleNodeMessage(t *testing.T) {
 		require.Contains(t, setCookieValues, "csrf_token=xyz789; Path=/; Secure")
 
 		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
-		verifyBackwardCompatibility(t, capturedResponse.Headers, capturedResponse.MultiHeaders)
+		verifyBackwardCompatibility(t, capturedResponse.Headers, capturedResponse.MultiHeaders) //nolint:staticcheck // SA1019: intentionally asserting deprecated Headers for backward compatibility
 	})
 
 	t.Run("returns cached response if available", func(t *testing.T) {
@@ -626,12 +626,12 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.Contains(t, response.MultiHeaders["Via"], "1.1 proxy2")
 
 		// Verify Headers field is also set (for backward compatibility)
-		require.NotNil(t, response.Headers, "Headers should not be nil")
-		require.NotEmpty(t, response.Headers["Set-Cookie"], "Headers should contain Set-Cookie")
-		require.NotEmpty(t, response.Headers["Via"], "Headers should contain Via")
+		require.NotNil(t, response.Headers, "Headers should not be nil")                           //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.NotEmpty(t, response.Headers["Set-Cookie"], "Headers should contain Set-Cookie")   //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.NotEmpty(t, response.Headers["Via"], "Headers should contain Via")                 //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
 
 		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
-		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders)
+		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders) //nolint:staticcheck // SA1019: intentionally asserting deprecated Headers for backward compatibility
 	})
 
 	t.Run("response with empty MultiHeaders still sets Headers", func(t *testing.T) {
@@ -655,10 +655,10 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
 		require.NotNil(t, response.MultiHeaders)
 		require.Equal(t, []string{"application/json"}, response.MultiHeaders["Content-Type"])
-		require.Equal(t, "application/json", response.Headers["Content-Type"])
+		require.Equal(t, "application/json", response.Headers["Content-Type"]) //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
 
 		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
-		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders)
+		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders) //nolint:staticcheck // SA1019: intentionally asserting deprecated Headers for backward compatibility
 	})
 
 	t.Run("HTTP read error sets IsExternalEndpointError to true", func(t *testing.T) {

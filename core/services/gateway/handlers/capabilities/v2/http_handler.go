@@ -332,7 +332,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	httpReq := network.HTTPRequest{
 		Method:           req.Method,
 		URL:              req.URL,
-		Headers:          req.Headers, //nolint:staticcheck
+		Headers:          req.Headers, //nolint:staticcheck // forward deprecated Headers for backward compatibility; request uses MultiHeaders when set
 		MultiHeaders:     req.MultiHeaders,
 		Body:             req.Body,
 		MaxResponseBytes: req.MaxResponseBytes,
