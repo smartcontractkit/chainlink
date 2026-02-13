@@ -76,10 +76,11 @@ func (m *pluginMetrics) recordDuration(ctx context.Context, function functionTyp
 	))
 }
 
-func (m *pluginMetrics) trackReports(ctx context.Context, function functionType, count int) {
+func (m *pluginMetrics) trackReports(ctx context.Context, function functionType, count int, success bool) {
 	m.reportsGenerated.Add(ctx, int64(count), metric.WithAttributes(
 		attribute.String("plugin", m.plugin),
 		attribute.String("function", string(function)),
+		attribute.String("success", strconv.FormatBool(success)),
 		attribute.String("configDigest", m.configDigest),
 	))
 }

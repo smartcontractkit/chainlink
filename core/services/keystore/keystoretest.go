@@ -5,8 +5,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // memoryORM is an in-memory version of the keystore. This is
@@ -50,7 +50,7 @@ func newInMemoryORM(ds sqlutil.DataSource) *memoryORM {
 
 // NewInMemory sets up a keystore which NOOPs attempts to access the `encrypted_key_rings` table. Accessing `evm.key_states`
 // will still hit the DB.
-func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, logf Logf) *master {
+func NewInMemory(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, logf Logf) *master {
 	dbORM := NewORM(ds)
 	memoryORM := newInMemoryORM(ds)
 

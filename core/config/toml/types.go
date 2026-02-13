@@ -65,6 +65,7 @@ type Core struct {
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
+	LOOPP                LOOPP                `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -112,6 +113,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
 
 	c.Sharding.setFrom(&f.Sharding)
+	c.LOOPP.setFrom(&f.LOOPP)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -2200,6 +2202,49 @@ func (s *WorkflowStorage) ValidateConfig() error {
 	return nil
 }
 
+// AdditionalWorkflowSource represents a single additional workflow metadata source
+// configured via TOML. This allows workflows to be loaded from sources other than
+// the on-chain registry contract (e.g., a GRPC service).
+type AdditionalWorkflowSource struct {
+	URL        *string `toml:"URL"`
+	TLSEnabled *bool   `toml:"TLSEnabled"`
+	Name       *string `toml:"Name"` // Human-readable name for logging
+}
+
+func (a *AdditionalWorkflowSource) setFrom(f *AdditionalWorkflowSource) {
+	if f.URL != nil {
+		a.URL = f.URL
+	}
+	if f.TLSEnabled != nil {
+		a.TLSEnabled = f.TLSEnabled
+	}
+	if f.Name != nil {
+		a.Name = f.Name
+	}
+}
+
+// GetURL implements config.AdditionalWorkflowSource.
+func (a AdditionalWorkflowSource) GetURL() string {
+	if a.URL == nil {
+		return ""
+	}
+	return *a.URL
+}
+
+func (a AdditionalWorkflowSource) GetTLSEnabled() bool {
+	if a.TLSEnabled == nil {
+		return true // Default to enabled
+	}
+	return *a.TLSEnabled
+}
+
+func (a AdditionalWorkflowSource) GetName() string {
+	if a.Name == nil {
+		return ""
+	}
+	return *a.Name
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -2210,6 +2255,7 @@ type WorkflowRegistry struct {
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
 	WorkflowStorage         WorkflowStorage
+	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -2246,6 +2292,78 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
+
+	if len(f.AdditionalSourcesConfig) > 0 {
+		r.AdditionalSourcesConfig = make([]AdditionalWorkflowSource, len(f.AdditionalSourcesConfig))
+		for i := range f.AdditionalSourcesConfig {
+			r.AdditionalSourcesConfig[i].setFrom(&f.AdditionalSourcesConfig[i])
+		}
+	}
+}
+
+// MaxAdditionalSources is the maximum number of additional workflow sources
+const MaxAdditionalSources = 5
+
+func (r *WorkflowRegistry) ValidateConfig() error {
+	if err := r.WorkflowStorage.ValidateConfig(); err != nil {
+		return err
+	}
+
+	if len(r.AdditionalSourcesConfig) > MaxAdditionalSources {
+		return configutils.ErrInvalid{
+			Name:  "AdditionalSources",
+			Value: len(r.AdditionalSourcesConfig),
+			Msg:   fmt.Sprintf("maximum %d additional sources supported", MaxAdditionalSources),
+		}
+	}
+
+	// Reserved source names that cannot be used by additional sources
+	reservedNames := map[string]bool{"ContractWorkflowSource": true}
+	seenNames := make(map[string]bool)
+
+	// Validate each source has a URL and unique Name
+	for i, src := range r.AdditionalSourcesConfig {
+		if src.URL == nil || *src.URL == "" {
+			return configutils.ErrMissing{Name: fmt.Sprintf("AdditionalSources[%d].URL", i)}
+		}
+
+		// Require Name field
+		if src.Name == nil || *src.Name == "" {
+			return configutils.ErrMissing{Name: fmt.Sprintf("AdditionalSources[%d].Name", i)}
+		}
+		name := *src.Name
+
+		// Check reserved names
+		if reservedNames[name] {
+			return configutils.ErrInvalid{
+				Name:  fmt.Sprintf("AdditionalSources[%d].Name", i),
+				Value: name,
+				Msg:   "name is reserved for internal use",
+			}
+		}
+
+		// Check uniqueness
+		if seenNames[name] {
+			return configutils.ErrInvalid{
+				Name:  fmt.Sprintf("AdditionalSources[%d].Name", i),
+				Value: name,
+				Msg:   "duplicate source name; each additional source must have a unique name",
+			}
+		}
+		seenNames[name] = true
+	}
+
+	return nil
+}
+
+// AdditionalSources returns the list of additional workflow sources.
+// Implements config.CapabilitiesWorkflowRegistry.
+func (r WorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource {
+	result := make([]config.AdditionalWorkflowSource, len(r.AdditionalSourcesConfig))
+	for i := range r.AdditionalSourcesConfig {
+		result[i] = r.AdditionalSourcesConfig[i]
+	}
+	return result
 }
 
 type Dispatcher struct {
@@ -2396,6 +2514,30 @@ type Capabilities struct {
 	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
 	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
 	GatewayConnector GatewayConnector         `toml:",omitempty"`
+	Local            LocalCapabilities        `toml:",omitempty"`
+}
+
+// LocalCapabilities configures registry-based capability launching.
+// Capabilities in RegistryBasedLaunchAllowlist are started from the on-chain registry
+// instead of via job specs.
+type LocalCapabilities struct {
+	// RegistryBasedLaunchAllowlist contains regex patterns that match capability IDs to be
+	// launched from the capabilities registry instead of via job specs.
+	// Examples (regex patterns):
+	//   - "^cron@1\.0\.0$" matches exactly "cron@1.0.0"
+	//   - "^http-action@.*$" matches any version of http-action
+	//   - ".*" matches all capabilities
+	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
+	// Capabilities contains per-capability node configuration, keyed by capability ID.
+	Capabilities map[string]CapabilityNodeConfig `toml:",omitempty"`
+}
+
+// CapabilityNodeConfig contains node-specific configuration for a capability.
+type CapabilityNodeConfig struct {
+	// BinaryPathOverride overrides the default binary path for a LOOP capability.
+	BinaryPathOverride *string `toml:",omitempty"`
+	// Config contains capability-specific configuration as key-value pairs.
+	Config map[string]string `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
@@ -2406,6 +2548,68 @@ func (c *Capabilities) setFrom(f *Capabilities) {
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)
 	c.GatewayConnector.setFrom(&f.GatewayConnector)
+	c.Local.setFrom(&f.Local)
+}
+
+func (l *LocalCapabilities) setFrom(f *LocalCapabilities) {
+	if f.RegistryBasedLaunchAllowlist != nil {
+		l.RegistryBasedLaunchAllowlist = f.RegistryBasedLaunchAllowlist
+	}
+	if f.Capabilities != nil {
+		if l.Capabilities == nil {
+			l.Capabilities = make(map[string]CapabilityNodeConfig)
+		}
+		for k, v := range f.Capabilities {
+			existing := l.Capabilities[k]
+			existing.setFrom(&v)
+			l.Capabilities[k] = existing
+		}
+	}
+}
+
+func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
+	if f.BinaryPathOverride != nil {
+		c.BinaryPathOverride = f.BinaryPathOverride
+	}
+	if f.Config != nil {
+		if c.Config == nil {
+			c.Config = make(map[string]string)
+		}
+		for k, v := range f.Config {
+			c.Config[k] = v
+		}
+	}
+}
+
+// capabilityIDRegex matches capability IDs in the format "name@version" where:
+// - name: lowercase letters, numbers, and hyphens (e.g., "http-action", "cron")
+// - version: semantic version (e.g., "1.0.0", "1.0.0-alpha")
+var capabilityIDRegex = regexp.MustCompile(`^[a-z][a-z0-9-]*@[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$`)
+
+// ValidateCapabilityID validates that a capability ID matches the expected format "name@version".
+func ValidateCapabilityID(capID string) error {
+	if !capabilityIDRegex.MatchString(capID) {
+		return configutils.ErrInvalid{
+			Name:  "CapabilityID",
+			Value: capID,
+			Msg:   "must be in format 'name@version' (e.g., 'http-action@1.0.0')",
+		}
+	}
+	return nil
+}
+
+func (l *LocalCapabilities) ValidateConfig() (err error) {
+	for _, pattern := range l.RegistryBasedLaunchAllowlist {
+		if _, regexErr := regexp.Compile(pattern); regexErr != nil {
+			err = errors.Join(err, fmt.Errorf("Capabilities.Local.RegistryBasedLaunchAllowlist: invalid regex pattern %q: %w", pattern, regexErr))
+		}
+	}
+	for capID := range l.Capabilities {
+		if capErr := ValidateCapabilityID(capID); capErr != nil {
+			err = errors.Join(err, fmt.Errorf("Capabilities.Local.Capabilities: %w", capErr))
+		}
+	}
+	return err
 }
 
 type ThresholdKeyShareSecrets struct {
@@ -2810,4 +3014,14 @@ func (s *Sharding) ValidateConfig() (err error) {
 		}
 	}
 	return err
+}
+
+type LOOPP struct {
+	GRPCServerMaxRecvMsgSize *utils.FileSize
+}
+
+func (l *LOOPP) setFrom(f *LOOPP) {
+	if f.GRPCServerMaxRecvMsgSize != nil {
+		l.GRPCServerMaxRecvMsgSize = f.GRPCServerMaxRecvMsgSize
+	}
 }

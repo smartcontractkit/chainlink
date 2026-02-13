@@ -78,7 +78,7 @@ func (p *reportingPlugin[RI]) Reports(ctx context.Context, seqNr uint64, reports
 	result, err := withObservedExecution(ctx, p.metrics, reports, func() ([]ocr3types.ReportPlus[RI], error) {
 		return p.ReportingPlugin.Reports(ctx, seqNr, reportsPlusPrecursor)
 	})
-	p.metrics.trackReports(ctx, reports, len(result))
+	p.metrics.trackReports(ctx, reports, len(result), err == nil)
 	return result, err
 }
 
@@ -86,7 +86,7 @@ func (p *reportingPlugin[RI]) ShouldAcceptAttestedReport(ctx context.Context, se
 	result, err := withObservedExecution(ctx, p.metrics, shouldAccept, func() (bool, error) {
 		return p.ReportingPlugin.ShouldAcceptAttestedReport(ctx, seqNr, reportWithInfo)
 	})
-	p.metrics.trackReports(ctx, shouldAccept, boolToInt(result))
+	p.metrics.trackReports(ctx, shouldAccept, boolToInt(result), err == nil)
 	return result, err
 }
 
@@ -94,7 +94,7 @@ func (p *reportingPlugin[RI]) ShouldTransmitAcceptedReport(ctx context.Context, 
 	result, err := withObservedExecution(ctx, p.metrics, shouldTransmit, func() (bool, error) {
 		return p.ReportingPlugin.ShouldTransmitAcceptedReport(ctx, seqNr, reportWithInfo)
 	})
-	p.metrics.trackReports(ctx, shouldTransmit, boolToInt(result))
+	p.metrics.trackReports(ctx, shouldTransmit, boolToInt(result), err == nil)
 	return result, err
 }
 

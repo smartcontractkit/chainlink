@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type encryptedKeyRing struct {
@@ -193,7 +193,7 @@ func newKeyRing() *keyRing {
 	}
 }
 
-func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ekr encryptedKeyRing, err error) {
+func (kr *keyRing) Encrypt(password string, scryptParams keystore.ScryptParams) (ekr encryptedKeyRing, err error) {
 	marshalledRawKeyRingJson, err := json.Marshal(kr.raw())
 	if err != nil {
 		return ekr, err

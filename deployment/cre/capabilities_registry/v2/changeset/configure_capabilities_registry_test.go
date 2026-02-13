@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -315,6 +316,33 @@ dons:
       - capabilityID: "write-chain@1.0.0"
         config:
           targetChain: "ethereum"
+      - capabilityID: "consensus@1.0.0"
+        config:
+          ocr3Configs:
+            __default__:
+              deltaProgressMillis: 2000
+              deltaResendMillis: 5000
+              deltaInitialMillis: 500
+              deltaRoundMillis: 500
+              deltaGraceMillis: 200
+              deltaCertifiedCommitRequestMillis: 1000
+              deltaStageMillis: 30000
+              maxRoundsPerEpoch: 10
+              transmissionSchedule: [7]
+              maxFaultyOracles: 2
+              uniqueReports: true
+              maxDurationQueryMillis: 500
+              maxDurationObservationMillis: 500
+              maxDurationShouldAcceptMillis: 500
+              maxDurationShouldTransmitMillis: 500
+              consensusCapOffchainConfig:
+                maxQueryLengthBytes: 1048576
+                maxObservationLengthBytes: 1048576
+                maxOutcomeLengthBytes: 5242880
+                maxReportLengthBytes: 5242880
+                maxReportCount: 1000
+                outcomePruningThreshold: 3600
+                requestTimeout: "40s"
     nodes: [` + nodeID1 + `]
     f: 1
     isPublic: true
@@ -369,13 +397,51 @@ dons:
 	assert.Equal(t, expectedConfig, input.DONs[0].Config)
 
 	// Verify capability configuration is decoded properly
-	require.Len(t, input.DONs[0].CapabilityConfigurations, 1)
+	require.Len(t, input.DONs[0].CapabilityConfigurations, 2)
 	assert.Equal(t, "write-chain@1.0.0", input.DONs[0].CapabilityConfigurations[0].CapabilityID)
 	expectedCapConfig := map[string]any{
 		"targetChain": "ethereum",
 	}
 	assert.Equal(t, expectedCapConfig, input.DONs[0].CapabilityConfigurations[0].Config)
 	assert.Equal(t, []string{nodeID1}, input.DONs[0].Nodes, "should contain the correct node IDs")
+
+	// Verify OCR3 config in second capability configuration
+	assert.Equal(t, "consensus@1.0.0", input.DONs[0].CapabilityConfigurations[1].CapabilityID)
+	ocr3Configs, ok := input.DONs[0].CapabilityConfigurations[1].Config["ocr3Configs"].(map[string]any)
+	require.True(t, ok, "ocr3Configs should be a map")
+	defaultEntry, ok := ocr3Configs["__default__"]
+	require.True(t, ok, "__default__ key should exist in ocr3Configs")
+
+	// JSON-roundtrip the parsed map to OracleConfig and verify fields
+	ocrJSON, err := json.Marshal(defaultEntry)
+	require.NoError(t, err)
+	var oc ocr3.OracleConfig
+	require.NoError(t, json.Unmarshal(ocrJSON, &oc))
+
+	assert.Equal(t, uint32(2000), oc.DeltaProgressMillis)
+	assert.Equal(t, uint32(5000), oc.DeltaResendMillis)
+	assert.Equal(t, uint32(500), oc.DeltaInitialMillis)
+	assert.Equal(t, uint32(500), oc.DeltaRoundMillis)
+	assert.Equal(t, uint32(200), oc.DeltaGraceMillis)
+	assert.Equal(t, uint32(1000), oc.DeltaCertifiedCommitRequestMillis)
+	assert.Equal(t, uint32(30000), oc.DeltaStageMillis)
+	assert.Equal(t, uint64(10), oc.MaxRoundsPerEpoch)
+	assert.Equal(t, []int{7}, oc.TransmissionSchedule)
+	assert.Equal(t, 2, oc.MaxFaultyOracles)
+	assert.True(t, oc.UniqueReports)
+	assert.Equal(t, uint32(500), oc.MaxDurationQueryMillis)
+	assert.Equal(t, uint32(500), oc.MaxDurationObservationMillis)
+	assert.Equal(t, uint32(500), oc.MaxDurationShouldAcceptMillis)
+	assert.Equal(t, uint32(500), oc.MaxDurationShouldTransmitMillis)
+
+	require.NotNil(t, oc.ConsensusCapOffchainConfig, "consensusCapOffchainConfig should be parsed")
+	assert.Equal(t, uint32(1048576), oc.ConsensusCapOffchainConfig.MaxQueryLengthBytes)
+	assert.Equal(t, uint32(1048576), oc.ConsensusCapOffchainConfig.MaxObservationLengthBytes)
+	assert.Equal(t, uint32(5242880), oc.ConsensusCapOffchainConfig.MaxOutcomeLengthBytes)
+	assert.Equal(t, uint32(5242880), oc.ConsensusCapOffchainConfig.MaxReportLengthBytes)
+	assert.Equal(t, uint32(1000), oc.ConsensusCapOffchainConfig.MaxReportCount)
+	assert.Equal(t, uint64(3600), oc.ConsensusCapOffchainConfig.OutcomePruningThreshold)
+	assert.Equal(t, 40*time.Second, oc.ConsensusCapOffchainConfig.RequestTimeout)
 }
 
 // setupCapabilitiesRegistryWithMCMS sets up a test environment with MCMS infrastructure
@@ -646,6 +712,15 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			"minResponsesToAggregate": 2,
 			"messageExpiry":           "120s",
 		},
+		"ocr3Configs": map[string]any{
+			"__default__": map[string]any{
+				"signers":               []any{"AQIDBA==", "BQYHCA=="},
+				"transmitters":          []any{"AQIDBA==", "BQYHCA=="},
+				"f":                     1,
+				"offchainConfigVersion": 1,
+				"configCount":           1,
+			},
+		},
 	}
 
 	DONs := []changeset.CapabilitiesRegistryNewDONParams{
@@ -815,6 +890,32 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		assert.Equal(t, don.F, foundDON.F, "DON F value should match")
 		assert.Equal(t, don.IsPublic, foundDON.IsPublic, "DON isPublic flag should match")
 		assert.Equal(t, don.AcceptsWorkflows, foundDON.AcceptsWorkflows, "DON accepts workflows flag should match")
+
+		// Verify capability configurations (including OCR3 config)
+		require.Len(t, foundDON.CapabilityConfigurations, len(don.CapabilityConfigurations),
+			"DON %s should have the correct number of capability configs", don.Name)
+		for j, expectedCapCfg := range don.CapabilityConfigurations {
+			gotCapCfg := foundDON.CapabilityConfigurations[j]
+			assert.Equal(t, expectedCapCfg.CapabilityID, gotCapCfg.CapabilityId,
+				"capability ID should match for DON %s cap %d", don.Name, j)
+
+			gotCfg := new(pkg.CapabilityConfig)
+			require.NoError(t, gotCfg.UnmarshalProto(gotCapCfg.Config),
+				"failed to unmarshal on-chain capability config for DON %s cap %q", don.Name, expectedCapCfg.CapabilityID)
+
+			wantRaw := pkg.CapabilityConfig(expectedCapCfg.Config)
+			wantB, wantErr := wantRaw.MarshalProto()
+			require.NoError(t, wantErr,
+				"failed to marshal expected capability config for DON %s cap %q", don.Name, expectedCapCfg.CapabilityID)
+			wantCfg := new(pkg.CapabilityConfig)
+			require.NoError(t, wantCfg.UnmarshalProto(wantB),
+				"failed to unmarshal expected capability config for DON %s cap %q", don.Name, expectedCapCfg.CapabilityID)
+
+			if diff := cmp.Diff(wantCfg, gotCfg, protocmp.Transform()); diff != "" {
+				t.Errorf("capability config mismatch for DON %s cap %q (-want +got):\n%s",
+					don.Name, expectedCapCfg.CapabilityID, diff)
+			}
+		}
 	}
 
 	donsFamilyTwo, err := pkg.GetDONsInFamily(nil, capabilitiesRegistry, "don-family-2")

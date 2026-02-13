@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
+	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
@@ -45,19 +46,25 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 
 func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	nilReq := &evmcappb.WriteReportRequest{Report: nil}
+	nilReqSol := &solcappb.WriteReportRequest{Report: nil}
 	nilPb, err := anypb.New(nilReq)
 	require.NoError(t, err)
-
+	nilPbSol, err2 := anypb.New(nilReqSol)
 	capReq := capabilities.CapabilityRequest{Payload: nilPb}
-	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
-	require.NoError(t, err)
+	require.NoError(t, err2)
+	capReqBytes, err3 := pb.MarshalCapabilityRequest(capReq)
+	require.NoError(t, err3)
+	capReqSol := capabilities.CapabilityRequest{Payload: nilPbSol}
+	capReqBytesSol, err4 := pb.MarshalCapabilityRequest(capReqSol)
+	require.NoError(t, err4)
 
-	msgBody := &types.MessageBody{Payload: capReqBytes}
-
-	hasher := NewWriteReportExcludeSignaturesHasher()
-	_, err = hasher.Hash(msgBody)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "WriteReportRequest.Report is nil")
+	msgBodies := []*types.MessageBody{{Payload: capReqBytes, CapabilityId: "evm:123"}, {Payload: capReqBytesSol, CapabilityId: "solana:123"}}
+	for _, msgBody := range msgBodies {
+		hasher := NewWriteReportExcludeSignaturesHasher()
+		_, err = hasher.Hash(msgBody)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "WriteReportRequest.Report is nil")
+	}
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
@@ -149,7 +156,8 @@ func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
 	return &types.MessageBody{
-		Payload: capReqBytes,
+		Payload:      capReqBytes,
+		CapabilityId: "evm:123",
 	}
 }
 
@@ -206,6 +214,7 @@ func getWriteReportRequestWithSpendLimits(t *testing.T, data []byte, sigs [][]by
 	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
 	require.NoError(t, err)
 	return &types.MessageBody{
-		Payload: capReqBytes,
+		Payload:      capReqBytes,
+		CapabilityId: "evm:2321",
 	}
 }

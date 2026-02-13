@@ -9,12 +9,14 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -69,6 +71,7 @@ type workflowRegistry struct {
 
 	lggr                    logger.Logger
 	workflowRegistryAddress string
+	chainSelector           string
 
 	// lastSeenAllowlistedRequestsCount tracks the last seen allowlisted requests count to avoid fetching the same allowlisted requests multiple times.
 	// This value is stored in memory and not persisted to the database.
@@ -77,7 +80,14 @@ type workflowRegistry struct {
 	allowListedMu                    sync.RWMutex
 
 	contractReaderFn versioning.ContractReaderFactory
-	contractReader   types.ContractReader
+
+	// contractReader is used exclusively for fetching allowlisted requests from the WorkflowRegistry
+	// contract. This data is consumed by Vault DON nodes to authorize incoming vault requests.
+	// Workflow metadata is fetched separately via workflowSources (see below).
+	contractReader types.ContractReader
+
+	// workflowSources holds workflow metadata sources (contract, file, gRPC).
+	workflowSources []WorkflowMetadataSource
 
 	config Config
 
@@ -131,6 +141,79 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	}
 }
 
+// AdditionalSourceConfig holds configuration for an additional workflow source.
+type AdditionalSourceConfig struct {
+	URL          string
+	Name         string
+	TLSEnabled   bool
+	JWTGenerator nodeauthjwt.JWTGenerator
+}
+
+// WithAdditionalSources adds additional workflow sources to the registry.
+// Sources are detected by URL scheme:
+//   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
+//   - Otherwise -> GRPCWorkflowSource (connects to GRPC server)
+//
+// These sources supplement or replace the primary contract source.
+func WithAdditionalSources(sources []AdditionalSourceConfig) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		successCount := 0
+		failedSources := []string{}
+
+		for _, src := range sources {
+			// Detect source type by URL scheme
+			if strings.HasPrefix(src.URL, "file://") {
+				// File source - extract path from file:// URL
+				filePath := strings.TrimPrefix(src.URL, "file://")
+				fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, src.Name, filePath)
+				if err != nil {
+					wr.lggr.Errorw("Failed to create file workflow source",
+						"name", src.Name,
+						"path", filePath,
+						"error", err)
+					failedSources = append(failedSources, src.Name)
+					continue
+				}
+				wr.workflowSources = append(wr.workflowSources, fileSource)
+				successCount++
+				wr.lggr.Infow("Added file workflow source",
+					"name", src.Name,
+					"path", filePath)
+			} else {
+				// GRPC source (default)
+				grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
+					URL:          src.URL,
+					TLSEnabled:   src.TLSEnabled,
+					Name:         src.Name,
+					JWTGenerator: src.JWTGenerator,
+				})
+				if err != nil {
+					wr.lggr.Errorw("Failed to create GRPC workflow source",
+						"name", src.Name,
+						"url", src.URL,
+						"error", err)
+					failedSources = append(failedSources, src.Name)
+					continue
+				}
+				wr.workflowSources = append(wr.workflowSources, grpcSource)
+				successCount++
+				wr.lggr.Infow("Added GRPC workflow source",
+					"name", src.Name,
+					"url", src.URL,
+					"tls", src.TLSEnabled)
+			}
+		}
+
+		// Log summary if any sources failed to initialize
+		if len(failedSources) > 0 {
+			wr.lggr.Warnw("Some additional sources failed to initialize",
+				"expected", len(sources),
+				"active", successCount,
+				"failed", failedSources)
+		}
+	}
+}
+
 // WithShardOrchestratorClient sets the shard orchestrator client for querying/reporting
 // workflow mappings to shard 0. This should only be set for shards > 0.
 func WithShardOrchestratorClient(client *shardorchestrator.Client) func(*workflowRegistry) {
@@ -153,10 +236,14 @@ func WithShardID(shardID uint32) func(*workflowRegistry) {
 }
 
 // NewWorkflowRegistry returns a new v2 workflowRegistry.
+// The addr parameter is optional - if empty, no contract source will be created,
+// enabling pure GRPC-only or file-only workflow deployments.
+// The chainSelector parameter identifies the chain where the workflow registry contract is deployed.
 func NewWorkflowRegistry(
 	lggr logger.Logger,
 	contractReaderFn versioning.ContractReaderFactory,
 	addr string,
+	chainSelector string,
 	config Config,
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
@@ -172,10 +259,24 @@ func NewWorkflowRegistry(
 		return nil, err
 	}
 
+	var workflowSources []WorkflowMetadataSource
+
+	// Only add contract source if address is configured
+	if addr != "" {
+		contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr, chainSelector)
+		workflowSources = append(workflowSources, contractSource)
+		lggr.Infow("Added contract workflow source",
+			"contractAddress", addr,
+			"chainSelector", chainSelector)
+	} else {
+		lggr.Infow("No contract address configured, skipping contract workflow source")
+	}
+
 	wr := &workflowRegistry{
 		lggr:                             lggr,
 		contractReaderFn:                 contractReaderFn,
 		workflowRegistryAddress:          addr,
+		chainSelector:                    chainSelector,
 		lastSeenAllowlistedRequestsCount: big.NewInt(0),
 		config:                           config,
 		stopCh:                           make(services.StopChan),
@@ -189,11 +290,16 @@ func NewWorkflowRegistry(
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
 		},
+		workflowSources: workflowSources,
 	}
 
 	for _, opt := range opts {
 		opt(wr)
 	}
+
+	lggr.Infow("Initialized workflow registry with multi-source support",
+		"sourceCount", len(wr.workflowSources),
+		"hasContractSource", addr != "")
 
 	switch wr.config.SyncStrategy {
 	case SyncStrategyReconciliation:
@@ -224,10 +330,10 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 					w.lggr.Debug("shutting down workflowregistry, %s", ctx.Err())
 					return
 				case <-ticker:
-					// Async initialization of contract reader because there is an on-chain
-					// call dependency.  Blocking on initialization results in a
-					// deadlock. Instead, wait until the contract reader is ready.
-					reader, err := w.newWorkflowRegistryContractReader(ctx)
+					// Async initialization of contract reader for allowlisted requests.
+					// There is an on-chain call dependency that would cause a deadlock if we block.
+					// Instead, we poll until the contract reader is ready.
+					reader, err := w.newAllowlistedRequestsContractReader(ctx)
 					if err != nil {
 						w.lggr.Infow("contract reader unavailable", "error", err.Error())
 						break
@@ -310,9 +416,16 @@ func toLocalHead(head *types.Head) Head {
 	}
 }
 
-// generateReconciliationEvents compares the workflow registry workflow metadata state against the engine registry's state.
-// Differences are handled by the event handler by creating events that are sent to the events channel for handling.
-func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendingEvents map[string]*reconciliationEvent, workflowMetadata []WorkflowMetadataView, head *types.Head) ([]*reconciliationEvent, error) {
+// generateReconciliationEvents compares workflow metadata from a specific source against the engine registry's state.
+// It only considers engines from the specified source when determining deletions. This ensures that when a source
+// fails to fetch, we don't incorrectly delete engines from other sources.
+func (w *workflowRegistry) generateReconciliationEvents(
+	_ context.Context,
+	pendingEvents map[string]*reconciliationEvent,
+	workflowMetadata []WorkflowMetadataView,
+	head *types.Head,
+	sourceName string,
+) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
 	localHead := toLocalHead(head)
 	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
@@ -353,13 +466,14 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 					ConfigURL:     wfMeta.ConfigURL,
 					Tag:           wfMeta.Tag,
 					Attributes:    wfMeta.Attributes,
+					Source:        wfMeta.Source,
 				}
 				events = append(events, &reconciliationEvent{
 					Event: Event{
 						Data: toActivatedEvent,
 						Name: WorkflowActivated,
 						Head: localHead,
-						Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner)),
+						Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s, Source: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner), sourceName),
 					},
 					signature: signature,
 					id:        id,
@@ -401,6 +515,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 					CreatedAt:     wfMeta.CreatedAt,
 					Status:        wfMeta.Status,
 					WorkflowName:  wfMeta.WorkflowName,
+					Source:        wfMeta.Source,
 				}
 				events = append(
 					[]*reconciliationEvent{
@@ -409,7 +524,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 								Data: toPausedEvent,
 								Name: WorkflowPaused,
 								Head: localHead,
-								Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner)),
+								Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s, Source: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner), sourceName),
 							},
 							signature: signature,
 							id:        id,
@@ -424,8 +539,8 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 	}
 
 	// Shut down engines that are no longer in the contract's latest workflow metadata state
-	allEngines := w.engineRegistry.GetAll()
-	for _, engine := range allEngines {
+	sourceEngines := w.engineRegistry.GetBySource(sourceName)
+	for _, engine := range sourceEngines {
 		id := engine.WorkflowID.Hex()
 		if !workflowsSeen[id] {
 			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)
@@ -440,6 +555,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 
 			toDeletedEvent := WorkflowDeletedEvent{
 				WorkflowID: engine.WorkflowID,
+				Source:     sourceName,
 			}
 			events = append(
 				[]*reconciliationEvent{
@@ -448,7 +564,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 							Data: toDeletedEvent,
 							Name: WorkflowDeleted,
 							Head: localHead,
-							Info: fmt.Sprintf("[ID: %s]", id),
+							Info: fmt.Sprintf("[ID: %s, Source: %s]", id, sourceName),
 						},
 						signature: signature,
 						id:        id,
@@ -460,7 +576,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 	}
 
 	// Clean up create events which no longer need to be attempted because
-	// the workflow no longer exists in the workflow registry contract
+	// the workflow no longer exists in this source's metadata
 	for id, event := range pendingEvents {
 		if event.Name == WorkflowActivated {
 			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
@@ -520,9 +636,10 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
+// This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(defaultTickInterval)
-	pendingEvents := map[string]*reconciliationEvent{}
+	pendingEventsBySource := make(map[string]map[string]*reconciliationEvent)
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
 		select {
@@ -535,66 +652,105 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				w.lggr.Errorw("failed to get get don from notifier", "err", err)
 				continue
 			}
-			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
-			allWorkflowsMetadata, head, err := w.getAllWorkflowsMetadata(ctx, don, w.contractReader)
-			if err != nil {
-				w.lggr.Errorw("failed to get registry state", "err", err)
-				continue
-			}
-			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
+			w.lggr.Debugw("fetching workflow metadata from all sources", "don", don.Families)
 
-			filteredWorkflowsMetadata := allWorkflowsMetadata
-			// TODO: make sure this is 100% backwards compatible
-			if w.shardingEnabled {
-				filteredWorkflowsMetadata, err = w.filterWorkflowsByShard(ctx, allWorkflowsMetadata)
-				if err != nil {
-					w.lggr.Errorw("failed to filter workflows by shard", "err", err)
+			// Process each source independently to isolate failures
+			totalWorkflowsFetched := 0
+			reconcileReport := newReconcileReport()
+
+			for _, source := range w.workflowSources {
+				sourceName := source.Name()
+				sourceIdentifier := source.SourceIdentifier()
+
+				// Initialize pending events for this source if needed
+				if pendingEventsBySource[sourceIdentifier] == nil {
+					pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
+				}
+				pendingEvents := pendingEventsBySource[sourceIdentifier]
+
+				// Fetch workflows from this source (each source handles lazy initialization internally)
+				start := time.Now()
+				workflows, head, fetchErr := source.ListWorkflowMetadata(ctx, don)
+				duration := time.Since(start)
+
+				// Record metrics for this source fetch
+				w.metrics.recordSourceFetch(ctx, sourceName, len(workflows), duration, fetchErr)
+
+				if fetchErr != nil {
+					w.lggr.Errorw("Failed to fetch from source, skipping reconciliation for this source",
+						"source", sourceName, "error", fetchErr, "durationMs", duration.Milliseconds())
+					// KEY: Skip this source entirely - no events generated, no deletions
 					continue
 				}
-				w.lggr.Debugw("filtered workflows by shard", "total", len(allWorkflowsMetadata), "filtered", len(filteredWorkflowsMetadata), "shardID", w.myShardID)
-			}
 
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(filteredWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
-			events, err := w.generateReconciliationEvents(ctx, pendingEvents, filteredWorkflowsMetadata, head)
-			if err != nil {
-				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
-				continue
-			}
-			w.lggr.Debugw("generated events to reconcile", "num", len(events), "events", events)
+				totalWorkflowsFetched += len(workflows)
+				w.lggr.Debugw("Fetched workflows from source",
+					"source", sourceName,
+					"count", len(workflows),
+					"durationMs", duration.Milliseconds())
 
-			pendingEvents = map[string]*reconciliationEvent{}
+				filteredWorkflowsMetadata := workflows
+				if w.shardingEnabled {
+					filteredWorkflowsMetadata, err = w.filterWorkflowsByShard(ctx, workflows)
+					if err != nil {
+						w.lggr.Errorw("failed to filter workflows by shard",
+							"err", err,
+							"source", sourceName)
+						continue
+					}
+					w.lggr.Debugw("filtered workflows by shard",
+						"total", len(allWorkflowsMetadata),
+						"filtered", len(filteredWorkflowsMetadata),
+						"shardID", w.myShardID,
+						"source", sourceName,
+					)
+				}
 
-			// Send events generated from differences to the handler
-			reconcileReport := newReconcileReport()
-			for _, event := range events {
-				select {
-				case <-ctx.Done():
-					w.lggr.Debug("readRegistryStateLoop stopped during processing")
-					return
-				default:
-					w.lggr.Debugw("processing event", "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
-					reconcileReport.NumEventsByType[string(event.Name)]++
+				// Generate events only for this source's engines (using sourceIdentifier for engine registry lookups)
+				events, genErr := w.generateReconciliationEvents(ctx, pendingEvents, filteredWorkflowsMetadata, head, sourceIdentifier)
+				if genErr != nil {
+					w.lggr.Errorw("Failed to generate reconciliation events for source",
+						"source", sourceName, "error", genErr)
+					continue
+				}
 
-					if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-						err := w.handleWithMetrics(ctx, event.Event)
-						if err != nil {
-							event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
 
-							pendingEvents[event.id] = event
+				// Clear pending events after successful reconciliation
+				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
+
+				// Handle events (shared handler)
+				for _, event := range events {
+					select {
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped during processing")
+						return
+					default:
+						w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
+						reconcileReport.NumEventsByType[string(event.Name)]++
+
+						if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
+							handleErr := w.handleWithMetrics(ctx, event.Event)
+							if handleErr != nil {
+								event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+
+								pendingEventsBySource[sourceIdentifier][event.id] = event
+
+								reconcileReport.Backoffs[event.id] = event.nextRetryAt
+								w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
+							}
+						} else {
+							// It's not ready to execute yet, let's put it back on the pending queue.
+							pendingEventsBySource[sourceIdentifier][event.id] = event
 
 							reconcileReport.Backoffs[event.id] = event.nextRetryAt
-							w.lggr.Errorw("failed to handle event, backing off...", "err", err, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
+							w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 						}
-					} else {
-						// It's not ready to execute yet, let's put it back on the pending queue.
-						pendingEvents[event.id] = event
-
-						reconcileReport.Backoffs[event.id] = event.nextRetryAt
-						w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 					}
 				}
 			}
 
+			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)
 			w.lggr.Debugw("reconciled events", "report", reconcileReport)
 
 			runningWorkflows := w.engineRegistry.GetAll()
@@ -620,35 +776,15 @@ func isEmptyWorkflowID(wfID [32]byte) bool {
 	return wfID == emptyID
 }
 
-// validateWorkflowMetadata logs warnings for incomplete workflow metadata from contract
-func validateWorkflowMetadata(wfMeta workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, lggr logger.Logger) {
-	if isEmptyWorkflowID(wfMeta.WorkflowId) {
-		lggr.Warnw("Workflow has empty WorkflowID from contract",
-			"workflowName", wfMeta.WorkflowName,
-			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),
-			"binaryURL", wfMeta.BinaryUrl,
-			"configURL", wfMeta.ConfigUrl)
-	}
-
-	if len(wfMeta.Owner.Bytes()) == 0 {
-		lggr.Warnw("Workflow has empty Owner from contract",
-			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
-			"workflowName", wfMeta.WorkflowName,
-			"binaryURL", wfMeta.BinaryUrl,
-			"configURL", wfMeta.ConfigUrl)
-	}
-
-	if wfMeta.BinaryUrl == "" || wfMeta.ConfigUrl == "" {
-		lggr.Warnw("Workflow has empty BinaryURL or ConfigURL from contract",
-			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
-			"workflowName", wfMeta.WorkflowName,
-			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),
-			"binaryURL", wfMeta.BinaryUrl,
-			"configURL", wfMeta.ConfigUrl)
-	}
-}
-
-func (w *workflowRegistry) newWorkflowRegistryContractReader(
+// newAllowlistedRequestsContractReader creates a contract reader specifically for fetching
+// allowlisted requests from the WorkflowRegistry contract. This is used by Vault DON nodes
+// to verify that incoming vault requests have been pre-authorized on-chain by workflow owners.
+//
+// Note: Workflow metadata is fetched separately via ContractWorkflowSource, which maintains
+// its own contract reader. The two concerns are separated because:
+//   - Allowlisted requests: Used by Vault DON for request authorization
+//   - Workflow metadata: Used by workflow engine for deployment/reconciliation
+func (w *workflowRegistry) newAllowlistedRequestsContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
 	contractReaderCfg := config.ChainReaderConfig{
@@ -656,10 +792,6 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 			WorkflowRegistryContractName: {
 				ContractABI: workflow_registry_wrapper_v2.WorkflowRegistryABI,
 				Configs: map[string]*config.ChainReaderDefinition{
-					GetWorkflowsByDONMethodName: {
-						ChainSpecificName: GetWorkflowsByDONMethodName,
-						ReadType:          config.Method,
-					},
 					GetActiveAllowlistedRequestsReverseMethodName: {
 						ChainSpecificName: GetActiveAllowlistedRequestsReverseMethodName,
 						ReadType:          config.Method,
@@ -698,128 +830,6 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	}
 
 	return reader, nil
-}
-
-// getAllWorkflowsMetadata uses contract reader to query the WorkflowRegistry contract using the method getWorkflowListByDON.
-// It gets metadata for all workflows assigned to any of current DON's families.
-func (w *workflowRegistry) getAllWorkflowsMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
-	if contractReader == nil {
-		return nil, nil, errors.New("cannot fetch workflow metadata: nil contract reader")
-	}
-	contractBinding := types.BoundContract{
-		Address: w.workflowRegistryAddress,
-		Name:    WorkflowRegistryContractName,
-	}
-
-	readIdentifier := contractBinding.ReadIdentifier(GetWorkflowsByDONMethodName)
-	var headAtLastRead *types.Head
-	var allWorkflows []WorkflowMetadataView
-
-	for _, family := range don.Families {
-		params := GetWorkflowListByDONParams{
-			DonFamily: family,
-			Start:     big.NewInt(0),
-			Limit:     big.NewInt(MaxResultsPerQuery),
-		}
-
-		for {
-			var err error
-			var workflows struct {
-				List []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
-			}
-
-			headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
-			if err != nil {
-				return []WorkflowMetadataView{}, &types.Head{Height: "0"}, fmt.Errorf("failed to get lastest value with head data %w", err)
-			}
-
-			for _, wfMeta := range workflows.List {
-				// Log warnings for incomplete metadata but don't skip processing
-				validateWorkflowMetadata(wfMeta, w.lggr)
-
-				// TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-1021 load balance across workflow nodes in DON Family
-				allWorkflows = append(allWorkflows, WorkflowMetadataView{
-					WorkflowID:   wfMeta.WorkflowId,
-					Owner:        wfMeta.Owner.Bytes(),
-					CreatedAt:    wfMeta.CreatedAt,
-					Status:       wfMeta.Status,
-					WorkflowName: wfMeta.WorkflowName,
-					BinaryURL:    wfMeta.BinaryUrl,
-					ConfigURL:    wfMeta.ConfigUrl,
-					Tag:          wfMeta.Tag,
-					Attributes:   wfMeta.Attributes,
-					DonFamily:    wfMeta.DonFamily,
-				})
-			}
-
-			// if less workflows than limit, then we have reached the end of the list
-			if int64(len(workflows.List)) < MaxResultsPerQuery {
-				break
-			}
-
-			// otherwise, increment the start parameter and continue to fetch more workflows
-			params.Start.Add(params.Start, big.NewInt(int64(len(workflows.List))))
-		}
-	}
-
-	if headAtLastRead == nil {
-		return allWorkflows, &types.Head{Height: "0"}, nil
-	}
-
-	return allWorkflows, headAtLastRead, nil
-}
-
-func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, allWorkflows []WorkflowMetadataView) ([]WorkflowMetadataView, error) {
-	if len(allWorkflows) == 0 {
-		return allWorkflows, nil
-	}
-
-	// If sharding is not enabled or client is not configured, return all workflows (backwards compatible)
-	if !w.shardingEnabled || w.shardOrchestratorClient == nil {
-		w.lggr.Debugw("Sharding not enabled, processing all workflows", "count", len(allWorkflows))
-		return allWorkflows, nil
-	}
-
-	w.lggr.Debugw("Shard filtering workflows", "count", len(allWorkflows))
-
-	workflowIDs := make([]string, 0, len(allWorkflows))
-	for _, wf := range allWorkflows {
-		w.lggr.Debugw("Shard filtering workflow", "workflowID", wf.WorkflowID, "owner", wf.Owner)
-		workflowIDs = append(workflowIDs, wf.WorkflowID.Hex())
-	}
-
-	mappings, err := w.getShardMappings(ctx, workflowIDs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get shard mappings: %w", err)
-	}
-
-	w.lggr.Debugw("Shard filtering mappings", "count", len(mappings))
-
-	filtered := make([]WorkflowMetadataView, 0)
-	for _, wf := range allWorkflows {
-		wfID := wf.WorkflowID.Hex()
-		if shardID, ok := mappings[wfID]; ok && shardID == w.myShardID {
-			filtered = append(filtered, wf)
-		}
-	}
-
-	// TODO: add logic that reports unexected scenarios, e.g. missing mappings or duplicated mappings (here defensive, in Ring proper defaults)
-	w.lggr.Debugw("Completed shard filtering workflows", "originalCount", len(allWorkflows), "filteredCount", len(filtered), "shardID", w.myShardID)
-
-	return filtered, nil
-}
-
-func (w *workflowRegistry) getShardMappings(ctx context.Context, workflowIDs []string) (map[string]uint32, error) {
-	if w.shardOrchestratorClient == nil {
-		return nil, fmt.Errorf("shard orchestrator client not configured")
-	}
-
-	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Mappings, nil
 }
 
 func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
