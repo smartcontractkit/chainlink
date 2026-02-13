@@ -1242,6 +1242,7 @@ runner-test-matrix:
         -- -v -run "^(TestVRFv2Plus|TestVRFv2PlusMultipleSendingKeys|TestVRFv2PlusMigration|TestVRFv2PlusReplayAfterTimeout|TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays|TestVRFv2PlusNodeReorg|TestVRFv2PlusBatchFulfillmentEnabledDisabled|TestVRFv2PlusWithBHS|TestVRFv2PlusWithBHF)$" -timeout 30m -count=1 -parallel=9 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-vrf2plus-evm-simulated
     test_go_project_path: integration-tests
+    free_disk_space: true
   # VRFv2Plus tests on any live testnet (test_config_override_path required)
   # Tests have to run in sequence because of a single private key used
 
