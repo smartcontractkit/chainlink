@@ -1337,6 +1337,7 @@ runner-test-matrix:
         -- -v -run "^TestLogPollerWithChaosFixedDepth$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosFinalityTag$
     path: integration-tests/smoke/log_poller_test.go
@@ -1397,6 +1398,7 @@ runner-test-matrix:
         -- -v -run "^TestLogPollerWithChaosPostgresFixedDepth$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: smoke/log_poller_test.go:^TestLogPollerReplayFixedDepth$
     path: integration-tests/smoke/log_poller_test.go
@@ -1621,6 +1623,7 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: smoke/ccip/ccip_gas_price_updates_test.go:^Test_CCIPGasPriceUpdatesWriteFrequency$
     path: integration-tests/smoke/ccip/ccip_gas_price_updates_test.go
@@ -2021,6 +2024,7 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: smoke/ccip/ccip_jobspec_test.go.go:TestRevokeJobs
     path: integration-tests/smoke/ccip/ccip_jobspec_test.go
@@ -2070,6 +2074,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: ccip-smoke-usdc
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -2185,6 +2190,7 @@ runner-test-matrix:
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/db-compatibility.toml
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: ccip-smoke-leader-lane
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -2250,6 +2256,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -2357,6 +2364,7 @@ runner-test-matrix:
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
     test_go_project_path: integration-tests
+    free_disk_space: true
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
