@@ -26,34 +26,32 @@ import (
 )
 
 type oracleFactory struct {
-	database               ocr3types.Database
-	jobID                  int32
-	jobName                string
-	jobORM                 job.ORM
-	kb                     ocr2key.KeyBundle
-	lggr                   logger.Logger
-	config                 job.OracleFactoryConfig
-	onchainSigningStrategy job.OnchainSigningStrategy
-	peerWrapper            *ocrcommon.SingletonPeerWrapper
-	relayerSet             *RelayerSet
-	ocrKeystore            keystore.OCR2
-	ethKeystore            keystore.Eth
-	ocrConfigService       capregconfig.OCRConfigService
-	capabilityID           string // Capability ID for registry-based config lookup
+	database         ocr3types.Database
+	jobID            int32
+	jobName          string
+	jobORM           job.ORM
+	kb               ocr2key.KeyBundle
+	lggr             logger.Logger
+	config           job.OracleFactoryConfig
+	peerWrapper      *ocrcommon.SingletonPeerWrapper
+	relayerSet       *RelayerSet
+	ocrKeystore      keystore.OCR2
+	ethKeystore      keystore.Eth
+	ocrConfigService capregconfig.OCRConfigService
+	capabilityID     string // Capability ID for registry-based config lookup
 }
 
 type OracleFactoryParams struct {
-	JobID                  int32
-	JobName                string
-	JobORM                 job.ORM
-	KB                     ocr2key.KeyBundle
-	Logger                 logger.Logger
-	Config                 job.OracleFactoryConfig
-	OnchainSigningStrategy job.OnchainSigningStrategy
-	PeerWrapper            *ocrcommon.SingletonPeerWrapper
-	RelayerSet             *RelayerSet
-	OcrKeystore            keystore.OCR2
-	EthKeystore            keystore.Eth
+	JobID       int32
+	JobName     string
+	JobORM      job.ORM
+	KB          ocr2key.KeyBundle
+	Logger      logger.Logger
+	Config      job.OracleFactoryConfig
+	PeerWrapper *ocrcommon.SingletonPeerWrapper
+	RelayerSet  *RelayerSet
+	OcrKeystore keystore.OCR2
+	EthKeystore keystore.Eth
 	// OCRConfigService provides OCR config from the capabilities registry.
 	// When set, the factory will use dynamic tracker/digester that can switch
 	// between registry-based and legacy contract-based config.
@@ -63,20 +61,19 @@ type OracleFactoryParams struct {
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	return &oracleFactory{
-		database:               OracleFactoryDB(params.JobID, params.Logger),
-		jobID:                  params.JobID,
-		jobName:                params.JobName,
-		jobORM:                 params.JobORM,
-		kb:                     params.KB,
-		lggr:                   params.Logger,
-		config:                 params.Config,
-		onchainSigningStrategy: params.OnchainSigningStrategy,
-		peerWrapper:            params.PeerWrapper,
-		relayerSet:             params.RelayerSet,
-		ocrKeystore:            params.OcrKeystore,
-		ethKeystore:            params.EthKeystore,
-		ocrConfigService:       params.OCRConfigService,
-		capabilityID:           params.CapabilityID,
+		database:         OracleFactoryDB(params.JobID, params.Logger),
+		jobID:            params.JobID,
+		jobName:          params.JobName,
+		jobORM:           params.JobORM,
+		kb:               params.KB,
+		lggr:             params.Logger,
+		config:           params.Config,
+		peerWrapper:      params.PeerWrapper,
+		relayerSet:       params.RelayerSet,
+		ocrKeystore:      params.OcrKeystore,
+		ethKeystore:      params.EthKeystore,
+		ocrConfigService: params.OCRConfigService,
+		capabilityID:     params.CapabilityID,
 	}, nil
 }
 
@@ -146,18 +143,19 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		configDigester = legacyConfigProvider.OffchainConfigDigester()
 	}
 
-	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(of.config.BootstrapPeers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse bootstrap peers: %w", err)
-	}
+	bootstrapPeers := of.peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 
+	allKeys, err := of.ocrKeystore.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all ocr2 keys: %w", err)
+	}
 	keyBundles := map[string]ocr2key.KeyBundle{}
-	for name, kbID := range of.onchainSigningStrategy.Config {
-		os, ostErr := of.ocrKeystore.Get(kbID)
-		if ostErr != nil {
-			return nil, fmt.Errorf("failed to get ocr key for key bundle ID '%s': %w", kbID, ostErr)
+	for _, kb := range allKeys {
+		ct := string(kb.ChainType())
+		if _, exists := keyBundles[ct]; exists {
+			return nil, fmt.Errorf("multiple OCR2 key bundles for chain type %q: cannot auto-select", ct)
 		}
-		keyBundles[name] = os
+		keyBundles[ct] = kb
 	}
 	onchainKeyringAdapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, of.lggr)
 	if err != nil {

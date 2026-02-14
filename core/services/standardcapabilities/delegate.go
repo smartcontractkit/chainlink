@@ -254,19 +254,18 @@ func (d *Delegate) NewServices(
 		}
 
 		oracleFactory, err = generic.NewOracleFactory(generic.OracleFactoryParams{
-			Logger:                 log,
-			JobORM:                 d.jobORM,
-			JobID:                  jobID,
-			JobName:                jobName,
-			KB:                     ocrEvmKeyBundle,
-			Config:                 oracleFactoryConfig,
-			OnchainSigningStrategy: oracleFactoryConfig.OnchainSigning,
-			PeerWrapper:            d.ocrPeerWrapper,
-			RelayerSet:             relayerSet,
-			OcrKeystore:            d.ks.OCR2(),
-			EthKeystore:            d.ks.Eth(),
-			OCRConfigService:       d.ocrConfigService,
-			CapabilityID:           capabilityID,
+			Logger:           log,
+			JobORM:           d.jobORM,
+			JobID:            jobID,
+			JobName:          jobName,
+			KB:               ocrEvmKeyBundle,
+			Config:           oracleFactoryConfig,
+			PeerWrapper:      d.ocrPeerWrapper,
+			RelayerSet:       relayerSet,
+			OcrKeystore:      d.ks.OCR2(),
+			EthKeystore:      d.ks.Eth(),
+			OCRConfigService: d.ocrConfigService,
+			CapabilityID:     capabilityID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
