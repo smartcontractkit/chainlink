@@ -40,8 +40,8 @@ const (
 
 var (
 	ErrMissingLabels         = errors.New("missing required labels: owner, workflowID, workflowExecutionID")
-	ErrNoBillingClient       = errors.New("no billing client has been configured")
-	ErrInsufficientFunding   = errors.New("insufficient funding")
+	ErrNoBillingClient       = errors.New("billing system unavailable: no billing client has been configured for this node. Workflow execution requires billing. Please ensure the billing client is configured in the node's configuration")
+	ErrInsufficientFunding   = errors.New("insufficient funding: the workflow owner does not have enough credits to execute this workflow. Please add funds to continue")
 	ErrReceiptFailed         = errors.New("failed to submit workflow receipt")
 	ErrNoReserve             = errors.New("must call Reserve first")
 	ErrStepDeductExists      = errors.New("step deduct already exists")
@@ -50,10 +50,10 @@ var (
 	ErrStepSpendExists       = errors.New("step spend already exists")
 	ErrReportNotFound        = errors.New("report not found")
 	ErrReportExists          = errors.New("report already exists")
-	ErrRatiosAndTypesNoMatch = errors.New("spending types and ratios do not match")
-	ErrInvalidRatios         = errors.New("invalid spending type ratios")
+	ErrRatiosAndTypesNoMatch = errors.New("billing configuration error: spending types and ratios do not match. The number of spend types must equal the number of spend ratios")
+	ErrInvalidRatios         = errors.New("billing configuration error: invalid spending type ratios. Ratios must be positive numbers that sum to 1.0")
 	ErrDeductOptionRequired  = errors.New("deduct option required")
-	ErrEmptyRateCard         = errors.New("empty rate card")
+	ErrEmptyRateCard         = errors.New("empty rate card: no billing rate card is configured. This may happen after a platform billing update. Please re-deploy your workflow or contact support if this persists")
 )
 
 type BillingClient interface {

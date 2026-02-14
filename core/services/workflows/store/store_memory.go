@@ -175,10 +175,15 @@ func (s *InMemoryStore) pruneExpiredExecutionEntries() {
 		case <-ticker.Chan():
 			expirationTime := s.clock.Now().Add(-s.maximumExecutionAge)
 			s.mu.Lock()
+			var prunedCompletedCount int
 			for id, state := range s.idToExecution {
 				if isCompletedStatus(state.Status) {
 					delete(s.idToExecution, id)
+					prunedCompletedCount++
 				}
+			}
+			if prunedCompletedCount > 0 {
+				s.lggr.Infow("Pruned completed workflow executions", "count", prunedCompletedCount, "remaining", len(s.idToExecution))
 			}
 
 			// Prune non-terminated executions that are older than the maximum expiration time
@@ -193,8 +198,8 @@ func (s *InMemoryStore) pruneExpiredExecutionEntries() {
 			}
 			s.mu.Unlock()
 			if len(prunedNonTerminatedExecutionIDs) > 0 {
-				s.lggr.Warnw("Found and pruned non completed workflow executions older than the maximum execution age",
-					"maximumExecutionAge", s.maximumExecutionAge, "pruned execution ids", prunedNonTerminatedExecutionIDs)
+				s.lggr.Warnw("Pruned stale non-completed workflow executions that exceeded maximum execution age. These executions may have been stuck or abandoned",
+					"maximumExecutionAge", s.maximumExecutionAge, "prunedCount", len(prunedNonTerminatedExecutionIDs), "prunedExecutionIDs", prunedNonTerminatedExecutionIDs)
 			}
 		}
 	}

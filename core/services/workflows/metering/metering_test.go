@@ -1372,7 +1372,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 				req.Metering != nil &&
 				req.Metering.Metadata != nil &&
 				req.Metering.MeteringMode &&
-				req.Metering.Message == "empty rate card"
+				req.Metering.Message == "empty rate card: no billing rate card is configured. This may happen after a platform billing update. Please re-deploy your workflow or contact support if this persists"
 		})).Return(nil, nil)
 		report := newTestReport(t, logger.Nop(), billingClient)
 		require.NoError(t, report.Reserve(t.Context()))

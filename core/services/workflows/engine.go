@@ -85,7 +85,7 @@ func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, ste
 	stepUpdateCh, ok := sucm.m[executionID]
 
 	if !ok {
-		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
+		return fmt.Errorf("step update channel not found for execution %s: the step update is being dropped. This may indicate the execution has already completed or been cleaned up", executionID)
 	}
 
 	select {
