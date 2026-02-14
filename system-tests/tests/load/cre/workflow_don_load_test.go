@@ -56,7 +56,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
-	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
@@ -1133,15 +1132,19 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get Vault capability address")
 		}
 
-		donTimeKey := datastore.NewAddressRefKey(
+		capRegVersion, ok := input.CreEnvironment.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+		if !ok {
+			return nil, errors.New("CapabilitiesRegistry version not found in contract versions")
+		}
+		capRegKey := datastore.NewAddressRefKey(
 			input.CreEnvironment.RegistryChainSelector,
-			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
-			semver.MustParse("1.0.0"),
-			don_time_feature.ContractQualifier,
+			datastore.ContractType(keystone_changeset.CapabilitiesRegistry.String()),
+			capRegVersion,
+			"",
 		)
-		donTimeAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(donTimeKey)
+		capRegAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(capRegKey)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get DON Time address")
+			return nil, errors.Wrap(err, "failed to get CapabilitiesRegistry address for DON Time")
 		}
 
 		// create job specs for the worker nodes
@@ -1179,7 +1182,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			}
 
 			jobSpecs = append(jobSpecs, WorkerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-			jobSpecs = append(jobSpecs, WorkerDonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, WorkerDonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, capRegAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 		}
 
 		return jobSpecs, nil

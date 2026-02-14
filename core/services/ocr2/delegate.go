@@ -1021,7 +1021,7 @@ func (d *Delegate) newDonTimePlugin(
 		ContractConfigTracker:        configTracker,
 		ContractTransmitter:          transmitter,
 		Database:                     ocrDB,
-		LocalConfig:                  lc,
+		LocalConfig:                  generic.AdjustLocalConfigForRegistryBasedConfig(lc),
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,
 		OffchainConfigDigester:       configDigester,
