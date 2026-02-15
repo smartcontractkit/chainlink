@@ -63,7 +63,7 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 	requestAuthorizer.On("AuthorizeRequest", mock.Anything, mock.Anything).Return(true, owner, nil).Maybe()
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
-	handler, err := NewHandler(methodConfig, donConfig, don, nil, requestAuthorizer, lggr, clock, limitsFactory)
+	handler, err := NewHandler(methodConfig, donConfig, don, nil, requestAuthorizer, lggr, clock, limitsFactory, nil)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()

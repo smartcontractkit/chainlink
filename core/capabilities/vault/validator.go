@@ -12,6 +12,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
@@ -150,6 +151,15 @@ func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner strin
 	if err != nil {
 		return errors.New("failed to verify encrypted value:" + err.Error())
 	}
+
+	// If the owner is not a valid Ethereum address (i.e., it's an org ID),
+	// we cannot validate the ciphertext label against it. The label was
+	// set by the client using the original workflow owner address.
+	// Authorization has already verified ownership, so skip label validation.
+	if !vaulttypes.IsWorkflowOwnerAddress(owner) {
+		return nil
+	}
+
 	secretLabel := cipherText.Label()
 	ownerAddr := common.HexToAddress(owner)
 	var ownerLabel [32]byte

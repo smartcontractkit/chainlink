@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -102,6 +103,7 @@ func NewReportingPluginFactory(
 	recipientKey *dkgrecipientkey.Key,
 	lazyPublicKey *vaultcap.LazyPublicKey,
 	limitsFactory limits.Factory,
+	orgResolver orgresolver.OrgResolver,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		return nil, errors.New("result package db cannot be nil")
@@ -122,6 +124,7 @@ func NewReportingPluginFactory(
 		db:            db,
 		recipientKey:  recipientKey,
 		limitsFactory: limitsFactory,
+		orgResolver:   orgResolver,
 	}, nil
 }
 
@@ -132,6 +135,7 @@ type ReportingPluginFactory struct {
 	db            dkgocrtypes.ResultPackageDatabase
 	recipientKey  *dkgrecipientkey.Key
 	limitsFactory limits.Factory
+	orgResolver   orgresolver.OrgResolver
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -313,11 +317,12 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	}
 
 	return &ReportingPlugin{
-			lggr:       r.lggr.Named("VaultReportingPlugin"),
-			store:      r.store,
-			cfg:        cfg,
-			metrics:    metrics,
-			onchainCfg: config,
+			lggr:        r.lggr.Named("VaultReportingPlugin"),
+			store:       r.store,
+			cfg:         cfg,
+			metrics:     metrics,
+			onchainCfg:  config,
+			orgResolver: r.orgResolver,
 			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
 				handle := ocr3_1types.BlobHandle{}
 				err := handle.UnmarshalBinary(data)
@@ -349,6 +354,8 @@ type ReportingPlugin struct {
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
 	metrics    *pluginMetrics
+
+	orgResolver orgresolver.OrgResolver
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -976,18 +983,24 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		namespace = vaulttypes.DefaultNamespace
 	}
 
-	if !isValidIDComponent(id.Key) || !isValidIDComponent(id.Owner) || !isValidIDComponent(namespace) {
+	// Resolve the owner to org ID if it's a workflow address
+	resolvedOwner, err := vaulttypes.ResolveOwnerToOrgID(ctx, r.orgResolver, id.Owner)
+	if err != nil {
+		return nil, newUserError("failed to resolve owner to org ID: " + err.Error())
+	}
+
+	if !isValidIDComponent(id.Key) || !isValidIDComponent(resolvedOwner) || !isValidIDComponent(namespace) {
 		return nil, newUserError("invalid secret identifier: key, owner and namespace must only contain alphanumeric characters")
 	}
 
 	newID := &vaultcommon.SecretIdentifier{
 		Key:       id.Key,
-		Owner:     id.Owner,
+		Owner:     resolvedOwner,
 		Namespace: namespace,
 	}
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: id.Owner})
-	if err := r.cfg.MaxIdentifierOwnerLengthBytes.Check(ctx, pkgconfig.Size(len(id.Owner))); err != nil {
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: resolvedOwner})
+	if err := r.cfg.MaxIdentifierOwnerLengthBytes.Check(ctx, pkgconfig.Size(len(resolvedOwner))); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
 			return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %s", errBoundLimited.Limit))

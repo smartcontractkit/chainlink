@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -35,6 +36,7 @@ type Capability struct {
 	requestAuthorizer    RequestAuthorizer
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
+	orgResolver          orgresolver.OrgResolver
 	*RequestValidator
 }
 
@@ -110,14 +112,28 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
 
-	normalizedWorkflowOwner := normalizeOwner(request.Metadata.WorkflowOwner)
+	// Resolve the workflow owner to org ID
+	orgID, err := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, request.Metadata.WorkflowOwner)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, fmt.Errorf("failed to resolve workflow owner to org ID: %w", err)
+	}
+
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
 
-		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
-			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
+		if req.Id != nil {
+			// Resolve the secret's owner to org ID for comparison
+			secretOrgID, rerr := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, req.Id.Owner)
+			if rerr != nil {
+				return capabilities.CapabilityResponse{}, fmt.Errorf("failed to resolve secret owner to org ID at index %d: %w", idx, rerr)
+			}
+			if secretOrgID != orgID {
+				return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q (orgID: %s) does not match workflow owner org ID %q at index %d", req.Id.Owner, secretOrgID, orgID, idx)
+			}
+			// Replace the owner with org ID for KV store lookups
+			req.Id.Owner = orgID
 		}
 	}
 
@@ -168,17 +184,30 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+
+	orgID, err := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, owner)
+	if err != nil {
+		s.lggr.Infof("Request Id[%s] failed to resolve owner to org ID: %s", request.RequestId, err.Error())
+		return nil, fmt.Errorf("failed to resolve owner to org ID: %w", err)
+	}
+
+	if !strings.HasPrefix(request.RequestId, orgID) {
+		// Gateway should ensure it prefixes request ids with the org ID, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with org ID: [%s]", request.RequestId, orgID)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with org ID: " + orgID)
 	}
 	for idx, req := range request.EncryptedSecrets {
-		// Ensure that users cannot access secrets belonging to other owners
-		if req.Id.Owner != owner {
-			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
-			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
+		// Resolve the secret's owner to org ID for comparison
+		secretOrgID, rerr := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, req.Id.Owner)
+		if rerr != nil {
+			return nil, fmt.Errorf("failed to resolve secret owner to org ID at index %d: %w", idx, rerr)
 		}
+		if secretOrgID != orgID {
+			s.lggr.Infof("Secret ID owner: [%s] (orgID: %s) does not match authorized owner orgID: [%s]", req.Id.Owner, secretOrgID, orgID)
+			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner org ID: " + orgID + " at index " + strconv.Itoa(idx))
+		}
+		// Replace the owner in the request with the org ID for KV store operations
+		req.Id.Owner = orgID
 	}
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -196,17 +225,28 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+
+	orgID, err := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, owner)
+	if err != nil {
+		s.lggr.Infof("Request Id[%s] failed to resolve owner to org ID: %s", request.RequestId, err.Error())
+		return nil, fmt.Errorf("failed to resolve owner to org ID: %w", err)
+	}
+
+	if !strings.HasPrefix(request.RequestId, orgID) {
+		// Gateway should ensure it prefixes request ids with the org ID, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with org ID: [%s]", request.RequestId, orgID)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with org ID: " + orgID)
 	}
 	for idx, req := range request.EncryptedSecrets {
-		// Ensure that users cannot access secrets belonging to other owners
-		if req.Id.Owner != owner {
-			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
-			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
+		secretOrgID, rerr := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, req.Id.Owner)
+		if rerr != nil {
+			return nil, fmt.Errorf("failed to resolve secret owner to org ID at index %d: %w", idx, rerr)
 		}
+		if secretOrgID != orgID {
+			s.lggr.Infof("Secret ID owner: [%s] (orgID: %s) does not match authorized owner orgID: [%s]", req.Id.Owner, secretOrgID, orgID)
+			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner org ID: " + orgID + " at index " + strconv.Itoa(idx))
+		}
+		req.Id.Owner = orgID
 	}
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -225,17 +265,28 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+
+	orgID, err := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, owner)
+	if err != nil {
+		s.lggr.Infof("Request Id[%s] failed to resolve owner to org ID: %s", request.RequestId, err.Error())
+		return nil, fmt.Errorf("failed to resolve owner to org ID: %w", err)
+	}
+
+	if !strings.HasPrefix(request.RequestId, orgID) {
+		// Gateway should ensure it prefixes request ids with the org ID, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with org ID: [%s]", request.RequestId, orgID)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with org ID: " + orgID)
 	}
 	for idx, req := range request.Ids {
-		// Ensure that users cannot access secrets belonging to other owners
-		if req.Owner != owner {
-			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Owner, owner)
-			return nil, errors.New("secret ID owner: " + req.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
+		secretOrgID, rerr := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, req.Owner)
+		if rerr != nil {
+			return nil, fmt.Errorf("failed to resolve secret owner to org ID at index %d: %w", idx, rerr)
 		}
+		if secretOrgID != orgID {
+			s.lggr.Infof("Secret ID owner: [%s] (orgID: %s) does not match authorized owner orgID: [%s]", req.Owner, secretOrgID, orgID)
+			return nil, errors.New("secret ID owner: " + req.Owner + " does not match authorized owner org ID: " + orgID + " at index " + strconv.Itoa(idx))
+		}
+		req.Owner = orgID
 	}
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -265,17 +316,20 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		s.lggr.Infof("Request ID[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+
+	orgID, err := vaulttypes.ResolveOwnerToOrgID(ctx, s.orgResolver, owner)
+	if err != nil {
+		s.lggr.Infof("Request Id[%s] failed to resolve owner to org ID: %s", request.RequestId, err.Error())
+		return nil, fmt.Errorf("failed to resolve owner to org ID: %w", err)
 	}
-	// Ensures that users cannot access secrets belonging to other owners
-	request.Owner = owner
-	if request.Owner != owner {
-		s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", request.Owner, owner)
-		return nil, errors.New("secret ID owner: " + request.Owner + " does not match authorized owner: " + owner)
+
+	if !strings.HasPrefix(request.RequestId, orgID) {
+		// Gateway should ensure it prefixes request ids with the org ID, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with org ID: [%s]", request.RequestId, orgID)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with org ID: " + orgID)
 	}
+	// Set the owner to org ID so KV lookups use the org-scoped key
+	request.Owner = orgID
 
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -300,10 +354,6 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 	return &vaultcommon.GetPublicKeyResponse{
 		PublicKey: hex.EncodeToString(pkb),
 	}, nil
-}
-
-func normalizeOwner(owner string) string {
-	return strings.ToLower(strings.TrimPrefix(owner, "0x"))
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
@@ -403,6 +453,7 @@ func NewCapability(
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
 	limitsFactory limits.Factory,
+	orgResolver orgresolver.OrgResolver,
 ) (*Capability, error) {
 	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
@@ -416,6 +467,7 @@ func NewCapability(
 		requestAuthorizer:    requestAuthorizer,
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
+		orgResolver:          orgResolver,
 		RequestValidator:     NewRequestValidator(limiter),
 	}, nil
 }

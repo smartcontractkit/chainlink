@@ -8,6 +8,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -40,11 +41,12 @@ type handlerFactory struct {
 	capabilitiesRegistry   core.CapabilitiesRegistry
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
+	orgResolver            orgresolver.OrgResolver
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, orgResolver orgresolver.OrgResolver) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
@@ -53,6 +55,7 @@ func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.D
 		capabilitiesRegistry,
 		workflowRegistrySyncer,
 		lf,
+		orgResolver,
 	}
 }
 
@@ -86,7 +89,7 @@ func (hf *handlerFactory) NewHandler(
 		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr, hf.lf)
 	case VaultHandlerType:
 		requestAuthorizer := vaultcap.NewRequestAuthorizer(hf.lggr, hf.workflowRegistrySyncer)
-		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr, clockwork.NewRealClock(), hf.lf)
+		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr, clockwork.NewRealClock(), hf.lf, hf.orgResolver)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

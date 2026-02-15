@@ -38,7 +38,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf, nil)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -136,7 +136,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf, nil)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -307,7 +307,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf, nil)
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -385,7 +385,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf, nil)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -460,7 +460,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil, lf, nil)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -1184,7 +1184,7 @@ func TestCapability_CRUD(t *testing.T) {
 			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf, nil)
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -1234,7 +1234,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 	requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, "owner", nil).Maybe()
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf, nil)
 	require.NoError(t, err)
 
 	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
@@ -1266,7 +1266,7 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	reg := coreCapabilities.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf, nil)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 

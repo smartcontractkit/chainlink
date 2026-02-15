@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -28,11 +29,12 @@ type Delegate struct {
 	capabilitiesRegistry   core.CapabilitiesRegistry
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
+	orgResolver            orgresolver.OrgResolver
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory) *Delegate {
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, orgResolver orgresolver.OrgResolver) *Delegate {
 	return &Delegate{
 		legacyChains:           legacyChains,
 		ks:                     ks,
@@ -41,6 +43,7 @@ func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, d
 		lggr:                   lggr,
 		workflowRegistrySyncer: workflowRegistrySyncer,
 		lf:                     lf,
+		orgResolver:            orgResolver,
 	}
 }
 
@@ -68,7 +71,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, err
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.workflowRegistrySyncer, d.lggr, d.lf)
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.workflowRegistrySyncer, d.lggr, d.lf, d.orgResolver)
 	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr, d.lf)
 	if err != nil {
 		return nil, err

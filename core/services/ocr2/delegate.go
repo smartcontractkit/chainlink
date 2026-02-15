@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -164,6 +165,7 @@ type Delegate struct {
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
+	orgResolver                    orgresolver.OrgResolver
 }
 
 type DelegateConfig interface {
@@ -287,6 +289,7 @@ type DelegateOpts struct {
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
+	OrgResolver                    orgresolver.OrgResolver
 }
 
 func NewDelegate(
@@ -322,6 +325,7 @@ func NewDelegate(
 		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
+		orgResolver:                    opts.OrgResolver,
 	}
 }
 
@@ -610,7 +614,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.VaultPlugin:
-		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer, d.limitsFactory)
+		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer, d.limitsFactory, d.orgResolver)
 
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
@@ -681,6 +685,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	wrapper *gatewayconnector.ServiceWrapper,
 	syncer syncerV2.WorkflowRegistrySyncer,
 	limitsFactory limits.Factory,
+	orgResolver orgresolver.OrgResolver,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
@@ -713,7 +718,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), capabilitiesRegistry, lpk, limitsFactory)
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), capabilitiesRegistry, lpk, limitsFactory, orgResolver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
@@ -826,6 +831,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		&dkgRecipientKey,
 		lpk,
 		limitsFactory,
+		orgResolver,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)

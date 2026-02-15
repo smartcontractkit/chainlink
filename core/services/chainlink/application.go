@@ -641,6 +641,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				creServices.workflowRegistrySyncer,
 				globalLogger,
 				limitsFactory,
+				creServices.orgResolver,
 			),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
@@ -762,6 +763,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
 				LimitsFactory:                  limitsFactory,
 				OCRConfigService:               creServices.ocrConfigService,
+				OrgResolver:                    creServices.orgResolver,
 			},
 			ocr2DelegateConfig,
 		)

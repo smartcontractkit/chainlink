@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -138,6 +139,7 @@ type handler struct {
 	stopCh            services.StopChan
 	requestAuthorizer vaultcap.RequestAuthorizer
 	*vaultcap.RequestValidator
+	orgResolver orgresolver.OrgResolver
 
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
@@ -173,7 +175,7 @@ type Config struct {
 	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, requestAuthorizer vaultcap.RequestAuthorizer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, requestAuthorizer vaultcap.RequestAuthorizer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory, orgResolver orgresolver.OrgResolver) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -219,6 +221,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
 		clock:               clock,
 		RequestValidator:    vaultcap.NewRequestValidator(limiter),
+		orgResolver:         orgResolver,
 	}, nil
 }
 
@@ -373,12 +376,19 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Errorw("request not authorized", "requestID", req.ID, "owner", owner, "reason:", err)
 		return errors.New("request not authorized: " + err.Error())
 	}
-	// Generate a unique ID for the request.
-	// Prefix request id with owner, to ensure uniqueness across different owners
-	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
-	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
-	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	orgID, err := vaulttypes.ResolveOwnerToOrgID(ctx, h.orgResolver, owner)
+	if err != nil {
+		h.lggr.Errorw("failed to resolve owner to org ID", "requestID", req.ID, "owner", owner, "error", err)
+		return fmt.Errorf("failed to resolve owner to org ID: %w", err)
+	}
+
+	// Generate a unique ID for the request.
+	// Prefix request id with org ID, to ensure uniqueness across different owners
+	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
+	req.ID = orgID + vaulttypes.RequestIDSeparator + req.ID
+
+	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner, "orgID", orgID)
 	ar, err := h.newActiveRequest(req, callback)
 	if err != nil {
 		return err
