@@ -16,11 +16,11 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func Test_RemoveDONsRequest_validate(t *testing.T) {

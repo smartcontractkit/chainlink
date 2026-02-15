@@ -28,6 +28,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/report"
@@ -57,7 +58,6 @@ import (
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 

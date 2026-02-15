@@ -7,8 +7,8 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey/secp256k1"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -18,10 +18,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 )
 
 // Note these tests are identical to the ones in vrf_solidity_crosscheck_test.go,

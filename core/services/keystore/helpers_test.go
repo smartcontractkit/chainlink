@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/models"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/models"
 )
 
 func ExposedNewMaster(t *testing.T, ds sqlutil.DataSource) *master {

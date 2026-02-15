@@ -11,7 +11,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 	dkg "go.dedis.ch/kyber/v3/share/dkg/rabin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey/secp256k1"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/ethschnorr"
 )

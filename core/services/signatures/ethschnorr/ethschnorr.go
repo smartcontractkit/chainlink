@@ -24,7 +24,7 @@ import (
 
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey/secp256k1"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 )
 
 var secp256k1Suite = secp256k1.NewBlakeKeccackSecp256k1()
