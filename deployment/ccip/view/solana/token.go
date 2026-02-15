@@ -17,7 +17,6 @@ import (
 type TokenView struct {
 	TokenProgramName string        `json:"tokenProgramName,omitempty"`
 	MintAuthority    string        `json:"mintAuthority,omitempty"`
-	Supply           uint64        `json:"supply,omitempty"`
 	Decimals         uint8         `json:"decimals,omitempty"`
 	IsInitialized    bool          `json:"isInitialized,omitempty"`
 	FreezeAuthority  string        `json:"freezeAuthority,omitempty"`
@@ -47,7 +46,6 @@ func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, t
 	} else {
 		view.MintAuthority = tokenMint.MintAuthority.String()
 	}
-	view.Supply = tokenMint.Supply
 	view.Decimals = tokenMint.Decimals
 	view.IsInitialized = tokenMint.IsInitialized
 	if tokenMint.FreezeAuthority == nil {

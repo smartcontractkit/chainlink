@@ -16,7 +16,6 @@ import (
 type OffRampView struct {
 	types.ContractMetaData
 	DynamicConfig                       offramp.OffRampDynamicConfig        `json:"dynamicConfig"`
-	LatestPriceSequenceNumber           uint64                              `json:"latestPriceSequenceNumber"`
 	SourceChainConfigs                  map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigs"`
 	SourceChainConfigsBasedOnTestRouter map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigsBasedOnTestRouter"`
 	StaticConfig                        offramp.OffRampStaticConfig         `json:"staticConfig"`
@@ -25,7 +24,6 @@ type OffRampView struct {
 type OffRampSourceChainConfig struct {
 	Router                    common.Address
 	IsEnabled                 bool
-	MinSeqNr                  uint64
 	IsRMNVerificationDisabled bool
 	OnRamp                    string
 }
@@ -42,11 +40,6 @@ func GenerateOffRampView(
 	dynamicConfig, err := offRampContract.GetDynamicConfig(nil)
 	if err != nil {
 		return OffRampView{}, fmt.Errorf("failed to get dynamic config: %w", err)
-	}
-
-	latestPriceSequenceNumber, err := offRampContract.GetLatestPriceSequenceNumber(nil)
-	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to get latest price sequence number: %w", err)
 	}
 
 	staticConfig, err := offRampContract.GetStaticConfig(nil)
@@ -67,7 +60,6 @@ func GenerateOffRampView(
 	return OffRampView{
 		ContractMetaData:                    tv,
 		DynamicConfig:                       dynamicConfig,
-		LatestPriceSequenceNumber:           latestPriceSequenceNumber,
 		SourceChainConfigs:                  sourceChainConfigs,
 		SourceChainConfigsBasedOnTestRouter: testSourceChainConfigs,
 		StaticConfig:                        staticConfig,
@@ -88,7 +80,6 @@ func generateSourceChainConfigs(offRampContract offramp.OffRampInterface, router
 		sourceChainConfigs[sourceChainSelector] = OffRampSourceChainConfig{
 			Router:                    sourceChainConfig.Router,
 			IsEnabled:                 sourceChainConfig.IsEnabled,
-			MinSeqNr:                  sourceChainConfig.MinSeqNr,
 			IsRMNVerificationDisabled: sourceChainConfig.IsRMNVerificationDisabled,
 			OnRamp:                    shared.GetAddressFromBytes(sourceChainSelector, sourceChainConfig.OnRamp),
 		}
