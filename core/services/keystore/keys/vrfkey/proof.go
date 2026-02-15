@@ -9,8 +9,7 @@ import (
 
 	bm "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey/secp256k1"
 )
 
 // Proof represents a proof that Gamma was constructed from the Seed

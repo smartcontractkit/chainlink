@@ -10,7 +10,7 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey/secp256k1"
 )
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {

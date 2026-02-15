@@ -3,14 +3,12 @@ package secp256k1
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestValueScanIdentityPointSet(t *testing.T) {
-	randomStream := cryptotest.NewStream(t, 0)
+	randomStream := NewStream(t, 0)
 	for range 10 {
 		p := NewBlakeKeccackSecp256k1().Point().Pick(randomStream)
 		var pk, nPk, nnPk PublicKey

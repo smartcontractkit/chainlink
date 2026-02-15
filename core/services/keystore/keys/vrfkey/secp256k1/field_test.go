@@ -7,8 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
 )
 
 var numFieldSamples = 10
@@ -26,8 +24,6 @@ func observedFieldElt(t *testing.T, s *fieldElt) {
 	require.False(t, observedFieldElts[data])
 	observedFieldElts[data] = true
 }
-
-var randomStream = cryptotest.NewStream(&testing.T{}, 0)
 
 func TestField_SetIntAndEqual(t *testing.T) {
 	tests := []int64{5, 67108864, 67108865, 4294967295}
@@ -72,7 +68,7 @@ func TestFieldEltFromInt(t *testing.T) {
 
 func TestField_SmokeTestPick(t *testing.T) {
 	f := newFieldZero()
-	f.Pick(randomStream)
+	f.Pick(randomStreamPoint)
 	observedFieldElt(t, f)
 	assert.Equal(t, 1, f.int().Cmp(big.NewInt(1000000000)),
 		"should be greater than 1000000000, with very high probability")
@@ -81,7 +77,7 @@ func TestField_SmokeTestPick(t *testing.T) {
 func TestField_Neg(t *testing.T) {
 	f := newFieldZero()
 	for range numFieldSamples {
-		f.Pick(randomStream)
+		f.Pick(randomStreamPoint)
 		observedFieldElt(t, f)
 		g := f.Clone()
 		g.Neg(g)
@@ -94,7 +90,7 @@ func TestField_Neg(t *testing.T) {
 func TestField_Sub(t *testing.T) {
 	f := newFieldZero()
 	for range numFieldSamples {
-		f.Pick(randomStream)
+		f.Pick(randomStreamPoint)
 		observedFieldElt(t, f)
 		require.True(t, f.Sub(f, f).Equal(fieldZero),
 			"subtracting something from itself should give zero: "+
@@ -115,7 +111,7 @@ func TestField_SetBytesAndBytes(t *testing.T) {
 	f := newFieldZero()
 	g := newFieldZero()
 	for range numFieldSamples {
-		f.Pick(randomStream)
+		f.Pick(randomStreamPoint)
 		observedFieldElt(t, f)
 		g.SetBytes(f.Bytes())
 		require.True(t, g.Equal(f),
@@ -129,7 +125,7 @@ func TestField_MaybeSquareRootInField(t *testing.T) {
 	minusOne := fieldEltFromInt(-1)
 	assert.Nil(t, maybeSqrtInField(minusOne), "-1 is not a square, in this field")
 	for range numFieldSamples {
-		f.Pick(randomStream)
+		f.Pick(randomStreamPoint)
 		observedFieldElt(t, f)
 		require.Equal(t, -1, f.int().Cmp(q), "picked larger value than q: %s", f)
 		require.NotEqual(t, -1, f.int().Cmp(big.NewInt(-1)),

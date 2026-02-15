@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey/secp256k1"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
