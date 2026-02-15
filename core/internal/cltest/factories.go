@@ -194,7 +194,7 @@ func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes
 func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress evmtypes.EIP55Address) job.OCROracleSpec {
 	t.Helper()
 
-	ocrKeyID := keys.MustSha256HashFromHex(DefaultOCRKeyBundleID)
+	ocrKeyID := corekeys.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OCROracleSpec{}
 	require.NoError(t, db.Get(&spec, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2pv2_bootstrappers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout, evm_chain_id) VALUES (
 NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
