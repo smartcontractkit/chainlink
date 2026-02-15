@@ -601,6 +601,10 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 				}
 			}
 
+			if expiredRequestsCount > 0 {
+				w.lggr.Infow("Pruned expired allowlisted workflow registration requests", "expiredCount", expiredRequestsCount)
+			}
+
 			// Add new requests
 			activeAllowlistedRequests = append(activeAllowlistedRequests, newAllowListedRequests...)
 			w.allowListedRequests = activeAllowlistedRequests

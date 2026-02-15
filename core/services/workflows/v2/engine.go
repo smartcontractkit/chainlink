@@ -552,7 +552,8 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			continue
 		}
 		if eventAge > triggerEventMaxAge {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds(), "maxAgeMs", triggerEventMaxAge.Milliseconds())
+			e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 			continue
 		}
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
@@ -619,7 +620,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	execCtx, execCancel, err := e.cfg.LocalLimiters.ExecutionTime.WithTimeout(ctx)
 	if err != nil {
-		lggr.Errorw("Failed to get execution time limit", "err", err)
+		lggr.Errorw("Failed to get execution time limit: workflow execution abandoned", "err", err)
+		e.metrics.IncrementWorkflowExecutionFailedCounter(ctx)
 		return
 	}
 	defer execCancel()
@@ -627,7 +629,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
-		lggr.Errorw("Failed to get log event limit", "err", err)
+		lggr.Errorw("Failed to get log event limit: workflow execution abandoned", "err", err)
+		e.metrics.IncrementWorkflowExecutionFailedCounter(ctx)
 		return
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
@@ -638,7 +641,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	tid, err := safe.IntToUint64(wrappedTriggerEvent.triggerIndex)
 	if err != nil {
-		executionLogger.Errorw("Failed to convert trigger index to uint64", "err", err)
+		executionLogger.Errorw("Failed to convert trigger index to uint64: workflow execution abandoned", "err", err)
+		e.metrics.IncrementWorkflowExecutionFailedCounter(ctx)
 		return
 	}
 
@@ -655,11 +659,13 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
-		lggr.Errorw("Failed to get execution response size limit", "err", err)
+		lggr.Errorw("Failed to get execution response size limit: workflow execution abandoned", "err", err)
+		e.metrics.IncrementWorkflowExecutionFailedCounter(ctx)
 		return
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
-		lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		lggr.Errorw("Invalid execution response size limit: workflow execution abandoned", "limit", moduleExecuteMaxResponseSizeBytes)
+		e.metrics.IncrementWorkflowExecutionFailedCounter(ctx)
 		return
 	}
 	execHelper := &ExecutionHelper{
