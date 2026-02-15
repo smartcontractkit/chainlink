@@ -676,10 +676,13 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
 		lggr.Errorw("Failed to get execution response size limit", "err", err)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, err, lggr)
 		return
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
-		lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		limitErr := fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		lggr.Errorw(limitErr.Error())
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, limitErr, lggr)
 		return
 	}
 	execHelper := &ExecutionHelper{
@@ -732,7 +735,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(execErr.Error())
 		return
@@ -747,7 +750,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, errors.New(result.GetError()), lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(result.GetError())
 		return
@@ -755,7 +758,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
+	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, nil, lggr)
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)
