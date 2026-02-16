@@ -174,11 +174,47 @@ type BoundedQueue[T any] struct {
 	mu       sync.RWMutex
 }
 
-// NewBoundedQueue creates a new BoundedQueue instance
+// NewBoundedQueue creates a new BoundedQueue instance.
+// The capacity must be greater than zero; a non-positive capacity will be
+// clamped to 1 to avoid silent misuse.
 func NewBoundedQueue[T any](capacity int) *BoundedQueue[T] {
-	var bq BoundedQueue[T]
-	bq.capacity = capacity
-	return &bq
+	if capacity <= 0 {
+		capacity = 1
+	}
+	return &BoundedQueue[T]{capacity: capacity}
+}
+
+// Len returns the current number of items in the queue.
+func (q *BoundedQueue[T]) Len() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return len(q.items)
+}
+
+// Peek returns the first item without removing it.
+// The second return value indicates whether an item was available.
+func (q *BoundedQueue[T]) Peek() (T, bool) {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	if len(q.items) == 0 {
+		var zero T
+		return zero, false
+	}
+	return q.items[0], true
+}
+
+// Clear removes all items from the queue.
+func (q *BoundedQueue[T]) Clear() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.items = nil
+}
+
+// Cap returns the maximum capacity of the queue.
+func (q *BoundedQueue[T]) Cap() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return q.capacity
 }
 
 // Add appends items to a BoundedQueue
@@ -285,6 +321,18 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 		}
 	}
 	return true
+}
+
+// Len returns the total number of items across all priority sub-queues.
+func (q *BoundedPriorityQueue[T]) Len() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	total := 0
+	for _, priority := range q.priorities {
+		total += q.queues[priority].Len()
+	}
+	return total
 }
 
 // TickerBase is an interface for pausable tickers.

@@ -79,10 +79,13 @@ func TestBoundedQueue(t *testing.T) {
 	q := utils.NewBoundedQueue[int](3)
 	require.True(t, q.Empty())
 	require.False(t, q.Full())
+	require.Equal(t, 0, q.Len())
+	require.Equal(t, 3, q.Cap())
 
 	q.Add(1)
 	require.False(t, q.Empty())
 	require.False(t, q.Full())
+	require.Equal(t, 1, q.Len())
 
 	x := q.Take()
 	require.Equal(t, 1, x)
@@ -96,6 +99,7 @@ func TestBoundedQueue(t *testing.T) {
 	q.Add(3)
 	q.Add(4)
 	require.True(t, q.Full())
+	require.Equal(t, 3, q.Len())
 
 	x = q.Take()
 	require.Equal(t, 2, x)
@@ -113,6 +117,69 @@ func TestBoundedQueue(t *testing.T) {
 	require.False(t, q.Full())
 }
 
+func TestBoundedQueue_Peek(t *testing.T) {
+	t.Parallel()
+
+	q := utils.NewBoundedQueue[string](3)
+
+	// Peek on empty queue
+	val, ok := q.Peek()
+	require.False(t, ok)
+	require.Empty(t, val)
+
+	q.Add("first")
+	q.Add("second")
+
+	// Peek returns first without removing
+	val, ok = q.Peek()
+	require.True(t, ok)
+	require.Equal(t, "first", val)
+	require.Equal(t, 2, q.Len())
+
+	// Take still returns the same item
+	taken := q.Take()
+	require.Equal(t, "first", taken)
+}
+
+func TestBoundedQueue_Clear(t *testing.T) {
+	t.Parallel()
+
+	q := utils.NewBoundedQueue[int](5)
+	q.Add(1)
+	q.Add(2)
+	q.Add(3)
+	require.Equal(t, 3, q.Len())
+
+	q.Clear()
+	require.True(t, q.Empty())
+	require.Equal(t, 0, q.Len())
+
+	// Can still add after clear
+	q.Add(42)
+	require.Equal(t, 1, q.Len())
+	val := q.Take()
+	require.Equal(t, 42, val)
+}
+
+func TestBoundedQueue_NonPositiveCapacity(t *testing.T) {
+	t.Parallel()
+
+	// Zero capacity should be clamped to 1
+	q := utils.NewBoundedQueue[int](0)
+	require.Equal(t, 1, q.Cap())
+
+	// Negative capacity should be clamped to 1
+	q2 := utils.NewBoundedQueue[int](-5)
+	require.Equal(t, 1, q2.Cap())
+
+	// Should still work correctly with clamped capacity
+	q2.Add(1)
+	q2.Add(2) // should evict 1
+	require.Equal(t, 1, q2.Len())
+	val := q2.Take()
+	require.Equal(t, 2, val)
+}
+
 func TestBoundedPriorityQueue(t *testing.T) {
 	t.Parallel()
 
@@ -121,6 +188,7 @@ func TestBoundedPriorityQueue(t *testing.T) {
 		2: 1,
 	})
 	require.True(t, q.Empty())
+	require.Equal(t, 0, q.Len())
 
 	q.Add(1, 1)
 	require.False(t, q.Empty())
