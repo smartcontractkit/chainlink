@@ -70,7 +70,6 @@ jobs:
           # - Otherwise tests are auto-discovered and run on all topologies.
           PER_TEST_MODE='replace'
           TOPOLOGIES_JSON='[
-            {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
           ]'
 
@@ -131,7 +130,7 @@ jobs:
           # - legacy vault plugin
           extra_tests='[
             {
-              "test_name": "Test_CRE_V2_Suite/[v2]_Vault_DON_-_workflow-gateway-legacy-vault-don",
+              "test_name": "Test_CRE_V2_Suite_Bucket_B/[v2]_Vault_DON_-_workflow-gateway-legacy-vault-don",
               "topology": "workflow-gateway-legacy-vault-don",
               "configs": "configs/workflow-gateway-legacy-vault-don.toml",
               "test_id": null,

@@ -39,21 +39,25 @@ var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithE
 
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPoller; this test is scheduled to be removed in the future
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPoller; this test is scheduled to be removed in the future
 func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:XTestLogPollerHeavyLoad; this test is scheduled to be removed in the future
 func XTestLogPollerManyFiltersFixedDepth(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time, remove the X from the test name to run it")
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:XTestLogPollerHeavyLoad; this test is scheduled to be removed in the future
 func XTestLogPollerManyFiltersFinalityTag(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time, remove the X from the test name to run it")
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
@@ -62,21 +66,25 @@ func XTestLogPollerManyFiltersFinalityTag(t *testing.T) {
 // consistency test that introduces random disruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPollerChaosChainlinkNodes; this test is scheduled to be removed in the future
 func TestLogPollerWithChaosFixedDepth(t *testing.T) {
 	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPollerChaosChainlinkNodes; this test is scheduled to be removed in the future
 func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-562")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPollerChaosPostgres; this test is scheduled to be removed in the future
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
 	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPollerChaosPostgres; this test is scheduled to be removed in the future
 func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
 	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	executeBasicLogPollerTest(t, logScannerSettings)
@@ -87,10 +95,12 @@ func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
 // and not by backup poller
 // with approximate emission of 24 logs per second for ~110 seconds
 // 6 filters are registered
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPollerReplay; this test is scheduled to be removed in the future
 func TestLogPollerReplayFixedDepth(t *testing.T) {
 	executeLogPollerReplay(t, "5m")
 }
 
+// Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPollerReplay; this test is scheduled to be removed in the future
 func TestLogPollerReplayFinalityTag(t *testing.T) {
 	executeLogPollerReplay(t, "5m")
 }
