@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -25,16 +24,16 @@ import (
 )
 
 type StartedDON struct {
-	NodeOutput *cre.WrappedNodeOutput
-	DON        *cre.Don
+	NodeSetOutput *cre.NodeSetOutput
+	DON           *cre.Don
 }
 
 type StartedDONs []*StartedDON
 
-func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
-	outputs := make([]*cre.WrappedNodeOutput, len(*s))
+func (s *StartedDONs) NodeOutputs() []*cre.NodeSetOutput {
+	outputs := make([]*cre.NodeSetOutput, len(*s))
 	for idx, don := range *s {
-		outputs[idx] = don.NodeOutput
+		outputs[idx] = don.NodeSetOutput
 	}
 	return outputs
 }
@@ -57,21 +56,7 @@ func StartDONs(
 	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
 ) (*StartedDONs, error) {
-	switch infraInput.Type {
-	case infra.CRIB:
-		deployCribDonsInput := &crib.DeployCribDonsInput{
-			Topology:       topology,
-			NodeSet:        nodeSets,
-			CribConfigsDir: infra.CribConfigsDir,
-			Namespace:      infraInput.CRIB.Namespace,
-		}
-
-		var devspaceErr error
-		nodeSets, devspaceErr = crib.DeployDons(ctx, deployCribDonsInput)
-		if devspaceErr != nil {
-			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
-		}
-	case infra.Kubernetes:
+	if infraInput.IsKubernetes() {
 		// For Kubernetes, DONs are already running in the cluster, generate service URLs
 		lggr.Info().Msg("Generating Kubernetes service URLs for DONs (already running in cluster)")
 		for idx, nodeSet := range nodeSets {
@@ -165,10 +150,10 @@ func StartDONs(
 			}
 
 			resultMap.Store(idx, &StartedDON{
-				NodeOutput: &cre.WrappedNodeOutput{
+				NodeSetOutput: &cre.NodeSetOutput{
 					Output:       nodeset,
 					NodeSetName:  nodeSet.Name,
-					Capabilities: nodeSet.ComputedCapabilities,
+					Capabilities: nodeSet.Capabilities,
 				},
 				DON: don,
 			})

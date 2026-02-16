@@ -3,11 +3,11 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -92,14 +92,9 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 
 	for _, nodeSet := range c.NodeSets {
 		for _, capability := range nodeSet.Capabilities {
-			if !slices.Contains(envDependencies.GlobalCapabilityFlags(), capability) {
-				return errors.New("unknown global capability: " + capability + ". Valid ones are: " + strings.Join(envDependencies.GlobalCapabilityFlags(), ", ") + ". If it is a new capability make sure you have added it to the capabilityFlagsProvider. If it's chain-specific add it under [nodesets.chain_capabilities] TOML table.")
-			}
-		}
-
-		for capability := range nodeSet.ChainCapabilities {
-			if !slices.Contains(envDependencies.ChainSpecificCapabilityFlags(), capability) {
-				return errors.New("unknown chain-specific capability: " + capability + ". Valid ones are: " + strings.Join(envDependencies.ChainSpecificCapabilityFlags(), ", ") + ". If it is a new capability make sure you have added it to the capabilityFlagsProvider. If it's a global capability add it under 'capabilities' TOML key.")
+			capability = removeChainIDFromFlag(capability)
+			if !slices.Contains(envDependencies.SupportedCapabilityFlags(), capability) {
+				return errors.New("unknown capability: " + capability + ". Valid ones are: " + strings.Join(envDependencies.SupportedCapabilityFlags(), ", ") + ". If it is a new capability make sure you have added it to the capabilityFlagsProvider")
 			}
 		}
 	}
@@ -109,6 +104,21 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 	}
 
 	return nil
+}
+
+func removeChainIDFromFlag(flag string) string {
+	lastIdx := strings.LastIndex(flag, "-")
+	if lastIdx == -1 {
+		return flag
+	}
+
+	maybeChainIDStr := flag[lastIdx+1:]
+	_, err := strconv.Atoi(maybeChainIDStr)
+	if err != nil {
+		return flag
+	}
+
+	return flag[:lastIdx]
 }
 
 func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {
@@ -173,10 +183,6 @@ func (c *Config) Load(absPath string) error {
 	}
 
 	for _, nodeSet := range in.NodeSets {
-		if err := nodeSet.ParseChainCapabilities(); err != nil {
-			return errors.Wrap(err, "failed to parse chain capabilities")
-		}
-
 		if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
 			return errors.Wrap(err, "failed to validate chain capabilities")
 		}
@@ -224,62 +230,6 @@ func MustLocalCREStateFileAbsPath(relativePathToRepoRoot string) string {
 func LocalCREStateFileExists(relativePathToRepoRoot string) bool {
 	_, statErr := os.Stat(MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 	return statErr == nil
-}
-
-// ResolveCapabilityForChain merges defaults with chain override for a capability on a given chain.
-// Returns (enabled, mergedConfig).
-func ResolveCapabilityForChain(
-	capName string,
-	caps map[string]*cre.ChainCapabilityConfig,
-	defaults map[string]any,
-	chainID uint64,
-) (bool, map[string]any, error) {
-	if caps == nil {
-		return false, nil, nil
-	}
-	cfg, ok := caps[capName]
-	if !ok {
-		return false, nil, nil
-	}
-	enabled := slices.Contains(cfg.EnabledChains, chainID)
-	if !enabled {
-		return false, nil, nil
-	}
-	merged := map[string]any{}
-	if defaults != nil {
-		// copy defaults
-		maps.Copy(merged, defaults)
-	}
-	if co, ok := cfg.ChainOverrides[chainID]; ok {
-		// override with chain-specific values
-		maps.Copy(merged, co)
-	}
-	return true, merged, nil
-}
-
-// ResolveCapabilityConfigForDON merges global defaults with DON-specific overrides for capabilities
-// that don't have chain-specific configuration (like cron, web-api-target, web-api-trigger).
-// Returns the merged configuration.
-func ResolveCapabilityConfigForDON(
-	capabilityName string,
-	globalDefaults map[string]any,
-	donOverrides map[string]map[string]any,
-) map[string]any {
-	merged := map[string]any{}
-
-	// Start with global defaults
-	if globalDefaults != nil {
-		maps.Copy(merged, globalDefaults)
-	}
-
-	// Apply DON-specific overrides
-	if donOverrides != nil {
-		if overrides, ok := donOverrides[capabilityName]; ok {
-			maps.Copy(merged, overrides)
-		}
-	}
-
-	return merged
 }
 
 type ChipIngressConfig struct {

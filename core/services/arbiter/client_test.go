@@ -9,29 +9,28 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	pb "github.com/smartcontractkit/chainlink-common/pkg/workflows/ring/pb"
-
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// mockArbiterScalerServer implements pb.ArbiterScalerServer for testing.
+// mockArbiterScalerServer implements ringpb.ArbiterScalerServer for testing.
 type mockArbiterScalerServer struct {
-	pb.UnimplementedArbiterScalerServer
-	statusResp      *pb.ReplicaStatus
+	ringpb.UnimplementedArbiterScalerServer
+	statusResp      *ringpb.ReplicaStatus
 	statusErr       error
 	consensusErr    error
 	consensusCalled bool
 	lastNShards     uint32
 }
 
-func (m *mockArbiterScalerServer) Status(ctx context.Context, _ *emptypb.Empty) (*pb.ReplicaStatus, error) {
+func (m *mockArbiterScalerServer) Status(ctx context.Context, _ *emptypb.Empty) (*ringpb.ReplicaStatus, error) {
 	if m.statusErr != nil {
 		return nil, m.statusErr
 	}
 	return m.statusResp, nil
 }
 
-func (m *mockArbiterScalerServer) ConsensusWantShards(ctx context.Context, req *pb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
+func (m *mockArbiterScalerServer) ConsensusWantShards(ctx context.Context, req *ringpb.ConsensusWantShardsRequest) (*emptypb.Empty, error) {
 	m.consensusCalled = true
 	m.lastNShards = req.GetNShards()
 	if m.consensusErr != nil {
@@ -45,9 +44,9 @@ func TestRingArbiterClient_Status(t *testing.T) {
 
 	t.Run("returns status from server", func(t *testing.T) {
 		mockServer := &mockArbiterScalerServer{
-			statusResp: &pb.ReplicaStatus{
+			statusResp: &ringpb.ReplicaStatus{
 				WantShards: 5,
-				Status: map[uint32]*pb.ShardStatus{
+				Status: map[uint32]*ringpb.ShardStatus{
 					0: {IsHealthy: true},
 					1: {IsHealthy: true},
 					2: {IsHealthy: false},
@@ -89,7 +88,7 @@ func TestRingArbiterClient_ConsensusWantShards(t *testing.T) {
 		mockServer := &mockArbiterScalerServer{}
 
 		client := NewRingArbiterClient(mockServer, lggr)
-		req := &pb.ConsensusWantShardsRequest{NShards: 10}
+		req := &ringpb.ConsensusWantShardsRequest{NShards: 10}
 		resp, err := client.ConsensusWantShards(context.Background(), req)
 
 		require.NoError(t, err)
@@ -105,7 +104,7 @@ func TestRingArbiterClient_ConsensusWantShards(t *testing.T) {
 		}
 
 		client := NewRingArbiterClient(mockServer, lggr)
-		req := &pb.ConsensusWantShardsRequest{NShards: 5}
+		req := &ringpb.ConsensusWantShardsRequest{NShards: 5}
 		resp, err := client.ConsensusWantShards(context.Background(), req)
 
 		require.Error(t, err)

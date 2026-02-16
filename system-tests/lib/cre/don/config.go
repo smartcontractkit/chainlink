@@ -31,14 +31,10 @@ func ApplyRuntimeValues(userConfig map[string]any, runtimeValues map[string]any)
 	return result, nil
 }
 
-// ValidateTemplateSubstitution checks that all template variables have been properly substituted
-// Returns an error if any {{.Variable}} patterns are found in the rendered output
-//
-// This function helps catch configuration issues early by ensuring all template variables
-// have been provided and substituted. Common causes of unsubstituted variables:
-// - Missing fields in templateData map
-// - Typos in template variable names
-// - Missing values in runtimeValues
+// ValidateTemplateSubstitution checks that all template variables have been properly substituted.
+// Returns an error if any unsubstituted patterns are found:
+//   - {{.Variable}} - missing field in templateData
+//   - <nil> - field exists but has nil value
 //
 // Usage:
 //
@@ -47,13 +43,22 @@ func ApplyRuntimeValues(userConfig map[string]any, runtimeValues map[string]any)
 //	    return nil, errors.Wrap(err, "template validation failed")
 //	}
 func ValidateTemplateSubstitution(rendered string, templateName string) error {
-	// Regex to find unsubstituted template variables like {{.Variable}}
-	templateVarRegex := regexp.MustCompile(`\{\{\s*\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}`)
+	var problems []string
 
-	matches := templateVarRegex.FindAllString(rendered, -1)
-	if len(matches) > 0 {
-		return errors.Errorf("template '%s' contains unsubstituted variables: %s",
-			templateName, strings.Join(matches, ", "))
+	// Check for unsubstituted template variables like {{.Variable}}
+	templateVarRegex := regexp.MustCompile(`\{\{\s*\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}`)
+	if matches := templateVarRegex.FindAllString(rendered, -1); len(matches) > 0 {
+		problems = append(problems, "unsubstituted variables: "+strings.Join(matches, ", "))
+	}
+
+	// Check for nil values rendered as <nil>
+	nilRegex := regexp.MustCompile(`<nil>`)
+	if nilCount := len(nilRegex.FindAllString(rendered, -1)); nilCount > 0 {
+		problems = append(problems, "nil values found (check templateData for missing or nil fields)")
+	}
+
+	if len(problems) > 0 {
+		return errors.Errorf("template '%s' has issues: %s", templateName, strings.Join(problems, "; "))
 	}
 
 	return nil

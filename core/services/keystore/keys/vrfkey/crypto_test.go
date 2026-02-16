@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
+	bm "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 )
 
 func TestVRF_IsSquare(t *testing.T) {

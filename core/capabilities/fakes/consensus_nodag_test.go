@@ -9,11 +9,11 @@ import (
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -29,7 +29,7 @@ func Test_Simple_EVMEncoder(t *testing.T) {
 	nSigners := 4
 	signers := []ocr2key.KeyBundle{}
 	for range nSigners {
-		signers = append(signers, ocr2key.MustNewInsecure(SeedForKeys(), chaintype.EVM))
+		signers = append(signers, ocr2key.MustNewInsecure(SeedForKeys(), corekeys.EVM))
 	}
 
 	metadata := capabilities.RequestMetadata{

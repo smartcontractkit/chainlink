@@ -34,11 +34,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -58,7 +60,6 @@ import (
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
@@ -71,7 +72,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -504,7 +504,7 @@ func setupNodeCCIP(
 	require.NoError(t, err)
 	destChain.Commit()
 
-	kb, err := app.GetKeyStore().OCR2().Create(ctx, chaintype.EVM)
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, corekeys.EVM)
 	require.NoError(t, err)
 	return app, peerID.Raw(), transmitter, kb
 }
@@ -1055,7 +1055,7 @@ func (k *ksa) CSA() keystore.CSA {
 
 func NewKsa(db *sqlx.DB, csa keystore.CSA, logf keystore.Logf) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, logf),
+		Master: keystore.New(db, commonkeystore.FastScryptParams, logf),
 		csa:    csa,
 	}
 }

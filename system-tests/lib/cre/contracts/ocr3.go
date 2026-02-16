@@ -49,7 +49,7 @@ func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64
 }
 
 // values supplied by Alexandr Yepishev as the expected values for OCR3 config
-func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
+func DefaultOCR3Config() *ocr3.OracleConfig {
 	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := &keystone_changeset.OracleConfig{
 		DeltaProgressMillis:               5000,
@@ -75,10 +75,10 @@ func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
 		UniqueReports: true,
 	}
 
-	return oracleConfig, nil
+	return oracleConfig
 }
 
-func DefaultOCR3_1Config(numWorkers int) (*ocr3_1.V3_1OracleConfig, error) {
+func DefaultOCR3_1Config(numWorkers int) *ocr3_1.V3_1OracleConfig {
 	return &ocr3_1.V3_1OracleConfig{
 		DeltaProgressMillis:  5000, // DKG 10-15 seconds; Vault 5 sec // check bandwidth from nops
 		DeltaRoundMillis:     200,
@@ -103,14 +103,11 @@ func DefaultOCR3_1Config(numWorkers int) (*ocr3_1.V3_1OracleConfig, error) {
 		PrevConfigDigest:  "",
 		PrevSeqNr:         0,
 		PrevHistoryDigest: "",
-	}, nil
+	}
 }
 
-func DefaultChainCapabilityOCR3Config() (*keystone_changeset.OracleConfig, error) {
-	cfg, err := DefaultOCR3Config()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate default OCR3 config: %w", err)
-	}
+func DefaultChainCapabilityOCR3Config() *ocr3.OracleConfig {
+	cfg := DefaultOCR3Config()
 
 	cfg.DeltaRoundMillis = 1000
 	const kib = 1024
@@ -124,5 +121,5 @@ func DefaultChainCapabilityOCR3Config() (*keystone_changeset.OracleConfig, error
 		MaxReportCount:            1000,
 		MaxBatchSize:              200,
 	}
-	return cfg, nil
+	return cfg
 }

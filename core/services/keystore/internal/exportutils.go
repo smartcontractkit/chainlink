@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 )
 
 type Encrypted interface {
@@ -62,7 +62,7 @@ func ToEncryptedJSON[E Encrypted, K Key](
 	identifier string,
 	key K,
 	password string,
-	scryptParams utils.ScryptParams,
+	scryptParams commonkeystore.ScryptParams,
 	passwordFunc func(string) string,
 	buildExport func(id string, key K, cryptoJSON keystore.CryptoJSON) E,
 ) (export []byte, err error) {

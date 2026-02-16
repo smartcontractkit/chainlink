@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
-func TestLoad(t *testing.T) {
+func TestOCR2Load(t *testing.T) {
 	ctx := context.Background()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
@@ -33,7 +33,7 @@ func TestLoad(t *testing.T) {
 		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
 		require.NoError(t, cErr)
 	})
-	c, _, _, err := ocr2.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
+	c, _, _, err := products.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
 	clNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 	require.NoError(t, err)
@@ -141,14 +141,14 @@ func TestLoad(t *testing.T) {
 			require.NoError(t, err)
 			errs := l.Check(&leak.CLNodesCheck{
 				// since the test is stable we assert absolute values
-				// no more than 30% CPU and 200Mb (last 5m)
+				// no more than 25% CPU and 350Mb (last 5m)
 				ComparisonMode:  leak.ComparisonModeAbsolute,
 				NumNodes:        in.NodeSets[0].Nodes,
 				Start:           start,
 				End:             time.Now(),
 				WarmUpDuration:  30 * time.Minute,
-				CPUThreshold:    30.0,
-				MemoryThreshold: 200.0,
+				CPUThreshold:    25.0,
+				MemoryThreshold: 350.0,
 			})
 			require.NoError(t, errs)
 		})

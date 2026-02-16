@@ -28,9 +28,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const workflowID = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
-const workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
-const requestID = "test-request-id"
+const (
+	workflowID    = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+	workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
+	requestID     = "test-request-id"
+)
 
 func createTestMetrics(t *testing.T, donConfig *config.DONConfig) *metrics.Metrics {
 	m, err := metrics.NewMetrics(donConfig)
@@ -512,7 +514,7 @@ func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
 	})
 }
 
-func registerWorkflow(t *testing.T, handler *httpTriggerHandler, workflowID string, privateKey *ecdsa.PrivateKey) {
+func registerWorkflow(_ *testing.T, handler *httpTriggerHandler, workflowID string, privateKey *ecdsa.PrivateKey) {
 	handler.workflowMetadataHandler.authorizedKeys[workflowID] = map[gateway_common.AuthorizedKey]struct{}{
 		{
 			KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -1058,6 +1060,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 }
+
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	handler, mockDon := createTestTriggerHandler(t)
 

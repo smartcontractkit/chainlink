@@ -39,7 +39,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
           aws-region: us-west-2
-          
+
       - name: Authenticate to ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
@@ -54,7 +54,7 @@ jobs:
       - name: Download Go dependencies
         run: |
           go mod download
-      
+
       - name: Set environment variables
         id: set-env
         run: |
@@ -72,7 +72,7 @@ jobs:
         working-directory: devenv/tests/ocr2
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: OCR2"
-          go test -v -timeout 4h -run TestLoad/clean
+          go test -v -timeout 4h -run TestOCR2Load/clean
 
       - name: Upload Logs
         if: always()
@@ -81,6 +81,7 @@ jobs:
           name: container-logs-smoke
           path: devenv/tests/ocr2/logs
           retention-days: 3
+
       - name: Upload Pprof (Alloc)
         if: always()
         uses: actions/upload-artifact@v4

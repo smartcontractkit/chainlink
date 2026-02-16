@@ -50,6 +50,10 @@ func TestConfirmAggregator(t *testing.T) {
 	require.Len(t, records, 1)
 	proxyAddress := records[0].Address
 
+	MCMScfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	MCMSQualifier := "MCMS_EVM_1"
+	MCMScfg.Qualifier = &MCMSQualifier
+
 	err = rt.Exec(
 		runtime.ChangesetTask(changeset.ProposeAggregatorChangeset, types.ProposeConfirmAggregatorConfig{
 			ChainSelector:        selector,
@@ -62,7 +66,7 @@ func TestConfirmAggregator(t *testing.T) {
 			NewAggregatorAddress: common.HexToAddress("0x123"),
 		}),
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+			selector: MCMScfg,
 		}),
 	)
 	require.NoError(t, err)
@@ -79,7 +83,12 @@ func TestConfirmAggregator(t *testing.T) {
 			ContractsByChain: map[uint64][]common.Address{
 				selector: {common.HexToAddress(proxyAddress)},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig: proposalutils.TimelockConfig{
+				MinDelay: 0,
+				TimelockQualifierPerChain: map[uint64]string{
+					selector: MCMSQualifier,
+				},
+			},
 		}),
 		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 	)
@@ -93,7 +102,8 @@ func TestConfirmAggregator(t *testing.T) {
 			ProxyAddress:         common.HexToAddress(proxyAddress),
 			NewAggregatorAddress: common.HexToAddress("0x124"),
 			McmsConfig: &types.MCMSConfig{
-				MinDelay: 0,
+				MinDelay:          0,
+				TimeLockQualifier: MCMSQualifier,
 			},
 		}),
 		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
