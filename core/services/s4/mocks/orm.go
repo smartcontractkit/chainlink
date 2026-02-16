@@ -5,11 +5,10 @@ package mocks
 import (
 	context "context"
 
-	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
+	s4 "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	mock "github.com/stretchr/testify/mock"
 
-	s4 "github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	time "time"
 )
