@@ -21,6 +21,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -48,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -196,7 +196,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
+		keyStore := keystore.New(db, commonkeystore.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
@@ -291,7 +291,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
+		keyStore := keystore.New(db, commonkeystore.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 

@@ -220,7 +220,7 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 	startTime := time.Now()
 
 	t.Cleanup(func() {
-		getStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, testcase.RegistryVersion)()
+		GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, testcase.RegistryVersion)()
 	})
 
 	gom.Eventually(func(g gomega.Gomega) {

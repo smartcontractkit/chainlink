@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -33,7 +34,7 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "pw")
 		key, err := vrfkey.NewV2()
 		helpers.PanicErr(err)
-		exportJSON, err := key.ToEncryptedJSON(*password, utils.DefaultScryptParams)
+		exportJSON, err := key.ToEncryptedJSON(*password, keystore.DefaultScryptParams)
 		helpers.PanicErr(err)
 		err = os.WriteFile(*outfile, exportJSON, 0600)
 		helpers.PanicErr(err)

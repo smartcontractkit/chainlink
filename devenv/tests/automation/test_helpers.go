@@ -516,7 +516,7 @@ func generateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, en
 	return
 }
 
-func getStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion contracts.KeeperRegistryVersion) func() {
+func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion contracts.KeeperRegistryVersion) func() {
 	return func() {
 		if t.Failed() {
 			endBlock, err := chainClient.Client.BlockNumber(t.Context())
