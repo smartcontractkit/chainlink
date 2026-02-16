@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
@@ -544,6 +545,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 }
 
 func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
+	quarantine.Flaky(t, "DX-2880")
 	t.Parallel()
 
 	t.Run("should remove LINK token successfully if already exists", func(t *testing.T) {
