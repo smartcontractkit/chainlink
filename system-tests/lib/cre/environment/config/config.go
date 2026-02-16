@@ -57,7 +57,7 @@ func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
 }
 
 type Config struct {
-	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required"`
+	Blockchains       []*Blockchain                  `toml:"blockchains" validate:"required"`
 	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
 	JD                *jd.Input                       `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
@@ -71,6 +71,65 @@ type Config struct {
 	loaded bool
 }
 
+type ComponentTarget string
+
+const (
+	TargetDocker ComponentTarget = "docker"
+	TargetRemote ComponentTarget = "remote"
+)
+
+// Blockchain wraps the existing CTF blockchain input and adds placement metadata.
+// The embedded input keeps TOML fields backward-compatible.
+type Blockchain struct {
+	blockchain.Input
+	Target ComponentTarget `toml:"target"`
+}
+
+func (b *Blockchain) Normalize() {
+	if b.Target == "" {
+		b.Target = TargetDocker
+	}
+}
+
+func (b *Blockchain) Validate() error {
+	if b == nil {
+		return errors.New("blockchain is nil")
+	}
+
+	b.Normalize()
+	if b.Target != TargetDocker && b.Target != TargetRemote {
+		return fmt.Errorf("invalid blockchain target: %s", b.Target)
+	}
+
+	return nil
+}
+
+func (b *Blockchain) InputRef() *blockchain.Input {
+	if b == nil {
+		return nil
+	}
+	return &b.Input
+}
+
+func (c *Config) EffectiveBlockchains() ([]*blockchain.Input, error) {
+	return ResolveBlockchainInputs(c.Blockchains)
+}
+
+func ResolveBlockchainInputs(blockchains []*Blockchain) ([]*blockchain.Input, error) {
+	if len(blockchains) == 0 {
+		return nil, errors.New("at least one blockchain must be configured")
+	}
+
+	inputs := make([]*blockchain.Input, 0, len(blockchains))
+	for _, configuredBlockchain := range blockchains {
+		if err := configuredBlockchain.Validate(); err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, configuredBlockchain.InputRef())
+	}
+	return inputs, nil
+}
+
 // Validate performs validation checks on the configuration, ensuring all required fields
 // are present and all referenced capabilities are known to the system.
 func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
@@ -78,8 +137,8 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 		return errors.New("jd.csa_encryption_key must be provided")
 	}
 
-	if len(c.Blockchains) == 0 {
-		return errors.New("at least one blockchain must be configured")
+	if _, err := c.EffectiveBlockchains(); err != nil {
+		return err
 	}
 
 	if len(c.NodeSets) == 0 {
@@ -182,8 +241,13 @@ func (c *Config) Load(absPath string) error {
 		return errors.Wrap(loadErr, "failed to load environment configuration")
 	}
 
+	effectiveBlockchains, effErr := in.EffectiveBlockchains()
+	if effErr != nil {
+		return errors.Wrap(effErr, "failed to resolve blockchains")
+	}
+
 	for _, nodeSet := range in.NodeSets {
-		if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
+		if err := nodeSet.ValidateChainCapabilities(effectiveBlockchains); err != nil {
 			return errors.Wrap(err, "failed to validate chain capabilities")
 		}
 	}

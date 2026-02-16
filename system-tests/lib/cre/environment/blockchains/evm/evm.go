@@ -135,6 +135,15 @@ func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 }
 
 func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
+	bcOut, err := e.DeployOutput(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return FromOutput(e.testLogger, bcOut)
+}
+
+func (e *Deployer) DeployOutput(ctx context.Context, input *blockchain.Input) (*blockchain.Output, error) {
 	var bcOut *blockchain.Output
 	var err error
 
@@ -161,13 +170,21 @@ func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		}
 	}
 
+	return bcOut, nil
+}
+
+func FromOutput(testLogger zerolog.Logger, out *blockchain.Output) (*Blockchain, error) {
+	if out == nil {
+		return nil, pkgerrors.New("blockchain output is nil")
+	}
+
 	if keyErr := setDefaultPrivateKeyIfEmpty(); keyErr != nil {
 		return nil, keyErr
 	}
 
 	priv := os.Getenv("PRIVATE_KEY")
 	sethClient, err := seth.NewClientBuilder().
-		WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
+		WithRpcUrl(out.Nodes[0].ExternalWSUrl).
 		WithPrivateKeys([]string{priv}).
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 		Build()
@@ -180,18 +197,22 @@ func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
 	}
 
-	chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+	chainID, err := strconv.ParseUint(out.ChainID, 10, 64)
 	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
+		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", out.ChainID)
 	}
 
+	return newBlockchainFromOutput(testLogger, out, sethClient, selector, chainID), nil
+}
+
+func newBlockchainFromOutput(testLogger zerolog.Logger, out *blockchain.Output, sethClient *seth.Client, selector uint64, chainID uint64) *Blockchain {
 	return &Blockchain{
-		testLogger:    e.testLogger,
+		testLogger:    testLogger,
 		chainSelector: selector,
 		chainID:       chainID,
-		ctfOutput:     bcOut,
+		ctfOutput:     out,
 		SethClient:    sethClient,
-	}, nil
+	}
 }
 
 func setDefaultPrivateKeyIfEmpty() error {

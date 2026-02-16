@@ -132,10 +132,15 @@ func setupLoadTestEnvironment(
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	workflowJobsFn cretypes.JobSpecFn,
 ) *loadTestSetupOutput {
+	blockchains := make([]*envconfig.Blockchain, 0, len(in.Blockchains))
+	for _, bc := range in.Blockchains {
+		blockchains = append(blockchains, &envconfig.Blockchain{Input: *bc})
+	}
+
 	universalSetupInput := creenv.SetupInput{
 		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     in.Blockchains,
+		Blockchains:                          blockchains,
 		JdInput:                              in.JD,
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,

@@ -253,6 +253,14 @@ func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) erro
 		return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 	}
 
+	effectiveBlockchains, effectiveErr := config.EffectiveBlockchains()
+	if effectiveErr != nil {
+		return errors.Wrap(effectiveErr, "failed to resolve blockchain inputs")
+	}
+	if len(effectiveBlockchains) == 0 || effectiveBlockchains[0] == nil || effectiveBlockchains[0].Out == nil {
+		return errors.New("at least one blockchain output is required to restart node sets")
+	}
+
 	nerrg := errgroup.Group{}
 	for _, nodeSet := range config.NodeSets {
 		nerrg.Go(func() error {
@@ -290,7 +298,7 @@ func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) erro
 			nodeSet.Out = nil
 			var nodesetErr error
 			nodeSet.Input.NodeSpecs = nodeSet.ExtractCTFInputs()
-			nodeSet.Out, nodesetErr = ns.NewSharedDBNodeSet(nodeSet.Input, config.Blockchains[0].Out)
+			nodeSet.Out, nodesetErr = ns.NewSharedDBNodeSet(nodeSet.Input, effectiveBlockchains[0].Out)
 			if nodesetErr != nil {
 				framework.L.Error().Msgf("Failed to create node set named %s: %s", nodeSet.Name, nodesetErr)
 				framework.L.Info().Msgf("Waiting %s for the containers to be removed", waitTime.String())

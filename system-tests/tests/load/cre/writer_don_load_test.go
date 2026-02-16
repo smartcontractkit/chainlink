@@ -51,6 +51,7 @@ import (
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	creenvconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creevm "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -87,10 +88,15 @@ func setupLoadTestWriterEnvironment(
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
+	blockchains := make([]*creenvconfig.Blockchain, 0, len(in.Blockchains))
+	for _, bc := range in.Blockchains {
+		blockchains = append(blockchains, &creenvconfig.Blockchain{Input: *bc})
+	}
+
 	universalSetupInput := creenv.SetupInput{
 		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     in.Blockchains,
+		Blockchains:                          blockchains,
 		JdInput:                              in.JD,
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,

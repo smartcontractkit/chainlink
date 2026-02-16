@@ -712,7 +712,7 @@ func StartCLIEnvironment(
 
 	universalSetupInput := &creenv.SetupInput{
 		NodeSets:                in.NodeSets,
-		BlockchainsInput:        in.Blockchains,
+		Blockchains:             in.Blockchains,
 		ContractVersions:        env.ContractVersions(),
 		WithV2Registries:        env.WithV2Registries(),
 		JdInput:                 in.JD,
