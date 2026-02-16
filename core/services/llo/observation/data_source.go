@@ -126,9 +126,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	}
 
 	// Fetch the cached observations for all streams.
-	for streamID := range streamValues {
-		streamValues[streamID], _ = d.cache.Get(streamID)
-	}
+	d.cache.GetMany(streamValues)
 
 	return nil
 }

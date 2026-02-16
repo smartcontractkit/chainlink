@@ -103,10 +103,21 @@ func (c *Cache) add(id llotypes.StreamID, value llo.StreamValue, ttl time.Durati
 	c.values[id] = item{value: value, expiresAt: expiresAt}
 }
 
+func (c *Cache) GetMany(streamValues llo.StreamValues) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for id := range streamValues {
+		streamValues[id], _ = c.get(id)
+	}
+}
+
 func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return c.get(id)
+}
 
+func (c *Cache) get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	label := strconv.FormatUint(uint64(id), 10)
 	item, ok := c.values[id]
 	if !ok {
