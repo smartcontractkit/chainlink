@@ -22,6 +22,7 @@ import (
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/vrf_log_emitter"
@@ -30,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -793,8 +793,8 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
  * TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs
  */
 
-func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
-	chainID := ubig.New(big.NewInt(12345))
+func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *sqlutil.Big) {
+	chainID := sqlutil.New(big.NewInt(12345))
 	lggr := logger.Test(t)
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,

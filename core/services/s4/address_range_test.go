@@ -1,9 +1,11 @@
 package s4_test
 
 import (
+	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/stretchr/testify/assert"
@@ -26,13 +28,13 @@ func TestAddressRange_NewFullAddressRange(t *testing.T) {
 func TestAddressRange_NewSingleAddressRange(t *testing.T) {
 	t.Parallel()
 
-	addr := big.NewI(0x123)
+	addr := sqlutil.NewI(0x123)
 	sar, err := s4.NewSingleAddressRange(addr)
 	assert.NoError(t, err)
 	assert.Equal(t, addr, sar.MinAddress)
 	assert.Equal(t, addr, sar.MaxAddress)
 	assert.True(t, sar.Contains(addr))
-	assert.Equal(t, int64(1), sar.Interval().Int64())
+	assert.Equal(t, int64(1), sar.Interval().ToInt().Int64())
 
 	sar.Advance()
 	assert.False(t, sar.Contains(addr))
@@ -94,10 +96,10 @@ func TestAddressRange_Contains(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, r.Contains(r.MinAddress))
 	assert.True(t, r.Contains(r.MaxAddress))
-	assert.False(t, r.Contains(r.MaxAddress.Add(big.NewI(1))))
+	assert.False(t, r.Contains(sqlutil.New(bigmath.Add(r.MaxAddress.ToInt(), big.NewInt(1)))))
 
 	r.Advance()
 	assert.True(t, r.Contains(r.MinAddress))
 	assert.True(t, r.Contains(r.MaxAddress))
-	assert.False(t, r.Contains(r.MinAddress.Sub(big.NewI(1))))
+	assert.False(t, r.Contains(sqlutil.New(bigmath.Sub(r.MinAddress.ToInt(), big.NewInt(1)))))
 }

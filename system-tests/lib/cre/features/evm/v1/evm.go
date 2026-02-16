@@ -19,7 +19,6 @@ import (
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -298,7 +297,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, don *c
 	for _, w := range writeEvmConfigs {
 		chainFound := false
 		for idx, evmChain := range typedConfig.EVM {
-			chainIDIsEqual := evmChain.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(w.ChainID)))) == 0
+			chainIDIsEqual := evmChain.ChainID.ToInt().Cmp(big.NewInt(libc.MustSafeInt64(w.ChainID))) == 0
 			if chainIDIsEqual {
 				evmWorkflow, evmErr := buildEVMWorkflowConfig(w)
 				if evmErr != nil {

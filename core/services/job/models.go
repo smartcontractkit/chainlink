@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
@@ -304,7 +303,7 @@ type OCROracleSpec struct {
 	ContractConfigTrackerSubscribeInterval sqlutil.Interval       `toml:"contractConfigTrackerSubscribeInterval"`
 	ContractConfigTrackerPollInterval      sqlutil.Interval       `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations            uint16                 `toml:"contractConfigConfirmations"`
-	EVMChainID                             *big.Big               `toml:"evmChainID" db:"evm_chain_id"`
+	EVMChainID                             *sqlutil.Big           `toml:"evmChainID" db:"evm_chain_id"`
 	DatabaseTimeout                        *sqlutil.Interval      `toml:"databaseTimeout"`
 	ObservationGracePeriod                 *sqlutil.Interval      `toml:"observationGracePeriod"`
 	ContractTransmitterTransmitTimeout     *sqlutil.Interval      `toml:"contractTransmitterTransmitTimeout"`
@@ -513,17 +512,17 @@ type DirectRequestSpec struct {
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
 	Requesters               models.AddressCollection `toml:"requesters"`
 	MinContractPayment       *commonassets.Link       `toml:"minContractPaymentLinkJuels"`
-	EVMChainID               *big.Big                 `toml:"evmChainID"`
+	EVMChainID               *sqlutil.Big             `toml:"evmChainID"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
 }
 
 type CronSpec struct {
-	ID           int32     `toml:"-"`
-	CronSchedule string    `toml:"schedule"`
-	EVMChainID   *big.Big  `toml:"evmChainID"`
-	CreatedAt    time.Time `toml:"-"`
-	UpdatedAt    time.Time `toml:"-"`
+	ID           int32        `toml:"-"`
+	CronSchedule string       `toml:"schedule"`
+	EVMChainID   *sqlutil.Big `toml:"evmChainID"`
+	CreatedAt    time.Time    `toml:"-"`
+	UpdatedAt    time.Time    `toml:"-"`
 }
 
 func (s CronSpec) GetID() string {
@@ -555,9 +554,9 @@ type FluxMonitorSpec struct {
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
 	MinPayment          *commonassets.Link
-	EVMChainID          *big.Big  `toml:"evmChainID"`
-	CreatedAt           time.Time `toml:"-"`
-	UpdatedAt           time.Time `toml:"-"`
+	EVMChainID          *sqlutil.Big `toml:"evmChainID"`
+	CreatedAt           time.Time    `toml:"-"`
+	UpdatedAt           time.Time    `toml:"-"`
 }
 
 type KeeperSpec struct {
@@ -565,7 +564,7 @@ type KeeperSpec struct {
 	ContractAddress          evmtypes.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations *uint32               `toml:"minIncomingConfirmations"`
 	FromAddress              evmtypes.EIP55Address `toml:"fromAddress"`
-	EVMChainID               *big.Big              `toml:"evmChainID"`
+	EVMChainID               *sqlutil.Big          `toml:"evmChainID"`
 	CreatedAt                time.Time             `toml:"-"`
 	UpdatedAt                time.Time             `toml:"-"`
 }
@@ -595,7 +594,7 @@ type VRFSpec struct {
 	CoordinatorAddress       evmtypes.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey     `toml:"publicKey"`
 	MinIncomingConfirmations uint32                  `toml:"minIncomingConfirmations"`
-	EVMChainID               *big.Big                `toml:"evmChainID"`
+	EVMChainID               *sqlutil.Big            `toml:"evmChainID"`
 	FromAddresses            []evmtypes.EIP55Address `toml:"fromAddresses"`
 	PollPeriod               time.Duration           `toml:"pollPeriod"`          // For v2 jobs
 	RequestedConfsDelay      int64                   `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
@@ -669,7 +668,7 @@ type BlockhashStoreSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
-	EVMChainID *big.Big `toml:"evmChainID"`
+	EVMChainID *sqlutil.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
 	FromAddresses []evmtypes.EIP55Address `toml:"fromAddresses"`
@@ -718,7 +717,7 @@ type BlockHeaderFeederSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
-	EVMChainID *big.Big `toml:"evmChainID"`
+	EVMChainID *sqlutil.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to store blockhashes.
 	FromAddresses []evmtypes.EIP55Address `toml:"fromAddresses"`
@@ -745,11 +744,11 @@ type LegacyGasStationServerSpec struct {
 	ForwarderAddress evmtypes.EIP55Address `toml:"forwarderAddress"`
 
 	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *big.Big `toml:"evmChainID"`
+	EVMChainID *sqlutil.Big `toml:"evmChainID"`
 
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
 	// This selector is equivalent to (source) chainID specified in SendTransaction request
-	CCIPChainSelector *big.Big `toml:"ccipChainSelector"`
+	CCIPChainSelector *sqlutil.Big `toml:"ccipChainSelector"`
 
 	// FromAddress is the sender address that should be used to send meta-transactions
 	FromAddresses []evmtypes.EIP55Address `toml:"fromAddresses"`
@@ -782,10 +781,10 @@ type LegacyGasStationSidecarSpec struct {
 	RunTimeout time.Duration `toml:"runTimeout"`
 
 	// EVMChainID defines the chain ID for the on-chain events tracked by sidecar
-	EVMChainID *big.Big `toml:"evmChainID"`
+	EVMChainID *sqlutil.Big `toml:"evmChainID"`
 
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
-	CCIPChainSelector *big.Big `toml:"ccipChainSelector"`
+	CCIPChainSelector *sqlutil.Big `toml:"ccipChainSelector"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
@@ -871,7 +870,7 @@ type EALSpec struct {
 	ForwarderAddress evmtypes.EIP55Address `toml:"forwarderAddress"`
 
 	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *big.Big `toml:"evmChainID"`
+	EVMChainID *sqlutil.Big `toml:"evmChainID"`
 
 	// FromAddress is the sender address that should be used to send meta-transactions
 	FromAddresses []evmtypes.EIP55Address `toml:"fromAddresses"`

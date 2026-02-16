@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -290,7 +289,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NotNil(t, jb.CronSpec)
 
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-				require.Equal(t, ubig.NewI(42), jb.CronSpec.EVMChainID)
+				require.Equal(t, sqlutil.NewI(42), jb.CronSpec.EVMChainID)
 			},
 		},
 		{

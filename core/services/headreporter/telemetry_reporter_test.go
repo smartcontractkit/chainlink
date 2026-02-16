@@ -14,10 +14,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	mocks2 "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -33,7 +33,7 @@ import (
 func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
 	head := evmtypes.Head{
 		Number:     42,
-		EVMChainID: ubig.NewI(100),
+		EVMChainID: sqlutil.NewI(100),
 		Hash:       common.HexToHash("0x1010"),
 		Timestamp:  time.UnixMilli(1000),
 	}
@@ -75,7 +75,7 @@ func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
 func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	head := evmtypes.Head{
 		Number:     42,
-		EVMChainID: ubig.NewI(100),
+		EVMChainID: sqlutil.NewI(100),
 		Hash:       common.HexToHash("0x1010"),
 		Timestamp:  time.UnixMilli(1000),
 	}
@@ -110,7 +110,7 @@ func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 
 	reporter := headreporter.NewLegacyEVMTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), big.NewInt(100))
 
-	head := evmtypes.Head{Number: 42, EVMChainID: ubig.NewI(100)}
+	head := evmtypes.Head{Number: 42, EVMChainID: sqlutil.NewI(100)}
 
 	err := reporter.ReportNewHead(testutils.Context(t), &head)
 	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=100")

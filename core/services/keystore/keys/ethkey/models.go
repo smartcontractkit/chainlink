@@ -3,14 +3,14 @@ package ethkey
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 type State struct {
 	ID         int32
 	Address    types.EIP55Address
-	EVMChainID big.Big
+	EVMChainID sqlutil.Big
 	Disabled   bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

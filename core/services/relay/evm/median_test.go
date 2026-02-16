@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 )
@@ -37,7 +37,7 @@ func TestNewMedianProvider(t *testing.T) {
 	})
 
 	t.Run("invalid contractID", func(t *testing.T) {
-		relayConfig := config.RelayConfig{ChainID: big.New(chainID)}
+		relayConfig := config.RelayConfig{ChainID: sqlutil.New(chainID)}
 		rc, err2 := json.Marshal(&relayConfig)
 		require.NoError(t, err2)
 		rargsBadContractID := commontypes.RelayArgs{ContractID: "NotAContractID", RelayConfig: rc}

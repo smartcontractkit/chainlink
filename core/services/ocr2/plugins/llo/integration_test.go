@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
@@ -53,7 +54,6 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -752,8 +752,8 @@ lloConfigMode = "bluegreen"
 			return encoded
 		}
 
-		standardMultiplier := ubig.NewI(1e18)
-		millisToNanosMultiplier := ubig.NewI(1e6)
+		standardMultiplier := sqlutil.NewI(1e18)
+		millisToNanosMultiplier := sqlutil.NewI(1e6)
 
 		const simpleStreamlinedChannelID = 5
 		const complexStreamlinedChannelID = 6
@@ -945,8 +945,8 @@ lloConfigMode = "bluegreen"
 				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMStreamlinedOpts{
 					ABI: []lloevm.ABIEncoder{
 						newSingleABIEncoder("int192", standardMultiplier),
-						newSingleABIEncoder("int8", ubig.NewI(1)),
-						newSingleABIEncoder("uint64", ubig.NewI(100)),
+						newSingleABIEncoder("int8", sqlutil.NewI(1)),
+						newSingleABIEncoder("uint64", sqlutil.NewI(100)),
 					},
 				}),
 			},
@@ -2758,7 +2758,7 @@ func pad32bytes(d uint32) [32]byte {
 	return result
 }
 
-func newSingleABIEncoder(typ string, multiplier *ubig.Big) (enc lloevm.ABIEncoder) {
+func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEncoder) {
 	if multiplier == nil {
 		err := json.Unmarshal(fmt.Appendf(nil, `{"type":"%s"}`, typ), &enc)
 		if err != nil {
