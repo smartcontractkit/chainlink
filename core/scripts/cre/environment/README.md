@@ -1736,6 +1736,60 @@ go run . env start --with-beholder
 go run . env beholder start
 ```
 
+### OTel Tracing Configuration
+
+To enable OpenTelemetry (OTel) tracing for workflow engines and see traces in Tempo/Grafana, **multiple configuration toggles must be set**:
+
+| Toggle | Location | Required Value | Purpose |
+|--------|----------|----------------|---------|
+| `Telemetry.Enabled` | Node TOML | `true` | Enables the OTel exporter |
+| `Telemetry.TraceSampleRatio` | Node TOML | `> 0` (e.g., `1.0`) | Controls sampling rate (0 = no traces, 1 = 100%) |
+| `CRE.DebugMode` | Node TOML | `true` | Enables detailed tracing in workflow engines and syncer |
+| `OTEL_SERVICE_NAME` | Environment variable | e.g., `chainlink-node` | Sets the service name for traces in Tempo |
+| `Pyroscope.LinkTracesToProfiles` | Node TOML | `true` | Enables traces-to-profiles linking in Grafana (requires Pyroscope) |
+
+**Example TOML configuration:**
+
+```toml
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'
+InsecureConnection = true
+TraceSampleRatio = 1.0  # 100% sampling - adjust for production
+
+[CRE]
+DebugMode = true  # WARNING: Not suitable for production due to overhead
+
+[Pyroscope]
+ServerAddress = 'http://host.docker.internal:4040'
+LinkTracesToProfiles = true  # Enables traces-to-profiles in Grafana
+```
+
+**Example environment variable (in nodeset config):**
+
+```toml
+[[nodesets]]
+  env_vars = { OTEL_SERVICE_NAME = "chainlink-node" }
+```
+
+**Common issues:**
+
+| Symptom | Likely Cause |
+|---------|--------------|
+| No traces at all | `Telemetry.Enabled = false` or `TraceSampleRatio = 0` |
+| No workflow engine traces | `CRE.DebugMode = false` |
+| Traces show `unknown_service:chainlink` | Missing `OTEL_SERVICE_NAME` env var |
+| Traces not exported | Telemetry endpoint unreachable (check `go run . obs up -f `) |
+| No traces-to-profiles link in Grafana | `Pyroscope.LinkTracesToProfiles = false` or Pyroscope not running |
+
+**Important notes:**
+
+- `CRE.DebugMode` adds performance overhead and should only be enabled during development/debugging, not in production environments.
+- **Tracing is only implemented for V2 components:**
+  - **V2 Syncer**: Only used when workflow registry contracts are v2.x. If you're using v1.x contracts, the V1 syncer is used and has no tracing.
+  - **V2 Engine (NoDAG)**: Only used by V2/NoDAG workflows. V1/DAG workflows use the V1 engine which has no tracing.
+- To use tracing, ensure your environment is configured with **v2 workflow registry contracts** and you're deploying **V2 workflows**.
+
 ### Expected Error Messages
 
 If these telemetry services are not running, you will see frequent "expected" error messages in the logs due to connection failures:

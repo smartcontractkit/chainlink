@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -74,6 +77,9 @@ type Engine struct {
 	meterReports *metering.Reports
 
 	metrics *monitoring.WorkflowsMetricLabeler
+
+	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
+	tracer trace.Tracer
 }
 
 type triggerCapability struct {
@@ -172,6 +178,9 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 
 	if cfg.DebugMode {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
+		engine.tracer = otel.Tracer("workflow_engine_v2")
+	} else {
+		engine.tracer = trace.NewNoopTracerProvider().Tracer("")
 	}
 
 	// Store logger and other fields
@@ -214,6 +223,14 @@ func (e *Engine) start(ctx context.Context) error {
 }
 
 func (e *Engine) init(ctx context.Context) {
+	// Create a trace span for initialization using the global OTel tracer
+	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
+		trace.WithAttributes(
+			attribute.String("version", "v2"),
+			attribute.String("component", "workflow_engine"),
+		))
+	defer span.End()
+
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	err := e.cfg.GlobalExecutionConcurrencyLimiter.Use(ctx, 1)
@@ -563,6 +580,13 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			// Create a trace span using the global OTel tracer
+			ctx, span := e.tracer.Start(ctx, "workflow_execution",
+				trace.WithAttributes(
+					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
+					attribute.String("version", "v2"),
+				))
+			defer span.End()
 			e.startExecution(ctx, queueHead)
 		})
 	}
