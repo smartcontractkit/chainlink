@@ -103,6 +103,7 @@ func (c *Cache) add(id llotypes.StreamID, value llo.StreamValue, ttl time.Durati
 	c.values[id] = item{value: value, expiresAt: expiresAt}
 }
 
+//nolint:revive // GetMany mutates streamValues in-place for zero-allocation reads.
 func (c *Cache) GetMany(streamValues llo.StreamValues) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
