@@ -48,7 +48,7 @@ image = "<CL NODE IMAGE WE JUST BUILT>"
 image = "<JOB DISTRIBUTOR IMAGE>"
 ```
 
-> We are deploying locally via Docker. There are known CRIB issues that will be addressed separately at a later date.
+> We are deploying locally via Docker.
 
 ---
 

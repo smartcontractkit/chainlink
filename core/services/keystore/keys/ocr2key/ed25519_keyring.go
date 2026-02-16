@@ -9,8 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -80,7 +78,7 @@ func (akr *ed25519Keyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrt
 func (akr *ed25519Keyring) SignBlob(b []byte) ([]byte, error) {
 	signedMsg := ed25519.Sign(akr.privKey(), b)
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
-	return utils.ConcatBytes(akr.PublicKey(), signedMsg), nil
+	return concatBytes(akr.PublicKey(), signedMsg), nil
 }
 
 func (akr *ed25519Keyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
@@ -136,4 +134,8 @@ func (akr *ed25519Keyring) Unmarshal(in []byte) error {
 	}
 	akr.pubKey = pubKey
 	return nil
+}
+
+func concatBytes(bufs ...[]byte) []byte {
+	return bytes.Join(bufs, []byte{})
 }

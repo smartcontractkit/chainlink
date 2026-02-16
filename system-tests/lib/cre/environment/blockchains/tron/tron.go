@@ -2,7 +2,6 @@ package tron
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -145,10 +144,6 @@ func (t *Blockchain) lazyInitTronChain() error {
 }
 
 func (t *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
-	if t.provider.IsCRIB() {
-		return nil, errors.New("CRIB deployment for Tron is not supported yet")
-	}
-
 	var bcOut *blockchain.Output
 	var err error
 

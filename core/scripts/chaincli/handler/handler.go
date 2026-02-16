@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/manyminds/api2go/jsonapi"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	link "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 
@@ -39,7 +40,6 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
@@ -581,7 +581,7 @@ func getNodeOCR2Config(ctx context.Context, client cmd.HTTPClient) (*cmd.OCR2Key
 
 	var evmKey cmd.OCR2KeyBundlePresenter
 	for _, key := range keys {
-		if key.ChainType == string(chaintype.EVM) {
+		if key.ChainType == string(corekeys.EVM) {
 			evmKey = key
 			break
 		}

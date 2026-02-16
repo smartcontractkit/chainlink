@@ -1,4 +1,4 @@
-package keystore
+package models
 
 import (
 	"encoding/json"
@@ -37,7 +37,7 @@ func (rlk *rawLegacyKeys) hasValueInField(fieldName, value string) bool {
 // StoreUnsupported will store the raw keys that no longer have support in the node
 // it will check if raw json contains keys that have not been added to the key ring
 // and stores them internally
-func (k *LegacyKeyStorage) StoreUnsupported(allRawKeysJson []byte, keyRing *keyRing) error {
+func (k *LegacyKeyStorage) StoreUnsupported(allRawKeysJSON []byte, keyRing *KeyRing) error {
 	if keyRing == nil {
 		return errors.New("keyring is nil")
 	}
@@ -51,7 +51,7 @@ func (k *LegacyKeyStorage) StoreUnsupported(allRawKeysJson []byte, keyRing *keyR
 		supportedKeys = rawLegacyKeys{}
 	)
 
-	err = json.Unmarshal(allRawKeysJson, &allKeys)
+	err = json.Unmarshal(allRawKeysJSON, &allKeys)
 	if err != nil {
 		return err
 	}

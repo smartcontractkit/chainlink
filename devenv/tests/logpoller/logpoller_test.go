@@ -248,6 +248,7 @@ func XTestLogPollerHeavyLoad(t *testing.T) {
 
 // Execute both on environment with finalityTagEnabled and with finalityDepth
 func TestLogPollerChaosChainlinkNodes(t *testing.T) {
+	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	cfg := &Config{
 		General: General{
 			Generator:        "looped",
@@ -283,7 +284,7 @@ func TestLogPollerChaosChainlinkNodes(t *testing.T) {
 
 // Execute both on environment with finalityTagEnabled and with finalityDepth
 func TestLogPollerChaosPostgres(t *testing.T) {
-	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-563")
+	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	cfg := &Config{
 		General: General{
 			Generator:        "looped",

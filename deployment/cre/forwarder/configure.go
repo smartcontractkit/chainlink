@@ -291,6 +291,9 @@ func (c ConfigureForwarders) VerifyPreconditions(e cldf.Environment, config Conf
 	if len(config.DON.NodeIDs) == 0 {
 		return errors.New("DON must have at least one node ID")
 	}
+	if config.DON.Version != 1 {
+		return errors.New("DON config version must be 1")
+	}
 
 	return nil
 }

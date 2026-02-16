@@ -179,10 +179,7 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
 	}
 
-	ocr3Config, ocr3confErr := contracts.DefaultOCR3_1Config(don.WorkersCount())
-	if ocr3confErr != nil {
-		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
-	}
+	ocr3Config := contracts.DefaultOCR3_1Config(don.WorkersCount())
 
 	dkgConfig, dErr := dkgReportingPluginConfig(don)
 	if dErr != nil {
