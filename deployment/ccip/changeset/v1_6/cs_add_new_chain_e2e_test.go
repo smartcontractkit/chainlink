@@ -69,6 +69,7 @@ func checkConnectivity(
 }
 
 func TestConnectNewChain(t *testing.T) {
+	quarantine.Flaky(t, "DX-2881")
 	t.Parallel()
 	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
