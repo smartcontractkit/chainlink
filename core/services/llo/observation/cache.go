@@ -82,13 +82,24 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 
 // Add adds a stream value to the cache.
 func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.add(id, value, ttl)
+}
+
+func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, value := range values {
+		c.add(id, value, ttl)
+	}
+}
+
+func (c *Cache) add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
 	var expiresAt time.Time
 	if ttl > 0 {
 		expiresAt = time.Now().Add(ttl)
 	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.values[id] = item{value: value, expiresAt: expiresAt}
 }
 
