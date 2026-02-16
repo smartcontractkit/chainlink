@@ -156,7 +156,7 @@ func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	ExecuteHTTPActionRegressionTest(t, testEnv)
 }
