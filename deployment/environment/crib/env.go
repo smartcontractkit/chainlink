@@ -3,8 +3,8 @@ package crib
 import (
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 const (
@@ -43,7 +43,7 @@ func (c CRIBEnv) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
 		return DeployOutput{}, err
 	}
 	for i, chain := range chainConfigs {
-		if strings.EqualFold(chain.ChainType, string(chaintype.EVM)) {
+		if strings.EqualFold(chain.ChainType, string(corekeys.EVM)) {
 			err := chain.SetDeployerKey(&deployerKeys.EVMKey)
 			if err != nil {
 				return DeployOutput{}, err
@@ -51,7 +51,7 @@ func (c CRIBEnv) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
 			chainConfigs[i] = chain
 		}
 
-		if strings.EqualFold(chain.ChainType, string(chaintype.Solana)) {
+		if strings.EqualFold(chain.ChainType, string(corekeys.Solana)) {
 			err := chain.SetSolDeployerKey(&deployerKeys.SolKey)
 			if err != nil {
 				return DeployOutput{}, err
@@ -59,7 +59,7 @@ func (c CRIBEnv) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
 			chainConfigs[i] = chain
 		}
 
-		if strings.EqualFold(chain.ChainType, string(chaintype.Aptos)) {
+		if strings.EqualFold(chain.ChainType, string(corekeys.Aptos)) {
 			err := chain.SetAptosDeployerKey(&deployerKeys.AptosKey)
 			if err != nil {
 				return DeployOutput{}, err

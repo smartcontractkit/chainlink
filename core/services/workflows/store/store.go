@@ -2,7 +2,11 @@ package store
 
 import (
 	"context"
+	"errors"
 )
+
+// ErrDuplicateExecution is returned by Add when the execution ID already exists.
+var ErrDuplicateExecution = errors.New("duplicate execution")
 
 type Store interface {
 	Add(ctx context.Context, steps map[string]*WorkflowExecutionStep,

@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -37,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -120,7 +120,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	backend.Commit()
 
 	// Log Poller Listener
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
+	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,

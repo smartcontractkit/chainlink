@@ -58,8 +58,8 @@ func (j JobSpecInput) ToOCR3JobConfigInput() (pkg.OCR3JobConfigInput, error) {
 		return pkg.OCR3JobConfigInput{}, errors.New("templateName is required and must be a non-empty string")
 	}
 
-	if out.ContractQualifier == "" || strings.TrimSpace(out.ContractQualifier) == "" {
-		return pkg.OCR3JobConfigInput{}, errors.New("contractQualifier is required and must be a non-empty string")
+	if out.CapRegVersion == "" && (out.ContractQualifier == "" || strings.TrimSpace(out.ContractQualifier) == "") {
+		return pkg.OCR3JobConfigInput{}, errors.New("contractQualifier is required and must be a non-empty string (for legacy OCR3 config contracts)")
 	}
 
 	if len(out.BootstrapperOCR3Urls) == 0 {

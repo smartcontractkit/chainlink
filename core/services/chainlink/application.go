@@ -1340,6 +1340,7 @@ func newCREServices(
 						syncerV2.WithBillingClient(opts.BillingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 						syncerV2.WithOrgResolver(orgResolver),
+						syncerV2.WithLocalSecrets(globalLogger, cfg.CRE().LocalSecrets()),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

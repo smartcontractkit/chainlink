@@ -577,6 +577,27 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
+	// disallow duplicate executions
+	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
+	if addErr != nil {
+		if errors.Is(addErr, store.ErrDuplicateExecution) {
+			e.logger().Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
+			return
+		}
+		e.logger().Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
+	}
+
+	var executionStatus string
+	defer func() {
+		if executionStatus == "" {
+			executionStatus = store.StatusErrored
+		}
+		if _, finishErr := e.cfg.ExecutionsStore.FinishExecution(ctx, executionID, executionStatus); finishErr != nil {
+			e.logger().Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
+		}
+	}()
+
 	// Fetch organization ID for this execution
 	organizationID := contexts.CREValue(ctx).Org
 	if e.cfg.OrgResolver != nil {
@@ -646,7 +667,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
-	var executionStatus string // store.StatusStarted
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {

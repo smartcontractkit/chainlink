@@ -9,8 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2s"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -66,7 +64,7 @@ func (ckr *cosmosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrty
 func (ckr *cosmosKeyring) SignBlob(b []byte) ([]byte, error) {
 	signedMsg := ed25519.Sign(ckr.privKey(), b)
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
-	return utils.ConcatBytes(ckr.PublicKey(), signedMsg), nil
+	return concatBytes(ckr.PublicKey(), signedMsg), nil
 }
 
 func (ckr *cosmosKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {

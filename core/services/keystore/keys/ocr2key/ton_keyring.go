@@ -9,8 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/xssnick/tonutils-go/tvm/cell"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -74,7 +72,7 @@ func (tkr *tonKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64,
 
 func (tkr *tonKeyring) SignBlob(b []byte) ([]byte, error) {
 	sig := ed25519.Sign(tkr.privKey(), b)
-	return utils.ConcatBytes(tkr.PublicKey(), sig), nil
+	return concatBytes(tkr.PublicKey(), sig), nil
 }
 
 func (tkr *tonKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {

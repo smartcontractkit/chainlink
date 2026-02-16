@@ -28,10 +28,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -1027,7 +1027,7 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 		if err != nil {
 			return nil, err
 		}
-		encryptedOCRKeyBundleID, err := models.Sha256HashFromHex(kb)
+		encryptedOCRKeyBundleID, err := keys.Sha256HashFromHex(kb)
 		if err != nil {
 			return nil, err
 		}
