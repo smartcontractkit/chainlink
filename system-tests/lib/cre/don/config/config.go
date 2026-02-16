@@ -70,7 +70,6 @@ func PrepareNodeTOMLs(
 		configsFound := 0
 		secretsFound := 0
 		nodeSet := localNodeSets[i]
-
 		for _, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestConfigOverrides != "" {
 				configsFound++
@@ -417,6 +416,7 @@ func addWorkerNodeConfig(
 	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
 	// before resetting Capabilities struct
 	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
@@ -453,6 +453,7 @@ func addWorkerNodeConfig(
 		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields
 		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
 		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
+
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
 			NetworkID:               ptr.Ptr("evm"),
@@ -507,7 +508,6 @@ func addWorkerNodeConfig(
 			}
 		}
 	}
-
 	return existingConfig, nil
 }
 
@@ -578,16 +578,10 @@ func addGatewayNodeConfig(
 		}
 	}
 
-	// TODO: remove once gateway connector is not required by workflow registry syncer
-	evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
-	if !ok {
-		return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
-	}
 	if len(existingConfig.Capabilities.GatewayConnector.Gateways) == 0 {
 		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
 			DonID:             ptr.Ptr("doesn't-matter-for-gateway-node"),
 			ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
 		}
 	}
 

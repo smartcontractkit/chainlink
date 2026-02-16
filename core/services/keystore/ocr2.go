@@ -6,20 +6,20 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
 type OCR2 interface {
 	Get(id string) (ocr2key.KeyBundle, error)
 	GetAll() ([]ocr2key.KeyBundle, error)
-	GetAllOfType(chaintype.ChainType) ([]ocr2key.KeyBundle, error)
-	Create(context.Context, chaintype.ChainType) (ocr2key.KeyBundle, error)
+	GetAllOfType(corekeys.ChainType) ([]ocr2key.KeyBundle, error)
+	Create(context.Context, corekeys.ChainType) (ocr2key.KeyBundle, error)
 	Add(ctx context.Context, key ocr2key.KeyBundle) error
 	Delete(ctx context.Context, id string) error
 	Import(ctx context.Context, keyJSON []byte, password string) (ocr2key.KeyBundle, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKeys(ctx context.Context, enabledChains ...chaintype.ChainType) error
+	EnsureKeys(ctx context.Context, enabledChains ...corekeys.ChainType) error
 }
 
 type ocr2 struct {
@@ -56,7 +56,7 @@ func (ks ocr2) GetAll() ([]ocr2key.KeyBundle, error) {
 	return keys, nil
 }
 
-func (ks ocr2) GetAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle, error) {
+func (ks ocr2) GetAllOfType(chainType corekeys.ChainType) ([]ocr2key.KeyBundle, error) {
 	keys := []ocr2key.KeyBundle{}
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
@@ -66,7 +66,7 @@ func (ks ocr2) GetAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle,
 	return ks.getAllOfType(chainType)
 }
 
-func (ks ocr2) Create(ctx context.Context, chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
+func (ks ocr2) Create(ctx context.Context, chainType corekeys.ChainType) (ocr2key.KeyBundle, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -130,7 +130,7 @@ func (ks ocr2) Export(id string, password string) ([]byte, error) {
 	return ocr2key.ToEncryptedJSON(key, password, ks.scryptParams)
 }
 
-func (ks ocr2) EnsureKeys(ctx context.Context, enabledChains ...chaintype.ChainType) error {
+func (ks ocr2) EnsureKeys(ctx context.Context, enabledChains ...corekeys.ChainType) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -166,7 +166,7 @@ func (ks ocr2) getByID(id string) (ocr2key.KeyBundle, error) {
 	return key, nil
 }
 
-func (ks ocr2) getAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle, error) {
+func (ks ocr2) getAllOfType(chainType corekeys.ChainType) ([]ocr2key.KeyBundle, error) {
 	keys := []ocr2key.KeyBundle{}
 	for _, key := range ks.keyRing.OCR2 {
 		if key.ChainType() == chainType {
@@ -176,9 +176,9 @@ func (ks ocr2) getAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle,
 	return keys, nil
 }
 
-func (ks ocr2) create(ctx context.Context, chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
-	if !chaintype.IsSupportedChainType(chainType) {
-		return nil, chaintype.NewErrInvalidChainType(chainType)
+func (ks ocr2) create(ctx context.Context, chainType corekeys.ChainType) (ocr2key.KeyBundle, error) {
+	if !corekeys.IsSupportedChainType(chainType) {
+		return nil, corekeys.NewErrInvalidChainType(chainType)
 	}
 	key, err := ocr2key.New(chainType)
 	if err != nil {

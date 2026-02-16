@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -26,13 +25,11 @@ var (
 type StandardCapabilities struct {
 	services.StateMachine
 	log                  logger.Logger
-	spec                 *job.StandardCapabilitiesSpec
+	command              string
+	config               string
 	pluginRegistrar      plugins.RegistrarConfig
-	telemetryService     core.TelemetryService
 	store                core.KeyValueStore
 	CapabilitiesRegistry core.CapabilitiesRegistry
-	errorLog             core.ErrorLog
-	pipelineRunner       core.PipelineRunnerService
 	relayerSet           core.RelayerSet
 	keystore             core.Keystore
 	oracleFactory        core.OracleFactory
@@ -50,19 +47,18 @@ type StandardCapabilities struct {
 
 func NewStandardCapabilities(
 	log logger.Logger,
-	spec *job.StandardCapabilitiesSpec,
+	command string,
+	configJSON string,
 	pluginRegistrar plugins.RegistrarConfig,
 	dependencies core.StandardCapabilitiesDependencies,
 ) *StandardCapabilities {
 	return &StandardCapabilities{
 		log:                  log,
-		spec:                 spec,
+		command:              command,
+		config:               configJSON,
 		pluginRegistrar:      pluginRegistrar,
-		telemetryService:     dependencies.TelemetryService,
 		store:                dependencies.Store,
 		CapabilitiesRegistry: dependencies.CapabilityRegistry,
-		errorLog:             dependencies.ErrorLog,
-		pipelineRunner:       dependencies.PipelineRunner,
 		relayerSet:           dependencies.RelayerSet,
 		oracleFactory:        dependencies.OracleFactory,
 		gatewayConnector:     dependencies.GatewayConnector,
@@ -76,11 +72,9 @@ func NewStandardCapabilities(
 
 func (s *StandardCapabilities) Start(ctx context.Context) error {
 	return s.StartOnce("StandardCapabilities", func() error {
-		cmdName := s.spec.Command
-
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
 			ID:  s.log.Name(),
-			Cmd: cmdName,
+			Cmd: s.command,
 			Env: nil,
 		})
 		if err != nil {
@@ -110,12 +104,9 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 			}
 
 			dependencies := core.StandardCapabilitiesDependencies{
-				Config:             s.spec.Config,
-				TelemetryService:   s.telemetryService,
+				Config:             s.config,
 				Store:              s.store,
 				CapabilityRegistry: s.CapabilitiesRegistry,
-				ErrorLog:           s.errorLog,
-				PipelineRunner:     s.pipelineRunner,
 				RelayerSet:         s.relayerSet,
 				OracleFactory:      s.oracleFactory,
 				GatewayConnector:   s.gatewayConnector,
@@ -134,7 +125,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				return
 			}
 
-			s.log.Info("Started standard capabilities for job spec", "spec", s.spec, "capabilities", capabilityInfos)
+			s.log.Info("Started standard capabilities", "command", s.command, "capabilities", capabilityInfos)
 		}()
 
 		return nil

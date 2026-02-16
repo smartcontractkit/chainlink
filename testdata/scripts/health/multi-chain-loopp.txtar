@@ -124,6 +124,7 @@ ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
 	service is "Unstarted", not started
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.BlockHistoryEstimator
@@ -356,6 +357,15 @@ ok WorkflowStore
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
         "status": "failing",
         "output": "service is \"Unstarted\", not started"
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
       }
     },
     {

@@ -73,6 +73,28 @@ type Capabilities interface {
 	ExternalRegistry() CapabilitiesExternalRegistry
 	WorkflowRegistry() CapabilitiesWorkflowRegistry
 	GatewayConnector() GatewayConnector
+	Local() LocalCapabilities
+}
+
+// LocalCapabilities provides configuration for registry-based capability launching.
+type LocalCapabilities interface {
+	// RegistryBasedLaunchAllowlist returns regex patterns that match capability IDs to be
+	// launched from the capabilities registry instead of via job specs.
+	RegistryBasedLaunchAllowlist() []string
+	// Capabilities returns per-capability node configuration, keyed by capability ID.
+	Capabilities() map[string]CapabilityNodeConfig
+	// IsAllowlisted returns true if the capability ID matches any pattern in the allowlist.
+	IsAllowlisted(capabilityID string) bool
+	// GetCapabilityConfig returns the node config for a specific capability, or nil if not configured.
+	GetCapabilityConfig(capabilityID string) CapabilityNodeConfig
+}
+
+// CapabilityNodeConfig provides node-specific configuration for a capability.
+type CapabilityNodeConfig interface {
+	// BinaryPathOverride returns the override path for the capability binary, or empty if not set.
+	BinaryPathOverride() string
+	// Config returns capability-specific configuration as key-value pairs.
+	Config() map[string]string
 }
 
 type SharedPeering interface {

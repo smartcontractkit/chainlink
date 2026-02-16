@@ -27,8 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	grapqlClient "github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
@@ -172,7 +172,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 
 	var nodeOCRKeyId []string
 	for _, key := range nodeOCRKeys.Data {
-		if key.Attributes.ChainType == string(chaintype.EVM) {
+		if key.Attributes.ChainType == string(corekeys.EVM) {
 			nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
 			break
 		}

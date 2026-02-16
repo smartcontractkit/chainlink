@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
@@ -296,7 +297,7 @@ type OCROracleSpec struct {
 	ContractAddress                        evmtypes.EIP55Address  `toml:"contractAddress"`
 	P2PV2Bootstrappers                     pq.StringArray         `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                        bool                   `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash     `toml:"keyBundleID"`
+	EncryptedOCRKeyBundleID                *keys.Sha256Hash       `toml:"keyBundleID"`
 	TransmitterAddress                     *evmtypes.EIP55Address `toml:"transmitterAddress"`
 	ObservationTimeout                     sqlutil.Interval       `toml:"observationTimeout"`
 	BlockchainTimeout                      sqlutil.Interval       `toml:"blockchainTimeout"`

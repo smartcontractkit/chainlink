@@ -286,6 +286,7 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
 			Headers:                 resp.Headers,
+			MultiHeaders:            resp.MultiHeaders,
 			Body:                    resp.Body,
 			ExternalEndpointLatency: externalEndpointLatency,
 		}
@@ -331,7 +332,8 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	httpReq := network.HTTPRequest{
 		Method:           req.Method,
 		URL:              req.URL,
-		Headers:          req.Headers,
+		Headers:          req.Headers, //nolint:staticcheck // forward deprecated Headers for backward compatibility; request uses MultiHeaders when set
+		MultiHeaders:     req.MultiHeaders,
 		Body:             req.Body,
 		MaxResponseBytes: req.MaxResponseBytes,
 		Timeout:          timeout,

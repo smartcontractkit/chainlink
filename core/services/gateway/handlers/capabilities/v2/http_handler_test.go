@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -148,6 +148,86 @@ func TestHandleNodeMessage(t *testing.T) {
 		handler.wg.Wait()
 	})
 
+	t.Run("successful node message handling with MultiHeaders", func(t *testing.T) {
+		mockDon := handler.don.(*handlermocks.DON)
+		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+
+		// Prepare outbound request
+		outboundReq := gateway_common.OutboundHTTPRequest{
+			Method:        "GET",
+			URL:           "https://example.com/api/multiheaders-test",
+			TimeoutMs:     5000,
+			MultiHeaders:  map[string][]string{"Content-Type": {"application/json"}},
+			Body:          []byte(`{"test": "data"}`),
+			CacheSettings: gateway_common.CacheSettings{},
+		}
+		reqBytes, err := json.Marshal(outboundReq)
+		require.NoError(t, err)
+
+		id := fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String())
+		rawRequest := json.RawMessage(reqBytes)
+		resp := &jsonrpc.Response[json.RawMessage]{
+			ID:     id,
+			Result: &rawRequest,
+		}
+
+		// Response with multiple Set-Cookie headers
+		httpResp := &network.HTTPResponse{
+			StatusCode: 200,
+			Headers: map[string]string{
+				"Set-Cookie": "sessionid=abc123; Path=/; HttpOnly",
+			},
+			MultiHeaders: map[string][]string{
+				"Set-Cookie": {
+					"sessionid=abc123; Path=/; HttpOnly",
+					"csrf_token=xyz789; Path=/; Secure",
+				},
+			},
+			Body: []byte(`{"result": "success"}`),
+		}
+
+		mockHTTPClient.EXPECT().Send(mock.Anything, mock.MatchedBy(func(req network.HTTPRequest) bool {
+			return req.Method == "GET" && req.URL == "https://example.com/api/multiheaders-test"
+		})).Return(httpResp, nil).Once()
+
+		capturedResponse := &gateway_common.OutboundHTTPResponse{}
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+			if req.Params == nil {
+				return false
+			}
+			paramsStr := string(*req.Params)
+			if !json.Valid(*req.Params) {
+				return false
+			}
+			err2 := json.Unmarshal(*req.Params, capturedResponse)
+			if err2 != nil {
+				t.Logf("Failed to unmarshal response: %v, params: %s", err2, paramsStr)
+				return false
+			}
+			if capturedResponse.StatusCode != 200 {
+				return false
+			}
+			return req.ID == id
+		})).Return(nil)
+
+		err = handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
+		require.NoError(t, err)
+		handler.wg.Wait()
+
+		// Verify the response was captured
+		require.Equal(t, 200, capturedResponse.StatusCode, "Response should have status code 200")
+		require.NotNil(t, capturedResponse.MultiHeaders, "MultiHeaders should not be nil")
+		require.NotEmpty(t, capturedResponse.MultiHeaders, "MultiHeaders should not be empty")
+		setCookieValues, ok := capturedResponse.MultiHeaders["Set-Cookie"]
+		require.True(t, ok, "Set-Cookie header should be in MultiHeaders, got: %+v", capturedResponse.MultiHeaders)
+		require.Len(t, setCookieValues, 2, "Should have 2 Set-Cookie headers, got: %v", setCookieValues)
+		require.Contains(t, setCookieValues, "sessionid=abc123; Path=/; HttpOnly")
+		require.Contains(t, setCookieValues, "csrf_token=xyz789; Path=/; Secure")
+
+		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
+		verifyBackwardCompatibility(t, capturedResponse.Headers, capturedResponse.MultiHeaders) //nolint:staticcheck // SA1019: intentionally asserting deprecated Headers for backward compatibility
+	})
+
 	t.Run("returns cached response if available", func(t *testing.T) {
 		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
@@ -282,6 +362,7 @@ func TestServiceLifecycle(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
 func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
 	// This test covers the case where the response ID does not contain a "/"
 	// and should be routed to the triggerHandler.HandleNodeTriggerResponse.
@@ -415,6 +496,14 @@ func createTestHandler(t *testing.T) *gatewayHandler {
 	return createTestHandlerWithConfig(t, cfg)
 }
 
+// verifyBackwardCompatibility checks that all keys in MultiHeaders are also present in Headers
+// with non-empty values. Same logic as in gateway/network/httpclient_test.go (package boundary).
+func verifyBackwardCompatibility(t *testing.T, headers map[string]string, multiHeaders map[string][]string) {
+	for key := range maps.Keys(multiHeaders) {
+		require.NotEmpty(t, headers[key], "Headers should contain %s for backward compatibility", key)
+	}
+}
+
 func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandler {
 	configBytes, err := json.Marshal(cfg)
 	require.NoError(t, err)
@@ -492,6 +581,83 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.Equal(t, 0, response.StatusCode)
 		require.Nil(t, response.Headers)
 		require.Nil(t, response.Body)
+	})
+
+	t.Run("response with MultiHeaders is passed through correctly", func(t *testing.T) {
+		handler := createTestHandler(t)
+		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+
+		expectedResp := &network.HTTPResponse{
+			StatusCode: 200,
+			Headers: map[string]string{
+				"Set-Cookie": "sessionid=abc123; Path=/; HttpOnly, csrf_token=xyz789; Path=/; Secure",
+				"Via":        "1.0 proxy1,1.1 proxy2",
+			},
+			MultiHeaders: map[string][]string{
+				"Set-Cookie": {
+					"sessionid=abc123; Path=/; HttpOnly",
+					"csrf_token=xyz789; Path=/; Secure",
+				},
+				"Via": {
+					"1.0 proxy1",
+					"1.1 proxy2",
+				},
+			},
+			Body: []byte(`{"result": "success"}`),
+		}
+
+		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(expectedResp, nil)
+
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		response := callback()
+
+		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
+		require.Equal(t, expectedResp.Body, response.Body)
+		require.Empty(t, response.ErrorMessage)
+
+		// Verify MultiHeaders are passed through
+		require.NotNil(t, response.MultiHeaders, "MultiHeaders should not be nil")
+		require.Len(t, response.MultiHeaders["Set-Cookie"], 2, "Should have 2 Set-Cookie headers")
+		require.Contains(t, response.MultiHeaders["Set-Cookie"], "sessionid=abc123; Path=/; HttpOnly")
+		require.Contains(t, response.MultiHeaders["Set-Cookie"], "csrf_token=xyz789; Path=/; Secure")
+		require.Len(t, response.MultiHeaders["Via"], 2, "Should have 2 Via headers")
+		require.Contains(t, response.MultiHeaders["Via"], "1.0 proxy1")
+		require.Contains(t, response.MultiHeaders["Via"], "1.1 proxy2")
+
+		// Verify Headers field is also set (for backward compatibility)
+		require.NotNil(t, response.Headers, "Headers should not be nil")                         //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.NotEmpty(t, response.Headers["Set-Cookie"], "Headers should contain Set-Cookie") //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.NotEmpty(t, response.Headers["Via"], "Headers should contain Via")               //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+
+		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
+		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders) //nolint:staticcheck // SA1019: intentionally asserting deprecated Headers for backward compatibility
+	})
+
+	t.Run("response with empty MultiHeaders still sets Headers", func(t *testing.T) {
+		handler := createTestHandler(t)
+		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+
+		expectedResp := &network.HTTPResponse{
+			StatusCode: 200,
+			Headers:    map[string]string{"Content-Type": "application/json"},
+			MultiHeaders: map[string][]string{
+				"Content-Type": {"application/json"},
+			},
+			Body: []byte(`{"result": "success"}`),
+		}
+
+		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(expectedResp, nil)
+
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		response := callback()
+
+		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
+		require.NotNil(t, response.MultiHeaders)
+		require.Equal(t, []string{"application/json"}, response.MultiHeaders["Content-Type"])
+		require.Equal(t, "application/json", response.Headers["Content-Type"]) //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+
+		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
+		verifyBackwardCompatibility(t, response.Headers, response.MultiHeaders) //nolint:staticcheck // SA1019: intentionally asserting deprecated Headers for backward compatibility
 	})
 
 	t.Run("HTTP read error sets IsExternalEndpointError to true", func(t *testing.T) {

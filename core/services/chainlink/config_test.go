@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -431,7 +432,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractSubscribeInterval:          commoncfg.MustNewDuration(time.Minute),
 		ContractTransmitterTransmitTimeout: commoncfg.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    commoncfg.MustNewDuration(8 * time.Second),
-		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
+		KeyBundleID:                        ptr(keys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
 		CaptureAutomationCustomTelemetry:   ptr(true),
 		AllowNoBootstrappers:               ptr(true),
@@ -448,7 +449,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractPollInterval:         commoncfg.MustNewDuration(time.Hour),
 		ContractSubscribeInterval:    commoncfg.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: ptr[uint32](12),
-		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
+		KeyBundleID:                  ptr(keys.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
@@ -565,6 +566,19 @@ func TestConfig_Marshal(t *testing.T) {
 				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
 			},
 		},
+		Local: toml.LocalCapabilities{
+			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			Capabilities: map[string]toml.CapabilityNodeConfig{
+				"http-action@1.0.0": {
+					BinaryPathOverride: ptr("/opt/chainlink/binaries/http_action"),
+					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
+				},
+				"cron@1.0.0": {
+					BinaryPathOverride: ptr("/opt/chainlink/binaries/cron"),
+					Config:             map[string]string{"fastestScheduleIntervalSeconds": "60"},
+				},
+			},
+		},
 	}
 	full.Workflows = toml.Workflows{
 		Limits: toml.Limits{
@@ -665,6 +679,9 @@ func TestConfig_Marshal(t *testing.T) {
 		ShardIndex:               ptr[uint16](0),
 		ShardOrchestratorPort:    ptr[uint16](50051),
 		ShardOrchestratorAddress: &commoncfg.URL{},
+	}
+	full.LOOPP = toml.LOOPP{
+		GRPCServerMaxRecvMsgSize: ptr[utils.FileSize](42 * utils.MB),
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),

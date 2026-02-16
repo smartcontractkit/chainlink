@@ -3,8 +3,8 @@ package crypto
 import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type DKGRecipientKey struct {
@@ -21,7 +21,7 @@ func NewDKGRecipientKey(password string) (*DKGRecipientKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	d, err := key.ToEncryptedJSON(password, utils.DefaultScryptParams)
+	d, err := key.ToEncryptedJSON(password, keystore.DefaultScryptParams)
 	if err != nil {
 		return nil, err
 	}

@@ -44,12 +44,6 @@ func Test_CRE_V1_Tron(t *testing.T) {
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 }
 
-func Test_CRE_V1_SecureMint(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
-
-	ExecuteSecureMintTest(t, testEnv)
-}
-
 /*
 // TODO: Move Billing tests to v2 Registries
 func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
@@ -148,10 +142,23 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	})
 }
 
+func Test_CRE_V2_Solana_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
+	t.Run("[v2] Solana Write", func(t *testing.T) {
+		ExecuteSolanaWriteTest(t, testEnv)
+	})
+}
+
 func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
+}
+
+func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+	ExecuteHTTPActionRegressionTest(t, testEnv)
 }
 
 func Test_CRE_V2_Beholder_Suite(t *testing.T) {
