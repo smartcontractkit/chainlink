@@ -24,7 +24,7 @@ plugins:
       installPath: "."
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "17f6545c0ff1742b774e0b87860563cde0ad14bb"
+      gitRef: "975b6bc3007af83c708d25a93575b132c104dfc0"
       installPath: "."
   workflowevent:
     - enabled: false
@@ -33,7 +33,7 @@ plugins:
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "17f6545c0ff1742b774e0b87860563cde0ad14bb"
+      gitRef: "e925fcc435c163eebfaf149d1dd49ad71562d5de"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"

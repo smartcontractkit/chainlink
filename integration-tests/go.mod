@@ -33,7 +33,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.11.1
 	github.com/manifoldco/promptui v0.9.0
 	github.com/montanaflynn/stats v0.7.1
 	github.com/onsi/gomega v1.36.2
@@ -51,7 +51,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260203202624-5101f4d33736
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260211140822-b833b412cdd9
+	github.com/smartcontractkit/chainlink-common v0.10.0
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2-0.20260211140822-b833b412cdd9
 	github.com/smartcontractkit/chainlink-deployments-framework v0.80.1-0.20260209182815-b296b7df28a6
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260205183656-836ec9472717
@@ -64,10 +64,10 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.3
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.2
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260209205928-e7e034ed7976
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260209205928-e7e034ed7976
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260211155338-cd4708d2b938
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260211155338-cd4708d2b938
 	github.com/smartcontractkit/libocr v0.0.0-20260130195252-6e18e2a30acc
 	github.com/smartcontractkit/mcms v0.35.1-0.20260209175626-b68b54b6e8d0
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
@@ -182,8 +182,8 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cli/safeexec v1.0.0 // indirect
-	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.1 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.16.1 // indirect
+	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.2 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.2 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect

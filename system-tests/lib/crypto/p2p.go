@@ -1,8 +1,8 @@
 package crypto
 
 import (
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type P2PKey struct {
@@ -16,7 +16,7 @@ func NewP2PKey(password string) (*P2PKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	d, err := key.ToEncryptedJSON(password, utils.DefaultScryptParams)
+	d, err := key.ToEncryptedJSON(password, keystore.DefaultScryptParams)
 	if err != nil {
 		return nil, err
 	}

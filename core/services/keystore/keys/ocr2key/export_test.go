@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestExport(t *testing.T) {
@@ -25,7 +25,7 @@ func TestExport(t *testing.T) {
 		t.Run(string(tc.chain), func(t *testing.T) {
 			kb, err := New(tc.chain)
 			require.NoError(t, err)
-			ej, err := ToEncryptedJSON(kb, "blah", utils.FastScryptParams)
+			ej, err := ToEncryptedJSON(kb, "blah", commonkeystore.FastScryptParams)
 			require.NoError(t, err)
 			kbAfter, err := FromEncryptedJSON(ej, "blah")
 			require.NoError(t, err)

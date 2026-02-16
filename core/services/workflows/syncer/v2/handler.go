@@ -63,6 +63,7 @@ type eventHandler struct {
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
+	secretsFetcher         v2.SecretsFetcher
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -112,6 +113,22 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 func WithOrgResolver(orgResolver orgresolver.OrgResolver) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.orgResolver = orgResolver
+	}
+}
+
+func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.secretsFetcher = sf
+	}
+}
+
+func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		if len(secrets) == 0 {
+			return
+		}
+		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
+		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
 	}
 }
 
@@ -547,6 +564,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.

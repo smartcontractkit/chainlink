@@ -49,7 +49,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
 )
 
 const (
@@ -322,6 +323,13 @@ func startCmd() *cobra.Command {
 
 			if err := validateWorkflowTriggerAndCapabilities(in, withExampleFlag, exampleWorkflowTrigger, withPluginsDockerImage); err != nil {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
+			}
+
+			topologySummary, _, topErr := generateTopologyArtifactsForLoadedConfig(in)
+			if topErr != nil {
+				framework.L.Warn().Err(topErr).Msg("failed to generate topology visualization artifacts")
+			} else {
+				fmt.Print(libformat.PurpleText("\n%s\n", topologyviz.RenderASCIIStartSummary(topologySummary)))
 			}
 
 			features := feature_set.New()
@@ -690,18 +698,6 @@ func StartCLIEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("DON topology:\n"))
-	for _, nodeSet := range in.NodeSets {
-		fmt.Print(libformat.PurpleText("%s\n", strings.ToUpper(nodeSet.Name)))
-		fmt.Print(libformat.PurpleText("\tNode count: %d\n", len(nodeSet.NodeSpecs)))
-		capabilitiesDesc := "none"
-		if len(nodeSet.Capabilities) > 0 {
-			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
-		}
-		fmt.Print(libformat.PurpleText("\tCapabilities: %s\n", capabilitiesDesc))
-		fmt.Print(libformat.PurpleText("\tDON Types: %s\n\n", strings.Join(nodeSet.DONTypes, ", ")))
-	}
-
 	if in.JD.CSAEncryptionKey == "" {
 		// generate a new key
 		key, keyErr := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
@@ -729,7 +725,7 @@ func StartCLIEnvironment(
 		StageGen:                initLocalCREStageGen(in),
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
-		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
+		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

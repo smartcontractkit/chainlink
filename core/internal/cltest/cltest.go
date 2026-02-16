@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -96,7 +97,6 @@ import (
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -426,7 +426,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			}
 		}
 	}
-	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr.Infof)
+	keyStore := keystore.NewInMemory(ds, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, keyStore.Unlock(ctx, Password))
 	logPubKeys(t, keyStore)
 
@@ -842,7 +842,7 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, ds sqlutil.DataSource) keystore.Master {
 	ctx := testutils.Context(t)
-	keystore := keystore.NewInMemory(ds, utils.FastScryptParams, logger.TestLogger(t).Infof)
+	keystore := keystore.NewInMemory(ds, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
 	require.NoError(t, keystore.Unlock(ctx, Password))
 	logPubKeys(t, keystore)
 	return keystore
