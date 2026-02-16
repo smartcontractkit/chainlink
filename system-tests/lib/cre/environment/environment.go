@@ -54,7 +54,7 @@ type SetupOutput struct {
 
 type SetupInput struct {
 	NodeSets               []*cre.NodeSet
-	BlockchainsInput       []*blockchain.Input
+	Blockchains            []*config.Blockchain
 	JdInput                *jd.Input
 	Provider               infra.Provider
 	ContractVersions       map[cre.ContractType]*semver.Version
@@ -87,7 +87,7 @@ func (s *SetupInput) Validate() error {
 		return pkgerrors.New("at least one nodeSet is required")
 	}
 
-	if len(s.BlockchainsInput) == 0 {
+	if len(s.Blockchains) == 0 {
 		return pkgerrors.New("at least one blockchain is required")
 	}
 
@@ -127,13 +127,12 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
 	}
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.Blockchains))))
 
-	deployedBlockchains, startErr := blockchains.Start(
+	deployedBlockchains, startErr := startBlockchainsWithTargets(
 		ctx,
 		testLogger,
-		singleFileLogger,
-		input.BlockchainsInput,
+		input.Blockchains,
 		input.BlockchainDeployers,
 	)
 	if startErr != nil {
@@ -459,13 +458,16 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput,
 		input.NodeSets[idx].Out = nsOut.Output
 	}
 
-	for idx, blockchain := range blockchains {
-		input.BlockchainsInput[idx].Out = blockchain.CtfOutput()
+	for idx, deployedBlockchain := range blockchains {
+		if idx < len(input.Blockchains) && input.Blockchains[idx] != nil {
+			input.Blockchains[idx].Out = deployedBlockchain.CtfOutput()
+		}
 	}
 
 	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	input.JdInput.Out = jdOutput
 }
+
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
 	allChainsCLDEnvironment := &cldf.Environment{

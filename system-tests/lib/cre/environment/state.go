@@ -38,11 +38,15 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra)
+	effectiveBlockchains, effErr := cachedInput.EffectiveBlockchains()
+	if effErr != nil {
+		return nil, nil, errors.Wrap(effErr, "failed to resolve cached blockchain inputs")
+	}
 	deployedBlockchains, startErr := blockchains.Start(
 		ctx,
 		framework.L,
 		cldLogger,
-		cachedInput.Blockchains,
+		effectiveBlockchains,
 		blockchainDeployers,
 	)
 	if startErr != nil {
