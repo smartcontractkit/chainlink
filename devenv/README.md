@@ -34,8 +34,8 @@ Use `up env.toml,env-cl-rebuild.toml` to rebuild custom CL image from your local
 Fake represent a controlled External Adapter that returns feed values.
 
 ```bash
-just build-fakes <aws_registry> # use SDLC registry
-just push-fakes <aws_registry> # use SDLC registry
+just build-fakes <aws_registry> # use staging registry, full name $num.drk.ecr, etc
+just push-fakes <aws_registry> # use staging registry, full name $num.drk.ecr, etc
 ```
 
 ## Adding Products

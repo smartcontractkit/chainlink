@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/leak"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/pods"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -28,6 +29,17 @@ func TestOCR2Load(t *testing.T) {
 	require.NoError(t, err)
 	pdConfig, err := products.LoadOutput[ocr2.Configurator](outputFile)
 	require.NoError(t, err)
+
+	if pods.K8sEnabled() {
+		err := pods.Connect(in.FakeServer.Out.K8sService, true)
+		require.NoError(t, err)
+		err = pods.Connect(in.Blockchains[0].Out.Nodes[0].K8sService, true)
+		require.NoError(t, err)
+		for _, n := range in.NodeSets[0].Out.CLNodes {
+			err := pods.Connect(n.Node.K8sService, true)
+			require.NoError(t, err)
+		}
+	}
 
 	t.Cleanup(func() {
 		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))

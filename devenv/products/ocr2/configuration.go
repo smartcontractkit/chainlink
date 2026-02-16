@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/pods"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 
 	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -580,7 +581,15 @@ func (m *Configurator) configureJobs(ctx context.Context, fake *fake.Input, bc *
 	if err != nil {
 		return err
 	}
-	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, ns.Out.CLNodes[0].Node.ContainerName, 6690)
+	var bootstrapNameAndPort string
+	if pods.K8sEnabled() {
+		// externally via svc
+		bootstrapNameAndPort = fmt.Sprintf("%s-svc:%d", ns.Out.CLNodes[0].Node.ContainerName, 12000)
+	} else {
+		// internally via Docker container name
+		bootstrapNameAndPort = fmt.Sprintf("%s:%d", ns.Out.CLNodes[0].Node.ContainerName, 6690)
+	}
+	p2pV2Bootstrapper := fmt.Sprintf("%s@%s", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNameAndPort)
 	// Set the value for the jobs to report on
 	bootstrapSpec := &TaskJobSpec{
 		Name:    "ocr2_bootstrap-" + uuid.NewString(),
