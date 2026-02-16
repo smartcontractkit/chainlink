@@ -67,10 +67,7 @@ func (o *DONTime) PostEnvStartup(
 		return fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
 	}
 
-	ocr3Config, ocr3confErr := contracts.DefaultOCR3Config()
-	if ocr3confErr != nil {
-		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
-	}
+	ocr3Config := contracts.DefaultOCR3Config()
 
 	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
 	if !ok {

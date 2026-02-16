@@ -51,7 +51,9 @@ type suiteBucketDefinition struct {
 }
 
 // suiteBucketRegistry is the single place where old V2 suite scenarios are assigned to buckets.
-// When adding a new scenario, add it here and keep bucket runtimes balanced.
+// When adding a new scenario, add it here and keep bucket runtimes balanced. Best way to do it is by
+// executing the tests in CI once and asking an AI to check run details, with execution time and to
+// rebalance the buckets so that they are balanced.
 var suiteBucketRegistry = []suiteBucketDefinition{
 	{
 		Bucket: SuiteBucketA,

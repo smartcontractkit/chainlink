@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
@@ -52,7 +52,7 @@ type EncryptedVRFKeyExport struct {
 	VRFKey    gethKeyStruct       `json:"vrf_key"`
 }
 
-func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+func (key KeyV2) ToEncryptedJSON(password string, scryptParams commonkeystore.ScryptParams) (export []byte, err error) {
 	cryptoJSON, err := keystore.EncryptKey(key.toGethKey(), adulteratedPassword(password), scryptParams.N, scryptParams.P)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to encrypt key %s", key.ID())

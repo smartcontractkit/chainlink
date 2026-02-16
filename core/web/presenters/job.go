@@ -16,6 +16,7 @@ import (
 
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -129,7 +130,7 @@ type OffChainReportingSpec struct {
 	ContractAddress                        types.EIP55Address  `json:"contractAddress"`
 	P2PV2Bootstrappers                     pq.StringArray      `json:"p2pv2Bootstrappers"`
 	IsBootstrapPeer                        bool                `json:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash  `json:"keyBundleID"`
+	EncryptedOCRKeyBundleID                *keys.Sha256Hash    `json:"keyBundleID"`
 	TransmitterAddress                     *types.EIP55Address `json:"transmitterAddress"`
 	ObservationTimeout                     sqlutil.Interval    `json:"observationTimeout"`
 	BlockchainTimeout                      sqlutil.Interval    `json:"blockchainTimeout"`

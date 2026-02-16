@@ -76,9 +76,6 @@ func AppendBinariesPathsNodeSpec(nodeSet *cre.NodeSet, donMetadata *cre.DonMetad
 
 func DefaultContainerDirectory(infraType infra.Type) (string, error) {
 	switch infraType {
-	case infra.CRIB:
-		// chainlink user will always have access to this directory
-		return "/home/chainlink", nil
 	case infra.Docker:
 		// needs to match what CTFv2 uses by default, we should define a constant there and import it here
 		return clnode.DefaultCapabilitiesDir, nil

@@ -24,11 +24,13 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -1124,7 +1126,7 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	}
 
 	ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
-	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), lggr.Infof)
+	keyStore := keystore.New(ds, getScryptParams(cfg), lggr.Infof)
 	s.DS = ds
 	s.KeyStore = keyStore
 
@@ -1195,4 +1197,12 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 func (s *Shell) AfterNode(c *cli.Context) error {
 	s.afterNode(logger.Sugared(s.Logger))
 	return nil
+}
+
+// getScryptParams fetches ScryptParams from a ScryptConfigReader
+func getScryptParams(config chainlink.GeneralConfig) commonkeystore.ScryptParams {
+	if config.InsecureFastScrypt() {
+		return commonkeystore.FastScryptParams
+	}
+	return commonkeystore.DefaultScryptParams
 }

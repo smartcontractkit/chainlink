@@ -59,8 +59,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/smartcontractkit/cre-sdk-go/cre/testutils/registry"
-	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
-	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
@@ -1232,39 +1230,18 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		},
 	}
 
-	basicActionMock := setupExpectedCalls(t)
 	wrappedTriggerMock := &TriggerCapabilityWrapper{}
-	wrappedActionMock := &MockCapabilityWrapper{
-		Capability: basicActionMock,
-	}
 
 	t.Run("OK happy path", func(t *testing.T) {
 		wantResponse := "Hello, world!"
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
 
+		// Simple wasm binary (v2/cmd) uses trigger-only workflow; no GetExecutable/ConfigForCapability.
 		capreg.EXPECT().
 			GetTrigger(matches.AnyContext, triggerID).
 			Return(wrappedTriggerMock, nil).
 			Once()
-
-		capreg.EXPECT().
-			GetExecutable(matches.AnyContext, wrappedActionMock.ID()).
-			Return(wrappedActionMock, nil).
-			Twice()
-
-		testConf, _ := values.NewMap(map[string]any{
-			"spendRatios": map[string]string{
-				"spendTypeA": "0.4",
-				"spendTypeB": "0.6",
-			},
-		})
-
-		capreg.EXPECT().
-			ConfigForCapability(matches.AnyContext, mock.Anything, mock.Anything).
-			Return(capabilities.CapabilityConfiguration{
-				RestrictedConfig: testConf,
-			}, nil)
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
@@ -1932,26 +1909,6 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		})).
 		Return(&emptypb.Empty{}, nil).Maybe()
 	return billingClient
-}
-
-// setupExpectedCalls mocks single call to trigger and two calls to the basic action
-// mock capability
-func setupExpectedCalls(t *testing.T) *basicactionmock.BasicActionCapability {
-	basicAction := &basicactionmock.BasicActionCapability{}
-
-	firstCall := true
-	callLock := &sync.Mutex{}
-	basicAction.PerformAction = func(ctx context.Context, input *basicaction.Inputs) (*basicaction.Outputs, error) {
-		callLock.Lock()
-		defer callLock.Unlock()
-		assert.NotEqual(t, firstCall, input.InputThing, "failed first call assertion")
-		firstCall = false
-		if input.InputThing {
-			return &basicaction.Outputs{AdaptedThing: "!"}, nil
-		}
-		return &basicaction.Outputs{AdaptedThing: "world"}, nil
-	}
-	return basicAction
 }
 
 func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {

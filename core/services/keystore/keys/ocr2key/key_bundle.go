@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type OCR3SignerVerifier interface {
@@ -99,7 +99,7 @@ func MustNewInsecure(reader io.Reader, chainType corekeys.ChainType) KeyBundle {
 
 type keyBundleBase struct {
 	offchainKeyring
-	id        models.Sha256Hash
+	id        keys.Sha256Hash
 	chainType corekeys.ChainType
 }
 

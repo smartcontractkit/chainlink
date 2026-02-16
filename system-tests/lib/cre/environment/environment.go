@@ -26,10 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -122,13 +122,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
-	if input.Provider.Type == infra.CRIB {
-		cribErr := crib.Bootstrap(ctx, input.Provider)
-		if cribErr != nil {
-			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
-		}
-	}
-
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
@@ -196,6 +189,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
+	var capabilityToOCR3Config = make(map[string]*ocr3.OracleConfig)
 	for _, feature := range input.Features.List() {
 		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PreEnvStartup for feature %s for don '%s'", feature.Flag(), donMetadata.Name)
@@ -214,6 +208,7 @@ func SetupTestEnvironment(
 					donsCapabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 				}
 				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
+				maps.Copy(capabilityToOCR3Config, output.CapabilityToOCR3Config)
 			}
 			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
@@ -353,7 +348,7 @@ func SetupTestEnvironment(
 	}
 
 	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
-		// we currently have no way of checking if filters were registered, when code runs in CRIB or Kubernetes
+		// we currently have no way of checking if filters were registered in Kubernetes mode
 		// as we don't have a way to get its database connection string
 		if !input.Provider.IsDocker() {
 			return nil
@@ -387,6 +382,7 @@ func SetupTestEnvironment(
 		NodeSets:                 input.NodeSets,
 		WithV2Registries:         input.WithV2Registries,
 		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
+		CapabilityToOCR3Config:   capabilityToOCR3Config,
 	}
 
 	for _, capability := range input.Capabilities {

@@ -17,7 +17,9 @@ type readBucketDefinition struct {
 }
 
 // readBucketRegistry is the single place where EVM read test cases are assigned to buckets.
-// When adding a new TestCase, add it here and keep bucket runtimes balanced.
+// When adding a new TestCase, add it here and keep bucket runtimes balanced. Best way to do it is by
+// executing the tests in CI once and asking an AI to check run details, with execution time and to
+// rebalance the buckets so that they are balanced.
 var readBucketRegistry = []readBucketDefinition{
 	{
 		Bucket: ReadBucketHeavyCalls,

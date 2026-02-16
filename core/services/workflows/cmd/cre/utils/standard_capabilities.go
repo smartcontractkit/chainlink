@@ -69,7 +69,7 @@ func newStandardCapabilities(
 			Config:  config.Config,
 		}
 
-		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,
+		loop := standardcapabilities.NewStandardCapabilities(lggr, spec.Command, spec.Config,
 			pluginRegistrar, core.StandardCapabilitiesDependencies{
 				Config:             spec.Config,
 				TelemetryService:   &fakes.TelemetryServiceMock{},

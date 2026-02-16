@@ -63,6 +63,7 @@ func XTestLogPollerManyFiltersFinalityTag(t *testing.T) {
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerWithChaosFixedDepth(t *testing.T) {
+	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
@@ -72,11 +73,12 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 }
 
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
+	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
 func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-563")
+	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 

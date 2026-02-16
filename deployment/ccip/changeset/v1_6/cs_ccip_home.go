@@ -184,7 +184,7 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			if !ok {
 				return fmt.Errorf("chain %d does not exist in EVM chain state but provided in USDCCCTPObserverConfig", sel)
 			}
-			if onchainState.USDCTokenPools == nil {
+			if onchainState.USDCTokenPools == nil && onchainState.USDCTokenPoolsV1_6 == nil {
 				return fmt.Errorf("chain %d does not have any USDC token pools deployed", sel)
 			}
 
