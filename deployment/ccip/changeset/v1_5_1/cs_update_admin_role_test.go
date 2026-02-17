@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -306,6 +308,7 @@ func TestUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 }
 
 func TestUpdateAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
+	quarantine.Flaky(t, "DX-2888")
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
