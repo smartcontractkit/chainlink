@@ -1341,3 +1341,40 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.Equal(t, wfTypes.WorkflowID(wfIDGrpc2), grpcEvents[0].Data.(WorkflowDeletedEvent).WorkflowID)
 	})
 }
+
+func Test_isZeroOwner(t *testing.T) {
+	t.Run("returns true for nil slice", func(t *testing.T) {
+		require.True(t, isZeroOwner(nil))
+	})
+
+	t.Run("returns true for empty slice", func(t *testing.T) {
+		require.True(t, isZeroOwner([]byte{}))
+	})
+
+	t.Run("returns true for all zeros (20 bytes - Ethereum address)", func(t *testing.T) {
+		zeroAddress := make([]byte, 20)
+		require.True(t, isZeroOwner(zeroAddress))
+	})
+
+	t.Run("returns true for all zeros (arbitrary length)", func(t *testing.T) {
+		zeros := make([]byte, 32)
+		require.True(t, isZeroOwner(zeros))
+	})
+
+	t.Run("returns false for valid owner address", func(t *testing.T) {
+		validOwner, _ := hex.DecodeString("1234567890123456789012345678901234567890")
+		require.False(t, isZeroOwner(validOwner))
+	})
+
+	t.Run("returns false for address with single non-zero byte", func(t *testing.T) {
+		almostZero := make([]byte, 20)
+		almostZero[19] = 1 // last byte is 1
+		require.False(t, isZeroOwner(almostZero))
+	})
+
+	t.Run("returns false for address with non-zero first byte", func(t *testing.T) {
+		almostZero := make([]byte, 20)
+		almostZero[0] = 1 // first byte is 1
+		require.False(t, isZeroOwner(almostZero))
+	})
+}

@@ -742,6 +742,21 @@ func isEmptyWorkflowID(wfID [32]byte) bool {
 	return wfID == emptyID
 }
 
+// isZeroOwner checks if a workflow owner address is the zero address (all zeros).
+// This can indicate stale metadata from deleted workflows in the contract - there's a known
+// bug where deleted workflows aren't always fully removed from the contract state.
+func isZeroOwner(owner []byte) bool {
+	if len(owner) == 0 {
+		return true
+	}
+	for _, b := range owner {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // newAllowlistedRequestsContractReader creates a contract reader specifically for fetching
 // allowlisted requests from the WorkflowRegistry contract. This is used by Vault DON nodes
 // to verify that incoming vault requests have been pre-authorized on-chain by workflow owners.
