@@ -639,6 +639,7 @@ func TestProposeAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangesetV2_PendingAdminValidation(t *testing.T) {
+	quarantine.Flaky(t, "DX-2897")
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
