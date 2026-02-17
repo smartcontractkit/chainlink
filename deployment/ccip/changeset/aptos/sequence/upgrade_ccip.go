@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
@@ -16,7 +17,7 @@ var UpgradeCCIPSequence = operations.NewSequence(
 	upgradeCCIPSequence,
 )
 
-func upgradeCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in config.UpgradeAptosChainConfig) ([]mcmstypes.BatchOperation, error) {
+func upgradeCCIPSequence(b operations.Bundle, deps dependency.AptosDeps, in config.UpgradeAptosChainConfig) ([]mcmstypes.BatchOperation, error) {
 	var mcmsOperations []mcmstypes.BatchOperation
 	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
 	// Cleanup staging area

@@ -11,7 +11,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -75,7 +75,7 @@ func (cs UpgradeAptosChain) Apply(env cldf.Environment, cfg config.UpgradeAptosC
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	deps := operation.AptosDeps{
+	deps := dependency.AptosDeps{
 		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		CCIPOnChainState: state,
 	}
