@@ -106,10 +106,10 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260205231316-3b9c600dd791
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260209164410-3aec83b0246f
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260210215559-36077b5fee17
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260209205928-e7e034ed7976
-	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260211115641-f96bb4343198
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260124000807-bff5e296dfb7
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260211155338-cd4708d2b938
+	github.com/smartcontractkit/cre-sdk-go v1.3.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
