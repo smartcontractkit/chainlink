@@ -3,8 +3,10 @@ package solana
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/gagliardetto/solana-go"
+	"golang.org/x/sync/errgroup"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -56,11 +58,9 @@ type TokenPoolChainConfig struct {
 }
 
 type TokenPoolRateLimitTokenBucket struct {
-	Tokens      uint64 `json:"tokens"`
-	LastUpdated uint64 `json:"lastUpdated"`
-	Enabled     bool   `json:"enabled"`
-	Capacity    uint64 `json:"capacity"`
-	Rate        uint64 `json:"rate"`
+	Enabled  bool   `json:"enabled"`
+	Capacity uint64 `json:"capacity"`
+	Rate     uint64 `json:"rate"`
 }
 
 func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string, poolMetadata string) (TokenPoolView, error) {
@@ -78,43 +78,22 @@ func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, re
 	view.PoolMetadata = poolMetadata
 	view.TokenPoolState = make(map[string]TokenPoolState)
 	view.TokenPoolChainConfig = make(map[uint64]map[string]TokenPoolChainConfig)
-	for _, remote := range remoteChains {
-		view.TokenPoolChainConfig[remote] = make(map[string]TokenPoolChainConfig)
-		// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
-		for _, token := range tokens {
-			remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(remote, token, program)
-			if baseConfig, cctpConfig, err := fetchChainConfig(chain, remoteChainConfigPDA, poolType); err == nil && baseConfig != nil {
-				view.TokenPoolChainConfig[remote][token.String()] = TokenPoolChainConfig{
-					PDA:           remoteChainConfigPDA.String(),
-					PoolAddresses: make([]string, len(baseConfig.Remote.PoolAddresses)),
-					TokenAddress:  shared.GetAddressFromBytes(remote, baseConfig.Remote.TokenAddress.Address),
-					Decimals:      baseConfig.Remote.Decimals,
-					InboundRateLimit: TokenPoolRateLimitTokenBucket{
-						Tokens:      baseConfig.InboundRateLimit.Tokens,
-						LastUpdated: baseConfig.InboundRateLimit.LastUpdated,
-						Enabled:     baseConfig.InboundRateLimit.Cfg.Enabled,
-						Capacity:    baseConfig.InboundRateLimit.Cfg.Capacity,
-						Rate:        baseConfig.InboundRateLimit.Cfg.Rate},
-					OutboundRateLimit: TokenPoolRateLimitTokenBucket{
-						Tokens:      baseConfig.OutboundRateLimit.Tokens,
-						LastUpdated: baseConfig.OutboundRateLimit.LastUpdated,
-						Enabled:     baseConfig.OutboundRateLimit.Cfg.Enabled,
-						Capacity:    baseConfig.OutboundRateLimit.Cfg.Capacity,
-						Rate:        baseConfig.OutboundRateLimit.Cfg.Rate},
-					CCTPChainConfig: cctpConfig,
-				}
-				for i, addr := range baseConfig.Remote.PoolAddresses {
-					view.TokenPoolChainConfig[remote][token.String()].PoolAddresses[i] = shared.GetAddressFromBytes(remote, addr.Address)
-				}
-			}
-		}
-	}
+
+	var mu sync.Mutex
+	var configuredTokens []solana.PublicKey
+	eg, _ := errgroup.WithContext(context.Background())
+	eg.SetLimit(16)
 	// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
 	for _, token := range tokens {
-		programData := solTestTokenPool.State{}
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(token, program)
-		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &programData); err == nil {
-			view.TokenPoolState[token.String()] = TokenPoolState{
+		token := token
+		eg.Go(func() error {
+			programData := solTestTokenPool.State{}
+			// fetch token pool states to find which tokens are actually configured
+			poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(token, program)
+			if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &programData); err != nil {
+				return nil // skip if not configured
+			}
+			state := TokenPoolState{
 				PDA:                   poolConfigPDA.String(),
 				TokenProgram:          programData.Config.TokenProgram.String(),
 				Mint:                  programData.Config.Mint.String(),
@@ -133,10 +112,68 @@ func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, re
 				RmnRemote:             programData.Config.RmnRemote.String(),
 			}
 			for i, addr := range programData.Config.AllowList {
-				view.TokenPoolState[token.String()].AllowList[i] = addr.String()
+				state.AllowList[i] = addr.String()
 			}
+			mu.Lock()
+			view.TokenPoolState[token.String()] = state
+			configuredTokens = append(configuredTokens, token)
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return view, err
+	}
+
+	// only fetch chain configs for tokens that are configured
+	for _, remote := range remoteChains {
+		view.TokenPoolChainConfig[remote] = make(map[string]TokenPoolChainConfig)
+	}
+
+	eg2, _ := errgroup.WithContext(context.Background())
+	eg2.SetLimit(16)
+
+	for _, remote := range remoteChains {
+		for _, token := range configuredTokens {
+			remote, token := remote, token
+			eg2.Go(func() error {
+				remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(remote, token, program)
+				baseConfig, cctpConfig, err := fetchChainConfig(chain, remoteChainConfigPDA, poolType)
+				if err != nil || baseConfig == nil {
+					return nil // skip if not configured
+				}
+				config := TokenPoolChainConfig{
+					PDA:           remoteChainConfigPDA.String(),
+					PoolAddresses: make([]string, len(baseConfig.Remote.PoolAddresses)),
+					TokenAddress:  shared.GetAddressFromBytes(remote, baseConfig.Remote.TokenAddress.Address),
+					Decimals:      baseConfig.Remote.Decimals,
+					InboundRateLimit: TokenPoolRateLimitTokenBucket{
+						Enabled:  baseConfig.InboundRateLimit.Cfg.Enabled,
+						Capacity: baseConfig.InboundRateLimit.Cfg.Capacity,
+						Rate:     baseConfig.InboundRateLimit.Cfg.Rate,
+					},
+					OutboundRateLimit: TokenPoolRateLimitTokenBucket{
+						Enabled:  baseConfig.OutboundRateLimit.Cfg.Enabled,
+						Capacity: baseConfig.OutboundRateLimit.Cfg.Capacity,
+						Rate:     baseConfig.OutboundRateLimit.Cfg.Rate,
+					},
+					CCTPChainConfig: cctpConfig,
+				}
+				for i, addr := range baseConfig.Remote.PoolAddresses {
+					config.PoolAddresses[i] = shared.GetAddressFromBytes(remote, addr.Address)
+				}
+				mu.Lock()
+				view.TokenPoolChainConfig[remote][token.String()] = config
+				mu.Unlock()
+
+				return nil
+			})
 		}
 	}
+	if err := eg2.Wait(); err != nil {
+		return view, err
+	}
+
 	return view, nil
 }
 

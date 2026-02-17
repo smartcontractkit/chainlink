@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -78,6 +79,15 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 		ocrConfigService:       params.OCRConfigService,
 		capabilityID:           params.CapabilityID,
 	}, nil
+}
+
+func AdjustLocalConfigForRegistryBasedConfig(lc ocrtypes.LocalConfig) ocrtypes.LocalConfig {
+	// block confirmations are irrelevant when using registry-based config
+	// this also works with legacy config contracts, simply doesn't wait for extra confirmations
+	lc.SkipContractConfigConfirmations = true
+	// poll frequently to react to config changes quickly
+	lc.ContractConfigTrackerPollInterval = 5 * time.Second
+	return lc
 }
 
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
@@ -167,7 +177,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
 		ContractConfigTracker:        configTracker,
 		OffchainConfigDigester:       configDigester,
-		LocalConfig:                  args.LocalConfig,
+		LocalConfig:                  AdjustLocalConfigForRegistryBasedConfig(args.LocalConfig),
 		ContractTransmitter:          NewContractTransmitter(of.config.TransmitterID, args.ContractTransmitter),
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
 		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 )
 
@@ -50,7 +51,7 @@ func Test_TronKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, key, retrievedKey)
+		keys.RequireEqualKeys(t, key, retrievedKey)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
@@ -75,7 +76,7 @@ func Test_TronKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, importedKey, retrievedKey)
+		keys.RequireEqualKeys(t, importedKey, retrievedKey)
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {

@@ -1,0 +1,572 @@
+This is the config 
+RootDir = '/chainlink'
+
+[Feature]
+LogPoller = true
+FeedsManager = true
+UICSAKeys = true
+MultiFeedsManagers = true
+
+[JobPipeline]
+MaxSuccessfulRuns = 0
+
+[Database]
+MaxIdleConns = 25
+MaxOpenConns = 50
+
+[Database.Lock]
+Enabled = false
+
+[TelemetryIngress]
+
+[Telemetry]
+Enabled = true
+Endpoint = '%INT_IP%:4317'
+InsecureConnection = true
+TraceSampleRatio = 0.01
+ChipIngressEndpoint = 'prod.telemetry.chain.link:443'
+LogStreamingEnabled = true
+LogLevel = 'info'
+
+[Telemetry.ResourceAttributes]
+deployed_by = 'LinkRiver' # FILL THIS IN
+node_id = 'linkriver-cre-chain-primary'
+donID = 'cre_chain_capabilities_zone-a'
+platformEnv = 'production-mainnet' 
+zone = 'zone-a'
+
+[Log]
+Level = 'info'
+
+[Log.File]
+MaxSize = '8.00gb'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[OCR2]
+Enabled = true
+DatabaseTimeout = '1s'
+KeyBundleID = '408b2322deb524a9fd44e55edb52b8a9dd5b1020300f36fab41759a6fb59c89f'
+
+[P2P]
+TraceLogging = true
+PeerID = '12D3KooWJvQzgxTG4UXMw3tDMtctyDniF3FypaSuojAJyUsR1wwv'
+
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ['%EXT_IP%:17781']
+ListenAddresses = ['%EXT_IP%:17781']
+DefaultBootstrappers = [ 
+"12D3KooWLsAnakcz3GRMb99sdUBQhStkUbb88zWhmHttjsXLL113@chainlink-bootstrap.chainlayer.network:7777",     
+"12D3KooWDrAYRzUw4QSdrM87dZVNEJ5KPzerfEfMvjX2JXcbqEHD@cre-bootstrap-beta-secondary.ethereum.fiews.io:7789",  
+"12D3KooWJvJyVVrjyeuPpV3P8fWYjb5j7MYmbm1AA8wr9cmJBqPC@clp-cre-wf-zone-b-bt-0:5001",
+"12D3KooWCyKPuYWSSdLd5hu7eY6zxBiSjk7jyHjpwfvYmfn9mS3F@cre-beta-bootstrap-sec.public.linkpool.io:32655",
+"12D3KooWJvDhmHPXMB5MxwphjbcjBuKPHNRiJbhRBDgZ69mqJTPq@chainlink-bootstrap.chainlayer.network:7776",
+ "12D3KooWG8mQKAHBdyCuoiSfgyLJdrCFDF5oLno6HWSGoRHbd7J9@cre-bootstrap-beta-primary.ethereum.fiews.io:7789",
+ "12D3KooWGMWkvonQD1jEXCn9Amvzg9HoWf5ZWpzkKbTVFU8npqXU@cre-beta-bootstrap.public.linkpool.io:32642"
+]
+
+
+[Capabilities.SharedPeering] # Don2Don now shares the p2p mesh with OCR; Capabilities.Peering.V2 is disabled
+Enabled = true
+Bootstrappers = [ 
+"12D3KooWLsAnakcz3GRMb99sdUBQhStkUbb88zWhmHttjsXLL113@chainlink-bootstrap.chainlayer.network:7777",     
+"12D3KooWDrAYRzUw4QSdrM87dZVNEJ5KPzerfEfMvjX2JXcbqEHD@cre-bootstrap-beta-secondary.ethereum.fiews.io:7789",  
+"12D3KooWJvJyVVrjyeuPpV3P8fWYjb5j7MYmbm1AA8wr9cmJBqPC@clp-cre-wf-zone-b-bt-0:5001",
+"12D3KooWCyKPuYWSSdLd5hu7eY6zxBiSjk7jyHjpwfvYmfn9mS3F@cre-beta-bootstrap-sec.public.linkpool.io:32655",
+"12D3KooWJvDhmHPXMB5MxwphjbcjBuKPHNRiJbhRBDgZ69mqJTPq@chainlink-bootstrap.chainlayer.network:7776",
+"12D3KooWG8mQKAHBdyCuoiSfgyLJdrCFDF5oLno6HWSGoRHbd7J9@cre-bootstrap-beta-primary.ethereum.fiews.io:7789",
+"12D3KooWGMWkvonQD1jEXCn9Amvzg9HoWf5ZWpzkKbTVFU8npqXU@cre-beta-bootstrap.public.linkpool.io:32642"
+]
+
+[Capabilities.Dispatcher]
+SendToSharedPeer = true
+
+[Capabilities.ExternalRegistry]
+Address = "0x76c9cf548b4179F8901cda1f8623568b58215E62"
+ChainID = "1"
+NetworkID = "evm"
+ContractVersion = "2.0.0"
+
+[CRE.Linking]
+URL = "org-resolver.cre.chain.link:443"
+TLSEnabled = true
+
+[[EVM]]
+ChainID = '1' # Eth mainnet
+
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+LeaseDuration = '1m'
+
+[EVM.Workflow]
+ForwarderAddress = '0x0b93082D9b3C7C97fAcd250082899BAcf3af3885'
+FromAddress = '0x8496816458Be43FB787411B5f209Af6A4173d1A0' # Replace with your eth specific address from step 3
+
+[[EVM]]
+ChainID = '56' # BSC/Binanace
+
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+LeaseDuration = '1m'
+
+[EVM.Workflow]
+ForwarderAddress = '0x76c9cf548b4179F8901cda1f8623568b58215E62'
+FromAddress = '0x73455118d80B1243FBb97B4cE555cB4CE9197bf2' # Replace with your bsc specific address from step 3
+
+[[EVM]]
+ChainID = '8453' # Base
+
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+LeaseDuration = '1m'
+
+[EVM.Workflow]
+ForwarderAddress = '0xF8344CFd5c43616a4366C34E3EEE75af79a74482'
+FromAddress = '0x68c0670279E1bBDb10397Efb969E1B463A629738' # Replace with your base specific address from step 3
+
+[[EVM]]
+ChainID = '42161' # Arbitrum
+
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+LeaseDuration = '1m'
+
+[EVM.Workflow]
+ForwarderAddress = '0xF8344CFd5c43616a4366C34E3EEE75af79a74482'
+FromAddress = '0x26B31B48a1C2268153E33586C505D2145121E9f1' # Replace with your arbitrum specific address from step 3
+
+[[EVM]]
+ChainID = '137' # Polygon
+
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+LeaseDuration = '1m'
+
+[EVM.Workflow]
+ForwarderAddress = '0x76c9cf548b4179F8901cda1f8623568b58215E62'
+FromAddress = '0x8F607E78eD1cBcCe530a523cb9E011502558D616' # Replace with your polygon specific address from step 3
+
+[[EVM]]
+ChainID = '10' # Optimism
+
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+LeaseDuration = '1m'
+
+[EVM.Workflow]
+ForwarderAddress = '0xF8344CFd5c43616a4366C34E3EEE75af79a74482'
+FromAddress = '0x19D8cd52Dbaf706E13c344eE1316a38793fbd2b6' # Replace with your optimism specific address from step 3
+
+[[EVM]]
+ChainID = '43114' # Avalanche
+
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+LeaseDuration = '1m'
+
+[EVM.Workflow]
+ForwarderAddress = '0x76c9cf548b4179F8901cda1f8623568b58215E62'
+FromAddress = '0xB4637Db72378cDCd355d98e0c0b801F3D5549B30' # Replace with your avalanche specific address from step 3
+
+[[EVM]]
+ChainID = '324' # ZkSync Mainnet
+
+[EVM.Workflow]
+ForwarderAddress = '0x76c9cf548b4179F8901cda1f8623568b58215E62'
+FromAddress = '0xaD69ea1D8bc806b4722d54d6Fc8bcDF83dab593F' # Replace with your chain1 EOA
+
+[[EVM]]
+ChainID = '480' # Worldchain Mainnet
+
+[EVM.Workflow]
+ForwarderAddress = '0x98B8335d29Aca40840Ed8426dA1A0aAa8677d8D1'
+FromAddress = '0x0356c4dF788329A5b808e9847E32Bb8ca7C3D2e1' # Replace with your chain1 EOA specific address from step 3
+
+[[EVM]]
+ChainID = '5734951' # Jovay Mainnet
+ChainType = 'jovay'
+FinalizedBlockOffset = 10
+FinalityTagEnabled = true
+LogBroadcasterEnabled = false
+LogPollInterval = "3s" # 3s block time
+NoNewHeadsThreshold = '3m'
+MinIncomingConfirmations = 1
+NoNewFinalizedHeadsThreshold = '12m'
+
+[EVM.GasEstimator]
+Mode = 'FeeHistory'
+PriceMax = "1 gwei"
+PriceMin = "1 wei"
+PriceDefault = "1 wei"
+FeeCapDefault = "1 wei"
+BumpMin = "100 wei"
+LimitDefault = 8000000
+
+[EVM.GasEstimator.BlockHistory]
+BlockHistorySize = 60
+
+[EVM.Transactions]
+ResendAfterThreshold = '30s'
+
+[EVM.HeadTracker]
+HistoryDepth = 300
+
+[EVM.NodePool]
+NewHeadsPollInterval = '4s'
+SyncThreshold = 10
+
+[EVM.Workflow]
+ForwarderAddress = '0x76c9cf548b4179F8901cda1f8623568b58215E62'
+FromAddress = '0xF26064D68F52e6aB3cdEB61b6Fb29c4b9BFAD24A' # Replace with your jovay EOA specific address from step 3
+
+[[EVM]]
+ChainID = '1672' # Pharos Mainnet
+ChainType = 'pharos'
+LogBackfillBatchSize = 100
+LogPollInterval = '2s'
+FinalityTagEnabled = false
+FinalityDepth = 1200
+NoNewFinalizedHeadsThreshold = '10m'
+NoNewHeadsThreshold = '10m'
+MinIncomingConfirmations = 5
+LogBroadcasterEnabled = false
+
+[EVM.HeadTracker]
+FinalityTagBypass = false
+
+[EVM.GasEstimator]
+EIP1559DynamicFees = false
+Mode = 'FeeHistory'
+PriceMax = '1000 gwei'
+FeeCapDefault = '1000 gwei'
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '2s'
+
+[EVM.GasEstimator.BlockHistory]
+BlockHistorySize = 100
+
+[EVM.NodePool]
+NewHeadsPollInterval = '4s' # HTTP-only RPC; no WebSocket
+SyncThreshold = 50 # Fast blockchain so allowing more room for discrepanciesbetween RPCs
+
+[EVM.Workflow]
+ForwarderAddress = '0x76c9cf548b4179F8901cda1f8623568b58215E62'
+FromAddress = '0x462647e7aF8dAA4398583E0EC17E18C82600c8e4' # Replace with yourpharos EOA specific address from step 3
+
+
+[[EVM]]
+ChainID = '196' # Xlayer Mainnet
+
+[EVM.Workflow]
+ForwarderAddress = '0x76c9cf548b4179F8901cda1f8623568b58215E62'
+FromAddress = '0x0D224479C42111cd383328502869D0f0f4d79556' # Replace with yourxlayer EOA specific address from step 3
+
+[[EVM]]
+ChainID = '1'
+
+[[EVM.Nodes]]
+Name = 'primary_us-eth'
+WSURL = 'wss://us-eth.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-eth.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_us-eth2'
+WSURL = 'wss://us-eth2.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-eth2.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'primary_nc-eth3'
+WSURL = 'wss://nc-eth3.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-eth3.rpc.linkriver.internal/rpc'
+Order = 5
+
+[[EVM.Nodes]]
+Name = 'primary_nc-eth'
+WSURL = 'wss://nc-eth.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-eth.rpc.linkriver.internal/rpc'
+Order = 4
+
+[[EVM.Nodes]]
+Name = 'send_eth_bcm-fiews'
+HTTPURL = 'https://nop:sppFRFaNtD9qUQgNHoK6LUdFwuHGhv@broadcast-mirror.fiews.io?chain_id=1'
+SendOnly = true
+
+[[EVM.Nodes]]
+Name = 'send_eth_public'
+HTTPURL = 'https://eth.drpc.org'
+SendOnly = true
+
+# Optimism
+[[EVM]]
+ChainID = '10'
+
+[[EVM.Nodes]]
+Name = 'primary_us-opti'
+WSURL = 'wss://us-opti.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-opti.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_nc-opti2'
+WSURL = 'wss://nc-opti2.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-opti2.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'primary_nc_opti'
+WSURL = 'wss://nc-opti.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-opti.rpc.linkriver.internal/rpc'
+Order = 3
+
+[[EVM.Nodes]]
+Name = 'send_opti_bcm-fiews'
+HTTPURL = 'https://nop:sppFRFaNtD9qUQgNHoK6LUdFwuHGhv@broadcast-mirror.fiews.io/?chain_id=10'
+SendOnly = true
+
+[[EVM.Nodes]]
+Name = 'send_opti_public'
+HTTPURL = 'https://mainnet.optimism.io/'
+SendOnly = true
+
+# Binance Smart Chain
+[[EVM]]
+ChainID = '56'
+
+[[EVM.Nodes]]
+Name = 'primary_us-bsc'
+WSURL = 'wss://us-bsc.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-bsc.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_eu-bsc'
+WSURL = 'wss://eu-bsc.rpc.linkriver.internal/ws'
+HTTPURL = 'https://eu-bsc.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'primary_nc-bsc'
+WSURL = 'wss://nc-bsc.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-bsc.rpc.linkriver.internal/rpc'
+Order = 3
+
+[[EVM.Nodes]]
+Name = 'send_bsc_bcm-fiews'
+HTTPURL = 'https://nop:sppFRFaNtD9qUQgNHoK6LUdFwuHGhv@broadcast-mirror.fiews.io/?chain_id=56'
+SendOnly = true
+
+[[EVM.Nodes]]
+Name = 'send_bsc_public'
+HTTPURL = 'https://bsc-dataseed.binance.org/'
+SendOnly = true
+
+# Base
+[[EVM]]
+ChainID = '8453'
+
+[[EVM.Nodes]]
+Name = 'primary_nc-base'
+WSURL = 'wss://nc-base.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-base.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'primary_nc-base2'
+WSURL = 'wss://nc-base2.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-base2.rpc.linkriver.internal/rpc'
+Order = 3
+
+[[EVM.Nodes]]
+Name = 'primary_eu-base'
+WSURL = 'wss://eu-base.rpc.linkriver.internal/ws'
+HTTPURL = 'https://eu-base.rpc.linkriver.internal/rpc'
+Order = 4
+
+[[EVM.Nodes]]
+Name = 'send_base_public'
+HTTPURL = 'https://mainnet.base.org'
+SendOnly = true
+
+# Avalanche
+[[EVM]]
+ChainID = '43114'
+
+[[EVM.Nodes]]
+Name = 'primary_us-avax'
+WSURL = 'wss://us-avax.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-avax.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_nc-avax2'
+WSURL = 'wss://nc-avax2.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-avax2.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'primary_nc-avax'
+WSURL = 'wss://nc-avax.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-avax.rpc.linkriver.internal/rpc'
+Order = 3
+
+[[EVM.Nodes]]
+Name = 'send_avax_bcm-fiews'
+HTTPURL = 'https://nop:sppFRFaNtD9qUQgNHoK6LUdFwuHGhv@broadcast-mirror.fiews.io/?chain_id=43114'
+SendOnly = true
+
+[[EVM.Nodes]]
+Name = 'send_avax_bcm'
+HTTPURL = 'https://api.avax.network/ext/bc/C/rpc'
+SendOnly = true
+
+# Arbitrum
+[[EVM]]
+ChainID = '42161'
+
+[[EVM.Nodes]]
+Name = 'primary_us-arbi2'
+WSURL = 'wss://us-arbi2.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-arbi2.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_eu-arbi'
+WSURL = 'wss://eu-arbi.rpc.linkriver.internal/ws'
+HTTPURL = 'https://eu-arbi.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'send_bc-mirror'
+HTTPURL = 'https://nop:sppFRFaNtD9qUQgNHoK6LUdFwuHGhv@multichain.broadcast-mirror.chain.link/?chain_id=42161'
+SendOnly = true
+
+[[EVM.Nodes]]
+Name = 'send_public'
+HTTPURL = 'https://arb1.arbitrum.io/rpc'
+SendOnly = true
+
+# Polygon
+[[EVM]]
+ChainID = '137'
+
+[[EVM.Nodes]]
+Name = 'primary_us-poly'
+WSURL = 'wss://us-poly.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-poly.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_us-poly2'
+WSURL = 'wss://us-poly2.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-poly2.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'send_poly_bcm-fiews'
+HTTPURL = 'https://nop:sppFRFaNtD9qUQgNHoK6LUdFwuHGhv@broadcast-mirror.fiews.io/?chain_id=137'
+SendOnly = true
+
+[[EVM.Nodes]]
+Name = 'send_poly_public'
+HTTPURL = 'https://polygon-rpc.com/'
+SendOnly = true
+
+[[EVM]]
+ChainID = '324' # ZkSync
+
+[[EVM.Nodes]]
+Name = 'primary_us_zksync'
+WSURL = 'wss://us-zksync.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-zksync.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_nc_zksync'
+WSURL = 'wss://nc-zksync.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-zksync.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'primary_zksync_public'
+WSURL = 'wss://mainnet.era.zksync.io/ws'
+HTTPURL = 'https://mainnet.era.zksync.io'
+Order = 3
+
+[[EVM.Nodes]]
+Name = 'send_zksync_public'
+HTTPURL = 'https://1rpc.io/zksync2-era'
+SendOnly = true
+
+# Worldchain
+[[EVM]]
+ChainID = '480'
+
+[[EVM.Nodes]]
+Name = 'primary_us-worldchain'
+WSURL = 'wss://us-worldchain.rpc.linkriver.internal/ws'
+HTTPURL = 'https://us-worldchain.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'primary_nc-worldchain'
+WSURL = 'wss://nc-worldchain.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-worldchain.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'send_worldchain_public'
+HTTPURL = 'https://worldchain.drpc.org'
+SendOnly = true
+
+[[EVM]]
+ChainID = 5734951 # Jovay
+
+[[EVM.Nodes]]
+Name = 'CL-provided_3rd-party_jovay'
+WSURL = 'wss://ws-nd-979-259-005.p2pify.com/5f8e2bc7119e3b23e52e72d64b39dbbe'
+HTTPURL = 'https://nd-979-259-005.p2pify.com/5f8e2bc7119e3b23e52e72d64b39dbbe'
+
+[[EVM]]
+ChainID = '1672' # Pharos
+
+[[EVM.Nodes]]
+Name = 'CL-provided_3rd-party_simplystaking-pharos'
+### Disable on purpose
+# WSURL = 'wss://spectrum-cl-02.simplystaking.xyz/Y2hhaW5saW5rLTAyLWVhNDQ2OTRlLWNoYWlubGluaw/pEX2bUy6vOaceg/pharos/mainnet/'
+HTTPURL = 'https://spectrum-cl-02.simplystaking.xyz/Y2hhaW5saW5rLTAyLWVhNDQ2OTRlLWNoYWlubGluaw/oJ0JLgs-zDD4fw/pharos/mainnet/'
+
+
+# Xlayer
+[[EVM]]
+ChainID = '196'
+
+[[EVM.Nodes]]
+Name = 'nc-xlayer'
+WSURL = 'wss://nc-xlayer.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-xlayer.rpc.linkriver.internal/rpc'
+Order = 1
+
+[[EVM.Nodes]]
+Name = 'nc-xlayer2'
+WSURL = 'wss://nc-xlayer2.rpc.linkriver.internal/ws'
+HTTPURL = 'https://nc-xlayer2.rpc.linkriver.internal/rpc'
+Order = 2
+
+[[EVM.Nodes]]
+Name = 'send_xlayer_public'
+HTTPURL = 'https://xlayer.drpc.org'
+SendOnly = true

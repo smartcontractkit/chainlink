@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/models"
 )
 
 func NewORM(ds sqlutil.DataSource) ksORM {
@@ -29,7 +30,7 @@ func (orm ksORM) isEmpty(ctx context.Context) (bool, error) {
 	return count == 0, nil
 }
 
-func (orm ksORM) saveEncryptedKeyRing(ctx context.Context, kr *encryptedKeyRing, callbacks ...func(sqlutil.DataSource) error) error {
+func (orm ksORM) saveEncryptedKeyRing(ctx context.Context, kr *models.EncryptedKeyRing, callbacks ...func(sqlutil.DataSource) error) error {
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		_, err := tx.ExecContext(ctx, `
 		UPDATE encrypted_key_rings
@@ -48,7 +49,7 @@ func (orm ksORM) saveEncryptedKeyRing(ctx context.Context, kr *encryptedKeyRing,
 	})
 }
 
-func (orm ksORM) getEncryptedKeyRing(ctx context.Context) (kr encryptedKeyRing, err error) {
+func (orm ksORM) getEncryptedKeyRing(ctx context.Context) (kr models.EncryptedKeyRing, err error) {
 	err = orm.ds.GetContext(ctx, &kr, `SELECT * FROM encrypted_key_rings LIMIT 1`)
 	if errors.Is(err, sql.ErrNoRows) {
 		sql := `INSERT INTO encrypted_key_rings (encrypted_keys, updated_at) VALUES (NULL, NOW()) RETURNING *;`
@@ -63,14 +64,14 @@ func (orm ksORM) getEncryptedKeyRing(ctx context.Context) (kr encryptedKeyRing, 
 	return kr, nil
 }
 
-func (orm ksORM) loadKeyStates(ctx context.Context) (*keyStates, error) {
-	ks := newKeyStates()
+func (orm ksORM) loadKeyStates(ctx context.Context) (*models.KeyStates, error) {
+	ks := models.NewKeyStates()
 	var ethkeystates []*ethkey.State
 	if err := orm.ds.SelectContext(ctx, &ethkeystates, `SELECT id, address, evm_chain_id, disabled, created_at, updated_at FROM evm.key_states`); err != nil {
 		return ks, errors.Wrap(err, "error loading evm.key_states from DB")
 	}
 	for _, state := range ethkeystates {
-		ks.add(state)
+		ks.Add(state)
 	}
 	return ks, nil
 }

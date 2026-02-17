@@ -25,12 +25,13 @@ var BurnMintWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1
 var HybridWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 
 var TokenTypes = map[cldf.ContractType]struct{}{
-	BurnMintToken:      {},
-	ERC20Token:         {},
-	ERC677Token:        {},
-	ERC677TokenHelper:  {},
-	BurnMintERC20Token: {},
+	BurnMintToken:                 {},
+	ERC20Token:                    {},
+	ERC677Token:                   {},
+	ERC677TokenHelper:             {},
+	BurnMintERC20Token:            {},
 	BurnMintERC20TransparentToken: {},
+	BurnMintERC20PausableFreezableTransparentToken: {},
 }
 
 var TokenPoolTypes = map[cldf.ContractType]struct{}{

@@ -93,7 +93,7 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 // so no config injection is needed for nodes).
 //
 // To run locally:
-//  1. Start CRE: go run . env start --with-beholder --with-contracts-version v2
+//  1. Start CRE: go run . env start --with-beholder
 //  2. Run test: go test -timeout 15m -run "^Test_CRE_GRPCSource_AuthRejection$"
 func Test_CRE_GRPCSource_AuthRejection(t *testing.T) {
 	// Set up test environment

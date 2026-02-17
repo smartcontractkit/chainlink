@@ -16,17 +16,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	v2 "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -558,7 +558,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+		c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
@@ -1674,7 +1674,7 @@ func testMaliciousConsumer(
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
-		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+		c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})

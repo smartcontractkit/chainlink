@@ -5,8 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "TON"
@@ -26,7 +26,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
 }
 
 // ToEncryptedJSON returns encrypted JSON representing key
-func (key Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) ([]byte, error) {
+func (key Key) ToEncryptedJSON(password string, scryptParams commonkeystore.ScryptParams) ([]byte, error) {
 	exporter := func(id string, key Key, cryptoJSON keystore.CryptoJSON) internal.EncryptedKeyExport {
 		return internal.EncryptedKeyExport{
 			KeyType:   id,

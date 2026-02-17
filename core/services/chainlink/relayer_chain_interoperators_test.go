@@ -10,6 +10,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -19,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -33,7 +33,7 @@ import (
 )
 
 func TestCoreRelayerChainInteroperators(t *testing.T) {
-	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
+	evmChainID1, evmChainID2 := sqlutil.New(big.NewInt(1)), sqlutil.New(big.NewInt(2))
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 
 	newConfig := func() chainlink.GeneralConfig {
@@ -68,7 +68,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain:   toml.Defaults(evmChainID1),
 				Nodes:   toml.EVMNodes{&node1_1, &node1_2},
 			}
-			id2 := ubig.New(big.NewInt(2))
+			id2 := sqlutil.New(big.NewInt(2))
 			c.EVM = append(c.EVM, &toml.EVMConfig{
 				ChainID: evmChainID2,
 				Chain:   toml.Defaults(id2),

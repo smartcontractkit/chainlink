@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -62,7 +62,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 		"hash": "0x5431F5F973781809D18643b87B44921b11355d81",
 	}
 	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
-	chainID := *ubig.NewI(22)
+	chainID := *sqlutil.NewI(22)
 	gError := errors.New("error")
 
 	testCases := []GQLTestCase{

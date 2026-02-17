@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"strings"
 
 	"github.com/urfave/cli"
 
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -277,7 +277,7 @@ func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string,
 
 func findFirstGoodEthKeyAddress(chainID int64, ethKeys []presenters.ETHKeyResource) (string, error) {
 	for _, ethKey := range ethKeys {
-		if ethKey.EVMChainID.Equal(ubig.NewI(chainID)) && !ethKey.Disabled {
+		if ethKey.EVMChainID.ToInt().Cmp(big.NewInt(chainID)) == 0 && !ethKey.Disabled {
 			return ethKey.Address, nil
 		}
 	}

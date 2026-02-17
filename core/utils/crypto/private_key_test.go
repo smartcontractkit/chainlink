@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 )
 
 func Test_EncryptedPrivateKey(t *testing.T) {
@@ -17,7 +17,7 @@ func Test_EncryptedPrivateKey(t *testing.T) {
 
 	privatekey := []byte("privatekey")
 	passphrase := "passphrase"
-	ecp, err := NewEncryptedPrivateKey(privatekey, passphrase, utils.FastScryptParams)
+	ecp, err := NewEncryptedPrivateKey(privatekey, passphrase, commonkeystore.FastScryptParams)
 	require.NoError(t, err)
 
 	actual, err := ecp.Decrypt(passphrase)

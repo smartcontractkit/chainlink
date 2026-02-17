@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic1_3"
@@ -29,11 +29,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -414,7 +414,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
-			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+			c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 		})
 		korm := keeper.NewORM(db, logger.TestLogger(t))
 
@@ -422,7 +422,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		require.NoError(t, app.Start(ctx))
 
 		forwarderORM := forwarders.NewORM(db)
-		chainID := ubig.Big(*backend.ConfiguredChainID())
+		chainID := sqlutil.Big(*backend.ConfiguredChainID())
 		_, err = forwarderORM.CreateForwarder(ctx, fwdrAddress, chainID)
 		require.NoError(t, err)
 
@@ -441,7 +441,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			KeeperSpec: &job.KeeperSpec{
 				FromAddress:     nodeAddressEIP55,
 				ContractAddress: regAddrEIP55,
-				EVMChainID:      (*ubig.Big)(testutils.SimulatedChainID),
+				EVMChainID:      (*sqlutil.Big)(testutils.SimulatedChainID),
 			},
 			SchemaVersion:     1,
 			ForwardingAllowed: true,

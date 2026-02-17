@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -45,7 +45,7 @@ func setupKeeperDB(t *testing.T) (
 
 func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistration {
 	return keeper.UpkeepRegistration{
-		UpkeepID:   ubig.NewI(upkeepID),
+		UpkeepID:   sqlutil.NewI(upkeepID),
 		ExecuteGas: executeGas,
 		Registry:   registry,
 		RegistryID: registry.ID,
@@ -106,7 +106,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := keeper.UpkeepRegistration{
-		UpkeepID:            ubig.NewI(0),
+		UpkeepID:            sqlutil.NewI(0),
 		ExecuteGas:          executeGas,
 		Registry:            registry,
 		RegistryID:          registry.ID,
@@ -143,7 +143,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
 	expectedUpkeepID := cltest.MustInsertUpkeepForRegistry(t, db, registry).UpkeepID
-	var upkeepIDs []ubig.Big
+	var upkeepIDs []sqlutil.Big
 	for range 2 {
 		upkeep := cltest.MustInsertUpkeepForRegistry(t, db, registry)
 		upkeepIDs = append(upkeepIDs, *upkeep.UpkeepID)
@@ -185,7 +185,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, eligibleUpkeeps, 100)
-	shuffled := [100]*ubig.Big{}
+	shuffled := [100]*sqlutil.Big{}
 	for i := range 100 {
 		shuffled[i] = eligibleUpkeeps[i].UpkeepID
 	}
@@ -247,16 +247,16 @@ func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 
 	// sort before compare
 	sort.Slice(list1, func(i, j int) bool {
-		return list1[i].UpkeepID.Cmp(list1[j].UpkeepID) == -1
+		return list1[i].UpkeepID.ToInt().Cmp(list1[j].UpkeepID.ToInt()) == -1
 	})
 	sort.Slice(list2, func(i, j int) bool {
-		return list2[i].UpkeepID.Cmp(list2[j].UpkeepID) == -1
+		return list2[i].UpkeepID.ToInt().Cmp(list2[j].UpkeepID.ToInt()) == -1
 	})
 	sort.Slice(list3, func(i, j int) bool {
-		return list3[i].UpkeepID.Cmp(list3[j].UpkeepID) == -1
+		return list3[i].UpkeepID.ToInt().Cmp(list3[j].UpkeepID.ToInt()) == -1
 	})
 	sort.Slice(list4, func(i, j int) bool {
-		return list4[i].UpkeepID.Cmp(list4[j].UpkeepID) == -1
+		return list4[i].UpkeepID.ToInt().Cmp(list4[j].UpkeepID.ToInt()) == -1
 	})
 
 	assert.NotEqual(t, list1, list2, "list1 vs list2")
@@ -384,8 +384,8 @@ func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	require.NoError(t, err)
 	// No upkeeps returned
 	require.Len(t, upkeepIDs, 2)
-	require.Contains(t, upkeepIDs, *ubig.New(big.NewInt(3)))
-	require.Contains(t, upkeepIDs, *ubig.New(big.NewInt(8)))
+	require.Contains(t, upkeepIDs, *sqlutil.New(big.NewInt(3)))
+	require.Contains(t, upkeepIDs, *sqlutil.New(big.NewInt(8)))
 }
 
 func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {

@@ -97,3 +97,7 @@ func (c *creConfig) Linking() config.CRELinking {
 
 	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
 }
+
+func (c *creConfig) LocalSecrets() map[string]string {
+	return c.s.LocalSecrets
+}

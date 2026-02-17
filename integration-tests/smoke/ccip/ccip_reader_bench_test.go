@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmchaintypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -392,7 +391,7 @@ func populateDatabaseForCommitReportAccepted(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EVMChainID:     ubig.New(new(big.Int).SetUint64(uint64(destChain))),
+			EVMChainID:     sqlutil.New(new(big.Int).SetUint64(uint64(destChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -528,7 +527,7 @@ func populateDatabaseForMessageSent(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EVMChainID:     ubig.New(big.NewInt(0).SetUint64(uint64(sourceChain))),
+			EVMChainID:     sqlutil.New(big.NewInt(0).SetUint64(uint64(sourceChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -646,7 +645,7 @@ func populateDatabaseForExecutionStateChanged(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EVMChainID:     ubig.New(big.NewInt(0).SetUint64(uint64(destChain))),
+			EVMChainID:     sqlutil.New(big.NewInt(0).SetUint64(uint64(destChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,

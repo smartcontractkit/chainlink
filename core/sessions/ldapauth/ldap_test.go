@@ -254,6 +254,33 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 	require.Equal(t, sessions.ErrUserSessionExpired, err)
 }
 
+func TestORM_DeleteAuthToken(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	// Initialize LDAP Authentication Provider with mock client
+	mockLdapClient := mocks.NewLDAPClient(t)
+	db, ldapAuthProvider := setupAuthenticationProvider(t, mockLdapClient)
+
+	// Create a token for a test user
+	testEmail := "test-delete@test.com"
+	apiToken := "delete-test-token"
+	_, err := db.Exec("INSERT INTO ldap_user_api_tokens values ($1, 'edit', false, $2, '', '', now())", testEmail, apiToken)
+	require.NoError(t, err)
+
+	// Verify token exists by finding user
+	user, err := ldapAuthProvider.FindUserByAPIToken(ctx, apiToken)
+	require.NoError(t, err)
+	require.Equal(t, testEmail, user.Email)
+
+	// Delete the auth token
+	err = ldapAuthProvider.DeleteAuthToken(ctx, &user)
+	require.NoError(t, err)
+
+	// Verify token is deleted - FindUserByAPIToken should fail
+	_, err = ldapAuthProvider.FindUserByAPIToken(ctx, apiToken)
+	require.Error(t, err)
+}
+
 func TestORM_ListUsers_Full(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)

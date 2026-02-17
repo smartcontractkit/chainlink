@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -91,7 +91,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 		return nil, nil, ErrSlotIdTooBig
 	}
 
-	bigAddress := big.New(key.Address.Big())
+	bigAddress := sqlutil.New(key.Address.Big())
 	row, err := s.orm.Get(ctx, bigAddress, key.SlotId)
 	if err != nil {
 		return nil, nil, err
@@ -117,7 +117,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 }
 
 func (s *storage) List(ctx context.Context, address common.Address) ([]*SnapshotRow, error) {
-	bigAddress := big.New(address.Big())
+	bigAddress := sqlutil.New(address.Big())
 	sar, err := NewSingleAddressRange(bigAddress)
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	}
 
 	row := &Row{
-		Address:    big.New(key.Address.Big()),
+		Address:    sqlutil.New(key.Address.Big()),
 		SlotId:     key.SlotId,
 		Payload:    make([]byte, len(record.Payload)),
 		Version:    key.Version,

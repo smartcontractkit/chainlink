@@ -3,8 +3,10 @@ package solana
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/gagliardetto/solana-go"
+	"golang.org/x/sync/errgroup"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
@@ -98,6 +100,39 @@ func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, re
 	fq.BillingTokenConfig = make(map[string]FeeQuoterBillingTokenConfig)
 	fq.TokenTransferConfig = make(map[uint64]map[string]FeeQuoterTokenTransferConfig)
 	fq.DestinationChainConfig = make(map[uint64]FeeQuoterDestChainConfig)
+
+	var mu sync.Mutex
+	eg, _ := errgroup.WithContext(context.Background())
+	eg.SetLimit(16)
+	// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
+	// fetch billing token configs in parallel
+	for _, token := range tokens {
+		token := token
+		eg.Go(func() error {
+			billingConfigPDA, _, err := solState.FindFqBillingTokenConfigPDA(token, program)
+			if err != nil {
+				return fmt.Errorf("failed to find billing token config pda (mint: %s, feeQuoter: %s): %w", token.String(), program.String(), err)
+			}
+			var tokenConfigAccount solFeeQuoter.BillingTokenConfigWrapper
+			if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &tokenConfigAccount); err != nil {
+				return nil // skip if not configured
+			}
+			mu.Lock()
+			fq.BillingTokenConfig[token.String()] = FeeQuoterBillingTokenConfig{
+				PDA:                        billingConfigPDA.String(),
+				Enabled:                    tokenConfigAccount.Config.Enabled,
+				PremiumMultiplierWeiPerEth: tokenConfigAccount.Config.PremiumMultiplierWeiPerEth,
+			}
+			mu.Unlock()
+
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return fq, err
+	}
+
+	// fetch destination chain configs
 	for _, remote := range remoteChains {
 		fqRemoteChainPDA, _, err := solState.FindFqDestChainPDA(remote, program)
 		if err != nil {
@@ -131,14 +166,25 @@ func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, re
 			EnforceOutOfOrder:                 destChainStateAccount.Config.EnforceOutOfOrder,
 			ChainFamilySelector:               fmt.Sprintf("%x", destChainStateAccount.Config.ChainFamilySelector),
 		}
-		// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
+	}
+
+	// fetch token transfer configs in parallel for all tokens
+	eg2, _ := errgroup.WithContext(context.Background())
+	eg2.SetLimit(16)
+
+	for _, remote := range remoteChains {
 		for _, token := range tokens {
-			remoteBillingPDA, _, err := solState.FindFqPerChainPerTokenConfigPDA(remote, token, program)
-			if err != nil {
-				return fq, fmt.Errorf("failed to find remote billing token config pda for (remoteSelector: %d, mint: %s, feeQuoter: %s): %w", remote, token, program, err)
-			}
-			var remoteBillingAccount solFeeQuoter.PerChainPerTokenConfig
-			if err := chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount); err == nil {
+			remote, token := remote, token
+			eg2.Go(func() error {
+				remoteBillingPDA, _, err := solState.FindFqPerChainPerTokenConfigPDA(remote, token, program)
+				if err != nil {
+					return fmt.Errorf("failed to find remote billing token config pda for (remoteSelector: %d, mint: %s, feeQuoter: %s): %w", remote, token, program, err)
+				}
+				var remoteBillingAccount solFeeQuoter.PerChainPerTokenConfig
+				if err := chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount); err != nil {
+					return nil // skip if not configured
+				}
+				mu.Lock()
 				fq.TokenTransferConfig[remote][token.String()] = FeeQuoterTokenTransferConfig{
 					PDA:               remoteBillingPDA.String(),
 					MinFeeUsdcents:    remoteBillingAccount.TokenTransferConfig.MinFeeUsdcents,
@@ -148,23 +194,14 @@ func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, re
 					DestBytesOverhead: remoteBillingAccount.TokenTransferConfig.DestBytesOverhead,
 					IsEnabled:         remoteBillingAccount.TokenTransferConfig.IsEnabled,
 				}
-			}
+				mu.Unlock()
+
+				return nil
+			})
 		}
 	}
-	// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
-	for _, token := range tokens {
-		billingConfigPDA, _, err := solState.FindFqBillingTokenConfigPDA(token, program)
-		if err != nil {
-			return fq, fmt.Errorf("failed to find billing token config pda (mint: %s, feeQuoter: %s): %w", token.String(), program.String(), err)
-		}
-		var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
-		if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
-			fq.BillingTokenConfig[token.String()] = FeeQuoterBillingTokenConfig{
-				PDA:                        billingConfigPDA.String(),
-				Enabled:                    token0ConfigAccount.Config.Enabled,
-				PremiumMultiplierWeiPerEth: token0ConfigAccount.Config.PremiumMultiplierWeiPerEth,
-			}
-		}
+	if err := eg2.Wait(); err != nil {
+		return fq, err
 	}
 
 	return fq, nil

@@ -476,7 +476,7 @@ func newOCRConfigService(
 	}
 	return capregconfig.NewOCRConfigService(
 		lggr,
-		func() ragetypes.PeerID { return dispatcherWrapper.don2DonSharedPeer.ID() },
+		capregconfig.PeerIDProvider(func() (ragetypes.PeerID, error) { return dispatcherWrapper.don2DonSharedPeer.ID(), nil }),
 		registryChainID,
 		registryAddress,
 	), nil

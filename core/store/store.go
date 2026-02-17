@@ -23,9 +23,9 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
@@ -311,7 +311,7 @@ func randomizeTestDBSequences(db *sqlx.DB) error {
 		}
 
 		var randNum *big.Int
-		randNum, err = crand.Int(crand.Reader, ubig.NewI(10000).ToInt())
+		randNum, err = crand.Int(crand.Reader, sqlutil.NewI(10000).ToInt())
 		if err != nil {
 			return fmt.Errorf("%s: failed to generate random number", failedToRandomizeTestDBSequencesError{})
 		}

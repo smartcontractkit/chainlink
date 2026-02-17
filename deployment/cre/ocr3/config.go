@@ -19,6 +19,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -410,7 +410,7 @@ func MakeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) 
 		}
 		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
 		pubKeys := map[string]types.OnchainPublicKey{
-			string(chaintype.EVM): ethPubKey.Bytes(),
+			string(corekeys.EVM): ethPubKey.Bytes(),
 		}
 		// add aptos key if present
 		if n.AptosOnchainPublicKey != "" {
@@ -418,7 +418,7 @@ func MakeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) 
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode AptosOnchainPublicKey: %w", err)
 			}
-			pubKeys[string(chaintype.Aptos)] = aptosPubKey
+			pubKeys[string(corekeys.Aptos)] = aptosPubKey
 		}
 		// add solana key if present
 		if n.SolanaOnchainPublicKey != "" {
@@ -426,7 +426,7 @@ func MakeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) 
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode SolanaOnchainPublicKey: %w", err)
 			}
-			pubKeys[string(chaintype.Solana)] = solPubKey
+			pubKeys[string(corekeys.Solana)] = solPubKey
 		}
 
 		// validate uniqueness of each individual key
