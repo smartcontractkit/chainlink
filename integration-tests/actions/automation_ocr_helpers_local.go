@@ -3,6 +3,7 @@ package actions
 //revive:disable:dot-imports
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -24,7 +26,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 func ReadRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
@@ -218,11 +219,12 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		OffchainConfig:        offchainConfig,
 	}
 
-	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_0 {
+	switch registryConfig.RegistryVersion {
+	case ethereum.RegistryVersion_2_0:
 		ocrConfig.OnchainConfig = registryConfig.Encode20OnchainConfig(registrar)
-	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
+	case ethereum.RegistryVersion_2_1:
 		ocrConfig.TypedOnchainConfig21 = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
-	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
+	case ethereum.RegistryVersion_2_2:
 		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 	}
 
@@ -248,14 +250,15 @@ func CreateOCRKeeperJobsLocal(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	if registryVersion == ethereum.RegistryVersion_2_2 {
+	switch registryVersion {
+	case ethereum.RegistryVersion_2_2:
 		contractVersion = "v2.1+"
-	} else if registryVersion == ethereum.RegistryVersion_2_1 {
+	case ethereum.RegistryVersion_2_1:
 		contractVersion = "v2.1"
-	} else if registryVersion == ethereum.RegistryVersion_2_0 {
+	case ethereum.RegistryVersion_2_0:
 		contractVersion = "v2.0"
-	} else {
-		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
+	default:
+		return errors.New("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 
 	bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
@@ -290,7 +293,7 @@ func CreateOCRKeeperJobsLocal(
 		}
 		var nodeOCRKeyId []string
 		for _, key := range nodeOCRKeys.Data {
-			if key.Attributes.ChainType == string(chaintype.EVM) {
+			if key.Attributes.ChainType == string(corekeys.EVM) {
 				nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
 				break
 			}
@@ -322,7 +325,6 @@ func CreateOCRKeeperJobsLocal(
 			l.Error().Err(err).Msgf("Shouldn't fail creating OCR Task job on OCR node %d err: %+v", nodeIndex+1, err)
 			return err
 		}
-
 	}
 	l.Info().Msg("Done creating OCR automation jobs")
 	return nil

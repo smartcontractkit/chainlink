@@ -8,7 +8,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -36,19 +36,19 @@ const (
 // ToOCR2ChainType turns a valid string into a OCR2ChainType
 func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 	switch s {
-	case string(chaintype.EVM):
+	case string(corekeys.EVM):
 		return OCR2ChainTypeEVM, nil
-	case string(chaintype.Cosmos):
+	case string(corekeys.Cosmos):
 		return OCR2ChainTypeCosmos, nil
-	case string(chaintype.Solana):
+	case string(corekeys.Solana):
 		return OCR2ChainTypeSolana, nil
-	case string(chaintype.StarkNet):
+	case string(corekeys.StarkNet):
 		return OCR2ChainTypeStarkNet, nil
-	case string(chaintype.Aptos):
+	case string(corekeys.Aptos):
 		return OCRChainTypeAptos, nil
-	case string(chaintype.Tron):
+	case string(corekeys.Tron):
 		return OCRChainTypeTron, nil
-	case string(chaintype.TON):
+	case string(corekeys.TON):
 		return OCRChainTypeTON, nil
 	default:
 		return "", errors.New("unknown ocr2 chain type")
@@ -59,19 +59,19 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 func FromOCR2ChainType(ct OCR2ChainType) string {
 	switch ct {
 	case OCR2ChainTypeEVM:
-		return string(chaintype.EVM)
+		return string(corekeys.EVM)
 	case OCR2ChainTypeCosmos:
-		return string(chaintype.Cosmos)
+		return string(corekeys.Cosmos)
 	case OCR2ChainTypeSolana:
-		return string(chaintype.Solana)
+		return string(corekeys.Solana)
 	case OCR2ChainTypeStarkNet:
-		return string(chaintype.StarkNet)
+		return string(corekeys.StarkNet)
 	case OCRChainTypeAptos:
-		return string(chaintype.Aptos)
+		return string(corekeys.Aptos)
 	case OCRChainTypeTron:
-		return string(chaintype.Tron)
+		return string(corekeys.Tron)
 	case OCRChainTypeTON:
-		return string(chaintype.TON)
+		return string(corekeys.TON)
 	default:
 		return strings.ToLower(string(ct))
 	}

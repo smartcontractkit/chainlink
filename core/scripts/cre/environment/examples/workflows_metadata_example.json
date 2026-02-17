@@ -1,0 +1,16 @@
+{
+    "_comment": "This is an EXAMPLE file showing the format. The workflow_id must be calculated using GenerateWorkflowID(owner, name, binary, config, secrets). See MULTI_SOURCE_MVP.md for details.",
+    "workflows": [
+        {
+            "workflow_id": "REPLACE_WITH_CALCULATED_WORKFLOW_ID",
+            "owner": "f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+            "created_at": 1733250000,
+            "status": 0,
+            "workflow_name": "file-source-workflow",
+            "binary_url": "file:///home/chainlink/workflows/file_source_workflow.wasm",
+            "config_url": "file:///home/chainlink/workflows/file_source_config.json",
+            "tag": "v1.0.0",
+            "don_family": "workflow"
+        }
+    ]
+}

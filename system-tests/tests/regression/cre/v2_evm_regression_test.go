@@ -11,6 +11,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -19,6 +21,7 @@ import (
 
 	evm_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evm_write_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	evm_logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -47,12 +50,15 @@ const (
 	expectedGetTransactionByHashInvalidHash    = "not found"
 	headerByNumberInvalidBlock                 = "HeaderByNumber - invalid block number"
 	writeReportInvalidReceiver                 = "WriteReport - invalid receiver"
+	writeReportFailingOnReceiver               = "WriteReport - failing on receiver"
 	expectedWriteReportInvalidReceiver         = "RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED"
 	writeReportCorruptReceiverAddress          = "WriteReport - corrupt receiver address"
 	expectedWriteReportCorruptReceiverAddress  = "received address is not 20 bytes long"
 	writeReportInvalidGas                      = "WriteReport - invalid gas"
 	expectedWriteReportInvalidGas              = "failed to execute capability"
 	writeReportRandomTimestamps                = "WriteReport - random timestamps"
+	logTriggerInvalidAddress                   = "LogTrigger - EOA address (not a contract)"
+	expectedLogTriggerInvalidAddress           = "one or more addresses are not contracts"
 )
 
 type evmNegativeTest struct {
@@ -186,6 +192,17 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 	const workflowFileLocation = "./evm/evmread-negative/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		chainSelector := bcOutput.ChainSelector()
@@ -199,7 +216,6 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		readBalancesAddress, rbErr := contracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
 		workflowConfig := evm_negative_config.Config{
 			ChainSelector:  bcOutput.ChainSelector(),
@@ -210,19 +226,64 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 			},
 		}
 		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
+		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
+		testLogger.Info().Msg("EVM Read Fail test successfully completed")
+	}
+}
+
+func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
+	testLogger := framework.L
+	const workflowFileLocation = "./evm/logtrigger-negative/main.go"
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+	// drain user logs channel in the background, we are not asserting anything on it
+	t_helpers.IgnoreUserLogs(t.Context(), userLogsCh)
+
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
+		if _, ok := enabledChains[chainID]; !ok {
+			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM LogTrigger workflow test", chainID)
+			continue
+		}
+
+		testLogger.Info().Msg("Creating EVM LogTrigger Fail workflow configuration...")
+
+		workflowConfig := evm_logtrigger_negative_config.Config{
+			ChainSelector:  bcOutput.ChainSelector(),
+			InvalidAddress: evmNegativeTest.invalidInput,
+		}
+		workflowName := fmt.Sprintf("evm-logtrigger-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-		expectedError := evmNegativeTest.expectedError
-		timeout := 2 * time.Minute
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-		require.NoError(t, err, "EVM Read Fail test failed")
-		testLogger.Info().Msg("EVM Read Fail test successfully completed")
+		// For LogTrigger with EOA address, we expect engine initialization failure
+		// This is the correct behavior - the workflow engine should fail to initialize when trying to register a trigger with an invalid address
+		baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, 2*time.Minute)
+		require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
+		require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
+		require.Contains(t, baseMsg.Labels["err"], evmNegativeTest.expectedError, "expected error message to contain "+evmNegativeTest.expectedError)
+		testLogger.Info().Msg("EVM LogTrigger Fail test successfully completed")
 	}
 }
 
 //////////////////////////////////////////////////////
 // WRITE REPORT NEGATIVE TESTS
 //////////////////////////////////////////////////////
+
+var evmNegativeTestsWriteReportFailingOnReceiver = []evmNegativeTest{
+	{"tx status set to revert on receiver reverting", "", writeReportFailingOnReceiver, "WriteReport failed on the receiver and set the tx status to reverted"},
+}
 
 var evmNegativeTestsWriteReportInvalidReceiver = []evmNegativeTest{
 	// WriteReport - invalid receiver
@@ -246,13 +307,30 @@ var evmNegativeTestsWriteReportInvalidGas = []evmNegativeTest{
 	// malformed values
 	{"zero", "0", writeReportInvalidGas, expectedWriteReportInvalidGas},
 	{"low", "100000", writeReportInvalidGas, expectedWriteReportInvalidGas},
-	{"too high", "100000000000", writeReportInvalidGas, expectedWriteReportInvalidGas},
+	{"too high", "100000000000", writeReportInvalidGas, "gas limit exceeds configured limit"},
+}
+
+var evmNegativeTestsLogTriggerInvalidAddress = []evmNegativeTest{
+	// using a well-known EOA address that is guaranteed to not be a contract
+	{"EOA address", "0x0000000000000000000000000000000000000001", logTriggerInvalidAddress, expectedLogTriggerInvalidAddress},
+	{"another EOA", "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0", logTriggerInvalidAddress, expectedLogTriggerInvalidAddress},
 }
 
 func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
 	testLogger := framework.L
 	const workflowFileLocation = "./evm/evmwrite-negative/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
 
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.ChainID()
@@ -269,7 +347,6 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 		feedID := "018e16c38e000320000000000000000000000000000000000000000000000000" // 32 hex characters (16 bytes)
 		dataFeedsCacheAddress := deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, workflowName, feedID, common.HexToAddress(forwarderAddress))
 
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Write Regression workflow configuration...")
 		workflowConfig := evm_write_negative_config.Config{
 			FeedID:         feedID,
@@ -280,12 +357,9 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 				DataFeedsCacheAddress: dataFeedsCacheAddress,
 			},
 		}
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-		expectedError := evmNegativeTest.expectedError
-		timeout := 2 * time.Minute
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-		require.NoError(t, err, "EVM Write Regression test failed")
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
 		testLogger.Info().Msg("EVM Write Regression test successfully completed")
 	}
 }

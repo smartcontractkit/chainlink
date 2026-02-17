@@ -253,7 +253,7 @@ func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNode
 
 func ReturnFundsFromKeyExporterNodes(log zerolog.Logger, client *seth.Client, chainlinkNodes []contracts.ChainlinkKeyExporter) error {
 	if client == nil {
-		return fmt.Errorf("seth client is nil, unable to return funds from chainlink nodes")
+		return errors.New("seth client is nil, unable to return funds from chainlink nodes")
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	if client.Cfg.IsSimulatedNetwork() {
@@ -264,7 +264,7 @@ func ReturnFundsFromKeyExporterNodes(log zerolog.Logger, client *seth.Client, ch
 
 	var failedReturns []common.Address
 	for _, chainlinkNode := range chainlinkNodes {
-		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(client.ChainID))
+		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(strconv.FormatInt(client.ChainID, 10))
 		if err != nil {
 			return err
 		}

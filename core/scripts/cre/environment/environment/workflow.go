@@ -17,12 +17,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -166,7 +167,7 @@ func deployWorkflowCmd() *cobra.Command {
 			if workflowRegistryAddressFlag != "" {
 				workflowRegistryAddress = workflowRegistryAddressFlag
 			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
 				if addrErr != nil {
 					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
 				}
@@ -179,7 +180,7 @@ func deployWorkflowCmd() *cobra.Command {
 			if capabilitiesRegistryAddressFlag != "" {
 				capabilitiesRegistryAddress = capabilitiesRegistryAddressFlag
 			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.CapabilitiesRegistry.String())
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.CapabilitiesRegistry)
 				if addrErr != nil {
 					return errors.Wrap(addrErr, "❌ failed to get capabilities registry address from state file")
 				}
@@ -207,7 +208,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Deletes the workflow file after deployment")
 	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compiles the workflow before deploying it")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("workflow-file-path"); err != nil {
 		panic(err)
@@ -259,7 +260,7 @@ func deleteWorkflowCmd() *cobra.Command {
 				workflowRegistryAddress = workflowRegistryAddressFlag
 				contractsVersion = semver.MustParse(contractsVersionFlag)
 			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
 				if addrErr != nil {
 					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
 				}
@@ -293,7 +294,7 @@ func deleteWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow registry contract to use (v1 or v2)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("name"); err != nil {
 		panic(err)
@@ -340,7 +341,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 				workflowRegistryAddress = workflowRegistryAddressFlag
 				contractsVersion = semver.MustParse(contractsVersionFlag)
 			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
 				if addrErr != nil {
 					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
 				}
@@ -541,24 +542,23 @@ func isBase64Content(content string) bool {
 	return err == nil
 }
 
-func addressRefFromStateFile(contractType string) (datastore.AddressRef, error) {
-	envArtifact, artErr := environment.ReadEnvArtifact(environment.MustEnvArtifactAbsPath(relativePathToRepoRoot))
-	if artErr != nil {
-		return datastore.AddressRef{}, errors.Wrap(artErr, "failed to read environment artifact")
+func addressRefFromStateFile(contractType deployment.ContractType) (*datastore.AddressRef, error) {
+	in := &envconfig.Config{}
+	err := in.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load state file")
 	}
 
-	ds := datastore.NewMemoryDataStore()
-	for _, addrRef := range envArtifact.AddressRefs {
-		addErr := ds.AddressRefStore.Add(addrRef)
-		if addErr != nil {
-			return datastore.AddressRef{}, fmt.Errorf("failed to add address ref to datastore %v: %w", addrRef, addErr)
+	addresses, aErr := in.GetAddresses()
+	if aErr != nil {
+		return nil, errors.Wrap(aErr, "failed to get addresses from cached input")
+	}
+
+	for _, addrRef := range addresses {
+		if datastore.ContractType(contractType) == addrRef.Type {
+			return &addrRef, nil
 		}
 	}
 
-	contractVersion, ok := envArtifact.ContractVersions[contractType]
-	if !ok {
-		return datastore.AddressRef{}, fmt.Errorf("no contract version for contract type %s found in environment artifact", contractType)
-	}
-
-	return contracts.MustGetAddressRefFromDataStore(ds.Seal(), envArtifact.RegistryChainSelector, contractType, contractVersion, ""), nil
+	return nil, fmt.Errorf("did not find any address for %s contract", contractType)
 }

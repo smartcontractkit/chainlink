@@ -219,7 +219,7 @@ func (s *Shell) ExportVRFKey(c *cli.Context) error {
 		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported VRF key %s to %s\n", pk.String(), filepath))
+	_, err = fmt.Fprintf(os.Stderr, "Exported VRF key %s to %s\n", pk.String(), filepath)
 	if err != nil {
 		return s.errorOut(err)
 	}

@@ -34,17 +34,17 @@ const (
 )
 
 func (c *WebSocketServerConfig) applyDefaults() {
-	if c.HTTPServerConfig.ReadTimeoutMillis == 0 {
-		c.HTTPServerConfig.ReadTimeoutMillis = defaultRWTimeoutMillis
+	if c.ReadTimeoutMillis == 0 {
+		c.ReadTimeoutMillis = defaultRWTimeoutMillis
 	}
-	if c.HTTPServerConfig.WriteTimeoutMillis == 0 {
-		c.HTTPServerConfig.WriteTimeoutMillis = defaultRWTimeoutMillis
+	if c.WriteTimeoutMillis == 0 {
+		c.WriteTimeoutMillis = defaultRWTimeoutMillis
 	}
-	if c.HTTPServerConfig.RequestTimeoutMillis == 0 {
-		c.HTTPServerConfig.RequestTimeoutMillis = defaultRWTimeoutMillis
+	if c.RequestTimeoutMillis == 0 {
+		c.RequestTimeoutMillis = defaultRWTimeoutMillis
 	}
-	if c.HTTPServerConfig.MaxRequestBytes == 0 {
-		c.HTTPServerConfig.MaxRequestBytes = defaultMsgSizeBytes
+	if c.MaxRequestBytes == 0 {
+		c.MaxRequestBytes = defaultMsgSizeBytes
 	}
 	if c.HandshakeTimeoutMillis == 0 {
 		c.HandshakeTimeoutMillis = defaultRWTimeoutMillis
@@ -123,7 +123,9 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	conn, err := s.upgrader.Upgrade(w, r, hdr)
 	if err != nil {
 		s.lggr.Errorw("failed websocket upgrade", "err", err)
-		conn.Close()
+		if conn != nil {
+			conn.Close()
+		}
 		s.acceptor.AbortHandshake(attemptId)
 		return
 	}
@@ -137,7 +139,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	conn.SetReadLimit(int64(maxRequestBytes))
 	msgType, response, err := conn.ReadMessage()
 	if err != nil || msgType != websocket.BinaryMessage {
-		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err)
+		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err, "remoteAddr", conn.RemoteAddr())
 		conn.Close()
 		s.acceptor.AbortHandshake(attemptId)
 		return

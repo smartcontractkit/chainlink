@@ -3,7 +3,7 @@ package secp256k1
 import (
 	"bytes"
 	"crypto/rand"
-	"fmt"
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -201,7 +201,7 @@ func TestPoint_EthereumAddress(t *testing.T) {
 	private := newScalar(pInt)
 	public := newPoint().Mul(private, nil)
 	address := EthereumAddress(public)
-	assert.Equal(t, "c2d7cf95645d33006175b78989035c7c9061d3f9", fmt.Sprintf("%x", address))
+	assert.Equal(t, "c2d7cf95645d33006175b78989035c7c9061d3f9", hex.EncodeToString(address[:]))
 }
 
 func TestIsSecp256k1Point(t *testing.T) {
@@ -222,9 +222,7 @@ func TestValidPublicKey(t *testing.T) {
 }
 
 func TestGenerate(t *testing.T) {
-	for {
-		if ValidPublicKey(Generate(randomStreamPoint).Public) {
-			break
-		}
+	for !ValidPublicKey(Generate(randomStreamPoint).Public) {
+
 	}
 }

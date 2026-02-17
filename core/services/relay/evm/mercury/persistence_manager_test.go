@@ -59,7 +59,7 @@ func TestPersistenceManager(t *testing.T) {
 		transmissions, err = pm2.Load(ctx)
 		require.NoError(t, err)
 
-		assert.Len(t, transmissions, 0)
+		assert.Empty(t, transmissions)
 	})
 }
 

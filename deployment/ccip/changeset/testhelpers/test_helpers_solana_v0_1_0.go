@@ -33,6 +33,7 @@ import (
 
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
+	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
@@ -69,11 +70,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -225,6 +226,7 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 		return nil
 	case chainsel.FamilySui:
 		// Sui is not using LogPoller
+		return nil
 	default:
 		return fmt.Errorf("unsupported chain family; %v", family)
 	}
@@ -325,8 +327,6 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 		if err != nil {
 			return 0, fmt.Errorf("failed to get sui latest checkpoint: %w", err)
 		}
-
-		fmt.Println("LATEST BLOCK ON SUI: ", seqNum)
 		return seqNum, nil
 	case chainsel.FamilyAptos:
 		chainInfo, err := env.BlockChains.AptosChains()[chainSelector].Client.Info()
@@ -525,7 +525,8 @@ func SendRequest(
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
 	case chainsel.FamilyTon:
-		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
+		tonMsg := cfg.Message.(tonrouter.CCIPSend)
+		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, tonMsg)
 		if err != nil {
 			return nil, err
 		}
@@ -1410,8 +1411,8 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 
-	// EVM -> SUI
-	if toFamily == chainsel.FamilySui {
+	// EVM -> non-EVM
+	if toFamily != chainsel.FamilyEVM {
 		fqCfg.EnforceOutOfOrder = true
 		fqCfg.MaxNumberOfTokensPerMsg = 1
 	}
@@ -1436,40 +1437,6 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		return err
 	}
 	return nil
-}
-
-func AddLaneWithEnforceOutOfOrder(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) {
-	gasPrices := map[uint64]*big.Int{
-		to: DefaultGasPrice,
-	}
-	fromFamily, err := chainsel.GetSelectorFamily(from)
-	require.NoError(t, err)
-
-	// Maps token address => price
-	// Uses string to be re-usable across chains
-	tokenPrices := make(map[string]*big.Int)
-	switch fromFamily {
-	case chainsel.FamilyEVM:
-		stateChainFrom := state.MustGetEVMChainState(from)
-		tokenPrices[stateChainFrom.LinkToken.Address().String()] = DefaultLinkPrice
-		tokenPrices[stateChainFrom.Weth9.Address().String()] = DefaultWethPrice
-	case chainsel.FamilyAptos:
-		aptosState := state.AptosChains[from]
-		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
-		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
-	}
-	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
-	fqCfg.EnforceOutOfOrder = true
-	AddLane(
-		t,
-		e,
-		state,
-		from, to,
-		isTestRouter,
-		gasPrices,
-		tokenPrices,
-		fqCfg,
-	)
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
@@ -1915,7 +1882,6 @@ func MintAndAllow(
 	allowance := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 
 	for chain, mintTokenInfos := range tokenMap {
-
 		configurePoolGrp.Go(func() error {
 			for _, mintTokenInfo := range mintTokenInfos {
 				sender := mintTokenInfo.sender

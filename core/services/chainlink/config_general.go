@@ -14,16 +14,16 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -133,11 +133,11 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := commonconfig.MultiErrorList(o.Config.warnings())
+	_, warning := commonconfig.MultiErrorList(o.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
-		err = o.Secrets.setEnv()
+		err = o.setEnv()
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +165,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		secrets:       &o.Secrets,
 		warning:       warning,
 	}
-	if lvl := o.Config.Log.Level; lvl != nil {
+	if lvl := o.Log.Level; lvl != nil {
 		cfg.logLevelDefault = zapcore.Level(*lvl)
 	}
 
@@ -443,7 +443,7 @@ func (g *generalConfig) Workflows() config.Workflows {
 }
 
 func (g *generalConfig) Database() coreconfig.Database {
-	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Database, logSQL: g.logSQL}
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
@@ -596,4 +596,11 @@ func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
 	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
 }
 
-var zeroSha256Hash = models.Sha256Hash{}
+func (g *generalConfig) Sharding() coreconfig.Sharding {
+	return &shardingConfig{s: g.c.Sharding}
+}
+func (g *generalConfig) LOOPP() coreconfig.LOOPP {
+	return &looppConfig{l: g.c.LOOPP}
+}
+
+var zeroSha256Hash = keys.Sha256Hash{}

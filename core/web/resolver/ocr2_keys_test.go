@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -155,7 +155,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.Mocks.ocr2.On("Create", mock.Anything, chaintype.ChainType("evm")).Return(fakeKey, nil)
+				f.Mocks.ocr2.On("Create", mock.Anything, corekeys.ChainType("evm")).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -167,7 +167,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 			name:          "generic error on Create()",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.Mocks.ocr2.On("Create", mock.Anything, chaintype.ChainType("evm")).Return(nil, gError)
+				f.Mocks.ocr2.On("Create", mock.Anything, corekeys.ChainType("evm")).Return(nil, gError)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},

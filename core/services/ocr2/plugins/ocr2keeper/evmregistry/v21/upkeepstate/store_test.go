@@ -188,7 +188,7 @@ func TestUpkeepStateStore(t *testing.T) {
 			}
 			assert.NoError(t, err)
 
-			assert.Equal(t, len(tc.expected), len(states))
+			assert.Len(t, states, len(tc.expected))
 			for i, state := range states {
 				assert.Equal(t, tc.expected[i], state)
 			}

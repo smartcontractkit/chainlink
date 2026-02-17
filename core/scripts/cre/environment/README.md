@@ -11,7 +11,6 @@ Slack: #topic-local-dev-environments
 1. [Using the CLI](#using-the-cli)
    - [Installing the binary](#installing-the-binary)
    - [Prerequisites (for Docker)](#prerequisites-for-docker)
-   - [Prerequisites For CRIB](#prerequisites-for-crib)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
       - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
@@ -23,6 +22,16 @@ Slack: #topic-local-dev-environments
    - [Debugging core nodes](#debugging-core-nodes)
    - [Debugging capabilities (mac)](#debugging-capabilities-mac)
    - [Workflow Commands](#workflow-commands)
+   - [Additional Workflow Sources](#additional-workflow-sources)
+     - [Overview](#additional-sources-overview)
+     - [Configuration](#additional-sources-configuration)
+     - [File Source JSON Format](#file-source-json-format)
+     - [Helper Tool: generate_file_source](#helper-tool-generate_file_source)
+     - [Deploying a File-Source Workflow](#deploying-a-file-source-workflow)
+     - [Mixed Sources (Contract + File)](#mixed-sources-contract--file)
+     - [Pausing and Deleting File-Source Workflows](#pausing-and-deleting-file-source-workflows)
+     - [Key Behaviors](#additional-sources-key-behaviors)
+     - [Debugging Additional Sources](#debugging-additional-sources)
    - [Further use](#further-use)
    - [Advanced Usage](#advanced-usage)
    - [Testing Billing](#testing-billing)
@@ -75,7 +84,12 @@ Slack: #topic-local-dev-environments
     - [How It Works](#how-it-works)
     - [Example Configuration](#example-configuration)
 13. [Connecting to external/public blockchains](#connecting-to-externalpublic-blockchains)
-14. [Troubleshooting](#troubleshooting)
+14. [Kubernetes Deployment](#kubernetes-deployment)
+    - [Prerequisites](#prerequisites-for-kubernetes)
+    - [Configuration](#kubernetes-configuration)
+    - [Config and Secrets Overrides](#config-and-secrets-overrides)
+    - [Example Configuration](#kubernetes-example-configuration)
+15. [Troubleshooting](#troubleshooting)
     - [Chainlink Node Migrations Fail](#chainlink-node-migrations-fail)
     - [Docker Image Not Found](#docker-image-not-found)
     - [Docker fails to download public images](#docker-fails-to-download-public-images)
@@ -119,21 +133,17 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
     - with use of containerd for pulling and storing images **disabled**
 2. **AWS SSO access to SDLC** or **Access to Git repositories**
   AWS:
-  - REQUIRED: `sdlc` profile (with `PowerUserAccess` role)
+  - REQUIRED: `staging-default` profile (with `DefaultEngineeringAccess` role)
 >  [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
   Git repositories:
   - REQUIRED: read access to [Atlas](https://github.com/smartcontractkit/atlas) and [Capabilities](https://github.com/smartcontractkit/capabilities) and [Job Distributor](https://github.com/smartcontractkit/job-distributor) repositories
 
   Either AWS or Git access is required in order to pull/build Docker images for:
-  - Chip Ingress (Beholder)
+  - Chip Ingress (Beholder stack)
+  - Chip Config (Beholder stack)
   - Job Distributor
 
   Git access to `Capabilities` repository is required in order to build capability binaries. Unless you plan on only using Docker images with all capabilities baked in.
-
-
-## Prerequisites For CRIB ###
-1. telepresence installed: `brew install telepresenceio/telepresence/telepresence-oss`
-2. Telepresence will update the /etc/resolver configs and will require to enter sudo password the first time you run it
 
 # QUICKSTART
 ```
@@ -151,8 +161,12 @@ Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOi
 Environment can be setup by running `go run . env setup` inside `core/scripts/cre/environment` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
 - you have AWS CLI installed and configured
 - you have GH CLI installed and authenticated
-- you have required Job Distributor and Chip Ingress (Beholder) images
+- you have required Job Distributor, Chip Ingress, and Chip Config images
 - install and copy all capability binaries to expected location
+
+**Image Versioning:**
+
+Docker images for Beholder services (chip-ingress, chip-config) use commit-based tags instead of mutable tags like `local-cre`. This ensures you always know which version is running and prevents hard-to-debug issues from version mismatches. The exact versions are defined in [configs/setup.toml](configs/setup.toml).
 
 Capability installation is two fold. Private and local plugins are compiled locally and then copied to the running Docker container. Public plugins are installed, when the Docker image is built. The reason is that capability developers need a way to quickly test capabilities they are working on, without having to push the code to remote repository, so that it could be installed in the Docker image (and that's because local capability code is usually located outside Docker build context and thus unavailable).
 
@@ -186,6 +200,9 @@ go run . env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_AC
 
 # to start environment with local Beholder
 go run . env start --with-beholder
+
+# to start environment with legacy v1 contracts (default is v2)
+go run . env start --with-contracts-version v1
 ```
 
 > Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
@@ -199,6 +216,7 @@ Optional parameters:
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
+- `--with-contracts-version`: Version of workflow/capability registries to use (`v2` by default, use `v1` explicitly for legacy coverage)
 
 ## Purging environment state
 To remove all state and cache files used by the environment execute:
@@ -222,12 +240,28 @@ Once up and running you will be able to access [CRE topic view](http://localhost
 #### Filtering out heartbeats
 Heartbeat messages spam the topic, so it's highly recommended that you add a JavaScript filter that will exclude them using the following code: `return value.msg !== 'heartbeat';`.
 
-If environment is aready running you can start just the Beholder stack (and register protos) with:
+If environment is already running you can start just the Beholder stack (and register protos) with:
 ```bash
 go run . env beholder start
 ```
 
-> This assumes you have `chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf .`
+**Image Requirements:**
+
+Beholder requires `chip-ingress` and `chip-config` Docker images with specific versions defined in [configs/setup.toml](configs/setup.toml). The image tags use commit hashes for version tracking (e.g., `chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f`).
+
+When starting Beholder, the system will:
+- **In CI (`CI=true`)**: Skip image checks (docker-compose will pull at runtime)
+- **Interactive terminal**: Auto-build missing images from sources. If build fails and `AWS_ECR` is set, you'll be offered to pull from ECR instead
+- **Non-interactive (tests, scripts)**: Auto-pull from ECR if `AWS_ECR` is set, otherwise fail with instructions
+
+To manually ensure images are available, run:
+```bash
+# Build from sources
+go run . env setup
+
+# Or pull from ECR (requires AWS SSO access)
+AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup
+```
 
 ### Storage
 
@@ -274,7 +308,7 @@ GOOS=linux GOARCH=arm64 go build -gcflags "all=-N -l" -o <capability binary name
 ```
 Copy the capability binary to `core/scripts/cre/environment/binaries` folder.
 
-Add or update the `custom_ports` entry in the topology file (e.g., `core/scripts/cre/environment/configs/workflow-don.toml`) to include the port mapping for the Delve debugger. For example:
+Add or update the `custom_ports` entry in the topology file (e.g., `core/scripts/cre/environment/configs/workflow-gateway-don.toml`) to include the port mapping for the Delve debugger. For example:
 ```toml
 custom_ports = ["5002:5002", "15002:15002", "45000:45000"]
 ```
@@ -377,6 +411,306 @@ This command uses default values and is useful for testing the workflow deployme
 
 ---
 
+## Additional Workflow Sources
+
+The workflow registry syncer supports multiple sources of workflow metadata beyond the on-chain contract. This enables flexible deployment scenarios including pure file-based or GRPC-based workflow deployments.
+
+### Additional Sources Overview
+
+Three source types are supported:
+
+1. **ContractWorkflowSource** (optional): Reads from the on-chain workflow registry contract
+2. **GRPCWorkflowSource** (additional): Fetches from external GRPC services
+3. **FileWorkflowSource** (additional): Reads from a local JSON file
+
+**Key Features:**
+- Contract source is optional - enables pure GRPC-only or file-only deployments
+- All additional sources (GRPC and file) are configured via unified `AdditionalSources` config
+- Source type is auto-detected by URL scheme (`file://` for file, otherwise GRPC)
+
+### Additional Sources Configuration
+
+All additional sources are configured via the `AdditionalSources` config in TOML. The source type is auto-detected based on the URL scheme:
+
+**File source (detected by `file://` prefix):**
+```toml
+[WorkflowRegistry]
+Address = "0x1234..."  # Optional - leave empty for pure file-only deployments
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "local-file"
+URL = "file:///tmp/workflows_metadata.json"
+```
+
+**GRPC source (URL without `file://` prefix):**
+```toml
+[WorkflowRegistry]
+Address = "0x1234..."
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "private-registry"
+URL = "grpc.private-registry.example.com:443"
+TLSEnabled = true
+```
+
+**Pure GRPC-only deployment (no contract):**
+```toml
+[WorkflowRegistry]
+# No Address = no contract source
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "private-registry"
+URL = "grpc.private-registry.example.com:443"
+TLSEnabled = true
+```
+
+### File Source JSON Format
+
+The file source reads from the path specified in the URL (e.g., `/tmp/workflows_metadata.json`).
+
+**JSON Schema:**
+```json
+{
+  "workflows": [
+    {
+      "workflow_id": "<32-byte hex string without 0x prefix>",
+      "owner": "<owner address hex without 0x prefix>",
+      "created_at": "<unix timestamp>",
+      "status": "<0=active, 1=paused>",
+      "workflow_name": "<name>",
+      "binary_url": "<URL to fetch binary - same format as contract>",
+      "config_url": "<URL to fetch config - same format as contract>",
+      "tag": "<version tag>",
+      "attributes": "<optional JSON string>",
+      "don_family": "<DON family name>"
+    }
+  ]
+}
+```
+
+**Example:**
+```json
+{
+  "workflows": [
+    {
+      "workflow_id": "0102030405060708091011121314151617181920212223242526272829303132",
+      "owner": "f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "created_at": 1733250000,
+      "status": 0,
+      "workflow_name": "my-file-workflow",
+      "binary_url": "file:///home/chainlink/workflows/my_workflow.wasm",
+      "config_url": "file:///home/chainlink/workflows/my_config.json",
+      "tag": "v1.0.0",
+      "don_family": "workflow"
+    }
+  ]
+}
+```
+
+See [examples/workflows_metadata_example.json](./examples/workflows_metadata_example.json) for a reference file.
+
+### Helper Tool: generate_file_source
+
+A helper tool is provided to generate the workflow metadata JSON with the correct workflowID (which is a hash of the workflow artifacts):
+
+```bash
+cd core/scripts/cre/environment
+go run ./cmd/generate_file_source \
+  --binary /path/to/workflow.wasm \
+  --config /path/to/config.json \
+  --name my-workflow \
+  --owner f39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
+  --output /tmp/workflows_metadata.json \
+  --don-family workflow
+```
+
+**Additional flags:**
+- `--binary-url-prefix`: Prefix for the binary URL in the output (e.g., `file:///home/chainlink/workflows/`)
+- `--config-url-prefix`: Prefix for the config URL in the output
+
+### Deploying a File-Source Workflow
+
+This walkthrough demonstrates deploying a workflow via file source in a local CRE environment.
+
+**Prerequisites:**
+- Local CRE environment set up
+- Docker running
+- Go toolchain installed
+
+**Step-by-step:**
+
+```bash
+# 1. Start the environment
+cd core/scripts/cre/environment
+go run . env start --auto-setup
+
+# 2. Deploy a workflow via contract first (this creates the compiled binary in containers)
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron_contract
+
+# 3. Get the existing workflow binary from a container
+docker cp workflow-node1:/home/chainlink/workflows/cron_contract.wasm /tmp/cron_contract.wasm
+
+# 4. Generate the file source metadata with a DIFFERENT workflow name
+go run ./cmd/generate_file_source \
+  --binary /tmp/cron_contract.wasm \
+  --name file_source_cron \
+  --owner f39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
+  --output /tmp/workflows_metadata.json \
+  --don-family workflow \
+  --binary-url-prefix "file:///home/chainlink/workflows/" \
+  --config-url-prefix "file:///home/chainlink/workflows/"
+
+# 5. Copy the binary to all containers with new name
+docker cp /tmp/cron_contract.wasm workflow-node1:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node2:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node3:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node4:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node5:/home/chainlink/workflows/file_source_workflow.wasm
+
+# 6. Create an empty config file and copy to all containers
+echo '{}' > /tmp/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node1:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node2:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node3:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node4:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node5:/home/chainlink/workflows/file_source_config.json
+
+# 7. Copy the metadata file to all nodes
+docker cp /tmp/workflows_metadata.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node5:/tmp/workflows_metadata.json
+
+# 8. Wait for the syncer to pick up the workflow (default 12 second interval)
+# Check logs for "Loaded workflows from file" messages
+docker logs workflow-node1 2>&1 | grep -i "file"
+
+# 9. Verify the workflow is running
+docker logs workflow-node1 2>&1 | grep -i "workflow engine"
+```
+
+### Mixed Sources (Contract + File)
+
+You can run both contract-deployed and file-source workflows simultaneously:
+
+```bash
+# 1. Deploy workflow via contract
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n contract_workflow
+
+# 2. Add a different workflow via file source (follow steps 3-7 from above)
+
+# 3. Verify both workflows are running
+docker logs workflow-node1 2>&1 | grep -i "Aggregated workflows from all sources"
+# Should show totalWorkflows: 2
+```
+
+### Pausing and Deleting File-Source Workflows
+
+**Pausing a workflow** - Change the `status` field to `1`:
+
+```bash
+# Create updated metadata with status=1 (paused)
+cat > /tmp/workflows_metadata_paused.json << 'EOF'
+{
+  "workflows": [
+    {
+      "workflow_id": "<YOUR_WORKFLOW_ID>",
+      "owner": "f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "status": 1,
+      "workflow_name": "file_source_cron",
+      "binary_url": "file:///home/chainlink/workflows/file_source_workflow.wasm",
+      "config_url": "file:///home/chainlink/workflows/file_source_config.json",
+      "don_family": "workflow"
+    }
+  ]
+}
+EOF
+
+# Copy to all nodes
+docker cp /tmp/workflows_metadata_paused.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node5:/tmp/workflows_metadata.json
+
+# Wait for syncer to detect the change
+docker logs workflow-node1 2>&1 | grep -i "paused"
+```
+
+**Deleting a workflow** - Remove it from the JSON file:
+
+```bash
+# Create empty metadata file
+echo '{"workflows":[]}' > /tmp/empty_metadata.json
+
+# Copy to all nodes
+docker cp /tmp/empty_metadata.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node5:/tmp/workflows_metadata.json
+
+# Contract workflows continue running; file-source workflow is removed
+```
+
+### Additional Sources Key Behaviors
+
+**Source Aggregation:**
+- Workflows from all sources are merged into a single list
+- Only ContractWorkflowSource provides real blockchain head (block height/hash)
+- For pure additional-source deployments, a synthetic head is created (Unix timestamp)
+- If one source fails, others continue to work (graceful degradation)
+
+**Contract Source Optional:**
+- If no contract address is configured, the contract source is skipped
+- Enables pure GRPC-only or file-only workflow deployments
+- Synthetic heads are used when no contract source is present
+
+**File Source Characteristics:**
+- File is read on every sync interval (default 12 seconds)
+- Missing file = empty workflow list (not an error)
+- Invalid JSON entries are skipped with a warning
+- File source is always "ready" (unlike contract source which needs initialization)
+
+**GRPC Source:**
+- Supports JWT-based authentication
+- Includes automatic retry logic with exponential backoff (max 2 retries, 100ms-5s delay)
+- Only transient errors (Unavailable, ResourceExhausted) are retried
+
+**Source Tracking:**
+- Each workflow includes a `Source` field identifying where it was deployed from
+- Source identifiers: `ContractWorkflowSource`, `FileWorkflowSource`, `GRPCWorkflowSource`
+
+### Debugging Additional Sources
+
+**Check if file source is being read:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Loaded workflows from file"
+docker logs workflow-node1 2>&1 | grep "Workflow metadata file does not exist"
+```
+
+**Check aggregated workflows:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Aggregated workflows from all sources"
+docker logs workflow-node1 2>&1 | grep "fetching workflow metadata from all sources"
+```
+
+**Verify workflow engine started:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Creating Workflow Engine for workflow spec"
+```
+
+**Key log messages:**
+- `"Loaded workflows from file"` - File was successfully read
+- `"Workflow metadata file does not exist"` - File doesn't exist (normal if not using file source)
+- `"Source not ready, skipping"` - Contract source not yet initialized
+- `"Aggregated workflows from all sources"` with `totalWorkflows` count - Sync completed
+- `"All workflow sources failed - will retry next cycle"` (WARN) - All sources failed
+- `"Failed to fetch workflows from source"` (ERROR) - Individual source failure
+
+---
+
 ## Further use
 To manage workflows you will need the CRE CLI. You can either:
 - download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
@@ -391,9 +725,20 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ### Advanced Usage:
 1. **Choose the Right Topology**
-   - For a single DON with all capabilities: `configs/workflow-don.toml` (default)
-   - For a single DON with all capabilities, but with a separate gateway node: `configs/workflow-gateway-don.toml`
+   - For a single DON with all capabilities, but with a separate gateway and bootstrap node: `configs/workflow-gateway-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-gateway-capabilities-don.toml`
+   - Use the topology CLI to inspect and compare configs before startup:
+     ```bash
+     # list available topology configs
+     go run . topology list
+
+     # show compact DON + capability matrix view for one config
+     go run . topology show --config configs/workflow-gateway-capabilities-don.toml
+
+     # regenerate topology docs
+     go run . topology generate
+     ```
+   - `env start` now prints a compact topology summary with a capability matrix.
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
    - If your use case requires them, you should build them manually by:
@@ -425,11 +770,11 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
     - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
 
 Optional environment variables used by the CLI:
-- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/workflow-don.toml](./configs/workflow-don.toml)
+- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/workflow-gateway-don.toml](./configs/workflow-gateway-don.toml)
 - `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
 - `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
 
-When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
+When starting the environment in AWS-managed Kubernetes, make sure required ingress/domain environment variables are set before running commands.
 
 ### Testing Billing
 Spin up the billing service and necessary migrations in the `billing-platform-service` repo.
@@ -443,7 +788,7 @@ go run . env start --with-example -w 1m
 I recommend increasing your docker resources to near max memory, as this is going to slow your local
 machine down anyways, and it could mean the difference between a 5 minute and 2 minute iteration cycle.
 
-Add the following TOML config to `core/scripts/cre/environment/configs/workflow-don.toml`:
+Add the following TOML config to `core/scripts/cre/environment/configs/workflow-gateway-don.toml`:
 ```toml
 [Billing]
 URL = 'host.docker.internal:2223'
@@ -837,7 +1182,7 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
 [capability_configs.random-number-generator]
   binary_path = "./binaries/random-number-generator"
 
-[capability_configs.random-number-generator.config]
+[capability_configs.random-number-generator.values]
   # Add default configuration values here
   SeedValue = 42
   MaxRange = 1000
@@ -845,11 +1190,13 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
 [capability_configs.gas-estimator]
   binary_path = "./binaries/gas-estimator"
 
-[capability_configs.gas-estimator.config]
+[capability_configs.gas-estimator.values]
   # Add default configuration values here
   DefaultGasLimit = 21000
   MaxGasPrice = 100000000000  # 100 gwei
 ```
+
+`values` are meant for storing values that will be used for capability configuration (be that the job specs or capability registry contract). When you override them (either in the defaults file or per-DON), you must provide the entire structure because individual fields are not merged with previously defined values.
 
 ### Step 6: Register the Capability
 
@@ -889,34 +1236,31 @@ import (
 
 ### Step 7: Add to Environment Configurations
 
-To actually use your capability in tests, you need to add it to the relevant environment configurations in `core/scripts/cre/environment/configs/`. Choose the appropriate configuration file based on your testing needs:
+To actually use your capability in tests, add it to the `capabilities` array inside the relevant topology under `core/scripts/cre/environment/configs/`. All capabilities live in this single list:
 
-**For DON-level capabilities** (like random number generator):
 ```toml
-# In workflow-don.toml, workflow-gateway-don.toml, etc.
-capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "random-number-generator"]
+# In workflow-gateway-don.toml, etc.
+capabilities = [
+  "ocr3",                # DON-wide
+  "custom-compute",
+  "web-api-target",
+  "write-evm-1337",      # chain-scoped (workflow DON on Anvil 1337)
+  "write-evm-2337",
+  "read-contract-2337"   # another per-chain capability
+]
 ```
 
-**For chain-level capabilities** (like gas estimator):
-```toml
-# In workflow-don.toml, workflow-gateway-don.toml, etc.
-capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
-
-# Enable capabilities per chain
-[nodesets.chain_capabilities]
-  write-evm = ["1337", "2337"]
-  gas-estimator = ["1337", "2337"]  # Add your chain-level capability here
-```
+- Include the unsuffixed flag for capabilities that run globally (e.g., `ocr3`, `custom-compute`).
+- Append `-<chainID>` to scope a capability to a specific chain. Each chain you want to target must appear as its own suffixed entry (e.g., `write-evm-1337`).
 
 Common configuration files:
-- `workflow-don.toml` - Basic workflow DON setup
-- `workflow-gateway-don.toml` - Workflow DON with gateway
+- `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node
 - `workflow-gateway-capabilities-don.toml` - Multiple DONs with different capabilities
 
 ### Configuration Templates
 
-- **DON-level**: Use simple templates or empty strings for shared configuration
-- **Chain-level**: Use templates with chain-specific variables like `{{.ChainID}}`, `{{.NetworkFamily}}`
+- Use simple templates or empty strings for shared/global configuration.
+- When a capability depends on chain context, reference template variables like `{{.ChainID}}` or `{{.NetworkFamily}}` inside its config and expose it via suffixed flags (`write-evm-1337`).
 
 ### Important Notes
 
@@ -932,27 +1276,24 @@ The CRE system supports multiple DONs (Decentralized Oracle Networks) with compl
 
 ### Supported Capabilities
 
-#### DON-level Capabilities
-These capabilities run once per DON and are shared across all nodes:
+All capabilities are declared in the `capabilities` array. Capabilities that operate once per DON are listed without a suffix. Capabilities that target a particular chain append `-<chainID>` (e.g., `write-evm-1337`).
 
-- `ocr3` - OCR3 consensus protocol
-- `consensus` - Consensus protocol v2
-- `cron` - Scheduled task triggers
-- `custom-compute` - Custom computation capabilities
-- `web-api-trigger` - Web API trigger capabilities
-- `web-api-target` - Web API target capabilities
-- `http-trigger` - HTTP trigger capabilities
-- `http-action` - HTTP action capabilities
-- `vault` - Vault integration capabilities
-- `mock` - Mock capabilities for testing
-
-#### Chain-level Capabilities
-These capabilities run per chain and require chain-specific configuration:
-
-- `evm` - EVM chain integration
-- `write-evm` - EVM write operations
-- `read-contract` - Smart contract read operations
-- `log-event-trigger` - Blockchain event triggers
+| Capability | Typical scope | Notes |
+| --- | --- | --- |
+| `ocr3` | DON-wide | Built-in consensus capability |
+| `consensus` | DON-wide | Consensus v2 |
+| `cron` | DON-wide | Requires binary; schedule triggers |
+| `custom-compute` | DON-wide | Built-in custom compute runtime |
+| `web-api-trigger` | DON-wide | HTTP trigger pipeline |
+| `web-api-target` | DON-wide | HTTP target pipeline |
+| `http-trigger` | DON-wide | Requires binary |
+| `http-action` | DON-wide | Requires binary |
+| `vault` | DON-wide | Vault integration |
+| `mock` | DON-wide | Mock/testing capability |
+| `evm-<chainID>` | Chain-scoped | Add a suffixed entry per chain (e.g., `evm-1337`) |
+| `write-evm-<chainID>` | Chain-scoped | Built-in write capability; suffix per chain |
+| `read-contract-<chainID>` | Chain-scoped | Requires binary |
+| `log-event-trigger-<chainID>` | Chain-scoped | Requires binary |
 
 ### DON Types
 
@@ -971,13 +1312,15 @@ Each DON is defined as a `nodesets` entry in the TOML configuration:
   don_types = ["workflow"]     # DON type(s) for this nodeset
   override_mode = "all"        # "all" for uniform config, "each" for per-node
 
-  # Capabilities configuration
-  capabilities = ["ocr3", "custom-compute", "cron"]
-
-  # Chain-specific capabilities
-  [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]      # Enable write-evm for specific chains
-    read-contract = ["1337"]          # Enable read-contract for specific chains
+  # Capabilities configuration (mix DON-wide and chain-scoped entries)
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "cron",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-1337"
+  ]
 ```
 
 ### Example: Adding a New Topology
@@ -1044,8 +1387,8 @@ Each nodeset should use a different `http_port_range_start` to avoid port confli
 
 - Only **one** `workflow` DON and **one** `gateway` DON are allowed
 - Multiple `capabilities` DONs are supported
-- Chain-level capabilities must specify which chains they support
-- Bootstrap nodes are only needed for workflow DONs
+- Chain-scoped capabilities must be listed once per chain using the `capability-<chainID>` suffix
+- Bootstrap nodes can be part of any DON or form a separate DON
 - Gateway nodes are only needed for gateway DONs
 
 ---
@@ -1057,53 +1400,31 @@ This section explains how to enable already implemented capabilities in existing
 ### Available Configuration Files
 
 The `configs/` directory contains several topology configurations:
-
-- `workflow-don.toml` - Single DON with all capabilities (default)
-- `workflow-gateway-don.toml` - Workflow DON with separate gateway node
+- `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node (default)
 - `workflow-gateway-capabilities-don.toml` - Full topology with multiple DONs
-- `workflow-don-crib.toml` - CRIB/Kubernetes deployment configuration
 - `capability_defaults.toml` - Default capability configurations and binary paths
 
 ### Capability Types and Configuration
 
-#### DON-level Capabilities
-
-These capabilities run once per DON and are configured using the `capabilities` array:
+Declare every capability inside the `capabilities` array. The same list now covers both DON-wide and per-chain functionality:
 
 ```toml
 [[nodesets]]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "web-api-trigger",
+    "vault",
+    "cron",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-2337"
+  ]
 ```
 
-**Available DON-level capabilities:**
-- `ocr3` - OCR3 consensus protocol (built-in)
-- `consensus` - Consensus protocol v2 (built-in)
-- `custom-compute` - Custom computation capabilities (built-in)
-- `web-api-target` - Web API target capabilities (built-in)
-- `web-api-trigger` - Web API trigger capabilities (built-in)
-- `vault` - Vault integration capabilities (built-in)
-- `cron` - Scheduled task triggers (requires binary)
-- `http-trigger` - HTTP trigger capabilities (requires binary)
-- `http-action` - HTTP action capabilities (requires binary)
-- `mock` - Mock capabilities for testing (requires binary)
-
-#### Chain-level Capabilities
-
-These capabilities run per chain and are configured using the `chain_capabilities` section:
-
-```toml
-[nodesets.chain_capabilities]
-  write-evm = ["1337", "2337"]      # Enable for specific chain IDs
-  read-contract = ["1337"]          # Enable for specific chain IDs
-  log-event-trigger = ["1337", "2337"]  # Enable for specific chain IDs
-  evm = ["1337", "2337"]           # Enable for specific chain IDs
-```
-
-**Available chain-level capabilities:**
-- `write-evm` - EVM write operations (built-in)
-- `read-contract` - Smart contract read operations (requires binary)
-- `log-event-trigger` - Blockchain event triggers (requires binary)
-- `evm` - EVM chain integration (requires binary)
+- **DON-wide flags** (no suffix): `ocr3`, `consensus`, `custom-compute`, `web-api-target`, `web-api-trigger`, `vault`, `cron`, `http-trigger`, `http-action`, `mock`.
+- **Chain-scoped bases** (append `-<chainID>`): `evm`, `write-evm`, `read-contract`, `log-event-trigger`, plus any new capability that needs per-chain overrides.
 
 ### Binary Requirements
 
@@ -1128,35 +1449,31 @@ Some capabilities require external binaries to be available. These are specified
 
 ### Enabling Capabilities in Your Topology
 
-#### 1. Add DON-level Capabilities
+#### 1. Declare Capabilities
 
-Edit your chosen topology file (e.g., `workflow-don.toml`) and add capabilities to the `capabilities` array:
+Edit your topology (e.g., `workflow-gateway-don.toml`) and list every capability the DON should run:
 
 ```toml
 [[nodesets]]
   name = "workflow"
   don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "cron", "http-action"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "cron",
+    "http-action",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-1337"
+  ]
   # ... other configuration
 ```
 
-#### 2. Add Chain-level Capabilities
+- Add the unsuffixed flag once for DON-wide functionality.
+- Add one suffixed entry per chain for every chain-aware capability you need.
 
-Add chain-specific capabilities in the `chain_capabilities` section:
-
-```toml
-[[nodesets]]
-  name = "workflow"
-  don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337"]
-    log-event-trigger = ["1337", "2337"]
-```
-
-#### 3. Provide Required Binaries
+#### 2. Provide Required Binaries
 
 For capabilities that require binaries, either:
 
@@ -1182,10 +1499,13 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   nodes = 5
   name = "workflow"
   don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "cron"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "cron",
+    "write-evm-1337"
+  ]
 ```
 
 #### Example 2: Full Capability Setup
@@ -1195,13 +1515,23 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   nodes = 5
   name = "workflow"
   don_types = ["workflow", "gateway"]
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337", "2337"]
-    log-event-trigger = ["1337"]
-    evm = ["1337", "2337"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "web-api-trigger",
+    "vault",
+    "cron",
+    "http-action",
+    "http-trigger",
+    "write-evm-1337",
+    "write-evm-2337",
+    "read-contract-1337",
+    "read-contract-2337",
+    "log-event-trigger-1337",
+    "evm-1337",
+    "evm-2337"
+  ]
 ```
 
 #### Example 3: Multi-DON with Specialized Capabilities
@@ -1211,22 +1541,26 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 [[nodesets]]
   name = "workflow"
   don_types = ["workflow"]
-  capabilities = ["ocr3", "custom-compute"]
-
-  [nodesets.chain_capabilities]
-    write-evm = ["1337"]
-    evm = ["1337"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "write-evm-1337",
+    "evm-1337"
+  ]
 
 # Capabilities DON for data feeds
 [[nodesets]]
   name = "data-feeds"
   don_types = ["capabilities"]
-  capabilities = ["http-action", "cron"]
-
-  [nodesets.chain_capabilities]
-    read-contract = ["1337", "2337"]
-    log-event-trigger = ["1337"]
-    evm = ["1337"]
+  exposes_remote_capabilities = true # IMPORTANT: needs to be set to true if capabilities are to be accessible by the workflow DON
+  capabilities = [
+    "http-action",
+    "cron",
+    "read-contract-1337",
+    "read-contract-2337",
+    "log-event-trigger-1337",
+    "evm-1337"
+  ]
 ```
 
 ### Custom Capability Configuration
@@ -1235,23 +1569,44 @@ You can override default capability configurations by modifying the `capability_
 
 ```toml
 # Override default configuration for custom-compute
-[capability_configs.custom-compute.config]
+[capability_configs.custom-compute.values]
   NumWorkers = 5
   GlobalRPS = 50.0
   GlobalBurst = 100
 
 # Override configuration for cron
-[capability_configs.cron.config]
+[capability_configs.cron.values]
   CustomScheduleFormat = "extended"
+```
+
+To override capability configs for a specific DON, declare a `[nodesets.capability_configs]` table inside that nodeset. Keys must match the capability flag exactly—including any chain suffix—because the override replaces the full config for that capability. Partial overrides are not supported; you must provide every value (and binary path if it differs). Examples:
+
+```toml
+[nodesets.capability_configs]
+  # Global override for a DON-level capability
+  [nodesets.capability_configs.web-api-target.values]
+    GlobalRPS = 2000.0
+    GlobalBurst = 1500
+    PerSenderRPS = 1000.0
+    PerSenderBurst = 1500
+
+  # Chain-specific override keyed by the suffixed flag
+  [nodesets.capability_configs.write-evm-1337.values]
+    GasLimitDefault = 700_000
+    AcceptanceTimeout = "60s"
+
+  # Override binary path (you can optionally add a `.values` table alongside it)
+  [nodesets.capability_configs.read-contract-1337]
+    binary_path = "/some-other/binary_path"
 ```
 
 ### Important Notes
 
 - **Binary availability**: Ensure all required binaries are available before starting the environment
-- **Chain IDs**: Chain-level capabilities must specify valid chain IDs that exist in your blockchain configuration
+- **Chain IDs**: Chain-scoped capability flags (e.g., `write-evm-<chainID>`) must use chain IDs that exist in your blockchain configuration
 - **Port conflicts**: Each nodeset should use different `http_port_range_start` values
 - **DON limitations**: Only one `workflow` DON and one `gateway` DON are allowed per environment
-- **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes (index 0)
+- **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes
 
 ### Troubleshooting Capability Issues
 
@@ -1485,10 +1840,16 @@ TRON blockchain support is integrated into the CRE environment by configuring TR
 ...
 [[nodesets]]
 ...
-  [nodesets.chain_capabilities]
-    # Tron is configured as an EVM chain so we can use all the EVM capabilities.
-    read-contract = ["1337", "3360022319"]
-    write-evm = ["1337", "3360022319"]
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "write-evm-1337",
+    "write-evm-3360022319",
+    "read-contract-1337",
+    "read-contract-3360022319"
+  ]
+  # Tron is configured as an EVM chain so we can reuse EVM capabilities by suffixing
+  # the TRON chain ID (3360022319).
 ```
 
 ---
@@ -1529,7 +1890,133 @@ Now, unless you enable a chain capability for that chain, it won't be added to n
 
 EVM keys will only be generated for a chain that either is referenced by any chain capabilities or which is present in the `supported_evm_chains` array.
 
-Check [workflow-don.toml](configs/workflow-don.toml) for an example.
+Check [workflow-gateway-don.toml](configs/workflow-gateway-don.toml) for an example.
+
+## Kubernetes Deployment
+
+This section explains how to deploy and connect to Chainlink nodes running in an existing Kubernetes cluster. Unlike Docker (which starts containers locally), Kubernetes mode assumes nodes are **already running** in the cluster and generates the appropriate service URLs to connect to them.
+
+The support for Kubernetes is designed to work with an internal platform for running and managing containerized applications. For more details on where to find domain names and how to configure a DON running on it, please check the internal docs.
+
+### Prerequisites for Kubernetes
+
+1. **Kubernetes cluster with Chainlink nodes deployed** - Nodes must already be running in the cluster
+2. **Helm charts with overlay support** - The cluster deployment must support config and secrets overrides via Kubernetes ConfigMaps and Secrets
+3. **External ingress configured** - For external access, ingress must be configured with a domain
+4. **kubectl configured** - Your local kubectl must be configured to access the cluster
+5. **Namespace** - All nodes should be deployed in a single namespace
+
+### Kubernetes Configuration
+
+Configure the Kubernetes infrastructure in your TOML file:
+
+```toml
+[infra]
+  type = "kubernetes"
+
+  [infra.kubernetes]
+    namespace = "my-namespace"                  # Kubernetes namespace where nodes are deployed
+    external_domain = "example.com"             # Domain for external access (ingress)
+    external_port = 80                          # External port for services
+    label_selector = "app=chainlink"            # Label selector to identify Chainlink pods
+    node_api_user = "admin@chain.link"          # API credentials for node authentication
+    node_api_password = "your-secure-password"  # API password (use secrets in production)
+```
+
+**Configuration Fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `namespace` | Yes | Kubernetes namespace where DON nodes are deployed |
+| `external_domain` | Yes | Domain for external ingress (e.g., `example.com`) |
+| `external_port` | No | External port for services (default: 80) |
+| `label_selector` | No | Label selector to identify Chainlink pods |
+| `node_api_user` | No | Node API username (defaults to `admin@chain.link`) |
+| `node_api_password` | No | Node API password (defaults to `password` for testing) |
+
+### Config and Secrets Overrides
+
+Kubernetes deployments support dynamic configuration overrides via ConfigMaps and Secrets. This allows you to modify node configurations without redeploying:
+
+**How it works:**
+
+1. The CLI generates node-specific TOML configuration based on your topology
+2. Configuration is pushed to the cluster as Kubernetes ConfigMaps (for config) and Secrets (for sensitive data)
+3. Nodes are configured via Helm chart overlays to mount these ConfigMaps/Secrets
+4. When configuration changes, the CLI updates the ConfigMaps/Secrets and nodes pick up the changes
+
+**Helm Chart Requirements:**
+
+Your Helm chart must support the overlay pattern.
+
+**What gets created:**
+
+- **ConfigMap** (`<node-name>-config-override`): Contains TOML configuration overrides
+- **Secret** (`<node-name>-secrets-override`): Contains sensitive configuration (database URLs, private keys, etc.)
+
+### Kubernetes Example Configuration
+
+Here's a complete example for connecting to a Kubernetes-deployed DON:
+
+```toml
+[[blockchains]]
+  chain_id = "1337"
+  type = "anvil"
+
+  # Use cached output to connect to existing blockchain
+  [blockchains.out]
+    use_cache = true
+    type = "anvil"
+    family = "evm"
+    chain_id = "1337"
+
+    [[blockchains.out.nodes]]
+      ws_url = "wss://anvil-service-rpc.example.com"
+      http_url = "https://anvil-service-rpc.example.com"
+      internal_ws_url = "ws://anvil-service:8545"
+      internal_http_url = "http://anvil-service:8545"
+
+[infra]
+  type = "kubernetes"
+
+  [infra.kubernetes]
+    namespace = "my-namespace"
+    external_domain = "example.com"
+    external_port = 80
+    label_selector = "app=chainlink"
+    node_api_user = "admin@chain.link"
+    node_api_password = "secure-password-here"
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
+  override_mode = "all"
+
+  capabilities = [
+    "ocr3",
+    "custom-compute",
+    "web-api-target",
+    "web-api-trigger",
+    "vault",
+    "write-evm-1337"
+  ]
+```
+
+**Service URL Generation:**
+
+For Kubernetes deployments, service URLs are generated based on naming conventions (using namespace `my-namespace` as example):
+
+| Node Type | Internal URL | External URL |
+|-----------|--------------|--------------|
+| Bootstrap | `http://workflow-bt-0:6688` | `https://my-namespace-workflow-bt-0.example.com` |
+| Plugin | `http://workflow-0:6688` | `https://my-namespace-workflow-0.example.com` |
+| Gateway | `http://my-namespace-gateway.example.com:80` | Same |
+
+---
 
 ## Troubleshooting
 

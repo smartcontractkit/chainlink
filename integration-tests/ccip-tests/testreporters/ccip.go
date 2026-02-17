@@ -2,6 +2,7 @@ package testreporters
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -240,7 +241,7 @@ func (r *CCIPTestReporter) SetSendSlackReport(sendSlackReport bool) {
 
 func (r *CCIPTestReporter) CompleteGrafanaDashboardURL() error {
 	if r.grafanaURLProvider == nil {
-		return fmt.Errorf("grafana URL provider is not set")
+		return errors.New("grafana URL provider is not set")
 	}
 	grafanaUrl, err := r.grafanaURLProvider.GetGrafanaBaseURL()
 	if err != nil {
@@ -255,7 +256,7 @@ func (r *CCIPTestReporter) CompleteGrafanaDashboardURL() error {
 	err = r.AddToGrafanaDashboardQueryParams(
 		fmt.Sprintf("from=%d", r.startTime),
 		fmt.Sprintf("to=%d", r.endTime),
-		fmt.Sprintf("var-remote_runner=%s", r.namespace))
+		"var-remote_runner="+r.namespace)
 	if err != nil {
 		return err
 	}
@@ -359,7 +360,7 @@ func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slac
 	// the report will be shared in terms of grafana dashboard link
 	if r.grafanaURLProvider == nil {
 		return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
-			Title:           fmt.Sprintf("CCIP Test Report %s", r.namespace),
+			Title:           "CCIP Test Report " + r.namespace,
 			Filename:        fmt.Sprintf("ccip_report_%s.csv", r.namespace),
 			File:            r.reportFilePath,
 			InitialComment:  fmt.Sprintf("CCIP Test Report %s.", r.namespace),

@@ -26,16 +26,17 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -46,7 +47,7 @@ type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CreEnvironment                      *cre.Environment
 	Dons                                *cre.Dons
-	NodeOutput                          []*cre.WrappedNodeOutput
+	NodeOutput                          []*cre.NodeSetOutput
 	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
 }
@@ -121,13 +122,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
-	if input.Provider.Type == infra.CRIB {
-		cribErr := crib.Bootstrap(ctx, input.Provider)
-		if cribErr != nil {
-			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
-		}
-	}
-
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
@@ -150,7 +144,6 @@ func SetupTestEnvironment(
 		Blockchains:           deployedBlockchains.Outputs,
 		ContractVersions:      input.ContractVersions,
 		Provider:              input.Provider,
-		CapabilityConfigs:     input.CapabilityConfigs,
 		RegistryChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
 	}
 
@@ -176,12 +169,13 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
-	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider)
+	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider, input.CapabilityConfigs)
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
+		ctx,
 		topology,
 		creEnvironment,
 		input.NodeSets,
@@ -195,6 +189,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
+	var capabilityToOCR3Config = make(map[string]*ocr3.OracleConfig)
 	for _, feature := range input.Features.List() {
 		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PreEnvStartup for feature %s for don '%s'", feature.Flag(), donMetadata.Name)
@@ -213,10 +208,12 @@ func SetupTestEnvironment(
 					donsCapabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 				}
 				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
+				maps.Copy(capabilityToOCR3Config, output.CapabilityToOCR3Config)
 			}
 			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
 	}
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	queue := worker.New(ctx, 10)
@@ -294,6 +291,7 @@ func SetupTestEnvironment(
 
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
+
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                        testLogger,
 		SingleFileLogger:              singleFileLogger,
@@ -341,7 +339,7 @@ func SetupTestEnvironment(
 			ContractVersion: cldf.TypeAndVersion{Version: *wfRegVersion},
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
-			AllowedDonIDs:   []uint64{topology.WorkflowDONID},
+			AllowedDonIDs:   topology.WorkflowDONIDs,
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)
@@ -350,9 +348,9 @@ func SetupTestEnvironment(
 	}
 
 	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
-		// we currently have no way of checking if filters were registered, when code runs in CRIB
+		// we currently have no way of checking if filters were registered in Kubernetes mode
 		// as we don't have a way to get its database connection string
-		if input.Provider.Type == infra.CRIB {
+		if !input.Provider.IsDocker() {
 			return nil
 		}
 
@@ -384,6 +382,7 @@ func SetupTestEnvironment(
 		NodeSets:                 input.NodeSets,
 		WithV2Registries:         input.WithV2Registries,
 		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
+		CapabilityToOCR3Config:   capabilityToOCR3Config,
 	}
 
 	for _, capability := range input.Capabilities {
@@ -399,6 +398,7 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 
 	for _, feature := range input.Features.List() {
@@ -417,6 +417,21 @@ func SetupTestEnvironment(
 		}
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	// Sharding setup moved AFTER PostEnvStartup to ensure OCR3 configs work properly
+	if topology.DonsMetadata.ShardingEnabled() {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Setting up Sharding")))
+		err := sharding.SetupSharding(ctx, sharding.SetupShardingInput{
+			Logger:   testLogger,
+			CreEnv:   creEnvironment,
+			Topology: topology,
+			Dons:     dons,
+		})
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to setup Sharding")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	}
 
 	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
@@ -438,7 +453,7 @@ func SetupTestEnvironment(
 	}, nil
 }
 
-func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
+func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
 		input.NodeSets[idx].Out = nsOut.Output

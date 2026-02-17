@@ -19,11 +19,12 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -41,6 +42,7 @@ import (
 const TronEVMChainID = 3360022319
 
 func PrepareNodeTOMLs(
+	ctx context.Context,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
@@ -68,7 +70,6 @@ func PrepareNodeTOMLs(
 		configsFound := 0
 		secretsFound := 0
 		nodeSet := localNodeSets[i]
-
 		for _, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestConfigOverrides != "" {
 				configsFound++
@@ -111,9 +112,7 @@ func PrepareNodeTOMLs(
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
 					RegistryChainSelector:   creEnv.RegistryChainSelector,
-					GatewayConnectorOutput:  topology.GatewayConnectors,
-					NodeSet:                 localNodeSets[i],
-					CapabilityConfigs:       creEnv.CapabilityConfigs,
+					Topology:                topology,
 					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
@@ -122,6 +121,22 @@ func PrepareNodeTOMLs(
 				return nil, errors.Wrap(configErr, "failed to generate config")
 			}
 
+			// For Kubernetes, save configs to ConfigMaps
+			if creEnv.Provider.IsKubernetes() {
+				instanceNames := generateInstanceNames(localNodeSets[i].Name, donMetadata.NodesMetadata)
+				for j, instanceName := range instanceNames {
+					err := CreateConfigOverride(ctx, framework.L, CreateConfigOverrideInput{
+						Namespace:    creEnv.Provider.Kubernetes.Namespace,
+						InstanceName: instanceName,
+						ConfigToml:   config[j],
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to create config override for node %s: %w", instanceName, err)
+					}
+				}
+			}
+
+			// Set TestConfigOverrides for all providers (needed for features to work)
 			for j := range donMetadata.NodesMetadata {
 				localNodeSets[i].NodeSpecs[j].Node.TestConfigOverrides = config[j]
 			}
@@ -129,13 +144,50 @@ func PrepareNodeTOMLs(
 
 		// generate node TOML secrets only if they are not provided in the environment TOML config
 		if secretsFound == 0 {
+			instanceNames := generateInstanceNames(localNodeSets[i].Name, donMetadata.NodesMetadata)
 			for nodeIndex := range donMetadata.NodesMetadata {
 				wnode := donMetadata.NodesMetadata[nodeIndex]
 				nodeSecretsTOML, err := wnode.Keys.ToNodeSecretsTOML()
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to marshal node secrets (DON: %s, Node index: %d)", donMetadata.Name, nodeIndex)
 				}
+
+				// For Kubernetes, save secrets to Kubernetes Secrets
+				if creEnv.Provider.IsKubernetes() {
+					labels := map[string]string{
+						"app":  "chainlink",
+						"don":  donMetadata.Name,
+						"node": instanceNames[nodeIndex],
+					}
+
+					err := CreateSecretsOverride(ctx, framework.L, CreateSecretsOverrideInput{
+						Namespace:    creEnv.Provider.Kubernetes.Namespace,
+						InstanceName: instanceNames[nodeIndex],
+						SecretsToml:  nodeSecretsTOML,
+						Labels:       labels,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to create secrets override for node %s: %w", instanceNames[nodeIndex], err)
+					}
+					framework.L.Debug().Msgf("   Secret keys: P2PKey, DKGKey, EVM keys (%d chains), Solana keys (%d chains)",
+						len(wnode.Keys.EVM), len(wnode.Keys.Solana))
+				}
+
+				// Set TestSecretsOverrides for all providers (needed for features and key access)
 				localNodeSets[i].NodeSpecs[nodeIndex].Node.TestSecretsOverrides = nodeSecretsTOML
+			}
+		}
+	}
+
+	// Transform UserConfigOverrides to use platform-specific Docker host addresses.
+	// This handles differences between macOS (host.docker.internal) and Linux (172.17.0.1)
+	// for URLs in user-provided config overrides (e.g., AdditionalSources).
+	for i := range localNodeSets {
+		for j := range localNodeSets[i].NodeSpecs {
+			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
+				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
+					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
+				)
 			}
 		}
 	}
@@ -167,7 +219,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs, input.GatewayConnectorOutput, input.DonMetadata, nodeMetadata)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, commonInputs, input.DonMetadata, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -249,15 +301,15 @@ func addBootstrapNodeConfig(
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
-	if ocrBErr != nil {
-		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
-	}
-
 	existingConfig.OCR2 = coretoml.OCR2{
 		Enabled:              ptr.Ptr(true),
 		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+	}
+
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
 
 	existingConfig.P2P = coretoml.P2P{
@@ -274,7 +326,7 @@ func addBootstrapNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -303,23 +355,16 @@ func addBootstrapNodeConfig(
 	}
 
 	if commonInputs.solanaChain != nil {
-		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			Enabled: ptr.Ptr(true),
-			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
-			Nodes: []*solcfg.Node{
-				{
-					Name: &commonInputs.solanaChain.Name,
-					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
-				},
-			},
-		})
+		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
-	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
+		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+		}
 	}
 
 	return existingConfig, nil
@@ -327,9 +372,9 @@ func addBootstrapNodeConfig(
 
 func addWorkerNodeConfig(
 	existingConfig corechainlink.Config,
+	topology *cre.Topology,
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
-	gatewayConnector *cre.GatewayConnectors,
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
@@ -358,7 +403,7 @@ func addWorkerNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -367,6 +412,10 @@ func addWorkerNodeConfig(
 			TLSEnabled: ptr.Ptr(false),
 		}
 	}
+
+	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
+	// before resetting Capabilities struct
+	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
 
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
@@ -380,6 +429,7 @@ func addWorkerNodeConfig(
 		Dispatcher: coretoml.Dispatcher{
 			SendToSharedPeer: ptr.Ptr(true),
 		},
+		WorkflowRegistry: existingWorkflowRegistry,
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
@@ -387,32 +437,46 @@ func addWorkerNodeConfig(
 	}
 
 	if commonInputs.solanaChain != nil {
-		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
-			Enabled: ptr.Ptr(true),
-			Nodes: solcfg.Nodes{
-				{
-					Name: ptr.Ptr(commonInputs.solanaChain.Name),
-					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
-				},
-			},
-		})
+		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
-	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
-	}
-
-	if donMetadata.HasFlag(cre.WorkflowDON) {
-		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
+	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
+		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
 			NetworkID:       ptr.Ptr("evm"),
 			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-			SyncStrategy:    ptr.Ptr("reconciliation"),
+			ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+		}
+	}
+
+	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
+		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields
+		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
+		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
+
+		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:               ptr.Ptr("evm"),
+			ChainID:                 ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion:         ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:            ptr.Ptr("reconciliation"),
+			AdditionalSourcesConfig: existingAddSources,
+		}
+	}
+
+	if donMetadata.IsShardDON() {
+		existingConfig.Sharding.ShardIndex = ptr.Ptr(uint16(donMetadata.ShardIndex)) //nolint:gosec // disable G115 overflow is unrealistic
+
+		// all shards apart from the leader need to connect to shard orchestrators running on shard leader DON (shard0)
+		if !donMetadata.IsShardLeader() {
+			shard0, sErr := topology.DonsMetadata.ShardLeaderDON()
+			if sErr != nil {
+				return existingConfig, fmt.Errorf("failed to fetch shard leader DON: %w", sErr)
+			}
+
+			// all shards have the same amount of nodes, we can use current node index to select
+			// shard0 node it should connect to. We connect corresponding nodes to spread the load.
+			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddress()))
 		}
 	}
 
@@ -425,8 +489,8 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		if gatewayConnector != nil && len(gatewayConnector.Configurations) > 0 {
-			for _, gateway := range gatewayConnector.Configurations {
+		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
+			for _, gateway := range topology.GatewayConnectors.Configurations {
 				gateways = append(gateways, coretoml.ConnectorGateway{
 					ID: ptr.Ptr(gateway.AuthGatewayID),
 					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
@@ -444,7 +508,6 @@ func addWorkerNodeConfig(
 			}
 		}
 	}
-
 	return existingConfig, nil
 }
 
@@ -464,11 +527,9 @@ func addGatewayNodeConfig(
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
-	existingConfig.P2P = coretoml.P2P{
-		V2: coretoml.P2PV2{
-			Enabled:         ptr.Ptr(true),
-			ListenAddresses: ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
-		},
+	if existingConfig.P2P.V2.Enabled == nil {
+		existingConfig.P2P.V2.Enabled = ptr.Ptr(true)
+		existingConfig.P2P.V2.ListenAddresses = ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)})
 	}
 
 	existingConfig.Capabilities = coretoml.Capabilities{
@@ -485,48 +546,42 @@ func addGatewayNodeConfig(
 		},
 	}
 
-OUTER:
 	for _, evmChain := range commonInputs.evmChains {
-		// add only unconfigured chains, since other roles might have already added some chains
-		for _, existingEVM := range existingConfig.EVM {
-			if existingEVM.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID)))) == 0 {
-				continue OUTER
-			}
-		}
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
-	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
+		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
+		}
 	}
 
-	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-		SyncStrategy:    ptr.Ptr("reconciliation"),
+	if existingConfig.Capabilities.WorkflowRegistry.Address == nil {
+		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:    ptr.Ptr("reconciliation"),
+		}
+	}
+
+	if existingConfig.Capabilities.WorkflowRegistry.WorkflowStorage.URL == nil {
 		// TODO remove WorkflowStorage once it is not required on a gateway node
-		WorkflowStorage: coretoml.WorkflowStorage{
+		existingConfig.Capabilities.WorkflowRegistry.WorkflowStorage = coretoml.WorkflowStorage{
 			URL:                 ptr.Ptr("localhost"),
 			TLSEnabled:          ptr.Ptr(false),
 			ArtifactStorageHost: ptr.Ptr("localhost"),
-		},
+		}
 	}
 
-	// TODO: remove once gateway connector is not required by workflow registry syncer
-	evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
-	if !ok {
-		return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
-	}
 	if len(existingConfig.Capabilities.GatewayConnector.Gateways) == 0 {
 		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
 			DonID:             ptr.Ptr("doesn't-matter-for-gateway-node"),
 			ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
 		}
 	}
 
@@ -598,7 +653,7 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 		}
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		if len(input.DonMetadata.NodeSets().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.NodeSets().EVMChains(), bcOut.ChainID()) {
+		if len(input.DonMetadata.MustNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.MustNodeSet().EVMChains(), bcOut.ChainID()) {
 			continue
 		}
 
@@ -655,7 +710,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
 	return evmconfigtoml.EVMConfig{
-		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
 		Chain: evmconfigtoml.Chain{
 			AutoCreateKey:         ptr.Ptr(false),
 			ChainType:             chaintype.NewConfig("tron"),
@@ -676,7 +731,7 @@ func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 
 func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	return evmconfigtoml.EVMConfig{
-		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
 		Chain: evmconfigtoml.Chain{
 			AutoCreateKey: ptr.Ptr(false),
 		},
@@ -697,5 +752,89 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 	} else {
 		cfg = buildEVMConfig(evmChain)
 	}
+
+	// add only unconfigured chains, since other roles might have already added some chains
+	for _, existingEVM := range *existingConfig {
+		if existingEVM.ChainID.ToInt().Cmp(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))) == 0 {
+			return
+		}
+	}
+
 	*existingConfig = append(*existingConfig, &cfg)
+}
+
+func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain) {
+	for _, existingSol := range *existingConfig {
+		if existingSol.ChainID != nil && *existingSol.ChainID == solChain.ChainID {
+			return
+		}
+	}
+
+	*existingConfig = append(*existingConfig, &solcfg.TOMLConfig{
+		Enabled: ptr.Ptr(true),
+		ChainID: ptr.Ptr(solChain.ChainID),
+		Nodes: []*solcfg.Node{
+			{
+				Name: &solChain.Name,
+				URL:  commonconfig.MustParseURL(solChain.NodeURL),
+			},
+		},
+	})
+}
+
+// transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+func transformAdditionalSourceURLs(sources []coretoml.AdditionalWorkflowSource) []coretoml.AdditionalWorkflowSource {
+	if len(sources) == 0 {
+		return sources
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	transformed := make([]coretoml.AdditionalWorkflowSource, len(sources))
+	for i, src := range sources {
+		transformed[i] = src
+		if src.URL != nil {
+			// Replace "host.docker.internal" with the platform-specific host
+			url := *src.URL
+			url = strings.Replace(url, "host.docker.internal", dockerHost, 1)
+			transformed[i].URL = &url
+		}
+	}
+
+	return transformed
+}
+
+// transformUserConfigOverrides transforms URLs in a user config overrides string to use
+// platform-specific Docker host addresses. This handles differences between macOS
+// (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
+// This is necessary because UserConfigOverrides is passed directly to containers as a
+// separate config file, bypassing the structured config transformation.
+func transformUserConfigOverrides(userConfig string) string {
+	if userConfig == "" {
+		return userConfig
+	}
+
+	// Get the platform-specific Docker host (e.g., "http://host.docker.internal" on macOS,
+	// "http://172.17.0.1" on Linux)
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	// Replace all occurrences of "host.docker.internal" with the platform-specific host
+	return strings.ReplaceAll(userConfig, "host.docker.internal", dockerHost)
+}
+
+// generateInstanceNames creates Kubernetes-compatible instance names for nodes
+// Bootstrap nodes get names like "workflow-bt-0", plugin nodes get "workflow-0", "workflow-1", etc.
+// This is a wrapper around infra.GenerateNodeInstanceNames that converts NodeMetadata to bool roles
+func generateInstanceNames(nodeSetName string, nodesMetadata []*cre.NodeMetadata) []string {
+	// Convert NodeMetadata to bool slice indicating bootstrap roles
+	nodeMetadataRoles := make([]bool, len(nodesMetadata))
+	for i, nodeMetadata := range nodesMetadata {
+		nodeMetadataRoles[i] = nodeMetadata.HasRole(cre.BootstrapNode)
+	}
+
+	return infra.GenerateNodeInstanceNames(nodeSetName, nodeMetadataRoles)
 }

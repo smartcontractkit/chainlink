@@ -104,7 +104,7 @@ func NewPriceService(
 }
 
 func (p *priceService) Start(context.Context) error {
-	return p.StateMachine.StartOnce("PriceService", func() error {
+	return p.StartOnce("PriceService", func() error {
 		p.lggr.Info("Starting PriceService")
 		p.wg.Add(1)
 		p.run()
@@ -113,7 +113,7 @@ func (p *priceService) Start(context.Context) error {
 }
 
 func (p *priceService) Close() error {
-	return p.StateMachine.StopOnce("PriceService", func() error {
+	return p.StopOnce("PriceService", func() error {
 		p.lggr.Info("Closing PriceService")
 		close(p.stopChan)
 		p.wg.Wait()

@@ -19,8 +19,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/vrf_log_emitter"
@@ -29,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -37,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -120,7 +120,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	backend.Commit()
 
 	// Log Poller Listener
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
+	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
@@ -793,8 +793,8 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
  * TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs
  */
 
-func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
-	chainID := ubig.New(big.NewInt(12345))
+func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *sqlutil.Big) {
+	chainID := sqlutil.New(big.NewInt(12345))
 	lggr := logger.Test(t)
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
@@ -999,7 +999,7 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 		require.True(t, ok)
 		require.True(t, v)
 	}
-	require.Equal(t, len(expected), len(unfulfilled))
+	require.Len(t, unfulfilled, len(expected))
 }
 
 func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
@@ -1064,7 +1064,7 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		require.True(t, ok)
 		require.True(t, v)
 	}
-	require.Equal(t, len(expected), len(unfulfilled))
+	require.Len(t, unfulfilled, len(expected))
 }
 
 /* Tests for getUnfulfilled: END */

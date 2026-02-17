@@ -27,8 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	grapqlClient "github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
@@ -81,7 +81,7 @@ func WithNodeEnvVars(ev map[string]string) ClNodeOption {
 func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 	return func(c *ClNode) {
 		var err error
-		c.PostgresDb, err = test_env.NewPostgresDb(c.EnvComponent.Networks, opts...)
+		c.PostgresDb, err = test_env.NewPostgresDb(c.Networks, opts...)
 		if err != nil {
 			c.t.Fatalf("failed to create postgres db: %v", err)
 		}
@@ -172,7 +172,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 
 	var nodeOCRKeyId []string
 	for _, key := range nodeOCRKeys.Data {
-		if key.Attributes.ChainType == string(chaintype.EVM) {
+		if key.Attributes.ChainType == string(corekeys.EVM) {
 			nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
 			break
 		}
@@ -206,7 +206,7 @@ func (n *ClNode) GetContainerName() string {
 	if err != nil {
 		return ""
 	}
-	return strings.Replace(name, "/", "", -1)
+	return strings.ReplaceAll(name, "/", "")
 }
 
 func (n *ClNode) GetAPIClient() *nodeclient.ChainlinkClient {

@@ -14,8 +14,8 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	serializablebig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -290,8 +290,8 @@ func (ds *inMemoryDataSourceCache) updater() {
 }
 
 type ResultTimePair struct {
-	Result serializablebig.Big `json:"result"`
-	Time   time.Time           `json:"time"`
+	Result sqlutil.Big `json:"result"`
+	Time   time.Time   `json:"time"`
 }
 
 func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
@@ -310,7 +310,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 		return errors.Wrapf(ds.latestUpdateErr, "error updating in memory data source cache for spec ID %v", ds.spec.ID)
 	}
 
-	value, err := ds.inMemoryDataSource.parse(latestTrrs.FinalResult())
+	value, err := ds.parse(latestTrrs.FinalResult())
 	if err != nil {
 		ds.latestUpdateErr = errors.Wrapf(err, "invalid result")
 		return ds.latestUpdateErr
@@ -322,7 +322,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	ds.latestUpdateErr = nil
 
 	// backup in case data source fails continuously and node gets rebooted
-	timePairBytes, err := json.Marshal(&ResultTimePair{Result: *serializablebig.New(value), Time: time.Now()})
+	timePairBytes, err := json.Marshal(&ResultTimePair{Result: *sqlutil.New(value), Time: time.Now()})
 	if err != nil {
 		return fmt.Errorf("failed to marshal result time pair, err: %w", err)
 	}
@@ -389,7 +389,7 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 }
 
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
-	run, trrs, err := ds.inMemoryDataSource.executeRun(ctx)
+	run, trrs, err := ds.executeRun(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +405,7 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 	finalResult := trrs.FinalResult()
 	setEATelemetry(&ds.inMemoryDataSource, finalResult, trrs, timestamp)
 
-	return ds.inMemoryDataSource.parse(finalResult)
+	return ds.parse(finalResult)
 }
 
 // Observe with saving to DB, satisfies ocr1 interface

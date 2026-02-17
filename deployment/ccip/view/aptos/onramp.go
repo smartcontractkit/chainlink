@@ -34,11 +34,9 @@ type OnRampDynamicConfig struct {
 type DestChainSpecificData struct {
 	AllowedSendersList []string              `json:"allowedSendersList"`
 	DestChainConfig    OnRampDestChainConfig `json:"destChainConfig"`
-	ExpectedNextSeqNum uint64                `json:"expectedNextSeqNum"`
 }
 
 type OnRampDestChainConfig struct {
-	SequenceNumber     uint64
 	AllowlistEnabled   bool
 	Router             string
 	RouterStateAddress string
@@ -106,11 +104,7 @@ func GenerateOnRampView(
 
 	destChainSpecificData := make(map[uint64]DestChainSpecificData, len(destinationChainSelectors))
 	for _, selector := range destinationChainSelectors {
-		expectedNextSequenceNumber, err := boundOnRamp.Onramp().GetExpectedNextSequenceNumber(nil, selector)
-		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get expected nextSequenceNumber for selector %d of onRamp %s: %w", selector, onRampAddress.StringLong(), err)
-		}
-		sequenceNumber, allowlistEnabled, routerAddr, routerStateAddr, err := boundOnRamp.Onramp().GetDestChainConfigV2(nil, selector)
+		_, allowlistEnabled, routerAddr, err := boundOnRamp.Onramp().GetDestChainConfig(nil, selector)
 		if err != nil {
 			return OnRampView{}, fmt.Errorf("failed to get destChainConfig for selector %d of onRamp %s: %w", selector, onRampAddress.StringLong(), err)
 		}
@@ -125,12 +119,10 @@ func GenerateOnRampView(
 		destChainSpecificData[selector] = DestChainSpecificData{
 			AllowedSendersList: allowedSenderStrings,
 			DestChainConfig: OnRampDestChainConfig{
-				SequenceNumber:     sequenceNumber,
 				AllowlistEnabled:   allowlistEnabled,
 				Router:             routerAddr.StringLong(),
 				RouterStateAddress: routerStateAddr.StringLong(),
 			},
-			ExpectedNextSeqNum: expectedNextSequenceNumber,
 		}
 	}
 

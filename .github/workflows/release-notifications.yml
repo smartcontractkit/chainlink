@@ -1,0 +1,70 @@
+name: "Release Notifications"
+##
+# Used by workflows within this repo and external repos to send notifications for releases to Slack.
+##
+on:
+  workflow_call:
+    inputs:
+      git-ref:
+        description: "Git tag or ref name to announce"
+        required: true
+        type: string
+      git-ref-type:
+        description: "Git ref type (e.g. tag)"
+        required: true
+        type: string
+      changelog-url:
+        description: "URL for the changelog entry"
+        required: true
+        type: string
+      docker-image-name:
+        description: "Fully qualified docker image name"
+        required: true
+        type: string
+      docker-image-digest:
+        description: "OCI image digest"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: "Git tag or ref name to announce"
+        required: true
+        type: string
+      git-ref-type:
+        description: "Git ref type (e.g. tag)"
+        required: true
+        type: string
+      changelog-url:
+        description: "URL for the changelog entry"
+        required: true
+        type: string
+      docker-image-name:
+        description: "Fully qualified docker image name"
+        required: true
+        type: string
+      docker-image-digest:
+        description: "OCI image digest"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  slack-notify:
+    name: "Notify Slack"
+    runs-on: ubuntu-24.04
+    environment: build-publish
+    permissions:
+      contents: read
+    steps:
+      - name: Notify Slack
+        uses: smartcontractkit/.github/actions/slack-notify-git-ref@slack-notify-git-ref/1.0.0
+        with:
+          slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
+          git-ref: ${{ inputs.git-ref }}
+          git-ref-type: ${{ inputs.git-ref-type }}
+          changelog-url: ${{ inputs.changelog-url }}
+          docker-image-name: ${{ inputs.docker-image-name }}
+          docker-image-digest: ${{ inputs.docker-image-digest }}

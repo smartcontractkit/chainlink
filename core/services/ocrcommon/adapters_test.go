@@ -16,9 +16,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
@@ -54,7 +54,7 @@ func (f fakeOnchainKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 
 func (f fakeOnchainKeyring) Sign(rc ocrtypes.ReportContext, r ocrtypes.Report) (signature []byte, err error) {
 	if !reflect.DeepEqual(rc.ConfigDigest, configDigest) {
-		return nil, fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ReportTimestamp.ConfigDigest)
+		return nil, fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ConfigDigest)
 	}
 
 	if rc.Epoch != uint32(seqNr) {
@@ -115,10 +115,10 @@ func TestOCR3OnchainKeyringAdapter(t *testing.T) {
 }
 
 func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
-	evmBundle, err := ocr2key.New(chaintype.EVM)
+	evmBundle, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 
-	aptosBundle, err := ocr2key.New(chaintype.Aptos)
+	aptosBundle, err := ocr2key.New(corekeys.Aptos)
 	require.NoError(t, err)
 
 	bundles := map[string]ocr2key.KeyBundle{
@@ -171,10 +171,10 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
 }
 
 func newMultichainAdapter(t *testing.T) *ocrcommon.OCR3OnchainKeyringMultiChainAdapter {
-	evmBundle, err := ocr2key.New(chaintype.EVM)
+	evmBundle, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 
-	aptosBundle, err := ocr2key.New(chaintype.Aptos)
+	aptosBundle, err := ocr2key.New(corekeys.Aptos)
 	require.NoError(t, err)
 
 	bundles := map[string]ocr2key.KeyBundle{
@@ -241,7 +241,7 @@ func (f fakeContractTransmitter) Transmit(ctx context.Context, rc ocrtypes.Repor
 	}
 
 	if !reflect.DeepEqual(rc.ConfigDigest, configDigest) {
-		return fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ReportTimestamp.ConfigDigest)
+		return fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ConfigDigest)
 	}
 
 	if rc.Epoch != uint32(seqNr) {

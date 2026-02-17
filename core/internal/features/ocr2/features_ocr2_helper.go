@@ -37,6 +37,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -45,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -200,7 +200,7 @@ func SetupNodeOCR2(
 		forwarderORM := forwarders.NewORM(app.GetDB())
 		chainID, err := b.Client().ChainID(testutils.Context(t))
 		require.NoError(t, err)
-		_, err2 = forwarderORM.CreateForwarder(testutils.Context(t), faddr, ubig.Big(*chainID))
+		_, err2 = forwarderORM.CreateForwarder(testutils.Context(t), faddr, sqlutil.Big(*chainID))
 		require.NoError(t, err2)
 
 		effectiveTransmitter = faddr

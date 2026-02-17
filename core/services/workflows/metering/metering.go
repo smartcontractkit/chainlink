@@ -123,9 +123,13 @@ type Report struct {
 	rateCard        map[string]decimal.Decimal
 	stepRefLookup   []string
 
-	// WorkflowRegistryAddress is the address of the workflow registry contract
+	// workflowRegistryAddress is the address of the workflow registry contract used for billing.
+	// This value is used for ALL workflows regardless of source (contract, GRPC, or file).
+	// TODO: CRE-1716, CRE-1717 - This is a temporary approach until we finalize multi-env billing plans.
 	workflowRegistryAddress string
-	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	// workflowRegistryChainSelector is the chain selector for the workflow registry used for billing.
+	// This value is used for ALL workflows regardless of source (contract, GRPC, or file).
+	// TODO: CRE-1716, CRE-1717 - This is a temporary approach until we finalize multi-env billing plans.
 	workflowRegistryChainSelector uint64
 
 	// maxRetries is number of attempts to retry SubmitWorkflowReceipt

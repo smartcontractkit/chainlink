@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -123,7 +124,7 @@ func (e *CCIPContractsDeployer) DeployMultiCallContract() (common.Address, error
 		return common.Address{}, err
 	}
 	if r.Status != types.ReceiptStatusSuccessful {
-		return common.Address{}, fmt.Errorf("deploy multicall failed")
+		return common.Address{}, errors.New("deploy multicall failed")
 	}
 	return *address, nil
 }
@@ -470,7 +471,6 @@ func (e *CCIPContractsDeployer) NewUSDCTokenPoolContract(addr common.Address) (
 	default:
 		return nil, fmt.Errorf("version not supported: %s", version)
 	}
-
 }
 
 func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, tokenMessenger, rmnProxy common.Address, router common.Address) (

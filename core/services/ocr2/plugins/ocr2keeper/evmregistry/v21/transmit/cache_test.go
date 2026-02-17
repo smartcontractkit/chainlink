@@ -82,11 +82,11 @@ func TestTransmitEventCache_Sanity(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := newTransmitEventCache(tc.cap)
-			require.Equal(t, len(tc.eventsToAdd), len(tc.logIDsToAdd))
+			require.Len(t, tc.logIDsToAdd, len(tc.eventsToAdd))
 			for i, e := range tc.eventsToAdd {
 				c.add(tc.logIDsToAdd[i], e)
 			}
-			require.Equal(t, len(tc.toGet), len(tc.blocksToGet))
+			require.Len(t, tc.blocksToGet, len(tc.toGet))
 			for i, logID := range tc.toGet {
 				e, exist := c.get(ocr2keepers.BlockNumber(tc.blocksToGet[i]), logID)
 				expected, ok := tc.expected[logID]

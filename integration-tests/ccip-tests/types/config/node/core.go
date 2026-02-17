@@ -10,9 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -42,7 +42,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 			})
 		}
 		evmConfig := &evmcfg.EVMConfig{
-			ChainID: ubig.New(big.NewInt(network.ChainID)),
+			ChainID: sqlutil.New(big.NewInt(network.ChainID)),
 			Nodes:   evmNodes,
 			Chain:   evmcfg.Chain{},
 		}
@@ -54,14 +54,14 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 				evmConfig.Chain = overriddenChainCfg
 			}
 		}
-		if evmConfig.Chain.FinalityDepth == nil && network.FinalityDepth > 0 {
+		if evmConfig.FinalityDepth == nil && network.FinalityDepth > 0 {
 			if network.FinalityDepth > math.MaxUint32 {
 				panic(fmt.Errorf("finality depth overflows uint32: %d", network.FinalityDepth))
 			}
-			evmConfig.Chain.FinalityDepth = ptr.Ptr(uint32(network.FinalityDepth))
+			evmConfig.FinalityDepth = ptr.Ptr(uint32(network.FinalityDepth))
 		}
-		if evmConfig.Chain.FinalityTagEnabled == nil && network.FinalityTag {
-			evmConfig.Chain.FinalityTagEnabled = ptr.Ptr(network.FinalityTag)
+		if evmConfig.FinalityTagEnabled == nil && network.FinalityTag {
+			evmConfig.FinalityTagEnabled = ptr.Ptr(network.FinalityTag)
 		}
 		evmConfigs = append(evmConfigs, evmConfig)
 	}

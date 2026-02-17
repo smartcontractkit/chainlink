@@ -5,8 +5,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type SolKey struct {
@@ -22,7 +22,7 @@ func NewSolKey(password, chainID string) (*SolKey, error) {
 		return nil, fmt.Errorf("err create solkey: %w", err)
 	}
 
-	enc, err := key.ToEncryptedJSON(password, utils.DefaultScryptParams)
+	enc, err := key.ToEncryptedJSON(password, keystore.DefaultScryptParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt key: %w", err)
 	}

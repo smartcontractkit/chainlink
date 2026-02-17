@@ -94,7 +94,7 @@ func setupLoadTestWriterEnvironment(
 		JdInput:                              in.JD,
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
-		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput, relativePathToRepoRoot)
@@ -152,16 +152,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		return []*cretypes.NodeSet{
 			{
 				Input:        input[0],
-				Capabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability},
-				// TODO quick hack, this needs to be migrated to TOML
-				ChainCapabilities: map[string]*cretypes.ChainCapabilityConfig{
-					cretypes.WriteEVMCapability: {
-						EnabledChains: []uint64{1337},
-					},
-				},
-				// TODO quick hack, this needs to be removed after the migration to TOML
-				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability, "write-evm-1337"},
-				DONTypes:             []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
+				Capabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability, "write-evm-1337"},
+				DONTypes:     []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
 			},
 		}
 	}
@@ -284,7 +276,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	require.NoError(t, exportTestParams(tParams), "could not save test params")
 
-	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+	// Export key bundles so we can import them later in another test.
 	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
 
 	require.NoError(t, saveClientURL(setupOutput.blockchains[0].(*creevm.Blockchain).SethClient.URL), "could not save seth client url")
@@ -308,13 +300,17 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				}
 			}
 		}
-	} else {
+	} else if in.Infra.Kubernetes != nil {
+		domain := in.Infra.Kubernetes.ExternalDomain
+		if domain == "" {
+			domain = "main.stage.cldev.sh"
+		}
 		for i := range setupOutput.nodeOutput[0].CLNodes {
 			// TODO: This is brittle, switch to checking the node label
 			if i == 0 { // Skip bootstrap node
 				continue
 			}
-			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[0].NodeSetName, i-1))
+			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.%s:443", in.Infra.Kubernetes.Namespace, setupOutput.nodeOutput[0].NodeSetName, i-1, domain))
 		}
 	}
 

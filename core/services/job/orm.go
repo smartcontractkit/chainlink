@@ -22,16 +22,15 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -48,7 +47,7 @@ type ORM interface {
 	FindJobs(ctx context.Context, offset, limit int) ([]Job, int, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
-	FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *big.Big) (int32, error)
+	FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *sqlutil.Big) (int32, error)
 	FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID int64, contractID string, feedID *common.Hash) (int32, error)
 	FindJobIDsWithBridge(ctx context.Context, name string) ([]int32, error)
 	DeleteJob(ctx context.Context, id int32, jobType Type) error
@@ -1027,7 +1026,7 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 		if err != nil {
 			return nil, err
 		}
-		encryptedOCRKeyBundleID, err := models.Sha256HashFromHex(kb)
+		encryptedOCRKeyBundleID, err := keys.Sha256HashFromHex(kb)
 		if err != nil {
 			return nil, err
 		}
@@ -1081,7 +1080,7 @@ func (o *orm) FindJobByExternalJobID(ctx context.Context, externalJobID uuid.UUI
 }
 
 // FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
-func (o *orm) FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *big.Big) (jobID int32, err error) {
+func (o *orm) FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *sqlutil.Big) (jobID int32, err error) {
 	stmt := `
 SELECT jobs.id
 FROM jobs

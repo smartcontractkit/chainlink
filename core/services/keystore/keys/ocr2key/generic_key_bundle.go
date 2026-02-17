@@ -12,9 +12,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 )
 
 type (
@@ -31,10 +31,10 @@ type (
 	}
 
 	keyBundleRawData struct {
-		ChainType       chaintype.ChainType
+		ChainType       corekeys.ChainType
 		OffchainKeyring []byte
 		Keyring         []byte
-		ID              models.Sha256Hash // tracked to preserve bundle ID in case of migrations
+		ID              keys.Sha256Hash // tracked to preserve bundle ID in case of migrations
 
 		// old chain specific format for migrating
 		EVMKeyring    []byte `json:",omitempty"`
@@ -47,11 +47,11 @@ func newKeyBundle[K keyring](key K) *keyBundle[K] {
 	return &keyBundle[K]{keyring: key}
 }
 
-func newKeyBundleRand[K keyring](chain chaintype.ChainType, newKeyring func(material io.Reader) (K, error)) (*keyBundle[K], error) {
+func newKeyBundleRand[K keyring](chain corekeys.ChainType, newKeyring func(material io.Reader) (K, error)) (*keyBundle[K], error) {
 	return newKeyBundleFrom(chain, newKeyring, cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
 }
 
-func mustNewKeyBundleInsecure[K keyring](chain chaintype.ChainType, newKeyring func(material io.Reader) (K, error), reader io.Reader) *keyBundle[K] {
+func mustNewKeyBundleInsecure[K keyring](chain corekeys.ChainType, newKeyring func(material io.Reader) (K, error), reader io.Reader) *keyBundle[K] {
 	key, err := newKeyBundleFrom(chain, newKeyring, reader, reader, reader)
 	if err != nil {
 		panic(errors.Wrapf(err, "failed to generate new OCR2-%s Key", chain))
@@ -59,7 +59,7 @@ func mustNewKeyBundleInsecure[K keyring](chain chaintype.ChainType, newKeyring f
 	return key
 }
 
-func newKeyBundleFrom[K keyring](chain chaintype.ChainType, newKeyring func(material io.Reader) (K, error), onchainSigningKeyMaterial, onchainEncryptionKeyMaterial, offchainKeyMaterial io.Reader) (*keyBundle[K], error) {
+func newKeyBundleFrom[K keyring](chain corekeys.ChainType, newKeyring func(material io.Reader) (K, error), onchainSigningKeyMaterial, onchainEncryptionKeyMaterial, offchainKeyMaterial io.Reader) (*keyBundle[K], error) {
 	offchainKeyring, err := newOffchainKeyring(onchainSigningKeyMaterial, onchainEncryptionKeyMaterial)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (kb *keyBundle[K]) OnChainPublicKey() string {
 }
 
 func (kb *keyBundle[K]) Marshal() ([]byte, error) {
-	offchainKeyringBytes, err := kb.offchainKeyring.marshal()
+	offchainKeyringBytes, err := kb.marshal()
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 		return err
 	}
 
-	err = kb.offchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
+	err = kb.unmarshal(rawKeyData.OffchainKeyring)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (kbraw *keyBundleRawData) Migrate(b []byte) error {
 
 	// if key does not have an ID associated with it (old formats),
 	// derive the key ID and preserve it
-	if bytes.Equal(kbraw.ID[:], models.EmptySha256Hash[:]) {
+	if bytes.Equal(kbraw.ID[:], keys.EmptySha256Hash[:]) {
 		kbraw.ID = sha256.Sum256(b)
 	}
 

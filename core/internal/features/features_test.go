@@ -42,8 +42,8 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/consumer_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
@@ -53,11 +53,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -796,7 +796,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID, err := b.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
-	_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarder, ubig.Big(*chainID))
+	_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarder, sqlutil.Big(*chainID))
 	require.NoError(t, err)
 
 	return app, p2pKey.PeerID().Raw(), transmitter, forwarder, key
@@ -1315,7 +1315,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
-	evmChainID := ubig.New(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+	evmChainID := sqlutil.New(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
 	h40 := types.Head{Hash: evmutils.NewHash(), Number: 40, EVMChainID: evmChainID}
 	h41 := types.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := types.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
@@ -1395,13 +1395,13 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
 	haveUsd, err := consumer.UsdInt(nil)
 	require.NoError(t, err)
-	assert.Equal(t, usd.Cmp(haveUsd), 0)
+	assert.Equal(t, 0, usd.Cmp(haveUsd))
 	haveEur, err := consumer.EurInt(nil)
 	require.NoError(t, err)
-	assert.Equal(t, eur.Cmp(haveEur), 0)
+	assert.Equal(t, 0, eur.Cmp(haveEur))
 	haveJpy, err := consumer.JpyInt(nil)
 	require.NoError(t, err)
-	assert.Equal(t, jpy.Cmp(haveJpy), 0)
+	assert.Equal(t, 0, jpy.Cmp(haveJpy))
 }
 
 func ptr[T any](v T) *T { return &v }

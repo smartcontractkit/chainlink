@@ -31,7 +31,7 @@ import (
 var _ cldf.ChangeSet[DeployBaseSignerRegistryContractConfig] = DeployBaseSignerRegistryContractChangeset
 
 // use this changeset to initialize the base signer registry contract and set an initial owner
-var _ cldf.ChangeSet[InitalizeBaseSignerRegistryContractConfig] = InitializeBaseSignerRegistryContractChangeset
+var _ cldf.ChangeSet[InitializeBaseSignerRegistryContractConfig] = InitializeBaseSignerRegistryContractChangeset
 
 type DeployBaseSignerRegistryContractConfig struct {
 	ChainSelector uint64
@@ -41,7 +41,7 @@ type DeployBaseSignerRegistryContractConfig struct {
 	IsUpgrade     bool
 }
 
-type InitalizeBaseSignerRegistryContractConfig struct {
+type InitializeBaseSignerRegistryContractConfig struct {
 	ChainSelector uint64
 }
 
@@ -85,7 +85,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	}, nil
 }
 
-func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c InitalizeBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
+func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c InitializeBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Initializing base signer registry", "chain_selector", c.ChainSelector)
 	err := c.Validate(e)
 	if err != nil {
@@ -160,7 +160,7 @@ func (c DeployBaseSignerRegistryContractConfig) Validate(e cldf.Environment) err
 	return nil
 }
 
-func (c InitalizeBaseSignerRegistryContractConfig) Validate(e cldf.Environment) error {
+func (c InitializeBaseSignerRegistryContractConfig) Validate(e cldf.Environment) error {
 	if err := cldf.IsValidChainSelector(c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
 	}

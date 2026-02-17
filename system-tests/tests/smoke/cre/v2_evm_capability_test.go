@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,6 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -33,12 +34,44 @@ import (
 
 // smoke
 func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testCases := make([]evm_config.TestCase, 0, evm_config.TestCaseLen)
+	for tc := range evm_config.TestCaseLen {
+		testCases = append(testCases, tc)
+	}
+
+	ExecuteEVMReadTestForCases(t, testEnv, testCases)
+}
+
+func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, testCases []evm_config.TestCase) {
+	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry; assign each testcase exactly once")
+	require.NotEmpty(t, testCases, "no EVM read testcases selected")
+
+	seen := make(map[evm_config.TestCase]struct{}, len(testCases))
+	for _, tc := range testCases {
+		require.GreaterOrEqualf(t, tc, evm_config.TestCase(0), "invalid testcase %d", tc)
+		require.Lessf(t, tc, evm_config.TestCaseLen, "invalid testcase %d", tc)
+		if _, alreadySeen := seen[tc]; alreadySeen {
+			require.Failf(t, "duplicate testcase", "testcase %q selected more than once", tc.String())
+		}
+
+		seen[tc] = struct{}{}
+	}
+
 	lggr := framework.L
 	const workflowFileLocation = "./evm/evmread/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	var workflowsWg sync.WaitGroup
-	var successfulWorkflowRuns atomic.Int32
+	userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
+	baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
+
+	// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/evm_read_workflow_test.log"))
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
@@ -46,27 +79,37 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			continue
 		}
 
-		lggr.Info().Msg("Creating EVM Read workflow configuration...")
-		require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
-		evmChain := bcOutput.(*evm.Blockchain)
-		workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain)
-		workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+		for _, tc := range testCases {
+			t.Run(fmt.Sprintf("Read %s on chain %s", tc.String(), chainID), func(t *testing.T) {
+				workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
+				lggr.Info().
+					Str("workflow_name", workflowName).
+					Str("chain_id", chainID).
+					Str("test_case", tc.String()).
+					Msg("Creating EVM Read workflow configuration...")
+				require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
+				evmChain := bcOutput.(*evm.Blockchain)
+				workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
+				t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		workflowsWg.Add(1)
-		go func(evmChain *evm.Blockchain) {
-			defer workflowsWg.Done()
-			validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64()) //nolint:testifylint // TODO: consider refactoring
-			successfulWorkflowRuns.Add(1)
-		}(evmChain)
+				validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
+			})
+		}
 	}
-
-	// wait for all workflows to complete
-	workflowsWg.Wait()
-	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
 }
 
-func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain) evm_config.Config {
+func makeSinkCh[T any]() chan T {
+	c := make(chan T, 1)
+	go func() {
+		//nolint:revive //drain the channel to prevent blocking. Content is processed elsewhere.
+		for range c {
+		}
+	}()
+
+	return c
+}
+
+func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain, testCase evm_config.TestCase, workflowName string) evm_config.Config {
 	t.Helper()
 
 	chainID := chain.CtfOutput().ChainID
@@ -103,6 +146,8 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Bloc
 
 	accountAddress := addresses[0].Bytes()
 	return evm_config.Config{
+		TestCase:         testCase,
+		WorkflowName:     workflowName,
 		ContractAddress:  msgEmitterContractAddr.Bytes(),
 		ChainSelector:    chain.ChainSelector(),
 		AccountAddress:   accountAddress,
@@ -137,7 +182,7 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttype
 
 		// if there are no more filtered reports, stop
 		return !isReportSubmittedByWorkflow(ctx, t, forwarderContract, msgEmitterAddr, startBlock)
-	}, timeout, tick, "workflow %s did not execute within the timeout %s", workflowName, timeout.String())
+	}, timeout, tick, "workflow %s did not execute within the timeout %s. Check logs of parent test.", workflowName, timeout.String())
 }
 
 // isReportSubmittedByWorkflow checks if a report has been submitted by the workflow by filtering the ReportProcessed events
@@ -168,10 +213,16 @@ func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput block
 	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
 	sethClient := bcOutput.(*evm.Blockchain).SethClient
 	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
-	require.NoError(t, err, "failed to emit message from contract '%s'", workflowConfig.Addresses[0])
+	if err != nil {
+		lggr.Info().Msgf("Failed to emit transaction for chain '%s': %v", chainID, err)
+		return 0
+	}
 
 	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
-	require.NoError(t, err, "failed to get message emitter event tx")
+	if err != nil {
+		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
+		return 0
+	}
 	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), expectedUserLog)
 	return emittingReceipt.BlockNumber.Uint64()
 }
@@ -220,6 +271,18 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 	chainsToTest := make(map[string]blockchains.Blockchain)
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
+
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
@@ -233,23 +296,39 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	for chainID, bcOutput := range chainsToTest {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
+
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "LogTrigger capability test failed, Beholder should not return an error")
-
-		// wait for trigger to be registered across the workflow engine of all workflow nodes
-		time.Sleep(10 * time.Second)
-
 		message := "Data for log trigger"
-		_ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
+		var emittedEventCount int64
+		ticker := time.NewTicker(10 * time.Second)
+
+		// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
+		emitCtx, emitCancelFn := context.WithCancel(t.Context())
+		go func() {
+			defer func() {
+				emitCancelFn()
+				ticker.Stop()
+			}()
+			for {
+				select {
+				case <-emitCtx.Done():
+					return
+				case <-ticker.C:
+					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
+					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+					emittedEventCount++
+				}
+			}
+		}()
 		expectedUserLog := "OnTrigger decoded message: message:" + message
-		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "Expected user log test failed")
+
+		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
+		emitCancelFn()
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)

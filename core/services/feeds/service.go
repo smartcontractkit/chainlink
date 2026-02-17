@@ -29,7 +29,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
@@ -1074,6 +1073,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			case job.CRESettings:
 				// Only possible to match CRE Setting by external job id
 				// no-op
+			case job.CCVCommitteeVerifier, job.CCVExecutor:
+				// Only possible to match CCV jobs by external job id
+				// no-op
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1428,7 +1430,7 @@ func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32,
 // findExistingJobForOCRFlux looks for existing job for OCR or flux
 func findExistingJobForOCRFlux(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var address types.EIP55Address
-	var evmChainID *big.Big
+	var evmChainID *sqlutil.Big
 
 	switch j.Type {
 	case job.OffchainReporting:

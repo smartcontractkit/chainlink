@@ -65,6 +65,8 @@ type AppConfig interface {
 	CCV() CCV
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
+	Sharding() Sharding
+	LOOPP() LOOPP
 }
 
 type DatabaseBackupMode string

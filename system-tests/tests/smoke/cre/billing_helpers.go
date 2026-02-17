@@ -101,7 +101,11 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 			return errors.New("no blockchain outputs found in the test environment")
 		}
 
-		for _, ref := range testEnv.EnvArtifact.AddressRefs {
+		addresses, aErr := testEnv.CreEnvironment.CldfEnvironment.DataStore.Addresses().Fetch()
+		if aErr != nil {
+			return errors.Wrap(aErr, "failed to fetch addresses from data store")
+		}
+		for _, ref := range addresses {
 			switch ref.Type {
 			case "WorkflowRegistry":
 				if cache.ChainSelector == ref.ChainSelector {
@@ -145,7 +149,7 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 		}
 
 		framework.L.Info().Str("state file", config.MustBillingStateFileAbsPath(relativePathToRepoRoot)).Msg("Billing state file was not found. Starting Billing...")
-		cmd := exec.Command("go", "run", ".", "env", "billing", "start")
+		cmd := exec.CommandContext(t.Context(), "go", "run", ".", "env", "billing", "start")
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

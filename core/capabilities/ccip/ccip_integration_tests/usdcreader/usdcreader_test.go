@@ -23,6 +23,7 @@ import (
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
@@ -31,15 +32,14 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -215,7 +215,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			hashes, err1 := usdcReader.MessagesByTokenID(ctx, tc.sourceChain, tc.destChain, tc.tokens)
 			require.NoError(t, err1)
 
-			require.Equal(t, len(tc.expectedMsgIDs), len(hashes))
+			require.Len(t, hashes, len(tc.expectedMsgIDs))
 
 			for _, msgID := range tc.expectedMsgIDs {
 				_, ok := hashes[msgID]
@@ -337,7 +337,7 @@ func populateDatabase(b *testing.B,
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EVMChainID:     ubig.New(new(big.Int).SetUint64(uint64(source))),
+			EVMChainID:     sqlutil.New(new(big.Int).SetUint64(uint64(source))),
 			LogIndex:       int64(i + 1),
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    int64(i + 1),
@@ -460,7 +460,7 @@ func testSetup(ctx context.Context, t testing.TB, readerChain ccipocr3common.Cha
 	)
 	require.NoError(t, lp.Start(ctx))
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
+	cr, err := read.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
 	require.NoError(t, err)
 
 	err = cr.Start(ctx)

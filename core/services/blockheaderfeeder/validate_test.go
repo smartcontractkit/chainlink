@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -59,7 +59,7 @@ storeBlockhashesBatchSize = 10
 					os.BlockHeaderFeederSpec.BatchBlockhashStoreAddress)
 				require.Equal(t, 23*time.Second, os.BlockHeaderFeederSpec.PollPeriod)
 				require.Equal(t, 7*time.Second, os.BlockHeaderFeederSpec.RunTimeout)
-				require.Equal(t, big.NewI(4), os.BlockHeaderFeederSpec.EVMChainID)
+				require.Equal(t, sqlutil.NewI(4), os.BlockHeaderFeederSpec.EVMChainID)
 				require.Equal(t, fromAddresses,
 					os.BlockHeaderFeederSpec.FromAddresses)
 				require.Equal(t, uint16(20),
@@ -86,7 +86,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]
 				require.Equal(t, int32(256), os.BlockHeaderFeederSpec.WaitBlocks)
 				require.Equal(t, 15*time.Second, os.BlockHeaderFeederSpec.PollPeriod)
 				require.Equal(t, 30*time.Second, os.BlockHeaderFeederSpec.RunTimeout)
-				require.Equal(t, big.NewI(4), os.BlockHeaderFeederSpec.EVMChainID)
+				require.Equal(t, sqlutil.NewI(4), os.BlockHeaderFeederSpec.EVMChainID)
 				require.Equal(t, fromAddresses,
 					os.BlockHeaderFeederSpec.FromAddresses)
 				require.Equal(t, uint16(100),

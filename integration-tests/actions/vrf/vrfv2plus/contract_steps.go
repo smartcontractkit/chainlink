@@ -181,7 +181,7 @@ func CreateFundSubsAndAddConsumers(
 	}
 	subToConsumersMap := map[*big.Int][]contracts.VRFv2PlusLoadTestConsumer{}
 
-	//each subscription will have the same consumers
+	// each subscription will have the same consumers
 	for _, subID := range subIDs {
 		subToConsumersMap[subID] = consumers
 	}
@@ -265,7 +265,7 @@ func CreateSubAndFindSubID(ctx context.Context, sethClient *seth.Client, coordin
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 
-	//SubscriptionsCreated Log should be emitted with the subscription ID
+	// SubscriptionsCreated Log should be emitted with the subscription ID
 	subID := receipt.Logs[0].Topics[1].Big()
 
 	return subID, nil
@@ -297,7 +297,7 @@ func FundSubscriptions(
 				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
 			}
 		case vrfv2plusconfig.BillingType_Link_and_Native:
-			//Native Billing
+			// Native Billing
 			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
 			err := coordinator.FundSubscriptionWithNative(
 				subID,
@@ -306,7 +306,7 @@ func FundSubscriptions(
 			if err != nil {
 				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
 			}
-			//Link Billing
+			// Link Billing
 			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
 			err = FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
 			if err != nil {
@@ -420,7 +420,6 @@ func RequestRandomnessAndWaitForFulfillment(
 		return nil, nil, err
 	}
 	return randomWordsRequestedEvent, randomWordsFulfilledEvent, nil
-
 }
 
 func DeployVRFV2PlusDirectFundingContracts(
@@ -692,7 +691,7 @@ func FundWrapperConsumer(
 	l zerolog.Logger,
 ) error {
 	fundConsumerWithLink := func() error {
-		//fund consumer with Link
+		// fund consumer with Link
 		linkAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(*vrfv2PlusConfig.WrapperConsumerFundingAmountLink))
 		l.Info().
 			Str("Link Amount", linkAmount.String()).
@@ -703,7 +702,7 @@ func FundWrapperConsumer(
 		)
 	}
 	fundConsumerWithNative := func() error {
-		//fund consumer with Eth (native token)
+		// fund consumer with Eth (native token)
 		_, err := actions.SendFunds(l, sethClient, actions.FundsToSendPayload{
 			ToAddress:  common.HexToAddress(wrapperConsumer.Address()),
 			Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),

@@ -81,6 +81,15 @@ func onEVMWriteTrigger(wfCfg config.Config, runtime cre.Runtime, payload *cron.P
 		return runWriteReportWithCorruptReceiverAddress(evmClient, runtime, wfCfg, report)
 	case "WriteReport - invalid gas":
 		return runWriteReportWithInvalidGas(evmClient, runtime, wfCfg, report)
+	case "WriteReport - failing on receiver":
+		priceOutput.FeedID = [32]byte{}
+		priceOutput.Timestamp = 0
+		priceOutput.Price = big.NewInt(0)
+		report, err := generateReports(runtime, priceOutput)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate reports: %w", err)
+		}
+		return runWriteReportFailingOnReceiver(evmClient, runtime, wfCfg, report)
 	default:
 		runtime.Logger().Warn("The provided name for function to test in regression EVM Write Workflow did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
 		return nil, fmt.Errorf("the provided name for function to test in regression EVM Write Workflow did not match any known functions: %s", wfCfg.FunctionToTest)
@@ -142,6 +151,25 @@ func runWriteReportWithInvalidGas(evmClient evm.Client, runtime cre.Runtime, wfC
 	}
 	runtime.Logger().Info("this is not expected: WriteReport with invalid gas should return an error", "invalid_gas", invalidGas, "wr_output", wrOutput)
 	return wrOutput, nil
+}
+
+// runWriteReportFailingOnReceiver writes a report that fails on the receiver
+func runWriteReportFailingOnReceiver(evmClient evm.Client, runtime cre.Runtime, wfCfg config.Config, report *cre.Report) (*evm.WriteReportReply, error) {
+	runtime.Logger().Info("Attempting to write report that should fail on the receiver")
+	receiver := wfCfg.DataFeedsCache.DataFeedsCacheAddress.Bytes()
+	wrOutput, err := writeReport(runtime, evmClient, receiver, report, &evm.GasConfig{GasLimit: 400000})
+	if err != nil {
+		runtime.Logger().Error("got unexpected error", "error", err)
+		return nil, fmt.Errorf("unexpected error for WriteReport  %w", err)
+	}
+
+	if wrOutput.TxStatus == evm.TxStatus_TX_STATUS_REVERTED {
+		runtime.Logger().Info("WriteReport failed on the receiver and set the tx status to reverted")
+		return nil, fmt.Errorf("expected WriteReport to fail on the receiver")
+	}
+
+	runtime.Logger().Info("This is not expected, WriteReport should fail on the receiver and set the tx status to reverted, instead got", "tx_status", wrOutput.TxStatus)
+	return wrOutput, fmt.Errorf("writeReport should've returned tx status reverted, but instead returned %d", wrOutput.TxStatus)
 }
 
 // createPriceOutput creates a priceOutput struct from the workflow configuration

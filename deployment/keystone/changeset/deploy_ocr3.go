@@ -123,7 +123,7 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		}
 
 		if contract.McmsContracts == nil {
-			return out, fmt.Errorf("expected OCR3 capabilty contract %s to be owned by MCMS", contract.Contract.Address().String())
+			return out, fmt.Errorf("expected OCR3 capability contract %s to be owned by MCMS", contract.Contract.Address().String())
 		}
 
 		proposal, err := strategy.BuildProposal([]mcmstypes.BatchOperation{*resp.Ops})

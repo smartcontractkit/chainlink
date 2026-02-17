@@ -66,7 +66,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 
 			// ensure it was added to the queue
-			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			require.Equal(t, 1, mt.servers[sURL].q.(*transmitQueue).pq.Len())
 			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 		})
 		t.Run("v3 report transmission successfully enqueued", func(t *testing.T) {
@@ -80,7 +80,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 
 			// ensure it was added to the queue
-			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			require.Equal(t, 1, mt.servers[sURL].q.(*transmitQueue).pq.Len())
 			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 		})
 		t.Run("v3 report transmission sent only to trigger service", func(t *testing.T) {
@@ -95,7 +95,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			err = mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 			require.NoError(t, err)
 			// queue is empty
-			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 0)
+			require.Equal(t, 0, mt.servers[sURL].q.(*transmitQueue).pq.Len())
 		})
 	})
 
@@ -116,11 +116,11 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 		require.NoError(t, err)
 
 		// ensure it was added to the queue
-		require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+		require.Equal(t, 1, mt.servers[sURL].q.(*transmitQueue).pq.Len())
 		assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
-		require.Equal(t, mt.servers[sURL2].q.(*transmitQueue).pq.Len(), 1)
+		require.Equal(t, 1, mt.servers[sURL2].q.(*transmitQueue).pq.Len())
 		assert.Subset(t, mt.servers[sURL2].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
-		require.Equal(t, mt.servers[sURL3].q.(*transmitQueue).pq.Len(), 1)
+		require.Equal(t, 1, mt.servers[sURL3].q.(*transmitQueue).pq.Len())
 		assert.Subset(t, mt.servers[sURL3].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 	})
 }

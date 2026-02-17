@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
@@ -30,10 +31,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 // Returns all the confirmed logs from the provided pending queue by subscription
@@ -204,11 +205,12 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 // and returns that value if there are no errors.
 func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
-	if vrfVersion == vrfcommon.V2Plus {
+	switch vrfVersion {
+	case vrfcommon.V2Plus:
 		metaField = txMetaGlobalSubId
-	} else if vrfVersion == vrfcommon.V2 {
+	case vrfcommon.V2:
 		metaField = txMetaFieldSubId
-	} else {
+	default:
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 
@@ -243,12 +245,13 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 // and returns that value if there are no errors.
 func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
-	if vrfVersion == vrfcommon.V2Plus {
+	switch vrfVersion {
+	case vrfcommon.V2Plus:
 		metaField = txMetaGlobalSubId
-	} else if vrfVersion == vrfcommon.V2 {
+	case vrfcommon.V2:
 		// native payment is not supported for v2, so returning 0 reserved ETH
 		return big.NewInt(0), nil
-	} else {
+	default:
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 	txes, err := lsn.chain.TxManager().FindTxesByMetaFieldAndStates(ctx, metaField, subID.String(), reserveEthLinkQueryStates, chainID)

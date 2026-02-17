@@ -15,8 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
@@ -43,7 +41,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	runtime.Logger().Info("PoR workflow started", "payload", payload)
 
 	// get balance with BalanceAt()
-	evmClient := evm.Client{ChainSelector: chain_selectors.GETH_TESTNET.Selector}
+	evmClient := evm.Client{ChainSelector: config.ChainSelector}
 	runtime.Logger().Info("Got EVM client", "chainSelector", evmClient.ChainSelector)
 	addressesToRead := config.BalanceReaderConfig.AddressesToRead
 	runtime.Logger().Info("Got addresses to read", "addresses", addressesToRead)

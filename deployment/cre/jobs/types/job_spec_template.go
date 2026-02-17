@@ -19,6 +19,7 @@ const (
 	HTTPAction
 	ConfidentialHTTP
 	EVM
+	Solana
 	Gateway
 	BootstrapVault
 	Consensus
@@ -28,6 +29,7 @@ const (
 	LogEventTrigger
 	ReadContract
 	CRESettings
+	Ring
 )
 
 func (jt JobSpecTemplate) String() string {
@@ -46,6 +48,8 @@ func (jt JobSpecTemplate) String() string {
 		return "confidential-http"
 	case EVM:
 		return "evm"
+	case Solana:
+		return "solana"
 	case Gateway:
 		return "gateway"
 	case BootstrapVault:
@@ -64,6 +68,8 @@ func (jt JobSpecTemplate) String() string {
 		return "read-contract"
 	case CRESettings:
 		return "cre-settings"
+	case Ring:
+		return "ring"
 	default:
 		return "unknown"
 	}
@@ -86,6 +92,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return ConfidentialHTTP, nil
 	case "evm":
 		return EVM, nil
+	case "solana":
+		return Solana, nil
 	case "gateway":
 		return Gateway, nil
 	case "bootstrap-vault":
@@ -104,6 +112,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return ReadContract, nil
 	case "cre-settings":
 		return CRESettings, nil
+	case "ring":
+		return Ring, nil
 	case "", "unknown":
 		return 0, errors.New("job spec template cannot be empty")
 	default:

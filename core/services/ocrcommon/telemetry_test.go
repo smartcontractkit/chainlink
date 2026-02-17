@@ -16,13 +16,13 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	mercuryv4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -152,7 +152,7 @@ func TestGetChainID(t *testing.T) {
 	}
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
-	j.OCROracleSpec.EVMChainID = (*ubig.Big)(big.NewInt(1234567890))
+	j.OCROracleSpec.EVMChainID = (*sqlutil.Big)(big.NewInt(1234567890))
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
@@ -169,9 +169,9 @@ func TestParseEATelemetry(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "data-source-name", ea.DataSource)
 	assert.Equal(t, int64(92233720368547760), ea.ProviderRequestedTimestamp)
-	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-92233720368547760))
+	assert.Equal(t, int64(-92233720368547760), ea.ProviderReceivedTimestamp)
 	assert.Equal(t, int64(1), ea.ProviderDataStreamEstablished)
-	assert.Equal(t, ea.ProviderIndicatedTime, int64(-123456789))
+	assert.Equal(t, int64(-123456789), ea.ProviderIndicatedTime)
 
 	_, err = parseEATelemetry(nil)
 	assert.Error(t, err)
@@ -303,7 +303,7 @@ func TestSendEATelemetry(t *testing.T) {
 		OCROracleSpec: &job.OCROracleSpec{
 			ContractAddress:    evmtypes.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
-			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
+			EVMChainID:         (*sqlutil.Big)(big.NewInt(9)),
 		},
 	}
 
@@ -580,15 +580,15 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	jsonParseTaskBid := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(1, "json_parse_2", nil, nil, 2),
 	}
-	jsonParseTaskBid.BaseTask.Tags = `{"priceType": "bid"}`
+	jsonParseTaskBid.Tags = `{"priceType": "bid"}`
 	jsonParseTaskAsk := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(2, "json_parse_3", nil, nil, 3),
 	}
-	jsonParseTaskAsk.BaseTask.Tags = `{"priceType": "ask"}`
+	jsonParseTaskAsk.Tags = `{"priceType": "ask"}`
 	jsonParseTaskBenchmark := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(3, "json_parse_1", nil, nil, 1),
 	}
-	jsonParseTaskBenchmark.BaseTask.Tags = `{"priceType": "benchmark"}`
+	jsonParseTaskBenchmark.Tags = `{"priceType": "benchmark"}`
 
 	bridgeOutputs := []pipeline.Task{&jsonParseTaskAsk, &jsonParseTaskBid, &jsonParseTaskBenchmark}
 
@@ -633,9 +633,9 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 
 	// now removing the TaskTags will throw off the parsed order - and we'll be parsing the "incorrect" prices
 	// according to the legacy ordering approach
-	jsonParseTaskAsk.BaseTask.Tags = ""
-	jsonParseTaskBid.BaseTask.Tags = ""
-	jsonParseTaskBenchmark.BaseTask.Tags = ""
+	jsonParseTaskAsk.Tags = ""
+	jsonParseTaskBid.Tags = ""
+	jsonParseTaskBenchmark.Tags = ""
 
 	wrongBenchmarkPrice, wrongBidPrice, wrongAskPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
 	require.Equal(t, 1234567.1234567, wrongBenchmarkPrice)
@@ -752,7 +752,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 			BaseTask: pipeline.NewBaseTask(3, "ds1_parse", nil, nil, 3),
 			Times:    "1",
 		}
-		task.BaseTask.Tags = `{"priceType": "exchangeRate"}`
+		task.Tags = `{"priceType": "exchangeRate"}`
 		return task
 	}()
 

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
@@ -33,16 +34,18 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	evmUtils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
@@ -57,11 +60,11 @@ import (
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
@@ -69,7 +72,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -502,7 +504,7 @@ func setupNodeCCIP(
 	require.NoError(t, err)
 	destChain.Commit()
 
-	kb, err := app.GetKeyStore().OCR2().Create(ctx, chaintype.EVM)
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, corekeys.EVM)
 	require.NoError(t, err)
 	return app, peerID.Raw(), transmitter, kb
 }
@@ -512,7 +514,7 @@ func createConfigV2Chain(chainID *big.Int, finalityDepth uint32) *toml.EVMConfig
 	defaultGasLimit := uint64(5000000)
 	tr := true
 
-	sourceC := toml.Defaults((*evmUtils.Big)(chainID))
+	sourceC := toml.Defaults((*sqlutil.Big)(chainID))
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
@@ -520,7 +522,7 @@ func createConfigV2Chain(chainID *big.Int, finalityDepth uint32) *toml.EVMConfig
 	sourceC.LogPollInterval = &d
 	sourceC.FinalityDepth = &finalityDepth
 	return &toml.EVMConfig{
-		ChainID: (*evmUtils.Big)(chainID),
+		ChainID: (*sqlutil.Big)(chainID),
 		Enabled: &tr,
 		Chain:   sourceC,
 		Nodes:   toml.EVMNodes{&toml.Node{}},
@@ -644,7 +646,7 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 		managers, err := f.ListManagers(ctx)
 		require.NoError(t, err)
 		require.Len(t, managers, 1, "expected exactly one feeds manager")
-
+		sourceMessageTransmitterAddress := jobParams.USDCConfig.SourceMessageTransmitterAddress.String()
 		execSpec := c.jobSpecProposal(
 			t,
 			execSpecTemplate,
@@ -653,7 +655,7 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 			1,
 			node.KeyBundle.ID(),
 			node.Transmitter.Hex(),
-			utils.RandomAddress().String(),
+			sourceMessageTransmitterAddress,
 			utils.RandomAddress().String(),
 		)
 		execId, err := f.ProposeJob(ctx, &execSpec)
@@ -978,6 +980,28 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 }
 
 func (c *CCIPIntegrationTestHarness) SetUpJobs(t *testing.T, bootstrapNode Node, configBlock uint64, jobParams CCIPJobSpecParams) {
+	if jobParams.USDCAttestationAPI != "" && (jobParams.USDCConfig == nil || jobParams.USDCConfig.SourceMessageTransmitterAddress == (common.Address{})) {
+		// required because LogPoller now validates that addresses are actually contracts
+		minimalContractCode := []byte{0x60, 0x00, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3}
+		nonce, err := c.Source.Chain.Client().PendingNonceAt(context.Background(), c.Source.User.From)
+		require.NoError(t, err)
+		auth := *c.Source.User
+		auth.Nonce = big.NewInt(0).SetUint64(nonce)
+		_, tx, _, err := bind.DeployContract(&auth, abi.ABI{}, minimalContractCode, c.Source.Chain.Client())
+		require.NoError(t, err)
+		c.Source.Chain.Commit()
+		receipt, err := c.Source.Chain.Client().TransactionReceipt(context.Background(), tx.Hash())
+		require.NoError(t, err)
+		require.Equal(t, types3.ReceiptStatusSuccessful, receipt.Status)
+		require.NotNil(t, receipt.ContractAddress)
+		if jobParams.USDCConfig == nil {
+			jobParams.USDCConfig = &ccipconfig.USDCConfig{
+				AttestationAPI:               jobParams.USDCAttestationAPI,
+				AttestationAPITimeoutSeconds: 5,
+			}
+		}
+		jobParams.USDCConfig.SourceMessageTransmitterAddress = receipt.ContractAddress
+	}
 	// Add the bootstrap job
 	c.Bootstrap.AddBootstrapJob(t, jobParams.BootstrapJob(c.Dest.CommitStore.Address().Hex()))
 	c.AddAllJobs(t, jobParams)
@@ -1031,7 +1055,7 @@ func (k *ksa) CSA() keystore.CSA {
 
 func NewKsa(db *sqlx.DB, csa keystore.CSA, logf keystore.Logf) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, logf),
+		Master: keystore.New(db, commonkeystore.FastScryptParams, logf),
 		csa:    csa,
 	}
 }

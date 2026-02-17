@@ -40,8 +40,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
@@ -56,7 +58,6 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 )
@@ -95,11 +96,11 @@ var _ commontypes.Relayer = &Relayer{}
 type UnimplementedOffchainConfigDigester struct{}
 
 func (e UnimplementedOffchainConfigDigester) ConfigDigest(ctx context.Context, config ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
-	return ocrtypes.ConfigDigest{}, fmt.Errorf("unimplemented for this relayer")
+	return ocrtypes.ConfigDigest{}, errors.New("unimplemented for this relayer")
 }
 
 func (e UnimplementedOffchainConfigDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
-	return 0, fmt.Errorf("unimplemented for this relayer")
+	return 0, errors.New("unimplemented for this relayer")
 }
 
 // [UnimplementedContractConfigTracker] satisfies the OCR ContractConfigTracker interface
@@ -110,30 +111,30 @@ func (u UnimplementedContractConfigTracker) Notify() <-chan struct{} {
 }
 
 func (u UnimplementedContractConfigTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("unimplemented for this relayer")
+	return 0, ocrtypes.ConfigDigest{}, errors.New("unimplemented for this relayer")
 }
 
 func (u UnimplementedContractConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	return ocrtypes.ContractConfig{}, fmt.Errorf("unimplemented for this relayer")
+	return ocrtypes.ContractConfig{}, errors.New("unimplemented for this relayer")
 }
 
 func (u UnimplementedContractConfigTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	return 0, fmt.Errorf("unimplemented for this relayer")
+	return 0, errors.New("unimplemented for this relayer")
 }
 
 // [UnimplementedContractTransmitter] satisfies the OCR ContractTransmitter interface
 type UnimplementedContractTransmitter struct{}
 
 func (u UnimplementedContractTransmitter) Transmit(context.Context, ocrtypes.ReportContext, ocrtypes.Report, []ocrtypes.AttributedOnchainSignature) error {
-	return fmt.Errorf("unimplemented for this relayer")
+	return errors.New("unimplemented for this relayer")
 }
 
 func (u UnimplementedContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
-	return "", fmt.Errorf("unimplemented for this relayer")
+	return "", errors.New("unimplemented for this relayer")
 }
 
 func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, err error) {
-	return ocrtypes.ConfigDigest{}, 0, fmt.Errorf("unimplemented for this relayer")
+	return ocrtypes.ConfigDigest{}, 0, errors.New("unimplemented for this relayer")
 }
 
 var _ commontypes.EVMService = (*Relayer)(nil)
@@ -227,8 +228,9 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 		evmService: evmService{
-			chain:  chain,
-			logger: sugared,
+			addressLister: opts.EVMKeystore,
+			chain:         chain,
+			logger:        sugared,
 		},
 	}, nil
 }
@@ -242,7 +244,7 @@ func (r *Relayer) Start(ctx context.Context) error {
 	// Initialize write target capability if configuration is defined
 	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
 		if wCfg.GasLimitDefault() == nil {
-			return fmt.Errorf("unable to instantiate write target as default gas limit is not set")
+			return errors.New("unable to instantiate write target as default gas limit is not set")
 		}
 		capability, err := NewWriteTarget(ctx, r, r.chain, *wCfg.GasLimitDefault(), r.lggr)
 		if err != nil {
@@ -349,9 +351,9 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 		return nil, err
 	}
 
-	var chainReaderService ChainReaderService
+	var chainReaderService read.ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = read.NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 	} else {
@@ -394,9 +396,9 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 		return nil, err
 	}
 
-	var chainReaderService ChainReaderService
+	var chainReaderService read.ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = read.NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 	} else {
@@ -837,7 +839,7 @@ type Keystore interface {
 func (r *Relayer) NewContractWriter(_ context.Context, bytes []byte) (commontypes.ContractWriter, error) {
 	var cfg config.ChainWriterConfig
 	if err := json.Unmarshal(bytes, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
+		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %w", err)
 	}
 
 	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
@@ -854,10 +856,10 @@ func (r *Relayer) NewContractWriter(_ context.Context, bytes []byte) (commontype
 func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byte) (commontypes.ContractReader, error) {
 	cfg := &config.ChainReaderConfig{}
 	if err := json.Unmarshal(chainReaderConfig, cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall chain reader config err: %s", err)
+		return nil, fmt.Errorf("failed to unmarshall chain reader config err: %w", err)
 	}
 
-	return NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *cfg)
+	return read.NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *cfg)
 }
 
 func (r *Relayer) EVM() (commontypes.EVMService, error) {
@@ -906,9 +908,9 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 	}
 
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
-	var chainReaderService ChainReaderService
+	var chainReaderService read.ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = read.NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 
@@ -948,7 +950,7 @@ type medianProvider struct {
 	contractTransmitter transmitter.ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
-	chainReader         ChainReaderService
+	chainReader         read.ChainReaderService
 	codec               commontypes.Codec
 	ms                  services.MultiStart
 }

@@ -76,7 +76,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 			Accounts                 [][32]uint8 `json:"accounts"`
 		})
 		if !ok {
-			return nil, fmt.Errorf("solana extra args struct is not the equivalent of message_hasher.ClientSVMExtraArgsV1")
+			return nil, errors.New("solana extra args struct is not the equivalent of message_hasher.ClientSVMExtraArgsV1")
 		}
 		output["computeUnits"] = extraArgsStruct.ComputeUnits
 		output["accountIsWritableBitmap"] = extraArgsStruct.AccountIsWritableBitmap

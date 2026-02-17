@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/barkimedes/go-deepcopy"
@@ -250,7 +251,7 @@ type Common struct {
 
 func (c *Common) Validate() error {
 	if c.ChainlinkNodeFunding != nil && *c.ChainlinkNodeFunding < 0 {
-		return fmt.Errorf("chainlink node funding must be positive")
+		return errors.New("chainlink node funding must be positive")
 	}
 
 	return nil
@@ -521,7 +522,7 @@ func (c *TestConfig) logRiskySettings(logger zerolog.Logger) {
 		}
 		minRequiredFunds := big.NewFloat(0).Mul(big.NewFloat(*clNodeFunding), big.NewFloat(6.0))
 
-		//add buffer to the minimum required funds, this isn't even a rough estimate, because we don't know how many contracts will be deployed from root key, but it's here to let you know that you should have some buffer
+		// add buffer to the minimum required funds, this isn't even a rough estimate, because we don't know how many contracts will be deployed from root key, but it's here to let you know that you should have some buffer
 		minRequiredFundsBuffered := big.NewFloat(0).Mul(minRequiredFunds, big.NewFloat(1.2))
 		minRequiredFundsBufferedInt, _ := minRequiredFundsBuffered.Int(nil)
 
@@ -544,9 +545,9 @@ root_key_funds_buffer = 1_000
 	var customChainSettings []string
 	for _, network := range networks.MustGetSelectedNetworkConfig(c.Network) {
 		if c.NodeConfig != nil && len(c.NodeConfig.ChainConfigTOMLByChainID) > 0 {
-			if _, ok := c.NodeConfig.ChainConfigTOMLByChainID[fmt.Sprint(network.ChainID)]; ok {
+			if _, ok := c.NodeConfig.ChainConfigTOMLByChainID[strconv.FormatInt(network.ChainID, 10)]; ok {
 				logger.Warn().Msgf("You have provided custom Chainlink Node configuration for network '%s' (chain id: %d). Chainlink Node's default settings won't be used", network.Name, network.ChainID)
-				customChainSettings = append(customChainSettings, fmt.Sprint(network.ChainID))
+				customChainSettings = append(customChainSettings, strconv.FormatInt(network.ChainID, 10))
 			}
 		}
 	}
@@ -554,7 +555,6 @@ root_key_funds_buffer = 1_000
 	if len(customChainSettings) == 0 && c.NodeConfig != nil && c.NodeConfig.CommonChainConfigTOML != "" {
 		logger.Warn().Msg("***** You have provided your own default Chainlink Node configuration for all networks. Chainlink Node's default settings for selected networks won't be used *****")
 	}
-
 }
 
 // checkSecretsInToml checks if the TOML file contains secrets and shows error logs if it does
@@ -643,20 +643,20 @@ func (c *TestConfig) Validate() error {
 	}
 	if c.ChainlinkImage != nil {
 		if err := c.ChainlinkImage.Validate(); err != nil {
-			return MissingImageInfoAsError(fmt.Sprintf("chainlink image config validation failed: %s", err.Error()))
+			return MissingImageInfoAsError("chainlink image config validation failed: " + err.Error())
 		}
 	}
 	if c.ChainlinkUpgradeImage != nil {
 		if err := c.ChainlinkUpgradeImage.Validate(); err != nil {
-			return MissingImageInfoAsError(fmt.Sprintf("chainlink upgrade image config validation failed: %s", err.Error()))
+			return MissingImageInfoAsError("chainlink upgrade image config validation failed: " + err.Error())
 		}
 	}
 	if err := c.Network.Validate(); err != nil {
-		return NoSelectedNetworkInfoAsError(fmt.Sprintf("network config validation failed: %s", err.Error()))
+		return NoSelectedNetworkInfoAsError("network config validation failed: " + err.Error())
 	}
 
 	if c.Logging == nil {
-		return fmt.Errorf("logging config must be set")
+		return errors.New("logging config must be set")
 	}
 
 	if c.Pyroscope != nil {

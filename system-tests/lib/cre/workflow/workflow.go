@@ -288,7 +288,7 @@ func registerWorkflowV1(sc *seth.Client, workflowRegistryAddr common.Address, do
 }
 
 // deleteAllWorkflowsV2 removes all workflows for v2 registry contracts.
-func deleteAllWorkflowsV2(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
+func deleteAllWorkflowsV2(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
 	// Create registry instance once for all operations
 	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
 	if err != nil {
@@ -317,7 +317,7 @@ func deleteAllWorkflowsV2(ctx context.Context, sc *seth.Client, workflowRegistry
 }
 
 // deleteAllWorkflowsV1 removes all workflows for v1 registry contracts.
-func deleteAllWorkflowsV1(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address) error {
+func deleteAllWorkflowsV1(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address) error {
 	// Create registry instance once for all operations
 	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
 	if err != nil {
@@ -436,6 +436,15 @@ func getRegistryV2Instance(sc *seth.Client, workflowRegistryAddr common.Address,
 	if err != nil {
 		return nil, errors.Wrapf(err, errCreateContractInstance, "WorkflowRegistry", version)
 	}
+
+	// add contract ABI to Seth, so that it can decode transaction errors
+	abi, aErr := workflow_registry_wrapper_v2.WorkflowRegistryMetaData.GetAbi()
+	if aErr != nil {
+		return nil, fmt.Errorf("failed to get WorkflowRegistryV2 ABI: %w", aErr)
+	}
+
+	sc.ABIFinder.ContractStore.AddABI("WorkflowRegistryV2", *abi)
+
 	return registry, nil
 }
 
@@ -445,6 +454,15 @@ func createRegistryV1Instance(sc *seth.Client, workflowRegistryAddr common.Addre
 	if err != nil {
 		return nil, errors.Wrap(err, errCreateRegistryInstance)
 	}
+
+	// add contract ABI to Seth, so that it can decode transaction errors
+	abi, aErr := workflow_registry_wrapper.WorkflowRegistryMetaData.GetAbi()
+	if aErr != nil {
+		return nil, fmt.Errorf("failed to get WorkflowRegistryV1 ABI: %w", aErr)
+	}
+
+	sc.ABIFinder.ContractStore.AddABI("WorkflowRegistryV1", *abi)
+
 	return registry, nil
 }
 

@@ -85,11 +85,14 @@ type EngineLimiters struct {
 	CapabilityCallTime    limits.TimeLimiter
 	LogEvent              limits.BoundLimiter[int]
 	LogLine               limits.BoundLimiter[config.Size]
+	ChainAllowed          limits.GateLimiter
 
-	ChainWriteTargets limits.BoundLimiter[int]
-	ChainReadCalls    limits.BoundLimiter[int]
-	ConsensusCalls    limits.BoundLimiter[int]
-	HTTPActionCalls   limits.BoundLimiter[int]
+	ChainWriteTargets     limits.BoundLimiter[int]
+	ChainReadCalls        limits.BoundLimiter[int]
+	ConsensusCalls        limits.BoundLimiter[int]
+	HTTPActionCalls       limits.BoundLimiter[int]
+	ConfidentialHTTPCalls limits.BoundLimiter[int]
+	SecretsCalls          limits.BoundLimiter[int]
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -168,6 +171,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ChainAllowed, err = limits.MakeGateLimiter(lf, cfg.ChainAllowed)
+	if err != nil {
+		return
+	}
 	l.ChainWriteTargets, err = limits.MakeBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
 	if err != nil {
 		return
@@ -181,6 +188,17 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return
 	}
 	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
+	if err != nil {
+		return
+	}
+	l.ConfidentialHTTPCalls, err = limits.MakeBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
+	if err != nil {
+		return
+	}
+	l.SecretsCalls, err = limits.MakeBoundLimiter(lf, cfg.Secrets.CallLimit)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -202,10 +220,13 @@ func (l *EngineLimiters) Close() error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.ChainAllowed,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
 		l.ConsensusCalls,
 		l.HTTPActionCalls,
+		l.ConfidentialHTTPCalls,
+		l.SecretsCalls,
 	)
 }
 
@@ -222,6 +243,8 @@ type EngineLimits struct {
 }
 
 type LifecycleHooks struct {
+	// OnInitialized is used to emit a workflowActivated event after the engine
+	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string, status string)

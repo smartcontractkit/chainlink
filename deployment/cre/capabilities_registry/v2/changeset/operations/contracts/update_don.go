@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -30,8 +31,9 @@ type UpdateDONInput struct {
 	ChainSelector uint64
 
 	// P2PIDs are the peer ids that compose the don. Optional, only provided if the DON composition is changing.
-	P2PIDs            []p2pkey.PeerID
-	CapabilityConfigs []CapabilityConfig
+	P2PIDs                            []p2pkey.PeerID
+	CapabilityConfigs                 []CapabilityConfig
+	MergeCapabilityConfigsWithOnChain bool
 
 	// DonName to update, this is required
 	DonName string
@@ -109,7 +111,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("refusing to update workflow don %d at config version %d because we cannot validate that all forwarder contracts are ready to accept the new configure version", don.Id, don.ConfigCount)
 		}
 
-		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations)
+		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain)
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)
 		}
@@ -162,21 +164,56 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 	},
 )
 
-func computeConfigs(capCfgs []CapabilityConfig, existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
-	var out []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+func computeConfigs(
+	capCfgs []CapabilityConfig,
+	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
+	mergeCapabilities bool) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	capSet := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration)
 	for _, capCfg := range capCfgs {
-		cfg := capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
-		cfg.CapabilityId = capCfg.Capability.CapabilityID
-		var err error
-		x := pkg.CapabilityConfig(capCfg.Config)
-		cfg.Config, err = x.MarshalProto()
+		onChainCap, err := capabilityConfigToOnChain(capCfg)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
+			return nil, fmt.Errorf("failed to convert capability config to on-chain format: %w", err)
 		}
-		if cfg.Config == nil {
-			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
+
+		_, ok := capSet[onChainCap.CapabilityId]
+		if ok {
+			return nil, fmt.Errorf("duplicate capability configuration for id: %s", onChainCap.CapabilityId)
 		}
-		out = append(out, cfg)
+
+		capSet[onChainCap.CapabilityId] = *onChainCap
 	}
+
+	if mergeCapabilities {
+		for _, existingCapConfig := range existingCapConfigs {
+			_, ok := capSet[existingCapConfig.CapabilityId]
+			if !ok {
+				capSet[existingCapConfig.CapabilityId] = existingCapConfig
+			}
+		}
+	}
+	var out []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+	for _, capCfg := range capSet {
+		out = append(out, capCfg)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CapabilityId < out[j].CapabilityId
+	})
 	return out, nil
+}
+
+func capabilityConfigToOnChain(capCfg CapabilityConfig) (*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	cfg := capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
+	cfg.CapabilityId = capCfg.Capability.CapabilityID
+	var err error
+	x := pkg.CapabilityConfig(capCfg.Config)
+	cfg.Config, err = x.MarshalProto()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
+	}
+	if cfg.Config == nil {
+		return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
+	}
+
+	return &cfg, nil
 }

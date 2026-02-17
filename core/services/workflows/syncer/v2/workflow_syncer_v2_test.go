@@ -118,6 +118,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
+		"test-chain-selector",
 		Config{
 			QueryCount:   20,
 			SyncStrategy: SyncStrategyReconciliation,
@@ -202,6 +203,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
+		"test-chain-selector",
 		Config{
 			QueryCount:   20,
 			SyncStrategy: SyncStrategyReconciliation,
@@ -286,7 +288,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
@@ -308,6 +310,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
+		"test-chain-selector",
 		Config{
 			QueryCount:   20,
 			SyncStrategy: SyncStrategyReconciliation,
@@ -386,7 +389,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
@@ -408,6 +411,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
+		"test-chain-selector",
 		Config{
 			QueryCount:   20,
 			SyncStrategy: SyncStrategyReconciliation,
@@ -483,6 +487,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 				return backendTH.NewContractReader(ctx, t, bytes)
 			},
 			wfRegistryAddr.Hex(),
+			"test-chain-selector",
 			Config{
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
@@ -555,6 +560,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
+		"test-chain-selector",
 		Config{
 			QueryCount:   20,
 			SyncStrategy: SyncStrategyReconciliation,
@@ -584,7 +590,8 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 
 	// Fill in some placeholder engines that the actual event handler would have created
 	for _, event := range testEventHandler.GetEvents() {
-		err := engineRegistry.Add(event.Data.(WorkflowActivatedEvent).WorkflowID, &mockService{})
+		data := event.Data.(WorkflowActivatedEvent)
+		err := engineRegistry.Add(data.WorkflowID, data.Source, &mockService{})
 		require.NoError(t, err)
 	}
 
@@ -650,6 +657,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
+		"test-chain-selector",
 		Config{
 			QueryCount:   20,
 			SyncStrategy: SyncStrategyReconciliation,

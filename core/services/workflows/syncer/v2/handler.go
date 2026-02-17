@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -37,7 +38,11 @@ type ORM interface {
 	artifacts.WorkflowSpecsDS
 }
 
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error)
+// engineFactoryFn creates a workflow engine. The initDone channel is used to signal when the engine
+// has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
+// the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
+// creation since they don't support async initialization hooks.
+type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
@@ -51,13 +56,14 @@ type eventHandler struct {
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
 	engineLimiters         *v2.EngineLimiters
-	ratelimiter            limits.RateLimiter
+	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
+	secretsFetcher         v2.SecretsFetcher
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -71,6 +77,8 @@ func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	}
 }
 
+// WithEngineFactoryFn allows for overriding the engine factory function.
+// if in doubt, close initDone channel immediately in tests to prevent deadlocks.
 func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.engineFactory = efn
@@ -79,7 +87,11 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, initDone chan<- error) (services.Service, error) {
+			// For static engines (used in tests), signal immediate initialization success
+			if initDone != nil {
+				initDone <- nil
+			}
 			return engine, nil
 		}
 	}
@@ -104,6 +116,22 @@ func WithOrgResolver(orgResolver orgresolver.OrgResolver) func(*eventHandler) {
 	}
 }
 
+func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.secretsFetcher = sf
+	}
+}
+
+func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		if len(secrets) == 0 {
+			return
+		}
+		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
+		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
+	}
+}
+
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
@@ -121,7 +149,7 @@ func NewEventHandler(
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
-	ratelimiter limits.RateLimiter,
+	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	workflowEncryptionKey workflowkey.Key,
@@ -202,6 +230,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var err error
@@ -241,6 +270,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var err error
@@ -292,6 +322,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var herr error
@@ -388,7 +419,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("could not clean up old engine: %w", cleanupErr)
 	}
 
-	return h.tryEngineCreate(ctx, spec)
+	return h.tryEngineCreate(ctx, spec, payload.Source)
 }
 
 func toSpecStatus(s uint8) job.WorkflowSpecStatus {
@@ -458,7 +489,7 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 	lggr := h.lggr.Named("WorkflowEngine.Module").With("workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	moduleConfig := &host.ModuleConfig{
 		Logger:                       lggr,
@@ -533,7 +564,24 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
 	}
+
+	// Wire the initDone channel to the OnInitialized lifecycle hook.
+	// This will be called when the engine completes initialization (including trigger subscriptions).
+	// We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
+	if initDone != nil {
+		existingHook := cfg.Hooks.OnInitialized
+		cfg.Hooks.OnInitialized = func(err error) {
+			// Signal completion to the handler first
+			initDone <- err
+			// Then call any existing hook (e.g., from tests)
+			if existingHook != nil {
+				existingHook(err)
+			}
+		}
+	}
+
 	return v2.NewEngine(cfg)
 }
 
@@ -592,8 +640,10 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	return nil
 }
 
-// tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry
-func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec) error {
+// tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
+// This function waits for the engine to complete initialization (including trigger subscriptions) before returning,
+// ensuring that the workflowActivated event accurately reflects the deployment status including trigger registration.
+func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string) error {
 	// Ensure the capabilities registry is ready before creating any Engine instances.
 	// This should be guaranteed by the Workflow Registry Syncer.
 	if err := h.ensureCapRegistryReady(ctx); err != nil {
@@ -631,6 +681,12 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("invalid workflow name: %w", err)
 	}
+
+	// Create a channel to receive the initialization result.
+	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
+	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
+	initDone := make(chan error, 1)
+
 	engine, err := h.engineFactory(
 		ctx,
 		spec.WorkflowID,
@@ -639,6 +695,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		spec.WorkflowTag,
 		[]byte(spec.Config),
 		decodedBinary,
+		initDone,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
@@ -648,10 +705,47 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	if err := h.engineRegistry.Add(wid, engine); err != nil {
+	// Wait for the engine to complete initialization (including trigger subscriptions).
+	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
+	select {
+	case <-ctx.Done():
+		// Context cancelled while waiting for initialization
+		if closeErr := engine.Close(); closeErr != nil {
+			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", spec.WorkflowID)
+		}
+		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
+	case initErr := <-initDone:
+		if initErr != nil {
+			// Engine initialization failed (e.g., trigger subscription failed)
+			// TODO (cre-1482) add logic to mark a deployment as failed to avoid churn.
+			// Currently, failed deployments will be retried on each poll cycle (with exponential backoff).
+			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
+			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
+			if closeErr := engine.Close(); closeErr != nil {
+				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
+			}
+			return fmt.Errorf("engine initialization failed: %w", initErr)
+		}
+	}
+
+	// Engine is fully initialized, add to registry with source tracking
+	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
+
+		// Check for WorkflowID collision across sources
+		if errors.Is(err, ErrAlreadyExists) {
+			existingEntry, found := h.engineRegistry.Get(wid)
+			if found {
+				h.lggr.Warnw("WorkflowID collision detected: workflow already exists from different source",
+					"workflowID", wid.Hex(),
+					"attemptedSource", source,
+					"existingSource", existingEntry.Source,
+					"hint", "Each workflow ID should only be registered from a single source. Check your workflow configurations for duplicates.")
+			}
+		}
+
 		// This shouldn't happen because we call the handler serially and
 		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)

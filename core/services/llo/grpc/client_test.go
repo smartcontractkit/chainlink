@@ -56,7 +56,7 @@ func Test_Client(t *testing.T) {
 		resp, err := c.Transmit(t.Context(), req)
 		require.NoError(t, err)
 
-		assert.Equal(t, "", resp.Error)
+		assert.Empty(t, resp.Error)
 		assert.Equal(t, int32(1), resp.Code)
 
 		select {

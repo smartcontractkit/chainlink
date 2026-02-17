@@ -22,11 +22,12 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 const (
@@ -119,7 +119,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	upkeepNeeded := false
 
 	// run basic checks and check upkeep by trigger type
-	if triggerType == ConditionTrigger {
+	switch triggerType {
+	case ConditionTrigger:
 		message("upkeep identified as conditional trigger")
 
 		// validate inputs
@@ -155,7 +156,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
 		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, 0, rawCall, registryAddress))
-	} else if triggerType == LogTrigger {
+	case LogTrigger:
 		// validate inputs
 		message("upkeep identified as log trigger")
 		if len(args) != 3 {
@@ -260,7 +261,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		rawCall = core.ILogAutomationABI.Methods["checkLog"].ID
 		rawCall = append(rawCall, triggerData...)
 		addLink("checkLog (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
-	} else {
+	default:
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
 
