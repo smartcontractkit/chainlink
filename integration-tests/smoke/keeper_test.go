@@ -77,6 +77,7 @@ var (
 	}
 )
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperBasicSmoke(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -158,6 +159,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperBlockCountPerTurn(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -307,6 +309,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperSimulation(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -386,6 +389,7 @@ func TestKeeperSimulation(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -522,6 +526,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperRegisterUpkeep(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -618,6 +623,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperAddFunds(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -693,6 +699,7 @@ func TestKeeperAddFunds(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperRemove(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -785,6 +792,7 @@ func TestKeeperRemove(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperPauseRegistry(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -861,6 +869,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperMigrateRegistry(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -954,6 +963,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	}, "1m", "1s").Should(gomega.Succeed())
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperNodeDown(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -1078,6 +1088,7 @@ type nodeAndJob struct {
 	job  *nodeclient.Job
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -1170,6 +1181,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	}, "3m", "1s").Should(gomega.Succeed())
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -1275,6 +1287,7 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 	return sethClient, env.ClCluster.NodeAPIs(), linkTokenContract, env
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)

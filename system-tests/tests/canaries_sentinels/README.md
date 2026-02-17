@@ -40,9 +40,9 @@ This matrix shows which capabilities are covered by each canary test, making it 
 
 from the `core/scripts/cre/environment` directory:
 
-1. **Start the environment with contracts:**
+1. **Start the environment with contracts (defaults to v2):**
    ```bash
-   go run . env start --with-contracts-version v2
+   go run . env start
    ```
 
 2. **Start the observability stack:**
@@ -94,9 +94,10 @@ from the `core/scripts/cre/environment` directory:
      -w ./../../../../system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based/main.go \
      -n canary_proof_of_reserve \
      --compile \
-     -c ./../../../../system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based/config.yaml \
-     --with-contracts-version v2
+     -c ./../../../../system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based/config.yaml
    ```
+
+If you need legacy registries for troubleshooting, pass `--with-contracts-version v1` explicitly.
 
 ## Monitoring and Alerting
 

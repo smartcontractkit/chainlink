@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -39,7 +39,7 @@ func TestOCR2KeysController_Create_HappyPath(t *testing.T) {
 
 	for _, test := range []struct {
 		name      string
-		chainType chaintype.ChainType
+		chainType corekeys.ChainType
 	}{
 		{"EVM keys", "evm"},
 		{"Solana Keys", "solana"},

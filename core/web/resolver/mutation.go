@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -1279,7 +1279,7 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 
 	ct := FromOCR2ChainType(args.ChainType)
 
-	key, err := r.App.GetKeyStore().OCR2().Create(ctx, chaintype.ChainType(ct))
+	key, err := r.App.GetKeyStore().OCR2().Create(ctx, corekeys.ChainType(ct))
 	if err != nil {
 		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received
 		return nil, err

@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/quarantine"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -43,7 +44,6 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
@@ -84,7 +84,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -2111,7 +2110,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ctx := testutils.Context(t)
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
+	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	ec := clienttest.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
@@ -2158,7 +2157,7 @@ func TestStartingCountsV1(t *testing.T) {
 	md2, err := json.Marshal(&m2)
 	md2SQL := sqlutil.JSON(md2)
 	require.NoError(t, err)
-	chainID := ubig.New(testutils.SimulatedChainID)
+	chainID := sqlutil.New(testutils.SimulatedChainID)
 	confirmedTxes := []txmgr.Tx{
 		{
 			Sequence:           &n1,

@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -163,7 +163,7 @@ func makeJob(t *testing.T) *job.Job {
 			IdleTimerDisabled: false,
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
-			EVMChainID:        (*big.Big)(testutils.FixtureChainID),
+			EVMChainID:        (*sqlutil.Big)(testutils.FixtureChainID),
 		},
 	}
 }

@@ -26,7 +26,9 @@ func testPeerID() ragetypes.PeerID {
 
 // testPeerIDProvider returns a peer ID provider function for tests.
 func testPeerIDProvider() PeerIDProvider {
-	return testPeerID
+	return func() (ragetypes.PeerID, error) {
+		return testPeerID(), nil
+	}
 }
 
 func TestOCRConfigService_StartClose(t *testing.T) {
@@ -660,7 +662,7 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 	var otherPeerID ragetypes.PeerID
 	copy(otherPeerID[:], []byte("other-peer-id-12345678901234"))
 
-	peerIDProvider := func() ragetypes.PeerID { return myPeerID }
+	peerIDProvider := func() (ragetypes.PeerID, error) { return myPeerID, nil }
 	svc := NewOCRConfigService(lggr, peerIDProvider, 1, "0x1234567890abcdef")
 
 	ctx := context.Background()

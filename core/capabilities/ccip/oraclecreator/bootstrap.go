@@ -29,13 +29,13 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -159,7 +159,7 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
-	destChainFamily := chaintype.EVM
+	destChainFamily := corekeys.EVM
 	destRelayID := types.NewRelayID(string(destChainFamily), chainID)
 
 	oraclePeerIDs := make([]ragep2ptypes.PeerID, 0, len(config.Config.Nodes))

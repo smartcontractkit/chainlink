@@ -1,6 +1,7 @@
 package configtest
 
 import (
+	"math/big"
 	"net"
 	"testing"
 	"time"
@@ -8,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -70,7 +71,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.WebServer.ListenIP = &testIP
 	c.WebServer.TLS.ListenIP = &testIP
 
-	chainID := big.NewI(evmclient.NullClientChainID)
+	chainID := sqlutil.NewI(evmclient.NullClientChainID)
 
 	chainCfg := toml.Defaults(chainID)
 	chainCfg.LogPollInterval = commonconfig.MustNewDuration(1 * time.Second) // speed it up from the standard 15s for tests
@@ -106,7 +107,7 @@ func NewGeneralConfigSimulated(t testing.TB, overrideFn func(*chainlink.Config, 
 // simulated is a config override func that appends the simulated EVM chain (testutils.SimulatedChainID),
 // or replaces the null chain (client.NullClientChainID) if that is the only entry.
 func simulated(c *chainlink.Config, s *chainlink.Secrets) {
-	chainID := big.New(testutils.SimulatedChainID)
+	chainID := sqlutil.New(testutils.SimulatedChainID)
 	enabled := true
 	cfg := toml.EVMConfig{
 		ChainID: chainID,
@@ -114,7 +115,7 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 		Enabled: &enabled,
 		Nodes:   toml.EVMNodes{&validTestNode},
 	}
-	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(big.NewI(client.NullClientChainID)) == 0 {
+	if len(c.EVM) == 1 && c.EVM[0].ChainID.ToInt().Cmp(big.NewInt(client.NullClientChainID)) == 0 {
 		c.EVM[0] = &cfg // replace null, if only entry
 	} else {
 		c.EVM = append(c.EVM, &cfg)

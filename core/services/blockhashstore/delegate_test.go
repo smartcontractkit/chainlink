@@ -11,10 +11,10 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -98,7 +98,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	defaultWaitBlocks := (int32)(finalityDepth)
 
 	t.Run("happy", func(t *testing.T) {
-		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*big.Big)(testutils.FixtureChainID)}}
+		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID)}}
 		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 
 		require.NoError(t, err)
@@ -115,7 +115,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 			CoordinatorV1Address:     &coordinatorV1,
 			CoordinatorV2Address:     &coordinatorV2,
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
-			EVMChainID:               (*big.Big)(testutils.FixtureChainID),
+			EVMChainID:               (*sqlutil.Big)(testutils.FixtureChainID),
 		}}
 		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 
@@ -131,7 +131,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("wrong EVMChainID", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
-			EVMChainID: big.NewI(123),
+			EVMChainID: sqlutil.NewI(123),
 		}}
 		_, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		assert.Error(t, err)
@@ -168,7 +168,7 @@ func TestDelegate_StartStop(t *testing.T) {
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,
 		RunTimeout: testutils.WaitTimeout(t),
-		EVMChainID: (*big.Big)(testutils.FixtureChainID),
+		EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID),
 	}}
 	services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 

@@ -17,16 +17,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	chainlinkevmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
@@ -204,7 +203,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		ContractConfigTrackerSubscribeInterval: sqlutil.Interval(2 * time.Minute),
 		ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
 		ContractConfigConfirmations:            uint16(3),
-		EVMChainID:                             chainlinkevmbig.New(testutils.FixtureChainID),
+		EVMChainID:                             sqlutil.New(testutils.FixtureChainID),
 	}
 	var os = job.Job{
 		Name:          null.NewString("a job", true),
@@ -282,7 +281,7 @@ func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter commo
 	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapPeerID := "peerId"
 
-	kb, _ := ks.OCR2().Create(ctx, chaintype.EVM)
+	kb, _ := ks.OCR2().Create(ctx, corekeys.EVM)
 	_, registry := cltest.MustInsertRandomKey(t, ks.Eth())
 
 	ocr2Keeper21Job := fmt.Sprintf(ocr2Keeper21JobSpecTemplate, registry.String(), kb.ID(), transmitter,

@@ -5,11 +5,10 @@ package mocks
 import (
 	context "context"
 
-	big "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-
+	s4 "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	mock "github.com/stretchr/testify/mock"
 
-	s4 "github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	time "time"
 )
@@ -86,7 +85,7 @@ func (_c *ORM_DeleteExpired_Call) RunAndReturn(run func(context.Context, uint, t
 }
 
 // Get provides a mock function with given fields: ctx, address, slotId
-func (_m *ORM) Get(ctx context.Context, address *big.Big, slotId uint) (*s4.Row, error) {
+func (_m *ORM) Get(ctx context.Context, address *sqlutil.Big, slotId uint) (*s4.Row, error) {
 	ret := _m.Called(ctx, address, slotId)
 
 	if len(ret) == 0 {
@@ -95,10 +94,10 @@ func (_m *ORM) Get(ctx context.Context, address *big.Big, slotId uint) (*s4.Row,
 
 	var r0 *s4.Row
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Big, uint) (*s4.Row, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *sqlutil.Big, uint) (*s4.Row, error)); ok {
 		return rf(ctx, address, slotId)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Big, uint) *s4.Row); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *sqlutil.Big, uint) *s4.Row); ok {
 		r0 = rf(ctx, address, slotId)
 	} else {
 		if ret.Get(0) != nil {
@@ -106,7 +105,7 @@ func (_m *ORM) Get(ctx context.Context, address *big.Big, slotId uint) (*s4.Row,
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Big, uint) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *sqlutil.Big, uint) error); ok {
 		r1 = rf(ctx, address, slotId)
 	} else {
 		r1 = ret.Error(1)
@@ -122,15 +121,15 @@ type ORM_Get_Call struct {
 
 // Get is a helper method to define mock.On call
 //   - ctx context.Context
-//   - address *big.Big
+//   - address *sqlutil.Big
 //   - slotId uint
 func (_e *ORM_Expecter) Get(ctx interface{}, address interface{}, slotId interface{}) *ORM_Get_Call {
 	return &ORM_Get_Call{Call: _e.mock.On("Get", ctx, address, slotId)}
 }
 
-func (_c *ORM_Get_Call) Run(run func(ctx context.Context, address *big.Big, slotId uint)) *ORM_Get_Call {
+func (_c *ORM_Get_Call) Run(run func(ctx context.Context, address *sqlutil.Big, slotId uint)) *ORM_Get_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*big.Big), args[2].(uint))
+		run(args[0].(context.Context), args[1].(*sqlutil.Big), args[2].(uint))
 	})
 	return _c
 }
@@ -140,7 +139,7 @@ func (_c *ORM_Get_Call) Return(_a0 *s4.Row, _a1 error) *ORM_Get_Call {
 	return _c
 }
 
-func (_c *ORM_Get_Call) RunAndReturn(run func(context.Context, *big.Big, uint) (*s4.Row, error)) *ORM_Get_Call {
+func (_c *ORM_Get_Call) RunAndReturn(run func(context.Context, *sqlutil.Big, uint) (*s4.Row, error)) *ORM_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }
