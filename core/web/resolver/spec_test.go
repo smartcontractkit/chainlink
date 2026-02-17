@@ -368,7 +368,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 	transmitterAddress, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
-	keyBundleID := keys.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	keyBundleID := corekeys.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
 	testCases := []GQLTestCase{
 		{
@@ -465,7 +465,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	transmitterAddress, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
-	keyBundleID := keys.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	keyBundleID := corekeys.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
 	relayConfig := map[string]any{
 		"chainID": 1337,
