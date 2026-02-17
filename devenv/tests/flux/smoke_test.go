@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFlux(t *testing.T) {
+func TestSmoke(t *testing.T) {
 	ctx := context.Background()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)

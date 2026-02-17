@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/cron"
 )
 
-func TestCron(t *testing.T) {
+func TestSmoke(t *testing.T) {
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)

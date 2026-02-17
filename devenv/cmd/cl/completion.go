@@ -28,9 +28,9 @@ func getSubCommands(parent string) []prompt.Suggest {
 	switch parent {
 	case "test":
 		return []prompt.Suggest{
-			{Text: "cron TestCron", Description: "Run Cron trigger test"},
-			{Text: "directrequest TestDirectRequest", Description: "Run Direct Request test"},
-			{Text: "flux TestFlux", Description: "Run Flux test"},
+			{Text: "cron TestSmoke", Description: "Run Cron trigger test"},
+			{Text: "directrequest TestSmoke", Description: "Run Direct Request test"},
+			{Text: "flux TestSmoke", Description: "Run Flux test"},
 			{Text: "ocr2 TestOCR2Load/clean", Description: "Run OCR2 soak test"},
 			{Text: "ocr2 TestOCR2Load/gas-spikes", Description: "Run OCR2 soak test + simulate gas spikes"},
 			{Text: "ocr2 TestOCR2Load/chaos", Description: "Run OCR2 soak test + introduce container kills and latency"},

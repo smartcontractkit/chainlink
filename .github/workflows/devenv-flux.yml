@@ -72,7 +72,7 @@ jobs:
         working-directory: devenv/tests/flux
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: Flux"
-          go test -v -run TestFlux
+          go test -v -run TestSmoke
 
       - name: Upload Logs
         if: always()

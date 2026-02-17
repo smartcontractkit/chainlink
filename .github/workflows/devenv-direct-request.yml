@@ -72,7 +72,7 @@ jobs:
         working-directory: devenv/tests/directrequest
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: Direct Request"
-          go test -v -run TestDirectRequest
+          go test -v -run TestSmoke
 
       - name: Upload Logs
         if: always()

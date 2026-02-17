@@ -68,62 +68,7 @@ func (m *Configurator) GenerateNodesConfig(
 	bc []*blockchain.Input,
 	ns []*nodeset.Input,
 ) (string, error) {
-	L.Info().Msg("Applying default CL nodes configuration")
-	// configure node set and generate CL nodes configs
-	node := bc[0].Out.Nodes[0]
-	chainID := bc[0].Out.ChainID
-	netConfig := fmt.Sprintf(`
-    [[EVM]]
-    LogPollInterval = '1s'
-    BlockBackfillDepth = 100
-    ChainID = '%s'
-    MinIncomingConfirmations = 1
-    MinContractPayment = '0.0000001 link'
-
-    [[EVM.Nodes]]
-    Name = 'default'
-    WsUrl = '%s'
-    HttpUrl = '%s'
-
-    [Feature]
-    FeedsManager = true
-    LogPoller = true
-    UICSAKeys = true
-    [OCR2]
-    Enabled = true
-    SimulateTransactions = false
-    DefaultTransactionQueueDepth = 1
-    [P2P.V2]
-    Enabled = true
-    ListenAddresses = ['0.0.0.0:6690']
-	[Log]
-	JSONConsole = true
-	Level = 'debug'
-	[Pyroscope]
-	ServerAddress = 'http://host.docker.internal:4040'
-	Environment = 'local'
-	[WebServer]
-	SessionTimeout = '999h0m0s'
-	HTTPWriteTimeout = '3m'
-	SecureCookies = false
-	HTTPPort = 6688
-	[WebServer.TLS]
-	HTTPSPort = 0
-	[WebServer.RateLimit]
-	Authenticated = 5000
-	Unauthenticated = 5000
-	[JobPipeline]
-	[JobPipeline.HTTPRequest]
-	DefaultTimeout = '1m'
-	[Log.File]
-	MaxSize = '0b'
-`,
-		chainID,
-		node.InternalWSUrl,
-		node.InternalHTTPUrl,
-	)
-	L.Info().Msg("Nodes network configuration is finished")
-	return netConfig, nil
+	return products.DefaultLegacyCLNodeConfig(bc)
 }
 
 func (m *Configurator) GenerateNodesSecrets(

@@ -72,7 +72,7 @@ jobs:
         working-directory: devenv/tests/cron
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: Cron"
-          go test -v -run TestCron
+          go test -v -run TestSmoke
 
       - name: Upload Logs
         if: always()
