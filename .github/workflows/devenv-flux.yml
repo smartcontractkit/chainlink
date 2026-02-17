@@ -1,9 +1,9 @@
-name: OCR2 Soak Test (Resource leaks)
+name: Flux Smoke Test
 
 on:
   push:
   schedule:
-    - cron: "0 6 * * *"  # Run daily at 6 AM
+    - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
 
 defaults:
@@ -61,32 +61,23 @@ jobs:
         run: |
           echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)-plugins" >> $GITHUB_ENV
 
-      - name: Run OCR2 environment
+      - name: Run Flux environment
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml && cl obs up -f
+          cl u env.toml,products/flux/basic.toml
 
-      - name: Run Soak tests
-        id: soak_test
-        working-directory: devenv/tests/ocr2
+      - name: Run tests
+        working-directory: devenv/tests/flux
         run: |
-          echo "Running tests for: $CHAINLINK_IMAGE, product: OCR2"
-          go test -v -timeout 4h -run TestOCR2Load/clean
+          echo "Running tests for: $CHAINLINK_IMAGE, product: Flux"
+          go test -v -run TestFlux
 
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke
-          path: devenv/tests/ocr2/logs
-          retention-days: 3
-
-      - name: Upload Pprof (Alloc)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: alloc.pprof
-          path: devenv/tests/ocr2/alloc.pprof
+          path: devenv/tests/flux/logs
           retention-days: 3
