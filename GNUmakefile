@@ -105,11 +105,11 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
-	go install -ldflags="-s" ./plugins/cmd/chainlink-evm & \
-	go install -ldflags="-s" ./plugins/cmd/chainlink-medianpoc & \
-	go install -ldflags="-s" ./plugins/cmd/chainlink-ocr3-capability & \
-	go install -ldflags="-s" ./plugins/cmd/capabilities/log-event-trigger & \
-	wait
+	go install -ldflags="-s" \
+		./plugins/cmd/chainlink-evm \
+		./plugins/cmd/chainlink-medianpoc \
+		./plugins/cmd/chainlink-ocr3-capability \
+		./plugins/cmd/capabilities/log-event-trigger
 
 .PHONY: make install-plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
