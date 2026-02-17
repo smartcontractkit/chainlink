@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
-	"github.com/smartcontractkit/chainlink/devenv/products/direct_request"
+	"github.com/smartcontractkit/chainlink/devenv/products/directrequest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -15,7 +15,7 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 	"github.com/smartcontractkit/chainlink/devenv/products/cron"
-	"github.com/smartcontractkit/chainlink/devenv/products/direct_request"
+	"github.com/smartcontractkit/chainlink/devenv/products/directrequest"
 	"github.com/smartcontractkit/chainlink/devenv/products/flux"
 	"github.com/smartcontractkit/chainlink/devenv/products/keepers"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
