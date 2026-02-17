@@ -359,7 +359,8 @@ func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.Deploye
 
 func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, dummyReceiver aptos.AccountAddress, sequenceNumber uint64) ([]*aptosapi.Event, error) {
 	limit := uint64(1)
-	return rpcClient.EventsByHandle(dummyReceiver, dummyReceiver.String()+"::dummy_receiver::CCIPReceiverState", "received_message_events", &sequenceNumber, &limit)
+	// This will invoke PTT receiver as Function Closures check if CCIPReceiveV2 is registered
+	return rpcClient.EventsByHandle(dummyReceiver, dummyReceiver.String()+"::ptt_dummy_receiver::CCIPReceiverState", "received_message_events", &sequenceNumber, &limit)
 }
 
 func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
