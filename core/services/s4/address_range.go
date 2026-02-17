@@ -102,7 +102,7 @@ func (r *AddressRange) Interval() *sqlutil.Big {
 	if r == nil {
 		return nil
 	}
-	return sub(add(r.MaxAddress, r.MinAddress), sqlutil.NewI(1))
+	return add(sub(r.MaxAddress, r.MinAddress), sqlutil.NewI(1))
 }
 
 func sub(a, b *sqlutil.Big) *sqlutil.Big {
