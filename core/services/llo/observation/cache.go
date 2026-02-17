@@ -98,6 +98,7 @@ func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.D
 func (c *Cache) add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
 	var expiresAt time.Time
 	if ttl > 0 {
+		// TODO we should reject 0 ttl values
 		expiresAt = time.Now().Add(ttl)
 	}
 	c.values[id] = item{value: value, expiresAt: expiresAt}
