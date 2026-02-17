@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 )
 
 // AddressRange represents a range of Ethereum addresses.
@@ -62,7 +62,7 @@ func NewInitialAddressRangeForIntervals(intervals uint) (*AddressRange, error) {
 
 	return &AddressRange{
 		MinAddress: MinAddress,
-		MaxAddress: sqlutil.New(bigmath.Sub(bigmath.Add(MinAddress.ToInt(), interval), big.NewInt(1))),
+		MaxAddress: sub(add(MinAddress, sqlutil.New(interval)), sqlutil.NewI(1)),
 	}, nil
 }
 
@@ -76,12 +76,12 @@ func (r *AddressRange) Advance() {
 
 	interval := r.Interval()
 
-	r.MinAddress = sqlutil.New(bigmath.Add(r.MinAddress.ToInt(), interval.ToInt()))
-	r.MaxAddress = sqlutil.New(bigmath.Add(r.MaxAddress.ToInt(), interval.ToInt()))
+	r.MinAddress = add(r.MinAddress, interval)
+	r.MaxAddress = add(r.MaxAddress, interval)
 
 	if r.MinAddress.ToInt().Cmp(MaxAddress.ToInt()) >= 0 {
 		r.MinAddress = MinAddress
-		r.MaxAddress = sqlutil.New(bigmath.Sub(bigmath.Add(MinAddress.ToInt(), interval.ToInt()), big.NewInt(1)))
+		r.MaxAddress = sub(add(MinAddress, interval), sqlutil.NewI(1))
 	}
 
 	if r.MaxAddress.ToInt().Cmp(MaxAddress.ToInt()) > 0 {
@@ -102,5 +102,13 @@ func (r *AddressRange) Interval() *sqlutil.Big {
 	if r == nil {
 		return nil
 	}
-	return sqlutil.New(bigmath.Add(bigmath.Sub(r.MaxAddress.ToInt(), r.MinAddress.ToInt()), big.NewInt(1)))
+	return sub(add(r.MaxAddress, r.MinAddress), sqlutil.NewI(1))
+}
+
+func sub(a, b *sqlutil.Big) *sqlutil.Big {
+	return sqlutil.New(bigmath.Sub(a.ToInt(), b.ToInt()))
+}
+
+func add(a, b *sqlutil.Big) *sqlutil.Big {
+	return sqlutil.New(bigmath.Add(a.ToInt(), b.ToInt()))
 }
