@@ -1,4 +1,4 @@
-package direct_request
+package directrequest
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	de "github.com/smartcontractkit/chainlink/devenv"
@@ -24,7 +25,7 @@ func TestDirectRequest(t *testing.T) {
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
-	productCfg, err := products.LoadOutput[direct_request.Configurator](outputFile)
+	productCfg, err := products.LoadOutput[directrequest.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
@@ -50,7 +51,7 @@ func TestDirectRequest(t *testing.T) {
 		common.HexToAddress(productCfg.Config[0].Out.Oracle),
 		jobIDBytes,
 		big.NewInt(1e18),
-		fmt.Sprintf("%s/direct_request_response", in.FakeServer.Out.BaseURLDocker),
+		in.FakeServer.Out.BaseURLDocker+"/direct_request_response",
 		"data,result",
 		big.NewInt(10),
 	)

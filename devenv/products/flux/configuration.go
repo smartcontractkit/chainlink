@@ -2,6 +2,7 @@ package flux
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -35,7 +36,7 @@ type Flux struct {
 	DeployedContracts *DeployedContracts    `toml:"deployed_contracts"`
 }
 
-type FluxAggregatorOptions struct {
+type AggregatorOptions struct {
 	PaymentAmount *big.Int       // The amount of LINK paid to each oracle per submission, in wei (units of 10⁻¹⁸ LINK)
 	Timeout       uint32         // The number of seconds after the previous round that are allowed to lapse before allowing an oracle to skip an unfinished round
 	Validator     common.Address // An optional contract address for validating external validation of answers
@@ -43,38 +44,6 @@ type FluxAggregatorOptions struct {
 	MaxSubValue   *big.Int       // An immutable check for an upper bound of what submission values are accepted from an oracle
 	Decimals      uint8          // The number of decimals to offset the answer by
 	Description   string         // A short description of what is being reported
-}
-
-type FluxAggregatorData struct {
-	AllocatedFunds  *big.Int         // The amount of payment yet to be withdrawn by oracles
-	AvailableFunds  *big.Int         // The amount of future funding available to oracles
-	LatestRoundData RoundData        // Data about the latest round
-	Oracles         []common.Address // Addresses of oracles on the contract
-}
-
-type RoundData struct {
-	RoundId         *big.Int
-	Answer          *big.Int
-	StartedAt       *big.Int
-	UpdatedAt       *big.Int
-	AnsweredInRound *big.Int
-}
-
-type FluxAggregatorSetOraclesOptions struct {
-	AddList            []common.Address // oracle addresses to add
-	RemoveList         []common.Address // oracle addresses to remove
-	AdminList          []common.Address // oracle addresses to become admin
-	MinSubmissions     uint32           // min amount of submissions in round
-	MaxSubmissions     uint32           // max amount of submissions in round
-	RestartDelayRounds uint32           // rounds to wait after oracles has changed
-}
-
-type SubmissionEvent struct {
-	Contract    common.Address
-	Submission  *big.Int
-	Round       uint32
-	BlockNumber uint64
-	Oracle      common.Address
 }
 
 type DeployedContracts struct {
@@ -227,7 +196,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	}
 	pkey := products.NetworkPrivateKey()
 	if pkey == "" {
-		return fmt.Errorf("PRIVATE_KEY environment variable not set")
+		return errors.New("PRIVATE_KEY environment variable not set")
 	}
 	for _, addr := range transmitters {
 		if cErr := products.FundAddressEIP1559(ctx, c, pkey, addr.String(), 10); cErr != nil {
@@ -235,7 +204,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		}
 	}
 
-	fluxOptions := &FluxAggregatorOptions{
+	fluxOptions := &AggregatorOptions{
 		PaymentAmount: big.NewInt(1),
 		Timeout:       180,
 		Validator:     common.Address{},
@@ -254,6 +223,9 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		fluxOptions.Decimals,
 		fluxOptions.Description,
 	)
+	if err != nil {
+		return err
+	}
 	_, err = bind.WaitDeployed(ctx, c, fluxAggTx)
 	if err != nil {
 		return err
@@ -288,7 +260,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 
 	bta := &clclient.BridgeTypeAttributes{
 		Name: "variable-" + uuid.NewString()[0:5],
-		URL:  fmt.Sprintf("%s/ea", fs.Out.BaseURLDocker),
+		URL:  fs.Out.BaseURLDocker + "/ea",
 	}
 
 	for _, n := range cls {

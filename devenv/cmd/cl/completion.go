@@ -29,7 +29,7 @@ func getSubCommands(parent string) []prompt.Suggest {
 	case "test":
 		return []prompt.Suggest{
 			{Text: "cron TestCron", Description: "Run Cron trigger test"},
-			{Text: "direct_request TestDirectRequest", Description: "Run Direct Request test"},
+			{Text: "directrequest TestDirectRequest", Description: "Run Direct Request test"},
 			{Text: "flux TestFlux", Description: "Run Flux test"},
 			{Text: "ocr2 TestOCR2Load/clean", Description: "Run OCR2 soak test"},
 			{Text: "ocr2 TestOCR2Load/gas-spikes", Description: "Run OCR2 soak test + simulate gas spikes"},
@@ -62,8 +62,8 @@ func getSubCommands(parent string) []prompt.Suggest {
 			{Text: "env.toml", Description: "Spin up Anvil <> Anvil local chains, all services, 4 CL nodes"},
 			{Text: "env.toml,products/cron/basic.toml", Description: "1 Anvil, 1 CL Node, Cron trigger"},
 			{Text: "env.toml,products/cron/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Cron triggers for soak testing"},
-			{Text: "env.toml,products/direct_request/basic.toml", Description: "1 Anvil, 1 CL Node, Runlog trigger"},
-			{Text: "env.toml,products/direct_request/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Runlog triggers for soak testing"},
+			{Text: "env.toml,products/directrequest/basic.toml", Description: "1 Anvil, 1 CL Node, Runlog trigger"},
+			{Text: "env.toml,products/directrequest/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Runlog triggers for soak testing"},
 			{Text: "env.toml,products/flux/basic.toml", Description: "1 Anvil, 1 CL Node, Runlog trigger"},
 			{Text: "env.toml,products/flux/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Runlog triggers for soak testing"},
 			{Text: "env.toml,products/ocr2/basic.toml", Description: "2 Anvils, 4 CL Nodes, 1 OCRv2 product"},

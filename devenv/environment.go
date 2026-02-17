@@ -39,7 +39,7 @@ func newProduct(name string) (Product, error) {
 	case "cron":
 		return cron.NewConfigurator(), nil
 	case "direct_request":
-		return direct_request.NewConfigurator(), nil
+		return directrequest.NewConfigurator(), nil
 	case "flux":
 		return flux.NewConfigurator(), nil
 	case "ocr2":

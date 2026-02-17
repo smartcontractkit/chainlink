@@ -1,7 +1,8 @@
-package direct_request
+package directrequest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -167,7 +168,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	if err != nil {
 		return err
 	}
-	
+
 	transmitters := make([]common.Address, 0)
 	for _, nc := range cls {
 		addr, cErr := nc.ReadPrimaryETHKey(bc[0].Out.ChainID)
@@ -178,7 +179,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	}
 	pkey := products.NetworkPrivateKey()
 	if pkey == "" {
-		return fmt.Errorf("PRIVATE_KEY environment variable not set")
+		return errors.New("PRIVATE_KEY environment variable not set")
 	}
 	for _, addr := range transmitters {
 		if cErr := products.FundAddressEIP1559(ctx, c, pkey, addr.String(), 10); cErr != nil {
@@ -219,10 +220,10 @@ func (m *Configurator) ConfigureJobsAndContracts(
 
 	bta := clclient.BridgeTypeAttributes{
 		Name: "direct_request_bridge-" + jobUUID,
-		URL:  fmt.Sprintf("%s/direct_request_response", fs.Out.BaseURLDocker),
+		URL:  fs.Out.BaseURLDocker + "/direct_request_response",
 	}
 	if err = cls[0].MustCreateBridge(&bta); err != nil {
-		return fmt.Errorf("failed to create bridge job: %w")
+		return errors.New("failed to create bridge job: %w")
 	}
 
 	os := &clclient.DirectRequestTxPipelineSpec{

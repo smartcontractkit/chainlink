@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	de "github.com/smartcontractkit/chainlink/devenv"
@@ -41,6 +42,7 @@ func TestFlux(t *testing.T) {
 		common.HexToAddress(productCfg.Config[0].DeployedContracts.FluxAggregator),
 		c,
 	)
+	require.NoError(t, err)
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		lrd, err := fluxAggregatorWrapper.LatestRoundData(&bind.CallOpts{})
 		require.NoError(c, err)

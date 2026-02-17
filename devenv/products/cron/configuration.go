@@ -140,7 +140,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	L.Info().Msg("Creating bridge and cron schedule")
 	bta := &clclient.BridgeTypeAttributes{
 		Name:        "cron-" + uuid.NewString(),
-		URL:         fmt.Sprintf("%s/cron_response", fs.Out.BaseURLDocker),
+		URL:         fs.Out.BaseURLDocker + "/cron_response",
 		RequestData: "{}",
 	}
 	if err := cls[0].MustCreateBridge(bta); err != nil {
