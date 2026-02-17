@@ -44,6 +44,8 @@ func NewWorkflowName(userDefinedName string) (WorkflowName, error) {
 
 type WorkflowID [32]byte
 
+func (w WorkflowID) String() string { return w.Hex() }
+
 func (w WorkflowID) Hex() string {
 	return hex.EncodeToString(w[:])
 }

@@ -1,0 +1,39 @@
+name: "Release Attestation"
+##
+# Publish attestations for final releases to: https://github.com/smartcontractkit/chainlink/attestations
+##
+on:
+  workflow_dispatch:
+    inputs:
+      docker-image-name:
+        description: "Fully qualified OCI image name (e.g. public.ecr.aws/chainlink/chainlink)"
+        required: true
+        type: string
+      docker-image-digest:
+        description: "OCI image digest (e.g. sha256:abcd)"
+        required: true
+        type: string
+      is-release:
+        description: "Whether the upstream workflow determined this ref is a final release"
+        required: false
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  docker-attestations:
+    name: "Publish Attestation"
+    if: ${{ inputs.is-release }}
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Publish attestation to GitHub
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ inputs.docker-image-name }}
+          subject-digest: ${{ inputs.docker-image-digest }}
+          push-to-registry: false

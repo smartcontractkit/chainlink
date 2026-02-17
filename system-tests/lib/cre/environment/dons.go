@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -25,16 +24,16 @@ import (
 )
 
 type StartedDON struct {
-	NodeOutput *cre.WrappedNodeOutput
-	DON        *cre.Don
+	NodeSetOutput *cre.NodeSetOutput
+	DON           *cre.Don
 }
 
 type StartedDONs []*StartedDON
 
-func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
-	outputs := make([]*cre.WrappedNodeOutput, len(*s))
+func (s *StartedDONs) NodeOutputs() []*cre.NodeSetOutput {
+	outputs := make([]*cre.NodeSetOutput, len(*s))
 	for idx, don := range *s {
-		outputs[idx] = don.NodeOutput
+		outputs[idx] = don.NodeSetOutput
 	}
 	return outputs
 }
@@ -57,44 +56,49 @@ func StartDONs(
 	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
 ) (*StartedDONs, error) {
-	if infraInput.Type == infra.CRIB {
-		deployCribDonsInput := &crib.DeployCribDonsInput{
-			Topology:       topology,
-			NodeSet:        nodeSets,
-			CribConfigsDir: infra.CribConfigsDir,
-			Namespace:      infraInput.CRIB.Namespace,
-		}
+	if infraInput.IsKubernetes() {
+		// For Kubernetes, DONs are already running in the cluster, generate service URLs
+		lggr.Info().Msg("Generating Kubernetes service URLs for DONs (already running in cluster)")
+		for idx, nodeSet := range nodeSets {
+			donMetadata := topology.DonsMetadata.List()[idx]
 
-		var devspaceErr error
-		nodeSets, devspaceErr = crib.DeployDons(ctx, deployCribDonsInput)
-		if devspaceErr != nil {
-			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
+			// Extract bootstrap flags for each node
+			nodeMetadataRoles := make([]bool, len(donMetadata.NodesMetadata))
+			for i, nodeMeta := range donMetadata.NodesMetadata {
+				nodeMetadataRoles[i] = nodeMeta.HasRole(cre.BootstrapNode)
+			}
+
+			creds := infra.GetNodeCredentials(&infraInput)
+			nodeSet.Out = infra.GenerateKubernetesNodeSetOutput(&infraInput, nodeSet.Name, nodeSet.Nodes, nodeMetadataRoles, creds, lggr)
 		}
 	}
 
-	for donIdx, donMetadata := range topology.DonsMetadata.List() {
-		if !copyCapabilityBinaries {
-			continue
-		}
-
-		customBinariesPaths := make(map[cre.CapabilityFlag]string)
-		for flag, config := range capabilityConfigs {
-			if flags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
-				customBinariesPaths[flag] = config.BinaryPath
+	// Skip binary operations for Kubernetes (binaries are in the cluster images)
+	if infraInput.IsDocker() {
+		for donIdx, donMetadata := range topology.DonsMetadata.List() {
+			if !copyCapabilityBinaries {
+				continue
 			}
-		}
 
-		executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
-		if executableErr != nil {
-			return nil, pkgerrors.Wrap(executableErr, "failed to make binaries executable")
-		}
+			customBinariesPaths := make(map[cre.CapabilityFlag]string)
+			for flag, config := range capabilityConfigs {
+				if flags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
+					customBinariesPaths[flag] = config.BinaryPath
+				}
+			}
 
-		var err error
-		ns, err := crecapabilities.AppendBinariesPathsNodeSpec(nodeSets[donIdx], donMetadata, customBinariesPaths)
-		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
+			executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
+			if executableErr != nil {
+				return nil, pkgerrors.Wrap(executableErr, "failed to make binaries executable")
+			}
+
+			var err error
+			ns, err := crecapabilities.AppendBinariesPathsNodeSpec(nodeSets[donIdx], donMetadata, customBinariesPaths)
+			if err != nil {
+				return nil, pkgerrors.Wrapf(err, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
+			}
+			nodeSets[donIdx] = ns
 		}
-		nodeSets[donIdx] = ns
 	}
 
 	// Add env vars, which were provided programmatically, to the node specs
@@ -122,22 +126,34 @@ func StartDONs(
 		errGroup.Go(func() error {
 			startTime := time.Now()
 			lggr.Info().Msgf("Starting DON named %s", nodeSet.Name)
-			nodeSet.Input.NodeSpecs = nodeSet.ExtractCTFInputs()
-			nodeset, nodesetErr := ns.NewSharedDBNodeSetWithContext(ctx, nodeSet.Input, registryChainBlockchainOutput)
-			if nodesetErr != nil {
-				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSet.Name)
+
+			var nodeset *ns.Output
+			var nodesetErr error
+
+			// If output is already set (Kubernetes or cached), use it
+			if nodeSet.Out != nil {
+				lggr.Info().Msgf("Using pre-configured node URLs for DON %s", nodeSet.Name)
+				nodeset = nodeSet.Out
+			} else {
+				// For Docker, start the nodes
+				nodeSet.Input.NodeSpecs = nodeSet.ExtractCTFInputs()
+				nodeset, nodesetErr = ns.NewSharedDBNodeSetWithContext(ctx, nodeSet.Input, registryChainBlockchainOutput)
+				if nodesetErr != nil {
+					return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSet.Name)
+				}
 			}
 
+			// For Kubernetes, we still need to create clients to register nodes with JD
 			don, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], nodeset.CLNodes)
 			if donErr != nil {
 				return pkgerrors.Wrapf(donErr, "failed to create DON from node set named %s", nodeSet.Name)
 			}
 
 			resultMap.Store(idx, &StartedDON{
-				NodeOutput: &cre.WrappedNodeOutput{
+				NodeSetOutput: &cre.NodeSetOutput{
 					Output:       nodeset,
 					NodeSetName:  nodeSet.Name,
-					Capabilities: nodeSet.ComputedCapabilities,
+					Capabilities: nodeSet.Capabilities,
 				},
 				DON: don,
 			})
@@ -149,7 +165,9 @@ func StartDONs(
 	}
 
 	if err := errGroup.Wait(); err != nil {
-		infra.PrintFailedContainerLogs(lggr, 30)
+		if !infraInput.IsKubernetes() {
+			infra.PrintFailedContainerLogs(lggr, 30)
+		}
 		return nil, err
 	}
 

@@ -13,6 +13,7 @@ import (
 
 func init() {
 	root.RootCmd.AddCommand(environment.EnvironmentCmd)
+	root.RootCmd.AddCommand(environment.TopologyCmd())
 	root.RootCmd.AddCommand(examples.ExamplesCmd)
 	root.RootCmd.AddCommand(minio.MinioCommand)
 	root.RootCmd.AddCommand(mock.MockCommand)
@@ -33,7 +34,7 @@ func main() {
 			fmt.Printf("Local CRE version: %s, commit: %s, date: %s\n", Version, Commit, Date)
 			return
 		case "shell", "sh":
-			_ = os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml") // Set default config for shell
+			_ = os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml") // Set default config for shell
 
 			StartShell()
 			return

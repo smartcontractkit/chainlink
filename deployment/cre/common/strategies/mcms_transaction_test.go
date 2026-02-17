@@ -3,12 +3,14 @@ package strategies_test
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -200,5 +202,33 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		metadata, ok := p.ChainMetadata[mcmstypes.ChainSelector(fixture.RegistrySelector)]
 		assert.True(t, ok)
 		assert.Equal(t, mcmsContracts.CancellerMcm.Address().String(), metadata.MCMAddress)
+	})
+
+	t.Run("uses custom ValidDuration value to set the proposal duration", func(t *testing.T) {
+		m := getMCMSTransaction(t, *fixture.Env)
+		validDuration, err := commonconfig.NewDuration(2 * time.Second)
+		require.NoError(t, err)
+		cfg := contracts.MCMSConfig{
+			MinDelay: 0,
+			TimelockQualifierPerChain: map[uint64]string{
+				fixture.RegistrySelector: "",
+			},
+			ValidDuration: &validDuration,
+		}
+		mcmsContracts, err := strategies.GetMCMSContracts(*fixture.Env, fixture.RegistrySelector, cfg)
+		require.NoError(t, err)
+		m.Config = &cfg
+		m.MCMSContracts = mcmsContracts
+		m.ChainSel = fixture.RegistrySelector
+
+		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		require.NoError(t, err)
+
+		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
+		require.NoError(t, err)
+
+		expectedValidUntil := time.Now().Add(validDuration.Duration()).Unix()
+		// Using InDelta to allow for slight timing differences during test execution
+		assert.InDelta(t, uint32(expectedValidUntil), p.ValidUntil, 1, "ValidUntil should be within 1 second of expected value") //nolint:gosec // G115
 	})
 }

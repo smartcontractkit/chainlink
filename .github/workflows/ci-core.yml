@@ -275,7 +275,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          CLI_VERSION: 7.10.0
+          CLI_VERSION: 7.13.0
 
       - name: Setup Sui CLI v1.61.2
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
@@ -346,7 +346,6 @@ jobs:
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
-          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
 
@@ -562,7 +561,7 @@ jobs:
       - name: Ensure clean after generate
         run: |
           git add --all
-          git diff --minimal --cached --exit-code
+          git diff --stat --cached --exit-code
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: |
@@ -608,7 +607,7 @@ jobs:
       SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
       SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
       SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
       SH_LINT_RUNNER: runs-on=${{ github.run_id }}-lint/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
       GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB

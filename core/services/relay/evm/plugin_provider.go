@@ -8,12 +8,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 )
 
 type pluginProvider struct {
 	services.Service
-	chainReader         ChainReaderService
+	chainReader         read.ChainReaderService
 	codec               types.Codec
 	contractTransmitter transmitter.ContractTransmitter
 	configWatcher       *configWatcher
@@ -24,7 +25,7 @@ type pluginProvider struct {
 var _ types.PluginProvider = (*pluginProvider)(nil)
 
 func NewPluginProvider(
-	chainReader ChainReaderService,
+	chainReader read.ChainReaderService,
 	codec types.Codec,
 	contractTransmitter transmitter.ContractTransmitter,
 	configWatcher *configWatcher,

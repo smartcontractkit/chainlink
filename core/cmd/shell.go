@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,6 +31,7 @@ import (
 	"github.com/urfave/cli"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
@@ -40,9 +42,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -53,7 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	workflowsmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -66,6 +70,10 @@ var (
 	ginPrometheus   *ginprom.Prometheus
 	grpcOpts        loop.GRPCOpts
 )
+
+func metricViews() []sdkmetric.View {
+	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews())
+}
 
 func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
@@ -120,10 +128,10 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
 				LogExportInterval:              cfgTelemetry.LogExportInterval(),
 				LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
+				// note: due to the OTEL specification, all histogram buckets
+				// must be defined when the beholder client is created
+				MetricViews: metricViews(),
 			}
-			// note: due to the OTEL specification, all histogram buckets
-			// must be defined when the beholder client is created
-			clientCfg.MetricViews = append(clientCfg.MetricViews, monitoring.MetricViews()...)
 
 			if tracingCfg.Enabled {
 				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
@@ -155,7 +163,7 @@ type Shell struct {
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
-	SetOtelCore                    func(zapcore.Core)      // reference to AtomicCore.Store
+	SetOtelCore                    func(zapcore.Core)      // reference to UpdatableCore.Update
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -273,10 +281,10 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 			return fmt.Errorf("failed to parse application version: %w", err)
 		}
 
-		if os.Getenv("CL_SKIP_APP_VERSION_CHECK") == "true" {
+		if env.SkipAppVersionCheck.IsTrue() {
 			appLggr.Warn("Skipping app version check")
 		} else {
-			appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version)
+			appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version, env.IgnorePrereleaseVersionCheck.IsTrue())
 			if err != nil {
 				// Exit immediately and don't touch the database if the app version is too old
 				return fmt.Errorf("CheckVersion: %w", err)

@@ -8,8 +8,8 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 )
 
 func TestResolver_TONKeys(t *testing.T) {

@@ -29,43 +29,36 @@
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "write-evm-1337", "evm-2337"]
 
-  # Enable capabilities per chain with optional per-chain overrides
-  [nodesets.chain_capabilities]
-    # Simple: enable write-evm on listed chains
-    # write-evm = ["1337", "2337"]
+  # Capability config overrides for this DON.
+  # IMPORTANT: When you override a capability config, you must provide ALL values
+  # for that capability - partial overrides are not supported. If you specify a key,
+  # the entire CapabilityConfig is used as-is without merging with defaults.
+  # Defaults are only used for capabilities you don't configure at all.
+  [nodesets.capability_configs]
 
-    # write-evm with per-chain configuration overrides
-    write-evm = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { GasLimitDefault = 500_000, PollPeriod = "1s", AcceptanceTimeout = "45s", FromAddress = "0x0000000000000000000000000000000000000001" }, "2337" = { GasLimitDefault = 300_000, AcceptanceTimeout = "60s" } } }
+    # Override web-api-target settings - must include all required values
+    [nodesets.capability_configs.web-api-target.values]
+       GlobalRPS = 2000.0
+       GlobalBurst = 1500
+       PerSenderRPS = 1000.0
+       PerSenderBurst = 1500
 
-    # evm capability with a chain-specific override example
-    # evm = { enabled_chains = ["1337"], chain_overrides = { "1337" = { ReceiverGasMinimum = 1000 } } }
+    # Chain-specific capability override - must include all required values
+    [nodesets.capability_configs.write-evm-1337.values]
+       GasLimitDefault = 700_000
+       AcceptanceTimeout = '60s'
 
-    # Simple: enable read-contract capability for one chain
-    # read-contract = ["1337"]
+    # Override binary path for a capability
+    [nodesets.capability_configs.read-contract-1337]
+       binary_path = "/some-other/binary_path"
+       # values = {} # Add any required values here
 
-    # log-event-trigger capability per chain configuration overrides
-    # log-event-trigger = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { PollPeriod = 1000 } } }
-
-  # Override global capability configuration per DON
-  [nodesets.capability_overrides]
-  # Override web-api-target rate limiter settings for this specific DON
-    [nodesets.capability_overrides.web-api-target]
-       GlobalRPS = 2000.0      # Override default 1000.0
-       PerSenderBurst = 1500   # Override default 1000
-
-  #  # Override web-api-trigger settings (empty by default)
-  #  [nodesets.capability_overrides.web-api-trigger]
-  #    Before using this filed needs to be added to the template
-  #    CustomTriggerField = "don-specific-value"
-  #
-  #  # Override mock capability settings
-  #  [nodesets.capability_overrides.mock]
-  #    Port = 8081  # Override default port for this DON
-
-# [nodesets.capability_overrides.http-action]
-#    IncomingGlobalBurst = 20
+# [nodesets.capability_configs.http-action]
+#    binary_path = ""
+#    [nodesets.capability_configs.http-action.values]
+#       IncomingGlobalBurst = 20
 
   [nodesets.db]
     image = "postgres:12.0"

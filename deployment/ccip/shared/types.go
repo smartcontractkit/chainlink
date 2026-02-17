@@ -58,6 +58,8 @@ var (
 	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
 	BurnMintWithExternalMinterTokenPool             deployment.ContractType = "BurnMintWithExternalMinterTokenPool"
 	HybridWithExternalMinterTokenPool               deployment.ContractType = "HybridWithExternalMinterTokenPool"
+	BurnMintERC20TransparentToken                   deployment.ContractType = "BurnMintERC20TransparentToken"
+	BurnMintERC20PausableFreezableTransparentToken  deployment.ContractType = "BurnMintERC20PausableFreezableTransparentToken"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"
@@ -96,4 +98,8 @@ var (
 
 	// Attestation Service
 	EVMSignerRegistry deployment.ContractType = "SignerRegistry"
+
+	// OpenZeppelin
+	ProxyAdmin                  deployment.ContractType = "ProxyAdmin"
+	TransparentUpgradeableProxy deployment.ContractType = "TransparentUpgradeableProxy"
 )

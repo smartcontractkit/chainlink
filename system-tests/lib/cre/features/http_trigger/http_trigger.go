@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -25,7 +25,6 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const flag = cre.HTTPTriggerCapability
@@ -67,7 +66,9 @@ func (o *HTTPTrigger) PreEnvStartup(
 			Version:        "1.0.0-alpha",
 			CapabilityType: 0, // TRIGGER
 		},
-		Config: &capabilitiespb.CapabilityConfig{},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -78,16 +79,16 @@ func (o *HTTPTrigger) PreEnvStartup(
 const configTemplate = `
 {
 	"incomingRateLimiter": {
-		"globalBurst": {{.IncomingGlobalBurst}},
-		"globalRPS": {{.IncomingGlobalRPS}},
-		"perSenderBurst": {{.IncomingPerSenderBurst}},
-		"perSenderRPS": {{.IncomingPerSenderRPS}}
+		"globalBurst": {{printf "%v" .IncomingGlobalBurst}},
+		"globalRPS": {{printf "%v" .IncomingGlobalRPS}},
+		"perSenderBurst": {{printf "%v" .IncomingPerSenderBurst}},
+		"perSenderRPS": {{printf "%v" .IncomingPerSenderRPS}}
 	},
 	"outgoingRateLimiter": {
-		"globalBurst": {{.OutgoingGlobalBurst}},
-		"globalRPS": {{.OutgoingGlobalRPS}},
-		"perSenderBurst": {{.OutgoingPerSenderBurst}},
-		"perSenderRPS": {{.OutgoingPerSenderRPS}}
+		"globalBurst": {{printf "%v" .OutgoingGlobalBurst}},
+		"globalRPS": {{printf "%v" .OutgoingGlobalRPS}},
+		"perSenderBurst": {{printf "%v" .OutgoingPerSenderBurst}},
+		"perSenderRPS": {{printf "%v" .OutgoingPerSenderRPS}}
 	}
 }
 `
@@ -99,9 +100,9 @@ func (o *HTTPTrigger) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	capabilityConfig, ok := don.GetCapabilityConfig(flag)
 	if !ok {
-		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
+		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
 	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
@@ -120,7 +121,7 @@ func (o *HTTPTrigger) PostEnvStartup(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	templateData := envconfig.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityConfigOverrides())
+	templateData := capabilityConfig.Values
 	tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
 	if tmplErr != nil {
 		return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)
@@ -133,7 +134,7 @@ func (o *HTTPTrigger) PostEnvStartup(
 	configStr := configBuffer.String()
 
 	if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return errors.Wrapf(err, "%s template validation failed", flag)
+		return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
 	workerInput := cre_jobs.ProposeJobSpecInput{

@@ -125,18 +125,28 @@ func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 }
 
 func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
-	if s.provider.IsCRIB() {
-		return nil, errors.New("CRIB deployment for Solana is not supported yet")
-	}
+	var bcOut *blockchain.Output
+	var err error
 
-	err := initSolanaInput(input)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to init Solana input")
-	}
+	if s.provider.IsKubernetes() {
+		// For Kubernetes, use the blockchain output from config (no deployment)
+		if err = blockchains.ValidateKubernetesBlockchainOutput(input); err != nil {
+			return nil, err
+		}
 
-	bcOut, err := blockchain.NewWithContext(ctx, input)
-	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
+		s.testLogger.Info().Msgf("Using configured Kubernetes blockchain URLs for %s (chain_id: %s)", input.Type, input.ChainID)
+		bcOut = input.Out
+	} else {
+		// Docker deployment
+		err = initSolanaInput(input)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to init Solana input")
+		}
+
+		bcOut, err = blockchain.NewWithContext(ctx, input)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
+		}
 	}
 
 	sel, ok := chainselectors.SolanaChainIdToChainSelector()[input.ChainID]
@@ -175,15 +185,15 @@ func initSolanaInput(bi *blockchain.Input) error {
 	}
 	bi.PublicKey = DefaultSolanaPrivateKey.PublicKey().String()
 	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
-
 	if bi.SolanaPrograms != nil {
 		var err2 error
 		once.Do(func() {
 			if hasSolanaArtifacts(bi.ContractsDir) {
 				return
 			}
+
 			// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
-			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "b0f7cd3fbdbb", logger.Nop())
+			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "b18eed21017b", logger.Nop())
 		})
 		if err2 != nil {
 			return fmt.Errorf("failed to download solana artifacts: %w", err2)

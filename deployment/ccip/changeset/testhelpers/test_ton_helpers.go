@@ -14,8 +14,8 @@ import (
 	"github.com/xssnick/tonutils-go/tlb"
 	"github.com/xssnick/tonutils-go/ton"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
@@ -57,14 +57,15 @@ func setupLogPoller(
 	}
 
 	// Create logpoller with in-memory stores for testing
-	service := tonlogpoller.NewService(lggr, chainID, clientProvider, &tonlogpoller.ServiceOptions{
+	service, err := tonlogpoller.NewService(lggr, chainID, clientProvider, &tonlogpoller.ServiceOptions{
 		Config:      tonlogpoller.DefaultConfigSet,
 		FilterStore: tonlpstore.NewFilterStore(chainID, lggr),
 		TxLoader:    tonlploader.New(lggr, clientProvider),
 		LogStore:    tonlpstore.NewLogStore(chainID, lggr),
 	})
+	require.NoError(t, err)
 
-	_, err := service.RegisterFilter(ctx, tonlptypes.Filter{
+	_, err = service.RegisterFilter(ctx, tonlptypes.Filter{
 		Name:     fmt.Sprintf("%s-%s", contract.String(), eventName),
 		Address:  contract,
 		EventSig: hash.CRC32(eventName),
@@ -152,8 +153,8 @@ func waitForTONEvent[T any](
 	}
 }
 
-// ConfirmCommitWithExpectedSeqNumRangeTON waits for a commit report that covers the expected sequence number range.
-func ConfirmCommitWithExpectedSeqNumRangeTON(
+// confirmCommitWithExpectedSeqNumRangeTON waits for a commit report that covers the expected sequence number range.
+func confirmCommitWithExpectedSeqNumRangeTON(
 	t *testing.T,
 	srcChainSelector uint64,
 	tonChain cldf_ton.Chain,
@@ -178,7 +179,7 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(
 
 			// Check if all messages committed (single or multiple reports)
 			if (uint64(expectedSeqNums.Start()) >= mr.MinSeqNr && uint64(expectedSeqNums.End()) <= mr.MaxSeqNr) ||
-				tracker.allCommited(srcChainSelector) {
+				tracker.allCommitted(srcChainSelector) {
 				t.Logf("All sequence numbers committed [%d, %d]", expectedSeqNums.Start(), expectedSeqNums.End())
 				return true, nil
 			}
@@ -193,9 +194,9 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(
 	return err == nil, err
 }
 
-// ConfirmExecWithExpectedSeqNrsTON waits for execution state changes on TON for the given sequence numbers.
+// confirmExecWithExpectedSeqNrsTON waits for execution state changes on TON for the given sequence numbers.
 // Returns a map of sequence number to execution state.
-func ConfirmExecWithExpectedSeqNrsTON(
+func confirmExecWithExpectedSeqNrsTON(
 	t *testing.T,
 	srcChainSelector uint64,
 	tonChain cldf_ton.Chain,

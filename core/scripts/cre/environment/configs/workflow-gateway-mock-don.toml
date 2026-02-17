@@ -6,18 +6,6 @@
 [infra]
     type = "docker"
 
-#[infra.crib]
-    #folder_location = "/your/absolute/path/to/crib/deployments/cre"
-    #namespace = "crib-local"
-    #provider = "kind"
-
-# Fields below are required, check guidelines.md for details
-# [infra.crib.team_input]
-#  team = "your-team"
-#  product = "product-name"
-#  component = "crib"
-#  cost_center = "crib"
-
 [s3provider]
     port = 16000
     console_port = 16001
@@ -33,17 +21,14 @@ port = 8666
     image = "localhost:5001/job-distributor:0.22.1"
 
 [[nodesets]]
-    nodes = 5
+    nodes = 4
     name = "workflow"
     don_types = ["workflow"]
-    override_mode = "each"
+    override_mode = "all"
     http_port_range_start = 10100
 
     env_vars = { CL_EVM_CMD = "" }
-    capabilities = ["ocr3", "custom-compute", "web-api-trigger", "don-time"]
-
-   [nodesets.chain_capabilities]
-    write-evm = ["1337"]
+    capabilities = ["ocr3", "custom-compute", "web-api-trigger", "don-time", "write-evm-1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -52,18 +37,6 @@ port = 8666
     port = 13000
 
     [[nodesets.node_specs]]
-        roles = ["bootstrap"]
-        [nodesets.node_specs.node]
-        image = "localhost:5001/chainlink-plugins:latest"
-        user_config_overrides = """
-            [Log]
-            Level = 'info'
-            JSONConsole = true
-            [WebServer.TLS]
-            HTTPSPort=0
-            """
-
-    [[nodesets.node_specs]]
         roles = ["plugin"]
         [nodesets.node_specs.node]
         image = "localhost:5001/chainlink-plugins:latest"
@@ -74,36 +47,6 @@ port = 8666
             [WebServer.TLS]
             HTTPSPort=0
             """
-
-    [[nodesets.node_specs]]
-        roles = ["plugin"]
-        [nodesets.node_specs.node]
-        image = "localhost:5001/chainlink-plugins:latest"
-        user_config_overrides = """
-            [Log]
-            Level = 'info'
-            JSONConsole = true
-            [WebServer.TLS]
-            HTTPSPort=0
-            """
-
-    [[nodesets.node_specs]]
-        roles = ["plugin"]
-        [nodesets.node_specs.node]
-        image = "localhost:5001/chainlink-plugins:latest"
-        user_config_overrides = """
-            [Log]
-            Level = 'info'
-            JSONConsole = true
-            [WebServer.TLS]
-            HTTPSPort=0
-            """
-
-    [[nodesets.node_specs]]
-        roles = ["plugin"]
-        [nodesets.node_specs.node]
-        image = "localhost:5001/chainlink-plugins:latest"
-        user_config_overrides = ""
 
 [[nodesets]]
     nodes = 3
@@ -127,7 +70,8 @@ port = 8666
 
 [[nodesets]]
     nodes = 1
-    name = "gateway"
+    name = "bootstrap-gateway"
+    don_types = ["bootstrap", "gateway"]
     override_mode = "each"
     http_port_range_start = 10300
 

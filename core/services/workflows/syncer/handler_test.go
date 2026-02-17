@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -129,7 +129,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -197,7 +197,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -232,7 +232,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -270,7 +270,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -790,7 +790,7 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -911,7 +911,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -987,7 +987,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -1056,7 +1056,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -1152,7 +1152,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
@@ -1252,7 +1252,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
 
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})

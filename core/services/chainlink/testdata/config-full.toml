@@ -342,6 +342,11 @@ ArtifactStorageHost = ''
 URL = ''
 TLSEnabled = true
 
+[[Capabilities.WorkflowRegistry.AdditionalSources]]
+URL = 'localhost:50051'
+TLSEnabled = true
+Name = 'test-grpc-source'
+
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = '11155111'
 NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59'
@@ -353,6 +358,23 @@ AuthTimestampToleranceSec = 10
 [[Capabilities.GatewayConnector.Gateways]]
 ID = 'example_gateway'
 URL = 'wss://localhost:8081/node'
+
+[Capabilities.Local]
+RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-action@.*$']
+
+[Capabilities.Local.Capabilities]
+[Capabilities.Local.Capabilities.'cron@1.0.0']
+BinaryPathOverride = '/opt/chainlink/binaries/cron'
+
+[Capabilities.Local.Capabilities.'cron@1.0.0'.Config]
+fastestScheduleIntervalSeconds = '60'
+
+[Capabilities.Local.Capabilities.'http-action@1.0.0']
+BinaryPathOverride = '/opt/chainlink/binaries/http_action'
+
+[Capabilities.Local.Capabilities.'http-action@1.0.0'.Config]
+allowedPorts = '443,8443'
+proxyMode = 'gateway'
 
 [Telemetry]
 Enabled = true
@@ -408,6 +430,17 @@ StatusPath = '/status'
 PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
+
+[Sharding]
+ArbiterPort = 9876
+ArbiterPollInterval = '12s'
+ArbiterRetryInterval = '12s'
+ShardIndex = 0
+ShardOrchestratorPort = 50051
+ShardOrchestratorAddress = ''
+
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '42.00mb'
 
 [[EVM]]
 ChainID = '1'

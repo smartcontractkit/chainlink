@@ -89,6 +89,20 @@ runner-test-matrix:
     test_env_vars:
       CL_SOLANA_CMD: chainlink-solana
 
+  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Revert_EVM2Solana_LOOPP
+    path: integration-tests/smoke/ccip/ccip_messaging_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Revert_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
+    test_go_project_path: integration-tests
+    install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
+
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_MultiExecReports_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
@@ -210,6 +224,16 @@ runner-test-matrix:
     test_cmd: cd smoke/ccip && go test ccip_reader_test.go -timeout 5m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_lane_rmn_test.go:*
+    path: integration-tests/smoke/ccip/ccip_lane_rmn_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test ccip_lane_rmn_test.go -timeout 5m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
   - id: smoke/ccip/ccip_usdc_test.go:*
     path: integration-tests/smoke/ccip/ccip_usdc_test.go
     test_env_type: in-memory
@@ -296,7 +320,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseUncurseAptos$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseMCMS
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -487,7 +511,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -500,7 +524,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -513,7 +537,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -526,7 +550,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -539,7 +563,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -552,7 +576,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -565,7 +589,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -578,7 +602,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -593,7 +617,7 @@ runner-test-matrix:
       echo "🚀 Starting CCIP Aptos LnR without TransferRef EVM2Aptos test..."
       go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -606,7 +630,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -619,7 +643,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_AptosMessageHasher" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -632,7 +656,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -645,7 +669,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -658,7 +682,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -671,7 +695,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -684,7 +708,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -697,7 +721,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -710,7 +734,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -723,7 +747,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.10.0
+    aptos_cli_version: 7.13.0
     install_plugins_public: true
     free_disk_space: true
 

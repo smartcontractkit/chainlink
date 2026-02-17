@@ -42,7 +42,7 @@ func Test_MarshalUnmarshalQuery(t *testing.T) {
 	snapshot := make([]*s4.SnapshotRow, len(ormVersions))
 	for i, v := range ormVersions {
 		snapshot[i] = &s4.SnapshotRow{
-			Address: v.Address.Bytes(),
+			Address: v.Address.ToInt().Bytes(),
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}

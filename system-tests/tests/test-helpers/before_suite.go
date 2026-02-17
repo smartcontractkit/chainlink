@@ -1,56 +1,34 @@
 package helpers
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
-
-// TestConfig holds common test specific configurations related to the test execution
-// These configurations are not meant to impact the actual test logic
-type TestConfig struct {
-	RelativePathToRepoRoot   string
-	EnvironmentConfigPath    string
-	EnvironmentDirPath       string
-	EnvironmentStateFile     string
-	EnvironmentArtifactPaths string
-	BeholderStateFile        string
-}
-
-// TestEnvironment holds references to the main test components
-type TestEnvironment struct {
-	Config         *envconfig.Config
-	TestConfig     *TestConfig
-	EnvArtifact    *environment.EnvArtifact
-	Logger         zerolog.Logger
-	CreEnvironment *cre.Environment
-	Blockchains    []blockchains.Blockchain
-}
 
 func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
 	t.Helper()
 
 	createEnvironment(t, tconf, flags...)
 	in := getEnvironmentConfig(t)
-	envArtifact := getEnvironmentArtifact(t, tconf.RelativePathToRepoRoot)
-	creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
+	creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 	require.NoError(t, err, "failed to load environment")
 
 	t.Cleanup(func() {
@@ -68,7 +46,6 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 	return &ttypes.TestEnvironment{
 		Config:         in,
 		TestConfig:     tconf,
-		EnvArtifact:    envArtifact,
 		Logger:         framework.L,
 		CreEnvironment: creEnvironment,
 		Dons:           dons,
@@ -78,7 +55,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 func GetDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
-	return GetTestConfig(t, "/configs/workflow-don.toml")
+	return GetTestConfig(t, "/configs/workflow-gateway-don.toml")
 }
 
 func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
@@ -90,23 +67,18 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 		EnvironmentDirPath:     environmentDirPath,
 		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
+		ChipIngressGRPCPort:    chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT,
 	}
 }
 
 func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 	t.Helper()
 
-	in, err := framework.Load[envconfig.Config](nil)
+	// we call our own Load function because it executes a couple of crucial extra input transformations
+	in := &envconfig.Config{}
+	err := in.Load(os.Getenv("CTF_CONFIGS"))
 	require.NoError(t, err, "couldn't load environment state")
 	return in
-}
-
-func getEnvironmentArtifact(t *testing.T, relativePathToRepoRoot string) *environment.EnvArtifact {
-	t.Helper()
-
-	envArtifact, artErr := environment.ReadEnvArtifact(environment.MustEnvArtifactAbsPath(relativePathToRepoRoot))
-	require.NoError(t, artErr, "failed to read environment artifact")
-	return envArtifact
 }
 
 func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...string) {
@@ -115,7 +87,7 @@ func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...str
 	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath)
 	require.NoError(t, confErr, "failed to set configuration")
 
-	createErr := createEnvironmentIfNotExists(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, flags...)
+	createErr := createEnvironmentIfNotExists(t.Context(), testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, flags...)
 	require.NoError(t, createErr, "failed to create environment")
 
 	setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot))
@@ -133,14 +105,14 @@ func setConfigurationIfMissing(configName string) error {
 	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
 }
 
-func createEnvironmentIfNotExists(relativePathToRepoRoot, environmentDir string, flags ...string) error {
+func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, environmentDir string, flags ...string) error {
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
 		args := []string{"run", ".", "env", "start"}
 		args = append(args, flags...)
 
-		cmd := exec.Command("go", args...)
+		cmd := exec.CommandContext(ctx, "go", args...)
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

@@ -5,16 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 // REGRESSION TESTS target edge cases, negative conditions, etc., all happy path and sanity checks should go to a `smoke` package.
-
-var v2RegistriesFlags = []string{"--with-contracts-version", "v2"}
-
 /*
 To execute tests locally start the local CRE first:
 Inside `core/scripts/cre/environment` directory
@@ -32,7 +28,7 @@ func Test_CRE_V2_Consensus_Regression(t *testing.T) {
 	for _, tCase := range consensusNegativeTestsGenerateReport {
 		testName := fmt.Sprintf(consensusTestNameTemplate, tCase.caseToTrigger, tCase.name)
 		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ConsensusFailsTest(t, testEnv, tCase)
 		})
 	}
@@ -42,7 +38,7 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 	for _, tCase := range cronInvalidSchedulesTests {
 		testName := "[v2] Cron (Beholder) fails when schedule is " + tCase.name
 		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 			CronBeholderFailsWithInvalidScheduleTest(t, testEnv, tCase.invalidSchedule)
 		})
@@ -53,7 +49,7 @@ func Test_CRE_V2_HTTP_Regression(t *testing.T) {
 	for _, tCase := range httpNegativeTests {
 		testName := "[v2] HTTP Trigger fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			HTTPTriggerFailsTest(t, testEnv, tCase)
 		})
 	}
@@ -67,15 +63,17 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 	for _, tCase := range testCases {
 		testName := fmt.Sprintf(evmTestNameTemplate, tCase.functionToTest, tCase.name)
 		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 			// Check if test name contains "write" to determine which test function to run
-			if strings.Contains(strings.ToLower(testName), "writereport") {
+			switch {
+			case strings.Contains(strings.ToLower(testName), "writereport"):
 				framework.L.Info().Msg("Running EVM Write Regression test")
 				EVMWriteFailsTest(t, testEnv, tCase)
-			} else {
+			case strings.Contains(strings.ToLower(testName), "logtrigger"):
+				framework.L.Info().Msg("Running EVM LogTrigger Regression test")
+				EVMLogTriggerFailsTest(t, testEnv, tCase)
+			default:
 				framework.L.Info().Msg("Running EVM Read Regression test")
 				EVMReadFailsTest(t, testEnv, tCase)
 			}
@@ -127,6 +125,9 @@ func Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidReceiver)
 }
 
+func Test_CRE_V2_EVM_WriteReport_Failing_On_Receiver(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportFailingOnReceiver)
+}
 func Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportCorruptReceiverAddress)
 }
@@ -135,14 +136,15 @@ func Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidGas)
 }
 
+func Test_CRE_V2_EVM_LogTrigger_Invalid_Address_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsLogTriggerInvalidAddress)
+}
+
 func Test_CRE_V2_HTTP_Action_CRUD_Regression(t *testing.T) {
 	for _, tCase := range httpActionFailureTests {
 		testName := "[v2] HTTP Action fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
-
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			HTTPActionFailureTest(t, testEnv, tCase)
 		})
 	}

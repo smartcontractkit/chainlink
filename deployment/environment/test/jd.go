@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 )
 
 var _ nodev1.NodeServiceClient = (*JDNodeService)(nil)
@@ -28,13 +28,14 @@ var _ csav1.CSAServiceClient = (*JDNodeService)(nil)
 type JDNodeService struct {
 	mu    sync.RWMutex
 	store *store
-	*UnimplementedJobServiceClient
+	jobv1.JobServiceClient
 	*UnimplementedCSAServiceClient
 }
 
 func NewJDService(nodes []deployment.Node) *JDNodeService {
 	return &JDNodeService{
-		store: newStore(nodes),
+		store:            newStore(nodes),
+		JobServiceClient: &UnimplementedJobServiceClient{},
 	}
 }
 

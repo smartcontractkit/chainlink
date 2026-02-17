@@ -4,6 +4,7 @@ package network
 import (
 	"context"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -826,4 +827,221 @@ func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 			require.ErrorContains(t, err, tt.expectedError)
 		})
 	}
+}
+
+// verifyBackwardCompatibility checks that all keys in MultiHeaders are also present in Headers
+// with non-empty values.
+func verifyBackwardCompatibility(t *testing.T, headers map[string]string, multiHeaders map[string][]string) {
+	for key := range maps.Keys(multiHeaders) {
+		require.NotEmpty(t, headers[key], "Headers should contain %s for backward compatibility", key)
+	}
+}
+
+func TestHTTPClient_MultiHeaders(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+
+	t.Run("response with multiple Set-Cookie headers", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set multiple Set-Cookie headers (cannot be comma-separated per RFC 6265)
+			w.Header().Add("Set-Cookie", "sessionid=abc123; Path=/; HttpOnly")
+			w.Header().Add("Set-Cookie", "csrf_token=xyz789; Path=/; Secure")
+			w.Header().Add("Set-Cookie", "pref=dark; Path=/")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("success"))
+		}))
+		defer server.Close()
+
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+		hostname, port := u.Hostname(), u.Port()
+		portInt, err := strconv.ParseInt(port, 10, 32)
+		require.NoError(t, err)
+
+		config := &HTTPClientConfig{
+			MaxResponseBytes: 1024,
+			AllowedIPs:       []string{hostname},
+			AllowedPorts:     []int{int(portInt)},
+		}
+
+		client, err := NewHTTPClient(*config, lggr)
+		require.NoError(t, err)
+
+		resp, err := client.Send(context.Background(), HTTPRequest{
+			Method:  "GET",
+			URL:     server.URL,
+			Headers: map[string]string{},
+			Body:    nil,
+			Timeout: 2 * time.Second,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		// Verify MultiHeaders contains all Set-Cookie values
+		require.NotNil(t, resp.MultiHeaders, "MultiHeaders should not be nil")
+		setCookieValues, ok := resp.MultiHeaders["Set-Cookie"]
+		require.True(t, ok, "Set-Cookie header should be in MultiHeaders")
+		require.Len(t, setCookieValues, 3, "Should have 3 Set-Cookie headers")
+		require.Contains(t, setCookieValues, "sessionid=abc123; Path=/; HttpOnly")
+		require.Contains(t, setCookieValues, "csrf_token=xyz789; Path=/; Secure")
+		require.Contains(t, setCookieValues, "pref=dark; Path=/")
+
+		// Verify Headers field has comma-joined values for backward compatibility
+		require.NotEmpty(t, resp.Headers["Set-Cookie"], "Headers should contain Set-Cookie")
+		require.Contains(t, resp.Headers["Set-Cookie"], "sessionid=abc123")
+		require.Contains(t, resp.Headers["Set-Cookie"], "csrf_token=xyz789")
+		require.Contains(t, resp.Headers["Set-Cookie"], "pref=dark")
+
+		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
+		verifyBackwardCompatibility(t, resp.Headers, resp.MultiHeaders)
+	})
+
+	t.Run("response with multiple Via headers", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set multiple Via headers (can be comma-separated, but we preserve all values)
+			w.Header().Add("Via", "1.0 proxy1")
+			w.Header().Add("Via", "1.1 proxy2")
+			w.Header().Add("Via", "1.1 proxy3")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("success"))
+		}))
+		defer server.Close()
+
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+		hostname, port := u.Hostname(), u.Port()
+		portInt, err := strconv.ParseInt(port, 10, 32)
+		require.NoError(t, err)
+
+		config := &HTTPClientConfig{
+			MaxResponseBytes: 1024,
+			AllowedIPs:       []string{hostname},
+			AllowedPorts:     []int{int(portInt)},
+		}
+
+		client, err := NewHTTPClient(*config, lggr)
+		require.NoError(t, err)
+
+		resp, err := client.Send(context.Background(), HTTPRequest{
+			Method:  "GET",
+			URL:     server.URL,
+			Headers: map[string]string{},
+			Body:    nil,
+			Timeout: 2 * time.Second,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		// Verify MultiHeaders contains all Via values
+		require.NotNil(t, resp.MultiHeaders)
+		viaValues, ok := resp.MultiHeaders["Via"]
+		require.True(t, ok, "Via header should be in MultiHeaders")
+		require.Len(t, viaValues, 3, "Should have 3 Via headers")
+		require.Contains(t, viaValues, "1.0 proxy1")
+		require.Contains(t, viaValues, "1.1 proxy2")
+		require.Contains(t, viaValues, "1.1 proxy3")
+
+		// Verify Headers field has comma-joined values
+		require.Equal(t, "1.0 proxy1,1.1 proxy2,1.1 proxy3", resp.Headers["Via"])
+
+		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
+		verifyBackwardCompatibility(t, resp.Headers, resp.MultiHeaders)
+	})
+
+	t.Run("response with single header value", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("success"))
+		}))
+		defer server.Close()
+
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+		hostname, port := u.Hostname(), u.Port()
+		portInt, err := strconv.ParseInt(port, 10, 32)
+		require.NoError(t, err)
+
+		config := &HTTPClientConfig{
+			MaxResponseBytes: 1024,
+			AllowedIPs:       []string{hostname},
+			AllowedPorts:     []int{int(portInt)},
+		}
+
+		client, err := NewHTTPClient(*config, lggr)
+		require.NoError(t, err)
+
+		resp, err := client.Send(context.Background(), HTTPRequest{
+			Method:  "GET",
+			URL:     server.URL,
+			Headers: map[string]string{},
+			Body:    nil,
+			Timeout: 2 * time.Second,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		// Verify MultiHeaders contains single value
+		require.NotNil(t, resp.MultiHeaders)
+		contentTypeValues, ok := resp.MultiHeaders["Content-Type"]
+		require.True(t, ok, "Content-Type header should be in MultiHeaders")
+		require.Len(t, contentTypeValues, 1, "Should have 1 Content-Type header")
+		require.Equal(t, "application/json", contentTypeValues[0])
+
+		// Verify Headers field matches
+		require.Equal(t, "application/json", resp.Headers["Content-Type"])
+
+		// Verify backward compatibility: all keys in MultiHeaders should be in Headers
+		verifyBackwardCompatibility(t, resp.Headers, resp.MultiHeaders)
+	})
+
+	t.Run("response with no headers", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		u, err := url.Parse(server.URL)
+		require.NoError(t, err)
+		hostname, port := u.Hostname(), u.Port()
+		portInt, err := strconv.ParseInt(port, 10, 32)
+		require.NoError(t, err)
+
+		config := &HTTPClientConfig{
+			MaxResponseBytes: 1024,
+			AllowedIPs:       []string{hostname},
+			AllowedPorts:     []int{int(portInt)},
+		}
+
+		client, err := NewHTTPClient(*config, lggr)
+		require.NoError(t, err)
+
+		resp, err := client.Send(context.Background(), HTTPRequest{
+			Method:  "GET",
+			URL:     server.URL,
+			Headers: map[string]string{},
+			Body:    nil,
+			Timeout: 2 * time.Second,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+		// MultiHeaders should not be nil
+		require.NotNil(t, resp.MultiHeaders, "MultiHeaders should not be nil even if empty")
+		// If there are headers (like Date), they should be in MultiHeaders
+		if len(resp.MultiHeaders) > 0 {
+			// Verify that any headers present have at least one value
+			for key, values := range resp.MultiHeaders {
+				require.NotEmpty(t, values, "Header %s should have at least one value", key)
+			}
+			// Verify backward compatibility: all keys in MultiHeaders should be in Headers
+			verifyBackwardCompatibility(t, resp.Headers, resp.MultiHeaders)
+		}
+		require.NotNil(t, resp.Headers, "Headers should not be nil even if empty")
+	})
 }

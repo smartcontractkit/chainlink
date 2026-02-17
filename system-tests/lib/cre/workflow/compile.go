@@ -98,8 +98,8 @@ func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName strin
 
 	goModTidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
 	goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
-	if err := goModTidyCmd.Run(); err != nil {
-		return "", errors.Wrap(err, "failed to run go mod tidy")
+	if output, err := goModTidyCmd.CombinedOutput(); err != nil {
+		return "", errors.Wrapf(err, "failed to run go mod tidy: %s", string(output))
 	}
 
 	compileCmd := exec.CommandContext(ctx, "go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive

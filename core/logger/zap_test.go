@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zaptest/observer"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -271,21 +273,46 @@ func TestZapLogger_Name(t *testing.T) {
 	require.Equal(t, "Lggr1.Lggr2", lggr2.Name())
 }
 
-func TestZapLogger_Cleanup(t *testing.T) {
-	ac := NewAtomicCore()
+func TestLogger_Leak(t *testing.T) {
+	ac := NewUpdatableCore()
 	defer ac.Close()
-	l := 1000000
+	startObjectsNum := heapObjects()
+	aLggr := ac.root.With([]zapcore.Field{})
+	bLggr := aLggr.With([]zapcore.Field{})
+	var l uint64 = 1000_000
 	for range l {
-		ac.With([]zapcore.Field{})
+		bLggr.With([]zapcore.Field{})
 	}
-	// Without the cleanup triggered, all children should remain.
-	// We assume that the cleanupInterval is sufficiently large to not yet trigger.
-	require.Equal(t, len(ac.children), l)
-
-	// Trigger cleanup manually.
+	aLggr = nil
 	runtime.GC()
-	ac.cleanup()
-	// Ideally, ac.children should be 0 here, but since garbage collected weak pointers are not necessarily nil we just
-	// test that some have been cleaned up.
-	require.Less(t, len(ac.children), l)
+	ac.registry.cleanup()
+	runtime.GC()
+	endObjectsNum := heapObjects()
+	// Require that endObjectsNum does not grow (with l/10 "delta" left for garbage collection jitter)
+	assert.Less(t, endObjectsNum, startObjectsNum+l/10)
+	require.NoError(t, bLggr.Sync())
+}
+
+func TestLogger_Output(t *testing.T) {
+	core, logs := observer.New(zapcore.InfoLevel)
+	ac := NewUpdatableCore()
+	lggrCfg := Config{}
+	l, closeL := lggrCfg.NewWithCores(ac.Root())
+	l2 := l.With("a", "a")
+	l3 := l2.With("b", "b")
+	ac.Update(core)
+	l3.Info("test")
+	require.Equal(t, 1, logs.Len())
+	require.Equal(t, "test", logs.All()[0].Message)
+	require.Len(t, logs.All()[0].Context, 3)
+	require.Equal(t, zapcore.Field{Key: "a", String: "a", Type: zapcore.StringType}, logs.All()[0].Context[1])
+	require.Equal(t, zapcore.Field{Key: "b", String: "b", Type: zapcore.StringType}, logs.All()[0].Context[2])
+	ac.Close()
+	require.NoError(t, closeL())
+}
+
+func heapObjects() uint64 {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return m.HeapObjects
 }

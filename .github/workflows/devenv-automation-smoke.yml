@@ -1,0 +1,101 @@
+name: Automation Nightly Smoke Tests
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Run daily at 6 AM
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: devenv
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - TestRegistry_2_0
+          - TestRegistry_2_1
+          - TestRegistry_2_2
+          - TestRegistry_2_3
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        with:
+          just-version: "1.40.0"
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
+          aws-region: us-west-2
+
+      - name: Authenticate to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v6 # v6
+        with:
+          cache: true
+          go-version-file: devenv/go.mod
+          cache-dependency-path: devenv/go.sum
+
+      - name: Download Go dependencies
+        run: |
+          go mod download
+
+      - name: Set environment variables
+        id: set-env
+        run: |
+          echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)" >> $GITHUB_ENV
+
+      - name: Run Automation environment
+        env:
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+        run: |
+          cd cmd/cl && go install . && cd -
+          cl u env.toml,products/automation/basic.toml
+
+      - name: Run Smoke tests
+        id: smoke_test
+        working-directory: devenv/tests/automation
+        run: |
+          echo "Running tests for: $CHAINLINK_IMAGE, product: Automation, test: ${{ matrix.test }}"
+          go test -v -timeout 4h -run ${{ matrix.test }}
+
+      - name: Show Docker containers status
+        if: failure()
+        shell: bash
+        run: docker ps -a
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-smoke-${{ matrix.test }}
+          path: devenv/tests/automation/logs
+          retention-days: 1

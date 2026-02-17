@@ -3,13 +3,13 @@ package llo
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
@@ -42,15 +42,17 @@ func (o *chainScopedORM) LoadChannelDefinitions(ctx context.Context, addr common
 }
 
 // StoreChannelDefinitions will store a ChannelDefinitions list for a given chain_selector, addr, don_id
-// It only updates if the new version is greater than the existing record
-func (o *chainScopedORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) error {
+// It updates if the new version is greater than the existing record OR if the block number has changed
+// (indicating definitions were updated even if version hasn't progressed)
+func (o *chainScopedORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns json.RawMessage, blockNum int64, format uint32) error {
 	_, err := o.ds.ExecContext(ctx, `
-INSERT INTO channel_definitions (chain_selector, addr, don_id, definitions, block_num, version, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, NOW())
+INSERT INTO channel_definitions (chain_selector, addr, don_id, definitions, block_num, version, updated_at, format)
+VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
 ON CONFLICT (chain_selector, addr, don_id) DO UPDATE
-SET definitions = $4, block_num = $5, version = $6, updated_at = NOW()
-WHERE EXCLUDED.version > channel_definitions.version
-`, o.chainSelector, addr, donID, dfns, blockNum, version)
+SET definitions = $4, block_num = $5, version = $6, updated_at = NOW(), format = $7
+WHERE EXCLUDED.don_id = channel_definitions.don_id AND EXCLUDED.chain_selector = channel_definitions.chain_selector
+AND (EXCLUDED.version >= channel_definitions.version OR EXCLUDED.block_num >= channel_definitions.block_num)`,
+		o.chainSelector, addr, donID, dfns, blockNum, version, format)
 	if err != nil {
 		return fmt.Errorf("StoreChannelDefinitions failed: %w", err)
 	}

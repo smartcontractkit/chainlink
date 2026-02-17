@@ -106,13 +106,11 @@ func (tq *transmitQueue) Push(t *Transmission) (ok bool) {
 		for tq.pq.Len() >= tq.maxlen {
 			// evict oldest entries to make room
 			removed := heap.PopMax(tq.pq)
-			lggr := tq.lggr
 			if removed, ok := removed.(*Transmission); ok {
 				hash := removed.Hash()
-				lggr = lggr.With("transmissionHash", hex.EncodeToString(hash[:]))
 				tq.asyncDeleter.AsyncDelete(hash)
+				tq.lggr.Criticalw(fmt.Sprintf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen), "transmission", removed, "transmissionHash", hex.EncodeToString(hash[:]))
 			}
-			lggr.Criticalw(fmt.Sprintf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen), "transmission", removed)
 		}
 	}
 

@@ -93,9 +93,8 @@ func TestOtelCore(t *testing.T) {
 
 // TestAtomicCoreSwap tests the atomic core swap functionality after logger creation.
 func TestAtomicCoreSwap(t *testing.T) {
-	atomicCore := NewAtomicCore()
-	defer atomicCore.Close()
-	setOtelCore := atomicCore.Store
+	ac := NewUpdatableCore()
+	setOtelCore := ac.Update
 
 	lggrCfg := Config{
 		LogLevel:       zapcore.InfoLevel,
@@ -107,10 +106,10 @@ func TestAtomicCoreSwap(t *testing.T) {
 		SentryEnabled:  false,
 	}
 
-	lggr, closeFn := lggrCfg.NewWithCores(atomicCore)
+	lggr, closeFn := lggrCfg.NewWithCores(ac.root)
 	defer func() {
-		err := closeFn()
-		require.NoError(t, err)
+		ac.Close()
+		require.NoError(t, closeFn())
 	}()
 
 	// Create observer to capture logs
@@ -120,7 +119,7 @@ func TestAtomicCoreSwap(t *testing.T) {
 
 	assert.Equal(t, 0, otelLogs.Len(), "Expected no logs before core swap")
 
-	// Swap to the observer core
+	// Update to the observer core
 	setOtelCore(otelCore)
 
 	lggr.Info("after swap")

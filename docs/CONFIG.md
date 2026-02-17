@@ -1485,6 +1485,34 @@ ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 ```
 ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
 
+## Capabilities.WorkflowRegistry.AdditionalSources
+```toml
+[[Capabilities.WorkflowRegistry.AdditionalSources]]
+URL = 'localhost:50051' # Example
+TLSEnabled = true # Default
+Name = 'my-workflow-source' # Example
+```
+
+
+### URL
+```toml
+URL = 'localhost:50051' # Example
+```
+URL is the GRPC endpoint for the additional workflow metadata source.
+This allows workflows to be loaded from sources other than the on-chain registry contract.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS for the GRPC connection. Defaults to true.
+
+### Name
+```toml
+Name = 'my-workflow-source' # Example
+```
+Name is a required unique identifier for this workflow source. Each additional source must have a distinct name to prevent workflow reconciliation conflicts. Names like 'ContractWorkflowSource' are reserved for internal use.
+
 ## Workflows
 ```toml
 [Workflows]
@@ -1854,6 +1882,39 @@ BytesRateLimiterRate is the max size of precessed messages per second.
 BytesRateLimiterCapacity = 10000000 # Default
 ```
 BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
+
+## Capabilities.Local
+```toml
+[Capabilities.Local]
+RegistryBasedLaunchAllowlist = [] # Default
+```
+
+
+### RegistryBasedLaunchAllowlist
+```toml
+RegistryBasedLaunchAllowlist = [] # Default
+```
+RegistryBasedLaunchAllowlist contains regex patterns that match capability IDs to be launched
+from the on-chain capabilities registry instead of via job specs. Adding a pattern to this
+list has two effects:
+1. Disables job-spec-based launching - the delegate refuses to start matching capabilities via job specs
+2. Enables registry-based launching - the LocalCapabilityManager starts matching capabilities from on-chain registry
+This allows staged rollout: capabilities not matching any pattern continue launching via job specs,
+while matching capabilities transition to registry-based launching.
+Examples (using single-quoted TOML strings where backslashes are literal):
+- '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
+- '^http-action@.*$' matches any version of http-action
+- '.*' matches all capabilities
+
+Per-capability configuration. Each capability ID can have its own configuration section.
+Capability IDs must be in the format "name@version".
+[Capabilities.Local.Capabilities."http-action@1.0.0"]
+BinaryPathOverride overrides the default binary path for a LOOP capability.
+BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
+[Capabilities.Local.Capabilities."http-action@1.0.0".Config]
+Capability-specific configuration as key-value pairs.
+proxyMode = 'gateway' # Example
+allowedPorts = '443,8443' # Example
 
 ## Keeper
 ```toml
@@ -2610,6 +2671,70 @@ UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not runnin
 EnableDKGRecipient = false # Default
 ```
 EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
+
+## Sharding
+```toml
+[Sharding]
+ArbiterPort = 9876 # Default
+ArbiterPollInterval = '12s' # Default
+ArbiterRetryInterval = '12s' # Default
+ShardIndex = 0 # Default
+ShardOrchestratorPort = 50051 # Default
+ShardOrchestratorAddress = '' # Default
+```
+Sharding holds settings for node sharding configuration.
+
+### ArbiterPort
+```toml
+ArbiterPort = 9876 # Default
+```
+ArbiterPort is the port the Arbiter gRPC server listens on.
+
+### ArbiterPollInterval
+```toml
+ArbiterPollInterval = '12s' # Default
+```
+ArbiterPollInterval is how often to poll the ShardConfig contract.
+
+### ArbiterRetryInterval
+```toml
+ArbiterRetryInterval = '12s' # Default
+```
+ArbiterRetryInterval is the retry interval when contract reader is unavailable.
+
+### ShardIndex
+```toml
+ShardIndex = 0 # Default
+```
+ShardIndex is the index of this shard (0-based). If 0, no shard orchestration client is created.
+If greater than 0, a shard orchestration client is created and connects to ShardOrchestratorAddress.
+
+### ShardOrchestratorPort
+```toml
+ShardOrchestratorPort = 50051 # Default
+```
+ShardOrchestratorPort is the port for the shard orchestrator gRPC server.
+When a ring OCR job is created, the shard orchestrator server is spun up on this port.
+
+### ShardOrchestratorAddress
+```toml
+ShardOrchestratorAddress = '' # Default
+```
+ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
+
+## LOOPP
+```toml
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+Local Out-Of-Process Plugins
+
+### GRPCServerMaxRecvMsgSize
+```toml
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+GRPCServerMaxRecvMsgSize is the maximum received message size configured for grpc servers.
+We use a higher limit than the grpc default of 4mb.
 
 ## EVM
 EVM defaults depend on ChainID:

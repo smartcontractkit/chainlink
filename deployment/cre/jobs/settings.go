@@ -46,17 +46,34 @@ func VerifyCRESettings(s string) error {
 		}
 	}
 	for id, org := range data.Org {
-		if err := ensureSchema(org); err != nil {
+		// TODO to be enforced after upgrading deployed nodes and settings
+		// if strings.HasPrefix(id, "org_") {
+		// 	 errs = errors.Join(errs, fmt.Errorf("invalid org id %s: must not be prefixed org_", id))
+		// } else if strings.ToLower(id) != id {
+		//   errs = errors.Join(errs, fmt.Errorf("invalid org id %s: must be lower case", id))
+		if strings.HasPrefix(id, "0x") {
+			errs = errors.Join(errs, fmt.Errorf("invalid org id %s: must not be prefixed 0x", id))
+		} else if err := ensureSchema(org); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("invalid org %s: %w", id, err))
 		}
 	}
 	for id, owner := range data.Owner {
-		if err := ensureSchema(owner); err != nil {
+		if strings.HasPrefix(id, "owner_") {
+			errs = errors.Join(errs, fmt.Errorf("invalid owner id %s: must not be prefixed owner_", id))
+		} else if strings.HasPrefix(id, "0x") {
+			errs = errors.Join(errs, fmt.Errorf("invalid owner id %s: must not be prefixed 0x", id))
+		} else if strings.ToLower(id) != id {
+			errs = errors.Join(errs, fmt.Errorf("invalid owner id %s: must be lower case", id))
+		} else if err := ensureSchema(owner); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("invalid owner %s: %w", id, err))
 		}
 	}
 	for id, wf := range data.Workflow {
-		if err := ensureSchema(wf); err != nil {
+		if strings.HasPrefix(id, "0x") {
+			errs = errors.Join(errs, fmt.Errorf("invalid wf id %s: must not be prefixed 0x", id))
+		} else if strings.ToLower(id) != id {
+			errs = errors.Join(errs, fmt.Errorf("invalid wf id %s: must be lower case", id))
+		} else if err := ensureSchema(wf); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("invalid wf %s: %w", id, err))
 		}
 	}

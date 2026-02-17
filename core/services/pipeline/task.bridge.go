@@ -32,6 +32,15 @@ var (
 	},
 		[]string{"name", "status_code_group"},
 	)
+	promBridgeLatencyHist = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "bridge_latency_histogram_ms",
+		Help: "Bridge latency histogram in milliseconds scoped by name and response status code",
+		Buckets: []float64{
+			25, 50, 100, 250, 500,
+		},
+	},
+		[]string{"name", "status_code_group"},
+	)
 	promBridgeErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "bridge_errors_total",
 		Help: "Bridge error count scoped by name",
@@ -179,6 +188,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	elapsed := finish.Sub(start)
 	promBridgeLatency.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Set(elapsed.Seconds())
+	promBridgeLatencyHist.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Observe(float64(elapsed.Milliseconds()))
 
 	defer func() {
 		telemetryCh := GetTelemetryCh(ctx)

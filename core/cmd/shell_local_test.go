@@ -61,7 +61,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 	lggr := logger.TestLogger(t)
 	f := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), nil, ""),
+		LoopRegistry:         plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
@@ -506,6 +506,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 }
 
 func TestShell_BeforeNode(t *testing.T) {
+	testutils.SkipShortDB(t)
 	tests := []struct {
 		name         string
 		pwdfile      string

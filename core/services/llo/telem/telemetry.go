@@ -285,9 +285,9 @@ func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint6
 		"digest", digest, "currentSeqNr", currentSeqNr, "seqNr", seqNr, "message_count", len(messages[0])+len(messages[1]))
 
 	// drop stale messages
-	for messgesSeqNr := range digestMessages {
-		if messgesSeqNr <= seqNr {
-			delete(digestMessages, messgesSeqNr)
+	for messagesSeqNr := range digestMessages {
+		if messagesSeqNr <= seqNr {
+			delete(digestMessages, messagesSeqNr)
 		}
 	}
 

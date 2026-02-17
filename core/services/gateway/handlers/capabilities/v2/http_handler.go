@@ -39,6 +39,7 @@ const (
 	internalErrorMessage                 = "Internal server error occurred while processing the request"
 	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10      // 10 minutes
 	defaultJWTReplayPeriodMs             = 1000 * 60 * 60 * 24 // 24 hours
+	defaultSendResponseTimeoutMs         = 1000 * 5            // 5 seconds
 )
 
 type gatewayHandler struct {
@@ -249,7 +250,7 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest) func() gateway_common.OutboundHTTPResponse {
 	return func() gateway_common.OutboundHTTPResponse {
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
-		l.Debug("Sending request to client")
+		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", len(httpReq.Headers))
 		start := time.Now()
 		resp, err := h.httpClient.Send(ctx, httpReq)
 		externalEndpointLatency := time.Since(start)
@@ -280,11 +281,13 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
+		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", len(resp.Headers))
 		h.metrics.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
 		h.metrics.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
 			Headers:                 resp.Headers,
+			MultiHeaders:            resp.MultiHeaders,
 			Body:                    resp.Body,
 			ExternalEndpointLatency: externalEndpointLatency,
 		}
@@ -330,26 +333,29 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	httpReq := network.HTTPRequest{
 		Method:           req.Method,
 		URL:              req.URL,
-		Headers:          req.Headers,
+		Headers:          req.Headers, //nolint:staticcheck // forward deprecated Headers for backward compatibility; request uses MultiHeaders when set
+		MultiHeaders:     req.MultiHeaders,
 		Body:             req.Body,
 		MaxResponseBytes: req.MaxResponseBytes,
 		Timeout:          timeout,
 	}
+
+	sendResponseTimeout := time.Duration(defaultSendResponseTimeoutMs) * time.Millisecond
 
 	// send response to node async
 	h.wg.Add(1)
 	go func() {
 		defer h.wg.Done()
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
-		newCtx := context.WithoutCancel(ctx)
-		newCtx, cancel := context.WithTimeout(newCtx, timeout)
-		defer cancel()
+		baseCtx := context.WithoutCancel(ctx)
+		httpCtx, httpCancel := context.WithTimeout(baseCtx, timeout)
+		defer httpCancel()
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		var outboundResp gateway_common.OutboundHTTPResponse
-		callback := h.createHTTPRequestCallback(newCtx, requestID, httpReq, req)
+		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req)
 		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.IncrementCacheReadCount(ctx, h.lggr)
-			outboundResp = h.responseCache.Fetch(ctx, workflowID, req, callback, req.CacheSettings.Store)
+			outboundResp = h.responseCache.Fetch(httpCtx, workflowID, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
 			if req.CacheSettings.Store {
@@ -357,7 +363,11 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 			}
 		}
 		h.metrics.IncrementActionCapabilityRequestCount(ctx, nodeAddr, h.lggr)
-		err := h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)
+		// Use a separate context for sending the response to the node so that an
+		// expired HTTP request timeout does not prevent delivering the result.
+		sendCtx, sendCancel := context.WithTimeout(baseCtx, sendResponseTimeout)
+		defer sendCancel()
+		err := h.sendResponseToNode(sendCtx, requestID, outboundResp, nodeAddr)
 		if err != nil {
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)
