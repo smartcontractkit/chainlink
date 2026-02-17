@@ -51,7 +51,7 @@ func Test_TronKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		keys.RequireEqualKeys(t, key, retrievedKey)
+		corekeys.RequireEqualKeys(t, key, retrievedKey)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
@@ -76,7 +76,7 @@ func Test_TronKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		keys.RequireEqualKeys(t, importedKey, retrievedKey)
+		corekeys.RequireEqualKeys(t, importedKey, retrievedKey)
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
