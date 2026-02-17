@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  soak:
+  smoke:
     permissions:
       id-token: write
       contents: read
@@ -59,7 +59,7 @@ jobs:
       - name: Set environment variables
         id: set-env
         run: |
-          echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)-plugins" >> $GITHUB_ENV
+          echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)" >> $GITHUB_ENV
 
       - name: Run Cron environment
         env:
