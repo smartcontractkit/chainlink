@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -36,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -50,6 +52,26 @@ type SetupOutput struct {
 	NodeOutput                          []*cre.NodeSetOutput
 	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
+
+	tunnelManager tunnel.Manager
+	closeOnce     sync.Once
+	closeErr      error
+}
+
+func (s *SetupOutput) Close(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	manager := s.tunnelManager
+	if manager == nil {
+		manager = tunnel.NewNoopManager()
+	}
+
+	s.closeOnce.Do(func() {
+		s.closeErr = manager.Stop(ctx)
+	})
+
+	return s.closeErr
 }
 
 type SetupInput struct {
@@ -127,6 +149,11 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
 	}
 
+	tunnelManager, tmErr := newEC2TunnelManager(testLogger)
+	if tmErr != nil {
+		return nil, pkgerrors.Wrap(tmErr, "failed to initialize tunnel manager")
+	}
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.Blockchains))))
 
 	deployedBlockchains, startErr := startBlockchainsWithTargets(
@@ -134,10 +161,17 @@ func SetupTestEnvironment(
 		testLogger,
 		input.Blockchains,
 		input.BlockchainDeployers,
+		tunnelManager,
 	)
 	if startErr != nil {
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
 	}
+	cleanupTunnelsOnError := true
+	defer func() {
+		if cleanupTunnelsOnError {
+			_ = tunnelManager.Stop(ctx)
+		}
+	}()
 
 	creEnvironment := &cre.Environment{
 		Blockchains:           deployedBlockchains.Outputs,
@@ -442,6 +476,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed to store workflow registry configuration output")
 	}
 
+	cleanupTunnelsOnError = false
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
 		Dons:                                dons,
@@ -449,6 +484,7 @@ func SetupTestEnvironment(
 		CreEnvironment:                      creEnvironment,
 		S3ProviderOutput:                    s3Output,
 		GatewayConnectors:                   topology.GatewayConnectors,
+		tunnelManager:                       tunnelManager,
 	}, nil
 }
 

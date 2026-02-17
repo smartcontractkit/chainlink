@@ -7,26 +7,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/adapters"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 )
 
 const (
 	componentTypeBlockchain = "blockchain"
 	envLocalAgentURL        = "CRE_LOCAL_AGENT_URL"
+	envEC2AgentURL          = "CRE_EC2_AGENT_URL"
+	envEC2InstanceID        = "CRE_EC2_INSTANCE_ID"
+	envEC2AgentPort         = "CRE_EC2_AGENT_PORT"
 	envAgentMode            = "CRE_AGENT_MODE"
+	ec2Region               = "us-west-2"
+	defaultEC2AgentPort     = 8080
 )
 
 type startComponentEnvelope struct {
@@ -52,71 +65,163 @@ type componentClient interface {
 }
 
 type httpComponentClient struct {
-	baseURL string
-	client  *http.Client
+	baseURL         string
+	client          *http.Client
+	maxAttempts     int
+	retryDelay      time.Duration
+	checkHealth     bool
 }
 
 func newHTTPComponentClient(baseURL string) *httpComponentClient {
 	return &httpComponentClient{
-		baseURL: baseURL,
+		baseURL:     baseURL,
 		client: &http.Client{
 			Timeout: 4 * time.Minute,
 		},
+		maxAttempts: 1,
+		retryDelay:  0,
+		checkHealth: false,
+	}
+}
+
+func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
+	return &httpComponentClient{
+		baseURL:     baseURL,
+		client: &http.Client{
+			Timeout: 4 * time.Minute,
+		},
+		maxAttempts: 3,
+		retryDelay:  2 * time.Second,
+		checkHealth: true,
 	}
 }
 
 func (c *httpComponentClient) StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startBlockchainResult, error) {
+	if c.checkHealth {
+		if err := c.waitForHealth(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	var result *startBlockchainResult
+	err := retry.Do(
+		func() error {
+			var err error
+			result, err = c.startComponentOnce(ctx, envelope)
+			return err
+		},
+		retry.Attempts(uint(c.maxAttempts)),
+		retry.Delay(c.retryDelay),
+		retry.Context(ctx),
+		retry.LastErrorOnly(true),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope startComponentEnvelope) (*startBlockchainResult, error) {
 	body, err := json.Marshal(envelope)
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to encode start component envelope")
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to encode start component envelope"))
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/components/start", bytes.NewReader(body))
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create start component request")
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to create start component request"))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to execute start component request")
+		if isRetriableNetworkError(err) {
+			return nil, pkgerrors.Wrap(err, "failed to execute start component request")
+		}
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to execute start component request"))
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to read start component response")
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to read start component response"))
 	}
 
 	var startResp startBlockchainResult
 	if len(respBody) > 0 {
 		if err := json.Unmarshal(respBody, &startResp); err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to decode start component response")
+			return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to decode start component response"))
 		}
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		if startResp.Error != "" {
 			if startResp.ErrorCode != "" {
-				return nil, fmt.Errorf("%s: %s", startResp.ErrorCode, startResp.Error)
+				err = fmt.Errorf("%s: %s", startResp.ErrorCode, startResp.Error)
+			} else {
+				err = errors.New(startResp.Error)
 			}
-			return nil, errors.New(startResp.Error)
+		} else {
+			err = fmt.Errorf("start component request failed with status %s: %s", resp.Status, string(respBody))
 		}
-		return nil, fmt.Errorf("start component request failed with status %s: %s", resp.Status, string(respBody))
+
+		if isRetriableStatus(resp.StatusCode) {
+			return nil, err
+		}
+		return nil, retry.Unrecoverable(err)
 	}
 	if startResp.Error != "" {
 		if startResp.ErrorCode != "" {
-			return nil, fmt.Errorf("%s: %s", startResp.ErrorCode, startResp.Error)
+			return nil, retry.Unrecoverable(fmt.Errorf("%s: %s", startResp.ErrorCode, startResp.Error))
 		}
-		return nil, errors.New(startResp.Error)
+		return nil, retry.Unrecoverable(errors.New(startResp.Error))
 	}
 
 	return &startResp, nil
 }
 
-func newStartComponentClient() (componentClient, error) {
+func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
+	return retry.Do(
+		func() error {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/health", nil)
+			if err != nil {
+				return retry.Unrecoverable(pkgerrors.Wrap(err, "failed to create health request"))
+			}
+
+			resp, err := c.client.Do(req)
+			if err != nil {
+				return pkgerrors.Wrap(err, "failed to execute health request")
+			}
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			return fmt.Errorf("agent health check returned status %s", resp.Status)
+		},
+		retry.Attempts(uint(c.maxAttempts)),
+		retry.Delay(c.retryDelay),
+		retry.Context(ctx),
+		retry.LastErrorOnly(true),
+	)
+}
+
+func isRetriableStatus(statusCode int) bool {
+	return statusCode == http.StatusBadGateway || statusCode == http.StatusServiceUnavailable || statusCode == http.StatusGatewayTimeout
+}
+
+func isRetriableNetworkError(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr)
+}
+
+func newStartComponentClient(testLogger zerolog.Logger) (componentClient, error) {
 	if os.Getenv(envAgentMode) == "ec2" {
-		return &ec2ComponentClient{}, nil
+		baseURL, err := resolveEC2AgentBaseURL(testLogger)
+		if err != nil {
+			return nil, err
+		}
+		return newEC2HTTPComponentClient(baseURL), nil
 	}
 
 	baseURL := os.Getenv(envLocalAgentURL)
@@ -126,10 +231,87 @@ func newStartComponentClient() (componentClient, error) {
 	return newHTTPComponentClient(baseURL), nil
 }
 
-type ec2ComponentClient struct{}
+func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
+	if configured := os.Getenv(envEC2AgentURL); configured != "" {
+		return configured, nil
+	}
 
-func (c *ec2ComponentClient) StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startBlockchainResult, error) {
-	return nil, errors.New("ec2 agent client is not implemented yet")
+	instanceID := strings.TrimSpace(os.Getenv(envEC2InstanceID))
+	if instanceID == "" {
+		return "", fmt.Errorf("%s must be set when %s=ec2 and %s is not provided", envEC2InstanceID, envAgentMode, envEC2AgentURL)
+	}
+
+	remotePort := defaultEC2AgentPort
+	if configuredPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); configuredPort != "" {
+		parsedPort, err := strconv.Atoi(configuredPort)
+		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
+			return "", fmt.Errorf("invalid %s: %q", envEC2AgentPort, configuredPort)
+		}
+		remotePort = parsedPort
+	}
+
+	localPort, err := reserveLocalPort()
+	if err != nil {
+		return "", pkgerrors.Wrap(err, "failed to allocate local port for ssm tunnel")
+	}
+
+	if err := startSSMPortForward(testLogger, instanceID, remotePort, localPort); err != nil {
+		return "", err
+	}
+
+	testLogger.Info().
+		Str("instanceID", instanceID).
+		Int("remotePort", remotePort).
+		Int("localPort", localPort).
+		Msg("Opened SSM tunnel to EC2 agent")
+
+	return fmt.Sprintf("http://127.0.0.1:%d", localPort), nil
+}
+
+func reserveLocalPort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, errors.New("listener addr is not tcp")
+	}
+	return tcpAddr.Port, nil
+}
+
+func startSSMPortForward(testLogger zerolog.Logger, instanceID string, remotePort, localPort int) error {
+	cmd := exec.Command(
+		"aws",
+		"ssm",
+		"start-session",
+		"--region", ec2Region,
+		"--target", instanceID,
+		"--document-name", "AWS-StartPortForwardingSession",
+		"--parameters", fmt.Sprintf("portNumber=%d,localPortNumber=%d", remotePort, localPort),
+	)
+	if testLogger.GetLevel() <= zerolog.DebugLevel {
+		cmd.Stdout = os.Stderr
+		cmd.Stderr = os.Stderr
+		testLogger.Debug().
+			Strs("cmd", cmd.Args).
+			Msg("Starting SSM agent tunnel command")
+	}
+	testLogger.Info().
+		Str("instanceID", instanceID).
+		Int("remotePort", remotePort).
+		Int("localPort", localPort).
+		Msg("Opening SSM tunnel to EC2 agent")
+
+	if err := cmd.Start(); err != nil {
+		return pkgerrors.Wrap(err, "failed to start aws ssm port forwarding session")
+	}
+	go func() {
+		_ = cmd.Wait()
+	}()
+	return nil
 }
 
 func blockchainFromOutput(testLogger zerolog.Logger, output *blockchain.Output) (blockchains.Blockchain, error) {
@@ -188,6 +370,7 @@ func startBlockchainsWithTargets(
 	testLogger zerolog.Logger,
 	configuredBlockchains []*config.Blockchain,
 	deployers map[blockchain.ChainFamily]blockchains.Deployer,
+	tunnelManager tunnel.Manager,
 ) (*blockchains.DeployedBlockchains, error) {
 	blockchainInputs, err := config.ResolveBlockchainInputs(configuredBlockchains)
 	if err != nil {
@@ -223,7 +406,7 @@ func startBlockchainsWithTargets(
 	}
 
 	if len(remoteIdx) > 0 {
-		startClient, err := newStartComponentClient()
+		startClient, err := newStartComponentClient(testLogger)
 		if err != nil {
 			return nil, err
 		}
@@ -264,6 +447,10 @@ func startBlockchainsWithTargets(
 				return nil, pkgerrors.Wrap(err, "failed to decode blockchain transport payload")
 			}
 
+			if err := rewriteRemoteBlockchainOutputForLocalAccess(ctx, testLogger, tunnelManager, idx, input, blockchainOutput); err != nil {
+				return nil, err
+			}
+
 			reconstructedBlockchain, err := blockchainFromOutput(testLogger, blockchainOutput)
 			if err != nil {
 				return nil, err
@@ -288,4 +475,105 @@ func startBlockchainsWithTargets(
 		Outputs:         outputs,
 		CldfBlockChains: cldf_chain.NewBlockChainsFromSlice(cldfBlockchains),
 	}, nil
+}
+
+func newEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {
+	if os.Getenv(envAgentMode) != "ec2" {
+		return tunnel.NewNoopManager(), nil
+	}
+
+	instanceID := strings.TrimSpace(os.Getenv(envEC2InstanceID))
+	if instanceID == "" {
+		// Keep compatibility with pure manual-tunneling mode.
+		return tunnel.NewNoopManager(), nil
+	}
+
+	return tunnel.NewManager(tunnel.NewSSMProvider(instanceID, ec2Region, testLogger)), nil
+}
+
+func rewriteRemoteBlockchainOutputForLocalAccess(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	tunnelManager tunnel.Manager,
+	configuredIndex int,
+	input *blockchain.Input,
+	output *blockchain.Output,
+) error {
+	if output == nil {
+		return nil
+	}
+
+	componentID := tunnel.CanonicalComponentID(tunnel.KindBlockchain, configuredIndex, input.Type)
+	adapter := adapters.NewBlockchainAdapter()
+
+	refs, err := adapter.DescribeEndpoints(componentID, output)
+	if err != nil {
+		return pkgerrors.Wrap(err, "failed to describe blockchain tunnel endpoints")
+	}
+
+	bindings, err := tunnelManager.Start(ctx, refs)
+	if err != nil {
+		return pkgerrors.Wrap(err, "failed to start tunnels for blockchain output")
+	}
+	for _, binding := range bindings {
+		testLogger.Info().
+			Str("componentID", binding.ComponentID).
+			Str("endpointName", binding.EndpointName).
+			Str("originalURL", binding.OriginalURL).
+			Str("localURL", binding.LocalURL).
+			Msg("Established endpoint tunnel")
+	}
+
+	if err := adapter.RewriteWithBindings(output, bindings); err != nil {
+		return pkgerrors.Wrap(err, "failed to rewrite blockchain output with local tunnel bindings")
+	}
+	if err := rewriteBlockchainInternalURLsForLocalNodes(output); err != nil {
+		return pkgerrors.Wrap(err, "failed to rewrite blockchain internal urls for local node containers")
+	}
+
+	return nil
+}
+
+func rewriteBlockchainInternalURLsForLocalNodes(output *blockchain.Output) error {
+	if output == nil {
+		return nil
+	}
+
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+	for _, node := range output.Nodes {
+		if node == nil {
+			continue
+		}
+
+		if node.ExternalHTTPUrl != "" {
+			internal, err := rewriteURLHost(node.ExternalHTTPUrl, dockerHost)
+			if err != nil {
+				return err
+			}
+			node.InternalHTTPUrl = internal
+		}
+
+		if node.ExternalWSUrl != "" {
+			internal, err := rewriteURLHost(node.ExternalWSUrl, dockerHost)
+			if err != nil {
+				return err
+			}
+			node.InternalWSUrl = internal
+		}
+	}
+
+	return nil
+}
+
+func rewriteURLHost(rawURL, host string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse url %q: %w", rawURL, err)
+	}
+	if parsed.Port() != "" {
+		parsed.Host = net.JoinHostPort(host, parsed.Port())
+		return parsed.String(), nil
+	}
+	parsed.Host = host
+	return parsed.String(), nil
 }
