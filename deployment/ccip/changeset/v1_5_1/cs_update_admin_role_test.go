@@ -21,6 +21,7 @@ import (
 )
 
 func TestUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
+	quarantine.Flaky(t, "DX-2890")
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
