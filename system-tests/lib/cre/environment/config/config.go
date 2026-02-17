@@ -78,16 +78,27 @@ const (
 	TargetRemote ComponentTarget = "remote"
 )
 
+type RemoteStartPolicy string
+
+const (
+	RemoteStartPolicyReuseIfIdentical RemoteStartPolicy = "reuse_if_identical"
+	RemoteStartPolicyAlways           RemoteStartPolicy = "always"
+)
+
 // Blockchain wraps the existing CTF blockchain input and adds placement metadata.
 // The embedded input keeps TOML fields backward-compatible.
 type Blockchain struct {
 	blockchain.Input
-	Target ComponentTarget `toml:"target"`
+	Target            ComponentTarget   `toml:"target"`
+	RemoteStartPolicy RemoteStartPolicy `toml:"remote_start_policy"`
 }
 
 func (b *Blockchain) Normalize() {
 	if b.Target == "" {
 		b.Target = TargetDocker
+	}
+	if b.RemoteStartPolicy == "" {
+		b.RemoteStartPolicy = RemoteStartPolicyReuseIfIdentical
 	}
 }
 
@@ -99,6 +110,9 @@ func (b *Blockchain) Validate() error {
 	b.Normalize()
 	if b.Target != TargetDocker && b.Target != TargetRemote {
 		return fmt.Errorf("invalid blockchain target: %s", b.Target)
+	}
+	if b.RemoteStartPolicy != RemoteStartPolicyReuseIfIdentical && b.RemoteStartPolicy != RemoteStartPolicyAlways {
+		return fmt.Errorf("invalid blockchain remote_start_policy: %s", b.RemoteStartPolicy)
 	}
 
 	return nil

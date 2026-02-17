@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +50,7 @@ type startComponentEnvelope struct {
 type startBlockchainRequest struct {
 	ComponentType string            `json:"componentType"`
 	Blockchain    *blockchain.Input `json:"blockchain"`
+	ReusePolicy   string            `json:"reusePolicy,omitempty"`
 }
 
 type startBlockchainResult struct {
@@ -158,9 +158,9 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope s
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		if startResp.Error != "" {
 			if startResp.ErrorCode != "" {
-				err = fmt.Errorf("%s: %s", startResp.ErrorCode, startResp.Error)
+				err = remoteAgentError(startResp.ErrorCode, startResp.Error)
 			} else {
-				err = errors.New(startResp.Error)
+				err = remoteAgentError("remote_agent_error", startResp.Error)
 			}
 		} else {
 			err = fmt.Errorf("start component request failed with status %s: %s", resp.Status, string(respBody))
@@ -173,9 +173,9 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope s
 	}
 	if startResp.Error != "" {
 		if startResp.ErrorCode != "" {
-			return nil, retry.Unrecoverable(fmt.Errorf("%s: %s", startResp.ErrorCode, startResp.Error))
+			return nil, retry.Unrecoverable(remoteAgentError(startResp.ErrorCode, startResp.Error))
 		}
-		return nil, retry.Unrecoverable(errors.New(startResp.Error))
+		return nil, retry.Unrecoverable(remoteAgentError("remote_agent_error", startResp.Error))
 	}
 
 	return &startResp, nil
@@ -215,9 +215,9 @@ func isRetriableNetworkError(err error) bool {
 	return errors.As(err, &netErr)
 }
 
-func newStartComponentClient(testLogger zerolog.Logger) (componentClient, error) {
+func newStartComponentClient(testLogger zerolog.Logger, tunnelManager tunnel.Manager) (componentClient, error) {
 	if os.Getenv(envAgentMode) == "ec2" {
-		baseURL, err := resolveEC2AgentBaseURL(testLogger)
+		baseURL, err := resolveEC2AgentBaseURL(testLogger, tunnelManager)
 		if err != nil {
 			return nil, err
 		}
@@ -231,9 +231,12 @@ func newStartComponentClient(testLogger zerolog.Logger) (componentClient, error)
 	return newHTTPComponentClient(baseURL), nil
 }
 
-func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
+func resolveEC2AgentBaseURL(testLogger zerolog.Logger, tunnelManager tunnel.Manager) (string, error) {
 	if configured := os.Getenv(envEC2AgentURL); configured != "" {
 		return configured, nil
+	}
+	if tunnelManager == nil {
+		return "", errors.New("tunnel manager is required to auto-open ec2 agent tunnel")
 	}
 
 	instanceID := strings.TrimSpace(os.Getenv(envEC2InstanceID))
@@ -250,68 +253,30 @@ func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
 		remotePort = parsedPort
 	}
 
-	localPort, err := reserveLocalPort()
+	bindings, err := tunnelManager.Start(context.Background(), []tunnel.EndpointRef{
+		{
+			ComponentID:  "agent",
+			EndpointName: "api",
+			Scheme:       "http",
+			Host:         "127.0.0.1",
+			Port:         remotePort,
+			OriginalURL:  fmt.Sprintf("http://127.0.0.1:%d", remotePort),
+		},
+	})
 	if err != nil {
-		return "", pkgerrors.Wrap(err, "failed to allocate local port for ssm tunnel")
+		return "", pkgerrors.Wrap(err, "failed to open ssm tunnel to ec2 agent")
 	}
-
-	if err := startSSMPortForward(testLogger, instanceID, remotePort, localPort); err != nil {
-		return "", err
+	if len(bindings) == 0 {
+		return "", errors.New("failed to open ssm tunnel to ec2 agent: no bindings returned")
 	}
 
 	testLogger.Info().
 		Str("instanceID", instanceID).
 		Int("remotePort", remotePort).
-		Int("localPort", localPort).
+		Int("localPort", bindings[0].LocalPort).
 		Msg("Opened SSM tunnel to EC2 agent")
 
-	return fmt.Sprintf("http://127.0.0.1:%d", localPort), nil
-}
-
-func reserveLocalPort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-
-	tcpAddr, ok := l.Addr().(*net.TCPAddr)
-	if !ok {
-		return 0, errors.New("listener addr is not tcp")
-	}
-	return tcpAddr.Port, nil
-}
-
-func startSSMPortForward(testLogger zerolog.Logger, instanceID string, remotePort, localPort int) error {
-	cmd := exec.Command(
-		"aws",
-		"ssm",
-		"start-session",
-		"--region", ec2Region,
-		"--target", instanceID,
-		"--document-name", "AWS-StartPortForwardingSession",
-		"--parameters", fmt.Sprintf("portNumber=%d,localPortNumber=%d", remotePort, localPort),
-	)
-	if testLogger.GetLevel() <= zerolog.DebugLevel {
-		cmd.Stdout = os.Stderr
-		cmd.Stderr = os.Stderr
-		testLogger.Debug().
-			Strs("cmd", cmd.Args).
-			Msg("Starting SSM agent tunnel command")
-	}
-	testLogger.Info().
-		Str("instanceID", instanceID).
-		Int("remotePort", remotePort).
-		Int("localPort", localPort).
-		Msg("Opening SSM tunnel to EC2 agent")
-
-	if err := cmd.Start(); err != nil {
-		return pkgerrors.Wrap(err, "failed to start aws ssm port forwarding session")
-	}
-	go func() {
-		_ = cmd.Wait()
-	}()
-	return nil
+	return bindings[0].LocalURL, nil
 }
 
 func blockchainFromOutput(testLogger zerolog.Logger, output *blockchain.Output) (blockchains.Blockchain, error) {
@@ -406,13 +371,14 @@ func startBlockchainsWithTargets(
 	}
 
 	if len(remoteIdx) > 0 {
-		startClient, err := newStartComponentClient(testLogger)
+		startClient, err := newStartComponentClient(testLogger, tunnelManager)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, idx := range remoteIdx {
 			input := blockchainInputs[idx]
+			configured := configuredBlockchains[idx]
 			if err := validatePhase2ARemoteBlockchainInput(input); err != nil {
 				return nil, err
 			}
@@ -420,6 +386,7 @@ func startBlockchainsWithTargets(
 			payload := startBlockchainRequest{
 				ComponentType: componentTypeBlockchain,
 				Blockchain:    input,
+				ReusePolicy:   string(configured.RemoteStartPolicy),
 			}
 			payloadBytes, err := json.Marshal(payload)
 			if err != nil {
@@ -576,4 +543,8 @@ func rewriteURLHost(rawURL, host string) (string, error) {
 	}
 	parsed.Host = host
 	return parsed.String(), nil
+}
+
+func remoteAgentError(code, message string) error {
+	return fmt.Errorf("remote agent error (%s): %s", code, message)
 }

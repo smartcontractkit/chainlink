@@ -19,6 +19,7 @@ func (c *countingTunnelManager) Stop(_ context.Context) error {
 	return nil
 }
 func (c *countingTunnelManager) IsStarted() bool { return false }
+func (c *countingTunnelManager) Snapshot() []tunnel.TunnelBinding { return []tunnel.TunnelBinding{} }
 
 func TestSetupOutputCloseIsIdempotent(t *testing.T) {
 	manager := &countingTunnelManager{}

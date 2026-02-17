@@ -3,7 +3,9 @@ package agent
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +35,9 @@ const (
 	ErrCodeMissingComponentInput  = "missing_component_input"
 	ErrCodeDeployFailed           = "deployment_failed"
 	ErrCodeTransportEncodeFailed  = "transport_encode_failed"
+
+	RemoteStartPolicyAlways       = "always"
+	RemoteStartPolicyReuseIdentical = "reuse_if_identical"
 )
 
 var frameworkLogCaptureMu sync.Mutex
@@ -46,6 +51,7 @@ type StartComponentEnvelope struct {
 type StartBlockchainPayload struct {
 	ComponentType string            `json:"componentType"`
 	Blockchain    *blockchain.Input `json:"blockchain"`
+	ReusePolicy   string            `json:"reusePolicy,omitempty"`
 }
 
 type StartComponentResponse struct {
@@ -58,12 +64,20 @@ type StartComponentResponse struct {
 type Server struct {
 	lggr      zerolog.Logger
 	deployers map[blockchain.ChainFamily]blockchains.Deployer
+	cacheMu   sync.Mutex
+	cache     map[string]cachedStart
+}
+
+type cachedStart struct {
+	PayloadHash string
+	Output      map[string]any
 }
 
 func NewServer(lggr zerolog.Logger, deployers map[blockchain.ChainFamily]blockchains.Deployer) *Server {
 	return &Server{
 		lggr:      lggr,
 		deployers: deployers,
+		cache:     make(map[string]cachedStart),
 	}
 }
 
@@ -113,10 +127,23 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusBadRequest, ErrCodeMissingComponentInput, "blockchain payload is required", nil)
 		return
 	}
+	componentKey := fmt.Sprintf("%s:%s:%s", payload.ComponentType, payload.Blockchain.Type, payload.Blockchain.ChainID)
+	payloadHash := hashPayload(envelope.Payload)
 
 	// Keep this stderr write explicit so startup behavior is visible when agent runs as a subprocess.
 	requestLog := fmt.Sprintf("[cre-agent] starting component type=%s blockchain=%s chain_id=%s", payload.ComponentType, payload.Blockchain.Type, payload.Blockchain.ChainID)
 	_, _ = fmt.Fprintln(os.Stderr, requestLog)
+	if shouldReuseRemoteStart(payload.ReusePolicy) {
+		if cached, ok := s.lookupCachedStart(componentKey, payloadHash); ok {
+			reuseLog := fmt.Sprintf("[cre-agent] reusing existing component for key=%s (payload hash matched)", componentKey)
+			_, _ = fmt.Fprintln(os.Stderr, reuseLog)
+			s.respondJSON(w, http.StatusOK, StartComponentResponse{
+				BlockchainOutput: cached.Output,
+				AgentLogs:        []string{requestLog, reuseLog},
+			})
+			return
+		}
+	}
 
 	var startedOutput *blockchain.Output
 	capturedFrameworkLogs, startErr := captureFrameworkLogs(func() error {
@@ -142,6 +169,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeTransportEncodeFailed, encErr.Error(), agentLogs)
 		return
 	}
+	s.cacheSuccessfulStart(componentKey, payloadHash, safeOutput)
 	s.respondJSON(w, http.StatusOK, StartComponentResponse{
 		BlockchainOutput: safeOutput,
 		AgentLogs:        agentLogs,
@@ -185,6 +213,39 @@ func captureFrameworkLogs(fn func() error) ([]string, error) {
 	}
 
 	return logs, err
+}
+
+func (s *Server) lookupCachedStart(componentKey, payloadHash string) (*cachedStart, bool) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+
+	start, ok := s.cache[componentKey]
+	if !ok || start.PayloadHash != payloadHash {
+		return nil, false
+	}
+	return &start, true
+}
+
+func (s *Server) cacheSuccessfulStart(componentKey, payloadHash string, output map[string]any) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	s.cache[componentKey] = cachedStart{
+		PayloadHash: payloadHash,
+		Output:      output,
+	}
+}
+
+func shouldReuseRemoteStart(policy string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(policy))
+	if normalized == "" {
+		normalized = RemoteStartPolicyReuseIdentical
+	}
+	return normalized == RemoteStartPolicyReuseIdentical
+}
+
+func hashPayload(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
 }
 
 func Run(ctx context.Context, addr string, srv *Server) error {

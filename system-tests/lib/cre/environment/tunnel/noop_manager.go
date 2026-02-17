@@ -22,3 +22,5 @@ func (n *noopManager) Start(_ context.Context, refs []EndpointRef) ([]TunnelBind
 func (n *noopManager) Stop(_ context.Context) error { return nil }
 
 func (n *noopManager) IsStarted() bool { return false }
+
+func (n *noopManager) Snapshot() []TunnelBinding { return []TunnelBinding{} }

@@ -74,6 +74,13 @@ func (s *SetupOutput) Close(ctx context.Context) error {
 	return s.closeErr
 }
 
+func (s *SetupOutput) TunnelBindings() []tunnel.TunnelBinding {
+	if s == nil || s.tunnelManager == nil {
+		return []tunnel.TunnelBinding{}
+	}
+	return s.tunnelManager.Snapshot()
+}
+
 type SetupInput struct {
 	NodeSets               []*cre.NodeSet
 	Blockchains            []*config.Blockchain

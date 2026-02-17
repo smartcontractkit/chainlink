@@ -31,12 +31,12 @@ func TestNewStartComponentClientEC2Mode(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
 	t.Setenv(envEC2InstanceID, "")
 
-	if _, err := newStartComponentClient(zerolog.Nop()); err == nil {
+	if _, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{}); err == nil {
 		t.Fatalf("expected ec2 mode without %s or %s to fail", envEC2AgentURL, envEC2InstanceID)
 	}
 
 	t.Setenv(envEC2AgentURL, "http://127.0.0.1:18080") // manual tunnel override
-	client, err := newStartComponentClient(zerolog.Nop())
+	client, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{})
 	if err != nil {
 		t.Fatalf("expected ec2 mode client to be created, got %v", err)
 	}
@@ -58,7 +58,7 @@ func TestResolveEC2AgentBaseURLRequiresInstanceIDWhenURLMissing(t *testing.T) {
 	t.Setenv(envEC2InstanceID, "")
 	t.Setenv(envEC2AgentPort, "")
 
-	_, err := resolveEC2AgentBaseURL(zerolog.Nop())
+	_, err := resolveEC2AgentBaseURL(zerolog.Nop(), &fakeTunnelManager{})
 	if err == nil {
 		t.Fatalf("expected missing %s to fail when %s is not set", envEC2InstanceID, envEC2AgentURL)
 	}
@@ -69,7 +69,7 @@ func TestResolveEC2AgentBaseURLRejectsInvalidPort(t *testing.T) {
 	t.Setenv(envEC2InstanceID, "i-123")
 	t.Setenv(envEC2AgentPort, "not-a-port")
 
-	_, err := resolveEC2AgentBaseURL(zerolog.Nop())
+	_, err := resolveEC2AgentBaseURL(zerolog.Nop(), &fakeTunnelManager{})
 	if err == nil {
 		t.Fatalf("expected invalid %s to fail", envEC2AgentPort)
 	}
@@ -83,12 +83,12 @@ func TestNewStartComponentClientLocalMode(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
 	t.Setenv(envLocalAgentURL, "")
 
-	if _, err := newStartComponentClient(zerolog.Nop()); err == nil {
+	if _, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{}); err == nil {
 		t.Fatalf("expected local mode without %s to fail", envLocalAgentURL)
 	}
 
 	t.Setenv(envLocalAgentURL, "http://127.0.0.1:8080")
-	client, err := newStartComponentClient(zerolog.Nop())
+	client, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{})
 	if err != nil {
 		t.Fatalf("expected local mode client to be created, got %v", err)
 	}
@@ -131,6 +131,7 @@ func (f *fakeTunnelManager) Start(_ context.Context, refs []tunnel.EndpointRef) 
 
 func (f *fakeTunnelManager) Stop(_ context.Context) error { return nil }
 func (f *fakeTunnelManager) IsStarted() bool { return f.startCalls > 0 }
+func (f *fakeTunnelManager) Snapshot() []tunnel.TunnelBinding { return []tunnel.TunnelBinding{} }
 
 func TestRewriteRemoteBlockchainOutputForLocalAccess(t *testing.T) {
 	out := &blockchain.Output{
@@ -190,5 +191,13 @@ func TestNewEC2TunnelManagerReturnsNoopWhenNotApplicable(t *testing.T) {
 	}
 	if manager.IsStarted() {
 		t.Fatalf("expected noop manager to report not started")
+	}
+}
+
+func TestRemoteAgentErrorFormatting(t *testing.T) {
+	err := remoteAgentError("deployment_failed", "failed to deploy blockchain output")
+	want := "remote agent error (deployment_failed): failed to deploy blockchain output"
+	if err == nil || err.Error() != want {
+		t.Fatalf("expected %q, got %v", want, err)
 	}
 }
