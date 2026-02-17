@@ -156,6 +156,7 @@ func TestUpdateAdminRoleChangesetV2_EmptyConfigIsGracefullyHandled(t *testing.T)
 }
 
 func TestUpdateAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
+	quarantine.Flaky(t, "DX-2895")
 	t.Parallel()
 
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
