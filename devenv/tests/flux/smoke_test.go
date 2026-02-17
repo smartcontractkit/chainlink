@@ -45,6 +45,5 @@ func TestFlux(t *testing.T) {
 		lrd, err := fluxAggregatorWrapper.LatestRoundData(&bind.CallOpts{})
 		require.NoError(c, err)
 		require.Equal(c, int64(200), lrd.Answer.Int64())
-		fmt.Println(lrd)
 	}, 2*time.Minute, 2*time.Second)
 }

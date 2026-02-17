@@ -1,4 +1,4 @@
-package direct_request
+package directrequest
 
 import (
 	"os"

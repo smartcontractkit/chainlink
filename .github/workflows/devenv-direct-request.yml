@@ -66,10 +66,10 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          cl u env.toml,products/direct_request/basic.toml
+          cl u env.toml,products/directrequest/basic.toml
 
       - name: Run tests
-        working-directory: devenv/tests/direct_request
+        working-directory: devenv/tests/directrequest
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: Direct Request"
           go test -v -run TestDirectRequest
@@ -79,5 +79,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke
-          path: devenv/tests/direct_request/logs
+          path: devenv/tests/directrequest/logs
           retention-days: 3
