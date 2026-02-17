@@ -73,6 +73,17 @@ func (m *manager) IsStarted() bool {
 	return len(m.bindings) > 0
 }
 
+func (m *manager) Snapshot() []TunnelBinding {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	out := make([]TunnelBinding, 0, len(m.bindings))
+	for _, b := range m.bindings {
+		out = append(out, b)
+	}
+	return out
+}
+
 func (m *manager) closeMany(ctx context.Context, bindings []TunnelBinding) error {
 	var joined error
 	for _, b := range bindings {

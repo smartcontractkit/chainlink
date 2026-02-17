@@ -15,12 +15,14 @@ type TunnelBinding struct {
 	EndpointRef
 	LocalPort int
 	LocalURL  string
+	PID       int
 }
 
 type Manager interface {
 	Start(ctx context.Context, refs []EndpointRef) ([]TunnelBinding, error)
 	Stop(ctx context.Context) error
 	IsStarted() bool
+	Snapshot() []TunnelBinding
 }
 
 type Provider interface {

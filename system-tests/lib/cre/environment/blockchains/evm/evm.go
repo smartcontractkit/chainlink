@@ -187,6 +187,7 @@ func FromOutput(testLogger zerolog.Logger, out *blockchain.Output) (*Blockchain,
 		WithRpcUrl(out.Nodes[0].ExternalWSUrl).
 		WithPrivateKeys([]string{priv}).
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+		// WithGasPriceEstimations(true, 0, seth.Priority_Auto, 1).
 		Build()
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create seth client")

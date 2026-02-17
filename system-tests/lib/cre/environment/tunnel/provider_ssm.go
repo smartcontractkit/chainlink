@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -50,6 +51,8 @@ func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding,
 		"--document-name", "AWS-StartPortForwardingSession",
 		"--parameters", fmt.Sprintf("portNumber=%d,localPortNumber=%d", ref.Port, localPort),
 	)
+	// Start in a dedicated process group so cleanup can kill aws + session-manager-plugin together.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if p.logger.GetLevel() <= zerolog.DebugLevel {
 		cmd.Stdout = os.Stderr
 		cmd.Stderr = os.Stderr
@@ -69,7 +72,7 @@ func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding,
 		return TunnelBinding{}, fmt.Errorf("failed to start aws ssm session: %w", err)
 	}
 	if err := waitForLocalPortReady(ctx, localPort, 12*time.Second); err != nil {
-		_ = cmd.Process.Kill()
+		terminateProcessGroup(cmd)
 		return TunnelBinding{}, fmt.Errorf("ssm local tunnel on port %d did not become ready: %w", localPort, err)
 	}
 
@@ -85,6 +88,7 @@ func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding,
 		EndpointRef: ref,
 		LocalPort:   localPort,
 		LocalURL:    localURLFromScheme(ref.Scheme, localPort),
+		PID:         cmd.Process.Pid,
 	}, nil
 }
 
@@ -100,7 +104,7 @@ func (p *SSMProvider) Close(_ context.Context, binding TunnelBinding) error {
 		return nil
 	}
 
-	if err := cmd.Process.Kill(); err != nil {
+	if err := terminateProcessGroup(cmd); err != nil {
 		return fmt.Errorf("failed to kill ssm session on local port %d: %w", binding.LocalPort, err)
 	}
 	p.logger.Info().
@@ -136,6 +140,21 @@ func localURLFromScheme(scheme string, port int) string {
 	default:
 		return fmt.Sprintf("http://127.0.0.1:%d", port)
 	}
+}
+
+func terminateProcessGroup(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+
+	// Negative PID targets the process group when Setpgid=true.
+	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
+		// Fall back to killing parent process only.
+		if killErr := cmd.Process.Kill(); killErr != nil {
+			return killErr
+		}
+	}
+	return nil
 }
 
 func waitForLocalPortReady(ctx context.Context, port int, timeout time.Duration) error {
