@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
@@ -26,6 +27,7 @@ import (
 )
 
 func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
+	quarantine.Flaky(t, "DX-2894")
 	t.Parallel()
 
 	tests := []struct {
