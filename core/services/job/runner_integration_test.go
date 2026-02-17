@@ -67,7 +67,7 @@ func TestRunner(t *testing.T) {
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
-		kbid := keys.MustSha256HashFromHex(kb.ID())
+		kbid := corekeys.MustSha256HashFromHex(kb.ID())
 		c.OCR.KeyBundleID = &kbid
 		taddress := types.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
