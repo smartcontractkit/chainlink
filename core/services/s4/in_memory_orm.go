@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
@@ -37,7 +39,7 @@ func (o *inMemoryOrm) Get(ctx context.Context, address *sqlutil.Big, slotId uint
 	defer o.mu.RUnlock()
 
 	mkey := key{
-		address: address.Hex(),
+		address: hexutil.EncodeBig(address.ToInt()),
 		slot:    slotId,
 	}
 	mrow, ok := o.rows[mkey]
@@ -52,7 +54,7 @@ func (o *inMemoryOrm) Update(ctx context.Context, row *Row) error {
 	defer o.mu.Unlock()
 
 	mkey := key{
-		address: row.Address.Hex(),
+		address: hexutil.EncodeBig(row.Address.ToInt()),
 		slot:    row.SlotId,
 	}
 	existing, ok := o.rows[mkey]

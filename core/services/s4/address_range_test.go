@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -61,8 +62,8 @@ func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 	t.Run("initial range for 256 intervals", func(t *testing.T) {
 		r, err := s4.NewInitialAddressRangeForIntervals(256)
 		assert.NoError(t, err)
-		assert.Equal(t, "0x0", r.MinAddress.Hex())
-		assert.Equal(t, "0xffffffffffffffffffffffffffffffffffffff", r.MaxAddress.Hex())
+		assert.Equal(t, "0x0", hex(r.MinAddress))
+		assert.Equal(t, "0xffffffffffffffffffffffffffffffffffffff", hex(r.MaxAddress))
 	})
 
 	t.Run("advance for 256 intervals", func(t *testing.T) {
@@ -70,23 +71,23 @@ func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 		assert.NoError(t, err)
 
 		r.Advance()
-		assert.Equal(t, "0x100000000000000000000000000000000000000", r.MinAddress.Hex())
-		assert.Equal(t, "0x1ffffffffffffffffffffffffffffffffffffff", r.MaxAddress.Hex())
+		assert.Equal(t, "0x100000000000000000000000000000000000000", hex(r.MinAddress))
+		assert.Equal(t, "0x1ffffffffffffffffffffffffffffffffffffff", hex(r.MaxAddress))
 
 		r.Advance()
-		assert.Equal(t, "0x200000000000000000000000000000000000000", r.MinAddress.Hex())
-		assert.Equal(t, "0x2ffffffffffffffffffffffffffffffffffffff", r.MaxAddress.Hex())
+		assert.Equal(t, "0x200000000000000000000000000000000000000", hex(r.MinAddress))
+		assert.Equal(t, "0x2ffffffffffffffffffffffffffffffffffffff", hex(r.MaxAddress))
 
 		for range 253 {
 			r.Advance()
 		}
-		assert.Equal(t, "0xff00000000000000000000000000000000000000", r.MinAddress.Hex())
-		assert.Equal(t, "0xffffffffffffffffffffffffffffffffffffffff", r.MaxAddress.Hex())
+		assert.Equal(t, "0xff00000000000000000000000000000000000000", hex(r.MinAddress))
+		assert.Equal(t, "0xffffffffffffffffffffffffffffffffffffffff", hex(r.MaxAddress))
 
 		// initial
 		r.Advance()
 		assert.Equal(t, s4.MinAddress, r.MinAddress)
-		assert.Equal(t, "0xffffffffffffffffffffffffffffffffffffff", r.MaxAddress.Hex())
+		assert.Equal(t, "0xffffffffffffffffffffffffffffffffffffff", hex(r.MaxAddress))
 	})
 }
 
@@ -103,4 +104,8 @@ func TestAddressRange_Contains(t *testing.T) {
 	assert.True(t, r.Contains(r.MinAddress))
 	assert.True(t, r.Contains(r.MaxAddress))
 	assert.False(t, r.Contains(sqlutil.New(bigmath.Sub(r.MinAddress.ToInt(), big.NewInt(1)))))
+}
+
+func hex(b *sqlutil.Big) string {
+	return hexutil.EncodeBig(b.ToInt())
 }
