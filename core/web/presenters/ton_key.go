@@ -1,6 +1,6 @@
 package presenters
 
-import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
+import "github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 
 // TONKeyResource represents a TON key JSONAPI resource.
 type TONKeyResource struct {

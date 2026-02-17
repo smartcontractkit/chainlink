@@ -16,12 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	keystorekeys "github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	keystorekeys "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func Test_EthKeyStore(t *testing.T) {
