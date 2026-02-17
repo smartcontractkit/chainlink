@@ -7,6 +7,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	ethkey "github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
 	mock "github.com/stretchr/testify/mock"
@@ -14,8 +16,6 @@ import (
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	types "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	uuid "github.com/google/uuid"
 )
@@ -543,7 +543,7 @@ func (_c *ORM_FindJobByExternalJobID_Call) RunAndReturn(run func(context.Context
 }
 
 // FindJobIDByAddress provides a mock function with given fields: ctx, address, evmChainID
-func (_m *ORM) FindJobIDByAddress(ctx context.Context, address types.EIP55Address, evmChainID *sqlutil.Big) (int32, error) {
+func (_m *ORM) FindJobIDByAddress(ctx context.Context, address ethkey.EIP55Address, evmChainID *sqlutil.Big) (int32, error) {
 	ret := _m.Called(ctx, address, evmChainID)
 
 	if len(ret) == 0 {
@@ -552,16 +552,16 @@ func (_m *ORM) FindJobIDByAddress(ctx context.Context, address types.EIP55Addres
 
 	var r0 int32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.EIP55Address, *sqlutil.Big) (int32, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ethkey.EIP55Address, *sqlutil.Big) (int32, error)); ok {
 		return rf(ctx, address, evmChainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.EIP55Address, *sqlutil.Big) int32); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ethkey.EIP55Address, *sqlutil.Big) int32); ok {
 		r0 = rf(ctx, address, evmChainID)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, types.EIP55Address, *sqlutil.Big) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, ethkey.EIP55Address, *sqlutil.Big) error); ok {
 		r1 = rf(ctx, address, evmChainID)
 	} else {
 		r1 = ret.Error(1)
@@ -577,15 +577,15 @@ type ORM_FindJobIDByAddress_Call struct {
 
 // FindJobIDByAddress is a helper method to define mock.On call
 //   - ctx context.Context
-//   - address types.EIP55Address
+//   - address ethkey.EIP55Address
 //   - evmChainID *sqlutil.Big
 func (_e *ORM_Expecter) FindJobIDByAddress(ctx interface{}, address interface{}, evmChainID interface{}) *ORM_FindJobIDByAddress_Call {
 	return &ORM_FindJobIDByAddress_Call{Call: _e.mock.On("FindJobIDByAddress", ctx, address, evmChainID)}
 }
 
-func (_c *ORM_FindJobIDByAddress_Call) Run(run func(ctx context.Context, address types.EIP55Address, evmChainID *sqlutil.Big)) *ORM_FindJobIDByAddress_Call {
+func (_c *ORM_FindJobIDByAddress_Call) Run(run func(ctx context.Context, address ethkey.EIP55Address, evmChainID *sqlutil.Big)) *ORM_FindJobIDByAddress_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(types.EIP55Address), args[2].(*sqlutil.Big))
+		run(args[0].(context.Context), args[1].(ethkey.EIP55Address), args[2].(*sqlutil.Big))
 	})
 	return _c
 }
@@ -595,7 +595,7 @@ func (_c *ORM_FindJobIDByAddress_Call) Return(_a0 int32, _a1 error) *ORM_FindJob
 	return _c
 }
 
-func (_c *ORM_FindJobIDByAddress_Call) RunAndReturn(run func(context.Context, types.EIP55Address, *sqlutil.Big) (int32, error)) *ORM_FindJobIDByAddress_Call {
+func (_c *ORM_FindJobIDByAddress_Call) RunAndReturn(run func(context.Context, ethkey.EIP55Address, *sqlutil.Big) (int32, error)) *ORM_FindJobIDByAddress_Call {
 	_c.Call.Return(run)
 	return _c
 }

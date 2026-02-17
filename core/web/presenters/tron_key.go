@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tronkey"
 )
 
 // TronKeyResource represents a Tron key JSONAPI resource.

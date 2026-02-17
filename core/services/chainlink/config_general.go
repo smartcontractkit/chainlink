@@ -17,13 +17,13 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -603,4 +603,4 @@ func (g *generalConfig) LOOPP() coreconfig.LOOPP {
 	return &looppConfig{l: g.c.LOOPP}
 }
 
-var zeroSha256Hash = keys.Sha256Hash{}
+var zeroSha256Hash = corekeys.Sha256Hash{}

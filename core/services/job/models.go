@@ -21,16 +21,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
@@ -296,7 +296,7 @@ type OCROracleSpec struct {
 	ContractAddress                        evmtypes.EIP55Address  `toml:"contractAddress"`
 	P2PV2Bootstrappers                     pq.StringArray         `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                        bool                   `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *keys.Sha256Hash       `toml:"keyBundleID"`
+	EncryptedOCRKeyBundleID                *corekeys.Sha256Hash   `toml:"keyBundleID"`
 	TransmitterAddress                     *evmtypes.EIP55Address `toml:"transmitterAddress"`
 	ObservationTimeout                     sqlutil.Interval       `toml:"observationTimeout"`
 	BlockchainTimeout                      sqlutil.Interval       `toml:"blockchainTimeout"`

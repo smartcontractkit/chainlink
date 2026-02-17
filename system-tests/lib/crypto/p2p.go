@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"github.com/smartcontractkit/chainlink-common/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 )
 
 type P2PKey struct {

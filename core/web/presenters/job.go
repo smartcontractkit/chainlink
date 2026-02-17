@@ -7,6 +7,8 @@ import (
 	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -15,9 +17,7 @@ import (
 
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -126,23 +126,23 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
-	ContractAddress                        types.EIP55Address  `json:"contractAddress"`
-	P2PV2Bootstrappers                     pq.StringArray      `json:"p2pv2Bootstrappers"`
-	IsBootstrapPeer                        bool                `json:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *keys.Sha256Hash    `json:"keyBundleID"`
-	TransmitterAddress                     *types.EIP55Address `json:"transmitterAddress"`
-	ObservationTimeout                     sqlutil.Interval    `json:"observationTimeout"`
-	BlockchainTimeout                      sqlutil.Interval    `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval sqlutil.Interval    `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      sqlutil.Interval    `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16              `json:"contractConfigConfirmations"`
-	CreatedAt                              time.Time           `json:"createdAt"`
-	UpdatedAt                              time.Time           `json:"updatedAt"`
-	EVMChainID                             *sqlutil.Big        `json:"evmChainID"`
-	DatabaseTimeout                        *sqlutil.Interval   `json:"databaseTimeout"`
-	ObservationGracePeriod                 *sqlutil.Interval   `json:"observationGracePeriod"`
-	ContractTransmitterTransmitTimeout     *sqlutil.Interval   `json:"contractTransmitterTransmitTimeout"`
-	CollectTelemetry                       bool                `json:"collectTelemetry,omitempty"`
+	ContractAddress                        types.EIP55Address   `json:"contractAddress"`
+	P2PV2Bootstrappers                     pq.StringArray       `json:"p2pv2Bootstrappers"`
+	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                *corekeys.Sha256Hash `json:"keyBundleID"`
+	TransmitterAddress                     *types.EIP55Address  `json:"transmitterAddress"`
+	ObservationTimeout                     sqlutil.Interval     `json:"observationTimeout"`
+	BlockchainTimeout                      sqlutil.Interval     `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval sqlutil.Interval     `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      sqlutil.Interval     `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time            `json:"createdAt"`
+	UpdatedAt                              time.Time            `json:"updatedAt"`
+	EVMChainID                             *sqlutil.Big         `json:"evmChainID"`
+	DatabaseTimeout                        *sqlutil.Interval    `json:"databaseTimeout"`
+	ObservationGracePeriod                 *sqlutil.Interval    `json:"observationGracePeriod"`
+	ContractTransmitterTransmitTimeout     *sqlutil.Interval    `json:"contractTransmitterTransmitTimeout"`
+	CollectTelemetry                       bool                 `json:"collectTelemetry,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a

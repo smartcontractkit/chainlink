@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

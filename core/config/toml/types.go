@@ -16,13 +16,13 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -1348,7 +1348,7 @@ type OCR2 struct {
 	ContractSubscribeInterval          *commonconfig.Duration
 	ContractTransmitterTransmitTimeout *commonconfig.Duration
 	DatabaseTimeout                    *commonconfig.Duration
-	KeyBundleID                        *keys.Sha256Hash
+	KeyBundleID                        *corekeys.Sha256Hash
 	CaptureEATelemetry                 *bool
 	CaptureAutomationCustomTelemetry   *bool
 	AllowNoBootstrappers               *bool
@@ -1418,7 +1418,7 @@ type OCR struct {
 	ContractSubscribeInterval    *commonconfig.Duration
 	DefaultTransactionQueueDepth *uint32
 	// Optional
-	KeyBundleID          *keys.Sha256Hash
+	KeyBundleID          *corekeys.Sha256Hash
 	SimulateTransactions *bool
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
