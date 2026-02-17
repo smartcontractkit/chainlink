@@ -329,6 +329,7 @@ flowchart LR
 	chainlink-deployments-framework --> mcms
 	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
 	chainlink-evm --> chainlink-common/keystore
+	chainlink-evm --> chainlink-common/pkg/values
 	chainlink-evm --> chainlink-evm/gethwrappers
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
