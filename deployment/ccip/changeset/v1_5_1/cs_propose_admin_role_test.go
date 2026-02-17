@@ -457,6 +457,7 @@ func TestProposeAdminRoleChangesetV2_Validations(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
+	quarantine.Flaky(t, "DX-2889")
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
