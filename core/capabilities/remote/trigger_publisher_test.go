@@ -100,12 +100,13 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
-func TestTriggerPublisher_RecieveTriggerEventAcks(t *testing.T) {
+func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
 	ctx := testutils.Context(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
 	eventID := "123"
-	regEvent := newAckEventMessage(t, eventID, workflowDONID, peers[1])
+	triggerID := "trigA"
+	regEvent := newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1])
 	publisher.Receive(ctx, regEvent)
 
 	require.True(t, underlyingTriggerCap.eventAckd)
@@ -279,7 +280,7 @@ func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes
 	}
 }
 
-func newAckEventMessage(t *testing.T, eventID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+func newAckEventMessage(t *testing.T, eventID string, triggerID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
 	return &remotetypes.MessageBody{
 		Sender:      sender[:],
 		Method:      remotetypes.MethodTriggerEventAck,
@@ -287,6 +288,7 @@ func newAckEventMessage(t *testing.T, eventID string, callerDonID uint32, sender
 		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
 			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
 				TriggerEventId: eventID,
+				TriggerIds:     []string{triggerID},
 			},
 		},
 	}
