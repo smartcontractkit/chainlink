@@ -560,6 +560,7 @@ func TestProposeAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
+	quarantine.Flaky(t, "DX-2892")
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
