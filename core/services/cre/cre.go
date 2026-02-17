@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
@@ -37,7 +38,6 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
@@ -311,6 +311,7 @@ func newRegistrySyncerV1(
 	dispatcher remotetypes.Dispatcher,
 	capabilitiesRegistry *capabilities.Registry,
 	donNotifier capabilities.DonNotifier,
+	ocrConfigService capregconfig.OCRConfigService,
 ) ([]commonsrv.Service, error) {
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
@@ -336,8 +337,8 @@ func newRegistrySyncerV1(
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
-	registrySyncer.AddListener(wfLauncher)
-	return []commonsrv.Service{wfLauncher, registrySyncer}, nil
+	registrySyncer.AddListener(wfLauncher, ocrConfigService)
+	return []commonsrv.Service{wfLauncher, registrySyncer, ocrConfigService}, nil
 }
 
 func newRegistrySyncerV2(
@@ -433,6 +434,7 @@ func newRegistrySyncer(
 			dispatcherWrapper.dispatcher,
 			opts.CapabilitiesRegistry,
 			donNotifier,
+			ocrConfigService,
 		)
 		if err != nil {
 			return nil, nil, nil, err
