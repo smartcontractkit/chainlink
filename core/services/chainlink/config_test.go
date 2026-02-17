@@ -21,6 +21,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -110,7 +110,7 @@ var (
 		},
 		EVM: []*evmcfg.EVMConfig{
 			{
-				ChainID: ubig.NewI(1),
+				ChainID: sqlutil.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:        ptr[uint32](26),
 					SafeDepth:            ptr[uint32](0),
@@ -130,7 +130,7 @@ var (
 					},
 				}},
 			{
-				ChainID: ubig.NewI(42),
+				ChainID: sqlutil.NewI(42),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						PriceDefault: assets.NewWeiI(math.MaxInt64),
@@ -143,7 +143,7 @@ var (
 					},
 				}},
 			{
-				ChainID: ubig.NewI(137),
+				ChainID: sqlutil.NewI(137),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						Mode: ptr("FixedPrice"),
@@ -688,7 +688,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
-			ChainID: ubig.NewI(1),
+			ChainID: sqlutil.NewI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				AutoCreateKey: ptr(false),
@@ -1916,7 +1916,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
-	c.EVM = evmcfg.EVMConfigs{{ChainID: ubig.NewI(99999133712345)}}
+	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
 	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
 	c.Solana = solcfg.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}

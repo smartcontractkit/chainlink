@@ -39,6 +39,7 @@ const (
 	internalErrorMessage                 = "Internal server error occurred while processing the request"
 	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10      // 10 minutes
 	defaultJWTReplayPeriodMs             = 1000 * 60 * 60 * 24 // 24 hours
+	defaultSendResponseTimeoutMs         = 1000 * 5            // 5 seconds
 )
 
 type gatewayHandler struct {
@@ -339,20 +340,22 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		Timeout:          timeout,
 	}
 
+	sendResponseTimeout := time.Duration(defaultSendResponseTimeoutMs) * time.Millisecond
+
 	// send response to node async
 	h.wg.Add(1)
 	go func() {
 		defer h.wg.Done()
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
-		newCtx := context.WithoutCancel(ctx)
-		newCtx, cancel := context.WithTimeout(newCtx, timeout)
-		defer cancel()
+		baseCtx := context.WithoutCancel(ctx)
+		httpCtx, httpCancel := context.WithTimeout(baseCtx, timeout)
+		defer httpCancel()
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		var outboundResp gateway_common.OutboundHTTPResponse
-		callback := h.createHTTPRequestCallback(newCtx, requestID, httpReq, req)
+		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req)
 		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.IncrementCacheReadCount(ctx, h.lggr)
-			outboundResp = h.responseCache.Fetch(ctx, workflowID, req, callback, req.CacheSettings.Store)
+			outboundResp = h.responseCache.Fetch(httpCtx, workflowID, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
 			if req.CacheSettings.Store {
@@ -360,7 +363,11 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 			}
 		}
 		h.metrics.IncrementActionCapabilityRequestCount(ctx, nodeAddr, h.lggr)
-		err := h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)
+		// Use a separate context for sending the response to the node so that an
+		// expired HTTP request timeout does not prevent delivering the result.
+		sendCtx, sendCancel := context.WithTimeout(baseCtx, sendResponseTimeout)
+		defer sendCancel()
+		err := h.sendResponseToNode(sendCtx, requestID, outboundResp, nodeAddr)
 		if err != nil {
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)

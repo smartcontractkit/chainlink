@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -45,7 +44,7 @@ func TestResolver_CronSpec(t *testing.T) {
 					Type: job.Cron,
 					CronSpec: &job.CronSpec{
 						CronSchedule: "CRON_TZ=UTC 0 0 1 1 *",
-						EVMChainID:   ubig.NewI(42),
+						EVMChainID:   sqlutil.NewI(42),
 						CreatedAt:    f.Timestamp(),
 					},
 				}, nil)
@@ -103,7 +102,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 					DirectRequestSpec: &job.DirectRequestSpec{
 						ContractAddress:          contractAddress,
 						CreatedAt:                f.Timestamp(),
-						EVMChainID:               ubig.NewI(42),
+						EVMChainID:               sqlutil.NewI(42),
 						MinIncomingConfirmations: clnull.NewUint32(1, true),
 						MinContractPayment:       commonassets.NewLinkFromJuels(1000),
 						Requesters:               models.AddressCollection{requesterAddress},
@@ -168,7 +167,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:   contractAddress,
 						CreatedAt:         f.Timestamp(),
-						EVMChainID:        ubig.NewI(42),
+						EVMChainID:        sqlutil.NewI(42),
 						DrumbeatEnabled:   false,
 						IdleTimerDisabled: false,
 						IdleTimerPeriod:   1 * time.Hour,
@@ -235,7 +234,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:     contractAddress,
 						CreatedAt:           f.Timestamp(),
-						EVMChainID:          ubig.NewI(42),
+						EVMChainID:          sqlutil.NewI(42),
 						DrumbeatEnabled:     true,
 						DrumbeatRandomDelay: 1 * time.Second,
 						DrumbeatSchedule:    "CRON_TZ=UTC 0 0 1 1 *",
@@ -318,7 +317,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 					KeeperSpec: &job.KeeperSpec{
 						ContractAddress: contractAddress,
 						CreatedAt:       f.Timestamp(),
-						EVMChainID:      ubig.NewI(42),
+						EVMChainID:      sqlutil.NewI(42),
 						FromAddress:     evmtypes.EIP55AddressFromAddress(fromAddress),
 					},
 				}, nil)
@@ -389,7 +388,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ObservationGracePeriod:                 sqlutil.NewInterval(4 * time.Second),
 						ContractTransmitterTransmitTimeout:     sqlutil.NewInterval(555 * time.Millisecond),
 						CreatedAt:                              f.Timestamp(),
-						EVMChainID:                             ubig.NewI(42),
+						EVMChainID:                             sqlutil.NewI(42),
 						IsBootstrapPeer:                        false,
 						EncryptedOCRKeyBundleID:                &keyBundleID,
 						ObservationTimeout:                     sqlutil.Interval(2 * time.Minute),
@@ -610,7 +609,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						MinIncomingConfirmations:      1,
 						CoordinatorAddress:            coordinatorAddress,
 						CreatedAt:                     f.Timestamp(),
-						EVMChainID:                    ubig.NewI(42),
+						EVMChainID:                    sqlutil.NewI(42),
 						FromAddresses:                 []evmtypes.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                    1 * time.Minute,
 						PublicKey:                     pubKey,
@@ -773,7 +772,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 						CoordinatorV2Address:           &coordinatorV2Address,
 						CoordinatorV2PlusAddress:       &coordinatorV2PlusAddress,
 						CreatedAt:                      f.Timestamp(),
-						EVMChainID:                     ubig.NewI(42),
+						EVMChainID:                     sqlutil.NewI(42),
 						FromAddresses:                  []evmtypes.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                     1 * time.Minute,
 						RunTimeout:                     37 * time.Second,
@@ -877,7 +876,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 						CoordinatorV2Address:       &coordinatorV2Address,
 						CoordinatorV2PlusAddress:   &coordinatorV2PlusAddress,
 						CreatedAt:                  f.Timestamp(),
-						EVMChainID:                 ubig.NewI(42),
+						EVMChainID:                 sqlutil.NewI(42),
 						FromAddresses:              []evmtypes.EIP55Address{fromAddress},
 						PollPeriod:                 1 * time.Minute,
 						RunTimeout:                 37 * time.Second,

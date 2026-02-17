@@ -41,7 +41,7 @@ var _ OCRConfigService = (*ocrConfigService)(nil)
 var _ services.Service = (*ocrConfigService)(nil)
 var _ registrysyncer.Listener = (*ocrConfigService)(nil)
 
-type PeerIDProvider func() ragetypes.PeerID
+type PeerIDProvider func() (ragetypes.PeerID, error)
 
 type configKey struct {
 	CapabilityID string
@@ -78,7 +78,14 @@ func (s *ocrConfigService) Start(ctx context.Context) error {
 		if s.peerIDProviderFn == nil {
 			return errors.New("peerIDProvider function is required")
 		}
-		s.myPeerID = s.peerIDProviderFn()
+		var err error
+		s.myPeerID, err = s.peerIDProviderFn()
+		if err != nil {
+			return fmt.Errorf("failed to get peer ID: %w", err)
+		}
+		if s.myPeerID == (ragetypes.PeerID{}) {
+			return errors.New("peer ID is empty")
+		}
 		s.lggr.Infow("OCRConfigService started", "peerID", s.myPeerID.String())
 		return nil
 	})
@@ -102,10 +109,19 @@ func (s *ocrConfigService) HealthReport() map[string]error {
 // OnNewRegistry implements registrysyncer.Listener to receive registry updates with capability configurations.
 // It scans DONs to find which one(s) the current node belongs to and extracts OCR configs only for those DONs.
 func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registrysyncer.LocalRegistry) error {
+	if ok := s.IfStarted(func() {}); !ok {
+		s.lggr.Warnw("OnNewRegistry called before service started, skipping")
+		return nil
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.registryRefreshed = true
+	s.lggr.Debugw("processing registry update",
+		"totalDONs", len(registry.IDsToDONs),
+		"peerID", s.myPeerID.String(),
+	)
 
 	// Track configs found per capability to detect duplicates across DONs.
 	// Map: capabilityID+ocrConfigKey -> donID
@@ -116,6 +132,10 @@ func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry
 		if !slices.Contains(don.Members, s.myPeerID) {
 			continue
 		}
+		s.lggr.Debugw("processing DON",
+			"donID", donID,
+			"nCapabilities", len(don.CapabilityConfigurations),
+		)
 
 		for capID, capConfig := range don.CapabilityConfigurations {
 			if err := s.processCapabilityConfig(ctx, capID, uint32(donID), capConfig.Config, foundConfigs); err != nil {
@@ -134,6 +154,10 @@ func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry
 
 func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabilityID string, donID uint32, configBytes []byte, foundConfigs map[configKey]uint32) error {
 	if len(configBytes) == 0 {
+		s.lggr.Debugw("empty config bytes, skipping",
+			"capabilityID", capabilityID,
+			"donID", donID,
+		)
 		return nil
 	}
 
@@ -141,6 +165,12 @@ func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabili
 	if err := proto.Unmarshal(configBytes, &capConfig); err != nil {
 		return fmt.Errorf("failed to unmarshal capability config: %w", err)
 	}
+
+	s.lggr.Debugw("processing capability config",
+		"capabilityID", capabilityID,
+		"donID", donID,
+		"ocrConfigsLen", len(capConfig.Ocr3Configs),
+	)
 
 	if len(capConfig.Ocr3Configs) == 0 {
 		return nil

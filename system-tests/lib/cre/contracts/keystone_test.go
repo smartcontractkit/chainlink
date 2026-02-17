@@ -234,7 +234,7 @@ func TestGenerateAdminAddresses(t *testing.T) {
 		count := 10
 		addresses, err := generateAdminAddresses(count)
 		require.NoError(t, err, "Expected no error, but got: %v", err)
-		require.Len(t, len(addresses), count, "Expected slice of length %d, but got %d", count, len(addresses))
+		require.Len(t, addresses, count, "Expected slice of length %d, but got %d", count, len(addresses))
 
 		// Check for uniqueness and validity
 		addressMap := make(map[common.Address]bool)
@@ -243,7 +243,7 @@ func TestGenerateAdminAddresses(t *testing.T) {
 			require.NotEqual(t, 0, addr.Cmp(common.HexToAddress("0x0000000000000000000000000000000000000000")), "Generated a zero address, which should be avoided")
 			addressMap[addr] = true
 		}
-		require.Len(t, len(addressMap), count, "Expected slice of length %d, but got %d", count, len(addressMap))
+		require.Len(t, addressMap, count, "Expected unique address count of %d, but got %d", count, len(addressMap))
 	})
 
 	// Test Case 2: Smallest Valid Input
@@ -251,7 +251,7 @@ func TestGenerateAdminAddresses(t *testing.T) {
 		count := 1
 		addresses, err := generateAdminAddresses(count)
 		require.NoError(t, err, "Expected no error, but got: %v", err)
-		require.Len(t, len(addresses), count, "Expected slice of length %d, but got %d", count, len(addresses))
+		require.Len(t, addresses, count, "Expected slice of length %d, but got %d", count, len(addresses))
 	})
 
 	// Test Case 3: Invalid Input (Zero and Negative Count)
@@ -272,7 +272,7 @@ func TestGenerateAdminAddresses(t *testing.T) {
 		count := 65536
 		addresses, err := generateAdminAddresses(count)
 		require.NoError(t, err, "Expected no error, but got: %v", err)
-		require.Len(t, len(addresses), count, "Expected slice of length %d, but got %d", count, len(addresses))
+		require.Len(t, addresses, count, "Expected slice of length %d, but got %d", count, len(addresses))
 
 		for _, addr := range addresses {
 			require.True(t, common.IsHexAddress(addr.String()), "invalid address: %s", addr)

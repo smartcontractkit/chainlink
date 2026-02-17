@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -37,7 +37,7 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	rows := make([]*s4.Row, n)
 	for i := range n {
 		rows[i] = &s4.Row{
-			Address:    ormRows[i].Address.Bytes(),
+			Address:    ormRows[i].Address.ToInt().Bytes(),
 			Slotid:     uint32(ormRows[i].SlotId),
 			Version:    ormRows[i].Version,
 			Expiration: ormRows[i].Expiration,
@@ -51,7 +51,7 @@ func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confimed bool) *s4_svc.Row {
 	priv, addr := testutils.NewPrivateKeyAndAddress(t)
 	row := &s4_svc.Row{
-		Address:    big.New(addr.Big()),
+		Address:    sqlutil.New(addr.Big()),
 		SlotId:     0,
 		Version:    version,
 		Confirmed:  confimed,
@@ -90,7 +90,7 @@ func generateConfirmedTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_
 func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
 	assert.Len(t, protoRows, len(ormRows))
 	for i, row := range protoRows {
-		assert.Equal(t, row.Address, ormRows[i].Address.Bytes())
+		assert.Equal(t, row.Address, ormRows[i].Address.ToInt().Bytes())
 		assert.Equal(t, row.Version, ormRows[i].Version)
 		assert.Equal(t, row.Expiration, ormRows[i].Expiration)
 		assert.Equal(t, row.Payload, ormRows[i].Payload)
@@ -101,7 +101,7 @@ func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
 func compareSnapshotRows(t *testing.T, snapshot []*s4.SnapshotRow, ormVersions []*s4_svc.SnapshotRow) {
 	assert.Len(t, snapshot, len(ormVersions))
 	for i, row := range snapshot {
-		assert.Equal(t, row.Address, ormVersions[i].Address.Bytes())
+		assert.Equal(t, row.Address, ormVersions[i].Address.ToInt().Bytes())
 		assert.Equal(t, row.Slotid, uint32(ormVersions[i].SlotId))
 		assert.Equal(t, row.Version, ormVersions[i].Version)
 	}
@@ -295,7 +295,7 @@ func TestPlugin_Query(t *testing.T) {
 		for i := range 256 {
 			var thisAddress common.Address
 			thisAddress[0] = byte(i)
-			ormRows[i].Address = big.New(thisAddress.Big())
+			ormRows[i].Address = sqlutil.New(thisAddress.Big())
 		}
 		versions := rowsToShapshotRows(ormRows)
 
@@ -380,7 +380,7 @@ func TestPlugin_Observation(t *testing.T) {
 		numHigherVersion := 2
 		for i, v := range snapshotRows {
 			query.Rows[i] = &s4.SnapshotRow{
-				Address: v.Address.Bytes(),
+				Address: v.Address.ToInt().Bytes(),
 				Slotid:  uint32(v.SlotId),
 				Version: v.Version,
 			}
@@ -432,12 +432,12 @@ func TestPlugin_Observation(t *testing.T) {
 		query := &s4.Query{
 			Rows: []*s4.SnapshotRow{
 				&s4.SnapshotRow{
-					Address: snapshot[0].Address.Bytes(),
+					Address: snapshot[0].Address.ToInt().Bytes(),
 					Slotid:  uint32(snapshot[0].SlotId),
 					Version: vHigh,
 				},
 				&s4.SnapshotRow{
-					Address: snapshot[1].Address.Bytes(),
+					Address: snapshot[1].Address.ToInt().Bytes(),
 					Slotid:  uint32(snapshot[1].SlotId),
 					Version: vLow,
 				},

@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -44,15 +44,15 @@ func (bdc *LCAController) FindLCA(c *gin.Context) {
 	response := LCAResponse{
 		BlockNumber: lca.BlockNumber,
 		Hash:        lca.BlockHash.String(),
-		EVMChainID:  big.New(chainID),
+		EVMChainID:  sqlutil.New(chainID),
 	}
 	jsonAPIResponse(c, &response, "response")
 }
 
 type LCAResponse struct {
-	BlockNumber int64    `json:"blockNumber"`
-	Hash        string   `json:"hash"`
-	EVMChainID  *big.Big `json:"evmChainID"`
+	BlockNumber int64        `json:"blockNumber"`
+	Hash        string       `json:"hash"`
+	EVMChainID  *sqlutil.Big `json:"evmChainID"`
 }
 
 // GetID returns the jsonapi ID.

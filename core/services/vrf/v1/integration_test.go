@@ -16,10 +16,10 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -52,7 +52,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			ctx := testutils.Context(t)
 			config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
-				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+				c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 			})
 			key1 := cltest.MustGenerateRandomKey(t)
 			key2 := cltest.MustGenerateRandomKey(t)
@@ -140,7 +140,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(time.Second)
-		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+		c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 	})
 	key := cltest.MustGenerateRandomKey(t)
 	cu := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)

@@ -28,6 +28,10 @@ type OCR3JobConfigInput struct {
 	ChainSelectorSolana  ChainSelector `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
 	BootstrapperOCR3Urls []string      `yaml:"bootstrapperOCR3Urls"`
 
+	// When set, resolve the CapabilitiesRegistry address instead of the OCR3 contract address.
+	// ContractQualifier is still used as the qualifier for the CapReg address lookup.
+	CapRegVersion string `yaml:"capRegVersion"`
+
 	// Optionals: specific to the worker vault OCR3 Job spec
 	DKGContractQualifier       string `yaml:"dkgContractQualifier"`
 	VaultRequestExpiryDuration string `yaml:"vaultRequestExpiryDuration"`

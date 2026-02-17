@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	commit_store_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -313,6 +313,6 @@ func createReportAcceptedLog(t testing.TB, chainID *big.Int, address common.Addr
 		EventSig:       topic0,
 		Address:        address,
 		TxHash:         utils.RandomBytes32(),
-		EVMChainID:     ubig.New(chainID),
+		EVMChainID:     sqlutil.New(chainID),
 	}
 }

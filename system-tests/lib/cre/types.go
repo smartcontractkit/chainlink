@@ -119,8 +119,8 @@ func NewContractVersionsProvider(overrides map[ContractType]*semver.Version) *co
 	cvp := &contractVersionsProvider{
 		contracts: map[ContractType]*semver.Version{
 			keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
-			keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
-			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+			keystone_changeset.WorkflowRegistry.String():     semver.MustParse("2.0.0"),
+			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("2.0.0"),
 			keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 			ks_sol.ForwarderContract.String():                semver.MustParse("1.0.0"),
 			ks_sol.ForwarderState.String():                   semver.MustParse("1.0.0"),

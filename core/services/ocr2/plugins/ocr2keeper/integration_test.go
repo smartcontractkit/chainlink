@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -45,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -450,7 +450,7 @@ func setupForwarderForNode(
 	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID, err := backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
-	_, err = forwarderORM.CreateForwarder(ctx, faddr, ubig.Big(*chainID))
+	_, err = forwarderORM.CreateForwarder(ctx, faddr, sqlutil.Big(*chainID))
 	require.NoError(t, err)
 
 	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())

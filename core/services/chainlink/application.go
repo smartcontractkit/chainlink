@@ -59,8 +59,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -1147,7 +1145,7 @@ func newCREServices(
 			}
 			ocrConfigServiceImpl := capregconfig.NewOCRConfigService(
 				globalLogger,
-				func() ragetypes.PeerID { return don2donSharedPeer.ID() },
+				getPeerID,
 				registryChainID,
 				registryAddress,
 			)
@@ -1167,7 +1165,8 @@ func newCREServices(
 				}
 
 				registrySyncer.AddListener(wfLauncher)
-				srvcs = append(srvcs, wfLauncher, registrySyncer)
+				registrySyncer.AddListener(ocrConfigServiceImpl)
+				srvcs = append(srvcs, wfLauncher, ocrConfigServiceImpl, registrySyncer)
 			case 2:
 				registrySyncer, err := registrysyncerV2.New(
 					globalLogger,

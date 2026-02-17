@@ -545,7 +545,7 @@ func (oi *oidcAuthenticator) SetAuthToken(ctx context.Context, user *clsessions.
 
 // DeleteAuthToken clears and disables the users Authentication Token.
 func (oi *oidcAuthenticator) DeleteAuthToken(ctx context.Context, user *clsessions.User) error {
-	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE email = $1")
+	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE user_email = $1", user.Email)
 	return err
 }
 

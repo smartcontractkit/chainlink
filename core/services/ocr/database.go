@@ -15,7 +15,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -163,7 +162,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 }
 
 func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
-	median := big.New(p.Median)
+	median := sqlutil.New(p.Median)
 	var rs [][]byte
 	var ss [][]byte
 	// Note: p.Rs and p.Ss are of type [][32]byte.
@@ -233,7 +232,7 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 		k := ocrtypes.ReportTimestamp{}
 		p := ocrtypes.PendingTransmission{}
 
-		var median big.Big
+		var median sqlutil.Big
 		var rs [][]byte
 		var ss [][]byte
 		var vs []byte

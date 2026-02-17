@@ -9,13 +9,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -23,6 +25,8 @@ import (
 )
 
 const flag = cre.DONTimeCapability
+
+const donTimeLabelledName = "dontime"
 
 type DONTime struct{}
 
@@ -37,13 +41,24 @@ func (o *DONTime) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	// nothing to do
-	return nil, nil
-}
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
+		Capability: kcr.CapabilitiesRegistryCapability{
+			LabelledName: donTimeLabelledName,
+			Version:      "1.0.0",
+		},
+		Config: &capabilitiespb.CapabilityConfig{
+			LocalOnly: don.HasOnlyLocalCapabilities(),
+		},
+		UseCapRegOCRConfig: true,
+	}}
 
-const (
-	ContractQualifier = "dontime"
-)
+	return &cre.PreEnvStartupOutput{
+		DONCapabilityWithConfig: capabilities,
+		CapabilityToOCR3Config: map[string]*ocr3.OracleConfig{
+			donTimeLabelledName: contracts.DefaultOCR3Config(),
+		},
+	}, nil
+}
 
 func (o *DONTime) PostEnvStartup(
 	ctx context.Context,
@@ -52,11 +67,6 @@ func (o *DONTime) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
-	if timeErr != nil {
-		return fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
-	}
-
 	jobErr := createJobs(
 		ctx,
 		creEnv,
@@ -65,44 +75,6 @@ func (o *DONTime) PostEnvStartup(
 	)
 	if jobErr != nil {
 		return fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
-	}
-
-	ocr3Config := contracts.DefaultOCR3Config()
-
-	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
-	if !ok {
-		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
-	}
-
-	strategy, err := strategies.CreateStrategy(
-		chain,
-		*creEnv.CldfEnvironment,
-		nil,
-		nil,
-		*donTimeContractAddr,
-		"PostEnvStartup - Configure OCR3 Contract - DON Time",
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create strategy: %w", err)
-	}
-
-	_, donTimeErr := operations.ExecuteOperation(
-		creEnv.CldfEnvironment.OperationsBundle,
-		ks_contracts_op.ConfigureOCR3Op,
-		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      creEnv.CldfEnvironment,
-			Strategy: strategy,
-		},
-		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress: donTimeContractAddr,
-			ChainSelector:   creEnv.RegistryChainSelector,
-			DON:             don.KeystoneDONConfig(),
-			Config:          don.ResolveORC3Config(ocr3Config),
-			DryRun:          false,
-		},
-	)
-	if donTimeErr != nil {
-		return errors.Wrap(donTimeErr, "failed to configure DON Time contract")
 	}
 
 	return nil
@@ -126,6 +98,11 @@ func createJobs(
 		return errors.Wrap(err, "failed to get peering configs")
 	}
 
+	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+	if !ok {
+		return errors.New("CapabilitiesRegistry version not found in contract versions")
+	}
+
 	workerInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
@@ -138,7 +115,8 @@ func createJobs(
 		Template: job_types.OCR3,
 		Inputs: job_types.JobSpecInput{
 			"chainSelectorEVM":     creEnv.RegistryChainSelector,
-			"contractQualifier":    ContractQualifier,
+			"contractQualifier":    "",
+			"capRegVersion":        capRegVersion.String(),
 			"templateName":         "don-time",
 			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
 		},

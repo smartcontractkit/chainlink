@@ -36,6 +36,7 @@ import (
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
@@ -44,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	evmUtils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	commit_store_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store"
 	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp"
@@ -516,7 +516,7 @@ func createConfigV2Chain(chainID *big.Int) *toml.EVMConfig {
 	defaultGasLimit := uint64(5000000)
 	tr := true
 
-	sourceC := toml.Defaults((*evmUtils.Big)(chainID))
+	sourceC := toml.Defaults((*sqlutil.Big)(chainID))
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
@@ -525,7 +525,7 @@ func createConfigV2Chain(chainID *big.Int) *toml.EVMConfig {
 	fd := uint32(2)
 	sourceC.FinalityDepth = &fd
 	return &toml.EVMConfig{
-		ChainID: (*evmUtils.Big)(chainID),
+		ChainID: (*sqlutil.Big)(chainID),
 		Enabled: &tr,
 		Chain:   sourceC,
 		Nodes:   toml.EVMNodes{&toml.Node{}},

@@ -700,6 +700,47 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 }
 
+func TestMakeOutgoingRequest_SendResponseUsesIndependentContext(t *testing.T) {
+	handler := createTestHandler(t)
+	mockDon := handler.don.(*handlermocks.DON)
+	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method:    "GET",
+		URL:       "https://slow-endpoint.com/api",
+		TimeoutMs: 50, // very short timeout so the HTTP context expires quickly
+	}
+	reqBytes, err := json.Marshal(outboundReq)
+	require.NoError(t, err)
+
+	id := fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String())
+	rawRequest := json.RawMessage(reqBytes)
+	resp := &jsonrpc.Response[json.RawMessage]{
+		ID:     id,
+		Result: &rawRequest,
+	}
+
+	// Simulate a slow HTTP endpoint that blocks until the context deadline expires.
+	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(
+		func(ctx context.Context, req network.HTTPRequest) (*network.HTTPResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	)
+
+	// The critical assertion: SendToNode must receive a non-expired context.
+	// Before the fix, the same context was shared between the HTTP call and
+	// sendResponseToNode, so an expired HTTP timeout would also prevent
+	// delivering the response back to the node.
+	mockDon.EXPECT().SendToNode(mock.MatchedBy(func(ctx context.Context) bool {
+		return ctx.Err() == nil
+	}), "node1", mock.Anything).Return(nil)
+
+	err = handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
+	require.NoError(t, err)
+	handler.wg.Wait()
+}
+
 // TestMakeOutgoingRequestCachingBehavior tests the specific caching logic in makeOutgoingRequest
 func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 	t.Run("MaxAgeMs=0 and Store=true calls Set", func(t *testing.T) {
