@@ -4,8 +4,8 @@ import (
 	"time"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
@@ -13,14 +13,14 @@ import (
 // representation of the address plus its ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
-	EVMChainID     big.Big            `json:"evmChainID"`
+	EVMChainID     sqlutil.Big        `json:"evmChainID"`
 	Address        string             `json:"address"`
 	EthBalance     *assets.Eth        `json:"ethBalance"`
 	LinkBalance    *commonassets.Link `json:"linkBalance"`
 	Disabled       bool               `json:"disabled"`
 	CreatedAt      time.Time          `json:"createdAt"`
 	UpdatedAt      time.Time          `json:"updatedAt"`
-	MaxGasPriceWei *big.Big           `json:"maxGasPriceWei"`
+	MaxGasPriceWei *sqlutil.Big       `json:"maxGasPriceWei"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -69,7 +69,7 @@ func SetETHKeyLinkBalance(linkBalance *commonassets.Link) NewETHKeyOption {
 	}
 }
 
-func SetETHKeyMaxGasPriceWei(maxGasPriceWei *big.Big) NewETHKeyOption {
+func SetETHKeyMaxGasPriceWei(maxGasPriceWei *sqlutil.Big) NewETHKeyOption {
 	return func(r *ETHKeyResource) {
 		r.MaxGasPriceWei = maxGasPriceWei
 	}

@@ -18,7 +18,7 @@ import (
 // should go to a `regression` package
 /////////////////////////////////////
 
-var v2RegistriesFlags = []string{"--with-contracts-version", "v2"}
+var v1RegistriesFlags = []string{"--with-contracts-version", "v1"}
 
 /*
 To execute tests locally start the local CRE first:
@@ -31,7 +31,7 @@ Inside `core/scripts/cre/environment` directory
  6. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v1RegistriesFlags...)
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 
@@ -41,7 +41,7 @@ func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
 }
 
 func Test_CRE_V1_Tron(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"), v1RegistriesFlags...)
 
 	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
@@ -66,7 +66,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 */
 
 func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v1RegistriesFlags...)
 
 	require.NoError(
 		t,
@@ -80,7 +80,7 @@ func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
 //////////// V2 TESTS /////////////
 /*
 To execute tests with v2 contracts start the local CRE first:
- 1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder --with-contracts-version v2`
+ 1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder`
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
@@ -127,38 +127,38 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 	switch scenario {
 	case v2suite_config.SuiteScenarioProofOfReserve:
 		t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
 			ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
 		})
 	case v2suite_config.SuiteScenarioVaultDON:
 		t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteVaultTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioCronBeholder:
 		t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteCronBeholderTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioHTTPTriggerAction:
 		t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPTriggerActionTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioHTTPActionCRUD:
 		t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioDONTime:
 		t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteDonTimeTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioConsensus:
 		t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteConsensusTest(t, testEnv)
 		})
 	default:
@@ -168,7 +168,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 
 func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
@@ -194,7 +194,7 @@ func Test_CRE_V2_EVM_Read_TxArtifacts(t *testing.T) {
 
 func runV2EVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	topology := os.Getenv("TOPOLOGY_NAME")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry")
 
 	testCases, err := evm_config.CasesForReadBucket(bucket)
@@ -213,19 +213,19 @@ func Test_CRE_V2_Solana_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 }
 
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	ExecuteHTTPActionRegressionTest(t, testEnv)
 }
 
 func Test_CRE_V2_Beholder_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), append(v2RegistriesFlags, "--with-dashboards")...)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-dashboards")
 
 	ExecuteLogStreamingTest(t, testEnv)
 }
@@ -234,7 +234,6 @@ func Test_CRE_V2_Sharding(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
-		v2RegistriesFlags...,
 	)
 
 	ExecuteShardingTest(t, testEnv)

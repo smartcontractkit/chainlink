@@ -54,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_pausable_freezable_transparent"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
@@ -111,15 +112,16 @@ type CCIPChainState struct {
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	ERC20Tokens                    map[shared.TokenSymbol]*erc20.ERC20
-	FactoryBurnMintERC20Token      *factory_burn_mint_erc20.FactoryBurnMintERC20
-	FactoryBurnMintERC20Token1_5_1 *factory_burn_mint_erc20_2.FactoryBurnMintERC20
-	ERC677Tokens                   map[shared.TokenSymbol]*erc677.ERC677
-	BurnMintTokens677              map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintERC20                  map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
-	BurnMintERC20WithDrip          map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip
-	TokenGovernor                  map[shared.TokenSymbol]*token_governor.TokenGovernor
-	BurnMintERC20Transparent       map[shared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent
+	ERC20Tokens                               map[shared.TokenSymbol]*erc20.ERC20
+	FactoryBurnMintERC20Token                 *factory_burn_mint_erc20.FactoryBurnMintERC20
+	FactoryBurnMintERC20Token1_5_1            *factory_burn_mint_erc20_2.FactoryBurnMintERC20
+	ERC677Tokens                              map[shared.TokenSymbol]*erc677.ERC677
+	BurnMintTokens677                         map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintERC20                             map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
+	BurnMintERC20WithDrip                     map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip
+	TokenGovernor                             map[shared.TokenSymbol]*token_governor.TokenGovernor
+	BurnMintERC20Transparent                  map[shared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent
+	BurnMintERC20PausableFreezableTransparent map[shared.TokenSymbol]*burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparent
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
@@ -638,6 +640,9 @@ func (c CCIPChainState) TokenAddressBySymbol() (map[shared.TokenSymbol]common.Ad
 	for symbol, token := range c.BurnMintERC20Transparent {
 		tokenAddresses[symbol] = token.Address()
 	}
+	for symbol, token := range c.BurnMintERC20PausableFreezableTransparent {
+		tokenAddresses[symbol] = token.Address()
+	}
 	var err error
 	tokenAddresses[shared.LinkSymbol], err = c.LinkTokenAddress()
 	if err != nil {
@@ -669,6 +674,9 @@ func (c CCIPChainState) TokenDetailsBySymbol() (map[shared.TokenSymbol]shared.To
 		tokenDetails[symbol] = token
 	}
 	for symbol, token := range c.BurnMintERC20Transparent {
+		tokenDetails[symbol] = token
+	}
+	for symbol, token := range c.BurnMintERC20PausableFreezableTransparent {
 		tokenDetails[symbol] = token
 	}
 	if c.LinkToken != nil {

@@ -55,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -258,10 +257,10 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	ctx := testutils.Context(t)
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
-	chainID := *ubig.New(&FixtureChainID)
+	chainID := *sqlutil.New(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case *ubig.Big:
+		case *sqlutil.Big:
 			chainID = *v
 		}
 	}
@@ -1164,12 +1163,12 @@ func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, wa
 
 // Head return a new head with the given number.
 func Head(num int64) *evmtypes.Head {
-	h := evmtypes.NewHead(big.NewInt(num), evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(num), evmutils.NewHash(), evmutils.NewHash(), sqlutil.New(&FixtureChainID))
 	return &h
 }
 
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
-	h := evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), ubig.New(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), sqlutil.New(&FixtureChainID))
 	return &h
 }
 

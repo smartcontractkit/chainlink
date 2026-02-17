@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	chainlinkevmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -204,7 +203,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		ContractConfigTrackerSubscribeInterval: sqlutil.Interval(2 * time.Minute),
 		ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
 		ContractConfigConfirmations:            uint16(3),
-		EVMChainID:                             chainlinkevmbig.New(testutils.FixtureChainID),
+		EVMChainID:                             sqlutil.New(testutils.FixtureChainID),
 	}
 	var os = job.Job{
 		Name:          null.NewString("a job", true),

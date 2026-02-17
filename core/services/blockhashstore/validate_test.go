@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -49,7 +49,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 					os.BlockhashStoreSpec.BlockhashStoreAddress)
 				require.Equal(t, 23*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 7*time.Second, os.BlockhashStoreSpec.RunTimeout)
-				require.Equal(t, big.NewI(4), os.BlockhashStoreSpec.EVMChainID)
+				require.Equal(t, sqlutil.NewI(4), os.BlockhashStoreSpec.EVMChainID)
 				require.Equal(t, fromAddresses,
 					os.BlockhashStoreSpec.FromAddresses)
 			},

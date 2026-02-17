@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 func TestUpkeepIdentifer_String(t *testing.T) {
@@ -26,7 +26,7 @@ func TestUpkeepIdentifer_String(t *testing.T) {
 				return
 			}
 
-			result := NewUpkeepIdentifier(ubig.New(o)).String()
+			result := NewUpkeepIdentifier(sqlutil.New(o)).String()
 			require.Equal(t, test.hex, result)
 		})
 	}

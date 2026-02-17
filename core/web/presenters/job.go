@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -57,7 +56,7 @@ type DirectRequestSpec struct {
 	Initiator                string                   `json:"initiator"`
 	CreatedAt                time.Time                `json:"createdAt"`
 	UpdatedAt                time.Time                `json:"updatedAt"`
-	EVMChainID               *big.Big                 `json:"evmChainID"`
+	EVMChainID               *sqlutil.Big             `json:"evmChainID"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
@@ -92,7 +91,7 @@ type FluxMonitorSpec struct {
 	MinPayment          *commonassets.Link `json:"minPayment"`
 	CreatedAt           time.Time          `json:"createdAt"`
 	UpdatedAt           time.Time          `json:"updatedAt"`
-	EVMChainID          *big.Big           `json:"evmChainID"`
+	EVMChainID          *sqlutil.Big       `json:"evmChainID"`
 }
 
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
@@ -139,7 +138,7 @@ type OffChainReportingSpec struct {
 	ContractConfigConfirmations            uint16              `json:"contractConfigConfirmations"`
 	CreatedAt                              time.Time           `json:"createdAt"`
 	UpdatedAt                              time.Time           `json:"updatedAt"`
-	EVMChainID                             *big.Big            `json:"evmChainID"`
+	EVMChainID                             *sqlutil.Big        `json:"evmChainID"`
 	DatabaseTimeout                        *sqlutil.Interval   `json:"databaseTimeout"`
 	ObservationGracePeriod                 *sqlutil.Interval   `json:"observationGracePeriod"`
 	ContractTransmitterTransmitTimeout     *sqlutil.Interval   `json:"contractTransmitterTransmitTimeout"`
@@ -230,7 +229,7 @@ type KeeperSpec struct {
 	FromAddress     types.EIP55Address `json:"fromAddress"`
 	CreatedAt       time.Time          `json:"createdAt"`
 	UpdatedAt       time.Time          `json:"updatedAt"`
-	EVMChainID      *big.Big           `json:"evmChainID"`
+	EVMChainID      *sqlutil.Big       `json:"evmChainID"`
 }
 
 // NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
@@ -260,10 +259,10 @@ func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
 
 // CronSpec defines the spec details of a Cron Job
 type CronSpec struct {
-	CronSchedule string    `json:"schedule"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
-	EVMChainID   *big.Big  `json:"evmChainID"`
+	CronSchedule string       `json:"schedule"`
+	CreatedAt    time.Time    `json:"createdAt"`
+	UpdatedAt    time.Time    `json:"updatedAt"`
+	EVMChainID   *sqlutil.Big `json:"evmChainID"`
 }
 
 // NewCronSpec generates a new CronSpec from a job.CronSpec
@@ -288,7 +287,7 @@ type VRFSpec struct {
 	MinIncomingConfirmations      uint32                `json:"confirmations"`
 	CreatedAt                     time.Time             `json:"createdAt"`
 	UpdatedAt                     time.Time             `json:"updatedAt"`
-	EVMChainID                    *big.Big              `json:"evmChainID"`
+	EVMChainID                    *sqlutil.Big          `json:"evmChainID"`
 	ChunkSize                     uint32                `json:"chunkSize"`
 	RequestTimeout                commonconfig.Duration `json:"requestTimeout"`
 	BackoffInitialDelay           commonconfig.Duration `json:"backoffInitialDelay"`
@@ -335,7 +334,7 @@ type BlockhashStoreSpec struct {
 	TrustedBlockhashStoreBatchSize int32                `json:"trustedBlockhashStoreBatchSize"`
 	PollPeriod                     time.Duration        `json:"pollPeriod"`
 	RunTimeout                     time.Duration        `json:"runTimeout"`
-	EVMChainID                     *big.Big             `json:"evmChainID"`
+	EVMChainID                     *sqlutil.Big         `json:"evmChainID"`
 	FromAddresses                  []types.EIP55Address `json:"fromAddresses"`
 	CreatedAt                      time.Time            `json:"createdAt"`
 	UpdatedAt                      time.Time            `json:"updatedAt"`
@@ -371,7 +370,7 @@ type BlockHeaderFeederSpec struct {
 	BatchBlockhashStoreAddress types.EIP55Address   `json:"batchBlockhashStoreAddress"`
 	PollPeriod                 time.Duration        `json:"pollPeriod"`
 	RunTimeout                 time.Duration        `json:"runTimeout"`
-	EVMChainID                 *big.Big             `json:"evmChainID"`
+	EVMChainID                 *sqlutil.Big         `json:"evmChainID"`
 	FromAddresses              []types.EIP55Address `json:"fromAddresses"`
 	GetBlockhashesBatchSize    uint16               `json:"getBlockhashesBatchSize"`
 	StoreBlockhashesBatchSize  uint16               `json:"storeBlockhashesBatchSize"`

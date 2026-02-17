@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -24,7 +24,7 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 	var (
 		id         = "ID:"
 		address    = utils.RandomAddress()
-		evmChainID = big.NewI(4)
+		evmChainID = sqlutil.NewI(4)
 		createdAt  = time.Now()
 		updatedAt  = time.Now().Add(time.Second)
 		buffer     = bytes.NewBufferString("")

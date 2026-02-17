@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -34,7 +34,7 @@ func TestBuildJobSpec(t *testing.T) {
 			ContractAddress: contract,
 		}}
 
-	upkeepID := big.NewI(4)
+	upkeepID := sqlutil.NewI(4)
 	upkeep := UpkeepRegistration{
 		Registry: Registry{
 			FromAddress:     from,

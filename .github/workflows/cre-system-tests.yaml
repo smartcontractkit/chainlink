@@ -118,8 +118,8 @@ jobs:
                   test_id: .key,
                   # Add CRE version based on test name pattern
                   cre_version: (
-                    if (.value.test_name | test("V2")) then "v2"
-                    else "v1"
+                    if (.value.test_name | test("V1")) then "v1"
+                    else "v2"
                     end
                   )
                 }
@@ -281,11 +281,11 @@ jobs:
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           # Do not remove Docker containers on error to allow log collection
           if [[ "${CRE_VERSION}" == "v1" ]]; then
-            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
+            echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v1 --cleanup-on-error=false
           else
-            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v2 --cleanup-on-error=false
+            echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
           fi
 
           exit_code=$?
