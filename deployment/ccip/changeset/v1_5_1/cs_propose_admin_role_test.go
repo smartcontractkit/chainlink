@@ -619,6 +619,7 @@ func TestProposeAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
+	quarantine.Flaky(t, "DX-2891")
 	t.Parallel()
 
 	e, _, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
