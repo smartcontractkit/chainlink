@@ -151,12 +151,12 @@ func (c *Cache) GetMany(streamValues llo.StreamValues) {
 
 func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	c.mu.RLock()
-	value, expiresAt, metricEvent := c.get(id)
+	value, expiresAt, event := c.get(id)
 	c.mu.RUnlock()
 
 	// defer metric updates until after the read lock is released
-	if metricEvent.cacheOutcome != cacheOutcomeHit {
-		promCacheMissCount.WithLabelValues(strconv.FormatUint(uint64(id), 10), string(metricEvent.cacheOutcome)).Inc()
+	if event.cacheOutcome != cacheOutcomeHit {
+		promCacheMissCount.WithLabelValues(strconv.FormatUint(uint64(id), 10), string(event.cacheOutcome)).Inc()
 	} else {
 		promCacheHitCount.WithLabelValues(strconv.FormatUint(uint64(id), 10)).Inc()
 	}
