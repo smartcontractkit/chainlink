@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"strconv"
 	"sync"
@@ -784,12 +783,6 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 	)
 }
 
-type closerFunc func() error
-
-func (f closerFunc) Close() error {
-	return f()
-}
-
 func (e *Engine) close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
 	defer cancel()
@@ -804,14 +797,7 @@ func (e *Engine) close() error {
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
 
-	svcs := []io.Closer{
-		e.cfg.LocalLimiters,
-		closerFunc(func() error {
-			return e.cfg.GlobalExecutionConcurrencyLimiter.Free(ctx, 1)
-		}),
-	}
-
-	return services.CloseAll(svcs...)
+	return e.cfg.GlobalExecutionConcurrencyLimiter.Free(ctx, 1)
 }
 
 // NOTE: needs to be called under the triggersRegMu lock

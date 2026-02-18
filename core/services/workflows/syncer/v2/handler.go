@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -46,6 +47,9 @@ type engineFactoryFn func(ctx context.Context, wfid string, owner string, name t
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
+	services.Service
+	eng *services.Engine
+
 	lggr logger.Logger
 
 	workflowStore          store.Store
@@ -189,12 +193,22 @@ func NewEventHandler(
 		o(eh)
 	}
 
+	eh.Service, eh.eng = services.Config{
+		Name:  "EventHandler",
+		Close: eh.close,
+	}.NewServiceEngine(lggr)
+
 	return eh, nil
 }
 
-func (h *eventHandler) Close() error {
+func (h *eventHandler) close() error {
 	es := h.engineRegistry.PopAll()
-	return services.MultiCloser(es).Close()
+	cs := []io.Closer{}
+	cs = append(cs, h.engineLimiters)
+	for _, e := range es {
+		cs = append(cs, e)
+	}
+	return services.CloseAll(cs...)
 }
 
 // toCommonHead converts our local Head struct back to chainlink-common Head

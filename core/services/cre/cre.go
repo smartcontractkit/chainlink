@@ -782,7 +782,7 @@ func newWorkflowRegistrySyncerV1(
 		return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 	}
 
-	srvcs = append(srvcs, wfSyncer)
+	srvcs = append(srvcs, eventHandler, wfSyncer)
 	lggr.Debugw("Created WorkflowRegistrySyncer V1")
 	return srvcs, nil
 }
@@ -949,7 +949,7 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 	}
 
-	srvcs = append(srvcs, workflowRegistrySyncerV2)
+	srvcs = append(srvcs, eventHandler, workflowRegistrySyncerV2)
 	lggr.Debugw("Created WorkflowRegistrySyncer V2")
 	return workflowRegistrySyncerV2, srvcs, nil
 }
