@@ -297,8 +297,13 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		return nil, fmt.Errorf("failed getting transaction receipt. %w", err)
 	}
 
+	txStatus = evm.TxSuccess
+	if (*receipt).GetStatus() == 0 {
+		txStatus = evm.TxReverted
+	}
+
 	return &evm.TransactionResult{
-		TxStatus:         evm.TxSuccess,
+		TxStatus:         txStatus,
 		TxHash:           (*receipt).GetTxHash(),
 		TxIdempotencyKey: txID,
 	}, nil
