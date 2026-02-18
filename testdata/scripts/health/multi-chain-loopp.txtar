@@ -106,6 +106,7 @@ SolidityURL = 'https://solidity.evm'
 ok Aptos.42.RelayerService
 ok Aptos.42.RelayerService.PluginRelayerClient
 ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos
+ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter
 ok BridgeStatusReporter
 ok Cosmos.Foo.RelayerService
 ok Cosmos.Foo.RelayerService.PluginRelayerClient
@@ -211,6 +212,15 @@ ok WorkflowStore
       "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
       "attributes": {
         "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
         "status": "passing",
         "output": ""
       }
