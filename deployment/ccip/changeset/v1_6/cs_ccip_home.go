@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -185,19 +184,22 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			if !ok {
 				return fmt.Errorf("chain %d does not exist in EVM chain state but provided in USDCCCTPObserverConfig", sel)
 			}
-			if onchainState.USDCTokenPools == nil && onchainState.USDCTokenPoolsV1_6 == nil {
+			if onchainState.USDCTokenPools == nil && onchainState.USDCTokenPoolsV1_6 == nil && onchainState.USDCTokenPoolProxies == nil {
 				return fmt.Errorf("chain %d does not have any USDC token pools deployed", sel)
 			}
 
 			var sourcePoolAddress common.Address
-			if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
+			if proxy, ok := onchainState.USDCTokenPoolProxies[deployment.Version1_7_0]; ok {
+				sourcePoolAddress = proxy
+			} else if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
 				sourcePoolAddress = pool.Address()
 			} else if pool, ok := onchainState.USDCTokenPools[deployment.Version1_5_1]; ok {
 				sourcePoolAddress = pool.Address()
-			} else if proxy, ok := onchainState.USDCTokenPoolProxies[*semver.MustParse("1.7.0")]; ok {
-				sourcePoolAddress = proxy
 			} else {
-				return fmt.Errorf("chain %d does not have USDC token pool deployed with version %s or %s", sel, deployment.Version1_5_1, deployment.Version1_6_2)
+				return fmt.Errorf(
+					"chain %d does not have USDC token pool deployed with version %s, %s, or %s",
+					sel, deployment.Version1_5_1, deployment.Version1_6_2, deployment.Version1_7_0,
+				)
 			}
 
 			if common.HexToAddress(token.SourcePoolAddress) != sourcePoolAddress {
