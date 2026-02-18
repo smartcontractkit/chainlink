@@ -10,7 +10,7 @@ import (
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
-	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
+	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec/v1"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 )
 

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -17,7 +17,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].ChainID = (*ubig.Big)(big.NewInt(5))
+		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
 		c.EVM[0].Enabled = ptr(true)
 
 		solCfg := &config.TOMLConfig{
@@ -74,7 +74,7 @@ func Test_FindLCA(t *testing.T) {
 
 	// ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].ChainID = (*ubig.Big)(big.NewInt(5))
+		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
 		c.EVM[0].Enabled = ptr(true)
 	})
 

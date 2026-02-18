@@ -81,3 +81,8 @@ func BaseConfigPath(envVar string) (string, error) {
 	L.Debug().Str("Configs", configs).Msg("Getting base config path")
 	return strings.Split(configs, ",")[0], nil
 }
+
+type GasSettings struct {
+	FeeCapMultiplier int64 `toml:"fee_cap_multiplier"`
+	TipCapMultiplier int64 `toml:"tip_cap_multiplier"`
+}

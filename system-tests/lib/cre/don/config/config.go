@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
@@ -70,7 +70,6 @@ func PrepareNodeTOMLs(
 		configsFound := 0
 		secretsFound := 0
 		nodeSet := localNodeSets[i]
-
 		for _, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestConfigOverrides != "" {
 				configsFound++
@@ -417,6 +416,7 @@ func addWorkerNodeConfig(
 	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
 	// before resetting Capabilities struct
 	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
@@ -453,6 +453,7 @@ func addWorkerNodeConfig(
 		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields
 		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
 		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
+
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
 			NetworkID:               ptr.Ptr("evm"),
@@ -507,7 +508,6 @@ func addWorkerNodeConfig(
 			}
 		}
 	}
-
 	return existingConfig, nil
 }
 
@@ -578,16 +578,10 @@ func addGatewayNodeConfig(
 		}
 	}
 
-	// TODO: remove once gateway connector is not required by workflow registry syncer
-	evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
-	if !ok {
-		return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
-	}
 	if len(existingConfig.Capabilities.GatewayConnector.Gateways) == 0 {
 		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
 			DonID:             ptr.Ptr("doesn't-matter-for-gateway-node"),
 			ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
 		}
 	}
 
@@ -716,7 +710,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
 	return evmconfigtoml.EVMConfig{
-		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
 		Chain: evmconfigtoml.Chain{
 			AutoCreateKey:         ptr.Ptr(false),
 			ChainType:             chaintype.NewConfig("tron"),
@@ -737,7 +731,7 @@ func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 
 func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	return evmconfigtoml.EVMConfig{
-		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
 		Chain: evmconfigtoml.Chain{
 			AutoCreateKey: ptr.Ptr(false),
 		},
@@ -761,7 +755,7 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 
 	// add only unconfigured chains, since other roles might have already added some chains
 	for _, existingEVM := range *existingConfig {
-		if existingEVM.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID)))) == 0 {
+		if existingEVM.ChainID.ToInt().Cmp(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))) == 0 {
 			return
 		}
 	}

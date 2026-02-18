@@ -5,15 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 // EVMForwarderResource is an EVM forwarder JSONAPI resource.
 type EVMForwarderResource struct {
 	JAID
 	Address    common.Address `json:"address"`
-	EVMChainID big.Big        `json:"evmChainId"`
+	EVMChainID sqlutil.Big    `json:"evmChainId"`
 	CreatedAt  time.Time      `json:"createdAt"`
 	UpdatedAt  time.Time      `json:"updatedAt"`
 }

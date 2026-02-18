@@ -1,9 +1,11 @@
 package keystore
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 
@@ -11,13 +13,31 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+// KeySortBy specifies how to sort keys when listing them.
+type KeySortBy string
+
+const (
+	// SortByInsertOrder sorts by State.ID (primary key) ascending, with address as tiebreaker.
+	// This provides deterministic ordering across time, reflecting when keys were first enabled for the chain.
+	SortByInsertOrder KeySortBy = "insert"
+
+	// SortByAddress sorts by address ascending (lexicographic order).
+	SortByAddress KeySortBy = "address"
+)
+
+// ListKeysOptions specifies options for listing keys.
+type ListKeysOptions struct {
+	// SortBy specifies how to sort the keys. If nil, defaults to SortByInsertOrder.
+	SortBy KeySortBy
+}
 
 // Eth is the external interface for EthKeyStore
 type Eth interface {
@@ -35,6 +55,7 @@ type Eth interface {
 	EnsureKeys(ctx context.Context, chainIDs ...*big.Int) error
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
+	ListKeys(ctx context.Context, chainID *big.Int, opts *ListKeysOptions) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
 	CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error
 
@@ -250,7 +271,7 @@ func (ks *eth) addKey(ctx context.Context, ds sqlutil.DataSource, address common
 		return errors.Wrap(err, "failed to insert key_state")
 	}
 	// consider: do we really need a cache of the keystates?
-	ks.keyStates.add(state)
+	ks.keyStates.Add(state)
 	return nil
 }
 
@@ -275,9 +296,9 @@ func (ks *eth) enable(ctx context.Context, address common.Address, chainID *big.
 	}
 
 	if state.CreatedAt.Equal(state.UpdatedAt) {
-		ks.keyStates.add(state)
+		ks.keyStates.Add(state)
 	} else {
-		ks.keyStates.enable(address, chainID, state.UpdatedAt)
+		ks.keyStates.Enable(address, chainID, state.UpdatedAt)
 	}
 	return nil
 }
@@ -302,9 +323,9 @@ func (ks *eth) disable(ctx context.Context, address common.Address, chainID *big
 	}
 
 	if state.CreatedAt.Equal(state.UpdatedAt) {
-		ks.keyStates.add(state)
+		ks.keyStates.Add(state)
 	} else {
-		ks.keyStates.disable(address, chainID, state.UpdatedAt)
+		ks.keyStates.Disable(address, chainID, state.UpdatedAt)
 	}
 	return nil
 }
@@ -326,7 +347,7 @@ func (ks *eth) Delete(ctx context.Context, id string) (ethkey.KeyV2, error) {
 	if err != nil {
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to remove eth key")
 	}
-	ks.keyStates.delete(key.Address)
+	ks.keyStates.Delete(key.Address)
 	return key, nil
 }
 
@@ -341,6 +362,26 @@ func (ks *eth) EnabledKeysForChain(ctx context.Context, chainID *big.Int) (sendi
 		return nil, ErrLocked
 	}
 	return ks.enabledKeysForChain(chainID), nil
+}
+
+// ListKeys returns enabled keys for the given chain, sorted according to the options.
+// If opts is nil, defaults to SortByCreation.
+func (ks *eth) ListKeys(ctx context.Context, chainID *big.Int, opts *ListKeysOptions) (keys []ethkey.KeyV2, err error) {
+	if chainID == nil {
+		return nil, errors.New("chainID must be non-nil")
+	}
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+
+	sortBy := SortByInsertOrder
+	if opts != nil && opts.SortBy != "" {
+		sortBy = opts.SortBy
+	}
+
+	return ks.listKeys(chainID, sortBy), nil
 }
 
 func (ks *eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, whitelist ...common.Address) (common.Address, error) {
@@ -473,6 +514,7 @@ func (ks *eth) GetStateForKey(ctx context.Context, key ethkey.KeyV2) (state ethk
 	err = fmt.Errorf("no state found for key with id %s", key.ID())
 	return
 }
+
 func (ks *eth) EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
@@ -539,6 +581,46 @@ func (ks *eth) getByID(id string) (ethkey.KeyV2, error) {
 // caller must hold lock!
 func (ks *eth) enabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2) {
 	return ks.keysForChain(chainID, false)
+}
+
+// caller must hold lock!
+func (ks *eth) listKeys(chainID *big.Int, sortBy KeySortBy) (keys []ethkey.KeyV2) {
+	states := ks.keyStates.ChainIDKeyID[chainID.String()]
+	if states == nil {
+		return
+	}
+
+	type keyWithState struct {
+		key   ethkey.KeyV2
+		state *ethkey.State
+	}
+	var keysWithStates []keyWithState
+
+	for keyID, state := range states {
+		if !state.Disabled {
+			k := ks.keyRing.Eth[keyID]
+			keysWithStates = append(keysWithStates, keyWithState{key: k, state: state})
+		}
+	}
+
+	// Sort according to sortBy
+	// Default: Sort by State.ID (serial primary key, lowest first). Use address as tiebreaker.
+	cmpFunc := func(a, b keyWithState) int {
+		return cmp.Or(cmp.Compare(a.state.ID, b.state.ID), a.key.Cmp(b.key))
+	}
+
+	if sortBy == SortByAddress {
+		cmpFunc = func(a, b keyWithState) int {
+			return a.key.Cmp(b.key)
+		}
+	}
+
+	slices.SortFunc(keysWithStates, cmpFunc)
+
+	for _, kws := range keysWithStates {
+		keys = append(keys, kws.key)
+	}
+	return keys
 }
 
 // caller must hold lock!

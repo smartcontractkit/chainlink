@@ -42,6 +42,7 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -61,6 +62,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -69,8 +71,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
@@ -778,7 +778,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	kvFactory := kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 
 	keyBundles := map[string]ocr2key.KeyBundle{
-		string(chaintype.EVM): kb,
+		string(corekeys.EVM): kb,
 	}
 	onchainKeyringAdapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
 	if err != nil {
@@ -1021,7 +1021,7 @@ func (d *Delegate) newDonTimePlugin(
 		ContractConfigTracker:        configTracker,
 		ContractTransmitter:          transmitter,
 		Database:                     ocrDB,
-		LocalConfig:                  lc,
+		LocalConfig:                  generic.AdjustLocalConfigForRegistryBasedConfig(lc),
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,
 		OffchainConfigDigester:       configDigester,

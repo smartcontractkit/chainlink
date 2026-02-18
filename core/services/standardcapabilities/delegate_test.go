@@ -20,7 +20,7 @@ func Test_getCapabilityID(t *testing.T) {
 			name:     "consensus command",
 			command:  "consensus",
 			config:   "",
-			expected: "consensus@1.0.0",
+			expected: "consensus@1.0.0-alpha",
 		},
 		{
 			name:     "evm command with valid config - mainnet",

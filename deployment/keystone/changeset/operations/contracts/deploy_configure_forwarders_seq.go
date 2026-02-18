@@ -19,6 +19,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment"
 	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
@@ -31,7 +32,6 @@ import (
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 // Use this to deploy keystone forwarders and configure them with the given DONs on NEW CHAINS

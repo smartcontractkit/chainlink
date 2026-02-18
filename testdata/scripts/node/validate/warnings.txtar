@@ -436,6 +436,9 @@ ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
 
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32.00mb'
+
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'
 Valid configuration.

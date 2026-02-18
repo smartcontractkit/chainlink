@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	aptoskey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
+	aptoskey "github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 
 	mock "github.com/stretchr/testify/mock"
 )

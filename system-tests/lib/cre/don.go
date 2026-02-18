@@ -809,10 +809,9 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 
 	for _, bc := range bcs {
 		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
-		hasSolanaWriteCapability := donMetadata.HasFlag(WriteSolanaCapability)
 		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
 
-		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || !chainIsSolana) {
+		if !hasEVMChainEnabled && (!chainIsSolana) {
 			continue
 		}
 
