@@ -13,8 +13,6 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -478,7 +476,7 @@ func newOCRConfigService(
 	}
 	return capregconfig.NewOCRConfigService(
 		lggr,
-		capregconfig.PeerIDProvider(func() (ragetypes.PeerID, error) { return dispatcherWrapper.don2DonSharedPeer.ID(), nil }),
+		dispatcherWrapper.GetPeerID,
 		registryChainID,
 		registryAddress,
 	), nil

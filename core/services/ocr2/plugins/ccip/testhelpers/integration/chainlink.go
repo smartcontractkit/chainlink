@@ -448,6 +448,7 @@ func setupNodeCCIP(
 	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	keyStore := NewKsa(db, csaKeyStore, lggr.Infof)
+	require.NoError(t, keyStore.Unlock(ctx, "password"))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Config:   config,
@@ -473,7 +474,6 @@ func setupNodeCCIP(
 		AuditLogger:              audit.NoopLogger,
 	})
 	require.NoError(t, err)
-	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
 	_, err = app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
