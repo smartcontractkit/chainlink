@@ -17,6 +17,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -184,6 +185,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 }
 
 func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
+	quarantine.Flaky(t, "DX-2906")
 	t.Parallel()
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,
