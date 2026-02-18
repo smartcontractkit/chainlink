@@ -668,6 +668,16 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 
+	// Track execution error for deferred event emission
+	var execErr error
+	defer func() {
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, lggr)
+		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+		if execErr != nil {
+			e.cfg.Hooks.OnExecutionError(execErr.Error())
+		}
+	}()
+
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
 		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, lggr)
@@ -676,10 +686,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
 		lggr.Errorw("Failed to get execution response size limit", "err", err)
+		executionStatus = store.StatusErrored
+		execErr = err
 		return
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
-		lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		execErr = fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		lggr.Errorw(execErr.Error())
+		executionStatus = store.StatusErrored
 		return
 	}
 	execHelper := &ExecutionHelper{
@@ -687,7 +701,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
-	result, execErr := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+	var result *sdkpb.ExecutionResult
+	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,
@@ -730,11 +745,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		} else {
 			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		}
-
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
-		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
-		e.cfg.Hooks.OnExecutionError(execErr.Error())
 		return
 	}
 
@@ -744,22 +755,18 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	if len(result.GetError()) > 0 {
 		executionStatus = store.StatusErrored
+		execErr = errors.New(result.GetError())
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
-		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
-		e.cfg.Hooks.OnExecutionError(result.GetError())
 		return
 	}
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, lggr)
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)
-	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 }
 
 func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
