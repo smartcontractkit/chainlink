@@ -49,9 +49,10 @@ func (b batchNativeTransferChangeset) Apply(e cldf.Environment, cfg types.BatchN
 	}
 
 	seqInput := BatchNativeTransferSequenceInput{
-		TransfersByChain: cfg.TransfersByChain,
-		MCMSConfig:       cfg.MCMSConfig,
-		Description:      cfg.Description,
+		TransfersByChain:  cfg.TransfersByChain,
+		MCMSConfig:        cfg.MCMSConfig,
+		Description:       cfg.Description,
+		TimelockIDByChain: cfg.TimelockIDByChain,
 	}
 
 	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, BatchNativeTransferSequence, deps, seqInput)

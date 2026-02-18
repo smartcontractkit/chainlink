@@ -34,6 +34,7 @@ type VaultDeps struct {
 type ValidateTransferInput struct {
 	ChainSelector uint64                 `json:"chain_selector"`
 	Transfers     []types.NativeTransfer `json:"transfers"`
+	TimelockID    string                 `json:"timelock_id,omitempty"` // optional; for multi-timelock whitelist lookup
 }
 
 // ValidateTransferOutput contains validation results
@@ -77,18 +78,19 @@ var ValidateTransferOp = operations.NewOperation(
 	func(b operations.Bundle, deps VaultDeps, input ValidateTransferInput) (ValidateTransferOutput, error) {
 		b.Logger.Infow("Validating transfers against whitelist",
 			"chain", input.ChainSelector,
+			"timelock_id", input.TimelockID,
 			"transfers", len(input.Transfers))
 
 		output := ValidateTransferOutput{Valid: true, Errors: []string{}}
 
-		whitelistMetadata, err := getChainWhitelistMutable(deps.DataStore, input.ChainSelector)
+		whitelistAddrs, err := getChainWhitelistForTimelock(deps.DataStore, input.ChainSelector, input.TimelockID)
 		if err != nil {
 			return output, fmt.Errorf("failed to get whitelist for chain %d: %w", input.ChainSelector, err)
 		}
 
 		for _, transfer := range input.Transfers {
 			found := false
-			for _, whitelistedAddr := range whitelistMetadata.Addresses {
+			for _, whitelistedAddr := range whitelistAddrs {
 				if whitelistedAddr.Address == common.HexToAddress(transfer.To).Hex() {
 					found = true
 					break
@@ -240,9 +242,10 @@ var ExecuteNativeTransferOp = operations.NewOperation(
 
 // BatchNativeTransferSequenceInput is the input for the batch transfer sequence
 type BatchNativeTransferSequenceInput struct {
-	TransfersByChain map[uint64][]types.NativeTransfer `json:"transfers_by_chain"`
-	MCMSConfig       *proposalutils.TimelockConfig     `json:"mcms_config,omitempty"`
-	Description      string                            `json:"description"`
+	TransfersByChain   map[uint64][]types.NativeTransfer `json:"transfers_by_chain"`
+	MCMSConfig         *proposalutils.TimelockConfig     `json:"mcms_config,omitempty"`
+	Description        string                            `json:"description"`
+	TimelockIDByChain  map[uint64]string                 `json:"timelock_id_by_chain,omitempty"` // optional; for multi-timelock
 }
 
 type BatchNativeTransferSequenceOutput struct {
@@ -275,9 +278,14 @@ var BatchNativeTransferSequence = operations.NewSequence(
 
 		b.Logger.Infow("Validating transfers against whitelist")
 		for chainSelector, transfers := range input.TransfersByChain {
+			timelockID := ""
+			if input.TimelockIDByChain != nil {
+				timelockID = input.TimelockIDByChain[chainSelector]
+			}
 			validateInput := ValidateTransferInput{
 				ChainSelector: chainSelector,
 				Transfers:     transfers,
+				TimelockID:    timelockID,
 			}
 
 			validateReport, err := operations.ExecuteOperation(
@@ -358,7 +366,12 @@ func generateMCMSProposals(b operations.Bundle, deps VaultDeps, input BatchNativ
 			return BatchNativeTransferSequenceOutput{}, fmt.Errorf("chain %d not found in environment", chainSelector)
 		}
 
-		timelockAddr, err := GetContractAddress(deps.DataStore, chainSelector, commontypes.RBACTimelock)
+		qualifier := ""
+		if input.TimelockIDByChain != nil {
+			qualifier = input.TimelockIDByChain[chainSelector]
+		}
+
+		timelockAddr, err := GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.RBACTimelock, qualifier)
 		if err != nil {
 			return BatchNativeTransferSequenceOutput{}, fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
 		}
@@ -366,10 +379,10 @@ func generateMCMSProposals(b operations.Bundle, deps VaultDeps, input BatchNativ
 		var mcmAddr string
 		var contractName string
 		if input.MCMSConfig.MCMSAction == mcmstypes.TimelockActionBypass {
-			mcmAddr, err = GetContractAddress(deps.DataStore, chainSelector, commontypes.BypasserManyChainMultisig)
+			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.BypasserManyChainMultisig, qualifier)
 			contractName = "bypasser"
 		} else {
-			mcmAddr, err = GetContractAddress(deps.DataStore, chainSelector, commontypes.ProposerManyChainMultisig)
+			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier)
 			contractName = "proposer"
 		}
 		if err != nil {

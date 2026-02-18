@@ -20,6 +20,47 @@ import (
 	view "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
+// RequiredMCMSContractTypes is the set of contract types that must exist for a "full" MCMS+timelock set per qualifier.
+var RequiredMCMSContractTypes = []datastore.ContractType{
+	datastore.ContractType(types.BypasserManyChainMultisig),
+	datastore.ContractType(types.CancellerManyChainMultisig),
+	datastore.ContractType(types.ProposerManyChainMultisig),
+	datastore.ContractType(types.CallProxy),
+	datastore.ContractType(types.RBACTimelock),
+}
+
+// FindQualifierWithFullMCMSSet returns a qualifier for the given chain that has at least one address ref
+// for each of BypasserManyChainMultiSig, CancellerManyChainMultiSig, ProposerManyChainMultisig, CallProxy, RBACTimelock.
+// If none exists, returns ("", false).
+func FindQualifierWithFullMCMSSet(store datastore.AddressRefStore, chainSelector uint64) (qualifier string, found bool) {
+	refs := store.Filter(datastore.AddressRefByChainSelector(chainSelector))
+	if len(refs) == 0 {
+		return "", false
+	}
+	// Group by qualifier (use string for map key; empty string for nil/empty qualifier)
+	byQualifier := make(map[string]map[datastore.ContractType]bool)
+	for _, ref := range refs {
+		q := ref.Qualifier
+		if byQualifier[q] == nil {
+			byQualifier[q] = make(map[datastore.ContractType]bool)
+		}
+		byQualifier[q][datastore.ContractType(ref.Type)] = true
+	}
+	for q, typesSet := range byQualifier {
+		hasAll := true
+		for _, t := range RequiredMCMSContractTypes {
+			if !typesSet[t] {
+				hasAll = false
+				break
+			}
+		}
+		if hasAll {
+			return q, true
+		}
+	}
+	return "", false
+}
+
 // MCMSWithTimelockState holds the Go bindings
 // for a MCMSWithTimelock contract deployment.
 // It is public for use in product specific packages.

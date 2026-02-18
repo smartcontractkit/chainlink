@@ -45,7 +45,47 @@ func TestSetWhitelistValidation(t *testing.T) {
 				WhitelistByChain: map[uint64][]types.WhitelistAddress{},
 			},
 			wantError: true,
-			errorMsg:  "whitelist_by_chain must not be empty",
+			errorMsg:  "either whitelist_by_chain or whitelist_by_chain_and_timelock must be non-empty",
+		},
+		{
+			name: "neither whitelist_by_chain nor whitelist_by_chain_and_timelock",
+			config: types.SetWhitelistConfig{
+				WhitelistByChain:           map[uint64][]types.WhitelistAddress{},
+				WhitelistByChainAndTimelock: map[uint64]map[string][]types.WhitelistAddress{},
+			},
+			wantError: true,
+			errorMsg:  "either whitelist_by_chain or whitelist_by_chain_and_timelock must be non-empty",
+		},
+		{
+			name: "both whitelist_by_chain and whitelist_by_chain_and_timelock set",
+			config: types.SetWhitelistConfig{
+				WhitelistByChain: map[uint64][]types.WhitelistAddress{
+					selector1: {
+						{Address: common.HexToAddress(whitelistTestAddr1).Hex(), Description: "A", Labels: []string{"test"}},
+					},
+				},
+				WhitelistByChainAndTimelock: map[uint64]map[string][]types.WhitelistAddress{
+					selector1: {"": {{Address: common.HexToAddress(whitelistTestAddr2).Hex(), Description: "B", Labels: []string{"test"}}}},
+				},
+			},
+			wantError: true,
+			errorMsg:  "cannot set both whitelist_by_chain and whitelist_by_chain_and_timelock",
+		},
+		{
+			name: "valid whitelist_by_chain_and_timelock",
+			config: types.SetWhitelistConfig{
+				WhitelistByChainAndTimelock: map[uint64]map[string][]types.WhitelistAddress{
+					selector1: {
+						"": {
+							{Address: common.HexToAddress(whitelistTestAddr1).Hex(), Description: "Default timelock", Labels: []string{"team"}},
+						},
+						"vault_1": {
+							{Address: common.HexToAddress(whitelistTestAddr2).Hex(), Description: "Vault 1", Labels: []string{"partner"}},
+						},
+					},
+				},
+			},
+			wantError: false,
 		},
 		{
 			name: "zero address in whitelist",

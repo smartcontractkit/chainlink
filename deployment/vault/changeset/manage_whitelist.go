@@ -36,39 +36,88 @@ func (s whitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConf
 		}
 	}
 
-	totalAddresses := 0
-	for _, addresses := range cfg.WhitelistByChain {
-		totalAddresses += len(addresses)
-	}
+	useMulti := len(cfg.WhitelistByChainAndTimelock) > 0
 
-	lggr.Infow("Setting whitelist state",
-		"chains", len(cfg.WhitelistByChain),
-		"total_addresses", totalAddresses,
-		"mode", s.mode)
-
-	for chainSelector, addresses := range cfg.WhitelistByChain {
-		lggr.Infow("Setting whitelist for chain",
-			"chain", chainSelector,
-			"address_count", len(addresses),
+	if useMulti {
+		totalAddresses := 0
+		for _, byTimelock := range cfg.WhitelistByChainAndTimelock {
+			for _, addrs := range byTimelock {
+				totalAddresses += len(addrs)
+			}
+		}
+		lggr.Infow("Setting whitelist state (multi-timelock)",
+			"chains", len(cfg.WhitelistByChainAndTimelock),
+			"total_addresses", totalAddresses,
 			"mode", s.mode)
 
-		existingMetadata, err := getChainWhitelist(ds.Seal(), chainSelector)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing whitelist for chain %d: %w", chainSelector, err)
+		for chainSelector, byTimelock := range cfg.WhitelistByChainAndTimelock {
+			vaultMeta, err := getVaultChainMetadata(ds.Seal(), chainSelector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
+			if vaultMeta.ByTimelock == nil {
+				vaultMeta.ByTimelock = make(map[string][]types.WhitelistAddress)
+			}
+
+			for timelockID, addresses := range byTimelock {
+				lggr.Infow("Setting whitelist for chain and timelock",
+					"chain", chainSelector,
+					"timelock_id", timelockID,
+					"address_count", len(addresses),
+					"mode", s.mode)
+
+				existingAddrs, err := getChainWhitelistForTimelock(ds.Seal(), chainSelector, timelockID)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing whitelist for chain %d timelock %q: %w", chainSelector, timelockID, err)
+				}
+
+				combined := s.reducer(existingAddrs, addresses)
+				vaultMeta.ByTimelock[timelockID] = combined
+			}
+
+			err = ds.ChainMetadata().Upsert(datastore.ChainMetadata{
+				ChainSelector: chainSelector,
+				Metadata:      *vaultMeta,
+			})
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to set whitelist chain metadata for chain %d: %w", chainSelector, err)
+			}
+		}
+	} else {
+		totalAddresses := 0
+		for _, addresses := range cfg.WhitelistByChain {
+			totalAddresses += len(addresses)
 		}
 
-		combined := s.reducer(existingMetadata.Addresses, addresses)
+		lggr.Infow("Setting whitelist state",
+			"chains", len(cfg.WhitelistByChain),
+			"total_addresses", totalAddresses,
+			"mode", s.mode)
 
-		whitelistMetadata := types.WhitelistMetadata{
-			Addresses: combined,
-		}
+		for chainSelector, addresses := range cfg.WhitelistByChain {
+			lggr.Infow("Setting whitelist for chain",
+				"chain", chainSelector,
+				"address_count", len(addresses),
+				"mode", s.mode)
 
-		err = ds.ChainMetadata().Upsert(datastore.ChainMetadata{
-			ChainSelector: chainSelector,
-			Metadata:      whitelistMetadata,
-		})
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set whitelist chain metadata for chain %d: %w", chainSelector, err)
+			existingMetadata, err := getChainWhitelist(ds.Seal(), chainSelector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing whitelist for chain %d: %w", chainSelector, err)
+			}
+
+			combined := s.reducer(existingMetadata.Addresses, addresses)
+
+			whitelistMetadata := types.VaultChainMetadata{
+				Addresses: combined,
+			}
+
+			err = ds.ChainMetadata().Upsert(datastore.ChainMetadata{
+				ChainSelector: chainSelector,
+				Metadata:      whitelistMetadata,
+			})
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to set whitelist chain metadata for chain %d: %w", chainSelector, err)
+			}
 		}
 	}
 
@@ -183,39 +232,53 @@ func validateWhitelist(e cldf.Environment, cfg types.BatchNativeTransferConfig) 
 }
 
 func getChainWhitelist(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
-	chainMetadataKey := datastore.NewChainMetadataKey(chainSelector)
-	chainMetadata, err := dataStore.ChainMetadata().Get(chainMetadataKey)
+	addrs, err := getChainWhitelistForTimelock(dataStore, chainSelector, "")
 	if err != nil {
-		if errors.Is(err, datastore.ErrChainMetadataNotFound) {
-			return &types.WhitelistMetadata{Addresses: []types.WhitelistAddress{}}, nil
-		}
-		return nil, fmt.Errorf("failed to get chain metadata for chain %d: %w", chainSelector, err)
+		return nil, err
 	}
-
-	whitelistMetadata, err := datastore.As[types.WhitelistMetadata](chainMetadata.Metadata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert chain metadata to whitelist metadata for chain %d: %w", chainSelector, err)
-	}
-
-	return &whitelistMetadata, nil
+	return &types.WhitelistMetadata{Addresses: addrs}, nil
 }
 
 func getChainWhitelistMutable(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
+	return getChainWhitelist(dataStore, chainSelector)
+}
+
+// getChainWhitelistForTimelock returns whitelist addresses for (chain, timelockID). Use "" for default/legacy timelock.
+func getChainWhitelistForTimelock(dataStore datastore.DataStore, chainSelector uint64, timelockID string) ([]types.WhitelistAddress, error) {
+	vaultMeta, err := getVaultChainMetadata(dataStore, chainSelector)
+	if err != nil {
+		return nil, err
+	}
+	if vaultMeta.ByTimelock != nil {
+		if addrs, ok := vaultMeta.ByTimelock[timelockID]; ok && len(addrs) > 0 {
+			return addrs, nil
+		}
+	}
+	return vaultMeta.Addresses, nil
+}
+
+// getVaultChainMetadata loads chain metadata as VaultChainMetadata (supports legacy WhitelistMetadata shape).
+func getVaultChainMetadata(dataStore datastore.DataStore, chainSelector uint64) (*types.VaultChainMetadata, error) {
 	chainMetadataKey := datastore.NewChainMetadataKey(chainSelector)
 	chainMetadata, err := dataStore.ChainMetadata().Get(chainMetadataKey)
 	if err != nil {
 		if errors.Is(err, datastore.ErrChainMetadataNotFound) {
-			return &types.WhitelistMetadata{Addresses: []types.WhitelistAddress{}}, nil
+			return &types.VaultChainMetadata{}, nil
 		}
 		return nil, fmt.Errorf("failed to get chain metadata for chain %d: %w", chainSelector, err)
 	}
 
-	whitelistMetadata, err := datastore.As[types.WhitelistMetadata](chainMetadata.Metadata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert chain metadata to whitelist metadata for chain %d: %w", chainSelector, err)
+	// Try VaultChainMetadata first (handles both legacy "addresses" and "by_timelock")
+	if vaultMeta, err := datastore.As[types.VaultChainMetadata](chainMetadata.Metadata); err == nil {
+		return &vaultMeta, nil
 	}
 
-	return &whitelistMetadata, nil
+	// Fallback: legacy WhitelistMetadata
+	legacy, err := datastore.As[types.WhitelistMetadata](chainMetadata.Metadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert chain metadata for chain %d: %w", chainSelector, err)
+	}
+	return &types.VaultChainMetadata{Addresses: legacy.Addresses}, nil
 }
 
 type WhitelistEntry struct {

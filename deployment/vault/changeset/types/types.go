@@ -22,6 +22,11 @@ type BatchNativeTransferConfig struct {
 
 	// Description for the MCMS proposal
 	Description string `json:"description"`
+
+	// TimelockIDByChain optionally maps chain selector to timelock qualifier for multi-timelock.
+	// When set, the timelock and proposer for each chain are resolved by this qualifier from the datastore.
+	// Omit or use empty string for legacy single-timelock-per-chain behavior.
+	TimelockIDByChain map[uint64]string `json:"timelock_id_by_chain,omitempty"`
 }
 
 // FundTimelockConfig configures funding timelock contracts with native tokens
@@ -39,13 +44,25 @@ type WhitelistAddress struct {
 
 // SetWhitelistConfig configures address whitelist state
 type SetWhitelistConfig struct {
-	// WhitelistByChain maps chain selector to the list of whitelisted addresses for that chain
-	WhitelistByChain map[uint64][]WhitelistAddress `json:"whitelist_by_chain"`
+	// WhitelistByChain maps chain selector to the list of whitelisted addresses for that chain (legacy, default timelock).
+	// Use when only one timelock per chain or for the default/empty qualifier.
+	WhitelistByChain map[uint64][]WhitelistAddress `json:"whitelist_by_chain,omitempty"`
+
+	// WhitelistByChainAndTimelock maps chain -> timelock_id -> list of addresses for multi-timelock.
+	// Use "" as timelock_id for the default/legacy timelock. When set, takes precedence over WhitelistByChain for that (chain, timelock).
+	WhitelistByChainAndTimelock map[uint64]map[string][]WhitelistAddress `json:"whitelist_by_chain_and_timelock,omitempty"`
 }
 
 // WhitelistMetadata represents the whitelist state for a single chain stored in chain metadata
 type WhitelistMetadata struct {
 	Addresses []WhitelistAddress `json:"addresses"`
+}
+
+// VaultChainMetadata is the value stored in chain metadata for vault. It supports both legacy (Addresses only)
+// and multi-timelock (ByTimelock keyed by timelock qualifier). Use "" for default/legacy timelock.
+type VaultChainMetadata struct {
+	Addresses   []WhitelistAddress            `json:"addresses,omitempty"`
+	ByTimelock  map[string][]WhitelistAddress `json:"by_timelock,omitempty"`
 }
 
 // TimelockNativeBalanceInfo represents native token balance information for Timelock
@@ -71,4 +88,29 @@ type BatchNativeTransferState struct {
 
 	// ValidationErrors contains any validation errors found
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
+}
+
+// ERC20Transfer is a single ERC20 transfer (payee, token, amount in token units)
+type ERC20Transfer struct {
+	Payee  string   `json:"payee"`  // Destination address
+	Token  string   `json:"token"`  // ERC20 token contract address
+	Amount *big.Int `json:"amount"` // Amount in token units (not wei)
+}
+
+// TransferERC20Config configures an ERC20 transfer from a timelock on a single chain
+type TransferERC20Config struct {
+	// ChainSelector is the chain where the timelock and token live
+	ChainSelector uint64 `json:"chain_selector"`
+
+	// TimelockIdentifier is the qualifier for the timelock (e.g. "vault_1"). Use "" for default/legacy.
+	TimelockIdentifier string `json:"timelock_identifier"`
+
+	// Transfers is the list of ERC20 transfers to execute from the timelock
+	Transfers []ERC20Transfer `json:"transfers"`
+
+	// MCMSConfig contains timelock and MCMS configuration for building the proposal
+	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config"`
+
+	// Description for the MCMS proposal
+	Description string `json:"description"`
 }

@@ -38,8 +38,23 @@ func ValidateBatchNativeTransferConfig(ctx context.Context, e cldf.Environment, 
 	}
 
 	if cfg.MCMSConfig != nil {
-		if err := validateMCMSConfig(e, cfg.MCMSConfig, cfg.TransfersByChain); err != nil {
+		if err := validateMCMSConfig(e, cfg.MCMSConfig, cfg.TransfersByChain, cfg.TimelockIDByChain); err != nil {
 			return fmt.Errorf("MCMS configuration validation failed: %w", err)
+		}
+	}
+
+	// When TimelockIDByChain is set, ensure each (chain, qualifier) has timelock and proposer
+	if len(cfg.TimelockIDByChain) > 0 {
+		for chainSelector, qualifier := range cfg.TimelockIDByChain {
+			if _, hasChain := cfg.TransfersByChain[chainSelector]; !hasChain {
+				continue
+			}
+			if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+				return fmt.Errorf("timelock not found for chain %d qualifier %q: %w", chainSelector, qualifier, err)
+			}
+			if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+				return fmt.Errorf("proposer not found for chain %d qualifier %q: %w", chainSelector, qualifier, err)
+			}
 		}
 	}
 
@@ -130,25 +145,28 @@ func validateTimelockBalance(e cldf.Environment, chainSelector uint64, requiredA
 	return nil
 }
 
-func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer) error {
+func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer, timelockIDByChain map[uint64]string) error {
 	if mcmsConfig != nil {
 		if mcmsConfig.MinDelay < 0 {
 			return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
 		}
 	}
-	const emptyQualifier = ""
 	for chainSelector := range transfersByChain {
-		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, emptyQualifier)
+		qualifier := ""
+		if timelockIDByChain != nil {
+			qualifier = timelockIDByChain[chainSelector]
+		}
+		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, qualifier)
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}
 
-		_, err = GetContractAddress(e.DataStore, chainSelector, commontypes.RBACTimelock)
+		_, err = GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifier)
 		if err != nil {
 			return fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
 		}
 
-		_, err = GetContractAddress(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig)
+		_, err = GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier)
 		if err != nil {
 			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
 		}
@@ -196,28 +214,88 @@ func ValidateFundTimelockConfig(ctx context.Context, e cldf.Environment, cfg typ
 }
 
 func ValidateSetWhitelistConfig(e cldf.Environment, cfg types.SetWhitelistConfig) error {
-	if len(cfg.WhitelistByChain) == 0 {
-		return errors.New("whitelist_by_chain must not be empty")
+	useLegacy := len(cfg.WhitelistByChain) > 0
+	useMulti := len(cfg.WhitelistByChainAndTimelock) > 0
+	if !useLegacy && !useMulti {
+		return errors.New("either whitelist_by_chain or whitelist_by_chain_and_timelock must be non-empty")
+	}
+	if useLegacy && useMulti {
+		return errors.New("cannot set both whitelist_by_chain and whitelist_by_chain_and_timelock in the same config")
 	}
 
-	for chainSelector, addresses := range cfg.WhitelistByChain {
-		if err := validateChainSelector(chainSelector, e); err != nil {
-			return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
-		}
-
-		addressSet := make(map[string]bool)
-		for i, addr := range addresses {
-			if addr.Address == "" || addr.Address == "0x0000000000000000000000000000000000000000" {
-				return fmt.Errorf("chain %d, address %d: address cannot be zero address", chainSelector, i)
+	if useLegacy {
+		for chainSelector, addresses := range cfg.WhitelistByChain {
+			if err := validateChainSelector(chainSelector, e); err != nil {
+				return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
 			}
-
-			// Check for duplicate addresses within the same chain
-			if addressSet[addr.Address] {
-				return fmt.Errorf("chain %d: duplicate address %s", chainSelector, addr.Address)
+			if err := validateWhitelistAddresses(chainSelector, addresses); err != nil {
+				return err
 			}
-			addressSet[addr.Address] = true
 		}
 	}
 
+	if useMulti {
+		for chainSelector, byTimelock := range cfg.WhitelistByChainAndTimelock {
+			if err := validateChainSelector(chainSelector, e); err != nil {
+				return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
+			}
+			for timelockID, addresses := range byTimelock {
+				if err := validateWhitelistAddresses(chainSelector, addresses); err != nil {
+					return fmt.Errorf("chain %d timelock %q: %w", chainSelector, timelockID, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func ValidateTransferERC20Config(e cldf.Environment, cfg types.TransferERC20Config) error {
+	if len(cfg.Transfers) == 0 {
+		return errors.New("transfers must not be empty")
+	}
+	if err := validateChainSelector(cfg.ChainSelector, e); err != nil {
+		return fmt.Errorf("invalid chain selector: %w", err)
+	}
+	_, exists := e.BlockChains.EVMChains()[cfg.ChainSelector]
+	if !exists {
+		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
+	if cfg.MCMSConfig == nil {
+		return errors.New("MCMSConfig is required for transfer_erc20")
+	}
+	for i, tr := range cfg.Transfers {
+		if tr.Payee == "" || tr.Payee == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("transfer %d: payee cannot be zero address", i)
+		}
+		if tr.Token == "" || tr.Token == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("transfer %d: token address cannot be zero", i)
+		}
+		if tr.Amount == nil || tr.Amount.Cmp(big.NewInt(0)) <= 0 {
+			return fmt.Errorf("transfer %d: amount must be positive", i)
+		}
+	}
+	// Validate timelock and proposer exist for this chain and qualifier
+	qualifier := cfg.TimelockIdentifier
+	if _, err := GetContractAddressWithQualifier(e.DataStore, cfg.ChainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+		return fmt.Errorf("timelock not found for chain %d: %w", cfg.ChainSelector, err)
+	}
+	if _, err := GetContractAddressWithQualifier(e.DataStore, cfg.ChainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+		return fmt.Errorf("proposer not found for chain %d: %w", cfg.ChainSelector, err)
+	}
+	return nil
+}
+
+func validateWhitelistAddresses(chainSelector uint64, addresses []types.WhitelistAddress) error {
+	addressSet := make(map[string]bool)
+	for i, addr := range addresses {
+		if addr.Address == "" || addr.Address == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("address %d: address cannot be zero address", i)
+		}
+		if addressSet[addr.Address] {
+			return fmt.Errorf("duplicate address %s", addr.Address)
+		}
+		addressSet[addr.Address] = true
+	}
 	return nil
 }

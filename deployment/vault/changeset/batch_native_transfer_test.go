@@ -101,6 +101,21 @@ func TestBatchNativeTransferValidation(t *testing.T) {
 			wantError: true,
 			errorMsg:  "'to' address cannot be zero address",
 		},
+		{
+			name: "TimelockIDByChain but timelock not found for qualifier",
+			config: types.BatchNativeTransferConfig{
+				TransfersByChain: map[uint64][]types.NativeTransfer{
+					testChainID: {
+						{To: testAddr1, Amount: OneETH},
+					},
+				},
+				TimelockIDByChain: map[uint64]string{testChainID: "nonexistent_timelock"},
+				MCMSConfig:        &proposalutils.TimelockConfig{MinDelay: 0},
+				Description:       "Multi-timelock test",
+			},
+			wantError: true,
+			errorMsg:  "timelock not found",
+		},
 	}
 
 	for _, tt := range tests {

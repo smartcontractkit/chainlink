@@ -36,6 +36,85 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
+func TestDeployMCMSWithTimelockV2FailsWhenQualifierAlreadyExists(t *testing.T) {
+	t.Parallel()
+
+	selector := chain_selectors.TEST_90000001.Selector
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: selector,
+		Address:       "0x1234567890123456789012345678901234567890",
+		Type:          datastore.ContractType(commontypes.RBACTimelock),
+		Version:       &deployment.Version1_0_0,
+		Qualifier:     "",
+	}))
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+		environment.WithDatastore(ds.Seal()),
+	)
+	require.NoError(t, err)
+
+	_, err = commonchangeset.DeployMCMSWithTimelockV2(*env, map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		selector: proposalutils.SingleGroupTimelockConfigV2(t),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "already has")
+	require.Contains(t, err.Error(), "address ref")
+	require.Contains(t, err.Error(), "cannot deploy again with the same qualifier")
+
+	// Same chain with non-empty qualifier that already exists should also fail
+	ds2 := datastore.NewMemoryDataStore()
+	require.NoError(t, ds2.Addresses().Add(datastore.AddressRef{
+		ChainSelector: selector,
+		Address:       "0xabcdef0000000000000000000000000000000000",
+		Type:          datastore.ContractType(commontypes.RBACTimelock),
+		Version:       &deployment.Version1_0_0,
+		Qualifier:     "vault_2",
+	}))
+	env2, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+		environment.WithDatastore(ds2.Seal()),
+	)
+	require.NoError(t, err)
+	qualifierV2 := "vault_2"
+	_, err = commonchangeset.DeployMCMSWithTimelockV2(*env2, map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		selector: {
+			Proposer:        proposalutils.SingleGroupTimelockConfigV2(t).Proposer,
+			Canceller:       proposalutils.SingleGroupTimelockConfigV2(t).Canceller,
+			Bypasser:        proposalutils.SingleGroupTimelockConfigV2(t).Bypasser,
+			TimelockMinDelay: big.NewInt(0),
+			Qualifier:        &qualifierV2,
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "vault_2")
+	require.Contains(t, err.Error(), "already has")
+}
+
+func TestDeployMCMSWithTimelockV2FailsWhenProposerBypasserCancellerMissing(t *testing.T) {
+	t.Parallel()
+
+	selector := chain_selectors.TEST_90000001.Selector
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	// Omit proposer, bypasser, canceller in YAML → unmarshalled as zero value; deploy must fail fast.
+	_, err = commonchangeset.DeployMCMSWithTimelockV2(*env, map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		selector: {
+			TimelockMinDelay: big.NewInt(0),
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "chain ")
+	require.Regexp(t, `(proposer|bypasser|canceller).*required|required.*(proposer|bypasser|canceller)`, err.Error())
+}
+
 func TestGrantRoleInTimeLock(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
@@ -93,6 +172,11 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	chain := evmChains[selector]
 	chain.DeployerKey = evmChains[selector].Users[0]
 
+	// Clear DataStore so the duplicate-(chain,qualifier) check does not run; this test is
+	// re-deploying only the proposer (state is loaded from AddressBook). In production,
+	// deploy with the same (chain, qualifier) would fail if refs already exist.
+	updatedEnv.DataStore = nil
+
 	// now deploy MCMS again so that only the proposer is new
 	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, configuredChangeset)
 	require.NoError(t, err)
@@ -128,39 +212,22 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	selector2 := chain_selectors.TEST_90000002.Selector
 	selectors := []uint64{selector1, selector2}
 
-	// Build a datastore with some dummy address for callproxy, canceller and bypasser
-	// to simulate the case where they already exist and so the changeset will not try to deploy
-	// them again
-	ds := datastore.NewMemoryDataStore()
-
 	callProxyAddress := utils.RandomAddress()
 	mcmsAddress := utils.RandomAddress()
 	mcmsType := cldf.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0)
-	// we use same address for bypasser and canceller
 	mcmsType.AddLabel(commontypes.BypasserRole.String())
 	mcmsType.AddLabel(commontypes.CancellerRole.String())
 
-	// Add CallProxy for first chain only
-	require.NoError(t, ds.AddressRefStore.Add(datastore.AddressRef{
-		ChainSelector: selector1,
-		Address:       callProxyAddress.String(),
-		Type:          datastore.ContractType(commontypes.CallProxy),
-		Version:       &deployment.Version1_0_0,
-	}))
-
-	// Add MCMS contract with both bypasser and canceller labels for first chain only
-	require.NoError(t, ds.AddressRefStore.Add(datastore.AddressRef{
-		ChainSelector: selector1,
-		Address:       mcmsAddress.String(),
-		Type:          datastore.ContractType(mcmsType.Type),
-		Version:       &mcmsType.Version,
-		Labels:        datastore.NewLabelSet(mcmsType.Labels.List()...),
-	}))
+	// Use empty datastore so the duplicate-(chain,qualifier) check passes. Put "few existing"
+	// refs in the address book so the deploy sees them and does not redeploy CallProxy/MCMS for chain1.
+	ab := cldf.NewMemoryAddressBook()
+	require.NoError(t, ab.Save(selector1, callProxyAddress.String(), cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)))
+	require.NoError(t, ab.Save(selector1, mcmsAddress.String(), mcmsType))
 
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, selectors),
 		environment.WithLogger(logger.Test(t)),
-		environment.WithDatastore(ds.Seal()),
+		environment.WithAddressBook(ab),
 	))
 	require.NoError(t, err)
 

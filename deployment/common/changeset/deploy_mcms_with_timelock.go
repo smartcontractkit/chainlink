@@ -28,8 +28,21 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
+// DefaultTimelockQualifier is the qualifier used for the first (default) timelock on a chain when the user omits qualifier.
+// Existing prod_mainnet refs should be migrated to this qualifier so FindQualifierWithFullMCMSSet and lookups work.
+const DefaultTimelockQualifier = "default"
+
+// timelockQualifierFromConfig returns the qualifier to use for deploy/storage. Empty or nil from config becomes DefaultTimelockQualifier.
+func timelockQualifierFromConfig(q *string) string {
+	if q != nil && *q != "" {
+		return *q
+	}
+	return DefaultTimelockQualifier
+}
+
 // migrateAddressBookWithQualifiers migrates an address book to a data store,
-// applying custom qualifiers from MCMS configs when available
+// applying custom qualifiers from MCMS configs when available.
+// First deploy on a chain uses DefaultTimelockQualifier ("default") when qualifier is omitted.
 func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2) (datastore.MutableDataStore, error) {
 	addrs, err := ab.Addresses()
 	if err != nil {
@@ -39,10 +52,9 @@ func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64
 	ds := datastore.NewMemoryDataStore()
 
 	for chainSelector, chainAddresses := range addrs {
-		// Get the qualifier for this chain from the config
-		qualifier := ""
-		if cfg, exists := cfgByChain[chainSelector]; exists && cfg.Qualifier != nil && *cfg.Qualifier != "" {
-			qualifier = *cfg.Qualifier
+		qualifier := DefaultTimelockQualifier
+		if cfg, exists := cfgByChain[chainSelector]; exists {
+			qualifier = timelockQualifierFromConfig(cfg.Qualifier)
 		}
 
 		for addr, typever := range chainAddresses {
@@ -53,8 +65,7 @@ func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64
 				Version:       &typever.Version,
 			}
 
-			// If we have a custom qualifier for this chain, use it for MCMS contracts
-			if qualifier != "" && isMCMSContract(string(typever.Type)) {
+			if isMCMSContract(string(typever.Type)) {
 				ref.Qualifier = qualifier
 			}
 
@@ -85,8 +96,17 @@ func isMCMSContract(contractType string) bool {
 	return slices.Contains(mcmsTypes, contractType)
 }
 
+// DeployTimelockInput is the input for deploy_timelock when using SharedMCMSPerChain (e.g. prod_mainnet, staging_testnet).
+// When SharedMCMSPerChain is true, for any chain that already has a full MCMS set in the datastore (Bypasser, Canceller, Proposer, CallProxy, RBACTimelock),
+// only a new RBACTimelock (and its CallProxy) is deployed with the new qualifier; the existing MCMS contracts are reused.
+type DeployTimelockInput struct {
+	Chains            map[uint64]types.MCMSWithTimelockConfigV2 `json:"chains"`
+	SharedMCMSPerChain bool                                     `json:"sharedMCMSPerChain"`
+}
+
 var (
 	_ cldf.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
+	_ cldf.ChangeSet[DeployTimelockInput]                        = DeployMCMSWithTimelockV2FromInput
 
 	// GrantRoleInTimeLock grants proposer, canceller, bypasser, executor, admin roles to the timelock contract with corresponding addresses if the
 	// roles are not already set with the same addresses.
@@ -96,16 +116,63 @@ var (
 	GrantRoleInTimeLock = cldf.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
 )
 
+// DeployMCMSWithTimelockV2FromInput runs deploy_timelock with optional SharedMCMSPerChain behavior.
+// When SharedMCMSPerChain is true and a chain already has a full MCMS set in the datastore, only a new RBACTimelock (and CallProxy) is deployed for the new qualifier.
+func DeployMCMSWithTimelockV2FromInput(env cldf.Environment, input DeployTimelockInput) (cldf.ChangesetOutput, error) {
+	return deployMCMSWithTimelockV2Core(env, input.Chains, input.SharedMCMSPerChain)
+}
+
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts
 func DeployMCMSWithTimelockV2(
 	env cldf.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2,
 ) (cldf.ChangesetOutput, error) {
+	return deployMCMSWithTimelockV2Core(env, cfgByChain, false)
+}
+
+func deployMCMSWithTimelockV2Core(
+	env cldf.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2, sharedMCMSPerChain bool,
+) (cldf.ChangesetOutput, error) {
+	// Fail if any (chain, qualifier) already has addresses in the datastore so we never overwrite or duplicate.
+	if env.DataStore != nil {
+		for chainSel, cfg := range cfgByChain {
+			qualifier := timelockQualifierFromConfig(cfg.Qualifier)
+			existing := env.DataStore.Addresses().Filter(
+				datastore.AddressRefByChainSelector(chainSel),
+				datastore.AddressRefByQualifier(qualifier),
+			)
+			if len(existing) > 0 {
+				return cldf.ChangesetOutput{}, fmt.Errorf(
+					"chain %d qualifier %q already has %d address ref(s) in the datastore; cannot deploy again with the same qualifier on this chain",
+					chainSel, qualifier, len(existing),
+				)
+			}
+		}
+	}
+
+	// Require proposer, bypasser, and canceller for chains that will do a full deploy.
+	// When SharedMCMSPerChain is true and the chain already has a full set, we only deploy timelock+callProxy and skip MCMS validation.
+	for chainSel, cfg := range cfgByChain {
+		skipValidation := false
+		if sharedMCMSPerChain && env.DataStore != nil {
+			if _, found := state.FindQualifierWithFullMCMSSet(env.DataStore.Addresses(), chainSel); found {
+				skipValidation = true
+			}
+		}
+		if !skipValidation {
+			if err := evminternal.ValidateMCMSWithTimelockConfigV2(cfg); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("chain %d: %w", chainSel, err)
+			}
+		}
+	}
+
 	newAddresses := cldf.NewMemoryAddressBook()
 
 	eg := xerrgroup.Group{}
 	mu := sync.Mutex{}
 	allReports := make([]operations.Report[any, any], 0)
 	for chainSel, cfg := range cfgByChain {
+		chainSel := chainSel
+		cfg := cfg
 		eg.Go(func() error {
 			family, err := chain_selectors.GetSelectorFamily(chainSel)
 			if err != nil {
@@ -114,28 +181,38 @@ func DeployMCMSWithTimelockV2(
 
 			switch family {
 			case chain_selectors.FamilyEVM:
-				// Extract qualifier from config for this chain
-				qualifier := ""
-				if cfg.Qualifier != nil {
-					qualifier = *cfg.Qualifier
-				}
+				qualifier := timelockQualifierFromConfig(cfg.Qualifier)
 
-				// load mcms state with qualifier awareness
-				// we load the state one by one to avoid early return from MaybeLoadMCMSWithTimelockStateWithQualifier
-				// due to one of the chain not found
 				var chainstate *state.MCMSWithTimelockState
-				s, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
-				if err != nil {
-					// if the state is not found for chain, we assume it's a fresh deployment
-					// this includes "no addresses found" which is expected for new qualifiers
-					if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) &&
-						!strings.Contains(err.Error(), "no addresses found") {
-						return err
+				if sharedMCMSPerChain && env.DataStore != nil {
+					if sharedQ, found := state.FindQualifierWithFullMCMSSet(env.DataStore.Addresses(), chainSel); found {
+						// Reuse existing MCMS + CallProxy; only deploy new Timelock + CallProxy for this qualifier.
+						fullState, err := state.GetMCMSWithTimelockState(env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSel], sharedQ)
+						if err != nil {
+							return fmt.Errorf("chain %d: load shared MCMS state: %w", chainSel, err)
+						}
+						chainstate = &state.MCMSWithTimelockState{
+							BypasserMcm:  fullState.BypasserMcm,
+							ProposerMcm:  fullState.ProposerMcm,
+							CancellerMcm: fullState.CancellerMcm,
+							Timelock:     nil,
+							CallProxy:    nil,
+						}
 					}
 				}
-				if s != nil {
-					chainstate = s[chainSel]
+				if chainstate == nil {
+					s, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
+					if err != nil {
+						if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) &&
+							!strings.Contains(err.Error(), "no addresses found") {
+							return err
+						}
+					}
+					if s != nil {
+						chainstate = s[chainSel]
+					}
 				}
+
 				reports, err := evminternal.DeployMCMSWithTimelockContractsEVM(env, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
 				mu.Lock()
 				allReports = append(allReports, reports...)

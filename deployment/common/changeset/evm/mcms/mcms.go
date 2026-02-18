@@ -55,6 +55,22 @@ type MCMSWithTimelockEVMDeploy struct {
 	CallProxy *cldf.ContractDeploy[*bindings.CallProxy]
 }
 
+// ValidateMCMSWithTimelockConfigV2 checks that proposer, bypasser, and canceller
+// configs are valid (can be used by ExtractSetConfigInputs). Returns an error
+// describing which role is missing or invalid so deploy fails fast with a clear message.
+func ValidateMCMSWithTimelockConfigV2(config commontypes.MCMSWithTimelockConfigV2) error {
+	for role, cfg := range map[string]mcmsTypes.Config{
+		"proposer": config.Proposer,
+		"bypasser": config.Bypasser,
+		"canceller": config.Canceller,
+	} {
+		if _, _, _, _, err := sdk.ExtractSetConfigInputs(&cfg); err != nil {
+			return fmt.Errorf("%s config is required and must be valid (quorum and at least one signer): %w", role, err)
+		}
+	}
+	return nil
+}
+
 // TODO: Remove this function once the tests are implemented for the new sequence.
 func DeployMCMSWithConfigEVM(
 	contractType cldf.ContractType,
@@ -184,6 +200,15 @@ func DeployMCMSWithTimelockContractsEVM(
 		lggr.Infow("Bypasser MCMS deployed", "chain", chain.String(), "address", bypasser.Address().String())
 	} else {
 		lggr.Infow("Bypasser MCMS already deployed", "chain", chain.String(), "address", bypasser.Address().String())
+		// Persist existing MCMS to address book so migration writes it under this run's qualifier (shared-MCMS / timelock-only path).
+		typeAndVersion := cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0)
+		for _, option := range opts {
+			option(&typeAndVersion)
+		}
+		if err := ab.Save(chain.Selector, bypasser.Address().Hex(), typeAndVersion); err != nil {
+			lggr.Errorw("Failed to save existing bypasser MCMS to address book", "chain", chain.String(), "err", err)
+			return execReports, err
+		}
 	}
 
 	if canceller == nil {
@@ -223,6 +248,14 @@ func DeployMCMSWithTimelockContractsEVM(
 		lggr.Infow("Canceller MCMS deployed", "chain", chain.String(), "address", canceller.Address().String())
 	} else {
 		lggr.Infow("Canceller MCMS already deployed", "chain", chain.String(), "address", canceller.Address().String())
+		typeAndVersion := cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0)
+		for _, option := range opts {
+			option(&typeAndVersion)
+		}
+		if err := ab.Save(chain.Selector, canceller.Address().Hex(), typeAndVersion); err != nil {
+			lggr.Errorw("Failed to save existing canceller MCMS to address book", "chain", chain.String(), "err", err)
+			return execReports, err
+		}
 	}
 
 	if proposer == nil {
@@ -262,6 +295,14 @@ func DeployMCMSWithTimelockContractsEVM(
 		lggr.Infow("Proposer MCMS deployed", "chain", chain.String(), "address", proposer.Address().String())
 	} else {
 		lggr.Infow("Proposer MCMS already deployed", "chain", chain.String(), "address", proposer.Address().String())
+		typeAndVersion := cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0)
+		for _, option := range opts {
+			option(&typeAndVersion)
+		}
+		if err := ab.Save(chain.Selector, proposer.Address().Hex(), typeAndVersion); err != nil {
+			lggr.Errorw("Failed to save existing proposer MCMS to address book", "chain", chain.String(), "err", err)
+			return execReports, err
+		}
 	}
 
 	if timelock == nil {
