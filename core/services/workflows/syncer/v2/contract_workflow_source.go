@@ -228,15 +228,12 @@ func (c *ContractWorkflowSource) newWorkflowRegistryContractReader(ctx context.C
 	return reader, nil
 }
 
-// isValidWorkflowMetadata checks if workflowID, workflowOwner, binaryURL, and configURL exist
-// in the metadata pulled from the contract. There is contract side validation to ensure these
-// fields are provided, but in the case of contract deletion bugs (where deleted workflows retain
-// stale metadata with zero addresses), or relaxing of contract validation, this func can help
-// filter out noisy deploys/workflow events.
+// isValidWorkflowMetadata checks if workflowID and workflowOwner are valid
+// in the metadata pulled from the contract. In the case of contract deletion bugs
+// (where deleted workflows retain stale metadata with zero addresses), this func
+// filters out noisy deploys/workflow events.
 func isValidWorkflowMetadata(wfMeta workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView) bool {
 	invalid := isEmptyWorkflowID(wfMeta.WorkflowId) ||
-		isZeroOwner(wfMeta.Owner.Bytes()) ||
-		wfMeta.BinaryUrl == "" ||
-		wfMeta.ConfigUrl == ""
+		isZeroOwner(wfMeta.Owner.Bytes())
 	return !invalid
 }
