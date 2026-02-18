@@ -116,6 +116,8 @@ type Hooks struct {
 
 type evtHandler interface {
 	io.Closer
+	Start(context.Context) error
+
 	Handle(ctx context.Context, event Event) error
 }
 
@@ -358,7 +360,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			w.syncAllowlistedRequests(ctx)
 		}()
 
-		return nil
+		return w.handler.Start(ctx)
 	})
 }
 

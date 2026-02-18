@@ -12,7 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -20,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func Test_generateReconciliationEventsV2(t *testing.T) {
@@ -772,17 +775,25 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 }
 
-type mockEvtHandler struct{}
-
-func (m *mockEvtHandler) Close() error                            { return nil }
-func (m *mockEvtHandler) Handle(_ context.Context, _ Event) error { return nil }
-
 func Test_Start(t *testing.T) {
 	t.Run("successful start and close", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		mockReader := &mockContractReader{startErr: nil}
 		er := NewEngineRegistry()
+		lf := limits.Factory{Logger: lggr}
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		h := &eventHandler{
+			engineRegistry: &EngineRegistry{},
+			engineLimiters: limiters,
+		}
+		svc, eng := services.Config{
+			Name:  "EventHandler",
+			Close: h.close,
+		}.NewServiceEngine(lggr)
+		h.Service = svc
+		h.eng = eng
 		wr, err := NewWorkflowRegistry(
 			lggr,
 			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
@@ -794,7 +805,7 @@ func Test_Start(t *testing.T) {
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
 			},
-			&mockEvtHandler{},
+			h,
 			workflowDonNotifier,
 			er,
 		)

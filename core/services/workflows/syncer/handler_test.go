@@ -801,8 +801,8 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, opts...)
+		servicetest.Run(t, h)
 		require.NoError(t, err)
-		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
 		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, "workflow-name", wfID, fetcher)
 	})
