@@ -11,11 +11,14 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
+replace github.com/smartcontractkit/chainlink-testing-framework/framework => /Users/bartektofel/Desktop/repos/chainlink-testing-framework/framework
+
 require (
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/alitto/pond/v2 v2.5.0
 	github.com/andybalholm/brotli v1.2.0
+	github.com/avast/retry-go/v4 v4.6.1
 	github.com/cockroachdb/errors v1.11.3
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/docker/docker v28.5.1+incompatible
@@ -100,7 +103,6 @@ require (
 	github.com/aptos-labs/aptos-go-sdk v1.11.0 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
-	github.com/avast/retry-go/v4 v4.6.1 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.55.7 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.1 // indirect

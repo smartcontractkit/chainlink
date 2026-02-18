@@ -22,6 +22,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/adapters"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -32,6 +33,7 @@ import (
 
 const (
 	componentTypeBlockchain = "blockchain"
+	componentTypeJD         = "jd"
 	envLocalAgentURL        = "CRE_LOCAL_AGENT_URL"
 	envEC2AgentURL          = "CRE_EC2_AGENT_URL"
 	envEC2InstanceID        = "CRE_EC2_INSTANCE_ID"
@@ -47,21 +49,25 @@ type startComponentEnvelope struct {
 	Payload       json.RawMessage `json:"payload"`
 }
 
-type startBlockchainRequest struct {
+type startComponentRequest struct {
 	ComponentType string            `json:"componentType"`
 	Blockchain    *blockchain.Input `json:"blockchain"`
+	JD            *jd.Input         `json:"jd"`
 	ReusePolicy   string            `json:"reusePolicy,omitempty"`
 }
 
-type startBlockchainResult struct {
-	BlockchainOutput map[string]any `json:"blockchainOutput"`
+type startComponentResult struct {
+	ComponentType    string         `json:"componentType"`
+	Output           map[string]any `json:"output"`
+	Found            bool           `json:"found"`
+	Stopped          bool           `json:"stopped"`
 	AgentLogs        []string       `json:"agentLogs"`
 	ErrorCode        string         `json:"errorCode"`
 	Error            string         `json:"error"`
 }
 
 type componentClient interface {
-	StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startBlockchainResult, error)
+	StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startComponentResult, error)
 }
 
 type httpComponentClient struct {
@@ -96,14 +102,14 @@ func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
 	}
 }
 
-func (c *httpComponentClient) StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startBlockchainResult, error) {
+func (c *httpComponentClient) StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startComponentResult, error) {
 	if c.checkHealth {
 		if err := c.waitForHealth(ctx); err != nil {
 			return nil, err
 		}
 	}
 
-	var result *startBlockchainResult
+	var result *startComponentResult
 	err := retry.Do(
 		func() error {
 			var err error
@@ -122,7 +128,7 @@ func (c *httpComponentClient) StartComponent(ctx context.Context, envelope start
 	return result, nil
 }
 
-func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope startComponentEnvelope) (*startBlockchainResult, error) {
+func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope startComponentEnvelope) (*startComponentResult, error) {
 	body, err := json.Marshal(envelope)
 	if err != nil {
 		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to encode start component envelope"))
@@ -148,7 +154,7 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope s
 		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to read start component response"))
 	}
 
-	var startResp startBlockchainResult
+	var startResp startComponentResult
 	if len(respBody) > 0 {
 		if err := json.Unmarshal(respBody, &startResp); err != nil {
 			return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to decode start component response"))
@@ -186,23 +192,32 @@ func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
 		func() error {
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/health", nil)
 			if err != nil {
-				return retry.Unrecoverable(pkgerrors.Wrap(err, "failed to create health request"))
+				return retry.Unrecoverable(pkgerrors.Wrap(err, "failed to create EC2 agent health request"))
 			}
 
 			resp, err := c.client.Do(req)
 			if err != nil {
-				return pkgerrors.Wrap(err, "failed to execute health request")
+				return pkgerrors.Wrap(err, describeEC2AgentHealthFailure(c.baseURL))
 			}
 			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
-			return fmt.Errorf("agent health check returned status %s", resp.Status)
+			return fmt.Errorf("%s: status %s", describeEC2AgentHealthFailure(c.baseURL), resp.Status)
 		},
 		retry.Attempts(uint(c.maxAttempts)),
 		retry.Delay(c.retryDelay),
 		retry.Context(ctx),
 		retry.LastErrorOnly(true),
+	)
+}
+
+func describeEC2AgentHealthFailure(baseURL string) string {
+	return fmt.Sprintf(
+		"failed EC2 CRE agent health check (%s/v1/health); verify the agent process is running and %s matches its listen port (or set %s explicitly)",
+		baseURL,
+		envEC2AgentPort,
+		envEC2AgentURL,
 	)
 }
 
@@ -383,7 +398,7 @@ func startBlockchainsWithTargets(
 				return nil, err
 			}
 
-			payload := startBlockchainRequest{
+			payload := startComponentRequest{
 				ComponentType: componentTypeBlockchain,
 				Blockchain:    input,
 				ReusePolicy:   string(configured.RemoteStartPolicy),
@@ -401,6 +416,9 @@ func startBlockchainsWithTargets(
 			if err != nil {
 				return nil, err
 			}
+			if response.ComponentType != componentTypeBlockchain {
+				return nil, fmt.Errorf("unexpected component type in start response: %s", response.ComponentType)
+			}
 			for _, logLine := range response.AgentLogs {
 				pretty := prettifyAgentLogLine(logLine)
 				if pretty == "" {
@@ -408,8 +426,7 @@ func startBlockchainsWithTargets(
 				}
 				testLogger.Info().Msgf("[agent] %s", pretty)
 			}
-
-			blockchainOutput, err := agent.DecodeFromTransport[blockchain.Output](response.BlockchainOutput)
+			blockchainOutput, err := agent.DecodeFromTransport[blockchain.Output](response.Output)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "failed to decode blockchain transport payload")
 			}

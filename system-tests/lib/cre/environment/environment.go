@@ -84,7 +84,7 @@ func (s *SetupOutput) TunnelBindings() []tunnel.TunnelBinding {
 type SetupInput struct {
 	NodeSets               []*cre.NodeSet
 	Blockchains            []*config.Blockchain
-	JdInput                *jd.Input
+	JdInput                *config.JobDistributor
 	Provider               infra.Provider
 	ContractVersions       map[cre.ContractType]*semver.Version
 	WithV2Registries       bool
@@ -122,6 +122,9 @@ func (s *SetupInput) Validate() error {
 
 	if s.JdInput == nil {
 		return pkgerrors.New("jd input is nil")
+	}
+	if err := s.JdInput.Validate(); err != nil {
+		return pkgerrors.Wrap(err, "jd input validation failed")
 	}
 
 	return nil
@@ -261,7 +264,7 @@ func SetupTestEnvironment(
 
 	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
 		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
-		jdOutput, startJDErr := StartJD(ctx, testLogger, *input.JdInput, input.Provider)
+		jdOutput, startJDErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager)
 		if startJDErr != nil {
 			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}

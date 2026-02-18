@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -37,20 +38,28 @@ func (p *SSMProvider) Name() string {
 }
 
 func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding, error) {
+	profile, authMode := resolveAWSProfileSelection()
+	if err := validateAWSSession(ctx, p.region, profile, authMode); err != nil {
+		return TunnelBinding{}, err
+	}
+
 	localPort, err := reserveLocalPort()
 	if err != nil {
 		return TunnelBinding{}, fmt.Errorf("failed to reserve local port: %w", err)
 	}
 
-	cmd := exec.Command(
-		"aws",
+	args := []string{
 		"ssm",
 		"start-session",
 		"--region", p.region,
 		"--target", p.instanceID,
 		"--document-name", "AWS-StartPortForwardingSession",
 		"--parameters", fmt.Sprintf("portNumber=%d,localPortNumber=%d", ref.Port, localPort),
-	)
+	}
+	if profile != "" {
+		args = append(args, "--profile", profile)
+	}
+	cmd := exec.Command("aws", args...)
 	// Start in a dedicated process group so cleanup can kill aws + session-manager-plugin together.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if p.logger.GetLevel() <= zerolog.DebugLevel {
@@ -64,6 +73,8 @@ func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding,
 	p.logger.Info().
 		Str("componentID", ref.ComponentID).
 		Str("endpointName", ref.EndpointName).
+		Str("awsAuthMode", authMode).
+		Str("awsProfile", profile).
 		Int("remotePort", ref.Port).
 		Int("localPort", localPort).
 		Msg("Opening SSM endpoint tunnel")
@@ -90,6 +101,54 @@ func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding,
 		LocalURL:    localURLFromScheme(ref.Scheme, localPort),
 		PID:         cmd.Process.Pid,
 	}, nil
+}
+
+func resolveAWSProfileSelection() (string, string) {
+	if hasStaticAWSKeys() {
+		return "", "env-creds"
+	}
+
+	if profile := strings.TrimSpace(os.Getenv("CRE_AWS_PROFILE")); profile != "" {
+		return profile, "profile:CRE_AWS_PROFILE"
+	}
+	if profile := strings.TrimSpace(os.Getenv("AWS_PROFILE")); profile != "" {
+		return profile, "profile:AWS_PROFILE"
+	}
+
+	return "", "default-profile"
+}
+
+func hasStaticAWSKeys() bool {
+	accessKeyID := strings.TrimSpace(os.Getenv("AWS_ACCESS_KEY_ID"))
+	secretAccessKey := strings.TrimSpace(os.Getenv("AWS_SECRET_ACCESS_KEY"))
+	return accessKeyID != "" && secretAccessKey != ""
+}
+
+func validateAWSSession(ctx context.Context, region, profile, authMode string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	preflightCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+
+	args := []string{"sts", "get-caller-identity", "--region", region}
+	if profile != "" {
+		args = append(args, "--profile", profile)
+	}
+	out, err := exec.CommandContext(preflightCtx, "aws", args...).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	loginHint := "Verify AWS credentials are configured and valid."
+	if profile != "" {
+		loginHint = fmt.Sprintf("Run `aws sso login --profile %s` (or configure profile credentials) and retry.", profile)
+	}
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return fmt.Errorf("aws authentication check failed for SSM tunnel (mode=%s): %w. %s", authMode, err, loginHint)
+	}
+	return fmt.Errorf("aws authentication check failed for SSM tunnel (mode=%s): %w: %s. %s", authMode, err, trimmed, loginHint)
 }
 
 func (p *SSMProvider) Close(_ context.Context, binding TunnelBinding) error {

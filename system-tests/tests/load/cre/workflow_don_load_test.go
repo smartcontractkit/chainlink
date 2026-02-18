@@ -141,7 +141,7 @@ func setupLoadTestEnvironment(
 		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		Blockchains:                          blockchains,
-		JdInput:                              in.JD,
+		JdInput:                              &envconfig.JobDistributor{Input: *in.JD},
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),

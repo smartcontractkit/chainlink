@@ -32,6 +32,7 @@ bin/
 artifact_paths.json
 *.b64
 state/
+state_remote/
 
 # TS sdk-related
 bun.lock

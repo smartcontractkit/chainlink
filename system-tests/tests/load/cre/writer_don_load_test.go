@@ -97,7 +97,7 @@ func setupLoadTestWriterEnvironment(
 		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		Blockchains:                          blockchains,
-		JdInput:                              in.JD,
+		JdInput:                              &creenvconfig.JobDistributor{Input: *in.JD},
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),

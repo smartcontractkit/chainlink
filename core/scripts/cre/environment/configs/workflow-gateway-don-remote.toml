@@ -11,12 +11,15 @@
   port = "8546"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
   target = "remote"
-
+  remote_start_policy = "always"
 
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   # change to your version
   image = "job-distributor:0.22.1"
+  target = "remote"
+  # we need fresh DB on each run to avoid DB-level job name uniquness violations
+  remote_start_policy = "always"
 
 [fake]
   port = 8171
@@ -73,7 +76,7 @@
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
+      #ocker_ctx = "../../../.."
       #docker_file = "core/chainlink.Dockerfile"
       #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       image = "chainlink-tmp:latest"

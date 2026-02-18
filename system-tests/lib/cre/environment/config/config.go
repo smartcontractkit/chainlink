@@ -59,7 +59,7 @@ func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
 type Config struct {
 	Blockchains       []*Blockchain                  `toml:"blockchains" validate:"required"`
 	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
-	JD                *jd.Input                       `toml:"jd" validate:"required"`
+	JD                *JobDistributor                 `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
 	Fake              *fake.Input                     `toml:"fake" validate:"required"`
 	FakeHTTP          *fake.Input                     `toml:"fake_http" validate:"required"`
@@ -89,6 +89,14 @@ const (
 // The embedded input keeps TOML fields backward-compatible.
 type Blockchain struct {
 	blockchain.Input
+	Target            ComponentTarget   `toml:"target"`
+	RemoteStartPolicy RemoteStartPolicy `toml:"remote_start_policy"`
+}
+
+// JobDistributor wraps the existing CTF JD input and adds placement metadata.
+// The embedded input keeps TOML fields backward-compatible.
+type JobDistributor struct {
+	jd.Input
 	Target            ComponentTarget   `toml:"target"`
 	RemoteStartPolicy RemoteStartPolicy `toml:"remote_start_policy"`
 }
@@ -125,6 +133,38 @@ func (b *Blockchain) InputRef() *blockchain.Input {
 	return &b.Input
 }
 
+func (j *JobDistributor) Normalize() {
+	if j.Target == "" {
+		j.Target = TargetDocker
+	}
+	if j.RemoteStartPolicy == "" {
+		j.RemoteStartPolicy = RemoteStartPolicyReuseIfIdentical
+	}
+}
+
+func (j *JobDistributor) Validate() error {
+	if j == nil {
+		return errors.New("jd is nil")
+	}
+
+	j.Normalize()
+	if j.Target != TargetDocker && j.Target != TargetRemote {
+		return fmt.Errorf("invalid jd target: %s", j.Target)
+	}
+	if j.RemoteStartPolicy != RemoteStartPolicyReuseIfIdentical && j.RemoteStartPolicy != RemoteStartPolicyAlways {
+		return fmt.Errorf("invalid jd remote_start_policy: %s", j.RemoteStartPolicy)
+	}
+
+	return nil
+}
+
+func (j *JobDistributor) InputRef() *jd.Input {
+	if j == nil {
+		return nil
+	}
+	return &j.Input
+}
+
 func (c *Config) EffectiveBlockchains() ([]*blockchain.Input, error) {
 	return ResolveBlockchainInputs(c.Blockchains)
 }
@@ -147,6 +187,13 @@ func ResolveBlockchainInputs(blockchains []*Blockchain) ([]*blockchain.Input, er
 // Validate performs validation checks on the configuration, ensuring all required fields
 // are present and all referenced capabilities are known to the system.
 func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
+	if c.JD == nil {
+		return errors.New("jd configuration must be provided")
+	}
+	if err := c.JD.Validate(); err != nil {
+		return err
+	}
+
 	if c.JD.CSAEncryptionKey == "" {
 		return errors.New("jd.csa_encryption_key must be provided")
 	}

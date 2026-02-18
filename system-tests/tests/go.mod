@@ -39,6 +39,8 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite => ./smoke/cre/solana/solwrite
 
+replace github.com/smartcontractkit/chainlink-testing-framework/framework => /Users/bartektofel/Desktop/repos/chainlink-testing-framework/framework
+
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/avast/retry-go/v4 v4.6.1

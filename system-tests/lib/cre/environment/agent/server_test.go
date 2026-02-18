@@ -36,7 +36,7 @@ func TestStartComponentReturnsErrorCodeForUnsupportedComponent(t *testing.T) {
 	server := NewServer(zerolog.Nop(), nil)
 	handler := server.Handler()
 
-	body := bytes.NewBufferString(`{"schemaVersion":"v1","operation":"StartComponent","payload":{"componentType":"jd"}}`)
+	body := bytes.NewBufferString(`{"schemaVersion":"v1","operation":"StartComponent","payload":{"componentType":"not-supported"}}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/components/start", body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -140,5 +140,83 @@ func TestStartComponentAlwaysPolicyDisablesReuse(t *testing.T) {
 
 	if deployer.calls != 2 {
 		t.Fatalf("expected deployer to be called twice with always policy, got %d", deployer.calls)
+	}
+}
+
+func TestStartComponentRequiresJDPayload(t *testing.T) {
+	server := NewServer(zerolog.Nop(), nil)
+	handler := server.Handler()
+
+	body := bytes.NewBufferString(`{"schemaVersion":"v1","operation":"StartComponent","payload":{"componentType":"jd"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/components/start", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected bad request, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), ErrCodeMissingComponentInput) {
+		t.Fatalf("expected missing input error code in response, got body: %s", rr.Body.String())
+	}
+}
+
+func TestShouldReuseRemoteStartDisablesJDReuse(t *testing.T) {
+	if shouldReuseRemoteStart(ComponentTypeJD, RemoteStartPolicyReuseIdentical) {
+		t.Fatal("expected JD reuse to be hard disabled")
+	}
+	if !shouldReuseRemoteStart(ComponentTypeBlockchain, "") {
+		t.Fatal("expected blockchain reuse to default to enabled")
+	}
+}
+
+func TestStopComponentIdempotent(t *testing.T) {
+	deployer := &fakeOutputDeployer{}
+	server := NewServer(zerolog.Nop(), map[blockchain.ChainFamily]blockchains.Deployer{
+		blockchain.FamilyEVM: deployer,
+	})
+	handler := server.Handler()
+
+	startPayload := `{"componentType":"blockchain","blockchain":{"type":"anvil","chain_id":"1337"}}`
+	startBody := bytes.NewBufferString(`{"schemaVersion":"v1","operation":"StartComponent","payload":` + startPayload + `}`)
+	startReq := httptest.NewRequest(http.MethodPost, "/v1/components/start", bytes.NewReader(startBody.Bytes()))
+	startReq.Header.Set("Content-Type", "application/json")
+	startRR := httptest.NewRecorder()
+	handler.ServeHTTP(startRR, startReq)
+	if startRR.Code != http.StatusOK {
+		t.Fatalf("expected start request OK, got %d: %s", startRR.Code, startRR.Body.String())
+	}
+
+	stopBody := bytes.NewBufferString(`{"schemaVersion":"v1","operation":"StopComponent","payload":` + startPayload + `}`)
+	stopReq1 := httptest.NewRequest(http.MethodPost, "/v1/components/start", bytes.NewReader(stopBody.Bytes()))
+	stopReq1.Header.Set("Content-Type", "application/json")
+	stopRR1 := httptest.NewRecorder()
+	handler.ServeHTTP(stopRR1, stopReq1)
+	if stopRR1.Code != http.StatusOK {
+		t.Fatalf("expected first stop request OK, got %d: %s", stopRR1.Code, stopRR1.Body.String())
+	}
+
+	var stopResp1 StartComponentResponse
+	if err := json.Unmarshal(stopRR1.Body.Bytes(), &stopResp1); err != nil {
+		t.Fatalf("failed to decode first stop response: %v", err)
+	}
+	if !stopResp1.Found || !stopResp1.Stopped {
+		t.Fatalf("expected first stop to find and stop component, got found=%v stopped=%v", stopResp1.Found, stopResp1.Stopped)
+	}
+
+	stopReq2 := httptest.NewRequest(http.MethodPost, "/v1/components/start", bytes.NewReader(stopBody.Bytes()))
+	stopReq2.Header.Set("Content-Type", "application/json")
+	stopRR2 := httptest.NewRecorder()
+	handler.ServeHTTP(stopRR2, stopReq2)
+	if stopRR2.Code != http.StatusOK {
+		t.Fatalf("expected second stop request OK, got %d: %s", stopRR2.Code, stopRR2.Body.String())
+	}
+
+	var stopResp2 StartComponentResponse
+	if err := json.Unmarshal(stopRR2.Body.Bytes(), &stopResp2); err != nil {
+		t.Fatalf("failed to decode second stop response: %v", err)
+	}
+	if stopResp2.Found || stopResp2.Stopped {
+		t.Fatalf("expected second stop to be no-op, got found=%v stopped=%v", stopResp2.Found, stopResp2.Stopped)
 	}
 }
