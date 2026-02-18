@@ -82,57 +82,98 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 
 // Add adds a stream value to the cache.
 func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.add(id, value, ttl)
-}
-
-func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for id, value := range values {
-		c.add(id, value, ttl)
-	}
-}
-
-func (c *Cache) add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
 	var expiresAt time.Time
 	if ttl > 0 {
 		expiresAt = time.Now().Add(ttl)
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.values[id] = item{value: value, expiresAt: expiresAt}
+}
+
+func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
+	var expiresAt time.Time
+	if ttl > 0 {
+		expiresAt = time.Now().Add(ttl)
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, value := range values {
+		c.values[id] = item{value: value, expiresAt: expiresAt}
+	}
+}
+
+type cacheOutcome string
+
+const (
+	cacheOutcomeNotFound cacheOutcome = "notFound"
+	cacheOutcomeMaxAge   cacheOutcome = "maxAge"
+	cacheOutcomeHit      cacheOutcome = "" // empty string means cache hit
+)
+
+type metricEvent struct {
+	id           llotypes.StreamID
+	cacheOutcome cacheOutcome
 }
 
 //nolint:revive // GetMany mutates streamValues in-place for zero-allocation reads.
 func (c *Cache) GetMany(streamValues llo.StreamValues) {
+	events := make([]metricEvent, 0, len(streamValues))
+
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	now := time.Now()
 	for id := range streamValues {
-		streamValues[id], _ = c.get(id)
+		itm, ok := c.values[id]
+		if !ok {
+			events = append(events, metricEvent{id: id, cacheOutcome: cacheOutcomeNotFound})
+			streamValues[id] = nil
+			continue
+		}
+		if now.After(itm.expiresAt) {
+			events = append(events, metricEvent{id: id, cacheOutcome: cacheOutcomeMaxAge})
+			streamValues[id] = nil
+			continue
+		}
+		events = append(events, metricEvent{id: id, cacheOutcome: cacheOutcomeHit})
+		streamValues[id] = itm.value
+	}
+	c.mu.RUnlock()
+
+	// defer metric updates until after the read lock is released
+	for _, e := range events {
+		if e.cacheOutcome == cacheOutcomeHit {
+			promCacheHitCount.WithLabelValues(strconv.FormatUint(uint64(e.id), 10)).Inc()
+		} else {
+			promCacheMissCount.WithLabelValues(strconv.FormatUint(uint64(e.id), 10), string(e.cacheOutcome)).Inc()
+		}
 	}
 }
 
 func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.get(id)
+	value, expiresAt, metricEvent := c.get(id)
+	c.mu.RUnlock()
+
+	// defer metric updates until after the read lock is released
+	if metricEvent.cacheOutcome != cacheOutcomeHit {
+		promCacheMissCount.WithLabelValues(strconv.FormatUint(uint64(id), 10), string(metricEvent.cacheOutcome)).Inc()
+	} else {
+		promCacheHitCount.WithLabelValues(strconv.FormatUint(uint64(id), 10)).Inc()
+	}
+	return value, expiresAt
 }
 
-func (c *Cache) get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
-	label := strconv.FormatUint(uint64(id), 10)
+func (c *Cache) get(id llotypes.StreamID) (llo.StreamValue, time.Time, metricEvent) {
 	item, ok := c.values[id]
 	if !ok {
-		promCacheMissCount.WithLabelValues(label, "notFound").Inc()
-		return nil, time.Time{}
+		return nil, time.Time{}, metricEvent{id: id, cacheOutcome: cacheOutcomeNotFound}
 	}
 
 	if time.Now().After(item.expiresAt) {
-		promCacheMissCount.WithLabelValues(label, "maxAge").Inc()
-		return nil, time.Time{}
+		return nil, time.Time{}, metricEvent{id: id, cacheOutcome: cacheOutcomeMaxAge}
 	}
 
-	promCacheHitCount.WithLabelValues(label).Inc()
-	return item.value, item.expiresAt
+	return item.value, item.expiresAt, metricEvent{id: id, cacheOutcome: cacheOutcomeHit}
 }
 
 func (c *Cache) cleanup() {

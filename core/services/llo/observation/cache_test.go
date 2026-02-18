@@ -336,3 +336,78 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestCache_ConcurrentAddMany(t *testing.T) {
+	cache := NewCache(0)
+	const numGoroutines = 10
+	const batchSize = uint32(100)
+	const numBatches = uint32(10)
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := range uint32(numGoroutines) {
+		go func(id uint32) {
+			defer wg.Done()
+			for b := range numBatches {
+				batch := make(map[llotypes.StreamID]llo.StreamValue, batchSize)
+				for j := range batchSize {
+					streamID := id*numBatches*batchSize + b*batchSize + j
+					batch[streamID] = &mockStreamValue{value: []byte{byte(id)}}
+				}
+				cache.AddMany(batch, time.Second)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	for i := range uint32(numGoroutines) {
+		for b := range numBatches {
+			for j := range batchSize {
+				streamID := i*numBatches*batchSize + b*batchSize + j
+				val, _ := cache.Get(streamID)
+				assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, val)
+			}
+		}
+	}
+}
+
+func TestCache_ConcurrentAddManyGetMany(t *testing.T) {
+	cache := NewCache(0)
+	const numWriters = 5
+	const numReaders = 5
+	const batchSize = uint32(50)
+	const numIterations = uint32(100)
+
+	var wg sync.WaitGroup
+	wg.Add(numWriters + numReaders)
+
+	for i := range uint32(numWriters) {
+		go func(id uint32) {
+			defer wg.Done()
+			for iter := range numIterations {
+				batch := make(map[llotypes.StreamID]llo.StreamValue, batchSize)
+				for j := range batchSize {
+					streamID := id*batchSize + j
+					batch[streamID] = &mockStreamValue{value: []byte{byte(iter)}}
+				}
+				cache.AddMany(batch, time.Second)
+			}
+		}(i)
+	}
+
+	for i := range uint32(numReaders) {
+		go func(id uint32) {
+			defer wg.Done()
+			for range numIterations {
+				sv := make(llo.StreamValues, batchSize)
+				for j := range batchSize {
+					sv[id*batchSize+j] = nil
+				}
+				cache.GetMany(sv)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
