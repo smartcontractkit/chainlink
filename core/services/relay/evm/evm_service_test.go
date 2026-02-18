@@ -59,7 +59,7 @@ type receiptResult struct {
 }
 
 func createMockReceipt(t *testing.T) *txmgr.ChainReceipt {
-	receipt := NewChainReceipt(common.HexToHash(ExpectedTxHash), 1, t)
+	receipt := NewChainReceipt(common.HexToHash(ExpectedTxHash), gethtypes.ReceiptStatusSuccessful, t)
 	return &receipt
 }
 
@@ -249,7 +249,7 @@ func TestEVMService(t *testing.T) {
 				})).Return(expectedTx, nil)
 				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Unconfirmed, nil)
 				txHash := common.HexToHash(ExpectedTxHash)
-				mockReceipt := NewChainReceipt(txHash, 1, t)
+				mockReceipt := NewChainReceipt(txHash, gethtypes.ReceiptStatusSuccessful, t)
 				m.TxManager.EXPECT().GetTransactionReceipt(mock.Anything, mock.Anything).Return(&mockReceipt, nil)
 			},
 			ExpectedResult: &evm.TransactionResult{
@@ -401,7 +401,7 @@ func TestEVMService(t *testing.T) {
 
 				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Once()
 				txHash := common.HexToHash(ExpectedTxHash)
-				mockReceipt := NewChainReceipt(txHash, 1, t)
+				mockReceipt := NewChainReceipt(txHash, gethtypes.ReceiptStatusSuccessful, t)
 				m.TxManager.EXPECT().GetTransactionReceipt(mock.Anything, mock.Anything).Return(&mockReceipt, nil).Once()
 			},
 			ExpectedResult: &evm.TransactionResult{TxStatus: evm.TxSuccess, TxHash: common.HexToHash(ExpectedTxHash)},
@@ -412,7 +412,7 @@ func TestEVMService(t *testing.T) {
 				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(txmgr.Tx{}, nil).Once()
 				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Once()
 				txHash := common.HexToHash(ExpectedTxHash)
-				mockReceipt := NewChainReceipt(txHash, 0, t)
+				mockReceipt := NewChainReceipt(txHash, gethtypes.ReceiptStatusFailed, t)
 				m.TxManager.EXPECT().GetTransactionReceipt(mock.Anything, mock.Anything).Return(&mockReceipt, nil).Once()
 			},
 			ExpectedResult: &evm.TransactionResult{TxStatus: evm.TxReverted, TxHash: common.HexToHash(ExpectedTxHash)},
