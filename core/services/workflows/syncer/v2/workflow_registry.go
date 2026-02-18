@@ -439,6 +439,13 @@ func (w *workflowRegistry) generateReconciliationEvents(
 
 				delete(pendingEvents, id)
 
+				w.lggr.Debugw("[DEBUG-TRACE] Creating WorkflowActivatedEvent from WorkflowMetadataView",
+					"workflowID", wfMeta.WorkflowID.Hex(),
+					"workflowName", wfMeta.WorkflowName,
+					"wfMeta.BinaryURL", wfMeta.BinaryURL,
+					"wfMeta.ConfigURL", wfMeta.ConfigURL,
+				)
+
 				toActivatedEvent := WorkflowActivatedEvent{
 					WorkflowID:    wfMeta.WorkflowID,
 					WorkflowOwner: wfMeta.Owner,
@@ -451,6 +458,12 @@ func (w *workflowRegistry) generateReconciliationEvents(
 					Attributes:    wfMeta.Attributes,
 					Source:        wfMeta.Source,
 				}
+
+				w.lggr.Debugw("[DEBUG-TRACE] WorkflowActivatedEvent created",
+					"workflowID", toActivatedEvent.WorkflowID.Hex(),
+					"event.BinaryURL", toActivatedEvent.BinaryURL,
+					"event.ConfigURL", toActivatedEvent.ConfigURL,
+				)
 				events = append(events, &reconciliationEvent{
 					Event: Event{
 						Data: toActivatedEvent,

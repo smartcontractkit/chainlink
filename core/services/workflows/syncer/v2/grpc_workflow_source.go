@@ -168,8 +168,22 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 			return nil, nil, err
 		}
 
+		g.lggr.Debugw("[DEBUG-TRACE] Raw proto workflows received from GRPC client",
+			"count", len(workflows),
+			"start", start,
+			"hasMore", hasMore,
+		)
+
 		// Convert workflows to views, skipping invalid ones
-		for _, wf := range workflows {
+		for i, wf := range workflows {
+			g.lggr.Debugw("[DEBUG-TRACE] Raw proto workflow before conversion",
+				"index", i,
+				"workflowName", wf.GetWorkflowName(),
+				"proto.BinaryUrl", wf.GetBinaryUrl(),
+				"proto.ConfigUrl", wf.GetConfigUrl(),
+				"proto.BinaryUrl.len", len(wf.GetBinaryUrl()),
+				"proto.ConfigUrl.len", len(wf.GetConfigUrl()),
+			)
 			view, err := g.toWorkflowMetadataView(wf)
 			if err != nil {
 				g.lggr.Warnw("Failed to parse workflow metadata, skipping",
@@ -177,6 +191,16 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 					"error", err)
 				continue
 			}
+
+			g.lggr.Debugw("[DEBUG-TRACE] WorkflowMetadataView after conversion",
+				"workflowID", view.WorkflowID.Hex(),
+				"workflowName", view.WorkflowName,
+				"view.BinaryURL", view.BinaryURL,
+				"view.ConfigURL", view.ConfigURL,
+				"view.BinaryURL.len", len(view.BinaryURL),
+				"view.ConfigURL.len", len(view.ConfigURL),
+			)
+
 			allViews = append(allViews, view)
 		}
 
@@ -343,6 +367,15 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 
 	// Map proto status enum to internal representation
 	statusVal := GRPCStatusToInternal(wf.GetStatus(), g.lggr)
+
+	g.lggr.Debugw("[DEBUG-TRACE] GRPC source received workflow metadata from proto",
+		"workflowID", workflowID.Hex(),
+		"workflowName", wf.GetWorkflowName(),
+		"wf.GetBinaryUrl()", wf.GetBinaryUrl(),
+		"wf.GetConfigUrl()", wf.GetConfigUrl(),
+		"binaryURLEmpty", wf.GetBinaryUrl() == "",
+		"configURLEmpty", wf.GetConfigUrl() == "",
+	)
 
 	return WorkflowMetadataView{
 		WorkflowID:   workflowID,

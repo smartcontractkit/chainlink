@@ -215,6 +215,13 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
+
+		h.lggr.Debugw("[DEBUG-TRACE] Handler received WorkflowActivated event",
+			"workflowID", wfID,
+			"workflowName", payload.WorkflowName,
+			"payload.BinaryURL", payload.BinaryURL,
+			"payload.ConfigURL", payload.ConfigURL,
+		)
 		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
 		orgID, ferr := h.fetchOrganizationID(ctx, wfOwner)
 		if ferr != nil {
@@ -350,8 +357,21 @@ func (h *eventHandler) workflowActivatedEvent(
 	ctx context.Context,
 	payload WorkflowActivatedEvent,
 ) error {
+	h.lggr.Debugw("[DEBUG-TRACE] workflowActivatedEvent called",
+		"workflowID", payload.WorkflowID.Hex(),
+		"payload.BinaryURL", payload.BinaryURL,
+		"payload.ConfigURL", payload.ConfigURL,
+	)
+
 	// Convert WorkflowActivatedEvent to WorkflowRegisteredEvent since they have identical fields
 	registeredPayload := WorkflowRegisteredEvent(payload)
+
+	h.lggr.Debugw("[DEBUG-TRACE] After conversion to WorkflowRegisteredEvent",
+		"workflowID", registeredPayload.WorkflowID.Hex(),
+		"registeredPayload.BinaryURL", registeredPayload.BinaryURL,
+		"registeredPayload.ConfigURL", registeredPayload.ConfigURL,
+	)
+
 	return h.workflowRegisteredEvent(ctx, registeredPayload)
 }
 
@@ -364,6 +384,15 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegisteredEvent,
 ) error {
+	h.lggr.Debugw("[DEBUG-TRACE] workflowRegisteredEvent called",
+		"workflowID", payload.WorkflowID.Hex(),
+		"workflowName", payload.WorkflowName,
+		"payload.BinaryURL", payload.BinaryURL,
+		"payload.ConfigURL", payload.ConfigURL,
+		"binaryURLEmpty", payload.BinaryURL == "",
+		"configURLEmpty", payload.ConfigURL == "",
+	)
+
 	status := toSpecStatus(payload.Status)
 
 	// First, let's synchronize the database state.
@@ -436,6 +465,15 @@ func toSpecStatus(s uint8) job.WorkflowSpecStatus {
 func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowRegisteredEvent) (*job.WorkflowSpec, error) {
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
+
+	h.lggr.Debugw("[DEBUG-TRACE] createWorkflowSpec called",
+		"workflowID", wfID,
+		"workflowName", payload.WorkflowName,
+		"payload.BinaryURL", payload.BinaryURL,
+		"payload.ConfigURL", payload.ConfigURL,
+		"binaryURLEmpty", payload.BinaryURL == "",
+		"configURLEmpty", payload.ConfigURL == "",
+	)
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: owner, Workflow: wfID})
 
