@@ -86,6 +86,7 @@ To execute tests with v2 contracts start the local CRE first:
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
+	quarantine.Flaky(t, "DX-2929")
 	runV2SuiteBucket(t, v2suite_config.SuiteBucketA)
 }
 
