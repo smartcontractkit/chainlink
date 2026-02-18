@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	v2suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/v2suite/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -92,6 +94,7 @@ func Test_CRE_V2_Suite_Bucket_B(t *testing.T) {
 }
 
 func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
+	quarantine.Flaky(t, "DX-2924")
 	runV2SuiteBucket(t, v2suite_config.SuiteBucketC)
 }
 
