@@ -1,7 +1,7 @@
 package events_test
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 	"testing"
 
@@ -59,7 +59,7 @@ func TestEmit(t *testing.T) {
 	})
 
 	t.Run(events.WorkflowExecutionFinished+"_with_error", func(t *testing.T) {
-		testErr := fmt.Errorf("something went wrong")
+		testErr := errors.New("something went wrong")
 		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "errored", executionID, testErr, nil))
 
 		v2Msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionFinished)
