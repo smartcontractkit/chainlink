@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -1281,7 +1282,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 		&testDonNotifier{},
 	)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, eventHandler.Close()) }()
+	servicetest.Run(t, eventHandler)
 	secretsURL := "http://example.com/secrets"
 	wfOwner := "1234567890123456789012345678901234567890"
 

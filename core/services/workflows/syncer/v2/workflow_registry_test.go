@@ -772,6 +772,11 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 }
 
+type mockEvtHandler struct{}
+
+func (m *mockEvtHandler) Close() error                            { return nil }
+func (m *mockEvtHandler) Handle(_ context.Context, _ Event) error { return nil }
+
 func Test_Start(t *testing.T) {
 	t.Run("successful start and close", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -789,9 +794,7 @@ func Test_Start(t *testing.T) {
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
 			},
-			&eventHandler{
-				engineRegistry: &EngineRegistry{},
-			},
+			&mockEvtHandler{},
 			workflowDonNotifier,
 			er,
 		)
