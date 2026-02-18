@@ -2,6 +2,7 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
+  container_name = "anvil-1337"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
