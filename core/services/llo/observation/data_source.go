@@ -248,7 +248,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			wg.Wait()
 			elapsed = time.Since(startTS)
 
-			// All-or-nothing per pipeline group: bid/mid/ask share one
+			// All-or-nothing per pipeline group: ex: bid/mid/ask share one
 			// pipeline, so either all three are written to cache or none
 			// are. This prevents the cache from mixing fresh and stale
 			// values across generations.
