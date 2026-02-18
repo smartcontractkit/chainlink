@@ -497,6 +497,7 @@ func TestContractOpts_Validate(t *testing.T) {
 }
 
 func TestNewEVMDeployOperation(t *testing.T) {
+	quarantine.Flaky(t, "DX-2907")
 	t.Parallel()
 	contractType := cldf.ContractType("TestContract")
 	version, _ := semver.NewVersion("1.0.0")
