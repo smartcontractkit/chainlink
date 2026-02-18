@@ -16,7 +16,7 @@ func getCommands() []prompt.Suggest {
 		{Text: "up", Description: "Spin up the development environment"},
 		{Text: "down", Description: "Tear down the development environment"},
 		{Text: "restart", Description: "Restart the development environment"},
-		{Text: "test", Description: "Perform smoke or soak/load/volume/chaos testing"},
+		{Text: "ocr2:test", Description: "Perform smoke or soak/load/volume/chaos testing for OCR2"},
 		{Text: "bs", Description: "Manage the Blockscout EVM block explorer"},
 		{Text: "obs", Description: "Manage the observability stack"},
 		{Text: "db", Description: "Inspect Databases"},
@@ -26,11 +26,11 @@ func getCommands() []prompt.Suggest {
 
 func getSubCommands(parent string) []prompt.Suggest {
 	switch parent {
-	case "test":
+	case "ocr2:test":
 		return []prompt.Suggest{
-			{Text: "soak", Description: "Run OCR2 soak test"},
-			{Text: "gas", Description: "Run OCR2 soak test + simulate gas spikes"},
-			{Text: "chaos", Description: "Run OCR2 soak test + introduce container kills and latency"},
+			{Text: "TestOCR2Load/clean", Description: "Run OCR2 soak test"},
+			{Text: "TestOCR2Load/gas-spikes", Description: "Run OCR2 soak test + simulate gas spikes"},
+			{Text: "TestOCR2Load/chaos", Description: "Run OCR2 soak test + introduce container kills and latency"},
 		}
 	case "bs":
 		return []prompt.Suggest{

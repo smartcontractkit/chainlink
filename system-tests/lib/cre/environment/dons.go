@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -57,21 +56,7 @@ func StartDONs(
 	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
 ) (*StartedDONs, error) {
-	switch infraInput.Type {
-	case infra.CRIB:
-		deployCribDonsInput := &crib.DeployCribDonsInput{
-			Topology:       topology,
-			NodeSet:        nodeSets,
-			CribConfigsDir: infra.CribConfigsDir,
-			Namespace:      infraInput.CRIB.Namespace,
-		}
-
-		var devspaceErr error
-		nodeSets, devspaceErr = crib.DeployDons(ctx, deployCribDonsInput)
-		if devspaceErr != nil {
-			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
-		}
-	case infra.Kubernetes:
+	if infraInput.IsKubernetes() {
 		// For Kubernetes, DONs are already running in the cluster, generate service URLs
 		lggr.Info().Msg("Generating Kubernetes service URLs for DONs (already running in cluster)")
 		for idx, nodeSet := range nodeSets {

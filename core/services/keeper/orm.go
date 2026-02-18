@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -95,7 +94,7 @@ RETURNING *
 }
 
 // UpdateUpkeepLastKeeperIndex updates the last keeper index for an upkeep
-func (o *ORM) UpdateUpkeepLastKeeperIndex(ctx context.Context, jobID int32, upkeepID *big.Big, fromAddress types.EIP55Address) error {
+func (o *ORM) UpdateUpkeepLastKeeperIndex(ctx context.Context, jobID int32, upkeepID *sqlutil.Big, fromAddress types.EIP55Address) error {
 	_, err := o.ds.ExecContext(ctx, `
 	UPDATE upkeep_registrations
 	SET
@@ -107,7 +106,7 @@ func (o *ORM) UpdateUpkeepLastKeeperIndex(ctx context.Context, jobID int32, upke
 }
 
 // BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID
-func (o *ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeepIDs []big.Big) (int64, error) {
+func (o *ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeepIDs []sqlutil.Big) (int64, error) {
 	strIds := []string{}
 	for _, upkeepID := range upkeepIDs {
 		strIds = append(strIds, upkeepID.String())
@@ -211,7 +210,7 @@ func (o *ORM) loadUpkeepsRegistry(ctx context.Context, upkeeps []UpkeepRegistrat
 	return nil
 }
 
-func (o *ORM) AllUpkeepIDsForRegistry(ctx context.Context, regID int64) (upkeeps []big.Big, err error) {
+func (o *ORM) AllUpkeepIDsForRegistry(ctx context.Context, regID int64) (upkeeps []sqlutil.Big, err error) {
 	err = o.ds.SelectContext(ctx, &upkeeps, `
 SELECT upkeep_id
 FROM upkeep_registrations
@@ -221,7 +220,7 @@ WHERE registry_id = $1
 }
 
 // SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
-func (o *ORM) SetLastRunInfoForUpkeepOnJob(ctx context.Context, jobID int32, upkeepID *big.Big, height int64, fromAddress types.EIP55Address) (int64, error) {
+func (o *ORM) SetLastRunInfoForUpkeepOnJob(ctx context.Context, jobID int32, upkeepID *sqlutil.Big, height int64, fromAddress types.EIP55Address) (int64, error) {
 	res, err := o.ds.ExecContext(ctx, `
 	UPDATE upkeep_registrations
 	SET last_run_block_height = $1,

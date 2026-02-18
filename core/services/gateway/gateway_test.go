@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -332,6 +333,21 @@ func TestGateway_ProcessRequest_ParseError(t *testing.T) {
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), []byte("{{}"), "")
 	requireJSONRPCError(t, response, "", jsonrpc.ErrParse, "invalid character '{' looking for beginning of object key string")
 	require.Equal(t, 400, statusCode)
+}
+
+func TestGateway_ProcessRequest_RequestIDTooLong(t *testing.T) {
+	t.Parallel()
+
+	gw, _ := newGatewayWithMockHandler(t)
+
+	longID := strings.Repeat("x", 201) // > 200 triggers the check
+	req := newJSONRpcRequest(t, longID, "testDON", []byte(`{"type":"new"}`))
+
+	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	require.Equal(t, 400, statusCode)
+
+	expectedMsg := fmt.Sprintf("request ID is too long: %d. max is 200 characters", len(longID))
+	requireJSONRPCError(t, response, longID, jsonrpc.ErrParse, expectedMsg)
 }
 
 func TestGateway_ProcessRequest_MessageValidationError(t *testing.T) {

@@ -25,7 +25,6 @@ type OnRampView struct {
 type DestChainSpecificData struct {
 	AllowedSendersList []common.Address          `json:"allowedSendersList"`
 	DestChainConfig    onramp.GetDestChainConfig `json:"destChainConfig"`
-	ExpectedNextSeqNum uint64                    `json:"expectedNextSeqNum"`
 }
 
 func GenerateOnRampView(
@@ -82,14 +81,13 @@ func generateDestChainSpecificData(onRampContract onramp.OnRampInterface, router
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dest chain config: %w", err)
 		}
-		expectedNextSeqNum, err := onRampContract.GetExpectedNextSequenceNumber(nil, destChainSelector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get expected next sequence number: %w", err)
-		}
+
 		destChainSpecificData[destChainSelector] = DestChainSpecificData{
 			AllowedSendersList: allowListInformation.ConfiguredAddresses,
-			DestChainConfig:    destChainConfig,
-			ExpectedNextSeqNum: expectedNextSeqNum,
+			DestChainConfig: onramp.GetDestChainConfig{
+				AllowlistEnabled: destChainConfig.AllowlistEnabled,
+				Router:           destChainConfig.Router,
+			},
 		}
 	}
 	return destChainSpecificData, nil

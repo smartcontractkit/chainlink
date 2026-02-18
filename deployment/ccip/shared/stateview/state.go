@@ -94,6 +94,7 @@ import (
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_pausable_freezable_transparent"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 
@@ -577,6 +578,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					m.Store(name, chainView)
 					e.Logger.Infow("Completed view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 				case chain_selectors.FamilySolana:
+					e.Logger.Infow("Generating view for Solana", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 					if _, ok := c.SolChains[chainSelector]; !ok {
 						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
@@ -588,6 +590,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					chainView.ChainSelector = chainSelector
 					chainView.ChainID = id
 					sm.Store(name, chainView)
+					e.Logger.Infow("Completed view for Solana")
 				case chain_selectors.FamilyAptos:
 					chainState, ok := c.AptosChains[chainSelector]
 					if !ok {
@@ -600,6 +603,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					chainView.ChainSelector = chainSelector
 					chainView.ChainID = id
 					am.Store(name, chainView)
+					e.Logger.Infow("Completed view for Aptos")
 				case chain_selectors.FamilyTon:
 					if _, ok := c.TonChains[chainSelector]; !ok {
 						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
@@ -610,6 +614,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 						return err
 					}
 					tm.Store(name, chainView)
+					e.Logger.Infow("Completed view for TON")
 				case chain_selectors.FamilySui:
 					if _, ok := c.SuiChains[chainSelector]; !ok {
 						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
@@ -620,6 +625,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 						return err
 					}
 					suiMap.Store(name, chainView)
+					e.Logger.Infow("Completed view for SUI")
 				default:
 					return fmt.Errorf("unsupported chain family %s", family)
 				}
@@ -693,7 +699,10 @@ func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, 
 		offRampAddress = normalizedAddr[:]
 	case chain_selectors.FamilyTon:
 		or := c.TonChains[chainSelector].OffRamp
-		rawBytes := codec.ToRawAddr(&or)
+		rawBytes, err := codec.ToRawAddr(&or)
+		if err != nil {
+			return nil, err
+		}
 		offRampAddress = rawBytes[:]
 
 	default:
@@ -744,7 +753,10 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 		if ramp.IsAddrNone() {
 			return nil, fmt.Errorf("no onramp found in the state for TON chain %d", chainSelector)
 		}
-		rawAddress := codec.ToRawAddr(&ramp)
+		rawAddress, err := codec.ToRawAddr(&ramp)
+		if err != nil {
+			return nil, err
+		}
 		onRampAddressBytes = rawAddress[:]
 
 	default:
@@ -1132,6 +1144,11 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
 			state.ABIByAddress[address] = usdc_token_pool_v1_6_2.USDCTokenPoolABI
+		case cldf.NewTypeAndVersion("USDCTokenPoolProxy", *semver.MustParse("1.7.0")).String():
+			if state.USDCTokenPoolProxies == nil {
+				state.USDCTokenPoolProxies = make(map[semver.Version]common.Address)
+			}
+			state.USDCTokenPoolProxies[*semver.MustParse("1.7.0")] = common.HexToAddress(address)
 		case cldf.NewTypeAndVersion(ccipshared.USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1506,11 +1523,25 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.SignerRegistry = signerRegistry
 			state.ABIByAddress[address] = signer_registry.SignerRegistryABI
 		case cldf.NewTypeAndVersion(ccipshared.TransparentUpgradeableProxy, deployment.Version1_6_1).String():
-			token, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(common.HexToAddress(address), chain.Client)
+			var (
+				symbol   string
+				err      error
+				isPaused bool
+			)
+			standardToken, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
+			pausableToken, err := burn_mint_erc20_pausable_freezable_transparent.NewBurnMintERC20PausableFreezableTransparent(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if _, isPausedErr := pausableToken.Paused(&bind.CallOpts{Context: ctx}); isPausedErr == nil {
+				isPaused = true
+				symbol, err = pausableToken.Symbol(&bind.CallOpts{Context: ctx})
+			} else {
+				symbol, err = standardToken.Symbol(&bind.CallOpts{Context: ctx})
+			}
 			if err != nil {
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
@@ -1523,7 +1554,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				return state, fmt.Errorf("failed to get storage at slot %s for TransparentUpgradeableProxy at %s for %s token on %s: %w", ccipshared.TUPImplementationSlot, transparent.Address(), symbol, chain, err)
 			}
 			erc20Address := common.BytesToAddress(storageBytes)
-			token, err = burn_mint_erc20_transparent.NewBurnMintERC20Transparent(erc20Address, chain.Client)
+			standardToken, err = burn_mint_erc20_transparent.NewBurnMintERC20Transparent(erc20Address, chain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -1536,8 +1567,11 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, err
 			}
-			if state.BurnMintERC20Transparent == nil {
+			if !isPaused && state.BurnMintERC20Transparent == nil {
 				state.BurnMintERC20Transparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent)
+			}
+			if isPaused && state.BurnMintERC20PausableFreezableTransparent == nil {
+				state.BurnMintERC20PausableFreezableTransparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparent)
 			}
 			if state.ProxyAdmin == nil {
 				state.ProxyAdmin = make(map[ccipshared.TokenSymbol]*proxy_admin.ProxyAdmin)
@@ -1545,8 +1579,13 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if state.TransparentUpgradeableProxy == nil {
 				state.TransparentUpgradeableProxy = make(map[ccipshared.TokenSymbol]*transparent_upgradeable_proxy.TransparentUpgradeableProxy)
 			}
-			state.BurnMintERC20Transparent[ccipshared.TokenSymbol(symbol)] = token
-			state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_transparent.BurnMintERC20TransparentABI
+			if isPaused {
+				state.BurnMintERC20PausableFreezableTransparent[ccipshared.TokenSymbol(symbol)] = pausableToken
+				state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparentABI
+			} else {
+				state.BurnMintERC20Transparent[ccipshared.TokenSymbol(symbol)] = standardToken
+				state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_transparent.BurnMintERC20TransparentABI
+			}
 			state.ProxyAdmin[ccipshared.TokenSymbol(symbol)] = proxy
 			state.ABIByAddress[proxyAdmin.String()] = proxy_admin.ProxyAdminABI
 			state.TransparentUpgradeableProxy[ccipshared.TokenSymbol(symbol)] = transparent
@@ -1582,10 +1621,10 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				continue
 			}
 
-			// BurnMintERC20Transparent represent implementation of TransparentUpgradeableProxy and because of that
+			// BurnMintERC20Transparent and BurnMintERC20PausableFreezableTransparentToken represent implementation of TransparentUpgradeableProxy and because of that
 			// mapping from symbol to address is not possible. We skip it here since it's already loaded above when loading
 			// TransparentUpgradeableProxy
-			if tvStr.Type == ccipshared.BurnMintERC20TransparentToken {
+			if tvStr.Type == ccipshared.BurnMintERC20TransparentToken || tvStr.Type == ccipshared.BurnMintERC20PausableFreezableTransparentToken {
 				continue
 			}
 			return state, fmt.Errorf("unknown contract %s", tvStr)

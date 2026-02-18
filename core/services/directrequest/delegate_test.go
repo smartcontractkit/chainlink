@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -69,7 +68,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("Spec with DirectRequestSpec", func(t *testing.T) {
-		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{EVMChainID: (*ubig.Big)(testutils.FixtureChainID)}, PipelineSpec: &pipeline.Spec{}}
+		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID)}, PipelineSpec: &pipeline.Spec{}}
 		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		require.NoError(t, err)
 		assert.Len(t, services, 1)

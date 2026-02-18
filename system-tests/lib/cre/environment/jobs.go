@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -62,18 +61,7 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 	var jdOutput *jd.Output
 	var jdErr error
 
-	if infraInput.Type == infra.CRIB {
-		deployCribJdInput := &crib.DeployCribJdInput{
-			JDInput:        jdInput,
-			CribConfigsDir: infra.CribConfigsDir,
-			Namespace:      infraInput.CRIB.Namespace,
-		}
-
-		jdInput.Out, jdErr = crib.DeployJd(ctx, deployCribJdInput)
-		if jdErr != nil {
-			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
-		}
-	} else if infraInput.IsKubernetes() {
+	if infraInput.IsKubernetes() {
 		// For Kubernetes, JD is already running in the cluster, generate service URLs
 		lggr.Info().Msg("Generating Kubernetes service URLs for Job Distributor (already running in cluster)")
 		jdOutput, jdErr = infra.GenerateKubernetesJDOutput(&infraInput, lggr)

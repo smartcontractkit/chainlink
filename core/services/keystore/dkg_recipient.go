@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 )
 
 // ErrDKGRecipientKeyExists describes the error when the DKG recipient key already exists

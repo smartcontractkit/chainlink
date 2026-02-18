@@ -82,20 +82,43 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 
 // Add adds a stream value to the cache.
 func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.add(id, value, ttl)
+}
+
+func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, value := range values {
+		c.add(id, value, ttl)
+	}
+}
+
+func (c *Cache) add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
 	var expiresAt time.Time
 	if ttl > 0 {
 		expiresAt = time.Now().Add(ttl)
 	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.values[id] = item{value: value, expiresAt: expiresAt}
+}
+
+//nolint:revive // GetMany mutates streamValues in-place for zero-allocation reads.
+func (c *Cache) GetMany(streamValues llo.StreamValues) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for id := range streamValues {
+		streamValues[id], _ = c.get(id)
+	}
 }
 
 func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return c.get(id)
+}
 
+func (c *Cache) get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	label := strconv.FormatUint(uint64(id), 10)
 	item, ok := c.values[id]
 	if !ok {

@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -54,7 +54,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	}
 
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
-	chainID := big.New(testutils.SimulatedChainID)
+	chainID := sqlutil.New(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
 	flagsAndDeps = append(flagsAndDeps, client, chainID)
@@ -80,7 +80,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	}
 
 	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
-	chainID := big.New(testutils.SimulatedChainID)
+	chainID := sqlutil.New(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
 	flagsAndDeps = append(flagsAndDeps, client, chainID)

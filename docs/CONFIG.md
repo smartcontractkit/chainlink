@@ -1883,6 +1883,39 @@ BytesRateLimiterCapacity = 10000000 # Default
 ```
 BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 
+## Capabilities.Local
+```toml
+[Capabilities.Local]
+RegistryBasedLaunchAllowlist = [] # Default
+```
+
+
+### RegistryBasedLaunchAllowlist
+```toml
+RegistryBasedLaunchAllowlist = [] # Default
+```
+RegistryBasedLaunchAllowlist contains regex patterns that match capability IDs to be launched
+from the on-chain capabilities registry instead of via job specs. Adding a pattern to this
+list has two effects:
+1. Disables job-spec-based launching - the delegate refuses to start matching capabilities via job specs
+2. Enables registry-based launching - the LocalCapabilityManager starts matching capabilities from on-chain registry
+This allows staged rollout: capabilities not matching any pattern continue launching via job specs,
+while matching capabilities transition to registry-based launching.
+Examples (using single-quoted TOML strings where backslashes are literal):
+- '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
+- '^http-action@.*$' matches any version of http-action
+- '.*' matches all capabilities
+
+Per-capability configuration. Each capability ID can have its own configuration section.
+Capability IDs must be in the format "name@version".
+[Capabilities.Local.Capabilities."http-action@1.0.0"]
+BinaryPathOverride overrides the default binary path for a LOOP capability.
+BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
+[Capabilities.Local.Capabilities."http-action@1.0.0".Config]
+Capability-specific configuration as key-value pairs.
+proxyMode = 'gateway' # Example
+allowedPorts = '443,8443' # Example
+
 ## Keeper
 ```toml
 [Keeper]
@@ -2688,6 +2721,20 @@ When a ring OCR job is created, the shard orchestrator server is spun up on this
 ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
+
+## LOOPP
+```toml
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+Local Out-Of-Process Plugins
+
+### GRPCServerMaxRecvMsgSize
+```toml
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+GRPCServerMaxRecvMsgSize is the maximum received message size configured for grpc servers.
+We use a higher limit than the grpc default of 4mb.
 
 ## EVM
 EVM defaults depend on ChainID:

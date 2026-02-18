@@ -44,6 +44,14 @@ type KubernetesInput struct {
 	TeamInput *Team `toml:"team_input" validate:"required_if=Provider aws"`
 }
 
+// k8s cost attribution
+type Team struct {
+	Team       string `toml:"team" validate:"required"`
+	Product    string `toml:"product" validate:"required"`
+	CostCenter string `toml:"cost_center" validate:"required"`
+	Component  string `toml:"component" validate:"required"`
+}
+
 // GetKubernetesClient creates a Kubernetes client from the default kubeconfig or in-cluster config
 func GetKubernetesClient() (*kubernetes.Clientset, error) {
 	// Try to use in-cluster config first (when running inside a pod)

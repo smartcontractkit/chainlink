@@ -32,11 +32,11 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -337,7 +337,7 @@ func populateDatabase(b *testing.B,
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EVMChainID:     ubig.New(new(big.Int).SetUint64(uint64(source))),
+			EVMChainID:     sqlutil.New(new(big.Int).SetUint64(uint64(source))),
 			LogIndex:       int64(i + 1),
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    int64(i + 1),

@@ -11,9 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -145,7 +144,7 @@ func (s *Shell) ListOCR2KeyBundles(_ *cli.Context) error {
 func (s *Shell) CreateOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(
-			errors.Errorf(`must pass the type to create, options are: %s`, chaintype.SupportedChainTypes.String()),
+			errors.Errorf(`must pass the type to create, options are: %s`, corekeys.SupportedChainTypes.String()),
 		)
 	}
 	chainType := c.Args().Get(0)
@@ -168,7 +167,7 @@ func (s *Shell) DeleteOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
-	id, err := models.Sha256HashFromHex(c.Args().Get(0))
+	id, err := corekeys.Sha256HashFromHex(c.Args().Get(0))
 	if err != nil {
 		return s.errorOut(err)
 	}

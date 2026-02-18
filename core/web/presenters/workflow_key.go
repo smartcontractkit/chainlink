@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 )
 
 type WorkflowKeyResource struct {

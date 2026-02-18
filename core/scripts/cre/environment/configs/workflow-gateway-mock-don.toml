@@ -6,18 +6,6 @@
 [infra]
     type = "docker"
 
-#[infra.crib]
-    #folder_location = "/your/absolute/path/to/crib/deployments/cre"
-    #namespace = "crib-local"
-    #provider = "kind"
-
-# Fields below are required, check guidelines.md for details
-# [infra.crib.team_input]
-#  team = "your-team"
-#  product = "product-name"
-#  component = "crib"
-#  cost_center = "crib"
-
 [s3provider]
     port = 16000
     console_port = 16001

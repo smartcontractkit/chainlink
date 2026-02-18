@@ -31,6 +31,7 @@ var TokenTypes = map[cldf.ContractType]struct{}{
 	ERC677TokenHelper:             {},
 	BurnMintERC20Token:            {},
 	BurnMintERC20TransparentToken: {},
+	BurnMintERC20PausableFreezableTransparentToken: {},
 }
 
 var TokenPoolTypes = map[cldf.ContractType]struct{}{

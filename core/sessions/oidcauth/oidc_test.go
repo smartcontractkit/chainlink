@@ -100,6 +100,32 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 	require.Equal(t, sessions.ErrUserSessionExpired, err)
 }
 
+func TestORM_DeleteAuthToken(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	// Init OIDC authenticator
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+
+	// Create a token for a test user
+	testEmail := "test-delete@test.com"
+	apiToken := "delete-test-token"
+	_, err := db.Exec("INSERT INTO oidc_user_api_tokens values ($1, 'edit', $2, '', '', now())", testEmail, apiToken)
+	require.NoError(t, err)
+
+	// Verify token exists by finding user
+	user, err := oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
+	require.NoError(t, err)
+	require.Equal(t, testEmail, user.Email)
+
+	// Delete the auth token
+	err = oidcAuthProvider.DeleteAuthToken(ctx, &user)
+	require.NoError(t, err)
+
+	// Verify token is deleted - FindUserByAPIToken should fail
+	_, err = oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
+	require.Error(t, err)
+}
+
 func TestORM_ListUsers(t *testing.T) {
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator

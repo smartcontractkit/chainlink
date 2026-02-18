@@ -11,8 +11,7 @@ examples/contracts/bin
 # CRE CLI binary
 cre_v*
 
-# crib-specific CL node configuration and secrets that will be used to override the default configuration
-crib-configs/
+# local CL node configuration and secrets used to override defaults
 configs/*-cache.toml
 cache/
 

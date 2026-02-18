@@ -257,6 +257,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 	allTokens = append(allTokens, s.USDCToken)
 	allTokens = append(allTokens, s.SPL2022Tokens...)
 	allTokens = append(allTokens, s.SPLTokens...)
+	e.Logger.Infow("Generating token views for Solana", "remoteChains", len(remoteChains), "tokens", len(allTokens))
 	for _, token := range allTokens {
 		if !token.IsZero() {
 			program, err := s.TokenToTokenProgram(token)
@@ -274,34 +275,47 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 			}
 		}
 	}
+	e.Logger.Info("Completed token views for Solana")
 	if !s.FeeQuoter.IsZero() {
+		e.Logger.Infow("Generating FeeQuoter view for Solana", "remoteChains", len(remoteChains), "tokens", len(allTokens))
 		fqView, err := solanaview.GenerateFeeQuoterView(e.BlockChains.SolanaChains()[selector], s.FeeQuoter, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate fee quoter view %s: %w", s.FeeQuoter, err)
 		}
 		chainView.FeeQuoter[s.FeeQuoter.String()] = fqView
+		e.Logger.Infow("Completed FeeQuoter view for Solana", "feeQuoter", s.FeeQuoter.String())
 	}
 	if !s.Router.IsZero() {
+		e.Logger.Infow("Generating Router view for Solana", "remoteChains", len(remoteChains), "tokens", len(allTokens))
 		routerView, err := solanaview.GenerateRouterView(e.BlockChains.SolanaChains()[selector], s.Router, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate router view %s: %w", s.Router, err)
 		}
 		chainView.Router[s.Router.String()] = routerView
+		e.Logger.Infow("Completed Router view for Solana", "router", s.Router.String())
 	}
 	if !s.OffRamp.IsZero() {
+		e.Logger.Infow("Generating OffRamp view for Solana", "remoteChains", len(remoteChains))
 		offRampView, err := solanaview.GenerateOffRampView(e.BlockChains.SolanaChains()[selector], s.OffRamp, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate offramp view %s: %w", s.OffRamp, err)
 		}
 		chainView.OffRamp[s.OffRamp.String()] = offRampView
+		e.Logger.Infow("Completed OffRamp view for Solana", "offRamp", s.OffRamp.String())
 	}
 	if !s.RMNRemote.IsZero() {
+		e.Logger.Infow("Generating RMNRemote view for Solana")
 		rmnRemoteView, err := solanaview.GenerateRMNRemoteView(e.BlockChains.SolanaChains()[selector], s.RMNRemote, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate rmn remote view %s: %w", s.RMNRemote, err)
 		}
 		chainView.RMNRemote[s.RMNRemote.String()] = rmnRemoteView
+		e.Logger.Infow("Completed RMNRemote view for Solana", "rmnRemote", s.RMNRemote.String())
 	}
+
+	// Generate token pool views
+	e.Logger.Infow("Generating token pool views for Solana", "tokens", len(allTokens))
+
 	for metadata, tokenPool := range s.BurnMintTokenPools {
 		if tokenPool.IsZero() {
 			continue
@@ -326,7 +340,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 	if !s.CCTPTokenPool.IsZero() && !s.USDCToken.IsZero() {
 		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], s.CCTPTokenPool, remoteChains, []solana.PublicKey{s.USDCToken}, shared.CCTPTokenPool.String(), shared.CLLMetadata)
 		if err != nil {
-			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", s.CCTPTokenPool, err)
+			return chainView, fmt.Errorf("failed to generate cctp token pool view %s: %w", s.CCTPTokenPool, err)
 		}
 		chainView.TokenPool[s.CCTPTokenPool.String()] = tokenPoolView
 	}

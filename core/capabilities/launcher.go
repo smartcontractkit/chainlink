@@ -280,6 +280,15 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 			}
 		}
 	}
+	if isBootstrap {
+		// Add self-pairs [A,A] for all DONs to make sure that isolated DONs can still discover their own members and run OCR.
+		// This is only useful for environments without don2don connectivity (e.g. single-DON Local CRE) or temporary
+		// isolated DONs (e.g. first DON in a new DON family).
+		for _, id := range allDONIds {
+			don := localRegistry.IDsToDONs[id]
+			donPairs = append(donPairs, p2ptypes.DonPair{don.DON, don.DON})
+		}
+	}
 	return donPairs
 }
 

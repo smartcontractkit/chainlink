@@ -19,6 +19,7 @@ const (
 	HTTPAction
 	ConfidentialHTTP
 	EVM
+	Solana
 	Gateway
 	BootstrapVault
 	Consensus
@@ -47,6 +48,8 @@ func (jt JobSpecTemplate) String() string {
 		return "confidential-http"
 	case EVM:
 		return "evm"
+	case Solana:
+		return "solana"
 	case Gateway:
 		return "gateway"
 	case BootstrapVault:
@@ -89,6 +92,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return ConfidentialHTTP, nil
 	case "evm":
 		return EVM, nil
+	case "solana":
+		return Solana, nil
 	case "gateway":
 		return Gateway, nil
 	case "bootstrap-vault":

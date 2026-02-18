@@ -9,7 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -1569,8 +1569,8 @@ type ReplayResponseData struct {
 }
 
 type ReplayResponseAttributes struct {
-	Message    string   `json:"message"`
-	EVMChainID *big.Big `json:"evmChainID"`
+	Message    string       `json:"message"`
+	EVMChainID *sqlutil.Big `json:"evmChainID"`
 }
 
 // OCR2ExportKey is the model that represents the exported VRF key

@@ -15,7 +15,7 @@ import (
 type FeeQuoterView struct {
 	types.ContractMetaData
 	AuthorizedCallers                       []string                                 `json:"authorizedCallers,omitempty"`
-	FeeTokens                               []string                                 `json:"feeTokens,omitempty"`
+	FeeTokensConfig                         []FeeTokenConfig                         `json:"feeTokensConfig,omitempty"`
 	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig"`
 	DestinationChainConfigBasedOnTestRouter map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfigBasedOnTestRouter,omitempty"`
 	DestinationChainConfig                  map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfig,omitempty"`
@@ -54,6 +54,11 @@ type FeeQuoterTokenPriceFeedConfig struct {
 	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
 }
 
+type FeeTokenConfig struct {
+	Token                      string `json:"token"`
+	PremiumMultiplierWeiPerEth uint64 `json:"premiumMultiplierWeiPerEth"`
+}
+
 func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router, testRouter *router1_2.Router, tokens []common.Address) (FeeQuoterView, error) {
 	fq := FeeQuoterView{}
 	authorizedCallers, err := fqContract.GetAllAuthorizedCallers(nil)
@@ -72,9 +77,16 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router, testRouter 
 	if err != nil {
 		return FeeQuoterView{}, err
 	}
-	fq.FeeTokens = make([]string, 0, len(feeTokens))
+	fq.FeeTokensConfig = make([]FeeTokenConfig, 0, len(feeTokens))
 	for _, ft := range feeTokens {
-		fq.FeeTokens = append(fq.FeeTokens, ft.Hex())
+		premiumMultiplier, err := fqContract.GetPremiumMultiplierWeiPerEth(nil, ft)
+		if err != nil {
+			return FeeQuoterView{}, err
+		}
+		fq.FeeTokensConfig = append(fq.FeeTokensConfig, FeeTokenConfig{
+			Token:                      ft.Hex(),
+			PremiumMultiplierWeiPerEth: premiumMultiplier,
+		})
 	}
 	staticConfig, err := fqContract.GetStaticConfig(nil)
 	if err != nil {

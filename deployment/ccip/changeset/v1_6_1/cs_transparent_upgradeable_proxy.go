@@ -239,13 +239,13 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 
 		chainState, ok := state.EVMChainState(chainSelector)
 		if !ok {
-			return cldf.ChangesetOutput{}, fmt.Errorf("%s does not exist in state", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("%s does not exist in state", chain.Name())
 		}
 
 		for _, config := range tokens {
 			proxy, ok := chainState.TransparentUpgradeableProxy[shared.TokenSymbol(config.Symbol)]
 			if !ok {
-				return cldf.ChangesetOutput{}, fmt.Errorf("TransparentUpgradeableProxy does not exist for %s token on %s", config.Symbol, chain)
+				return cldf.ChangesetOutput{}, fmt.Errorf("TransparentUpgradeableProxy does not exist for %s token on %s", config.Symbol, chain.Name())
 			}
 
 			storageBytes, err := chain.Client.StorageAt(e.GetContext(), proxy.Address(), shared.AdminSlot, nil)
@@ -255,7 +255,7 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 
 			proxyAdmin := common.BytesToAddress(storageBytes)
 			if err := addressBook.Save(chainSelector, proxyAdmin.String(), cldf.NewTypeAndVersion(shared.ProxyAdmin, deployment.Version1_6_1)); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ProxyAdmin at %s for %s token on %s: %w", proxyAdmin, config.Symbol, chain, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ProxyAdmin at %s for %s token on %s: %w", proxyAdmin, config.Symbol, chain.Name(), err)
 			}
 		}
 	}

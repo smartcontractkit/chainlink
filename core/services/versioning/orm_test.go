@@ -99,29 +99,35 @@ func Test_Version_CheckVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	// invalid app version semver returns error
-	_, _, err = CheckVersion(ctx, db, lggr, static.Unset)
+	_, _, err = CheckVersion(ctx, db, lggr, static.Unset, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `Application version "unset" is not valid semver`)
-	_, _, err = CheckVersion(ctx, db, lggr, "some old bollocks")
+	_, _, err = CheckVersion(ctx, db, lggr, "some old bollocks", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `Application version "some old bollocks" is not valid semver`)
 
 	// lower version returns error
-	_, _, err = CheckVersion(ctx, db, lggr, "9.9.7")
+	_, _, err = CheckVersion(ctx, db, lggr, "9.9.7", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Application version (9.9.7) is lower than database version (9.9.8). Only Chainlink 9.9.8 or higher can be run on this database")
 
 	// equal version is ok
 	var appv, dbv *semver.Version
-	appv, dbv, err = CheckVersion(ctx, db, lggr, "9.9.8")
+	appv, dbv, err = CheckVersion(ctx, db, lggr, "9.9.8", false)
 	require.NoError(t, err)
 	assert.Equal(t, "9.9.8", appv.String())
 	assert.Equal(t, "9.9.8", dbv.String())
 
 	// greater version is ok
-	appv, dbv, err = CheckVersion(ctx, db, lggr, "9.9.9")
+	appv, dbv, err = CheckVersion(ctx, db, lggr, "9.9.9", false)
 	require.NoError(t, err)
 	assert.Equal(t, "9.9.9", appv.String())
+	assert.Equal(t, "9.9.8", dbv.String())
+
+	// ignores pre-release when flag is set
+	appv, dbv, err = CheckVersion(ctx, db, lggr, "9.9.8-cre", true)
+	require.NoError(t, err)
+	assert.Equal(t, "9.9.8-cre", appv.String())
 	assert.Equal(t, "9.9.8", dbv.String())
 }
 
@@ -146,7 +152,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 			expectedError:  false,
 		},
 		{
-			name:           "ccip patch downgrade errors",
+			name:           "ccip patch downgrade",
 			currentVersion: "2.5.0-ccip1.4.2",
 			newVersion:     "2.5.0-ccip1.4.1",
 			expectedError:  true,
@@ -195,7 +201,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, orm.UpsertNodeVersion(ctx, NewNodeVersion(test.currentVersion)))
-			_, _, err = CheckVersion(ctx, db, lggr, test.newVersion)
+			_, _, err = CheckVersion(ctx, db, lggr, test.newVersion, false)
 			if test.expectedError {
 				require.Error(t, err)
 			} else {

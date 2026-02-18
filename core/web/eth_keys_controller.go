@@ -10,16 +10,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -401,7 +401,7 @@ func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.S
 // gets the key specific max gas price from the chain config and sets it on the
 // resource.
 func (ekc *ETHKeysController) setKeyMaxGasPriceWei(price *assets.Wei) presenters.NewETHKeyOption {
-	return presenters.SetETHKeyMaxGasPriceWei(ubig.New(price.ToInt()))
+	return presenters.SetETHKeyMaxGasPriceWei(sqlutil.New(price.ToInt()))
 }
 
 func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) *assets.Wei {
