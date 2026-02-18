@@ -248,6 +248,37 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			wg.Wait()
 			elapsed = time.Since(startTS)
 
+			// All-or-nothing per pipeline group: bid/mid/ask share one
+			// pipeline, so either all three are written to cache or none
+			// are. This prevents the cache from mixing fresh and stale
+			// values across generations.
+			checked := make(map[streams.Pipeline]bool)
+			for streamID := range observedValues {
+				p, exists := d.registry.Get(streamID)
+				if !exists || checked[p] {
+					continue // already validated this pipeline
+				}
+				checked[p] = true
+
+				// Check that every in-scope stream for this pipeline succeeded
+				complete := true
+				for _, sid := range p.StreamIDs() {
+					if _, inScope := osv.streamValues[sid]; !inScope {
+						continue // not requested this cycle, don't count against the group
+					}
+					if _, ok := observedValues[sid]; !ok {
+						complete = false
+						break
+					}
+				}
+				// Drop the entire group if any in-scope stream is missing
+				if !complete {
+					for _, sid := range p.StreamIDs() {
+						delete(observedValues, sid)
+					}
+				}
+			}
+
 			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
 
 			// notify the caller that we've completed our first round of observations.
