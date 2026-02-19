@@ -303,10 +303,11 @@ func (d *dataSource) Close() error {
 	return nil
 }
 
-// removeIncompleteGroups enforces Atomic (all-or-nothing) semantics per pipeline group.
-// Some pipelines produce values that must be used together. For example, bid/mid/ask must be used together to form a quote.
-// so either all are written to cache or none are. This prevents the cache from mixing fresh and stale
-// values across generations. Mutates observedValues in place.
+// removeIncompleteGroups enforces all-or-nothing (atomic) writes per pipeline group.
+// Some pipelines produce values that must be used together. For example jobs that output a bid/mid/ask 
+// must be used together to form a quote. So if any stream in the group failed, we drop
+// the entire group to avoid writing a mix of fresh and stale values to the cache.
+// Mutates observedValues in place.
 func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues map[streams.StreamID]llo.StreamValue, streamValues llo.StreamValues) {
 	checked := make(map[streams.Pipeline]bool)
 	for streamID := range observedValues {

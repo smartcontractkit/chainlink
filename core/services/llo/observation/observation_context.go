@@ -339,22 +339,16 @@ func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID
 	ex, isExecuting := oc.executions[p]
 	if isExecuting {
 		oc.executionsMu.Unlock()
-		// wait for it to finish
-		select {
-		case <-ex.done:
-			return ex.run, ex.trrs, ex.err
-		case <-ctx.Done():
-			return nil, nil, ctx.Err()
-		}
-		// Block unconditionally until the executing goroutine finishes.
-		// All waiters must receive the same (run, trrs, err) tuple to
-		// prevent partial cache writes for streams sharing a pipeline.
-		// This is safe because p.Run(ctx) respects context cancellation:
-		// when ctx expires, HTTP requests abort, the scheduler collects
-		// all error results, and p.Run returns promptly.
-		// RE-ENABLE after test
-		// <-ex.done
-		// return ex.run, ex.trrs, ex.err
+		// We intentionally do NOT select on ctx.Done() here.
+		// BridgeTask uses overtimeContext (context.WithoutCancel) which
+		// detaches from the caller's deadline, so p.Run can still be
+		// in-flight after ctx expires. If waiters bail early via
+		// ctx.Done(), they return an error while the executor may later
+		// succeed. This results in some streams from the pipeline having values
+		// while others do not. Blocking on ex.done ensures all goroutines for
+		// the same pipeline receive the identical (run, trrs, err) tuple.
+		<-ex.done
+		return ex.run, ex.trrs, ex.err
 	}
 
 	// execute here
