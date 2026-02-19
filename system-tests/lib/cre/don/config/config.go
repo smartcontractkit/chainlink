@@ -241,7 +241,8 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 		}
 
 		// TODO remove hack after testing
-		cleanedUpConfig := strings.ReplaceAll(string(marshalledConfig), "AdditionalSources = []", "    ")
+		cleanedUpConfig := strings.ReplaceAll(string(marshalledConfig), "AdditionalSources = []", "")
+		fmt.Println(cleanedUpConfig)
 
 		configOverrides[nodeIdx] = cleanedUpConfig
 	}
