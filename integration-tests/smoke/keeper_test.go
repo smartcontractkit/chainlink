@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
@@ -965,6 +967,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 
 // Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperNodeDown(t *testing.T) {
+	quarantine.Flaky(t, "DX-2756")
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
