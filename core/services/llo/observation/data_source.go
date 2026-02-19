@@ -248,6 +248,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			wg.Wait()
 			elapsed = time.Since(startTS)
 
+			d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
+
 			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
 
 			// notify the caller that we've completed our first round of observations.
@@ -299,6 +301,50 @@ func (d *dataSource) Close() error {
 	d.cache.Close()
 
 	return nil
+}
+
+// removeIncompleteGroups enforces all-or-nothing (atomic) writes per pipeline group.
+// Some pipelines produce values that must be used together. For example jobs that output a bid/mid/ask 
+// must be used together to form a quote. So if any stream in the group failed, we drop
+// the entire group to avoid writing a mix of fresh and stale values to the cache.
+// Mutates observedValues in place.
+func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues map[streams.StreamID]llo.StreamValue, streamValues llo.StreamValues) {
+	checked := make(map[streams.Pipeline]bool)
+	for streamID := range observedValues {
+		// we only need to check the pipeline once per group. So if we've already checked this pipeline, skip it.
+		p, exists := d.registry.Get(streamID)
+		if !exists || checked[p] {
+			continue
+		}
+		checked[p] = true
+
+		// Check that every in-scope stream for this pipeline succeeded.
+		// This is because some pipelines might emit values for streams that the plugin is not requesting to be observed
+		var missing []streams.StreamID
+		for _, sid := range p.StreamIDs() {
+			if _, inScope := streamValues[sid]; !inScope {
+				continue // not requested this cycle so we can skip evaluating result
+			}
+			if _, ok := observedValues[sid]; !ok {
+				missing = append(missing, sid)
+			}
+		}
+
+		if len(missing) > 0 {
+			var dropped []streams.StreamID
+			for _, sid := range p.StreamIDs() {
+				if _, ok := observedValues[sid]; ok {
+					dropped = append(dropped, sid)
+				}
+				delete(observedValues, sid)
+			}
+			lggr.Debugw("Discarding incomplete pipeline group",
+				"pipelineStreamIDs", p.StreamIDs(),
+				"missingStreamIDs", missing,
+				"droppedStreamIDs", dropped,
+			)
+		}
+	}
 }
 
 type observableStreamValues struct {
