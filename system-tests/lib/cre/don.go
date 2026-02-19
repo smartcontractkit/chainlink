@@ -119,11 +119,11 @@ type Don struct {
 
 func (d *Don) Metadata() *DonMetadata {
 	dm := &DonMetadata{
-		Name:          d.Name,
-		ID:            d.ID,
-		Flags:         d.Flags,
-		ShardIndex:    d.ShardIndex,
-		NodesMetadata: make([]*NodeMetadata, len(d.Nodes)),
+		Name:              d.Name,
+		ID:                d.ID,
+		Flags:             d.Flags,
+		ShardIndex:        d.ShardIndex,
+		NodesMetadata:     make([]*NodeMetadata, len(d.Nodes)),
 		CapabilityConfigs: d.capabilityConfigs,
 		// caution: missing NodeSet field, since we don't have it here
 	}
@@ -227,13 +227,13 @@ func (d *Don) GetName() string {
 
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
 	don := &Don{
-		Nodes:                     make([]*Node, 0),
-		Name:                      donMetadata.Name,
-		ID:                        donMetadata.ID,
-		Flags:                     donMetadata.Flags,
-		ShardIndex:                donMetadata.ShardIndex,
-		capabilityConfigs:    	   donMetadata.ns.CapabilityConfigs,
-		chainCapabilityIndex: 	   donMetadata.ns.chainCapabilityIndex,
+		Nodes:                make([]*Node, 0),
+		Name:                 donMetadata.Name,
+		ID:                   donMetadata.ID,
+		Flags:                donMetadata.Flags,
+		ShardIndex:           donMetadata.ShardIndex,
+		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
+		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
 	}
 
 	mu := &sync.Mutex{}
