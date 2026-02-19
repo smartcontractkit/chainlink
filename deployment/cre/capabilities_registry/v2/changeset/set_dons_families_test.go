@@ -10,12 +10,12 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func TestSetDONsFamilies_VerifyPreconditions(t *testing.T) {

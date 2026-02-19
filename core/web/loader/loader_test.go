@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -38,9 +38,9 @@ func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	one := ubig.NewI(1)
+	one := sqlutil.NewI(1)
 	chain := toml.EVMConfig{ChainID: one, Chain: toml.Defaults(one)}
-	two := ubig.NewI(2)
+	two := sqlutil.NewI(2)
 	chain2 := toml.EVMConfig{ChainID: two, Chain: toml.Defaults(two)}
 	config1, err := chain.TOMLString()
 	require.NoError(t, err)

@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -136,7 +136,7 @@ func (s *Shell) TrackForwarder(c *cli.Context) (err error) {
 	}
 
 	request, err := json.Marshal(web.TrackEVMForwarderRequest{
-		EVMChainID: (*ubig.Big)(chainID),
+		EVMChainID: (*sqlutil.Big)(chainID),
 		Address:    address,
 	})
 	if err != nil {

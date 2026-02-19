@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master) txmgrcommon.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
@@ -184,7 +184,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
+	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	k, err := ks.Eth().Create(testutils.Context(t), chainID)
@@ -264,7 +264,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
+	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	k, err := ks.Eth().Create(testutils.Context(t), chainID)
@@ -341,7 +341,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
+	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	subID := new(big.Int).SetUint64(1)

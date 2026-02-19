@@ -361,6 +361,7 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
+AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 ArtifactStorageHost = ''
@@ -434,6 +435,9 @@ ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32.00mb'
 
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'

@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -46,7 +45,7 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 
 // TrackEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
 type TrackEVMForwarderRequest struct {
-	EVMChainID *ubig.Big      `json:"evmChainId"`
+	EVMChainID *sqlutil.Big   `json:"evmChainId"`
 	Address    common.Address `json:"address"`
 }
 

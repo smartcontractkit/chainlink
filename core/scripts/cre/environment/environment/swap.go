@@ -3,8 +3,6 @@ package environment
 import (
 	"context"
 	"fmt"
-	"net/http"
-	net "net/url"
 	"os"
 	"slices"
 	"strings"
@@ -103,19 +101,15 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
 	}
 
-	config, loadErr := framework.Load[envconfig.Config](nil)
+	config := &envconfig.Config{}
+	loadErr := config.Load(os.Getenv("CTF_CONFIGS"))
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load CTF config")
 	}
 
-	envArtifact, artErr := creenv.ReadEnvArtifact(creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot))
-	if artErr != nil {
-		return errors.Wrap(artErr, "failed to read environment artifact")
-	}
-
 	cldLogger := cldlogger.NewSingleFileLogger(nil)
 
-	creEnvironment, dons, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
+	creEnvironment, dons, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config)
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load environment")
 	}
@@ -180,64 +174,6 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		}
 	}
 
-	// TODO remove if clean up issues mentioned in https://smartcontract-it.atlassian.net/browse/PRODCRE-802 are fixed
-	// and directly approve jobspecs without restarting nodes
-	nerrg := errgroup.Group{}
-	for _, nodeSet := range config.NodeSets {
-		if !flags.HasFlagForAnyChain(nodeSet.ComputedCapabilities, capabilityFlag) {
-			continue
-		}
-		nerrg.Go(func() error {
-			framework.L.Info().Msgf("Removing Docker containers for DON %s", nodeSet.Name)
-			containerIDs, containerIDsErr := findAllDockerContainerIDs(ctx, nodeSet.Name+"-node")
-			if containerIDsErr != nil {
-				return errors.Wrapf(containerIDsErr, "failed to find Docker containers for node set %s", nodeSet.Name)
-			}
-
-			cerrg := errgroup.Group{}
-			for _, id := range containerIDs {
-				cerrg.Go(func() error {
-					framework.L.Debug().Msgf("Removing Docker container %s", id)
-					dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
-					if dockerClientErr != nil {
-						return errors.Wrap(dockerClientErr, "failed to create Docker client")
-					}
-
-					signal := "SIGTERM"
-					if forceFlag {
-						signal = "SIGKILL"
-					}
-					return dockerClient.ContainerRestart(ctx, id, ctypes.StopOptions{Signal: signal})
-				})
-			}
-
-			if err := cerrg.Wait(); err != nil {
-				return errors.Wrapf(err, "failed to remove Docker containers")
-			}
-
-			// make sure that networking is up after restarting
-			errg := errgroup.Group{}
-			context, cancel := context.WithTimeout(ctx, 1*time.Minute)
-			framework.L.Info().Msgf("Waiting for all nodes to be up")
-			for _, node := range nodeSet.Out.CLNodes {
-				errg.Go(func() error {
-					return waitForURL(context, node.Node.ExternalURL+"/sessions", 200*time.Millisecond, 3)
-				})
-			}
-			if err := errg.Wait(); err != nil {
-				cancel()
-				return errors.Wrapf(err, "failed to wait for all nodes to be up")
-			}
-			cancel()
-
-			return nil
-		})
-	}
-
-	if err := nerrg.Wait(); err != nil {
-		return errors.Wrapf(err, "failed to restart nodeSets")
-	}
-
 	// approve the job proposals again, so that the jobs are restarted with the new binary
 	for donIdx, nodeIDToProposalIDs := range donIdxToNodeIDToProposalIDs {
 		for _, node := range dons.List()[donIdx].Nodes {
@@ -254,44 +190,6 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 	}
 
 	return config.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
-}
-
-func waitForURL(ctx context.Context, url string, interval time.Duration, successThreshold int) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	client := &http.Client{
-		Timeout: 2 * time.Second,
-	}
-
-	parsed, err := net.Parse(url)
-	if err != nil {
-		return errors.Wrapf(err, "failed to parse URL %s", url)
-	}
-
-	success := 0
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("waiting for %s failed: %w", url, ctx.Err())
-		case <-ticker.C:
-			resp, err := client.Do(&http.Request{
-				Method: "GET",
-				URL:    parsed,
-			})
-			if err == nil {
-				defer resp.Body.Close()                              //nolint: revive // we want to defer in the loop
-				if resp.StatusCode >= 200 && resp.StatusCode < 500 { // we want the server to be up
-					success++
-					if success >= successThreshold {
-						return nil
-					}
-				} else {
-					success = 0
-				}
-			}
-		}
-	}
 }
 
 func nodesSwapCmd() *cobra.Command {
@@ -446,9 +344,5 @@ func joinPreRunFuncs(funcs ...func(cmd *cobra.Command, args []string)) func(cmd 
 func envIsRunningPreRunFunc(cmd *cobra.Command, args []string) {
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Fatal().Str("Expected location", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist. Please start the environment first.")
-	}
-
-	if !creenv.EnvArtifactFileExists(relativePathToRepoRoot) {
-		framework.L.Fatal().Str("Expected location", creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)).Msg("Environment artifact file does not exist. Please start the environment first.")
 	}
 }

@@ -33,7 +33,6 @@ import (
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	cre_jobs_seq "github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -91,12 +90,12 @@ func (o *Vault) PreEnvStartup(
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
@@ -139,6 +138,25 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
+func pendingQueueEnabled(don *cre.Don) bool {
+	os, ok := don.GetCapabilityConfig(flag)
+	if !ok {
+		return false
+	}
+	setting, ok := os.Values["EnableDeterministicPendingQueue"]
+
+	if !ok {
+		return false
+	}
+
+	enabled, ok := setting.(bool)
+	if !ok {
+		return false
+	}
+
+	return enabled
+}
+
 func (o *Vault) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -161,10 +179,7 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
 	}
 
-	ocr3Config, ocr3confErr := contracts.DefaultOCR3_1Config(don.WorkersCount())
-	if ocr3confErr != nil {
-		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
-	}
+	ocr3Config := contracts.DefaultOCR3_1Config(don.WorkersCount())
 
 	dkgConfig, dErr := dkgReportingPluginConfig(don)
 	if dErr != nil {
@@ -208,7 +223,7 @@ func (o *Vault) PostEnvStartup(
 		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
 	}
 
-	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, dons)
+	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, pendingQueueEnabled(don))
 	if cErr != nil {
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
@@ -259,43 +274,7 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	bootInput := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
-		DONName:     bootstrap.DON.Name,
-		JobName:     "vault-bootstrap-" + don.Name,
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
-		},
-		Template: job_types.BootstrapVault,
-		Inputs: job_types.JobSpecInput{
-			"chainSelector":           creEnv.RegistryChainSelector,
-			"contractQualifierPrefix": ContractQualifier,
-		},
-	}
-
-	bootVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, bootInput)
-	if bootVerErr != nil {
-		return fmt.Errorf("precondition verification failed for Vault bootstrap job: %w", bootVerErr)
-	}
-
-	bootReport, bootErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, bootInput)
-	if bootErr != nil {
-		return fmt.Errorf("failed to propose Vault bootstrap job spec: %w", bootErr)
-	}
-
 	specs := make(map[string][]string)
-	for _, r := range bootReport.Reports {
-		out, ok := r.Output.(cre_jobs_seq.ProposeVaultBootstrapJobsOutput)
-		if !ok {
-			return fmt.Errorf("unable to cast to ProposeVaultBootstrapJobsOutput, actual type: %T", r.Output)
-		}
-		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-		if mErr != nil {
-			return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
-		}
-	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
 	if err != nil {
@@ -403,7 +382,7 @@ func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig,
 	return cfg, nil
 }
 
-func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, dons *cre.Dons) ([]byte, error) {
+func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, pendingQueueEnabled bool) ([]byte, error) {
 	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector].Client
 	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
 	if err != nil {
@@ -415,7 +394,8 @@ func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre
 	}
 	instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
 	cfg := vaultprotos.ReportingPluginConfig{
-		DKGInstanceID: &instanceID,
+		DKGInstanceID:                   &instanceID,
+		EnableDeterministicPendingQueue: pendingQueueEnabled,
 	}
 	cfgb, err := proto.Marshal(&cfg)
 	if err != nil {

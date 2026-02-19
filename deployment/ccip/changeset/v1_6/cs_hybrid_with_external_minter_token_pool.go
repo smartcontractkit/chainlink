@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/hybrid_with_external_minter_token_pool"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

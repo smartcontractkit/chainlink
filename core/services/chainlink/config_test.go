@@ -21,6 +21,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
@@ -31,12 +32,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -109,7 +110,7 @@ var (
 		},
 		EVM: []*evmcfg.EVMConfig{
 			{
-				ChainID: ubig.NewI(1),
+				ChainID: sqlutil.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:        ptr[uint32](26),
 					SafeDepth:            ptr[uint32](0),
@@ -129,7 +130,7 @@ var (
 					},
 				}},
 			{
-				ChainID: ubig.NewI(42),
+				ChainID: sqlutil.NewI(42),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						PriceDefault: assets.NewWeiI(math.MaxInt64),
@@ -142,7 +143,7 @@ var (
 					},
 				}},
 			{
-				ChainID: ubig.NewI(137),
+				ChainID: sqlutil.NewI(137),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						Mode: ptr("FixedPrice"),
@@ -431,7 +432,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractSubscribeInterval:          commoncfg.MustNewDuration(time.Minute),
 		ContractTransmitterTransmitTimeout: commoncfg.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    commoncfg.MustNewDuration(8 * time.Second),
-		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
+		KeyBundleID:                        ptr(corekeys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
 		CaptureAutomationCustomTelemetry:   ptr(true),
 		AllowNoBootstrappers:               ptr(true),
@@ -448,7 +449,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractPollInterval:         commoncfg.MustNewDuration(time.Hour),
 		ContractSubscribeInterval:    commoncfg.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: ptr[uint32](12),
-		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
+		KeyBundleID:                  ptr(corekeys.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
@@ -535,6 +536,13 @@ func TestConfig_Marshal(t *testing.T) {
 				URL:                 ptr(""),
 				TLSEnabled:          ptr(true),
 			},
+			AdditionalSourcesConfig: []toml.AdditionalWorkflowSource{
+				{
+					URL:        ptr("localhost:50051"),
+					TLSEnabled: ptr(true),
+					Name:       ptr("test-grpc-source"),
+				},
+			},
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),
@@ -556,6 +564,19 @@ func TestConfig_Marshal(t *testing.T) {
 			AuthTimestampToleranceSec: ptr[uint32](10),
 			Gateways: []toml.ConnectorGateway{
 				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
+			},
+		},
+		Local: toml.LocalCapabilities{
+			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			Capabilities: map[string]toml.CapabilityNodeConfig{
+				"http-action@1.0.0": {
+					BinaryPathOverride: ptr("/opt/chainlink/binaries/http_action"),
+					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
+				},
+				"cron@1.0.0": {
+					BinaryPathOverride: ptr("/opt/chainlink/binaries/cron"),
+					Config:             map[string]string{"fastestScheduleIntervalSeconds": "60"},
+				},
 			},
 		},
 	}
@@ -659,12 +680,15 @@ func TestConfig_Marshal(t *testing.T) {
 		ShardOrchestratorPort:    ptr[uint16](50051),
 		ShardOrchestratorAddress: &commoncfg.URL{},
 	}
+	full.LOOPP = toml.LOOPP{
+		GRPCServerMaxRecvMsgSize: ptr[utils.FileSize](42 * utils.MB),
+	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
-			ChainID: ubig.NewI(1),
+			ChainID: sqlutil.NewI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				AutoCreateKey: ptr(false),
@@ -1596,7 +1620,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock, pharos or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock, pharos, jovay or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
@@ -1609,7 +1633,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock, pharos or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock, pharos, jovay or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3: 3 errors:
@@ -1892,7 +1916,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
-	c.EVM = evmcfg.EVMConfigs{{ChainID: ubig.NewI(99999133712345)}}
+	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
 	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
 	c.Solana = solcfg.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}

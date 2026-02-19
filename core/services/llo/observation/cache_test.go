@@ -76,6 +76,107 @@ func TestNewCache(t *testing.T) {
 	}
 }
 
+func TestCache_AddMany(t *testing.T) {
+	t.Run("adds multiple values with same TTL", func(t *testing.T) {
+		cache := NewCache(0)
+		ttl := time.Second
+		values := map[llotypes.StreamID]llo.StreamValue{
+			1: &mockStreamValue{value: []byte{1}},
+			2: &mockStreamValue{value: []byte{2}},
+			3: &mockStreamValue{value: []byte{3}},
+		}
+		cache.AddMany(values, ttl)
+
+		for id, want := range values {
+			got, _ := cache.Get(id)
+			assert.Equal(t, want, got)
+		}
+	})
+
+	t.Run("empty map is a no-op", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{}, time.Second)
+		val, _ := cache.Get(1)
+		assert.Nil(t, val)
+	})
+
+	t.Run("single entry", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+			42: &mockStreamValue{value: []byte{42}},
+		}, time.Minute)
+		got, _ := cache.Get(42)
+		assert.Equal(t, &mockStreamValue{value: []byte{42}}, got)
+	})
+
+	t.Run("overwrites existing entries", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, &mockStreamValue{value: []byte{0}}, time.Second)
+		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+			1: &mockStreamValue{value: []byte{100}},
+		}, time.Second)
+		got, _ := cache.Get(1)
+		assert.Equal(t, &mockStreamValue{value: []byte{100}}, got)
+	})
+}
+
+func TestCache_GetMany(t *testing.T) {
+	t.Run("fills map with cached values", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+			1: &mockStreamValue{value: []byte{1}},
+			2: &mockStreamValue{value: []byte{2}},
+			3: &mockStreamValue{value: []byte{3}},
+		}, time.Second)
+
+		streamValues := llo.StreamValues{1: nil, 2: nil, 3: nil}
+		cache.GetMany(streamValues)
+
+		assert.Equal(t, &mockStreamValue{value: []byte{1}}, streamValues[1])
+		assert.Equal(t, &mockStreamValue{value: []byte{2}}, streamValues[2])
+		assert.Equal(t, &mockStreamValue{value: []byte{3}}, streamValues[3])
+	})
+
+	t.Run("misses remain nil", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
+
+		streamValues := llo.StreamValues{1: nil, 2: nil, 99: nil}
+		cache.GetMany(streamValues)
+
+		assert.Equal(t, &mockStreamValue{value: []byte{1}}, streamValues[1])
+		assert.Nil(t, streamValues[2])
+		assert.Nil(t, streamValues[99])
+	})
+
+	t.Run("empty map is a no-op", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
+		streamValues := llo.StreamValues{}
+		cache.GetMany(streamValues)
+		assert.Empty(t, streamValues)
+	})
+
+	t.Run("expired entries are filled with nil", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Nanosecond*100)
+		time.Sleep(time.Millisecond)
+
+		streamValues := llo.StreamValues{1: nil}
+		cache.GetMany(streamValues)
+		assert.Nil(t, streamValues[1])
+	})
+
+	t.Run("overwrites existing values in map", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, &mockStreamValue{value: []byte{100}}, time.Second)
+
+		streamValues := llo.StreamValues{1: &mockStreamValue{value: []byte{0}}}
+		cache.GetMany(streamValues)
+		assert.Equal(t, &mockStreamValue{value: []byte{100}}, streamValues[1])
+	})
+}
+
 func TestCache_Add_Get(t *testing.T) {
 	tests := []struct {
 		name      string

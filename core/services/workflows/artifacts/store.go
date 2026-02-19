@@ -21,10 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

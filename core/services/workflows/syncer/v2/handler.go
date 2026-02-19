@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -63,6 +63,7 @@ type eventHandler struct {
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
+	secretsFetcher         v2.SecretsFetcher
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -112,6 +113,22 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 func WithOrgResolver(orgResolver orgresolver.OrgResolver) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.orgResolver = orgResolver
+	}
+}
+
+func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.secretsFetcher = sf
+	}
+}
+
+func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		if len(secrets) == 0 {
+			return
+		}
+		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
+		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
 	}
 }
 
@@ -213,6 +230,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var err error
@@ -252,6 +270,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var err error
@@ -303,6 +322,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+			platform.KeyWorkflowSource, payload.Source,
 		)
 
 		var herr error
@@ -399,7 +419,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("could not clean up old engine: %w", cleanupErr)
 	}
 
-	return h.tryEngineCreate(ctx, spec)
+	return h.tryEngineCreate(ctx, spec, payload.Source)
 }
 
 func toSpecStatus(s uint8) job.WorkflowSpecStatus {
@@ -544,6 +564,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.
@@ -622,7 +643,7 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
 // This function waits for the engine to complete initialization (including trigger subscriptions) before returning,
 // ensuring that the workflowActivated event accurately reflects the deployment status including trigger registration.
-func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec) error {
+func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string) error {
 	// Ensure the capabilities registry is ready before creating any Engine instances.
 	// This should be guaranteed by the Workflow Registry Syncer.
 	if err := h.ensureCapRegistryReady(ctx); err != nil {
@@ -707,11 +728,24 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		}
 	}
 
-	// Engine is fully initialized, add to registry
-	if err := h.engineRegistry.Add(wid, engine); err != nil {
+	// Engine is fully initialized, add to registry with source tracking
+	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
+
+		// Check for WorkflowID collision across sources
+		if errors.Is(err, ErrAlreadyExists) {
+			existingEntry, found := h.engineRegistry.Get(wid)
+			if found {
+				h.lggr.Warnw("WorkflowID collision detected: workflow already exists from different source",
+					"workflowID", wid.Hex(),
+					"attemptedSource", source,
+					"existingSource", existingEntry.Source,
+					"hint", "Each workflow ID should only be registered from a single source. Check your workflow configurations for duplicates.")
+			}
+		}
+
 		// This shouldn't happen because we call the handler serially and
 		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)

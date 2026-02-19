@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,7 +41,7 @@ func NewChainScopedConfig(t testing.TB, cfg configtoml.HasEVMConfigs) evmconfig.
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
 	} else {
-		var chainID = (*ubig.Big)(testutils.FixtureChainID)
+		var chainID = (*sqlutil.Big)(testutils.FixtureChainID)
 		evmCfg = &configtoml.EVMConfig{
 			ChainID: chainID,
 			Chain:   configtoml.Defaults(chainID),
@@ -268,7 +267,7 @@ func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...stri
 	return
 }
 
-func legacyNode(n *configtoml.Node, chainID *ubig.Big) (v2 evmtypes.Node) {
+func legacyNode(n *configtoml.Node, chainID *sqlutil.Big) (v2 evmtypes.Node) {
 	v2.Name = *n.Name
 	v2.EVMChainID = *chainID
 	if n.HTTPURL != nil {

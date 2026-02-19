@@ -277,13 +277,6 @@ packages:
     interfaces:
       ExternalInitiatorManager:
       HTTPClient:
-  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read:
-    config:
-      dir: "{{ .InterfaceDir }}/mocks"
-    interfaces:
-      Registrar:
-      Reader:
-      BatchCaller:
   github.com/smartcontractkit/chainlink/v2/core/sessions:
     interfaces:
       BasicAdminUsersORM:
@@ -306,9 +299,6 @@ packages:
     config:
       dir: core/capabilities/targets/mocks
     interfaces:
-      Codec:
-        config:
-          dir: core/services/relay/evm/mocks
       ContractWriter:
   github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp:
     config:

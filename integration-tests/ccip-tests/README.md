@@ -40,18 +40,6 @@ For example, if you want to override the `Network` input in test and want to run
 
 **Please note that the secrets should NOT be checked in to the repo and should be kept locally.**
 
-=======
-        export BASE64_CONFIG_OVERRIDE=$(base64 -i ./testconfig/override/mainnet.toml)
-        ```
-
-3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [.testsecrets.example](./examples/.testsecrets.example) for the list of secrets and instruction how to set them up.
-   - The chainlink image and tag are required secrets for all the tests.
-   - If you are running tests in live networks like testnet and mainnet, you need to set the secrets (rpc urls and private keys) for the respective networks.
-   - If you are running tests in simulated networks no network specific secrets are required.
-   here is a sample secrets.toml file, for running the tests in simulated networks, with the chainlink image and tag set as secrets:
-
-**Please note that the secrets should NOT be checked in to the repo and should be kept locally.**
-
 We recommend against changing the content of [secrets.toml.example](./testconfig/examples/secrets.toml.example). Please create a new file and set it as the secrets file.
 
 You can run this command to ignore any changes to the file.
@@ -59,8 +47,6 @@ You can run this command to ignore any changes to the file.
 ```bash
 git update-index --skip-worktree <path-to-secrets-file>
 ```
-
->>>>>>> v2.17.0
 ## Running the Tests
 
 There are two ways to run the tests:
@@ -134,5 +120,5 @@ For running more complex and intensive tests (like load and chaos tests) you nee
 ### Live environment testing
 
 To run against live environments, use the configs available under [beta-testnet](./testconfig/tomls/beta-testnet)
-or [prod-testnet](./testconfig/tomls/prod-testnet) directory. Prod testnet has configs for smoke, load and 
+or [prod-testnet](./testconfig/tomls/prod-testnet) directory. Prod testnet has configs for smoke, load and
 soak test separately and beta-testnet has smoke and soak combined.

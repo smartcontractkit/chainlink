@@ -40,8 +40,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
@@ -56,7 +58,6 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 )
@@ -227,8 +228,9 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 		evmService: evmService{
-			chain:  chain,
-			logger: sugared,
+			addressLister: opts.EVMKeystore,
+			chain:         chain,
+			logger:        sugared,
 		},
 	}, nil
 }
@@ -349,9 +351,9 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 		return nil, err
 	}
 
-	var chainReaderService ChainReaderService
+	var chainReaderService read.ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = read.NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 	} else {
@@ -394,9 +396,9 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 		return nil, err
 	}
 
-	var chainReaderService ChainReaderService
+	var chainReaderService read.ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = read.NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 	} else {
@@ -857,7 +859,7 @@ func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byt
 		return nil, fmt.Errorf("failed to unmarshall chain reader config err: %w", err)
 	}
 
-	return NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *cfg)
+	return read.NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *cfg)
 }
 
 func (r *Relayer) EVM() (commontypes.EVMService, error) {
@@ -906,9 +908,9 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 	}
 
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
-	var chainReaderService ChainReaderService
+	var chainReaderService read.ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = read.NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 
@@ -948,7 +950,7 @@ type medianProvider struct {
 	contractTransmitter transmitter.ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
-	chainReader         ChainReaderService
+	chainReader         read.ChainReaderService
 	codec               commontypes.Codec
 	ms                  services.MultiStart
 }

@@ -28,8 +28,8 @@ import (
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -298,7 +297,7 @@ func TestORM(t *testing.T) {
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		bhsJob, err := blockhashstore.ValidatedSpec(
-			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{}).Toml())
+			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV1Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml())
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)
@@ -329,8 +328,11 @@ func TestORM(t *testing.T) {
 
 	t.Run("it creates and deletes records for blockheaderfeeder jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
+		// at least one coordinator address to satisfy the validation DB constraint
 		bhsJob, err := blockheaderfeeder.ValidatedSpec(
-			testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{}).Toml())
+			testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{
+				CoordinatorV2Address: "0x0000000000000000000000000000000000000001",
+			}).Toml())
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)
@@ -811,7 +813,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	ctx := testutils.Context(t)
-	customChainID := big.New(testutils.NewRandomEVMChainID())
+	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -888,7 +890,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	ctx := testutils.Context(t)
-	customChainID := big.New(testutils.NewRandomEVMChainID())
+	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -941,7 +943,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.Int64()
+	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.ToInt().Int64()
 	jb3.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
 	err = jobORM.CreateJob(ctx, &jb3)
@@ -950,7 +952,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
 	ctx := testutils.Context(t)
-	customChainID := big.New(testutils.NewRandomEVMChainID())
+	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -1203,8 +1205,8 @@ func Test_FindJob(t *testing.T) {
 	// Create a config with multiple EVM chains. The test fixtures already load 1337
 	// Additional chains will need additional fixture statements to add a chain to evm_chains.
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		chainID1Big := big.NewI(chainID1)
-		chainID2Big := big.NewI(chainID2)
+		chainID1Big := sqlutil.NewI(chainID1)
+		chainID2Big := sqlutil.NewI(chainID2)
 		enabled := true
 		c.EVM = append(c.EVM, &configtoml.EVMConfig{
 			ChainID: chainID1Big,
@@ -1261,7 +1263,7 @@ func Test_FindJob(t *testing.T) {
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
 			Name:               "ocr spec dup addr",
-			EVMChainID:         big.NewI(chainID1).String(),
+			EVMChainID:         sqlutil.NewI(chainID1).String(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
@@ -1373,7 +1375,7 @@ func Test_FindJob(t *testing.T) {
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err2 = orm.FindJobIDByAddress(ctx, "not-existing", big.NewI(0))
+		_, err2 = orm.FindJobIDByAddress(ctx, "not-existing", sqlutil.NewI(0))
 		require.Error(t, err2)
 		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
@@ -1453,7 +1455,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
-	jb.DirectRequestSpec.EVMChainID = big.NewI(0)
+	jb.DirectRequestSpec.EVMChainID = sqlutil.NewI(0)
 
 	err = orm.CreateJob(testutils.Context(t), &jb)
 	require.NoError(t, err)
@@ -2222,7 +2224,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 
 func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	ctx := testutils.Context(t)
-	customChainID := big.New(testutils.NewRandomEVMChainID())
+	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -2303,7 +2305,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 
 func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	ctx := testutils.Context(t)
-	customChainID := big.New(testutils.NewRandomEVMChainID())
+	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true

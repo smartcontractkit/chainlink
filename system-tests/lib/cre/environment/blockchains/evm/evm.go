@@ -22,23 +22,20 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 type Deployer struct {
-	provider       infra.Provider
-	testLogger     zerolog.Logger
-	cribConfigsDir string
+	provider   infra.Provider
+	testLogger zerolog.Logger
 }
 
-func NewDeployer(testLogger zerolog.Logger, provider *infra.Provider, cribConfigsDir string) *Deployer {
+func NewDeployer(testLogger zerolog.Logger, provider *infra.Provider) *Deployer {
 	return &Deployer{
-		provider:       *provider,
-		testLogger:     testLogger,
-		cribConfigsDir: cribConfigsDir,
+		provider:   *provider,
+		testLogger: testLogger,
 	}
 }
 
@@ -142,22 +139,6 @@ func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 	var err error
 
 	switch {
-	case e.provider.IsCRIB():
-		deployCribBlockchainInput := &crib.DeployCribBlockchainInput{
-			Blockchain:     input,
-			CribConfigsDir: e.cribConfigsDir,
-			Namespace:      e.provider.CRIB.Namespace,
-		}
-
-		bcOut, err = crib.DeployBlockchain(ctx, deployCribBlockchainInput)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to deploy blockchain")
-		}
-
-		err = infra.WaitForRPCEndpoint(e.testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
-		}
 	case e.provider.IsKubernetes():
 		// For Kubernetes, use the blockchain output from config (no deployment)
 		if err = blockchains.ValidateKubernetesBlockchainOutput(input); err != nil {

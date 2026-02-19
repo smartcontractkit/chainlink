@@ -17,4 +17,5 @@ var (
 	Version1_6_2    = *semver.MustParse("1.6.2")
 	Version1_6_3Dev = *semver.MustParse("1.6.3-dev")
 	Version1_6_3    = *semver.MustParse("1.6.3")
+	Version1_7_0    = *semver.MustParse("1.7.0")
 )

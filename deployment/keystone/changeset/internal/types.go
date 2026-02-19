@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -21,7 +22,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 )
 
 var (
@@ -99,8 +100,9 @@ func (v DonCapabilities) N() int {
 }
 
 type DONCapabilityWithConfig struct {
-	Capability kcr.CapabilitiesRegistryCapability
-	Config     *capabilitiespb.CapabilityConfig
+	Capability         kcr.CapabilitiesRegistryCapability
+	Config             *capabilitiespb.CapabilityConfig
+	UseCapRegOCRConfig bool
 }
 
 func (v DonCapabilities) Validate() error {
@@ -241,8 +243,9 @@ func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*Registere
 	}
 
 	di, err := capReg.GetDONs(nil)
+	code, err2 := env.BlockChains.EVMChains()[cfg.RegistryChainSel].Client.CodeAt(context.TODO(), capReg.Address(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get dons: %w", err)
+		return nil, fmt.Errorf("failed to get dons: %w, address: %s len code: %d err2: %w", err, capReg.Address(), len(code), err2)
 	}
 	// load the nodes from the offchain client
 	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)

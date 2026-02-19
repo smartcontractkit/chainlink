@@ -16,6 +16,7 @@ import (
 
 var OnRampOperations = []*operations.Operation[any, any, any]{
 	UpdateOnRampDestsOp.AsUntypedRelaxed(),
+	MigrateOnRampDestChainConfigsToV2Op.AsUntypedRelaxed(),
 }
 
 // UpdateOnRampDestsInput contains configuration for updating OnRamp destinations
@@ -103,4 +104,40 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 		"chainCount", len(destChainSelectors))
 
 	return txs, nil
+}
+
+type MigrateOnRampDestChainConfigsToV2Input struct {
+	DestChainSelectors    []uint64
+	RouterModuleAddresses []aptos.AccountAddress
+}
+
+var MigrateOnRampDestChainConfigsToV2Op = operations.NewOperation(
+	"migrate-onramp-dest-chain-configs-to-v2-op",
+	Version1_0_0,
+	"Migrates OnRamp destination chain configs from V1 to V2",
+	migrateOnRampDestChainConfigsToV2,
+)
+
+func migrateOnRampDestChainConfigsToV2(b operations.Bundle, deps dependency.AptosDeps, in MigrateOnRampDestChainConfigsToV2Input) ([]mcmstypes.Transaction, error) {
+	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
+	ccipAddress := aptosState.CCIPAddress
+	onrampBind := ccip_onramp.Bind(ccipAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().MigrateDestChainConfigsToV2(
+		in.DestChainSelectors,
+		in.RouterModuleAddresses,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode MigrateDestChainConfigsToV2 for OnRamp: %w", err)
+	}
+
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	b.Logger.Infow("Adding OnRamp migrate dest chain configs to V2 operation",
+		"chainCount", len(in.DestChainSelectors))
+
+	return []mcmstypes.Transaction{tx}, nil
 }

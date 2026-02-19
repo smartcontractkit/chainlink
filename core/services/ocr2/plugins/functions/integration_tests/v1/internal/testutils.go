@@ -30,6 +30,8 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
@@ -47,8 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"

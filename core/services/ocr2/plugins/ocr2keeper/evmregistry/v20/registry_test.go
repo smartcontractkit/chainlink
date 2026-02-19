@@ -12,10 +12,10 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -177,8 +177,8 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
-					{EVMChainID: ubig.New(big.NewInt(5)), LogIndex: 1},
-					{EVMChainID: ubig.New(big.NewInt(6)), LogIndex: 2},
+					{EVMChainID: sqlutil.New(big.NewInt(5)), LogIndex: 1},
+					{EVMChainID: sqlutil.New(big.NewInt(6)), LogIndex: 2},
 				},
 				OutputErr: nil,
 			},

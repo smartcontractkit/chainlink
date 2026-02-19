@@ -3,7 +3,6 @@ package ocr2
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 	"testing"
 	"time"
 
@@ -17,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
-
-	f "github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 var (
@@ -156,30 +153,5 @@ func verifyRounds(t *testing.T, in *de.Cfg, o2 *ocr2aggregator.OCR2Aggregator, t
 				return
 			}
 		}
-	}
-}
-
-// checkResourceConsumption checks if resource consumption during tests is acceptable
-func checkResourceConsumption(t *testing.T, in *de.Cfg, start, end time.Time, maxCPUTotalPercentage float64, maxMem int) {
-	pc := f.NewPrometheusQueryClient(f.LocalPrometheusBaseURL)
-	cpuResp, err := pc.Query("sum(rate(container_cpu_usage_seconds_total{name=~\".*don.*\"}[5m])) by (name) *100", end)
-	require.NoError(t, err)
-	cpu := f.ToLabelsMap(cpuResp)
-	for i := 0; i < in.NodeSets[0].Nodes; i++ {
-		nodeLabel := fmt.Sprintf("name:don-node%d", i)
-		nodeCPU, cpuErr := strconv.ParseFloat(cpu[nodeLabel][0].(string), 64)
-		L.Info().Int("Node", i).Float64("CPU", nodeCPU).Msg("CPU usage percentage")
-		require.NoError(t, cpuErr)
-		require.LessOrEqual(t, nodeCPU, maxCPUTotalPercentage)
-	}
-	memoryResp, err := pc.Query("sum(container_memory_rss{name=~\".*don.*\"}) by (name)", end)
-	require.NoError(t, err)
-	mem := f.ToLabelsMap(memoryResp)
-	for i := 0; i < in.NodeSets[0].Nodes; i++ {
-		nodeLabel := fmt.Sprintf("name:don-node%d", i)
-		nodeMem, err := strconv.Atoi(mem[nodeLabel][0].(string))
-		L.Info().Int("Node", i).Int("Memory", nodeMem).Msg("Total memory")
-		require.NoError(t, err)
-		require.LessOrEqual(t, nodeMem, maxMem)
 	}
 }

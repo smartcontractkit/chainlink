@@ -70,17 +70,19 @@ jobs:
           # - Otherwise tests are auto-discovered and run on all topologies.
           PER_TEST_MODE='replace'
           TOPOLOGIES_JSON='[
-            {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
           ]'
 
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
-            "Test_CRE_V1_SecureMint": [
+            "Test_CRE_V2_Solana_Suite": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
             "Test_CRE_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
+             ],
+            "Test_CRE_V2_Sharding": [
+               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
@@ -116,13 +118,30 @@ jobs:
                   test_id: .key,
                   # Add CRE version based on test name pattern
                   cre_version: (
-                    if (.value.test_name | test("V2")) then "v2"
-                    else "v1"
+                    if (.value.test_name | test("V1")) then "v1"
+                    else "v2"
                     end
                   )
                 }
               )
           ')
+
+          # Extra tests:
+          # - legacy vault plugin
+          extra_tests='[
+            {
+              "test_name": "Test_CRE_V2_Suite_Bucket_B/[v2]_Vault_DON_-_workflow-gateway-legacy-vault-don",
+              "topology": "workflow-gateway-legacy-vault-don",
+              "configs": "configs/workflow-gateway-legacy-vault-don.toml",
+              "test_id": null,
+              "cre_version": "v1"
+            }
+          ]'
+
+          # Merge and reassign test_id sequentially
+          tests=$(echo "$tests" | jq -c \
+            --argjson manual "$extra_tests" \
+            '. + $manual | to_entries | map(.value + {test_id: .key})')
 
           tests=$(echo "$tests" | jq -c .)
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
@@ -262,11 +281,11 @@ jobs:
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           # Do not remove Docker containers on error to allow log collection
           if [[ "${CRE_VERSION}" == "v1" ]]; then
-            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
+            echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v1 --cleanup-on-error=false
           else
-            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v2 --cleanup-on-error=false
+            echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
           fi
 
           exit_code=$?

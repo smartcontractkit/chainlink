@@ -23,3 +23,12 @@ func GetKeystoneForwarderCapabilityAddressRefKey(chainSel uint64, qualifier stri
 		qualifier,
 	)
 }
+
+func GetCapRegAddressRefKey(chainSel uint64, qualifier string, version string) datastore.AddressRefKey {
+	return datastore.NewAddressRefKey(
+		chainSel,
+		"CapabilitiesRegistry",
+		semver.MustParse(version),
+		qualifier,
+	)
+}

@@ -11,16 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 func TestEVMForwarderResource(t *testing.T) {
 	var (
 		ID        = int64(1)
 		address   = utils.RandomAddress()
-		chainID   = *big.NewI(4)
+		chainID   = *sqlutil.NewI(4)
 		createdAt = time.Now()
 		updatedAt = time.Now().Add(time.Second)
 	)

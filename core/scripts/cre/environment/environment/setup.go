@@ -69,47 +69,55 @@ func init() {
 	EnvironmentCmd.AddCommand(BuildCapabilitiesCmd)
 }
 
-type config struct {
-	General        generalConfig         `toml:"general"`
-	JobDistributor jobDistributorConfig  `toml:"job_distributor"`
-	ChipIngress    *chipIngressConfig    `toml:"chip_ingress"`
-	ChipConfig     *chipConfigConfig     `toml:"chip_config"`
-	BillingService *billingServiceConfig `toml:"billing_platform_service"`
-	Capabilities   capabilitiesConfig    `toml:"capabilities"`
-	Observability  observabilityConfig   `toml:"observability"`
+// SetupConfigFile represents the full configuration loaded from setup.toml
+type SetupConfigFile struct {
+	General        GeneralConfig         `toml:"general"`
+	JobDistributor JobDistributorConfig  `toml:"job_distributor"`
+	ChipIngress    *ChipIngressConfig    `toml:"chip_ingress"`
+	ChipConfig     *ChipConfigConfig     `toml:"chip_config"`
+	BillingService *BillingServiceConfig `toml:"billing_platform_service"`
+	Capabilities   CapabilitiesConfig    `toml:"capabilities"`
+	Observability  ObservabilityConfig   `toml:"observability"`
 }
 
-type generalConfig struct {
+// GeneralConfig contains general setup configuration
+type GeneralConfig struct {
 	AWSProfile      string `toml:"aws_profile"`
 	MinGHCLIVersion string `toml:"min_gh_cli_version"`
 }
 
-type jobDistributorConfig struct {
+// JobDistributorConfig contains job distributor image configuration
+type JobDistributorConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
 
-type chipIngressConfig struct {
+// ChipIngressConfig contains chip ingress image configuration
+type ChipIngressConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
 
-type chipConfigConfig struct {
+// ChipConfigConfig contains chip config image configuration
+type ChipConfigConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
 
-type billingServiceConfig struct {
+// BillingServiceConfig contains billing service image configuration
+type BillingServiceConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
 
-type capabilitiesConfig struct {
+// CapabilitiesConfig contains capabilities build configuration
+type CapabilitiesConfig struct {
 	TargetPath   string   `toml:"target_path"`
 	MakeCommands []string `toml:"make_commands"`
 }
 
-type observabilityConfig struct {
+// ObservabilityConfig contains observability repository configuration
+type ObservabilityConfig struct {
 	RepoURL    string `toml:"repository"`
 	Branch     string `toml:"branch"`
 	TargetPath string `toml:"target_path"`
@@ -449,7 +457,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		logger.Info().Msg("✓ AWS CLI is installed")
 	}
 
-	cfg, cfgErr := readConfig(config.ConfigPath)
+	cfg, cfgErr := ReadSetupConfig(config.ConfigPath)
 	if cfgErr != nil {
 		setupErr = errors.Wrap(cfgErr, "failed to read config")
 		return
@@ -616,7 +624,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 }
 
 func BuildCapabilities(ctx context.Context, config SetupConfig, noPrompt bool) error {
-	cfg, cfgErr := readConfig(config.ConfigPath)
+	cfg, cfgErr := ReadSetupConfig(config.ConfigPath)
 	if cfgErr != nil {
 		return errors.Wrap(cfgErr, "failed to read config")
 	}
@@ -674,7 +682,7 @@ func runGHSetupGit(ctx context.Context) error {
 	return nil
 }
 
-func makeCapabilities(ctx context.Context, capabilitiesConfig capabilitiesConfig, repoRootRelativePath string) ([]string, error) {
+func makeCapabilities(ctx context.Context, capabilitiesConfig CapabilitiesConfig, repoRootRelativePath string) ([]string, error) {
 	if len(capabilitiesConfig.MakeCommands) == 0 {
 		framework.L.Info().Msg("No make commands specified for capabilities. Skipping capabilities build.")
 		return nil, nil
@@ -753,8 +761,9 @@ func makeCapabilities(ctx context.Context, capabilitiesConfig capabilitiesConfig
 	return installedCapabilities, nil
 }
 
-func readConfig(configPath string) (*config, error) {
-	cfg := &config{}
+// ReadSetupConfig reads and parses the setup configuration from the given path
+func ReadSetupConfig(configPath string) (*SetupConfigFile, error) {
+	cfg := &SetupConfigFile{}
 
 	cfgBytes, err := os.ReadFile(configPath)
 	if err != nil {

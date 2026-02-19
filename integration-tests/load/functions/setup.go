@@ -41,7 +41,7 @@ type FunctionsTest struct {
 type S4SecretsCfg struct {
 	GatewayURL            string
 	PrivateKey            string
-	RecieverAddr          string
+	ReceiverAddr          string
 	MessageID             string
 	Method                string
 	DonID                 string

@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"

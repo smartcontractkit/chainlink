@@ -35,6 +35,13 @@ const (
 	EngineVersion                 = "engineVersion"
 	CapabilitiesRegistryVersion   = "capabilitiesRegistryVersion"
 	DonVersion                    = "donVersion"
+
+	// WorkflowSource identifies where the workflow was deployed from.
+	// Format varies by source type:
+	//   - Onchain contract: "contract:{chain_selector}:{contract_address}"
+	//   - GRPC source:      "grpc:{source_name}:v1"
+	//   - File source:      "file:{source_name}:v1"
+	KeyWorkflowSource = "workflowSource"
 )
 
 func LabelKeysSorted() iter.Seq[string] {

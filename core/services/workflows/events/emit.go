@@ -137,7 +137,7 @@ func EmitExecutionStartedEvent(
 	return multiErr
 }
 
-func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, lggr logger.Logger) error {
+func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, lggr logger.Logger) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionFinished{
@@ -161,12 +161,18 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED
 	}
 
+	var errMsg string
+	if execErr != nil {
+		errMsg = execErr.Error()
+	}
+
 	v2Event := &eventsv2.WorkflowExecutionFinished{
 		CreInfo:             creInfo,
 		Workflow:            workflowKey,
 		WorkflowExecutionID: executionID,
 		Timestamp:           time.Now().Format(time.RFC3339),
 		Status:              executionStatus,
+		Error:               errMsg,
 	}
 
 	// Emit both v1 and v2 events
@@ -493,6 +499,7 @@ func buildCREMetadataV2(kvs map[string]string) *eventsv2.CreInfo {
 	m.EngineVersion = kvs[platform.EngineVersion]
 	m.CapabilitiesRegistryVersion = kvs[platform.CapabilitiesRegistryVersion]
 	m.DonVersion = kvs[platform.DonVersion]
+	m.WorkflowSource = kvs[platform.KeyWorkflowSource]
 
 	return m
 }

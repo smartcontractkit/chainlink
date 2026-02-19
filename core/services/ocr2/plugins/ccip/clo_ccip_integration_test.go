@@ -119,15 +119,24 @@ func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIn
 	bootstrapNode, _, configBlock := ccipTH.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
 	jobParams := ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfiguration, configBlock)
 	jobParams.USDCAttestationAPI = "http://blah.com"
+	realContractAddress := ccipTH.Source.LinkToken.Address()
+	realContractAddress2 := ccipTH.Source.ARM.Address()
+
+	jobParams.USDCConfig = &config.USDCConfig{
+		AttestationAPI:                  "http://blah.com",
+		SourceTokenAddress:              realContractAddress,
+		SourceMessageTransmitterAddress: realContractAddress,
+		AttestationAPITimeoutSeconds:    5,
+	}
 	jobParams.LBTCConfigs = []config.LBTCConfig{
 		{
-			SourceTokenAddress:                 utils.RandomAddress(),
+			SourceTokenAddress:                 realContractAddress,
 			AttestationAPI:                     "http://lbtc.com",
 			AttestationAPITimeoutSeconds:       5,
 			AttestationAPIIntervalMilliseconds: 10,
 		},
 		{
-			SourceTokenAddress:                 utils.RandomAddress(),
+			SourceTokenAddress:                 realContractAddress2,
 			AttestationAPI:                     "http://lbtc-second.com",
 			AttestationAPITimeoutSeconds:       5,
 			AttestationAPIIntervalMilliseconds: 10,

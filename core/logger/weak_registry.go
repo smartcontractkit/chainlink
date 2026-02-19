@@ -16,6 +16,7 @@ type WeakRegistry[T any] struct {
 	entries     []weak.Pointer[T]
 	cleanupWg   sync.WaitGroup
 	cleanupStop chan struct{}
+	closeOnce   sync.Once // legacy upstream callers make duplicate calls
 }
 
 func NewWeakRegistry[T any]() *WeakRegistry[T] {
@@ -66,6 +67,8 @@ func (r *WeakRegistry[T]) startPeriodicCleanup() {
 }
 
 func (r *WeakRegistry[T]) Close() {
-	close(r.cleanupStop)
-	r.cleanupWg.Wait()
+	r.closeOnce.Do(func() {
+		close(r.cleanupStop)
+		r.cleanupWg.Wait()
+	})
 }

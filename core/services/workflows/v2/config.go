@@ -19,9 +19,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -87,10 +87,12 @@ type EngineLimiters struct {
 	LogLine               limits.BoundLimiter[config.Size]
 	ChainAllowed          limits.GateLimiter
 
-	ChainWriteTargets limits.BoundLimiter[int]
-	ChainReadCalls    limits.BoundLimiter[int]
-	ConsensusCalls    limits.BoundLimiter[int]
-	HTTPActionCalls   limits.BoundLimiter[int]
+	ChainWriteTargets     limits.BoundLimiter[int]
+	ChainReadCalls        limits.BoundLimiter[int]
+	ConsensusCalls        limits.BoundLimiter[int]
+	HTTPActionCalls       limits.BoundLimiter[int]
+	ConfidentialHTTPCalls limits.BoundLimiter[int]
+	SecretsCalls          limits.BoundLimiter[int]
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -186,6 +188,17 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return
 	}
 	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
+	if err != nil {
+		return
+	}
+	l.ConfidentialHTTPCalls, err = limits.MakeBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
+	if err != nil {
+		return
+	}
+	l.SecretsCalls, err = limits.MakeBoundLimiter(lf, cfg.Secrets.CallLimit)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -212,6 +225,8 @@ func (l *EngineLimiters) Close() error {
 		l.ChainReadCalls,
 		l.ConsensusCalls,
 		l.HTTPActionCalls,
+		l.ConfidentialHTTPCalls,
+		l.SecretsCalls,
 	)
 }
 

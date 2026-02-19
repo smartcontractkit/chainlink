@@ -25,9 +25,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func Test_UpdateNodesRequest_validate(t *testing.T) {
@@ -487,7 +487,7 @@ func TestUpdateNodes(t *testing.T) {
 
 			// register the capabilities that the Update will use
 			expectedUpdatedCaps := make(map[p2pkey.PeerID][]internal.RegisteredCapability)
-			capCache := kstest.NewCapabiltyCache(t, registry)
+			capCache := kstest.NewCapabilityCache(t, registry)
 			for p2p, update := range tt.args.req.P2pToUpdates {
 				if len(update.Capabilities) > 0 {
 					expectedCaps := capCache.AddCapabilities(tt.args.lggr, tt.args.req.Chain, registry, update.Capabilities)

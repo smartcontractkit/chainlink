@@ -749,23 +749,29 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	// peer (not bootstrap) that doesn't belong to any DON connects to nobody
 	require.Empty(t, launcher.donPairsToUpdate(other, localRegistry))
 
-	// bootstrap node adds all 3 DON pairs
+	// bootstrap node adds all 3 DON pairs + 3 self-pairs
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
-	require.Len(t, res, 3)
+	require.Len(t, res, 6)
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[2])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[wfDONID].DON}, res[3])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[4])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[mixedDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[5])
 
-	// bootstrap node adds only allowed DON pairs
+	// bootstrap node adds only allowed DON pairs + 3 self-pairs
 	mixedDON := localRegistry.IDsToDONs[mixedDONID]
 	mixedDON.AcceptsWorkflows = false
 	localRegistry.IDsToDONs[mixedDONID] = mixedDON
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
-	require.Len(t, res, 2)
+	require.Len(t, res, 5)
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[wfDONID].DON}, res[2])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[3])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[mixedDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[4])
 }
 
 func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
@@ -815,11 +821,14 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	require.Len(t, res, 1, "expected only one DON pair (zone-a workflow to zone-a capability)")
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[0])
 
-	// Bootstrap node should still respect family boundaries
+	// Bootstrap node should still respect family boundaries, plus add self-pairs for all DONs
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
-	require.Len(t, res, 1, "bootstrap should also filter based on families")
+	require.Len(t, res, 4, "bootstrap should also filter based on families but add self-pairs")
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON}, res[1])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[2])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON}, res[3])
 }
 
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {

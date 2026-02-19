@@ -24,9 +24,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type Don struct {
@@ -160,7 +160,7 @@ func MustAddCapabilities(
 	registry *capabilities_registry.CapabilitiesRegistry,
 ) ([]internal.RegisteredCapability, *CapabilityCache) {
 	t.Helper()
-	cache := NewCapabiltyCache(t, registry)
+	cache := NewCapabilityCache(t, registry)
 	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
 	for _, caps := range in {
 		capabilities = append(capabilities, caps...)
@@ -322,7 +322,7 @@ type CapabilityCache struct {
 	nameToId map[string][32]byte
 }
 
-func NewCapabiltyCache(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry) *CapabilityCache {
+func NewCapabilityCache(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry) *CapabilityCache {
 	cache := &CapabilityCache{
 		t:        t,
 		nameToId: make(map[string][32]byte),

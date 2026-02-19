@@ -13,8 +13,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func Test_toNodeKeys(t *testing.T) {

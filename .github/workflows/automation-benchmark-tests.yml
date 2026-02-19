@@ -28,10 +28,10 @@ on:
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9874c1f4ab4a4c70433df6d8f862044ca18456df # 2025-11-26
     with:
       test_path: .github/e2e-tests.yml
-      test_ids: '${{ inputs.testType }}/automation_test.go:TestAutomationBenchmark'
+      test_ids: "${{ inputs.testType }}/automation_test.go:TestAutomationBenchmark"
       test_config_override_path: ${{ inputs.test_config_override_path }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_CHANNEL: C03KJ5S7KEK

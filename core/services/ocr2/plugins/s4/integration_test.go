@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -222,7 +222,7 @@ func TestS4Integration_WrongSignature(t *testing.T) {
 	originSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 	originSnapshot = filter(originSnapshot, func(row *s4_svc.SnapshotRow) bool {
-		return row.Address.Cmp(rows[0].Address) != 0 || row.SlotId != rows[0].SlotId
+		return row.Address.ToInt().Cmp(rows[0].Address.ToInt()) != 0 || row.SlotId != rows[0].SlotId
 	})
 	require.Len(t, originSnapshot, len(rows)-1)
 
@@ -356,14 +356,14 @@ func TestS4Integration_RandomState(t *testing.T) {
 
 	type user struct {
 		privateKey *ecdsa.PrivateKey
-		address    *big.Big
+		address    *sqlutil.Big
 	}
 
 	nUsers := 100
 	users := make([]user, nUsers)
 	for i := range nUsers {
 		pk, addr := testutils.NewPrivateKeyAndAddress(t)
-		users[i] = user{pk, big.New(addr.Big())}
+		users[i] = user{pk, sqlutil.New(addr.Big())}
 	}
 
 	// generating test records
@@ -379,7 +379,7 @@ func TestS4Integration_RandomState(t *testing.T) {
 				Payload:    cltest.MustRandomBytes(t, 64),
 			}
 			env := &s4_svc.Envelope{
-				Address:    common.BytesToAddress(user.address.Bytes()).Bytes(),
+				Address:    common.BytesToAddress(user.address.ToInt().Bytes()).Bytes(),
 				SlotID:     row.SlotId,
 				Version:    row.Version,
 				Expiration: row.Expiration,

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"

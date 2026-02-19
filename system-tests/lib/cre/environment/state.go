@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 // BuildFromSavedState rebuilds the CLDF environment and per‑chain clients from
@@ -29,22 +28,16 @@ import (
 // Inputs:
 //   - cachedInput: outputs from starting the environment via CTFv2 configs
 //     (node sets, Job Distributor, blockchain nodes).
-//   - envArtifact: CLDF deployment output including JD config and DON
-//     topology/metadata.
 //
 // Artifact paths are recorded in `artifact_paths.json` in the environment
 // directory (typically `core/scripts/cre/environment`).
 // Returns the reconstructed CLDF environment, wrapped blockchain outputs, and an error.
-func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, *cre.Dons, error) {
+func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config) (*cre.Environment, *cre.Dons, error) {
 	if cachedInput == nil {
 		return nil, nil, errors.New("cached input cannot be nil")
 	}
 
-	if envArtifact == nil {
-		return nil, nil, errors.New("environment artifact cannot be nil")
-	}
-
-	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra, infra.CribConfigsDir)
+	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra)
 	deployedBlockchains, startErr := blockchains.Start(
 		ctx,
 		framework.L,
@@ -57,19 +50,22 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	datastore := datastore.NewMemoryDataStore()
-	for _, addrRef := range envArtifact.AddressRefs {
+	addresses, aErr := cachedInput.GetAddresses()
+	if aErr != nil {
+		return nil, nil, errors.Wrap(aErr, "failed to get addresses from cached input")
+	}
+	for _, addrRef := range addresses {
 		addErr := datastore.AddressRefStore.Add(addrRef)
 		if addErr != nil {
 			return nil, nil, errors.Wrapf(addErr, "failed to add address ref to datastore %v", addrRef)
 		}
 	}
 
-	allNodeIDs := make([]string, 0)
-	donsSlice := make([]*cre.Don, 0, len(envArtifact.DONs))
+	donsSlice := make([]*cre.Don, 0, len(cachedInput.NodeSets))
 
 	jdConfig := jd.JDConfig{
-		GRPC:  envArtifact.JdConfig.ExternalGRPCUrl,
-		WSRPC: envArtifact.JdConfig.ExternalGRPCUrl,
+		GRPC:  cachedInput.JD.Out.ExternalGRPCUrl,
+		WSRPC: cachedInput.JD.Out.ExternalGRPCUrl,
 		Creds: insecure.NewCredentials(),
 	}
 
@@ -78,24 +74,15 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrap(offChainErr, "failed to create offchain client")
 	}
 
-	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra)
+	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra, cachedInput.CapabilityConfigs)
 	if tErr != nil {
 		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
 	}
 
-	for idx, don := range envArtifact.DONs {
-		_, ok := envArtifact.Nodes[don.DonName]
-		if !ok {
-			return nil, nil, errors.Errorf("no nodes found for don %s", don.DonName)
-		}
-
-		for id := range envArtifact.Nodes[don.DonName].Nodes {
-			allNodeIDs = append(allNodeIDs, id)
-		}
-
+	for idx, don := range cachedInput.NodeSets {
 		startedDON, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], cachedInput.NodeSets[idx].Out.CLNodes)
 		if donErr != nil {
-			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
+			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.Name)
 		}
 		donsSlice = append(donsSlice, startedDON)
 	}
@@ -114,7 +101,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		cldLogger,
 		cldf.NewMemoryAddressBook(),
 		datastore.Seal(),
-		allNodeIDs,
+		[]string{},
 		offChain,
 		func() context.Context {
 			return ctx
@@ -123,7 +110,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		cldf_chain.NewBlockChainsFromSlice(cldfBlockchains),
 	)
 
-	dons := cre.NewDons(donsSlice, envArtifact.GatewayConnectors)
+	dons := cre.NewDons(donsSlice, topology.GatewayConnectors)
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: cldEnv,
@@ -135,13 +122,17 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrap(linkErr, "failed to link dons to JD")
 	}
 
+	contractVersions, cErr := cre.ContractVersionsProviderFromDataStore(datastore.Seal())
+	if cErr != nil {
+		return nil, nil, errors.Wrap(cErr, "failed to get contract versions from datastore")
+	}
+
 	return &cre.Environment{
 		CldfEnvironment:       cldEnv,
 		Blockchains:           deployedBlockchains.Outputs,
 		RegistryChainSelector: deployedBlockchains.Outputs[0].ChainSelector(),
 		Provider:              *cachedInput.Infra,
-		CapabilityConfigs:     envArtifact.CapabilityConfigs,
-		ContractVersions:      envArtifact.ContractVersions,
+		ContractVersions:      contractVersions.ContractVersions(),
 	}, dons, nil
 }
 

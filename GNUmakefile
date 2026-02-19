@@ -105,10 +105,11 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-evm
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
-	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
+	go install -ldflags="-s" \
+		./plugins/cmd/chainlink-evm \
+		./plugins/cmd/chainlink-medianpoc \
+		./plugins/cmd/chainlink-ocr3-capability \
+		./plugins/cmd/capabilities/log-event-trigger
 
 .PHONY: make install-plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
@@ -245,6 +246,10 @@ config-docs: ## Generate core node configuration documentation
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+
+.PHONY: lint-all
+lint-all: gomods ## Run golangci-lint for all modules, both printing and creating issue files
+	gomods -u -go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --max-issues-per-linter 0 --max-same-issues 0 --output.text.path stdout --output.checkstyle.path ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).xml
 
 .PHONY: lint-fix
 lint-fix: gomods ## Run golangci-lint with --fix for all modules
