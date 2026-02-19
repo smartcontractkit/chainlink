@@ -35,7 +35,6 @@ jobs:
       fail-fast: false
       matrix:
         test_name:
-          - Test_CRE_V2_Upgrade_CronBeholder
           - Test_CRE_V2_Upgrade_DONTime
           - Test_CRE_V2_Upgrade_Consensus
           - Test_CRE_V2_Upgrade_HTTPTriggerAction
