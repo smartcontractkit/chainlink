@@ -527,7 +527,7 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		require.Equal(t, fmt.Sprintf("trigger_reg_%s_%d", cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)

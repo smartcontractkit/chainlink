@@ -89,6 +89,10 @@ type enqueuedTriggerEvent struct {
 	event        capabilities.TriggerResponse
 }
 
+func TriggerRegistrationID(workflowID string, triggerIndex int) string {
+	return fmt.Sprintf("trigger_reg_%s_%d", workflowID, triggerIndex)
+}
+
 // buildLabels creates the label slice for the beholder logger based on config and localNode state.
 // This is used both during engine creation and when updating labels after a DON configuration change.
 func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
@@ -418,7 +422,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	for i, sub := range subs.Subscriptions {
 		triggerCap := triggers[i]
 		g.Go(func() error {
-			registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
 			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
@@ -645,7 +649,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
-	registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+
+	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
 	err = e.ackTriggerEvent(ctx, wrappedTriggerEvent.triggerCapID, registrationID, &triggerEvent)
 	if err != nil {
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
