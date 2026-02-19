@@ -56,7 +56,6 @@ jobs:
   slack-notify:
     name: "Notify Slack"
     runs-on: ubuntu-24.04
-    environment: build-publish
     permissions:
       contents: read
     steps:
