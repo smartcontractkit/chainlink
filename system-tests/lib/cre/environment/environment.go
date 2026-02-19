@@ -190,6 +190,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	var capabilityToOCR3Config = make(map[string]*ocr3.OracleConfig)
+	var capabilityToOCR3_1Config = make(map[string]*cre.OCR3_1CapabilityConfig)
 	for _, feature := range input.Features.List() {
 		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PreEnvStartup for feature %s for don '%s'", feature.Flag(), donMetadata.Name)
@@ -209,6 +210,7 @@ func SetupTestEnvironment(
 				}
 				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
 				maps.Copy(capabilityToOCR3Config, output.CapabilityToOCR3Config)
+				maps.Copy(capabilityToOCR3_1Config, output.CapabilityToOCR3_1Config)
 			}
 			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
@@ -383,6 +385,7 @@ func SetupTestEnvironment(
 		WithV2Registries:         input.WithV2Registries,
 		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 		CapabilityToOCR3Config:   capabilityToOCR3Config,
+		CapabilityToOCR3_1Config: capabilityToOCR3_1Config,
 	}
 
 	for _, capability := range input.Capabilities {

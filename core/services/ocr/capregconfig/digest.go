@@ -11,9 +11,10 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 )
 
-// Offchain digest specific to OCR configs stored in CRE's CapabilitiesRegistry contract.
-// Includes donID and capabilityID to ensure uniqueness across different protocol instances.
-func computeConfigDigest(
+// ComputeConfigDigest computes the offchain digest for OCR configs stored in CRE's
+// CapabilitiesRegistry contract. Includes donID and capabilityID to ensure uniqueness
+// across different protocol instances.
+func ComputeConfigDigest(
 	chainID uint64,
 	registryAddress string,
 	capabilityID string,

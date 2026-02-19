@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -26,6 +27,7 @@ import (
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -378,6 +380,25 @@ type SolChain struct {
 	ArtifactsDir  string
 }
 
+// OCR3_1ConfigEntry wraps an OCR3_1 config with its reporting plugin config override.
+// ReportingPluginConfig is required for OCR3_1, unlike OCR3 which can derive it.
+// If ReportingPluginConfig is nil, ReportingPluginConfigFactory must be set.
+type OCR3_1ConfigEntry struct {
+	Config                *ocr3_1.V3_1OracleConfig
+	ReportingPluginConfig []byte
+	// Called during embedding when ReportingPluginConfig is nil.
+	// Receives the CapReg address, chain ID, DON ID, capability ID, and all
+	// already-generated OCR3Config protos for this capability (keyed by OCR config key).
+	// This enables configs that depend on the digest of another OCR instance
+	// (e.g., vault depends on DKG config digest for the DKG instance ID).
+	ReportingPluginConfigFactory func(capRegAddress string, chainID uint64, donID uint32, capabilityID string, generatedConfigs map[string]*capabilitiespb.OCR3Config) ([]byte, error)
+}
+
+// OCR3_1CapabilityConfig holds multiple OCR3_1 configs per capability, keyed by OCR config key.
+type OCR3_1CapabilityConfig struct {
+	Configs map[string]*OCR3_1ConfigEntry
+}
+
 type ConfigureCapabilityRegistryInput struct {
 	ChainSelector               uint64
 	Topology                    *Topology
@@ -394,6 +415,9 @@ type ConfigureCapabilityRegistryInput struct {
 
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+
+	// keyed by LabelledName; for capabilities using OCR3_1 with potentially multiple OCR instances
+	CapabilityToOCR3_1Config map[string]*OCR3_1CapabilityConfig
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -1611,4 +1635,6 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+	// keyed by LabelledName; for capabilities using OCR3_1 with potentially multiple OCR instances
+	CapabilityToOCR3_1Config map[string]*OCR3_1CapabilityConfig
 }

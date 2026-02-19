@@ -15,29 +15,24 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
-	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -107,10 +102,61 @@ func (o *Vault) PreEnvStartup(
 		Config: &capabilitiespb.CapabilityConfig{
 			LocalOnly: don.HasOnlyLocalCapabilities(),
 		},
+		UseCapRegOCRConfig: true,
 	}}
+
+	workers, wErr := don.Workers()
+	if wErr != nil {
+		return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	}
+	numWorkers := len(workers)
+
+	dkgRPC, dErr := dkgReportingPluginConfigFromMetadata(don)
+	if dErr != nil {
+		return nil, errors.Wrap(dErr, "failed to create DKG reporting plugin config")
+	}
+	dkgRPCBytes, mErr := dkgRPC.MarshalBinary()
+	if mErr != nil {
+		return nil, errors.Wrap(mErr, "failed to marshal DKG reporting plugin config")
+	}
+
+	vaultRPCFactory := func(capRegAddress string, chainID uint64, donID uint32, capabilityID string, generatedConfigs map[string]*capabilitiespb.OCR3Config) ([]byte, error) {
+		dkgCfg, ok := generatedConfigs["dkg"]
+		if !ok {
+			return nil, fmt.Errorf("DKG config not found in generated configs (needed to compute DKG instance ID)")
+		}
+
+		digest, err := capregconfig.ComputeConfigDigest(chainID, capRegAddress, capabilityID, donID, "dkg", dkgCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compute DKG config digest: %w", err)
+		}
+
+		instanceID := string(dkgocrtypes.MakeInstanceID(common.HexToAddress(capRegAddress), digest))
+		cfg := vaultprotos.ReportingPluginConfig{
+			DKGInstanceID:                   &instanceID,
+			EnableDeterministicPendingQueue: pendingQueueEnabledFromMetadata(don),
+		}
+		return proto.Marshal(&cfg)
+	}
+
+	ocr3Config := contracts.DefaultOCR3_1Config(numWorkers)
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
+		CapabilityToOCR3_1Config: map[string]*cre.OCR3_1CapabilityConfig{
+			"vault": {
+				Configs: map[string]*cre.OCR3_1ConfigEntry{
+					"dkg": {
+						Config:                copyOCR3_1Config(ocr3Config),
+						ReportingPluginConfig: dkgRPCBytes,
+					},
+					"vault": {
+						Config:                       copyOCR3_1Config(ocr3Config),
+						ReportingPluginConfigFactory: vaultRPCFactory,
+					},
+				},
+			},
+		},
 	}, nil
 }
 
@@ -138,25 +184,6 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
-func pendingQueueEnabled(don *cre.Don) bool {
-	os, ok := don.GetCapabilityConfig(flag)
-	if !ok {
-		return false
-	}
-	setting, ok := os.Values["EnableDeterministicPendingQueue"]
-
-	if !ok {
-		return false
-	}
-
-	enabled, ok := setting.(bool)
-	if !ok {
-		return false
-	}
-
-	return enabled
-}
-
 func (o *Vault) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -164,103 +191,7 @@ func (o *Vault) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
-	if err != nil {
-		return fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
-	}
-
-	jobErr := createJobs(
-		ctx,
-		creEnv,
-		don,
-		dons,
-	)
-	if jobErr != nil {
-		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
-	}
-
-	ocr3Config := contracts.DefaultOCR3_1Config(don.WorkersCount())
-
-	dkgConfig, dErr := dkgReportingPluginConfig(don)
-	if dErr != nil {
-		return fmt.Errorf("failed to create DKG reporting plugin config: %w", dErr)
-	}
-
-	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
-	if !ok {
-		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
-	}
-
-	strategy, err := strategies.CreateStrategy(
-		chain,
-		*creEnv.CldfEnvironment,
-		nil,
-		nil,
-		*vaultDKGOCR3Addr,
-		"PostEnvStartup - Configure OCR3 Contract - Vault DKG",
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create strategy: %w", err)
-	}
-
-	_, err = operations.ExecuteOperation(
-		creEnv.CldfEnvironment.OperationsBundle,
-		ks_contracts_op.ConfigureDKGOp,
-		ks_contracts_op.ConfigureDKGOpDeps{
-			Env:      creEnv.CldfEnvironment,
-			Strategy: strategy,
-		},
-		ks_contracts_op.ConfigureDKGOpInput{
-			ContractAddress:       vaultDKGOCR3Addr,
-			ChainSelector:         creEnv.RegistryChainSelector,
-			DON:                   don.KeystoneDONConfig(),
-			Config:                ocr3Config,
-			DryRun:                false,
-			ReportingPluginConfig: *dkgConfig,
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
-	}
-
-	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, pendingQueueEnabled(don))
-	if cErr != nil {
-		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
-	}
-
-	strategy, err = strategies.CreateStrategy(
-		chain,
-		*creEnv.CldfEnvironment,
-		nil,
-		nil,
-		*vaultOCR3Addr,
-		"PostEnvStartup - Configure OCR3 Contract - Vault",
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create strategy: %w", err)
-	}
-
-	_, err = operations.ExecuteOperation(
-		creEnv.CldfEnvironment.OperationsBundle,
-		depcontracts.ConfigureOCR3_1,
-		depcontracts.ConfigureOCR3_1Deps{
-			Env:      creEnv.CldfEnvironment,
-			Strategy: strategy,
-		},
-		depcontracts.ConfigureOCR3_1Input{
-			ContractAddress:               vaultOCR3Addr,
-			ChainSelector:                 creEnv.RegistryChainSelector,
-			DON:                           don.KeystoneDONConfig(),
-			Config:                        ocr3Config,
-			DryRun:                        false,
-			ReportingPluginConfigOverride: cfgb,
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure Vault OCR3 contract")
-	}
-
-	return nil
+	return createJobs(ctx, creEnv, don, dons)
 }
 
 func createJobs(
@@ -281,6 +212,8 @@ func createJobs(
 		return errors.Wrap(err, "failed to get peering configs")
 	}
 
+	capRegVersion := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()].String()
+
 	workerInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
@@ -293,7 +226,7 @@ func createJobs(
 		Template: job_types.OCR3,
 		Inputs: job_types.JobSpecInput{
 			"chainSelectorEVM":     creEnv.RegistryChainSelector,
-			"contractQualifier":    ContractQualifier + "_plugin",
+			"capRegVersion":        capRegVersion,
 			"dkgContractQualifier": ContractQualifier + "_dkg",
 			"templateName":         "worker-vault",
 			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
@@ -329,41 +262,7 @@ func createJobs(
 	return nil
 }
 
-func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*common.Address, *common.Address, error) {
-	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(env.DataStore)
-	if mErr != nil {
-		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
-	}
-
-	report, err := operations.ExecuteSequence(
-		env.OperationsBundle,
-		creseq.DeployVault,
-		creseq.DeployVaultDeps{
-			Env: env,
-		},
-		creseq.DeployVaultInput{
-			ChainSelector: registryChainSelector,
-			Qualifier:     qualifier,
-		},
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, registryChainSelector, err)
-	}
-	if err = memoryDatastore.Merge(report.Output.Datastore); err != nil {
-		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, registryChainSelector, err)
-	}
-
-	vaultOCR3Addr := report.Output.PluginAddress
-	testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], registryChainSelector, vaultOCR3Addr)
-	vaultDKGOCR3Addr := report.Output.DKGAddress
-	testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], registryChainSelector, vaultDKGOCR3Addr)
-
-	env.DataStore = memoryDatastore.Seal()
-
-	return ptr.Ptr(common.HexToAddress(vaultOCR3Addr)), ptr.Ptr(common.HexToAddress(vaultDKGOCR3Addr)), nil
-}
-
-func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig, error) {
+func dkgReportingPluginConfigFromMetadata(don *cre.DonMetadata) (*dkgocrtypes.ReportingPluginConfig, error) {
 	cfg := &dkgocrtypes.ReportingPluginConfig{
 		T: 1,
 	}
@@ -382,27 +281,27 @@ func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig,
 	return cfg, nil
 }
 
-func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, pendingQueueEnabled bool) ([]byte, error) {
-	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector].Client
-	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create OCR3 capability contract")
+func pendingQueueEnabledFromMetadata(don *cre.DonMetadata) bool {
+	cc, ok := don.CapabilityConfigs[flag]
+	if !ok {
+		return false
 	}
-	details, err := dkgContract.LatestConfigDetails(nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get latest config details from OCR3 capability contract")
+	setting, ok := cc.Values["EnableDeterministicPendingQueue"]
+	if !ok {
+		return false
 	}
-	instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
-	cfg := vaultprotos.ReportingPluginConfig{
-		DKGInstanceID:                   &instanceID,
-		EnableDeterministicPendingQueue: pendingQueueEnabled,
+	enabled, ok := setting.(bool)
+	if !ok {
+		return false
 	}
-	cfgb, err := proto.Marshal(&cfg)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal vault reporting plugin config")
-	}
+	return enabled
+}
 
-	return cfgb, nil
+func copyOCR3_1Config(src *ocr3_1.V3_1OracleConfig) *ocr3_1.V3_1OracleConfig {
+	cp := *src
+	cp.TransmissionSchedule = make([]int, len(src.TransmissionSchedule))
+	copy(cp.TransmissionSchedule, src.TransmissionSchedule)
+	return &cp
 }
 
 func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {

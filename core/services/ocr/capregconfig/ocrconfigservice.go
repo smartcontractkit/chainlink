@@ -267,7 +267,7 @@ func (s *ocrConfigService) parseOCR3Config(
 		transmitters[i] = ocrtypes.Account(gethCommon.BytesToAddress(transmitter).Hex())
 	}
 
-	digest, err := computeConfigDigest(s.chainID, s.registryAddress, capabilityID, donID, ocrConfigKey, cfg)
+	digest, err := ComputeConfigDigest(s.chainID, s.registryAddress, capabilityID, donID, ocrConfigKey, cfg)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to compute config digest: %w", err)
 	}

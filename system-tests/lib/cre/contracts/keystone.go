@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
@@ -30,6 +31,7 @@ import (
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -174,6 +176,93 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 		capConfig.Ocr3Configs = make(map[string]*capabilitiespb.OCR3Config)
 	}
 	capConfig.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey] = ocr3Proto
+
+	return nil
+}
+
+type embedOCR3_1Params struct {
+	capRegAddress  string
+	chainID        uint64
+	donID          uint32
+	capabilityID   string
+}
+
+func (d *dons) embedOCR3_1Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, configs map[string]*cre.OCR3_1ConfigEntry, params embedOCR3_1Params) error {
+	var allNodeIDs []string
+	for _, nop := range don.Nops {
+		allNodeIDs = append(allNodeIDs, nop.Nodes...)
+	}
+
+	nodes, err := deployment.NodeInfo(allNodeIDs, d.offChain)
+	if err != nil {
+		return fmt.Errorf("failed to get node info: %w", err)
+	}
+
+	if capConfig.Ocr3Configs == nil {
+		capConfig.Ocr3Configs = make(map[string]*capabilitiespb.OCR3Config)
+	}
+
+	sortedKeys := make([]string, 0, len(configs))
+	for k := range configs {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	generateConfig := func(ocrConfigKey string, entry *cre.OCR3_1ConfigEntry) error {
+		entry.Config.TransmissionSchedule = []int{len(don.Nops[0].Nodes)}
+
+		ocrConfig, err := ocr3_1.GenerateOCR3_1ConfigFromNodes(*entry.Config, nodes, registryChainSelector, d.env.OCRSecrets, entry.ReportingPluginConfig)
+		if err != nil {
+			return fmt.Errorf("failed to generate OCR3_1 config for key %s: %w", ocrConfigKey, err)
+		}
+
+		transmitterBytes := make([][]byte, len(ocrConfig.Transmitters))
+		for i, t := range ocrConfig.Transmitters {
+			transmitterBytes[i] = t.Bytes()
+		}
+
+		capConfig.Ocr3Configs[ocrConfigKey] = &capabilitiespb.OCR3Config{
+			Signers:               ocrConfig.Signers,
+			Transmitters:          transmitterBytes,
+			F:                     uint32(ocrConfig.F),
+			OnchainConfig:         ocrConfig.OnchainConfig,
+			OffchainConfigVersion: ocrConfig.OffchainConfigVersion,
+			OffchainConfig:        ocrConfig.OffchainConfig,
+			ConfigCount:           1,
+		}
+		return nil
+	}
+
+	// Pass 1: generate configs with static ReportingPluginConfig
+	for _, key := range sortedKeys {
+		entry := configs[key]
+		if entry.ReportingPluginConfig != nil {
+			if err := generateConfig(key, entry); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Pass 2: generate configs using ReportingPluginConfigFactory (may depend on pass 1 results)
+	for _, key := range sortedKeys {
+		entry := configs[key]
+		if entry.ReportingPluginConfig != nil {
+			continue
+		}
+		if entry.ReportingPluginConfigFactory == nil {
+			return fmt.Errorf("OCR3_1 config entry for key %q has neither ReportingPluginConfig nor ReportingPluginConfigFactory", key)
+		}
+
+		rpc, err := entry.ReportingPluginConfigFactory(params.capRegAddress, params.chainID, params.donID, params.capabilityID, capConfig.Ocr3Configs)
+		if err != nil {
+			return fmt.Errorf("ReportingPluginConfigFactory failed for key %q: %w", key, err)
+		}
+		entry.ReportingPluginConfig = rpc
+
+		if err := generateConfig(key, entry); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -451,6 +540,26 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 				if !cap.UseCapRegOCRConfig || cap.Config == nil {
 					continue
 				}
+
+			// Check for OCR3_1 config first (multi-instance capabilities like vault)
+			if ocr31Config := input.CapabilityToOCR3_1Config[cap.Capability.LabelledName]; ocr31Config != nil {
+				chainID, cErr := chainselectors.ChainIdFromSelector(input.ChainSelector)
+				if cErr != nil {
+					return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", input.ChainSelector, cErr)
+				}
+				capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
+				params := embedOCR3_1Params{
+					capRegAddress: input.CapabilitiesRegistryAddress.Hex(),
+					chainID:       chainID,
+					donID:         don.id,
+					capabilityID:  capID,
+				}
+				if err := dons.embedOCR3_1Config(don.Capabilities[i].Config, don, input.ChainSelector, ocr31Config.Configs, params); err != nil {
+					return nil, fmt.Errorf("failed to embed OCR3_1 config for capability %s: %w", cap.Capability.LabelledName, err)
+				}
+				continue
+			}
+
 				ocrConfig := input.CapabilityToOCR3Config[cap.Capability.LabelledName]
 				if ocrConfig == nil {
 					return nil, fmt.Errorf("no OCR3 config found for capability %s", cap.Capability.LabelledName)

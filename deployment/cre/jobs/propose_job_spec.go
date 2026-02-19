@@ -166,10 +166,15 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		dkgContractAddr := ""
 		if jobInput.DKGContractQualifier != "" {
-			dkgContractRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.DKGContractQualifier)
-			addr, err := e.DataStore.Addresses().Get(dkgContractRefKey)
+			var dkgAddrRefKey datastore.AddressRefKey
+			if jobInput.CapRegVersion != "" {
+				dkgAddrRefKey = pkg.GetCapRegAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.DKGContractQualifier, jobInput.CapRegVersion)
+			} else {
+				dkgAddrRefKey = pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.DKGContractQualifier)
+			}
+			addr, err := e.DataStore.Addresses().Get(dkgAddrRefKey)
 			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.DKGContractQualifier, err)
 			}
 
 			dkgContractAddr = addr.Address
