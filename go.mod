@@ -15,6 +15,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/deckarep/golang-set/v2 v2.6.0
+	github.com/docker/go-connections v0.6.0
 	github.com/dominikbraun/graph v0.23.0
 	github.com/doyensec/safeurl v0.2.1
 	github.com/esote/minmaxheap v1.0.0
@@ -82,7 +83,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260203202624-5101f4d33736
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260210123725-95a6e7788856
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260217172437-001da5e3b0f0
 	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260217160002-b56cb5356cc7
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2-0.20260217160002-b56cb5356cc7
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
@@ -100,7 +101,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
-	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260205231316-3b9c600dd791
+	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260211115641-f96bb4343198
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260124000807-bff5e296dfb7
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260211155338-cd4708d2b938
@@ -358,7 +359,7 @@ require (
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
-	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260206205333-9187f22f0a04 // indirect
+	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260216170932-c8081efc1ae5 // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20251210101658-1c5c8e4c4f15 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/heartbeat v0.0.0-20260115142640-f6b99095c12e // indirect

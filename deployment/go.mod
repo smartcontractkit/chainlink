@@ -38,7 +38,7 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.91
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251212131933-e5e85d6fa4d3
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260217195306-9fec97c5dfbd
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260203202624-5101f4d33736
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
@@ -421,8 +421,8 @@ require (
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260206205333-9187f22f0a04 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260210123725-95a6e7788856 // indirect
+	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260216170932-c8081efc1ae5 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260217172437-001da5e3b0f0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.11 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
@@ -440,7 +440,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.1-0.20260203131522-bb8bc5c423b3 // indirect
-	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260205231316-3b9c600dd791 // indirect
+	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.3 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 // indirect
