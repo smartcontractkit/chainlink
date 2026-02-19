@@ -57,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -448,7 +449,7 @@ func setupNodeCCIP(
 	keyStore := NewKsa(db, csaKeyStore, lggr.Infof)
 	ctx := testutils.Context(t)
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts: chainlink.CREOpts{
+		Opts: cre.Opts{
 			CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
 		},
 		Config:   config,

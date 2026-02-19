@@ -5,10 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -20,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -46,6 +47,9 @@ type engineFactoryFn func(ctx context.Context, wfid string, owner string, name t
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
+	services.Service
+	eng *services.Engine
+
 	lggr logger.Logger
 
 	workflowStore          store.Store
@@ -189,12 +193,22 @@ func NewEventHandler(
 		o(eh)
 	}
 
+	eh.Service, eh.eng = services.Config{
+		Name:  "EventHandler",
+		Close: eh.close,
+	}.NewServiceEngine(lggr)
+
 	return eh, nil
 }
 
-func (h *eventHandler) Close() error {
+func (h *eventHandler) close() error {
 	es := h.engineRegistry.PopAll()
-	return services.MultiCloser(es).Close()
+	cs := []io.Closer{}
+	cs = append(cs, h.engineLimiters)
+	for _, e := range es {
+		cs = append(cs, e)
+	}
+	return services.CloseAll(cs...)
 }
 
 // toCommonHead converts our local Head struct back to chainlink-common Head
@@ -490,7 +504,8 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 }
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
-	lggr := h.lggr.Named("WorkflowEngine.Module").With("workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
+	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	moduleConfig := &host.ModuleConfig{
 		Logger:                       lggr,
 		Labeler:                      h.emitter,
@@ -757,7 +772,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log logger.Logger) {
 	err := cma.Emit(ctx, msg)
 	if err != nil {
-		log.Helper(1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+		logger.Helper(log, 1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
 }
 

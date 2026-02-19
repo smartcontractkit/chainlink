@@ -19,7 +19,7 @@ type Client struct {
 }
 
 // NewClient creates a new gRPC client to communicate with the shard orchestrator on shard 0
-func NewClient(ctx context.Context, address string, lggr logger.Logger) (*Client, error) {
+func NewClient(address string, lggr logger.Logger) (*Client, error) {
 	conn, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

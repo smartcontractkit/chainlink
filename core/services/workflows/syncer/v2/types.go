@@ -5,9 +5,9 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -54,7 +54,7 @@ func GRPCStatusToInternal(s pb.WorkflowStatus, lggr logger.Logger) uint8 {
 	case pb.WorkflowStatus_WORKFLOW_STATUS_PAUSED:
 		return WorkflowStatusPaused
 	case pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED:
-		lggr.Warnw("Received WORKFLOW_STATUS_UNSPECIFIED from proto, treating as paused")
+		lggr.Warn("Received WORKFLOW_STATUS_UNSPECIFIED from proto, treating as paused")
 		return WorkflowStatusPaused
 	default:
 		lggr.Warnw("Unknown proto status, treating as paused", "status", s)

@@ -672,12 +672,19 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	}
 
 	var execBatchGasLimit uint64
+	var commitEvmGasLimit uint64
 	if !ofc.ExecEmpty() {
 		execBatchGasLimit = ofc.Execute.BatchGasLimit
 	} else {
 		// Set the default here so chain writer config validation doesn't fail.
 		// For commit, this won't be used, so its harmless.
 		execBatchGasLimit = defaultExecGasLimit
+	}
+
+	if !ofc.CommitEmpty() && ofc.Commit.EvmGasLimit != 0 {
+		commitEvmGasLimit = ofc.Commit.EvmGasLimit
+	} else {
+		commitEvmGasLimit = defaultCommitGasLimit
 	}
 
 	homeChainID, err := chainsel.GetChainIDFromSelector(uint64(i.homeChainSelector))
@@ -733,12 +740,13 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		}
 
 		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
-			ChainID:               chainID,
-			Relayer:               relayer,
-			Transmitters:          i.transmitters,
-			ExecBatchGasLimit:     execBatchGasLimit,
-			ChainFamily:           relayChainFamily,
-			OfframpProgramAddress: config.Config.OfframpAddress,
+			ChainID:                chainID,
+			Relayer:                relayer,
+			Transmitters:           i.transmitters,
+			ExecBatchGasLimit:      execBatchGasLimit,
+			CommitEvmBatchGasLimit: commitEvmGasLimit,
+			ChainFamily:            relayChainFamily,
+			OfframpProgramAddress:  config.Config.OfframpAddress,
 		})
 		if err1 != nil {
 			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does

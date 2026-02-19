@@ -38,8 +38,6 @@ type ocrConfigService struct {
 }
 
 var _ OCRConfigService = (*ocrConfigService)(nil)
-var _ services.Service = (*ocrConfigService)(nil)
-var _ registrysyncer.Listener = (*ocrConfigService)(nil)
 
 type PeerIDProvider func() (ragetypes.PeerID, error)
 
