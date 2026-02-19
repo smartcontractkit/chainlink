@@ -1144,11 +1144,11 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
 			state.ABIByAddress[address] = usdc_token_pool_v1_6_2.USDCTokenPoolABI
-		case cldf.NewTypeAndVersion("USDCTokenPoolProxy", *semver.MustParse("1.7.0")).String():
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolProxy, deployment.Version1_7_0).String():
 			if state.USDCTokenPoolProxies == nil {
 				state.USDCTokenPoolProxies = make(map[semver.Version]common.Address)
 			}
-			state.USDCTokenPoolProxies[*semver.MustParse("1.7.0")] = common.HexToAddress(address)
+			state.USDCTokenPoolProxies[deployment.Version1_7_0] = common.HexToAddress(address)
 		case cldf.NewTypeAndVersion(ccipshared.USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {

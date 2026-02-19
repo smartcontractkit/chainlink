@@ -14,6 +14,9 @@ import (
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
+	"github.com/smartcontractkit/chainlink/devenv/products/cron"
+	"github.com/smartcontractkit/chainlink/devenv/products/directrequest"
+	"github.com/smartcontractkit/chainlink/devenv/products/flux"
 	"github.com/smartcontractkit/chainlink/devenv/products/keepers"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
@@ -33,6 +36,12 @@ type Cfg struct {
 
 func newProduct(name string) (Product, error) {
 	switch name {
+	case "cron":
+		return cron.NewConfigurator(), nil
+	case "direct_request":
+		return directrequest.NewConfigurator(), nil
+	case "flux":
+		return flux.NewConfigurator(), nil
 	case "ocr2":
 		return ocr2.NewConfigurator(), nil
 	case "automation":

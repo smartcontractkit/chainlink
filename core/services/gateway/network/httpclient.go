@@ -10,7 +10,10 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+
 	"time"
+
+	"github.com/docker/go-connections/nat"
 
 	"github.com/doyensec/safeurl"
 
@@ -33,11 +36,14 @@ type HTTPClientConfig struct {
 	BlockedIPs         []string
 	BlockedIPsCIDR     []string
 	AllowedPorts       []int
-	AllowedSchemes     []string
-	AllowedIPs         []string
-	AllowedIPsCIDR     []string
-	AllowedMethods     []string
-	BlockedHeaders     []string
+	// AllowedPortRanges accepts port ranges in "start-end" format (e.g. "8000-9000").
+	// Expanded ports are merged into AllowedPorts during construction.
+	AllowedPortRanges []string
+	AllowedSchemes    []string
+	AllowedIPs        []string
+	AllowedIPsCIDR    []string
+	AllowedMethods    []string
+	BlockedHeaders    []string
 }
 
 var (
@@ -67,6 +73,25 @@ var (
 	ErrHTTPSend               = errors.New("failed to send HTTP request")
 	ErrHTTPRead               = errors.New("failed to read HTTP response body")
 )
+
+// expandPortRanges parses all port range strings and returns the combined list of individual ports.
+// Each range string is parsed by nat.ParsePortRange (e.g. "8000-9000" or a single port "443").
+func expandPortRanges(ranges []string) ([]int, error) {
+	var ports []int
+	for _, r := range ranges {
+		start, end, err := nat.ParsePortRange(r)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port range %q: %w", r, err)
+		}
+		if start < 1 {
+			return nil, fmt.Errorf("port range %q: start port must be >= 1", r)
+		}
+		for p := start; p <= end; p++ {
+			ports = append(ports, int(p)) //nolint:gosec // port values are validated above to be >= 1 and within uint16 range
+		}
+	}
+	return ports, nil
+}
 
 func (c *HTTPClientConfig) ApplyDefaults() {
 	if len(c.AllowedPorts) == 0 {
@@ -152,6 +177,13 @@ type httpClient struct {
 // NewHTTPClient creates a new NewHTTPClient
 // As of now, the client does not support TLS configuration but may be extended in the future
 func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
+	if len(config.AllowedPortRanges) > 0 {
+		expanded, err := expandPortRanges(config.AllowedPortRanges)
+		if err != nil {
+			return nil, fmt.Errorf("invalid AllowedPortRanges: %w", err)
+		}
+		config.AllowedPorts = append(config.AllowedPorts, expanded...)
+	}
 	config.ApplyDefaults()
 	safeConfig := safeurl.
 		GetConfigBuilder().

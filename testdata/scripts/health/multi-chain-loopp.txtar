@@ -106,6 +106,7 @@ SolidityURL = 'https://solidity.evm'
 ok Aptos.42.RelayerService
 ok Aptos.42.RelayerService.PluginRelayerClient
 ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos
+ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter
 ok BridgeStatusReporter
 ok Cosmos.Foo.RelayerService
 ok Cosmos.Foo.RelayerService.PluginRelayerClient
@@ -149,16 +150,19 @@ ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.BalanceMonitor
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.Txm
+ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.PluginRelayerConfigEmitter
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer
 ok StarkNet.Baz.RelayerService
 ok StarkNet.Baz.RelayerService.PluginRelayerClient
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm
+ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.PluginRelayerConfigEmitter
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer
 ok Sui.67.RelayerService
 ok Sui.67.RelayerService.PluginRelayerClient
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui
+ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiTxm
 ok Sui.67.RelayerService.PluginRelayerClient.SuiRelayer
 ok TON.-217.RelayerService
@@ -166,6 +170,7 @@ ok TON.-217.RelayerService.PluginRelayerClient
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.BalanceMonitor
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.Chain
+ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.PluginRelayerConfigEmitter
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.Relayer
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.TONLogPoller
 ok TON.-217.RelayerService.PluginRelayerClient.PluginTON.Txm
@@ -173,6 +178,7 @@ ok TelemetryManager
 ok Tron.1001.RelayerService
 ok Tron.1001.RelayerService.PluginRelayerClient
 ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron
+ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.PluginRelayerConfigEmitter
 ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronRelayer
 ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm
 ok WorkflowEngineLimiters
@@ -211,6 +217,15 @@ ok WorkflowStore
       "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
       "attributes": {
         "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
         "status": "passing",
         "output": ""
       }
@@ -586,6 +601,15 @@ ok WorkflowStore
     },
     {
       "type": "checks",
+      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
       "attributes": {
         "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
@@ -640,6 +664,15 @@ ok WorkflowStore
     },
     {
       "type": "checks",
+      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
       "attributes": {
         "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
@@ -670,6 +703,15 @@ ok WorkflowStore
       "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui",
       "attributes": {
         "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter",
         "status": "passing",
         "output": ""
       }
@@ -739,6 +781,15 @@ ok WorkflowStore
     },
     {
       "type": "checks",
+      "id": "TON.-217.RelayerService.PluginRelayerClient.PluginTON.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "TON.-217.RelayerService.PluginRelayerClient.PluginTON.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "TON.-217.RelayerService.PluginRelayerClient.PluginTON.Relayer",
       "attributes": {
         "name": "TON.-217.RelayerService.PluginRelayerClient.PluginTON.Relayer",
@@ -796,6 +847,15 @@ ok WorkflowStore
       "id": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron",
       "attributes": {
         "name": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.PluginRelayerConfigEmitter",
         "status": "passing",
         "output": ""
       }
