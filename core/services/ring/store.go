@@ -42,7 +42,10 @@ type Store struct {
 	mu sync.Mutex
 }
 
-const AllocationRequestChannelCapacity = 1000
+const (
+	AllocationRequestChannelCapacity = 1000
+	getShardTransitionTimeout       = 30 * time.Second
+)
 
 func NewStore() *Store {
 	return &Store{
@@ -68,13 +71,7 @@ func (s *Store) updateHealthyShards() {
 		}
 	}
 
-	// Sort for determinism
 	slices.Sort(s.healthyShards)
-
-	// If no healthy shards, add shard 0 as fallback
-	if len(s.healthyShards) == 0 {
-		s.healthyShards = []uint32{0}
-	}
 }
 
 // GetShardForWorkflow called by Workflow Registry Syncers of all shards via ShardOrchestratorService.
@@ -93,7 +90,6 @@ func (s *Store) GetShardForWorkflow(ctx context.Context, workflowID string) (uin
 		return locateShard(ring, workflowID)
 	}
 
-	// During transition, defer to OCR consensus for consistent shard assignment across nodes
 	resultCh := make(chan uint32, 1)
 	s.pendingAllocs[workflowID] = append(s.pendingAllocs[workflowID], resultCh)
 	s.mu.Unlock()
@@ -104,11 +100,20 @@ func (s *Store) GetShardForWorkflow(ctx context.Context, workflowID string) (uin
 		return 0, ctx.Err()
 	}
 
+	runCtx := ctx
+	var cancel context.CancelFunc
+	if _, ok := ctx.Deadline(); !ok {
+		runCtx, cancel = context.WithTimeout(ctx, getShardTransitionTimeout)
+		defer cancel()
+	}
 	select {
 	case shard := <-resultCh:
 		return shard, nil
-	case <-ctx.Done():
-		return 0, ctx.Err()
+	case <-runCtx.Done():
+		s.mu.Lock()
+		ring := newShardRing(s.healthyShards)
+		s.mu.Unlock()
+		return locateShard(ring, workflowID)
 	}
 }
 

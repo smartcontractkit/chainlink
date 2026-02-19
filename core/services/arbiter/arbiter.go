@@ -63,9 +63,7 @@ func New(
 	// Pass state so GetDesiredReplicas can store shard status for Ring OCR
 	grpcHandler := NewGRPCServer(shardConfig, state, lggr)
 
-	// Create handler for ArbiterScaler (Ring OCR → Arbiter communication)
-	// Pass shardConfig so it can use the desired count as fallback when no replicas reported
-	ringArbiterHandler := NewRingArbiterHandler(state, shardConfig, lggr)
+	ringArbiterHandler := NewRingArbiterHandler(state, lggr)
 
 	// Create gRPC server and register both services
 	grpcServer := grpc.NewServer()

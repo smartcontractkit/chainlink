@@ -3,6 +3,7 @@ package shardorchestrator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -10,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
+
+const getWorkflowShardMappingTimeout = 15 * time.Second
 
 type ClientInterface interface {
 	GetWorkflowShardMapping(ctx context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error)
@@ -46,11 +49,17 @@ func NewClient(ctx context.Context, address string, lggr logger.Logger) (*Client
 func (c *Client) GetWorkflowShardMapping(ctx context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
 	c.logger.Debugw("Calling GetWorkflowShardMapping", "workflowCount", len(workflowIDs))
 
+	runCtx := ctx
+	var cancel context.CancelFunc
+	if _, ok := ctx.Deadline(); !ok {
+		runCtx, cancel = context.WithTimeout(ctx, getWorkflowShardMappingTimeout)
+		defer cancel()
+	}
 	req := &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	}
 
-	resp, err := c.client.GetWorkflowShardMapping(ctx, req)
+	resp, err := c.client.GetWorkflowShardMapping(runCtx, req)
 	if err != nil {
 		return nil, fmt.Errorf("gRPC GetWorkflowShardMapping failed: %w", err)
 	}

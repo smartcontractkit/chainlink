@@ -189,6 +189,31 @@ func TestStore_GetShardForWorkflow_CacheHit(t *testing.T) {
 	require.Equal(t, uint32(2), shard)
 }
 
+func TestStore_GetShardForWorkflow_NoHealthyShards(t *testing.T) {
+	store := NewStore()
+	store.SetAllShardHealth(map[uint32]bool{})
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 0},
+	})
+	_, err := store.GetShardForWorkflow(context.Background(), "workflow-1")
+	require.ErrorIs(t, err, ErrNoHealthyShards)
+}
+
+func TestStore_GetShardForWorkflow_TransitionTimeoutFallback(t *testing.T) {
+	store := NewStore()
+	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true})
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_Transition{
+			Transition: &ringpb.Transition{WantShards: 2},
+		},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	shard, err := store.GetShardForWorkflow(ctx, "workflow-x")
+	require.NoError(t, err)
+	require.Contains(t, []uint32{0, 1}, shard)
+}
+
 func TestStore_GetShardForWorkflow_ContextCancelledDuringSend(t *testing.T) {
 	store := NewStore()
 

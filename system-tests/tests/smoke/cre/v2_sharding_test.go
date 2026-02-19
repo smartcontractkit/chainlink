@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -183,17 +184,18 @@ func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, s
 		shardStatus[uint32(i)] = &ringpb.ShardStatus{IsHealthy: true}
 	}
 
+	arbiterPortStart := 19876
 	for _, nodeSet := range testEnv.Config.NodeSets {
 		if nodeSet.Name != shardZero.Name || nodeSet.Out == nil {
 			continue
 		}
-		for _, clNode := range nodeSet.Out.CLNodes {
+		for i, clNode := range nodeSet.Out.CLNodes {
 			parsedURL, parseErr := url.Parse(clNode.Node.ExternalURL)
 			if parseErr != nil {
 				logger.Warn().Err(parseErr).Str("url", clNode.Node.ExternalURL).Msg("Failed to parse node URL")
 				continue
 			}
-			arbiterAddr := parsedURL.Hostname() + ":19876"
+			arbiterAddr := parsedURL.Hostname() + ":" + strconv.Itoa(arbiterPortStart+i)
 
 			conn, err := grpc.NewClient(arbiterAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
@@ -255,6 +257,9 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	logger.Info().Msg("Step 2: Set ShardConfig to 1 shard (only shard-zero)")
 	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 1)
 
+	shardZero := getShardZeroDon(t, testEnv)
+	initializeAllArbiterStates(t, testEnv, shardZero, 1)
+
 	logger.Info().Msg("Step 3: Verify Arbiter returns WantShards=1")
 	waitForArbiterShardCount(t, arbiterClient, 1)
 
@@ -269,6 +274,8 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 
 	logger.Info().Msg("Step 5: Scale up - Set ShardConfig to 2 shards")
 	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 2)
+
+	initializeAllArbiterStates(t, testEnv, shardZero, 2)
 
 	logger.Info().Msg("Step 6: Verify Arbiter returns WantShards=2")
 	waitForArbiterShardCount(t, arbiterClient, 2)
@@ -301,6 +308,19 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	executedWorkflows := waitForAllWorkflowsExecuted(t, listenerCtx, logger, messageChan, kafkaErrChan, workflowIDs, resp.Mappings, p2pToShard, 3*time.Minute)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
 	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
+}
+
+func getShardZeroDon(t *testing.T, testEnv *ttypes.TestEnvironment) *cre.Don {
+	t.Helper()
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	require.GreaterOrEqual(t, len(shardDONs), 1, "expected at least one shard DON")
+	for _, don := range shardDONs {
+		if don.Metadata().IsShardLeader() {
+			return don
+		}
+	}
+	t.Fatal("shard zero DON not found")
+	return nil
 }
 
 func getShardConfigRef(t *testing.T, testEnv *ttypes.TestEnvironment) datastore.AddressRefKey {

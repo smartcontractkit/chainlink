@@ -16,17 +16,15 @@ import (
 //   - ConsensusWantShards(): Receives the Ring consensus decision about desired shard count
 type RingArbiterHandler struct {
 	ringpb.UnimplementedArbiterScalerServer
-	state       *State
-	shardConfig ShardConfigReader
-	lggr        logger.Logger
+	state *State
+	lggr  logger.Logger
 }
 
 // NewRingArbiterHandler creates a new RingArbiterHandler.
-func NewRingArbiterHandler(state *State, shardConfig ShardConfigReader, lggr logger.Logger) *RingArbiterHandler {
+func NewRingArbiterHandler(state *State, lggr logger.Logger) *RingArbiterHandler {
 	return &RingArbiterHandler{
-		state:       state,
-		shardConfig: shardConfig,
-		lggr:        logger.Named(lggr, "RingArbiterHandler"),
+		state: state,
+		lggr:  logger.Named(lggr, "RingArbiterHandler"),
 	}
 }
 
@@ -35,30 +33,6 @@ func NewRingArbiterHandler(state *State, shardConfig ShardConfigReader, lggr log
 // This is called by the Ring plugin to determine which shards can receive traffic.
 func (h *RingArbiterHandler) Status(ctx context.Context, _ *emptypb.Empty) (*ringpb.ReplicaStatus, error) {
 	routable := h.state.GetRoutableShards()
-
-	// If no replicas have been reported, use ShardConfig's desired count as fallback
-	// This handles the case where no external scaler is running (e.g., in test environments)
-
-	// TODO: if this if is removed problems appear:
-	// - problem with getting workflow mapping inside the storeRing, it will hang forever without defaults
-	// - if there no healthy shards, no routing happens (hash can't be computed) <-- design assumption shard-zero works, handle gracefully when it doesn't
-	if routable.ReadyCount == 0 && h.shardConfig != nil {
-		desiredCount, err := h.shardConfig.GetDesiredShardCount(ctx)
-		if err == nil && desiredCount > 0 {
-			h.lggr.Debugw("No replicas reported, using ShardConfig as fallback",
-				"desiredCount", desiredCount,
-			)
-			shardStatus := make(map[uint32]*ringpb.ShardStatus, desiredCount)
-			for i := uint64(0); i < desiredCount; i++ {
-				// TODO: In a real scenario, we might not want to mark all shards as healthy by default.
-				shardStatus[uint32(i)] = &ringpb.ShardStatus{IsHealthy: true}
-			}
-			return &ringpb.ReplicaStatus{
-				WantShards: uint32(desiredCount), //nolint:gosec // G115: replica count bounded
-				Status:     shardStatus,
-			}, nil
-		}
-	}
 
 	h.lggr.Debugw("Status requested",
 		"readyShards", routable.ReadyCount,

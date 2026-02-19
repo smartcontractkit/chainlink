@@ -643,7 +643,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
 	if err != nil {
-		return nil, fmt.Errorf("get workflow shard mapping: %w", err)
+		return nil, fmt.Errorf("shard mapping unavailable: %w", err)
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {
