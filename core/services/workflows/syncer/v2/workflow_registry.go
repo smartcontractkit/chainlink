@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -746,15 +747,8 @@ func isEmptyWorkflowID(wfID [32]byte) bool {
 // This can indicate stale metadata from deleted workflows in the contract - there's a known
 // bug where deleted workflows aren't always fully removed from the contract state.
 func isZeroOwner(owner []byte) bool {
-	if len(owner) == 0 {
-		return true
-	}
-	for _, b := range owner {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
+	// does not contain non-zero bytes
+	return !slices.ContainsFunc(owner, func(b byte) bool { return b != 0 })
 }
 
 // newAllowlistedRequestsContractReader creates a contract reader specifically for fetching

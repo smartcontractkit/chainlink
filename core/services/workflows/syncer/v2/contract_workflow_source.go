@@ -233,7 +233,5 @@ func (c *ContractWorkflowSource) newWorkflowRegistryContractReader(ctx context.C
 // (where deleted workflows retain stale metadata with zero addresses), this func
 // filters out noisy deploys/workflow events.
 func isValidWorkflowMetadata(wfMeta workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView) bool {
-	invalid := isEmptyWorkflowID(wfMeta.WorkflowId) ||
-		isZeroOwner(wfMeta.Owner.Bytes())
-	return !invalid
+	return !isEmptyWorkflowID(wfMeta.WorkflowId) && !isZeroOwner(wfMeta.Owner.Bytes())
 }
