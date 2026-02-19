@@ -672,7 +672,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
-	err = e.ackTriggerEvent(ctx, wrappedTriggerEvent.triggerCapID, registrationID, &triggerEvent)
+	err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
 	if err != nil {
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
 	}
@@ -779,19 +779,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.cfg.Hooks.OnResultReceived(result)
 }
 
-func (e *Engine) ackTriggerEvent(ctx context.Context, triggerCapID string, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
-	for _, trigger := range e.triggers {
-		info, err := trigger.Info(ctx)
-		if err != nil {
-			e.lggr.Errorf("failed to get trigger info: %v", err)
-			continue
-		}
-		if info.ID == triggerCapID {
-			e.lggr.Debugf("Calling AackEvent on trigger capability (triggerID=%s, eventID=%s)", triggerRegistrationID, te.ID)
-			return trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
-		}
+func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
+	trigger, ok := e.triggers[triggerRegistrationID]
+	if !ok {
+		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
 	}
-	return fmt.Errorf("failed to find trigger %s", triggerCapID)
+	return trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
 }
 
 func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
