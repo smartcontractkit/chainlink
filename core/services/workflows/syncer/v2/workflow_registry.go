@@ -105,9 +105,7 @@ type workflowRegistry struct {
 
 	hooks Hooks
 
-	// shardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
-	// This is nil for shard 0.
-	shardOrchestratorClient *shardorchestrator.Client
+	shardOrchestratorClient shardorchestrator.ClientInterface
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
@@ -214,9 +212,7 @@ func WithAdditionalSources(sources []AdditionalSourceConfig) func(*workflowRegis
 	}
 }
 
-// WithShardOrchestratorClient sets the shard orchestrator client for querying/reporting
-// workflow mappings to shard 0. This should only be set for shards > 0.
-func WithShardOrchestratorClient(client *shardorchestrator.Client) func(*workflowRegistry) {
+func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.shardOrchestratorClient = client
 	}

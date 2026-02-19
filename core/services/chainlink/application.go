@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
@@ -213,7 +214,7 @@ type ChainlinkApplication struct {
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
 	capabilitiesRegistry     *capabilities.Registry
-	shardOrchestratorClient  *shardorchestrator.Client
+	shardOrchestratorClient  shardorchestrator.ClientInterface
 
 	started     bool
 	startStopMu sync.Mutex
@@ -275,34 +276,27 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
 	}
 
-	// Initialize sharding components only if sharding is explicitly enabled
-	var shardOrchestratorClient *shardorchestrator.Client
+	var ringStoreForShard0 *ring.Store
+	var shardOrchestratorClient shardorchestrator.ClientInterface
 	if cfg.Sharding().ShardingEnabled() {
 		shardIdx := cfg.Sharding().ShardIndex()
-		shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
-
-		var address string
 		if shardIdx == 0 {
-			// TODO: REMOVE THIS currently Shard 0 connects to its own gRPC server
-			address = "127.0.0.1:50051" // default address for shard 0 server
+			ringStoreForShard0 = ring.NewStore()
+			server := shardorchestrator.NewServer(ringStoreForShard0, globalLogger)
+			shardOrchestratorClient = shardorchestrator.NewLocalClient(server, globalLogger)
+			globalLogger.Infow("ShardOrchestrator in-process client created", "shardID", shardIdx)
 		} else {
-			// Shard > 0 connects to shard 0's server
+			shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
 			if shardOrchestratorAddr == nil {
 				return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress when sharding is enabled", shardIdx)
 			}
-			address = shardOrchestratorAddr.String()
+			client, err := shardorchestrator.NewClient(ctx, shardOrchestratorAddr.String(), globalLogger.Named("ShardOrchestratorClient"))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+			}
+			shardOrchestratorClient = client
+			globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", shardOrchestratorAddr.String())
 		}
-
-		client, err := shardorchestrator.NewClient(
-			ctx,
-			address,
-			globalLogger.Named("ShardOrchestratorClient"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
-		}
-		shardOrchestratorClient = client
-		globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", address)
 	} else {
 		globalLogger.Debug("Sharding not enabled, running without shard orchestrator client")
 	}
@@ -745,7 +739,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig, cfg.Sharding())
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig, cfg.Sharding(), ringStoreForShard0)
 
 		ocr2Delegate := ocr2.NewDelegate(
 			ocr2.DelegateOpts{
@@ -926,9 +920,7 @@ type CREOpts struct {
 
 	JWTGenerator nodeauthjwt.JWTGenerator // JWT generator for authenticated services
 
-	// ShardOrchestratorClient is used by shards > 0 to query/report workflow mappings to shard 0.
-	// This is nil for shard 0.
-	ShardOrchestratorClient *shardorchestrator.Client
+	ShardOrchestratorClient shardorchestrator.ClientInterface
 }
 
 type CREServices struct {

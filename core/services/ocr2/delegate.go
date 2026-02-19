@@ -174,6 +174,7 @@ type DelegateConfig interface {
 	Mercury() coreconfig.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
+	RingStoreForShard0() *ring.Store
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -185,6 +186,7 @@ type delegateConfig struct {
 	mercury     mercuryConfig
 	threshold   thresholdConfig
 	sharding    coreconfig.Sharding
+	ringStore   *ring.Store
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -209,6 +211,10 @@ func (d *delegateConfig) OCR2() ocr2Config {
 
 func (d *delegateConfig) Sharding() coreconfig.Sharding {
 	return d.sharding
+}
+
+func (d *delegateConfig) RingStoreForShard0() *ring.Store {
+	return d.ringStore
 }
 
 type ocr2Config interface {
@@ -249,7 +255,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -258,6 +264,7 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 		mercury:         m,
 		threshold:       t,
 		sharding:        s,
+		ringStore:       ringStore,
 	}
 }
 
@@ -1128,7 +1135,10 @@ func (d *Delegate) newServicesRing(
 	srvs = append(srvs, arbiterSvc)
 	lggr.Info("Arbiter service created")
 
-	ringStore := ring.NewStore()
+	ringStore := d.cfg.RingStoreForShard0()
+	if ringStore == nil {
+		ringStore = ring.NewStore()
+	}
 	orchestratorSvc := shardorchestrator.New(
 		int(shardingCfg.ShardOrchestratorPort()),
 		ringStore,
