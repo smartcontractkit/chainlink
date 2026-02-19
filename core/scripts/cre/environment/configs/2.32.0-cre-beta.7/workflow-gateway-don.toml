@@ -1,0 +1,704 @@
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  # change to your version
+  image = "job-distributor:0.22.1"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+#[s3provider]
+#  # use all defaults
+#  port = 9000
+#  console_port = 9001
+
+[infra]
+  # either "docker" or "kubernetes"
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  env_vars = { CL_EVM_CMD = "" }
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "write-evm-2337", "evm-1337", "evm-2337", "read-contract-1337", "read-contract-2337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      test_config_overrides = """[Feature]
+LogPoller = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+ContractPollInterval = '1s'
+DatabaseTimeout = '1s'
+
+[P2P]
+EnableExperimentalRageP2P = true
+
+[P2P.V2]
+Enabled = true
+DefaultBootstrappers = ['12D3KooWGaT5Wjy9X9QPfKemqrbGiQAuX7tn4Cfo8GoBGpd74afS@bootstrap-gateway-node0:5001']
+ListenAddresses = ['0.0.0.0:5001']
+
+[Capabilities]
+[Capabilities.Peering]
+[Capabilities.Peering.V2]
+Enabled = false
+
+[Capabilities.SharedPeering]
+Enabled = true
+
+[Capabilities.SharedPeering.StreamConfig]
+
+[Capabilities.Dispatcher]
+SendToSharedPeer = true
+
+[Capabilities.Dispatcher.RateLimit]
+
+[Capabilities.ExternalRegistry]
+Address = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+
+[Capabilities.WorkflowRegistry]
+Address = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+SyncStrategy = 'reconciliation'
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '1337'
+NodeAddress = '0x95ede5ef12044F19B75B0162F13D6F024B1FCC8F'
+DonID = 'workflow'
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = 'gateway-node-0'
+URL = 'ws://bootstrap-gateway-node0:5003/node'
+
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'
+InsecureConnection = true
+ChipIngressEndpoint = 'host.docker.internal:50051'
+ChipIngressInsecureConnection = true
+HeartbeatInterval = '30s'
+LogStreamingEnabled = true
+
+[CRE]
+UseLocalTimeProvider = false
+EnableDKGRecipient = true
+
+[CRE.WorkflowFetcher]
+URL = 'file:///home/chainlink/workflows'
+
+[Billing]
+URL = 'billing-platform-service:2223'
+TLSEnabled = false
+
+[[EVM]]
+ChainID = '2337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-12922642891491394802'
+WSURL = 'ws://anvil-2337:8546'
+HTTPURL = 'http://anvil-2337:8546'
+
+[[EVM]]
+ChainID = '1337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-3379446385462418246'
+WSURL = 'ws://anvil-1337:8545'
+HTTPURL = 'http://anvil-1337:8545'
+"""
+      test_secrets_overrides = """
+[EVM]
+[[EVM.Keys]]
+JSON = '{"address":"95ede5ef12044f19b75b0162f13d6f024b1fcc8f","crypto":{"cipher":"aes-128-ctr","ciphertext":"29a3934b55f43ad7c16e584f31a2ad09df255146f279cfa2b81279cd35dfda36","cipherparams":{"iv":"abfa683733cef954d0efcbd42468b12a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"92dd724b11f36b4dbc1a699b2c0d477b92682160ef3df1591cc02f368d063f2f"},"mac":"8dba6601113edba4c6fe02864c57df5c860127f944ece82e322270dd44e54976"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 1337
+
+[[EVM.Keys]]
+JSON = '{"address":"ba8406c1ea7e6f1b57d7140c7b3068ed1b699391","crypto":{"cipher":"aes-128-ctr","ciphertext":"21fdd8ea6e0b626764ab48195045859460775e96ee92ca67b4f1bdf510801083","cipherparams":{"iv":"ff830c2d8875eac59f1ca927446d5a11"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"106bd6160c4b2fd4aa23c0e53cdb220c5ca218cfeb5f6aa51f5d6d19e787f07b"},"mac":"7babc30089c04f8d69d755387d8e253e23284229122bfbae2eb938e1f496ce6f"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 2337
+
+[Solana]
+Keys = []
+
+[P2PKey]
+JSON = '{"keyType":"P2P","publicKey":"b59e1846b261d6bfffbb9b5ce8cda6b6657c77f2966580aa263e6ffe3ea3cfb0","peerID":"p2p_12D3KooWN3KnJoznBzQWz24MUBqT6gXqfYWVofNVDJk7KCe3cVdZ","crypto":{"cipher":"aes-128-ctr","ciphertext":"33e67d934266b7b130a4caf160c1d2e3228de8c1b19f6e8d327a2a00caebc303e3801f890d7bb169f83db7df73a77fba1f22d8e508b05c124991b75978ad7c75719f5b6e","cipherparams":{"iv":"2d54f3521007210f837bd2d6a94645f3"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"9c94d0f1ff764844ab32dbb0521b19c1167e4804e3a88adccc64d45a3b87ded9"},"mac":"ee5ec7db29bd681e9fcbb35be3bcb979837c3f5c9b93d9f0adc257bbe34d9e17"}}'
+Password = 'dev-password'
+
+[DKGRecipientKey]
+JSON = '{"keyType":"DKGRecipient","publicKey":"035024270f286cf537122a4d720298c99f4952dfc386b42a4e873c5a7f387c61b6","crypto":{"cipher":"aes-128-ctr","ciphertext":"27ca84ef959a5974a42ad2bba6c573deb8385b0da046c82c98dd5b59abf04f5b97820e7123b241e693ee6647df779366343e882d85f1f7fc1984a58ba2ed168149","cipherparams":{"iv":"377139581cb87586f7abeedd92181d14"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"747497bee0ffb147f4a95bb69414755a060a276f8ef9ff052901de4c82053b63"},"mac":"a06a9406afda2da66cbac03ad4b298ae0364fbe74de0ba36ffb2a69b9aa6efcf"}}'
+Password = 'dev-password'
+"""
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      test_config_overrides = """[Feature]
+LogPoller = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+ContractPollInterval = '1s'
+DatabaseTimeout = '1s'
+
+[P2P]
+EnableExperimentalRageP2P = true
+
+[P2P.V2]
+Enabled = true
+DefaultBootstrappers = ['12D3KooWGaT5Wjy9X9QPfKemqrbGiQAuX7tn4Cfo8GoBGpd74afS@bootstrap-gateway-node0:5001']
+ListenAddresses = ['0.0.0.0:5001']
+
+[Capabilities]
+[Capabilities.Peering]
+[Capabilities.Peering.V2]
+Enabled = false
+
+[Capabilities.SharedPeering]
+Enabled = true
+
+[Capabilities.SharedPeering.StreamConfig]
+
+[Capabilities.Dispatcher]
+SendToSharedPeer = true
+
+[Capabilities.Dispatcher.RateLimit]
+
+[Capabilities.ExternalRegistry]
+Address = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+
+[Capabilities.WorkflowRegistry]
+Address = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+SyncStrategy = 'reconciliation'
+
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '1337'
+NodeAddress = '0x83f9747cc4215ECBaFf0903b29A492811e6601ab'
+DonID = 'workflow'
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = 'gateway-node-0'
+URL = 'ws://bootstrap-gateway-node0:5003/node'
+
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'
+InsecureConnection = true
+ChipIngressEndpoint = 'host.docker.internal:50051'
+ChipIngressInsecureConnection = true
+HeartbeatInterval = '30s'
+LogStreamingEnabled = true
+
+[CRE]
+UseLocalTimeProvider = false
+EnableDKGRecipient = true
+
+[CRE.WorkflowFetcher]
+URL = 'file:///home/chainlink/workflows'
+
+[Billing]
+URL = 'billing-platform-service:2223'
+TLSEnabled = false
+
+[[EVM]]
+ChainID = '2337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-12922642891491394802'
+WSURL = 'ws://anvil-2337:8546'
+HTTPURL = 'http://anvil-2337:8546'
+
+[[EVM]]
+ChainID = '1337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-3379446385462418246'
+WSURL = 'ws://anvil-1337:8545'
+HTTPURL = 'http://anvil-1337:8545'
+"""
+      test_secrets_overrides = """[EVM]
+[[EVM.Keys]]
+JSON = '{"address":"83f9747cc4215ecbaff0903b29a492811e6601ab","crypto":{"cipher":"aes-128-ctr","ciphertext":"0d8a2d178e8ede486becc73346c6b1879d62b5b8cdb9d779acda0fda0e93d907","cipherparams":{"iv":"42fb15dfb2a5bffd1811bff7802c00bf"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"20186d7efd8cdc5a0b3edffefb5e32a5149debd541335494fc3c5b2bb16a68ed"},"mac":"bfea14eb12050fbdb31875b3d1991b902f4fc2e9ce77e51506c32b400f298b71"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 1337
+
+[[EVM.Keys]]
+JSON = '{"address":"ce1c9d81584f7e7a641bac34e5c42cdf9d14ce6b","crypto":{"cipher":"aes-128-ctr","ciphertext":"9d4b3872e96dabaa929836aa39a1eb8b450be1a238f18513426079f2daa9ac33","cipherparams":{"iv":"858da5846f7bd636a612df21eb093c0e"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"632192680dbb1b282d55a52f6cc7a24ae09c2d131489a3c46f9e7f5d2fef1cb7"},"mac":"dbc61d30bd211fa2712bbae90c1acf291848b076d12aa3a64478acd2926b7cb8"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 2337
+
+[Solana]
+Keys = []
+
+[P2PKey]
+JSON = '{"keyType":"P2P","publicKey":"6d06df1190c04f48de7ef361b5d07984512a85d96b0576879f08531a1be5bd73","peerID":"p2p_12D3KooWH9xggNQSvewVtmomFgi5VCF8C2vwQQahAwjdbtRR7Str","crypto":{"cipher":"aes-128-ctr","ciphertext":"dac8b48936b23212f22aab6e89f5f59fe5dada9a927245a883e6f54bf082bccfdb337384d7d181a8a3134fa89faf404ac22690c919455c259a5dd230ca8acd0a9068979c","cipherparams":{"iv":"d313ecae0e8f84d5fd2db4ad46dfe99d"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"1b8555d788da13c0b3550039a44097fb983a95cac55b90053c029047f80476b4"},"mac":"4d2c89d30acccde98eec2a368321e35ac49b90680d23f7b2c50552a0948acc89"}}'
+Password = 'dev-password'
+
+[DKGRecipientKey]
+JSON = '{"keyType":"DKGRecipient","publicKey":"03a3c3f809166a30e1a1e492141480082b6e35eedcb0404757174b72f25515ea3c","crypto":{"cipher":"aes-128-ctr","ciphertext":"64ae1e78b379ea21c8a38f7a38931d56326ac4f2724d57f79f1683bca3ef4673911fbcaa2651194beff61bdf99060682e379744abd1255cdff42480bbf4dbedeea","cipherparams":{"iv":"6b361a99406c5d31321ac5133f6326bf"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"33673b167dc04d89c4e1262eb535ec22d652c5113cc6a022decb34542539200d"},"mac":"f330baa55f5de21afba6ab4707dd82d0df99e440b98bd6f7c49acf610f040acc"}}'
+Password = 'dev-password'
+"""
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      test_config_overrides = """[Feature]
+LogPoller = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+ContractPollInterval = '1s'
+DatabaseTimeout = '1s'
+
+[P2P]
+EnableExperimentalRageP2P = true
+
+[P2P.V2]
+Enabled = true
+DefaultBootstrappers = ['12D3KooWGaT5Wjy9X9QPfKemqrbGiQAuX7tn4Cfo8GoBGpd74afS@bootstrap-gateway-node0:5001']
+ListenAddresses = ['0.0.0.0:5001']
+
+[Capabilities]
+[Capabilities.Peering]
+[Capabilities.Peering.V2]
+Enabled = false
+
+[Capabilities.SharedPeering]
+Enabled = true
+
+[Capabilities.SharedPeering.StreamConfig]
+
+[Capabilities.Dispatcher]
+SendToSharedPeer = true
+
+[Capabilities.Dispatcher.RateLimit]
+
+[Capabilities.ExternalRegistry]
+Address = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+
+[Capabilities.WorkflowRegistry]
+Address = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+SyncStrategy = 'reconciliation'
+
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '1337'
+NodeAddress = '0xc05538970E0B6170378f7CFc52e11f4c8E3F39dE'
+DonID = 'workflow'
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = 'gateway-node-0'
+URL = 'ws://bootstrap-gateway-node0:5003/node'
+
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'
+InsecureConnection = true
+ChipIngressEndpoint = 'host.docker.internal:50051'
+ChipIngressInsecureConnection = true
+HeartbeatInterval = '30s'
+LogStreamingEnabled = true
+
+[CRE]
+UseLocalTimeProvider = false
+EnableDKGRecipient = true
+
+[CRE.WorkflowFetcher]
+URL = 'file:///home/chainlink/workflows'
+
+[Billing]
+URL = 'billing-platform-service:2223'
+TLSEnabled = false
+
+[[EVM]]
+ChainID = '2337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-12922642891491394802'
+WSURL = 'ws://anvil-2337:8546'
+HTTPURL = 'http://anvil-2337:8546'
+
+[[EVM]]
+ChainID = '1337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-3379446385462418246'
+WSURL = 'ws://anvil-1337:8545'
+HTTPURL = 'http://anvil-1337:8545'
+"""
+      test_secrets_overrides = """[EVM]
+[[EVM.Keys]]
+JSON = '{"address":"c05538970e0b6170378f7cfc52e11f4c8e3f39de","crypto":{"cipher":"aes-128-ctr","ciphertext":"c28a5314982b6cde9e19f5d6c20a98407ea752c5610572714b80a7930c787f87","cipherparams":{"iv":"198825674868c6520d576ae6722366fc"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"f0a712ca1df25730cdcc65c940206e92fd9e22e9f9ed77c599705e801edc8488"},"mac":"418c24aa2961fe67e218f079d35c876fb8fb13d514a32da64eeff8de493dd4fc"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 1337
+
+[[EVM.Keys]]
+JSON = '{"address":"6ef562bc70e086dbf37803c86b10908f3f9af01b","crypto":{"cipher":"aes-128-ctr","ciphertext":"9cea2d031248abf4bb65356dcd0861ee32b5992b3891ff43b08310bd97464ff4","cipherparams":{"iv":"e46bef1aa2d0bf48d57aa66b962599d8"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"8c94d317b00c3abadfe18d04deb9bee207666af0141a69b89d4e7e3c18196f22"},"mac":"f7466a84b9577de63c6326590f324ceca459df7aa14b723854e0b950bf3f08f5"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 2337
+
+[Solana]
+Keys = []
+
+[P2PKey]
+JSON = '{"keyType":"P2P","publicKey":"a4ebb48cdfd3c8344760744157463cebca7d353976d279aa3344f96a738451a0","peerID":"p2p_12D3KooWLv9VPEDwzJydB8YmxxnpXvF7Xo81DM2wFxFEtKycKUX9","crypto":{"cipher":"aes-128-ctr","ciphertext":"e07011ebcc81c2a19e4f60e68169ba925805cb07c3ac9bfb46ccbbfc712c24bf5956c6fc26cb2ac9fea6c775ada5b8748099a1d41b438a8f84e5c7ede9de3712982f3d08","cipherparams":{"iv":"f5144f1d6d7e6bdd4148534134459392"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"bcf9375e9febf9ba3872d184aaeed56bdc7f7a4a57f8ea277893cac7c88849a7"},"mac":"828b0206b085b4c7113f60091a77c4a57aac33b5b46d8aa8b8318362ac590927"}}'
+Password = 'dev-password'
+
+[DKGRecipientKey]
+JSON = '{"keyType":"DKGRecipient","publicKey":"036c5f38a295abca70b64e3e1423e40e9adab41b75369416670be3b49cb6db2ffc","crypto":{"cipher":"aes-128-ctr","ciphertext":"7d875aa519adb619654f379b8e0da698e1c0d1eb769a32841e73d09dcaf63c8409ed1ac9210c8a236bd7992648f815d789c087fa292db5034f9eb42bd28f59f11b","cipherparams":{"iv":"644a5cd7426815aaf8eb2026cb8b147a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"b737b7e1ef65a5474ec149efc16a57eabaa8e83bfdb5a50f9b0ee313cac7c282"},"mac":"c8079f91f17b8daedfa795063b22ac40096748b7f30b535bc33f51fde6dd58e6"}}'
+Password = 'dev-password'
+"""
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      test_config_overrides = """[Feature]
+LogPoller = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+ContractPollInterval = '1s'
+DatabaseTimeout = '1s'
+
+[P2P]
+EnableExperimentalRageP2P = true
+
+[P2P.V2]
+Enabled = true
+DefaultBootstrappers = ['12D3KooWGaT5Wjy9X9QPfKemqrbGiQAuX7tn4Cfo8GoBGpd74afS@bootstrap-gateway-node0:5001']
+ListenAddresses = ['0.0.0.0:5001']
+
+[Capabilities]
+[Capabilities.Peering]
+[Capabilities.Peering.V2]
+Enabled = false
+
+[Capabilities.SharedPeering]
+Enabled = true
+
+[Capabilities.SharedPeering.StreamConfig]
+
+[Capabilities.Dispatcher]
+SendToSharedPeer = true
+
+[Capabilities.Dispatcher.RateLimit]
+
+[Capabilities.ExternalRegistry]
+Address = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+
+[Capabilities.WorkflowRegistry]
+Address = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+SyncStrategy = 'reconciliation'
+
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '1337'
+NodeAddress = '0x77C0c0Ce735E3A5d37346aa1ef85C9815B9deA46'
+DonID = 'workflow'
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = 'gateway-node-0'
+URL = 'ws://bootstrap-gateway-node0:5003/node'
+
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'
+InsecureConnection = true
+ChipIngressEndpoint = 'host.docker.internal:50051'
+ChipIngressInsecureConnection = true
+HeartbeatInterval = '30s'
+LogStreamingEnabled = true
+
+[CRE]
+UseLocalTimeProvider = false
+EnableDKGRecipient = true
+
+[CRE.WorkflowFetcher]
+URL = 'file:///home/chainlink/workflows'
+
+[Billing]
+URL = 'billing-platform-service:2223'
+TLSEnabled = false
+
+[[EVM]]
+ChainID = '2337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-12922642891491394802'
+WSURL = 'ws://anvil-2337:8546'
+HTTPURL = 'http://anvil-2337:8546'
+
+[[EVM]]
+ChainID = '1337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-3379446385462418246'
+WSURL = 'ws://anvil-1337:8545'
+HTTPURL = 'http://anvil-1337:8545'
+"""
+      test_secrets_overrides = """[EVM]
+[[EVM.Keys]]
+JSON = '{"address":"fb570dc321d9b5aea0df2ac7d5f291a2d9d0ea4b","crypto":{"cipher":"aes-128-ctr","ciphertext":"b09e3ef5a411c6068f8376ac2c37f7cd20ce2de081e1fbadab6bc1917d5b9e93","cipherparams":{"iv":"3382b5140de5d41c471cb4aed40e5d9e"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"466f134b9fe6d904804a446a0936c97925b8229b760cc3110b7da89ae96a66d9"},"mac":"16242930b1d45fda7457a9140524f0d5005b61e40652c370ad5404ca346aac4b"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 2337
+
+[[EVM.Keys]]
+JSON = '{"address":"77c0c0ce735e3a5d37346aa1ef85c9815b9dea46","crypto":{"cipher":"aes-128-ctr","ciphertext":"0475706aa9e36faba6c967cb8c96963bb545849284e7fa3632de043c7a2e545a","cipherparams":{"iv":"12ae58c75449d78b5cd8280148d55f16"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"08896eb6053ed11b7939bc07ff2bd3e656f3106a3512480341cc640bb2471fbd"},"mac":"d93b8d9f885ea150a5e552c3caee392fcf58e60050e28157ad8a83393a8cdde2"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 1337
+
+[Solana]
+Keys = []
+
+[P2PKey]
+JSON = '{"keyType":"P2P","publicKey":"cd704fc3aae541c1d9b9571891c198f1b555565fabab6d3e3cde565ad752cefe","peerID":"p2p_12D3KooWPeK5MBYydjFxCpQp4C2gtd5TWDbA6EaFbBsNoc2jNGtD","crypto":{"cipher":"aes-128-ctr","ciphertext":"7115d53fa1eea312f4758eaae9e333c55b6d4618298dd4ab0b206a2d32e83889b457d24f40586463ed73a415b5ab56c2c370cffde9f67aefebf738f15fce395bc528daf3","cipherparams":{"iv":"f79ff779f2e9c0aaa7f1ca12a83c2282"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"125cee6e720c2561134d8687e2118e88da2e8ab64fcc2d86b200c6104ae722d4"},"mac":"6349ec5c4dac8ca4a12f82bf3b0b1d1bc301795e9969e8aca4be4218cf5d4742"}}'
+Password = 'dev-password'
+
+[DKGRecipientKey]
+JSON = '{"keyType":"DKGRecipient","publicKey":"02203ec9f423a48774b95638153c8fef4bffde1ba8abd349d4a09935e809ba26cc","crypto":{"cipher":"aes-128-ctr","ciphertext":"311a75f54fafb4156a26ac6c490cd84abbab1c1dbb2b715aa5b41a9f8f4a76a86a02be643f1b57fb0592da399a3908e21531857f117cb47b5bb9296144882d8e1f","cipherparams":{"iv":"1d4733723e0ac9119f74149b0d3f3796"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"2c0c076970672361723654fe0577c953426ee72f9baf32203ccdfc8bd4a1b426"},"mac":"11dfd7a0ebe2ed238244afa54da07ede4b5aea30adf5edc1e44154ee6ac23102"}}'
+Password = 'dev-password'
+
+"""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "" }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
+      # image = "chainlink-tmp:latest"
+      test_config_overrides = """[Feature]
+LogPoller = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[OCR2]
+Enabled = true
+ContractPollInterval = '1s'
+DatabaseTimeout = '1s'
+
+[P2P]
+EnableExperimentalRageP2P = true
+
+[P2P.V2]
+Enabled = true
+DefaultBootstrappers = ['12D3KooWGaT5Wjy9X9QPfKemqrbGiQAuX7tn4Cfo8GoBGpd74afS@localhost:5001']
+ListenAddresses = ['0.0.0.0:5001']
+
+[Capabilities]
+[Capabilities.Peering]
+[Capabilities.Peering.V2]
+Enabled = false
+
+[Capabilities.SharedPeering]
+Enabled = true
+
+[Capabilities.SharedPeering.StreamConfig]
+
+[Capabilities.Dispatcher]
+SendToSharedPeer = true
+
+[Capabilities.Dispatcher.RateLimit]
+
+[Capabilities.ExternalRegistry]
+Address = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+
+[Capabilities.WorkflowRegistry]
+Address = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+SyncStrategy = 'reconciliation'
+
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+ArtifactStorageHost = 'localhost'
+URL = 'localhost'
+TLSEnabled = false
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '1337'
+DonID = "doesn't-matter-for-gateway-node"
+Gateways = []
+
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'
+InsecureConnection = true
+ChipIngressEndpoint = 'host.docker.internal:50051'
+ChipIngressInsecureConnection = true
+HeartbeatInterval = '30s'
+LogStreamingEnabled = true
+
+[CRE]
+UseLocalTimeProvider = false
+EnableDKGRecipient = true
+
+[CRE.WorkflowFetcher]
+URL = 'file:///home/chainlink/workflows'
+
+[Billing]
+URL = 'billing-platform-service:2223'
+TLSEnabled = false
+
+[[EVM]]
+ChainID = '1337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-3379446385462418246'
+WSURL = 'ws://anvil-1337:8545'
+HTTPURL = 'http://anvil-1337:8545'
+
+[[EVM]]
+ChainID = '2337'
+AutoCreateKey = false
+
+[[EVM.Nodes]]
+Name = 'node-12922642891491394802'
+WSURL = 'ws://anvil-2337:8546'
+HTTPURL = 'http://anvil-2337:8546'
+"""
+      test_secrets_overrides = """[EVM]
+[[EVM.Keys]]
+JSON = '{"address":"10e53139b06f9db891b901402fde972ddf1af63c","crypto":{"cipher":"aes-128-ctr","ciphertext":"6f1715de05f22d86fef5027f6e921bd99c00cf040ed4890012d80c87614e07fd","cipherparams":{"iv":"fa40855d981b35714bc2c66f6cfaf8bc"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d37a61a82539d6a177772214f3840edc117b27ec68ca50320573cfd101c48b96"},"mac":"3f5ba394b0ae725e39ed0243a71e9a50de704942bb0e1ac5422f4bece8eb3674"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 1337
+
+[[EVM.Keys]]
+JSON = '{"address":"123e72d3a4185a0290dc8af87273a19ba9a6d094","crypto":{"cipher":"aes-128-ctr","ciphertext":"a2bb4d6e42b6409096b80c06d1562d4469f29239923063eab7b8814b2fd523b7","cipherparams":{"iv":"5ed5e5a31fc7a9d43c954a072403a671"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"9e713723648b4cd0b428d6f2ef9ac1a39baa6e56713a3c29b9a5ab4930f1f144"},"mac":"05643772f7d91e7013890ccca4d994f393cd2dee0fac0720871aa0ab268650f4"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+Password = 'dev-password'
+ID = 2337
+
+[Solana]
+Keys = []
+
+[P2PKey]
+JSON = '{"keyType":"P2P","publicKey":"64713a8c1c0336e60cbbd1685e3e61bb6f5c63e859230ac43af0412c16dc0ef1","peerID":"p2p_12D3KooWGaT5Wjy9X9QPfKemqrbGiQAuX7tn4Cfo8GoBGpd74afS","crypto":{"cipher":"aes-128-ctr","ciphertext":"1990cdc0a749fc67775196d7465433d5bcb16bed37102be02eaa9ab5e1509ba0fc694d5d76ed9ae39919b892b70569e3ed2ccc1a60d98998c9a04334f6546669fe586ec4","cipherparams":{"iv":"195c87d50f81dfa2ce290b83087e3863"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"2038cefa6dc72d12b2213eb3474c0747f8eb5091f563265a0549cb7364aa3c39"},"mac":"0c0dbcc04679ea6da4fa96c59defaf16f1815232a305be06fd1fdcfaab4bea3d"}}'
+Password = 'dev-password'
+
+[DKGRecipientKey]
+JSON = '{"keyType":"DKGRecipient","publicKey":"0271ebb13b0edfd5234af9c2cadf89c155095cdbc4b519c2dc90b2ee3316caea87","crypto":{"cipher":"aes-128-ctr","ciphertext":"eb71af7af8610a6bc7c22636b7632b435f6606b3919f7f2b6eebfb7ecc858449d2a17998d6e3053c239314c2cab29c6140f7853c0b4a0c97fafb40f5a79acd8d21","cipherparams":{"iv":"384b41923a4e2684200165a9a5e9e33c"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"fb8f924842305b5e4bb808cb4b62020cc9aa52c96006f01a6dee6cb6322d5278"},"mac":"afe8b02d7d0a98da5226683b68f39a5f8bb89130a21d1b2c38776538c2fa83f0"}}'
+Password = 'dev-password'
+"""

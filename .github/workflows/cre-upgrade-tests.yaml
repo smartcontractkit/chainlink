@@ -46,7 +46,7 @@ jobs:
       id-token: write
     env:
       TOPOLOGY_NAME: workflow-gateway
-      CTF_CONFIGS: configs/workflow-gateway-don.toml
+      CTF_CONFIGS: configs/2.32.0-cre-beta.5/workflow-gateway-don.toml
       TEST_TIMEOUT: 35m
       CHAINLINK_IMAGE_REPOSITORY: public.ecr.aws/chainlink/chainlink
       BASE_CHAINLINK_IMAGE_TAG: ${{ inputs.base_chainlink_image_tag || '2.32.0-cre-beta.5' }}

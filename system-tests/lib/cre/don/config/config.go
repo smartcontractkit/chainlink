@@ -240,11 +240,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 			return nil, errors.Wrapf(mErr, "failed to marshal node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 		}
 
-		// TODO remove hack after testing
-		cleanedUpConfig := strings.ReplaceAll(string(marshalledConfig), "AdditionalSources = []", "")
-		fmt.Println(cleanedUpConfig)
-
-		configOverrides[nodeIdx] = cleanedUpConfig
+		configOverrides[nodeIdx] = string(marshalledConfig)
 	}
 
 	// execute capability-provided functions that transform the node config (currently: write-evm, write-solana)
@@ -461,12 +457,12 @@ func addWorkerNodeConfig(
 		_ = existingAddSources
 
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
-			NetworkID:       ptr.Ptr("evm"),
-			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-			SyncStrategy:    ptr.Ptr("reconciliation"),
-			// AdditionalSourcesConfig: existingAddSources,
+			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:               ptr.Ptr("evm"),
+			ChainID:                 ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion:         ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:            ptr.Ptr("reconciliation"),
+			AdditionalSourcesConfig: existingAddSources,
 		}
 	}
 
