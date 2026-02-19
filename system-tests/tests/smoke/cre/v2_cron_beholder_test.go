@@ -37,6 +37,7 @@ func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	expectedBeholderLog := "Amazing workflow user log"
 
 	err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, 4*time.Minute)
-	require.NoError(t, err, "Cron (Beholder) test failed")
+	require.NoError(t, err, "Cron (Beholder) assertion failed")
+
 	testLogger.Info().Msg("Cron (Beholder) test completed")
 }

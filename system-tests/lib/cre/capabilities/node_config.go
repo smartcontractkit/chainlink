@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -18,21 +19,24 @@ func MakeBinariesExecutable(customBinariesPaths map[cre.CapabilityFlag]string) e
 			return fmt.Errorf("binary path for capability %s is empty. Please set the binary path in the capabilities TOML config", capabilityFlag)
 		}
 
-		// Check if file exists
-		if s, err := os.Stat(binaryPath); os.IsNotExist(err) {
-			absPath, absErr := filepath.Abs(binaryPath)
-			if absErr != nil {
-				return errors.Wrapf(absErr, "failed to get absolute path for binary %s", binaryPath)
-			}
+		normalizedPath, err := normalizeBinaryPath(binaryPath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to normalize binary path for capability %s", capabilityFlag)
+		}
+		customBinariesPaths[capabilityFlag] = normalizedPath
 
-			return fmt.Errorf("no binary file for capability %s not found at '%s'. Please make sure the path is correct, update it in the capabilities TOML config or copy the binary to the expected location", absPath, capabilityFlag)
+		// Check if file exists
+		if s, statErr := os.Stat(normalizedPath); os.IsNotExist(statErr) {
+			return fmt.Errorf("no binary file for capability %s not found at '%s'. Please make sure the path is correct, update it in the capabilities TOML config or copy the binary to the expected location", capabilityFlag, normalizedPath)
+		} else if statErr != nil {
+			return errors.Wrapf(statErr, "failed to stat binary for capability %s at '%s'", capabilityFlag, normalizedPath)
 		} else if s.IsDir() {
-			return fmt.Errorf("expected a file for capability %s but found a directory at '%s'. Please make sure the path is correct and update it in the capabilities TOML config", binaryPath, capabilityFlag)
+			return fmt.Errorf("expected a file for capability %s but found a directory at '%s'. Please make sure the path is correct and update it in the capabilities TOML config", capabilityFlag, normalizedPath)
 		}
 
 		// Make the binary executable
-		if err := os.Chmod(binaryPath, 0755); err != nil {
-			return errors.Wrapf(err, "failed to make binary %s executable for capability %s", binaryPath, capabilityFlag)
+		if chmodErr := os.Chmod(normalizedPath, 0755); chmodErr != nil {
+			return errors.Wrapf(chmodErr, "failed to make binary %s executable for capability %s", normalizedPath, capabilityFlag)
 		}
 	}
 
@@ -59,6 +63,10 @@ func AppendBinariesPathsNodeSpec(nodeSet *cre.NodeSet, donMetadata *cre.DonMetad
 			if binaryPath == "" {
 				return nil, fmt.Errorf("binary path for capability %s is empty. Make sure you have set the binary path in the TOML config", capabilityFlag)
 			}
+			normalizedPath, err := normalizeBinaryPath(binaryPath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to normalize binary path for capability %s", capabilityFlag)
+			}
 
 			workerNodes, wErr := donMetadata.Workers()
 			if wErr != nil {
@@ -66,7 +74,7 @@ func AppendBinariesPathsNodeSpec(nodeSet *cre.NodeSet, donMetadata *cre.DonMetad
 			}
 
 			for _, workerNode := range workerNodes {
-				nodeSet.NodeSpecs[workerNode.Index].Node.CapabilitiesBinaryPaths = append(nodeSet.NodeSpecs[workerNode.Index].Node.CapabilitiesBinaryPaths, binaryPath)
+				nodeSet.NodeSpecs[workerNode.Index].Node.CapabilitiesBinaryPaths = append(nodeSet.NodeSpecs[workerNode.Index].Node.CapabilitiesBinaryPaths, normalizedPath)
 			}
 		}
 	}
@@ -85,4 +93,11 @@ func DefaultContainerDirectory(infraType infra.Type) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown infra type: %s", infraType)
 	}
+}
+
+func normalizeBinaryPath(binaryPath string) (string, error) {
+	if strings.TrimSpace(binaryPath) == "" || filepath.IsAbs(binaryPath) {
+		return binaryPath, nil
+	}
+	return filepath.Abs(binaryPath)
 }

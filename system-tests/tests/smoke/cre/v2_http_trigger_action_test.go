@@ -86,7 +86,18 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 		Msg("Waiting for workflow to be loaded before triggering...")
 
 	executeHTTPTriggerRequest(t, testEnv, gatewayURL, uniqueWorkflowName, workflowID, signingKey, workflowOwnerAddress)
-	validateHTTPWorkflowRequest(t, testEnv)
+	validateHTTPWorkflowRequestWithCount(t, testEnv, 1)
+
+	t_helpers.RunWithOptionalWorkflowUpgrade(t, testEnv, t_helpers.UpgradeHooks{
+		AfterUpgrade: func() {
+			records, getErr := fake.R.Get("POST", "/orders")
+			require.NoError(t, getErr, "failed to read recorded requests before post-upgrade trigger")
+			baselineCount := len(records)
+
+			executeHTTPTriggerRequest(t, testEnv, gatewayURL, uniqueWorkflowName, workflowID, signingKey, workflowOwnerAddress)
+			validateHTTPWorkflowRequestWithCount(t, testEnv, baselineCount+1)
+		},
+	})
 
 	testEnv.Logger.Info().Msg("HTTP trigger and action test completed successfully")
 }
@@ -158,19 +169,18 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, ga
 	require.Nil(t, finalResponse.Error, "unexpected error in response: %v", finalResponse.Error)
 }
 
-// validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
-func validateHTTPWorkflowRequest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+func validateHTTPWorkflowRequestWithCount(t *testing.T, testEnv *ttypes.TestEnvironment, minExpectedCount int) {
 	tick := 5 * time.Second
 	require.Eventually(t, func() bool {
 		records, err := fake.R.Get("POST", "/orders")
-		return err == nil && len(records) > 0
-	}, 3*time.Minute, tick, "workflow should have made at least one HTTP request to mock server")
+		return err == nil && len(records) >= minExpectedCount
+	}, 3*time.Minute, tick, "workflow should have made at least %d HTTP requests to mock server", minExpectedCount)
 
 	records, err := fake.R.Get("POST", "/orders")
 	require.NoError(t, err, "failed to get recorded requests")
-	require.NotEmpty(t, records, "no requests recorded")
+	require.GreaterOrEqual(t, len(records), minExpectedCount, "expected at least %d recorded requests", minExpectedCount)
 
-	recordedRequest := records[0]
+	recordedRequest := records[len(records)-1]
 	testEnv.Logger.Info().Msgf("Recorded request: %+v", recordedRequest)
 
 	require.Equal(t, "POST", recordedRequest.Method, "expected POST method")

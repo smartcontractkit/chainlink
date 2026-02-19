@@ -38,6 +38,17 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedBeholderLog := "Verified consensus on DON Time"
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedBeholderLog, 2*time.Minute)
+	assertDonTime := func() {
+		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedBeholderLog, 2*time.Minute)
+	}
+
+	assertDonTime()
+	t_helpers.RunWithOptionalWorkflowUpgrade(t, testEnv, t_helpers.UpgradeHooks{
+		BeforeUpgrade: func() {
+			_ = t_helpers.DrainChannel(userLogsCh)
+			_ = t_helpers.DrainChannel(baseMessageCh)
+		},
+		AfterUpgrade: assertDonTime,
+	})
 	testLogger.Info().Msg("DON Time test completed")
 }
