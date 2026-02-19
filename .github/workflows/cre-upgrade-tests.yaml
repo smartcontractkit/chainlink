@@ -56,7 +56,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.chainlink_version || github.sha }}
+          # TODO change to ${{ inputs.chainlink_version || github.sha }} after testing
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Enable S3 Cache for Self-Hosted Runners
