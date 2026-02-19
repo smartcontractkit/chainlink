@@ -3,6 +3,7 @@ package cre
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -181,6 +182,9 @@ func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, s
 
 	shardStatus := make(map[uint32]*ringpb.ShardStatus)
 	for i := 0; i < numShards; i++ {
+		if i < 0 || i > math.MaxUint32 {
+			t.Fatalf("shard index %d out of uint32 range", i)
+		}
 		shardStatus[uint32(i)] = &ringpb.ShardStatus{IsHealthy: true}
 	}
 
@@ -305,7 +309,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	p2pToShard := buildP2PIDToShardMap(t, testEnv)
 	logger.Info().Interface("p2pToShard", p2pToShard).Msg("P2P ID to shard mapping")
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, logger, testEnv)
-	executedWorkflows := waitForAllWorkflowsExecuted(t, listenerCtx, logger, messageChan, kafkaErrChan, workflowIDs, resp.Mappings, p2pToShard, 3*time.Minute)
+	executedWorkflows := waitForAllWorkflowsExecuted(listenerCtx, t, logger, messageChan, kafkaErrChan, workflowIDs, resp.Mappings, p2pToShard, 3*time.Minute)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
 	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
 }
@@ -549,7 +553,7 @@ func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorSer
 	}, 2*time.Minute, 5*time.Second, "Workflows not remapped to shard %d within timeout", expectedShard)
 }
 
-func waitForAllWorkflowsExecuted(t *testing.T, ctx context.Context, logger zerolog.Logger, messageChan <-chan proto.Message, errChan <-chan error, workflowIDs []string, shardMappings map[string]uint32, p2pToShard map[string]uint32, timeout time.Duration) map[string]struct{} {
+func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, messageChan <-chan proto.Message, errChan <-chan error, workflowIDs []string, shardMappings map[string]uint32, p2pToShard map[string]uint32, timeout time.Duration) map[string]struct{} {
 	t.Helper()
 
 	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
