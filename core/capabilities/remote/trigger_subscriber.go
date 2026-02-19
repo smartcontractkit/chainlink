@@ -150,7 +150,7 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, even
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{
 					TriggerEventId: eventID,
-					TriggerIds:     []string{triggerID},
+					TriggerIds:     []string{triggerID}, // triggerID contains workflowID
 				},
 			},
 		}
