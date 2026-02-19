@@ -454,13 +454,15 @@ func addWorkerNodeConfig(
 		// Transform URLs to use platform-specific Docker host (handles macOS vs Linux differences)
 		existingAddSources := transformAdditionalSourceURLs(existingConfig.Capabilities.WorkflowRegistry.AdditionalSourcesConfig)
 
+		_ = existingAddSources
+
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:                 ptr.Ptr(commonInputs.workflowRegistry.address),
-			NetworkID:               ptr.Ptr("evm"),
-			ChainID:                 ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion:         ptr.Ptr(commonInputs.workflowRegistry.version.String()),
-			SyncStrategy:            ptr.Ptr("reconciliation"),
-			AdditionalSourcesConfig: existingAddSources,
+			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
+			SyncStrategy:    ptr.Ptr("reconciliation"),
+			// AdditionalSourcesConfig: existingAddSources,
 		}
 	}
 
