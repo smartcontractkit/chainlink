@@ -7,11 +7,13 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
+  container_name = "anvil-1337"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
   type = "anvil"
   chain_id = "2337"
+  container_name = "anvil-2337"
   port = "8546"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
@@ -92,4 +94,3 @@ Name = 'mock-private-registry'
       custom_ports = ["5002:5002","15002:15002"]
       # image = "chainlink-tmp:latest"
       user_config_overrides = ""
-

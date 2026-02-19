@@ -10,18 +10,19 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20251212131933-e5e85d6fa4d3"
+      gitRef: "v0.0.0-20260217195306-9fec97c5dfbd"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
-      gitRef: "v0.0.0-20260124000807-bff5e296dfb7"
+      gitRef: "v0.0.0-20260217210647-11c42009ec1f"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
       # Git reference - can be a tag, branch, or commit hash
       # If not specified, uses the latest version.
+      # fb7ced... currently panics on startup with "codec sealed"; keep last known good until upstream fix lands.
       gitRef: "f740e9ae54e79762991bdaf8ad6b50363261c056" # 2025-02-07
       installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
       # These will be copied into /usr/lib in the container.
@@ -35,12 +36,12 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260211115641-f96bb4343198"
+      gitRef: "v1.1.2-0.20260217175957-8f1af02c5075"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
     - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
-      gitRef: "0051d73c3d6142fb9f0630889f80c6d0a1e0d096" # 2025-12-03
+      gitRef: "v0.1.1-0.20260218141258-834aadbff52b" # 2026-02-18
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   streams:
@@ -50,10 +51,10 @@ plugins:
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20260211155338-cd4708d2b938"
+      gitRef: "v0.0.0-20260218110243-cd2592187c66"
       installPath: "./cmd/chainlink-ton"
 
   tron:
     - moduleURI: "github.com/smartcontractkit/chainlink-tron/relayer"
-      gitRef: "v0.0.11-0.20251014143056-a0c6328c91e9"
+      gitRef: "v0.0.11-0.20260218133534-cbd44da2856b"
       installPath: "./cmd/chainlink-tron"
