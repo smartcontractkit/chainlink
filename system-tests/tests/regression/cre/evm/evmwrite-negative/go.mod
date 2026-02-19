@@ -6,7 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.17.0
 	github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
