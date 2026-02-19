@@ -245,8 +245,8 @@ github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18 h1:x
 github.com/smartcontractkit/cre-sdk-go v1.0.1-0.20251111122439-00032d582c18/go.mod h1:sgiRyHUiPcxp1e/EMnaJ+ddMFL4MbE3UMZ2MORAAS9U=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0 h1:G0w0cLzHy/5m74IzSGz1Ynjffym4ZxLeUrRLp8EFP5w=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0/go.mod h1:VVJ4mvA7wOU1Ic5b/vTaBMHEUysyxd0gdPPXkAu8CmY=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0 h1:g7UrVaNKVEmIhVkJTk4f8raCM8Kp/RTFnAT64wqNmTY=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0/go.mod h1:PWyrIw16It4TSyq6mDXqmSR0jF2evZRKuBxu7pK1yDw=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0 h1:qBZ4y6qlTOynSpU1QAi2Fgr3tUZQ332b6hit9EVZqkk=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0/go.mod h1:Rzhy75vD3FqQo/SV6lypnxIwjWac6IOWzI5BYj3tYMU=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
