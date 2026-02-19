@@ -780,7 +780,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 }
 
 func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
+	e.triggersRegMu.Lock()
 	trigger, ok := e.triggers[triggerRegistrationID]
+	e.triggersRegMu.Unlock()
+
 	if !ok {
 		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
 	}
