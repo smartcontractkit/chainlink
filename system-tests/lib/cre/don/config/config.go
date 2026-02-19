@@ -240,7 +240,10 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 			return nil, errors.Wrapf(mErr, "failed to marshal node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 		}
 
-		configOverrides[nodeIdx] = string(marshalledConfig)
+		// TODO remove hack after testing
+		cleanedUpConfig := strings.ReplaceAll(string(marshalledConfig), "AdditionalSources = []", "    ")
+
+		configOverrides[nodeIdx] = cleanedUpConfig
 	}
 
 	// execute capability-provided functions that transform the node config (currently: write-evm, write-solana)
