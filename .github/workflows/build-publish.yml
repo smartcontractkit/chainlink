@@ -205,9 +205,8 @@ jobs:
           products: |
             ccip-prereleases-prod-testnet
 
-  # Notify Slack channel for new git tags associated with pre-releases.
-  # Final release notifications originate from the release coordinator repo.
-  slack-notify-prerelease:
+  # Notify Slack channel for new git tags associated with git tags.
+  slack-notify:
     permissions:
       contents: read
     if: always() && (needs.docker-core.result == 'success' && needs.docker-ccip.result == 'success')
