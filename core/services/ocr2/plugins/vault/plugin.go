@@ -43,11 +43,6 @@ import (
 )
 
 const (
-	defaultMaxCiphertextLengthBytes          = 2 * 1024 // 2KB
-	defaultMaxIdentifierKeyLengthBytes       = 64
-	defaultMaxIdentifierOwnerLengthBytes     = 64
-	defaultMaxIdentifierNamespaceLengthBytes = 64
-
 	// The query is empty in this plugin.
 	defaultLimitsMaxQueryLength = 100
 
@@ -289,7 +284,6 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"maxIdentifierOwnerLengthBytes", logLimit(ctx, r.lggr, maxIdentifierOwnerLengthBytesLimiter),
 		"maxIdentifierNamespaceLengthBytes", logLimit(ctx, r.lggr, maxIdentifierNamespaceLengthBytesLimiter),
 		"batchSize", logLimit(ctx, r.lggr, maxBatchSizeLimiter),
-		"enableDeterministicPendingQueue", "true",
 	)
 
 	cfg := &ReportingPluginConfig{
