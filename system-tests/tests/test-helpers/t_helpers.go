@@ -59,8 +59,11 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -327,7 +330,7 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation string) (string, string) {
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
@@ -337,8 +340,32 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
+	var remoteTunnelManager tunnel.Manager
+	defer func() {
+		if remoteTunnelManager != nil {
+			_ = remoteTunnelManager.Stop(t.Context())
+		}
+	}()
 	for _, don := range workflowDONs {
-		copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(don.Name), compressedWorkflowWasmPath, workflowConfigFilePath)
+		mode, nodeSetName := resolveWorkflowDONArtifactMode(testEnv.Config, don.Name)
+		if mode == creworkflow.ArtifactDeployModeRemote && remoteTunnelManager == nil {
+			manager, managerErr := creenv.NewEC2TunnelManager(testLogger)
+			require.NoError(t, managerErr, "failed to initialize tunnel manager for remote artifact deploy")
+			remoteTunnelManager = manager
+		}
+		copyErr := creworkflow.DeployArtifacts(
+			t.Context(),
+			creworkflow.DeployArtifactsOptions{
+				Mode:                 mode,
+				NodeSetName:          nodeSetName,
+				ContainerNamePattern: ns.NodeNamePrefix(don.Name),
+				ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
+				Files:                []string{compressedWorkflowWasmPath, workflowConfigFilePath},
+				RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
+					return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, remoteTunnelManager, nodeSetName, containerTargetDir, files)
+				},
+			},
+		)
 		require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
 	}
 	testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
@@ -639,7 +666,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		workflowDONs = append(workflowDONs, don)
 	}
 
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, testEnv, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
 	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
 
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -659,4 +686,20 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
+}
+
+func resolveWorkflowDONArtifactMode(cfg *envconfig.Config, donName string) (creworkflow.ArtifactDeployMode, string) {
+	if cfg == nil {
+		return creworkflow.ArtifactDeployModeLocal, donName
+	}
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet == nil || nodeSet.Name != donName {
+			continue
+		}
+		if strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+			return creworkflow.ArtifactDeployModeRemote, nodeSet.Name
+		}
+		return creworkflow.ArtifactDeployModeLocal, nodeSet.Name
+	}
+	return creworkflow.ArtifactDeployModeLocal, donName
 }

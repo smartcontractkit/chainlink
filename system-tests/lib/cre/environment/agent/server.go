@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -27,28 +29,30 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/internal/dockerops"
 )
 
 const (
 	SchemaVersionV1          = "v1"
 	OperationStartComponent  = "StartComponent"
 	OperationStopComponent   = "StopComponent"
+	OperationDeployArtifacts = "DeployArtifacts"
 	OperationHealth          = "Health"
 	ComponentTypeBlockchain  = "blockchain"
 	ComponentTypeJD          = "jd"
 	ComponentTypeNodeSet     = "nodeset"
 
-	ErrCodeMethodNotAllowed       = "method_not_allowed"
-	ErrCodeInvalidRequestBody     = "invalid_request_body"
-	ErrCodeUnsupportedSchema      = "unsupported_schema_version"
-	ErrCodeUnsupportedOperation   = "unsupported_operation"
-	ErrCodeInvalidPayload         = "invalid_payload"
-	ErrCodeUnsupportedComponent   = "unsupported_component_type"
-	ErrCodeMissingComponentInput  = "missing_component_input"
-	ErrCodeDeployFailed           = "deployment_failed"
-	ErrCodeTransportEncodeFailed  = "transport_encode_failed"
+	ErrCodeMethodNotAllowed      = "method_not_allowed"
+	ErrCodeInvalidRequestBody    = "invalid_request_body"
+	ErrCodeUnsupportedSchema     = "unsupported_schema_version"
+	ErrCodeUnsupportedOperation  = "unsupported_operation"
+	ErrCodeInvalidPayload        = "invalid_payload"
+	ErrCodeUnsupportedComponent  = "unsupported_component_type"
+	ErrCodeMissingComponentInput = "missing_component_input"
+	ErrCodeDeployFailed          = "deployment_failed"
+	ErrCodeTransportEncodeFailed = "transport_encode_failed"
 
-	RemoteStartPolicyAlways       = "always"
+	RemoteStartPolicyAlways         = "always"
 	RemoteStartPolicyReuseIdentical = "reuse_if_identical"
 
 	EnvKeepFailedContainers = "CRE_AGENT_KEEP_FAILED_CONTAINERS"
@@ -63,12 +67,23 @@ type StartComponentEnvelope struct {
 }
 
 type StartComponentPayload struct {
-	ComponentType      string             `json:"componentType"`
-	Blockchain         *blockchain.Input  `json:"blockchain"`
-	RegistryBlockchain map[string]any     `json:"registryBlockchain,omitempty"`
-	JD                 *jd.Input          `json:"jd"`
-	NodeSet            *ns.Input          `json:"nodeset,omitempty"`
-	ReusePolicy        string             `json:"reusePolicy,omitempty"`
+	ComponentType      string            `json:"componentType"`
+	Blockchain         *blockchain.Input `json:"blockchain"`
+	RegistryBlockchain map[string]any    `json:"registryBlockchain,omitempty"`
+	JD                 *jd.Input         `json:"jd"`
+	NodeSet            *ns.Input         `json:"nodeset,omitempty"`
+	ReusePolicy        string            `json:"reusePolicy,omitempty"`
+}
+
+type DeployArtifactsPayload struct {
+	NodeSetName string                `json:"nodeSetName"`
+	TargetDir   string                `json:"targetDir"`
+	Files       []DeployArtifactsFile `json:"files"`
+}
+
+type DeployArtifactsFile struct {
+	Name          string `json:"name"`
+	ContentBase64 string `json:"contentBase64"`
 }
 
 type StartComponentResponse struct {
@@ -76,18 +91,18 @@ type StartComponentResponse struct {
 	Output        map[string]any `json:"output,omitempty"`
 	Found         bool           `json:"found,omitempty"`
 	Stopped       bool           `json:"stopped,omitempty"`
-	AgentLogs        []string       `json:"agentLogs,omitempty"`
-	ErrorCode        string         `json:"errorCode,omitempty"`
-	Error            string         `json:"error,omitempty"`
+	AgentLogs     []string       `json:"agentLogs,omitempty"`
+	ErrorCode     string         `json:"errorCode,omitempty"`
+	Error         string         `json:"error,omitempty"`
 }
 
 type Server struct {
-	lggr      zerolog.Logger
-	deployers map[blockchain.ChainFamily]blockchains.Deployer
+	lggr        zerolog.Logger
+	deployers   map[blockchain.ChainFamily]blockchains.Deployer
 	lifecycleMu sync.Mutex
-	cacheMu   sync.Mutex
-	cache     map[string]cachedStart
-	runtime   map[string]runtimeState
+	cacheMu     sync.Mutex
+	cache       map[string]cachedStart
+	runtime     map[string]runtimeState
 }
 
 type cachedStart struct {
@@ -135,6 +150,10 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 
 	if envelope.SchemaVersion != SchemaVersionV1 {
 		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedSchema, fmt.Sprintf("unsupported schema version: %s", envelope.SchemaVersion), nil)
+		return
+	}
+	if envelope.Operation == OperationDeployArtifacts {
+		s.deployArtifacts(w, r, envelope.Payload)
 		return
 	}
 	var payload StartComponentPayload
@@ -187,7 +206,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 			s.respondJSON(w, http.StatusOK, StartComponentResponse{
 				ComponentType: payload.ComponentType,
 				Output:        cached.Output,
-				AgentLogs: []string{requestLog, reuseLog},
+				AgentLogs:     []string{requestLog, reuseLog},
 			})
 			return
 		}
@@ -270,6 +289,74 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		ComponentType: payload.ComponentType,
 		Output:        output,
 		AgentLogs:     agentLogs,
+	})
+}
+
+func (s *Server) deployArtifacts(w http.ResponseWriter, r *http.Request, rawPayload json.RawMessage) {
+	var payload DeployArtifactsPayload
+	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+		s.respondError(w, http.StatusBadRequest, ErrCodeInvalidPayload, fmt.Sprintf("invalid payload: %v", err), nil)
+		return
+	}
+	if strings.TrimSpace(payload.NodeSetName) == "" {
+		s.respondError(w, http.StatusBadRequest, ErrCodeMissingComponentInput, "nodeset name is required", nil)
+		return
+	}
+	if strings.TrimSpace(payload.TargetDir) == "" {
+		s.respondError(w, http.StatusBadRequest, ErrCodeMissingComponentInput, "target dir is required", nil)
+		return
+	}
+	if len(payload.Files) == 0 {
+		s.respondError(w, http.StatusBadRequest, ErrCodeMissingComponentInput, "at least one artifact file is required", nil)
+		return
+	}
+
+	containerPrefix := ns.NodeNamePrefix(payload.NodeSetName)
+	containerNames, err := dockerops.FindContainerNames(r.Context(), containerPrefix)
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to list nodeset containers: %v", err), nil)
+		return
+	}
+	if len(containerNames) == 0 {
+		s.respondError(w, http.StatusNotFound, ErrCodeDeployFailed, fmt.Sprintf("no nodeset containers found for pattern %s", containerPrefix), nil)
+		return
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cre-agent-artifacts")
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to create temp dir: %v", err), nil)
+		return
+	}
+	defer os.RemoveAll(tmpDir)
+
+	filePaths := make([]string, 0, len(payload.Files))
+	for idx, f := range payload.Files {
+		if strings.TrimSpace(f.Name) == "" {
+			s.respondError(w, http.StatusBadRequest, ErrCodeInvalidPayload, fmt.Sprintf("artifact %d has empty name", idx), nil)
+			return
+		}
+		decoded, err := base64.StdEncoding.DecodeString(f.ContentBase64)
+		if err != nil {
+			s.respondError(w, http.StatusBadRequest, ErrCodeInvalidPayload, fmt.Sprintf("artifact %s has invalid base64 content: %v", f.Name, err), nil)
+			return
+		}
+		target := filepath.Join(tmpDir, filepath.Base(f.Name))
+		if err := os.WriteFile(target, decoded, 0o600); err != nil {
+			s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to write artifact %s: %v", f.Name, err), nil)
+			return
+		}
+		filePaths = append(filePaths, target)
+	}
+
+	if err := dockerops.CopyFilesToContainers(r.Context(), containerNames, payload.TargetDir, filePaths); err != nil {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to copy artifacts to containers: %v", err), nil)
+		return
+	}
+
+	s.respondJSON(w, http.StatusOK, StartComponentResponse{
+		AgentLogs: []string{
+			fmt.Sprintf("[cre-agent] copied %d artifact(s) to %d container(s) for nodeset %s", len(filePaths), len(containerNames), payload.NodeSetName),
+		},
 	})
 }
 

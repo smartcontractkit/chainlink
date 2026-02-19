@@ -18,12 +18,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -113,6 +116,7 @@ func deployWorkflowCmd() *cobra.Command {
 		compileWorkflowFlag             bool
 		containerTargetDirFlag          string
 		containerNamePatternFlag        string
+		nodeSetNameFlag                 string
 		workflowNameFlag                string
 		workflowOwnerAddressFlag        string
 		workflowRegistryAddressFlag     string
@@ -188,7 +192,7 @@ func deployWorkflowCmd() *cobra.Command {
 				capabilitiesRegistryVersion = addrRef.Version
 			}
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, deleteWorkflowFileFlag)
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, nodeSetNameFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, deleteWorkflowFileFlag)
 
 			return regErr
 		},
@@ -200,6 +204,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&secretsOutputFilePathFlag, "secrets-output-file-path", "o", "", "Path to encrypted secrets output file (default \"./encrypted.secrets.json\")")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
 	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "p", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers workkflow DON containers (e.g. 'workflow-node')")
+	cmd.Flags().StringVar(&nodeSetNameFlag, "nodeset-name", "", "NodeSet name for remote artifact deployment (optional; auto-detected if omitted)")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
@@ -383,14 +388,43 @@ func compileWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag
 
 func deployWorkflow(
 	ctx context.Context,
-	wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag string,
+	wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, nodeSetNameFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag string,
 	workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version,
 	donIDFlag uint32,
 	deleteWorkflowFile bool,
 ) error {
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, wasmWorkflowFilePathFlag)
+	mode, resolvedNodeSetName, modeErr := resolveWorkflowArtifactDeployModeFromState(containerNamePatternFlag, nodeSetNameFlag)
+	if modeErr != nil {
+		return modeErr
+	}
+	var remoteTunnelManager tunnel.Manager
+	if mode == creworkflow.ArtifactDeployModeRemote {
+		manager, err := environment.NewEC2TunnelManager(framework.L)
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize tunnel manager for remote workflow artifact deploy")
+		}
+		remoteTunnelManager = manager
+		defer func() { _ = remoteTunnelManager.Stop(ctx) }()
+	}
+	deployArtifacts := func(files ...string) error {
+		return creworkflow.DeployArtifacts(
+			ctx,
+			creworkflow.DeployArtifactsOptions{
+				Mode:                 mode,
+				NodeSetName:          resolvedNodeSetName,
+				ContainerNamePattern: containerNamePatternFlag,
+				ContainerTargetDir:   containerTargetDirFlag,
+				Files:                files,
+				RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
+					return environment.DeployArtifactsToRemoteNodeSet(ctx, framework.L, remoteTunnelManager, nodeSetName, containerTargetDir, files)
+				},
+			},
+		)
+	}
+
+	copyErr := deployArtifacts(wasmWorkflowFilePathFlag)
 	if copyErr != nil {
-		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
+		return errors.Wrap(copyErr, "❌ failed to deploy workflow artifact")
 	}
 
 	fmt.Printf("\n✅ Workflow copied to Docker containers\n")
@@ -417,9 +451,9 @@ func deployWorkflow(
 			return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
 		}
 
-		configCopyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, configFilePathFlag)
+		configCopyErr := deployArtifacts(configFilePathFlag)
 		if configCopyErr != nil {
-			return errors.Wrap(configCopyErr, "❌ failed to copy config file to Docker container")
+			return errors.Wrap(configCopyErr, "❌ failed to deploy config artifact")
 		}
 
 		configPathAbs = "file://" + configPathAbs
@@ -444,9 +478,9 @@ func deployWorkflow(
 		fmt.Printf("\n✅ Encrypted workflow secrets file created at: %s\n\n", secretPathAbs)
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
-		secretsCopyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, secretPathAbs)
+		secretsCopyErr := deployArtifacts(secretPathAbs)
 		if secretsCopyErr != nil {
-			return errors.Wrap(secretsCopyErr, "❌ failed to copy encrypted secrets file to Docker container")
+			return errors.Wrap(secretsCopyErr, "❌ failed to deploy encrypted secrets artifact")
 		}
 
 		secretPathAbs = "file://" + secretPathAbs
@@ -497,7 +531,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true)
+	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, "", containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true)
 }
 
 func isBase64File(filename string) error {
@@ -540,6 +574,49 @@ func isBase64Content(content string) bool {
 
 	_, err := base64.StdEncoding.DecodeString(content)
 	return err == nil
+}
+
+func resolveWorkflowArtifactDeployModeFromState(containerNamePattern, nodeSetName string) (creworkflow.ArtifactDeployMode, string, error) {
+	cfg := &envconfig.Config{}
+	if err := cfg.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		if nodeSetName != "" {
+			return "", "", errors.Wrap(err, "failed to load local CRE state for remote artifact deployment")
+		}
+		return creworkflow.ArtifactDeployModeLocal, "", nil
+	}
+
+	if nodeSetName != "" {
+		for _, cfgNodeSet := range cfg.NodeSets {
+			if cfgNodeSet == nil || cfgNodeSet.Name != nodeSetName {
+				continue
+			}
+			if cfgNodeSet.Target == string(envconfig.TargetRemote) {
+				return creworkflow.ArtifactDeployModeRemote, nodeSetName, nil
+			}
+			return creworkflow.ArtifactDeployModeLocal, nodeSetName, nil
+		}
+		return "", "", fmt.Errorf("nodeset %q not found in local CRE state", nodeSetName)
+	}
+
+	matches := make([]string, 0)
+	for _, cfgNodeSet := range cfg.NodeSets {
+		if cfgNodeSet == nil || cfgNodeSet.Target != string(envconfig.TargetRemote) {
+			continue
+		}
+		prefix := ns.NodeNamePrefix(cfgNodeSet.Name)
+		if strings.Contains(prefix, containerNamePattern) || strings.Contains(containerNamePattern, prefix) {
+			matches = append(matches, cfgNodeSet.Name)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return creworkflow.ArtifactDeployModeLocal, "", nil
+	case 1:
+		return creworkflow.ArtifactDeployModeRemote, matches[0], nil
+	default:
+		return "", "", fmt.Errorf("container pattern %q matches multiple remote nodesets %v; specify --nodeset-name", containerNamePattern, matches)
+	}
 }
 
 func addressRefFromStateFile(contractType deployment.ContractType) (*datastore.AddressRef, error) {

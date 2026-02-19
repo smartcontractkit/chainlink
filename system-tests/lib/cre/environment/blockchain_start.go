@@ -3,8 +3,8 @@ package environment
 import (
 	"bytes"
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -22,10 +22,8 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/adapters"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -45,46 +43,25 @@ const (
 	defaultEC2AgentPort     = 8080
 )
 
-type startComponentEnvelope struct {
-	SchemaVersion string          `json:"schemaVersion"`
-	Operation     string          `json:"operation"`
-	Payload       json.RawMessage `json:"payload"`
-}
-
-type startComponentRequest struct {
-	ComponentType      string            `json:"componentType"`
-	Blockchain         *blockchain.Input `json:"blockchain"`
-	RegistryBlockchain map[string]any    `json:"registryBlockchain,omitempty"`
-	JD                 *jd.Input         `json:"jd"`
-	NodeSet            *ns.Input         `json:"nodeset,omitempty"`
-	ReusePolicy        string            `json:"reusePolicy,omitempty"`
-}
-
-type startComponentResult struct {
-	ComponentType    string         `json:"componentType"`
-	Output           map[string]any `json:"output"`
-	Found            bool           `json:"found"`
-	Stopped          bool           `json:"stopped"`
-	AgentLogs        []string       `json:"agentLogs"`
-	ErrorCode        string         `json:"errorCode"`
-	Error            string         `json:"error"`
-}
+type startComponentEnvelope = agent.StartComponentEnvelope
+type startComponentRequest = agent.StartComponentPayload
+type startComponentResult = agent.StartComponentResponse
 
 type componentClient interface {
-	StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startComponentResult, error)
+	StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error)
 }
 
 type httpComponentClient struct {
-	baseURL         string
-	client          *http.Client
-	maxAttempts     int
-	retryDelay      time.Duration
-	checkHealth     bool
+	baseURL     string
+	client      *http.Client
+	maxAttempts int
+	retryDelay  time.Duration
+	checkHealth bool
 }
 
 func newHTTPComponentClient(baseURL string) *httpComponentClient {
 	return &httpComponentClient{
-		baseURL:     baseURL,
+		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 4 * time.Minute,
 		},
@@ -96,7 +73,7 @@ func newHTTPComponentClient(baseURL string) *httpComponentClient {
 
 func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
 	return &httpComponentClient{
-		baseURL:     baseURL,
+		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 4 * time.Minute,
 		},
@@ -106,14 +83,14 @@ func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
 	}
 }
 
-func (c *httpComponentClient) StartComponent(ctx context.Context, envelope startComponentEnvelope) (*startComponentResult, error) {
+func (c *httpComponentClient) StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error) {
 	if c.checkHealth {
 		if err := c.waitForHealth(ctx); err != nil {
 			return nil, err
 		}
 	}
 
-	var result *startComponentResult
+	var result *agent.StartComponentResponse
 	err := retry.Do(
 		func() error {
 			var err error
@@ -132,7 +109,7 @@ func (c *httpComponentClient) StartComponent(ctx context.Context, envelope start
 	return result, nil
 }
 
-func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope startComponentEnvelope) (*startComponentResult, error) {
+func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error) {
 	body, err := json.Marshal(envelope)
 	if err != nil {
 		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to encode start component envelope"))
@@ -158,7 +135,7 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope s
 		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to read start component response"))
 	}
 
-	var startResp startComponentResult
+	var startResp agent.StartComponentResponse
 	if len(respBody) > 0 {
 		if err := json.Unmarshal(respBody, &startResp); err != nil {
 			return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to decode start component response"))
@@ -404,7 +381,7 @@ func startBlockchainsWithTargets(
 				return nil, err
 			}
 
-			payload := startComponentRequest{
+			payload := agent.StartComponentPayload{
 				ComponentType: componentTypeBlockchain,
 				Blockchain:    input,
 				ReusePolicy:   string(configured.RemoteStartPolicy),
@@ -414,7 +391,7 @@ func startBlockchainsWithTargets(
 				return nil, pkgerrors.Wrap(err, "failed to encode blockchain payload")
 			}
 
-			response, err := startClient.StartComponent(ctx, startComponentEnvelope{
+			response, err := startClient.StartComponent(ctx, agent.StartComponentEnvelope{
 				SchemaVersion: agent.SchemaVersionV1,
 				Operation:     agent.OperationStartComponent,
 				Payload:       payloadBytes,
@@ -479,6 +456,10 @@ func newEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {
 	}
 
 	return tunnel.NewManager(tunnel.NewSSMProvider(instanceID, ec2Region, testLogger)), nil
+}
+
+func NewEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {
+	return newEC2TunnelManager(testLogger)
 }
 
 func rewriteRemoteBlockchainOutputForLocalAccess(

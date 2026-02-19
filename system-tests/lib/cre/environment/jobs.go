@@ -84,7 +84,7 @@ func StartJD(
 		if err != nil {
 			return nil, err
 		}
-		payload := startComponentRequest{
+		payload := agent.StartComponentPayload{
 			ComponentType: componentTypeJD,
 			JD:            jdConfig.InputRef(),
 			ReusePolicy:   string(jdConfig.RemoteStartPolicy),
@@ -93,7 +93,7 @@ func StartJD(
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to encode jd payload")
 		}
-		response, err := startClient.StartComponent(ctx, startComponentEnvelope{
+		response, err := startClient.StartComponent(ctx, agent.StartComponentEnvelope{
 			SchemaVersion: agent.SchemaVersionV1,
 			Operation:     agent.OperationStartComponent,
 			Payload:       payloadBytes,

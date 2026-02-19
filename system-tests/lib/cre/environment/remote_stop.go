@@ -50,7 +50,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		if configuredBlockchain == nil || configuredBlockchain.Target != config.TargetRemote {
 			continue
 		}
-		payload := startComponentRequest{
+		payload := agent.StartComponentPayload{
 			ComponentType: componentTypeBlockchain,
 			Blockchain:    configuredBlockchain.InputRef(),
 			ReusePolicy:   string(configuredBlockchain.RemoteStartPolicy),
@@ -72,9 +72,9 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		if nodeSet == nil || strings.TrimSpace(nodeSet.Target) != string(config.TargetRemote) {
 			continue
 		}
-		payload := startComponentRequest{
+		payload := agent.StartComponentPayload{
 			ComponentType: componentTypeNodeSet,
-			NodeSet: &simple_node_set.Input{Name: nodeSet.Name},
+			NodeSet:       &simple_node_set.Input{Name: nodeSet.Name},
 			ReusePolicy:   nodeSet.RemoteStartPolicy,
 		}
 		result, err := stopRemoteComponent(ctx, lggr, startClient, payload, componentTypeNodeSet)
@@ -91,7 +91,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 	}
 
 	if cfg.JD != nil && cfg.JD.Target == config.TargetRemote {
-		payload := startComponentRequest{
+		payload := agent.StartComponentPayload{
 			ComponentType: componentTypeJD,
 			JD:            cfg.JD.InputRef(),
 			ReusePolicy:   string(cfg.JD.RemoteStartPolicy),
@@ -137,15 +137,15 @@ func stopRemoteComponent(
 	ctx context.Context,
 	lggr zerolog.Logger,
 	client componentClient,
-	payload startComponentRequest,
+	payload agent.StartComponentPayload,
 	expectedType string,
-) (*startComponentResult, error) {
+) (*agent.StartComponentResponse, error) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "failed to encode stop payload for component type %s", payload.ComponentType)
 	}
 
-	response, err := client.StartComponent(ctx, startComponentEnvelope{
+	response, err := client.StartComponent(ctx, agent.StartComponentEnvelope{
 		SchemaVersion: agent.SchemaVersionV1,
 		Operation:     agent.OperationStopComponent,
 		Payload:       payloadBytes,

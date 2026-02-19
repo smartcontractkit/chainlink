@@ -24,6 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/privateregistry"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	grpcsourcemock "github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -590,10 +593,35 @@ func compileAndCopyWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workf
 	}
 	require.NotEmpty(t, workflowDONName, "failed to find workflow DON name")
 
-	// Copy to containers
+	// Copy workflow artifacts to local or remote workflow DON targets.
 	testLogger.Info().Str("workflowName", workflowName).Str("donName", workflowDONName).Msg("Copying workflow artifacts to containers...")
 	containerTargetDir := creworkflow.DefaultWorkflowTargetDir
-	err = creworkflow.CopyArtifactsToDockerContainers(containerTargetDir, ns.NodeNamePrefix(workflowDONName), compressedWasmPath, configFilePath)
+	mode := creworkflow.ArtifactDeployModeLocal
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		if nodeSet != nil && nodeSet.Name == workflowDONName && nodeSet.Target == string(envconfig.TargetRemote) {
+			mode = creworkflow.ArtifactDeployModeRemote
+			break
+		}
+	}
+	var remoteTunnelManager tunnel.Manager
+	if mode == creworkflow.ArtifactDeployModeRemote {
+		remoteTunnelManager, err = creenv.NewEC2TunnelManager(testLogger)
+		require.NoError(t, err, "failed to initialize tunnel manager for remote artifact deploy")
+		defer func() { _ = remoteTunnelManager.Stop(ctx) }()
+	}
+	err = creworkflow.DeployArtifacts(
+		ctx,
+		creworkflow.DeployArtifactsOptions{
+			Mode:                 mode,
+			NodeSetName:          workflowDONName,
+			ContainerNamePattern: ns.NodeNamePrefix(workflowDONName),
+			ContainerTargetDir:   containerTargetDir,
+			Files:                []string{compressedWasmPath, configFilePath},
+			RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
+				return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, remoteTunnelManager, nodeSetName, containerTargetDir, files)
+			},
+		},
+	)
 	require.NoError(t, err, "failed to copy workflow artifacts to containers")
 
 	// Return the file:// URLs that nodes will use to fetch the artifacts
