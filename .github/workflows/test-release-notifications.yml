@@ -1,0 +1,27 @@
+name: "Test Release Notifications"
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  slack-notify-core:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/release-notifications.yml
+    secrets: inherit
+    with:
+      git-ref: ${{ github.ref_name }}
+      git-ref-type: ${{ github.ref_type }}
+      changelog-url: >-
+        ${{
+          format(
+            'https://github.com/{0}/blob/{1}/CHANGELOG.md',
+            github.repository,
+            github.ref_name
+          )
+        }}
+      docker-image-names: |
+        public.ecr.aws/chainlink/chainlink:fake-tag|sha256:0000000000000000000000000000000000000000000000000000000000000000
+        public.ecr.aws/chainlink/ccip:fake-ccip-tag|sha256:0000000000000000000000000000000000000000000000000000000000000000
