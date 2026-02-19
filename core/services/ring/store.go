@@ -44,7 +44,7 @@ type Store struct {
 
 const (
 	AllocationRequestChannelCapacity = 1000
-	getShardTransitionTimeout       = 30 * time.Second
+	getShardTransitionTimeout        = 30 * time.Second
 )
 
 func NewStore() *Store {
