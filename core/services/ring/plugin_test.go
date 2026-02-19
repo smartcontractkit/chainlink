@@ -443,7 +443,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 
 	transmitter := NewTransmitter(lggr, store, nil, arbiter, "test-account")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
 	defer cancel()
 
 	// Start a goroutine that requests allocation (will block waiting for OCR)
@@ -538,7 +538,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	plugin, err := NewPlugin(store, &mockArbiter{}, config, lggr, nil)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	outctx := ocr3types.OutcomeContext{}
 
 	t.Run("quorum_reached", func(t *testing.T) {
@@ -614,7 +614,7 @@ func TestPlugin_ShardOrchestratorIntegration(t *testing.T) {
 	// Create transmitter with both stores
 	transmitter := NewTransmitter(lggr, ringStore, orchestratorStore, arbiter, "test-account")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	now := time.Now()
 
 	t.Run("initial_workflow_assignments", func(t *testing.T) {

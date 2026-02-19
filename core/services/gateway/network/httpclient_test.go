@@ -285,7 +285,7 @@ func TestHTTPClient_Send(t *testing.T) {
 
 			tt.request.URL = server.URL + tt.request.URL
 
-			resp, err := client.Send(context.Background(), tt.request)
+			resp, err := client.Send(t.Context(), tt.request)
 			if tt.expectedError != nil {
 				require.Error(t, err)
 				require.ErrorContains(t, err, tt.expectedError.Error())
@@ -498,7 +498,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 			client, err := NewHTTPClient(config, lggr)
 			require.NoError(t, err)
 
-			_, err = client.Send(context.Background(), HTTPRequest{
+			_, err = client.Send(t.Context(), HTTPRequest{
 				Method:  "GET",
 				URL:     testURL.String(),
 				Headers: map[string]string{},
@@ -562,7 +562,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 			client, err := NewHTTPClient(config, lggr)
 			require.NoError(t, err)
 
-			_, err = client.Send(context.Background(), HTTPRequest{
+			_, err = client.Send(t.Context(), HTTPRequest{
 				Method:  "GET",
 				URL:     server.URL,
 				Headers: map[string]string{},
@@ -888,7 +888,7 @@ func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 				headers = map[string]string{}
 			}
 
-			_, err = client.Send(context.Background(), HTTPRequest{
+			_, err = client.Send(t.Context(), HTTPRequest{
 				Method:  method,
 				URL:     tt.url,
 				Headers: headers,
@@ -942,7 +942,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},
@@ -998,7 +998,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},
@@ -1048,7 +1048,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},
@@ -1094,7 +1094,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},

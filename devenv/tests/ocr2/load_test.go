@@ -1,7 +1,6 @@
 package ocr2
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -22,7 +21,7 @@ import (
 )
 
 func TestOCR2Load(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
@@ -131,7 +130,7 @@ func TestOCR2Load(t *testing.T) {
 			o2, err := ocr2aggregator.NewOCR2Aggregator(common.HexToAddress(pdConfig.Config[0].DeployedContracts.OCRv2AggregatorAddr), c)
 			require.NoError(t, err)
 			L.Info().Any("Config", tc.cfg).Msg("Applying new OCR2 configuration")
-			err = ocr2.UpdateOCR2ConfigOffChainValues(context.Background(), in.Blockchains[0], pdConfig.Config[0], o2, clNodes, tc.cfg)
+			err = ocr2.UpdateOCR2ConfigOffChainValues(t.Context(), in.Blockchains[0], pdConfig.Config[0], o2, clNodes, tc.cfg)
 			require.NoError(t, err)
 			for range tc.repeat {
 				verifyRounds(t, in, o2, tc, anvilClient)

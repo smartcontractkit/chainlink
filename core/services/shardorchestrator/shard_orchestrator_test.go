@@ -1,7 +1,6 @@
 package shardorchestrator_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ func setupShardOrchestrator(t *testing.T) (*shardorchestrator.Store, ringpb.Shar
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	orchestrator := shardorchestrator.New(0, store, lggr)
 
 	err := orchestrator.Start(ctx)
@@ -52,7 +51,7 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 		store, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Add some test mappings to the store
 		err := store.UpdateWorkflowMapping(ctx, "workflow1", 0, 1, shardorchestrator.StateSteady)
@@ -77,7 +76,7 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Call with empty workflow IDs
 		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
@@ -95,7 +94,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Report workflows registered on a shard
 		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
@@ -116,7 +115,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Report with no workflows
 		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
@@ -134,7 +133,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Multiple shards reporting different workflows
 		resp1, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
@@ -164,7 +163,7 @@ func TestShardOrchestrator_Integration(t *testing.T) {
 		store, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Step 1: Add workflows to the store
 		err := store.UpdateWorkflowMapping(ctx, "workflow-a", 0, 1, shardorchestrator.StateSteady)

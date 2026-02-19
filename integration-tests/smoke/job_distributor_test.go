@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,7 +35,7 @@ func TestRegisteringMultipleJobDistributor(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err = env.ClCluster.Nodes[0].GraphqlAPI.CreateJobDistributor(ctx, graphqlClient.JobDistributorInput{
 		Name:      "job-distributor-1",
 		Uri:       "http://job-distributor-1:8080",

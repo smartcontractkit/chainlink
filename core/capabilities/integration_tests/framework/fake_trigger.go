@@ -123,15 +123,13 @@ func (s *fakeTrigger) RegisterTrigger(ctx context.Context, request capabilities.
 
 	responseCh := make(chan capabilities.TriggerResponse)
 
-	ctxWithCancel, cancel := context.WithCancel(context.Background())
+	ctxWithCancel, cancel := s.stopCh.NewCtx()
 	s.cancel = cancel
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
 		for {
 			select {
-			case <-s.stopCh:
-				return
 			case <-ctxWithCancel.Done():
 				return
 			case resp := <-s.toSend:

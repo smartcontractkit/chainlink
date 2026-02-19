@@ -24,7 +24,7 @@ func TestStore_DeterministicHashing(t *testing.T) {
 		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Test determinism: same workflow always gets same shard
 	shard1, err := store.GetShardForWorkflow(ctx, "workflow-123")
@@ -56,7 +56,7 @@ func TestStore_ConsistentRingConsistency(t *testing.T) {
 	store3.SetAllShardHealth(healthyShards)
 	store3.SetRoutingState(steadyState)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// All compute same assignments
 	workflows := []string{"workflow-A", "workflow-B", "workflow-C", "workflow-D"}
@@ -75,7 +75,7 @@ func TestStore_ConsistentRingConsistency(t *testing.T) {
 
 func TestStore_Rebalancing(t *testing.T) {
 	store := NewStore()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Start with 3 healthy shards
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
@@ -131,7 +131,7 @@ func TestStore_GetHealthyShards(t *testing.T) {
 
 func TestStore_DistributionAcrossShards(t *testing.T) {
 	store := NewStore()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	store.SetAllShardHealth(map[uint32]bool{
 		0: true,
@@ -172,7 +172,7 @@ func sum(distribution map[uint32]int) int {
 
 func TestStore_GetShardForWorkflow_CacheHit(t *testing.T) {
 	store := NewStore()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Set up steady state
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
@@ -206,7 +206,7 @@ func TestStore_GetShardForWorkflow_ContextCancelledDuringSend(t *testing.T) {
 	}
 
 	// Context that's already cancelled
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Should fail: channel is full and context is cancelled
@@ -225,7 +225,7 @@ func TestStore_PendingAllocsDuringTransition(t *testing.T) {
 		},
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	// Start a goroutine that requests allocation (will block)

@@ -138,7 +138,7 @@ func validateShardOrchestratorRPC(t *testing.T, logger zerolog.Logger, addr stri
 
 	client := ringpb.NewShardOrchestratorServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: []string{"test-workflow-id"},
@@ -160,7 +160,7 @@ func validateArbiterRPC(t *testing.T, logger zerolog.Logger, addr string) {
 
 	client := ringpb.NewArbiterClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	resp, err := client.GetDesiredReplicas(ctx, &ringpb.ShardStatusRequest{})
 
@@ -182,7 +182,7 @@ func validateArbiterRPC(t *testing.T, logger zerolog.Logger, addr string) {
 func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string) {
 	t.Helper()
 	logger := framework.L
-	ctx := context.Background()
+	ctx := t.Context()
 
 	shardConfigRef := getShardConfigRef(t, testEnv)
 	chainSelector := testEnv.CreEnvironment.RegistryChainSelector
@@ -278,7 +278,7 @@ func updateShardCount(t *testing.T, testEnv *ttypes.TestEnvironment, chainSelect
 func waitForArbiterShardCount(t *testing.T, client ringpb.ArbiterClient, expected uint32) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		resp, err := client.GetDesiredReplicas(ctx, &ringpb.ShardStatusRequest{})
 		if err != nil {
