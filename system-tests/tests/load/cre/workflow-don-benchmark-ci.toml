@@ -39,18 +39,7 @@ jobs = 1                   # Number of jobs per stream
 [infra]
 type = "docker"
 
-# CRIB deployment configuration for local KIND cluster
-[infra.crib]
-namespace = "crib-workflow-don-load-test"
-folder_location = "../../../../../crib/deployments/cre"  # Path to CRIB deployment folder
-provider = "kind"           # Local Kubernetes in Docker
 
-# Team information for resource tracking
-[infra.crib.team_input]
-team="cre"
-product="workflow-don"
-component="workflow-don"
-cost_center="capabilities-df-migration-performance-tests"
 
 # ----- WORKFLOW NODES CONFIGURATION -----
 # Setup for a 6-node Workflow DON cluster (includes bootstrap node)

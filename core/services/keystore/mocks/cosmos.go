@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	cosmoskey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	cosmoskey "github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
 
 	mock "github.com/stretchr/testify/mock"
 )

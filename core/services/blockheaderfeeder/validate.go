@@ -52,7 +52,7 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 		return jb, notSet("evmChainID")
 	}
 
-	err = validateChainID(spec.EVMChainID.Int64())
+	err = validateChainID(spec.EVMChainID.ToInt().Int64())
 	if err != nil {
 		return jb, err
 	}

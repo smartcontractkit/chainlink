@@ -125,10 +125,6 @@ func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 }
 
 func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
-	if s.provider.IsCRIB() {
-		return nil, errors.New("CRIB deployment for Solana is not supported yet")
-	}
-
 	var bcOut *blockchain.Output
 	var err error
 

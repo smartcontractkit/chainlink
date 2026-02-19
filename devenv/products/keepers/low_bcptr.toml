@@ -1,0 +1,82 @@
+[[products]]
+name = "keepers"
+instances = 3
+
+[[keepers]]
+registry_version = "1.1"
+cl_nodes_funding_eth = 50
+
+[keepers.gas_settings]
+# EIP1159 fee cap multiplier (default, for all transactions)
+fee_cap_multiplier = 2
+# EIP1159 fee cap multiplier (default, for all transactions)
+tip_cap_multiplier = 2
+
+[keepers.registry_settings]
+payment_premium_ppb=200_000_000
+flat_fee_micro_link=0
+block_count_per_turn = 4
+check_gas_limit=2_500_000
+staleness_seconds=90000
+gas_ceiling_multiplier=1
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000
+
+
+[[keepers]]
+registry_version = "1.2"
+cl_nodes_funding_eth = 50
+
+[keepers.gas_settings]
+# EIP1159 fee cap multiplier (default, for all transactions)
+fee_cap_multiplier = 2
+# EIP1159 fee cap multiplier (default, for all transactions)
+tip_cap_multiplier = 2
+
+[keepers.registry_settings]
+payment_premium_ppb=200_000_000
+flat_fee_micro_link=0
+block_count_per_turn = 4
+check_gas_limit=2_500_000
+staleness_seconds=90000
+gas_ceiling_multiplier=1
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000
+
+[[keepers]]
+registry_version = "1.3"
+cl_nodes_funding_eth = 50
+
+[keepers.gas_settings]
+# EIP1159 fee cap multiplier (default, for all transactions)
+fee_cap_multiplier = 2
+# EIP1159 fee cap multiplier (default, for all transactions)
+tip_cap_multiplier = 2
+
+[keepers.registry_settings]
+payment_premium_ppb=200_000_000
+flat_fee_micro_link=0
+block_count_per_turn = 4
+check_gas_limit=2_500_000
+staleness_seconds=90000
+gas_ceiling_multiplier=1
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000

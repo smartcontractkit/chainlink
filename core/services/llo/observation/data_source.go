@@ -126,9 +126,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	}
 
 	// Fetch the cached observations for all streams.
-	for streamID := range streamValues {
-		streamValues[streamID], _ = d.cache.Get(streamID)
-	}
+	d.cache.GetMany(streamValues)
 
 	return nil
 }
@@ -206,6 +204,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			var mu sync.Mutex
 			successfulStreamIDs := make([]streams.StreamID, 0, len(osv.streamValues))
+			observedValues := make(map[streams.StreamID]llo.StreamValue, len(osv.streamValues))
 			var errs []ErrObservationFailed
 
 			var wg sync.WaitGroup
@@ -239,10 +238,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 						return
 					}
 
-					// cache the observed value
-					d.cache.Add(streamID, val, 4*osv.observationTimeout)
-
 					mu.Lock()
+					observedValues[streamID] = val
 					successfulStreamIDs = append(successfulStreamIDs, streamID)
 					mu.Unlock()
 				}(streamID)
@@ -250,6 +247,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			wg.Wait()
 			elapsed = time.Since(startTS)
+
+			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
 
 			// notify the caller that we've completed our first round of observations.
 			if loopStarting {

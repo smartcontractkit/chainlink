@@ -3,7 +3,7 @@ package resolver
 import (
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 )
 
 type SuiKeyResolver struct {

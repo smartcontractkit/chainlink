@@ -1,6 +1,6 @@
 package test
 
-import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+import "github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 
 // P2PIDs is a slice of p2pkey.PeerID with convenient transform methods.
 type P2PIDs []p2pkey.PeerID

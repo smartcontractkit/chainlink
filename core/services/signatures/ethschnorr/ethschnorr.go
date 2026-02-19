@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-
 	"go.dedis.ch/kyber/v3"
+
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 )
 
 var secp256k1Suite = secp256k1.NewBlakeKeccackSecp256k1()

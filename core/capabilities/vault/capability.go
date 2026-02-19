@@ -110,6 +110,17 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
 
+	normalizedWorkflowOwner := normalizeOwner(request.Metadata.WorkflowOwner)
+	for idx, req := range r.Requests {
+		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
+			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
+		}
+
+		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
+			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
+		}
+	}
+
 	// We need to generate sufficiently unique IDs accounting for two cases:
 	// 1. called during the subscription phase, in which case the executionID will be blank
 	// 2. called during execution, in which case it'll be present.
@@ -289,6 +300,10 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 	return &vaultcommon.GetPublicKeyResponse{
 		PublicKey: hex.EncodeToString(pkb),
 	}, nil
+}
+
+func normalizeOwner(owner string) string {
+	return strings.ToLower(strings.TrimPrefix(owner, "0x"))
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {

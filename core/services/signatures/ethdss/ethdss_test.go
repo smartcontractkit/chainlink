@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/ethschnorr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-
 	"go.dedis.ch/kyber/v3"
 	dkg "go.dedis.ch/kyber/v3/share/dkg/rabin"
+
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/ethschnorr"
 )
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()

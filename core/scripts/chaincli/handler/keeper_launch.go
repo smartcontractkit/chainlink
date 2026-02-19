@@ -19,17 +19,17 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry12 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -418,7 +418,7 @@ func (k *Keeper) addKeyToKeeper(ctx context.Context, client cmd.HTTPClient, priv
 	}
 	address := crypto.PubkeyToAddress(privkey.PublicKey).Hex()
 	log.Printf("importing keeper key %s", address)
-	keyJSON, err := ethkey.FromPrivateKey(privkey).ToEncryptedJSON(defaultChainlinkNodePassword, utils.FastScryptParams)
+	keyJSON, err := ethkey.FromPrivateKey(privkey).ToEncryptedJSON(defaultChainlinkNodePassword, keystore.FastScryptParams)
 	if err != nil {
 		log.Fatalf("Failed to encrypt piv key %s: %v", privKeyHex, err)
 	}

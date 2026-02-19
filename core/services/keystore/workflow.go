@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 )
 
 // ErrWorkflowKeyExists describes the error when the workflow key already exists

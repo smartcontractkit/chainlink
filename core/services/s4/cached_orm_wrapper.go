@@ -9,7 +9,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -40,7 +40,7 @@ func NewCachedORMWrapper(orm ORM, lggr logger.Logger) *CachedORM {
 	}
 }
 
-func (c CachedORM) Get(ctx context.Context, address *ubig.Big, slotId uint) (*Row, error) {
+func (c CachedORM) Get(ctx context.Context, address *sqlutil.Big, slotId uint) (*Row, error) {
 	return c.underlayingORM.Get(ctx, address, slotId)
 }
 

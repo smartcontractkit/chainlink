@@ -195,12 +195,11 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	ctx := context.Background()
 	lggr := logger.Test(t)
 
 	t.Run("creates client successfully", func(t *testing.T) {
 		// Note: This creates a client but doesn't connect immediately with grpc.NewClient
-		client, err := NewClient(ctx, "localhost:50051", lggr)
+		client, err := NewClient("localhost:50051", lggr)
 		require.NoError(t, err)
 		require.NotNil(t, client)
 		defer client.Close()

@@ -162,11 +162,11 @@ jobs:
 
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           if [[ "${CRE_VERSION}" == "v1" ]]; then
-            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}"
+            echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v1
           else
-            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v2
+            echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}"
           fi
 
           exit_code=$?
