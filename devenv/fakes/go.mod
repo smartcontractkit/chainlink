@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/devenv/fakes
 
-go 1.25.5
+go 1.25.7
 
 require (
 	github.com/gin-gonic/gin v1.10.1
