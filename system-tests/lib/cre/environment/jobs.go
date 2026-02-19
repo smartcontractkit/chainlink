@@ -68,6 +68,7 @@ func StartJD(
 	jdConfig *config.JobDistributor,
 	infraInput infra.Provider,
 	tunnelManager tunnel.Manager,
+	rewriteInternalForLocalNodes bool,
 ) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
@@ -114,7 +115,7 @@ func StartJD(
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to decode jd transport payload")
 		}
-		if err := rewriteRemoteJDOutputForLocalAccess(ctx, lggr, tunnelManager, jdOutput); err != nil {
+		if err := rewriteRemoteJDOutputForLocalAccess(ctx, lggr, tunnelManager, jdOutput, rewriteInternalForLocalNodes); err != nil {
 			return nil, err
 		}
 	} else if infraInput.IsKubernetes() {
@@ -172,6 +173,7 @@ func rewriteRemoteJDOutputForLocalAccess(
 	lggr zerolog.Logger,
 	tunnelManager tunnel.Manager,
 	output *jd.Output,
+	rewriteInternalForLocalNodes bool,
 ) error {
 	if output == nil {
 		return nil
@@ -196,7 +198,7 @@ func rewriteRemoteJDOutputForLocalAccess(
 			Str("localURL", binding.LocalURL).
 			Msg("Established endpoint tunnel")
 	}
-	return rewriteJDWithBindings(output, bindings)
+	return rewriteJDWithBindings(output, bindings, rewriteInternalForLocalNodes)
 }
 
 func describeJDEndpoints(output *jd.Output) ([]tunnel.EndpointRef, error) {
@@ -222,7 +224,7 @@ func describeJDEndpoints(output *jd.Output) ([]tunnel.EndpointRef, error) {
 	return refs, nil
 }
 
-func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding) error {
+func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding, rewriteInternalForLocalNodes bool) error {
 	byName := make(map[string]tunnel.TunnelBinding, len(bindings))
 	for _, binding := range bindings {
 		byName[binding.EndpointName] = binding
@@ -233,9 +235,11 @@ func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding) e
 		if !ok {
 			return fmt.Errorf("missing tunnel binding for jd grpc endpoint")
 		}
-		dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 		output.ExternalGRPCUrl = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", binding.LocalPort))
-		output.InternalGRPCUrl = net.JoinHostPort(dockerHost, fmt.Sprintf("%d", binding.LocalPort))
+		if rewriteInternalForLocalNodes {
+			dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+			output.InternalGRPCUrl = net.JoinHostPort(dockerHost, fmt.Sprintf("%d", binding.LocalPort))
+		}
 	}
 
 	if output.ExternalWSRPCUrl != "" || output.InternalWSRPCUrl != "" {
@@ -243,9 +247,11 @@ func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding) e
 		if !ok {
 			return fmt.Errorf("missing tunnel binding for jd wsrpc endpoint")
 		}
-		dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-		output.InternalWSRPCUrl = net.JoinHostPort(dockerHost, fmt.Sprintf("%d", binding.LocalPort))
 		output.ExternalWSRPCUrl = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", binding.LocalPort))
+		if rewriteInternalForLocalNodes {
+			dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+			output.InternalWSRPCUrl = net.JoinHostPort(dockerHost, fmt.Sprintf("%d", binding.LocalPort))
+		}
 	}
 
 	return nil

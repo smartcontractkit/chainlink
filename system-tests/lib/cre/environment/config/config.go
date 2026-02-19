@@ -211,6 +211,10 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 	}
 
 	for _, nodeSet := range c.NodeSets {
+		normalizeNodeSetPlacement(nodeSet)
+		if err := validateNodeSetPlacement(nodeSet); err != nil {
+			return err
+		}
 		for _, capability := range nodeSet.Capabilities {
 			capability = removeChainIDFromFlag(capability)
 			if !slices.Contains(envDependencies.SupportedCapabilityFlags(), capability) {
@@ -223,6 +227,31 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 		return fmt.Errorf("failed to validate initial contract set: %w", err)
 	}
 
+	return nil
+}
+
+func normalizeNodeSetPlacement(nodeSet *cre.NodeSet) {
+	if nodeSet == nil {
+		return
+	}
+	if strings.TrimSpace(nodeSet.Target) == "" {
+		nodeSet.Target = string(TargetDocker)
+	}
+	if strings.TrimSpace(nodeSet.RemoteStartPolicy) == "" {
+		nodeSet.RemoteStartPolicy = string(RemoteStartPolicyReuseIfIdentical)
+	}
+}
+
+func validateNodeSetPlacement(nodeSet *cre.NodeSet) error {
+	if nodeSet == nil {
+		return errors.New("nodeset is nil")
+	}
+	if nodeSet.Target != string(TargetDocker) && nodeSet.Target != string(TargetRemote) {
+		return fmt.Errorf("invalid nodeset target: %s", nodeSet.Target)
+	}
+	if nodeSet.RemoteStartPolicy != string(RemoteStartPolicyReuseIfIdentical) && nodeSet.RemoteStartPolicy != string(RemoteStartPolicyAlways) {
+		return fmt.Errorf("invalid nodeset remote_start_policy: %s", nodeSet.RemoteStartPolicy)
+	}
 	return nil
 }
 

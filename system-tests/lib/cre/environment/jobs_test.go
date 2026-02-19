@@ -55,7 +55,7 @@ func TestRewriteJDWithBindingsRewritesNodeFacingWSRPC(t *testing.T) {
 		},
 	}
 
-	if err := rewriteJDWithBindings(output, bindings); err != nil {
+	if err := rewriteJDWithBindings(output, bindings, true); err != nil {
 		t.Fatalf("rewriteJDWithBindings returned error: %v", err)
 	}
 

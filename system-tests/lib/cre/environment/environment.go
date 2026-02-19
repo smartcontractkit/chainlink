@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
@@ -153,6 +154,10 @@ func SetupTestEnvironment(
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
+	nodeSetPlacement, err := summarizeNodeSetPlacement(input.NodeSets)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "nodeset placement validation failed")
+	}
 
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
@@ -172,6 +177,7 @@ func SetupTestEnvironment(
 		input.Blockchains,
 		input.BlockchainDeployers,
 		tunnelManager,
+		nodeSetPlacement.HasLocalTargets,
 	)
 	if startErr != nil {
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
@@ -264,7 +270,7 @@ func SetupTestEnvironment(
 
 	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
 		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
-		jdOutput, startJDErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager)
+		jdOutput, startJDErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager, nodeSetPlacement.HasLocalTargets)
 		if startJDErr != nil {
 			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}
@@ -272,7 +278,7 @@ func SetupTestEnvironment(
 	})
 
 	donsStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
-		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets)
+		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, tunnelManager)
 		if startDonsErr != nil {
 			return nil, pkgerrors.Wrap(startDonsErr, "failed to start DONs")
 		}
@@ -512,6 +518,37 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput,
 
 	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	input.JdInput.Out = jdOutput
+}
+
+type nodeSetPlacementSummary struct {
+	HasLocalTargets  bool
+	HasRemoteTargets bool
+}
+
+func summarizeNodeSetPlacement(nodeSets []*cre.NodeSet) (*nodeSetPlacementSummary, error) {
+	summary := &nodeSetPlacementSummary{}
+	for _, nodeSet := range nodeSets {
+		if nodeSet == nil {
+			continue
+		}
+		configTarget := strings.TrimSpace(nodeSet.Target)
+		if configTarget == "" || configTarget == string(config.TargetDocker) {
+			summary.HasLocalTargets = true
+			continue
+		}
+		if configTarget == string(config.TargetRemote) {
+			summary.HasRemoteTargets = true
+			continue
+		}
+		return nil, fmt.Errorf("invalid nodeset target: %s", nodeSet.Target)
+	}
+
+	// Mixed local and remote nodeset targets need per-DON node-facing URL config selection.
+	// Current PrepareNodeTOMLs builds one node-facing URL shape, so keep this unsupported for now.
+	if summary.HasLocalTargets && summary.HasRemoteTargets {
+		return nil, errors.New("mixed nodeset targets are not supported yet; set all nodesets target=docker or all target=remote")
+	}
+	return summary, nil
 }
 
 

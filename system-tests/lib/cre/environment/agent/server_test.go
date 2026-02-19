@@ -220,3 +220,19 @@ func TestStopComponentIdempotent(t *testing.T) {
 		t.Fatalf("expected second stop to be no-op, got found=%v stopped=%v", stopResp2.Found, stopResp2.Stopped)
 	}
 }
+
+func TestShouldCleanupFailedContainersDefaultsToTrue(t *testing.T) {
+	t.Setenv(EnvKeepFailedContainers, "")
+	if !shouldCleanupFailedContainers() {
+		t.Fatal("expected cleanup to be enabled by default")
+	}
+}
+
+func TestShouldCleanupFailedContainersCanBeDisabled(t *testing.T) {
+	for _, value := range []string{"1", "true", "yes", "on", "TRUE"} {
+		t.Setenv(EnvKeepFailedContainers, value)
+		if shouldCleanupFailedContainers() {
+			t.Fatalf("expected cleanup to be disabled for value %q", value)
+		}
+	}
+}

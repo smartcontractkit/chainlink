@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/adapters"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -34,6 +35,7 @@ import (
 const (
 	componentTypeBlockchain = "blockchain"
 	componentTypeJD         = "jd"
+	componentTypeNodeSet    = "nodeset"
 	envLocalAgentURL        = "CRE_LOCAL_AGENT_URL"
 	envEC2AgentURL          = "CRE_EC2_AGENT_URL"
 	envEC2InstanceID        = "CRE_EC2_INSTANCE_ID"
@@ -50,10 +52,12 @@ type startComponentEnvelope struct {
 }
 
 type startComponentRequest struct {
-	ComponentType string            `json:"componentType"`
-	Blockchain    *blockchain.Input `json:"blockchain"`
-	JD            *jd.Input         `json:"jd"`
-	ReusePolicy   string            `json:"reusePolicy,omitempty"`
+	ComponentType      string            `json:"componentType"`
+	Blockchain         *blockchain.Input `json:"blockchain"`
+	RegistryBlockchain map[string]any    `json:"registryBlockchain,omitempty"`
+	JD                 *jd.Input         `json:"jd"`
+	NodeSet            *ns.Input         `json:"nodeset,omitempty"`
+	ReusePolicy        string            `json:"reusePolicy,omitempty"`
 }
 
 type startComponentResult struct {
@@ -231,7 +235,8 @@ func isRetriableNetworkError(err error) bool {
 }
 
 func newStartComponentClient(testLogger zerolog.Logger, tunnelManager tunnel.Manager) (componentClient, error) {
-	if os.Getenv(envAgentMode) == "ec2" {
+	agentMode := strings.TrimSpace(os.Getenv(envAgentMode))
+	if strings.EqualFold(agentMode, "ec2") {
 		baseURL, err := resolveEC2AgentBaseURL(testLogger, tunnelManager)
 		if err != nil {
 			return nil, err
@@ -351,6 +356,7 @@ func startBlockchainsWithTargets(
 	configuredBlockchains []*config.Blockchain,
 	deployers map[blockchain.ChainFamily]blockchains.Deployer,
 	tunnelManager tunnel.Manager,
+	rewriteInternalForLocalNodes bool,
 ) (*blockchains.DeployedBlockchains, error) {
 	blockchainInputs, err := config.ResolveBlockchainInputs(configuredBlockchains)
 	if err != nil {
@@ -431,7 +437,7 @@ func startBlockchainsWithTargets(
 				return nil, pkgerrors.Wrap(err, "failed to decode blockchain transport payload")
 			}
 
-			if err := rewriteRemoteBlockchainOutputForLocalAccess(ctx, testLogger, tunnelManager, idx, input, blockchainOutput); err != nil {
+			if err := rewriteRemoteBlockchainOutputForLocalAccess(ctx, testLogger, tunnelManager, idx, input, blockchainOutput, rewriteInternalForLocalNodes); err != nil {
 				return nil, err
 			}
 
@@ -482,6 +488,7 @@ func rewriteRemoteBlockchainOutputForLocalAccess(
 	configuredIndex int,
 	input *blockchain.Input,
 	output *blockchain.Output,
+	rewriteInternalForLocalNodes bool,
 ) error {
 	if output == nil {
 		return nil
@@ -511,8 +518,10 @@ func rewriteRemoteBlockchainOutputForLocalAccess(
 	if err := adapter.RewriteWithBindings(output, bindings); err != nil {
 		return pkgerrors.Wrap(err, "failed to rewrite blockchain output with local tunnel bindings")
 	}
-	if err := rewriteBlockchainInternalURLsForLocalNodes(output); err != nil {
-		return pkgerrors.Wrap(err, "failed to rewrite blockchain internal urls for local node containers")
+	if rewriteInternalForLocalNodes {
+		if err := rewriteBlockchainInternalURLsForLocalNodes(output); err != nil {
+			return pkgerrors.Wrap(err, "failed to rewrite blockchain internal urls for local node containers")
+		}
 	}
 
 	return nil

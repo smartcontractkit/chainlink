@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
@@ -35,6 +36,7 @@ const (
 	OperationHealth          = "Health"
 	ComponentTypeBlockchain  = "blockchain"
 	ComponentTypeJD          = "jd"
+	ComponentTypeNodeSet     = "nodeset"
 
 	ErrCodeMethodNotAllowed       = "method_not_allowed"
 	ErrCodeInvalidRequestBody     = "invalid_request_body"
@@ -48,6 +50,8 @@ const (
 
 	RemoteStartPolicyAlways       = "always"
 	RemoteStartPolicyReuseIdentical = "reuse_if_identical"
+
+	EnvKeepFailedContainers = "CRE_AGENT_KEEP_FAILED_CONTAINERS"
 )
 
 var frameworkLogCaptureMu sync.Mutex
@@ -59,10 +63,12 @@ type StartComponentEnvelope struct {
 }
 
 type StartComponentPayload struct {
-	ComponentType string            `json:"componentType"`
-	Blockchain    *blockchain.Input `json:"blockchain"`
-	JD            *jd.Input         `json:"jd"`
-	ReusePolicy   string            `json:"reusePolicy,omitempty"`
+	ComponentType      string             `json:"componentType"`
+	Blockchain         *blockchain.Input  `json:"blockchain"`
+	RegistryBlockchain map[string]any     `json:"registryBlockchain,omitempty"`
+	JD                 *jd.Input          `json:"jd"`
+	NodeSet            *ns.Input          `json:"nodeset,omitempty"`
+	ReusePolicy        string             `json:"reusePolicy,omitempty"`
 }
 
 type StartComponentResponse struct {
@@ -136,7 +142,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusBadRequest, ErrCodeInvalidPayload, fmt.Sprintf("invalid payload: %v", err), nil)
 		return
 	}
-	if payload.ComponentType != ComponentTypeBlockchain && payload.ComponentType != ComponentTypeJD {
+	if payload.ComponentType != ComponentTypeBlockchain && payload.ComponentType != ComponentTypeJD && payload.ComponentType != ComponentTypeNodeSet {
 		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedComponent, fmt.Sprintf("unsupported component type: %s", payload.ComponentType), nil)
 		return
 	}
@@ -192,6 +198,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 	agentLogs = append(agentLogs, preStartLogs...)
 	var blockchainOutput *blockchain.Output
 	var jdOutput *jd.Output
+	var nodeSetOutput *ns.Output
 	trackedContainers, startErr := s.discoverOwnedContainers(r.Context(), func() error {
 		capturedFrameworkLogs, runErr := captureFrameworkLogs(func() error {
 			switch payload.ComponentType {
@@ -207,6 +214,16 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 				jdOutput = deployed
+			case ComponentTypeNodeSet:
+				registryOutput, err := DecodeFromTransport[blockchain.Output](payload.RegistryBlockchain)
+				if err != nil {
+					return fmt.Errorf("failed to decode registry blockchain payload for nodeset: %w", err)
+				}
+				deployed, err := DeployNodeSetComponent(r.Context(), payload.NodeSet, registryOutput)
+				if err != nil {
+					return err
+				}
+				nodeSetOutput = deployed
 			}
 			return nil
 		})
@@ -215,13 +232,15 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if startErr != nil {
-		if len(trackedContainers) > 0 {
+		if len(trackedContainers) > 0 && shouldCleanupFailedContainers() {
 			cleanupErr := stopContainers(r.Context(), trackedContainers)
 			if cleanupErr != nil {
 				agentLogs = append(agentLogs, fmt.Sprintf("[cre-agent] failed startup cleanup for %d tracked container(s): %v", len(trackedContainers), cleanupErr))
 			} else {
 				agentLogs = append(agentLogs, fmt.Sprintf("[cre-agent] cleaned up %d tracked container(s) after failed startup", len(trackedContainers)))
 			}
+		} else if len(trackedContainers) > 0 {
+			agentLogs = append(agentLogs, fmt.Sprintf("[cre-agent] preserving %d tracked container(s) after failed startup because %s is enabled", len(trackedContainers), EnvKeepFailedContainers))
 		}
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, startErr.Error(), agentLogs)
 		return
@@ -233,6 +252,8 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		output, encErr = EncodeForTransport(blockchainOutput)
 	} else if jdOutput != nil {
 		output, encErr = EncodeForTransport(jdOutput)
+	} else if nodeSetOutput != nil {
+		output, encErr = EncodeForTransport(nodeSetOutput)
 	}
 	if encErr != nil {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeTransportEncodeFailed, encErr.Error(), agentLogs)
@@ -521,6 +542,11 @@ func hashPayload(payload []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func shouldCleanupFailedContainers() bool {
+	raw := strings.TrimSpace(strings.ToLower(os.Getenv(EnvKeepFailedContainers)))
+	return raw == "" || (raw != "1" && raw != "true" && raw != "yes" && raw != "on")
+}
+
 func componentCacheKey(payload StartComponentPayload) (string, error) {
 	switch payload.ComponentType {
 	case ComponentTypeBlockchain:
@@ -533,6 +559,11 @@ func componentCacheKey(payload StartComponentPayload) (string, error) {
 			return "", fmt.Errorf("jd payload is required")
 		}
 		return fmt.Sprintf("%s:%s", payload.ComponentType, payload.JD.Image), nil
+	case ComponentTypeNodeSet:
+		if payload.NodeSet == nil {
+			return "", fmt.Errorf("nodeset payload is required")
+		}
+		return fmt.Sprintf("%s:%s", payload.ComponentType, payload.NodeSet.Name), nil
 	default:
 		return "", fmt.Errorf("unsupported component type: %s", payload.ComponentType)
 	}

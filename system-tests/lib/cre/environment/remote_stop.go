@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
@@ -66,6 +68,28 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		}
 	}
 
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet == nil || strings.TrimSpace(nodeSet.Target) != string(config.TargetRemote) {
+			continue
+		}
+		payload := startComponentRequest{
+			ComponentType: componentTypeNodeSet,
+			NodeSet: &simple_node_set.Input{Name: nodeSet.Name},
+			ReusePolicy:   nodeSet.RemoteStartPolicy,
+		}
+		result, err := stopRemoteComponent(ctx, lggr, startClient, payload, componentTypeNodeSet)
+		if err != nil {
+			summary.Failed++
+			joined = errors.Join(joined, err)
+			continue
+		}
+		if result.Stopped {
+			summary.Stopped++
+		} else if !result.Found {
+			summary.Missing++
+		}
+	}
+
 	if cfg.JD != nil && cfg.JD.Target == config.TargetRemote {
 		payload := startComponentRequest{
 			ComponentType: componentTypeJD,
@@ -95,6 +119,11 @@ func countRemoteStopTargets(cfg *config.Config) int {
 	count := 0
 	for _, configuredBlockchain := range cfg.Blockchains {
 		if configuredBlockchain != nil && configuredBlockchain.Target == config.TargetRemote {
+			count++
+		}
+	}
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(config.TargetRemote) {
 			count++
 		}
 	}

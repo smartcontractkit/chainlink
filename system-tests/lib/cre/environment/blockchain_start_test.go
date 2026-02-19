@@ -151,6 +151,7 @@ func TestRewriteRemoteBlockchainOutputForLocalAccess(t *testing.T) {
 		0,
 		&blockchain.Input{Type: blockchain.TypeAnvil},
 		out,
+		true,
 	); err != nil {
 		t.Fatalf("expected rewrite helper to succeed: %v", err)
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -17,8 +18,9 @@ const (
 )
 
 type remoteStopState struct {
-	Version     int                    `toml:"version"`
+	Version     int                     `toml:"version"`
 	Blockchains []*envconfig.Blockchain `toml:"blockchains"`
+	NodeSets    []*cre.NodeSet          `toml:"nodesets"`
 	JD          *envconfig.JobDistributor `toml:"jd"`
 	Agent       remoteAgentState      `toml:"agent"`
 }
@@ -30,6 +32,10 @@ type remoteAgentState struct {
 	EC2InstanceID string `toml:"ec2_instance_id,omitempty"`
 	EC2AgentPort string `toml:"ec2_agent_port,omitempty"`
 	AWSProfile   string `toml:"aws_profile,omitempty"`
+}
+
+type remoteAgentStateEnvelope struct {
+	Agent remoteAgentState `toml:"agent"`
 }
 
 func remoteStateFileAbsPath(relativePathToRepoRoot string) string {
@@ -60,7 +66,22 @@ func loadRemoteStopState(relativePathToRepoRoot string) (*remoteStopState, error
 	if state.Blockchains == nil {
 		state.Blockchains = []*envconfig.Blockchain{}
 	}
+	if state.NodeSets == nil {
+		state.NodeSets = []*cre.NodeSet{}
+	}
 	return state, nil
+}
+
+func loadRemoteAgentState(relativePathToRepoRoot string) (*remoteAgentState, error) {
+	data, err := os.ReadFile(remoteStateFileAbsPath(relativePathToRepoRoot))
+	if err != nil {
+		return nil, err
+	}
+	envelope := &remoteAgentStateEnvelope{}
+	if err := toml.Unmarshal(data, envelope); err != nil {
+		return nil, err
+	}
+	return &envelope.Agent, nil
 }
 
 func (s *remoteStopState) Config() *envconfig.Config {
@@ -69,6 +90,7 @@ func (s *remoteStopState) Config() *envconfig.Config {
 	}
 	return &envconfig.Config{
 		Blockchains: s.Blockchains,
+		NodeSets:    s.NodeSets,
 		JD:          s.JD,
 	}
 }
@@ -80,6 +102,7 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 	state := &remoteStopState{
 		Version:     1,
 		Blockchains: []*envconfig.Blockchain{},
+		NodeSets:    []*cre.NodeSet{},
 		Agent: remoteAgentState{
 			Mode:          os.Getenv("CRE_AGENT_MODE"),
 			LocalURL:      os.Getenv("CRE_LOCAL_AGENT_URL"),
@@ -92,6 +115,11 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 	for _, configuredBlockchain := range cfg.Blockchains {
 		if configuredBlockchain != nil && configuredBlockchain.Target == envconfig.TargetRemote {
 			state.Blockchains = append(state.Blockchains, configuredBlockchain)
+		}
+	}
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+			state.NodeSets = append(state.NodeSets, nodeSet)
 		}
 	}
 	if cfg.JD != nil && cfg.JD.Target == envconfig.TargetRemote {

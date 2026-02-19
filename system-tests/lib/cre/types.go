@@ -1184,6 +1184,9 @@ type NodeSpecWithRole struct {
 type NodeSet struct {
 	*ns.Input
 
+	Target            string `toml:"target"`              // docker (default) or remote
+	RemoteStartPolicy string `toml:"remote_start_policy"` // reuse_if_identical (default) or always
+
 	// Our role-aware node specs (shadows ns.Input.NodeSpecs)
 	NodeSpecs []*NodeSpecWithRole `toml:"node_specs" validate:"required"`
 

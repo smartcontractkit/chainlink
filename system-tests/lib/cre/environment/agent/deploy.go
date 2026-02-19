@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
@@ -67,6 +68,21 @@ func DeployJDComponent(ctx context.Context, input *jd.Input) (*jd.Output, error)
 	output, err := jd.NewWithContext(ctx, effectiveInput)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to deploy jd component")
+	}
+	return output, nil
+}
+
+func DeployNodeSetComponent(ctx context.Context, input *ns.Input, registryChain *blockchain.Output) (*ns.Output, error) {
+	if input == nil {
+		return nil, pkgerrors.New("nodeset input is nil")
+	}
+	if registryChain == nil {
+		return nil, pkgerrors.New("registry blockchain output is nil")
+	}
+	inputCopy := *input
+	output, err := ns.NewSharedDBNodeSetWithContext(ctx, &inputCopy, registryChain)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to deploy nodeset %s", inputCopy.Name)
 	}
 	return output, nil
 }

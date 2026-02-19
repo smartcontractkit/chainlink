@@ -707,6 +707,7 @@ go run . env stop-remote --dry-run
 				framework.L.Info().
 					Int("total", remoteConfiguredSummary.Total).
 					Int("blockchains", remoteConfiguredSummary.Blockchains).
+					Int("nodesets", remoteConfiguredSummary.NodeSets).
 					Int("jd", remoteConfiguredSummary.JD).
 					Msg("Dry-run: remote components that would be stopped")
 				return nil
@@ -756,9 +757,11 @@ func loadRemoteStopTargets(relativePathToRepoRoot string) (remoteComponentSummar
 }
 
 func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targets *envconfig.Config) error {
-	remoteState, loadErr := loadRemoteStopState(relativePathToRepoRoot)
-	if loadErr == nil {
-		applyRemoteAgentEnvFallback(framework.L, remoteState)
+	agentState, agentLoadErr := loadRemoteAgentState(relativePathToRepoRoot)
+	if agentLoadErr != nil {
+		framework.L.Warn().Err(agentLoadErr).Msgf("failed to load remote agent state from %s", remoteStateFileAbsPath(relativePathToRepoRoot))
+	} else if agentState != nil {
+		applyRemoteAgentEnvFallback(framework.L, &remoteStopState{Agent: *agentState})
 	}
 
 	summary, stopRemoteErr := creenv.StopRemoteComponents(ctx, framework.L, targets)
@@ -773,6 +776,14 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 	}
 	if err := removeRemoteStopConfig(relativePathToRepoRoot); err != nil {
 		framework.L.Warn().Err(err).Msg("failed to remove remote component stop state")
+	}
+	if !hasLocalComponents(targets) {
+		statePath := envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)
+		if err := os.Remove(statePath); err == nil {
+			framework.L.Info().Msgf("removed local CRE state file after remote-only stop: %s", statePath)
+		} else if err != nil && !os.IsNotExist(err) {
+			framework.L.Warn().Err(err).Msgf("failed to remove local CRE state file after remote-only stop: %s", statePath)
+		}
 	}
 	return nil
 }
@@ -825,6 +836,7 @@ func stopLocalResources(relativePathToRepoRoot string, removeAllState bool) erro
 type remoteComponentSummary struct {
 	Total       int
 	Blockchains int
+	NodeSets    int
 	JD          int
 }
 
@@ -838,11 +850,36 @@ func summarizeRemoteComponents(cfg *envconfig.Config) remoteComponentSummary {
 			summary.Blockchains++
 		}
 	}
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+			summary.NodeSets++
+		}
+	}
 	if cfg.JD != nil && cfg.JD.Target == envconfig.TargetRemote {
 		summary.JD = 1
 	}
-	summary.Total = summary.Blockchains + summary.JD
+	summary.Total = summary.Blockchains + summary.NodeSets + summary.JD
 	return summary
+}
+
+func hasLocalComponents(cfg *envconfig.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	for _, configuredBlockchain := range cfg.Blockchains {
+		if configuredBlockchain != nil && configuredBlockchain.Target != envconfig.TargetRemote {
+			return true
+		}
+	}
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) != string(envconfig.TargetRemote) {
+			return true
+		}
+	}
+	if cfg.JD != nil && cfg.JD.Target != envconfig.TargetRemote {
+		return true
+	}
+	return false
 }
 
 func applyRemoteAgentEnvFallback(logger zerolog.Logger, state *remoteStopState) {
