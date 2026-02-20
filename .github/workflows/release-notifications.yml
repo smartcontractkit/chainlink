@@ -26,7 +26,7 @@ on:
             public.ecr.aws/chainlink/ccip:2.34.1-ccip-beta.3|sha256:5f218f...
             public.ecr.aws/chainlink/chainlink:2.34.1-beta.3|sha256:b48d5b...
         type: string
-        required: true
+        required: false
   workflow_dispatch:
     inputs:
       git-ref:
@@ -50,7 +50,7 @@ on:
             public.ecr.aws/chainlink/ccip:2.34.1-ccip-beta.3|sha256:5f218f...
             public.ecr.aws/chainlink/chainlink:2.34.1-beta.3|sha256:b48d5b...
         type: string
-        required: true
+        required: false
 
 permissions: {}
 

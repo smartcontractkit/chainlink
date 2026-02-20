@@ -205,11 +205,12 @@ jobs:
           products: |
             ccip-prereleases-prod-testnet
 
-  # Notify Slack channel for new git tags associated with git tags.
+  # Notify Slack channel for new git tags associated with pre-releases.
+  # Final release notifications originate from the release coordinator repo.
   slack-notify:
     permissions:
       contents: read
-    if: always() && (needs.docker-core.result == 'success' && needs.docker-ccip.result == 'success')
+    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success')
     needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
@@ -225,5 +226,5 @@ jobs:
           )
         }}
       docker-image-names: |
-        ${{ format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) }}
-        ${{ format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) }}
+        ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
+        ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
