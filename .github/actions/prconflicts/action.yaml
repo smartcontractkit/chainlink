@@ -89,7 +89,9 @@ runs:
             -X PATCH \
             -f body="$BODY"
         else
-          gh pr comment $CURRENT_PR --body "$BODY"
+          gh api \
+            repos/$REPO/issues/$CURRENT_PR/comments \
+            -f body="$BODY"
         fi
 
         exit 0
