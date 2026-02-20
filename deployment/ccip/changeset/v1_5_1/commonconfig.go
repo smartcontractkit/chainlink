@@ -258,6 +258,10 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
 		}
+	case shared.USDCTokenPoolProxy:
+		if proxy, ok := chainState.USDCTokenPoolProxies[version]; ok {
+			return proxy, true
+		}
 	case shared.BurnMintWithExternalMinterTokenPool:
 		if tokenPools, ok := chainState.BurnMintWithExternalMinterTokenPool[symbol]; ok {
 			if tokenPool, ok := tokenPools[version]; ok {

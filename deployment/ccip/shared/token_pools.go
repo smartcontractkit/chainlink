@@ -46,6 +46,7 @@ var TokenPoolTypes = map[cldf.ContractType]struct{}{
 	HybridWithExternalMinterFastTransferTokenPool:   {},
 	BurnMintWithExternalMinterTokenPool:             {},
 	HybridWithExternalMinterTokenPool:               {},
+	USDCTokenPoolProxy:                              {},
 }
 
 var TokenPoolVersions = map[semver.Version]struct{}{
@@ -55,6 +56,7 @@ var TokenPoolVersions = map[semver.Version]struct{}{
 	deployment.Version1_6_0:      {},
 	deployment.Version1_6_1:      {},
 	deployment.Version1_6_2:      {},
+	deployment.Version1_7_0:      {},
 }
 
 // tokenPool defines behavior common to all token pools.
@@ -63,7 +65,7 @@ type tokenPool interface {
 	TypeAndVersion(*bind.CallOpts) (string, error)
 }
 
-// TokenPoolMetadata defines the token pool version version and symbol of the corresponding token.
+// TokenPoolMetadata defines the token pool version and symbol of the corresponding token.
 type TokenPoolMetadata struct {
 	Version semver.Version
 	Symbol  TokenSymbol
