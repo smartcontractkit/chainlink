@@ -180,17 +180,19 @@ type addManyCall struct {
 	ttl    time.Duration
 }
 
-type spyCache struct {
-	ObservationCache
+type mockCache struct {
+	StreamValueCache
 	mu       sync.Mutex
 	addCalls []addManyCall
 }
 
-func newSpyCache(inner ObservationCache) *spyCache {
-	return &spyCache{ObservationCache: inner}
+func newMockCache(inner StreamValueCache) *mockCache {
+	return &mockCache{StreamValueCache: inner}
 }
 
-func (s *spyCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
+//AddMany is a spy for the StreamValueCache.AddMany method.
+// It records the values and ttl passed to it and then calls the underlying StreamValueCache.AddMany method.
+func (s *mockCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
 	snapshot := make(map[llotypes.StreamID]llo.StreamValue, len(values))
 	for k, v := range values {
 		snapshot[k] = v
@@ -198,7 +200,7 @@ func (s *spyCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl tim
 	s.mu.Lock()
 	s.addCalls = append(s.addCalls, addManyCall{values: snapshot, ttl: ttl})
 	s.mu.Unlock()
-	s.ObservationCache.AddMany(values, ttl)
+	s.StreamValueCache.AddMany(values, ttl)
 }
 
 func Test_DataSource(t *testing.T) {
@@ -507,8 +509,8 @@ func Test_DataSource(t *testing.T) {
 		t.Run("cache writes are atomic per pipeline group across observation cycles", func(t *testing.T) {
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
-			spy := newSpyCache(ds.cache)
-			ds.cache = spy
+			mc := newMockCache(ds.cache)
+			ds.cache = mc
 			defer ds.Close()
 
 			sids := []streams.StreamID{1, 2, 3}
@@ -528,13 +530,13 @@ func Test_DataSource(t *testing.T) {
 
 			assert.Equal(t, llo.StreamValues{1: nil, 2: nil, 3: nil}, vals)
 
-			spy.mu.Lock()
-			for _, call := range spy.addCalls {
+			mc.mu.Lock()
+			for _, call := range mc.addCalls {
 				for _, sid := range sids {
 					assert.NotContains(t, call.values, sid)
 				}
 			}
-			spy.mu.Unlock()
+			mc.mu.Unlock()
 
 			// Fix the pipeline with distinct values so we can verify generation
 			fixedPipeline := makePipelineWithMultipleStreamResults(sids, []any{decimal.NewFromFloat(111.0), decimal.NewFromFloat(222.0), decimal.NewFromFloat(333.0)})
@@ -560,12 +562,12 @@ func Test_DataSource(t *testing.T) {
 			}
 			assert.Equal(t, expectedCycle2, vals2, "cycle 2: expected a value from fixedPipeline")
 
-			// Verify the spy recorded an atomic write of all 3 streams with correct values from the same generation
-			spy.mu.Lock()
-			defer spy.mu.Unlock()
+			// Verify an atomic write of all 3 streams with correct values from the same generation
+			mc.mu.Lock()
+			defer mc.mu.Unlock()
 
 			foundAtomicWrite := false
-			for _, call := range spy.addCalls {
+			for _, call := range mc.addCalls {
 				v1, has1 := call.values[llotypes.StreamID(1)]
 				v2, has2 := call.values[llotypes.StreamID(2)]
 				v3, has3 := call.values[llotypes.StreamID(3)]

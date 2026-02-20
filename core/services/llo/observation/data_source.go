@@ -88,7 +88,7 @@ type dataSource struct {
 	lggr                   logger.Logger
 	registry               Registry
 	t                      Telemeter
-	cache                  ObservationCache
+	cache                  StreamValueCache
 	observationLoopStarted atomic.Bool
 	observationLoopCloseCh services.StopChan
 
@@ -248,7 +248,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			wg.Wait()
 			elapsed = time.Since(startTS)
 
-
 			d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
 
 			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
@@ -305,7 +304,7 @@ func (d *dataSource) Close() error {
 }
 
 // removeIncompleteGroups enforces all-or-nothing (atomic) writes per pipeline group.
-// Some pipelines produce values that must be used together. For example jobs that output a bid/mid/ask 
+// Some pipelines produce values that must be used together. For example jobs that output a bid/mid/ask
 // must be used together to form a quote. So if any stream in the group failed, we drop
 // the entire group to avoid writing a mix of fresh and stale values to the cache.
 // Mutates observedValues in place.
