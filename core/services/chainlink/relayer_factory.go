@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	tonconfig "github.com/smartcontractkit/chainlink-ton/pkg/config"
+	tonrelay "github.com/smartcontractkit/chainlink-ton/pkg/relay"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -237,8 +239,58 @@ func (r *RelayerFactory) NewAptos(ks, ksCSA coretypes.Keystore, chainCfgs RawCon
 	return r.NewLOOPRelayer("Aptos", relay.NetworkAptos, env.AptosPlugin, ks, ksCSA, chainCfgs)
 }
 
-func (r *RelayerFactory) NewTON(ks, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	return r.NewLOOPRelayer("TON", relay.NetworkTON, env.TONPlugin, ks, ksCSA, chainCfgs)
+type TONFactoryConfig struct {
+	RawConfigs
+	DS sqlutil.DataSource
+}
+
+func (r *RelayerFactory) NewTON(ks, ksCSA coretypes.Keystore, config TONFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
+	if env.TONPlugin.Cmd.Get() != "" {
+		return r.NewLOOPRelayer("TON", relay.NetworkTON, env.TONPlugin, ks, ksCSA, config.RawConfigs)
+	}
+
+	// embedded chain (in-process, visible to Pyroscope)
+	tonRelayers := make(map[types.RelayID]loop.Relayer)
+	tonLggr := logger.Named(r.Logger, "TON")
+
+	unique := make(map[string]struct{})
+	for _, chainCfg := range config.RawConfigs {
+		relayID := types.RelayID{Network: relay.NetworkTON, ChainID: chainCfg.ChainID()}
+		if _, alreadyExists := unique[relayID.Name()]; alreadyExists {
+			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
+		}
+		unique[relayID.Name()] = struct{}{}
+
+		if !chainCfg.IsEnabled() {
+			tonLggr.Warnw("Skipping disabled chain", "id", relayID.ChainID)
+			continue
+		}
+
+		lggr := logger.Named(tonLggr, relayID.ChainID)
+
+		cfgTOML, err := toml.Marshal(chainCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal TON configs: %w", err)
+		}
+
+		tonCfg, err := tonconfig.NewDecodedTOMLConfig(string(cfgTOML))
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode TON config: %w", err)
+		}
+
+		chain, err := tonrelay.NewChain(tonCfg, tonrelay.ChainOpts{
+			Logger:   lggr,
+			KeyStore: ks,
+			DS:       config.DS,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		service := tonrelay.NewService(chain)
+		tonRelayers[relayID] = relay.NewServerAdapter(tonrelay.NewRelayer(lggr, chain, service, r.CapabilitiesRegistry))
+	}
+	return tonRelayers, nil
 }
 
 func (r *RelayerFactory) NewSui(ks coretypes.Keystore, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {

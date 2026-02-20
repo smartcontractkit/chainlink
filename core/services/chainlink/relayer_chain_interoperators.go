@@ -227,10 +227,10 @@ func InitTron(factory RelayerFactory, ks keystore.Tron, csaKS keystore.CSA, chai
 }
 
 // InitTON is an option for instantiating TON relayers
-func InitTON(factory RelayerFactory, ks keystore.TON, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+func InitTON(factory RelayerFactory, ks keystore.TON, csaKS keystore.CSA, config TONFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
 		loopKs := &keystore.TONLooppSigner{TON: ks}
-		tonRelayers, err := factory.NewTON(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
+		tonRelayers, err := factory.NewTON(loopKs, &keystore.CSASigner{CSA: csaKS}, config)
 		if err != nil {
 			return fmt.Errorf("failed to setup TON relayer: %w", err)
 		}
