@@ -96,7 +96,6 @@ func Test_TransferFundsChangeset(t *testing.T) {
 	tf := TransferNative{}
 
 	t.Run("happy path", func(t *testing.T) {
-
 		addr := utils.RandomAddress()
 		transferVal := big.NewInt(1_000_000_000) // transfer 1gwei
 
