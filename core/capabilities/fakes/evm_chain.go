@@ -331,7 +331,7 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 			BlockNumber: pb.NewBigIntFromInt(new(big.Int).SetUint64(log.BlockNumber)),
 			BlockHash:   log.BlockHash.Bytes(),
 			TxHash:      log.TxHash.Bytes(),
-			Index:       uint32(log.Index),
+			Index:       uint32(log.Index), //nolint:gosec // log index will never exceed uint32
 			Removed:     log.Removed,
 		}
 	}
