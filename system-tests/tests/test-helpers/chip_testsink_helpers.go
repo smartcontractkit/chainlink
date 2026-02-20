@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -277,6 +278,9 @@ func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptest
 If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
 and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 	}
+	grpcPort, convErr := strconv.Atoi(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
+	require.NoError(t, convErr, "invalid default chip ingress grpc port")
+	EnsureFixtureRelayForPort(t, nil, "chip-testsink", grpcPort)
 
 	startCh := make(chan struct{}, 1)
 	server, err := chiptestsink.NewServer(chiptestsink.Config{

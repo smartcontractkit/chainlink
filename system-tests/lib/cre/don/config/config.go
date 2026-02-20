@@ -33,6 +33,7 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/connectivity"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
@@ -46,6 +47,7 @@ func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
+	blockchainTargetBySelector map[uint64]string,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 ) ([]*cre.NodeSet, error) {
@@ -104,16 +106,17 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:               creEnv.CldfEnvironment.DataStore,
-					ContractVersions:        creEnv.ContractVersions,
-					DonMetadata:             donMetadata,
-					Blockchains:             chainPerSelector,
-					Flags:                   donMetadata.Flags,
-					CapabilitiesPeeringData: capabilitiesPeeringData,
-					OCRPeeringData:          ocrPeeringData,
-					RegistryChainSelector:   creEnv.RegistryChainSelector,
-					Topology:                topology,
-					Provider:                creEnv.Provider,
+					Datastore:                  creEnv.CldfEnvironment.DataStore,
+					ContractVersions:           creEnv.ContractVersions,
+					DonMetadata:                donMetadata,
+					Blockchains:                chainPerSelector,
+					BlockchainTargetBySelector: blockchainTargetBySelector,
+					Flags:                      donMetadata.Flags,
+					CapabilitiesPeeringData:    capabilitiesPeeringData,
+					OCRPeeringData:             ocrPeeringData,
+					RegistryChainSelector:      creEnv.RegistryChainSelector,
+					Topology:                   topology,
+					Provider:                   creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -487,16 +490,42 @@ func addWorkerNodeConfig(
 		if !ok {
 			return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
 		}
+		callerPlacement, placementErr := connectivity.PlacementFromTarget(donMetadata.MustNodeSet().Target)
+		if placementErr != nil {
+			return existingConfig, placementErr
+		}
+		placementByGatewayNodeUUID, placementMapErr := gatewayPlacementByNodeUUID(topology)
+		if placementMapErr != nil {
+			return existingConfig, placementMapErr
+		}
 
 		gateways := []coretoml.ConnectorGateway{}
 		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
 			for _, gateway := range topology.GatewayConnectors.Configurations {
+				gatewayPlacement, ok := placementByGatewayNodeUUID[gateway.NodeUUID]
+				if !ok {
+					return existingConfig, fmt.Errorf("failed to resolve placement for gateway node UUID %s", gateway.NodeUUID)
+				}
+				internalURL := fmt.Sprintf("ws://%s:%d%s", gateway.Outgoing.Host, gateway.Outgoing.Port, gateway.Outgoing.Path)
+				externalURL := gatewayExternalConnectorURL(gateway)
+				resolvedGateway, err := connectivity.ResolveAndEnsureReachable(
+					context.Background(),
+					callerPlacement,
+					gatewayPlacement,
+					connectivity.EndpointPair{
+						Name:     fmt.Sprintf("gateway-%s", gateway.AuthGatewayID),
+						Internal: internalURL,
+						External: externalURL,
+					},
+					// Bridge creation for remote->local gateway is handled outside config generation.
+					func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil },
+				)
+				if err != nil {
+					return existingConfig, err
+				}
 				gateways = append(gateways, coretoml.ConnectorGateway{
-					ID: ptr.Ptr(gateway.AuthGatewayID),
-					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
-						gateway.Outgoing.Host,
-						gateway.Outgoing.Port,
-						gateway.Outgoing.Path)),
+					ID:  ptr.Ptr(gateway.AuthGatewayID),
+					URL: ptr.Ptr(resolvedGateway.URL),
 				})
 			}
 
@@ -612,7 +641,10 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
 	}
 
-	evmChains := findEVMChains(input)
+	evmChains, evmErr := findEVMChains(input)
+	if evmErr != nil {
+		return nil, errors.Wrap(evmErr, "failed to resolve EVM chain endpoints for node config")
+	}
 	solanaChain, solErr := findOneSolanaChain(input)
 	if solErr != nil {
 		return nil, errors.Wrap(solErr, "failed to find Solana chain in the environment configuration")
@@ -645,8 +677,12 @@ type evmChain struct {
 	WSRPC   string
 }
 
-func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
+func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
 	evmChains := make([]*evmChain, 0)
+	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Target)
+	if err != nil {
+		return nil, err
+	}
 	for chainSelector, bcOut := range input.Blockchains {
 		if bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
@@ -657,14 +693,39 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 			continue
 		}
 
+		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainTargetBySelector[chainSelector])
+		if err != nil {
+			return nil, err
+		}
+		resolvedHTTP, err := connectivity.ResolveAndEnsureReachable(context.Background(), callerPlacement, targetPlacement, connectivity.EndpointPair{
+			Name:     fmt.Sprintf("evm-http-%d", bcOut.ChainID()),
+			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
+		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error {
+			return fmt.Errorf("bridge is required for node->blockchain HTTP endpoint on chain %d (remote caller -> local target), automatic component bridge is not implemented yet", bcOut.ChainID())
+		})
+		if err != nil {
+			return nil, err
+		}
+		resolvedWS, err := connectivity.ResolveAndEnsureReachable(context.Background(), callerPlacement, targetPlacement, connectivity.EndpointPair{
+			Name:     fmt.Sprintf("evm-ws-%d", bcOut.ChainID()),
+			Internal: bcOut.CtfOutput().Nodes[0].InternalWSUrl,
+			External: bcOut.CtfOutput().Nodes[0].ExternalWSUrl,
+		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error {
+			return fmt.Errorf("bridge is required for node->blockchain WS endpoint on chain %d (remote caller -> local target), automatic component bridge is not implemented yet", bcOut.ChainID())
+		})
+		if err != nil {
+			return nil, err
+		}
+
 		evmChains = append(evmChains, &evmChain{
 			Name:    fmt.Sprintf("node-%d", chainSelector),
 			ChainID: bcOut.ChainID(),
-			HTTPRPC: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.CtfOutput().Nodes[0].InternalWSUrl,
+			HTTPRPC: resolvedHTTP.URL,
+			WSRPC:   resolvedWS.URL,
 		})
 	}
-	return evmChains
+	return evmChains, nil
 }
 
 type solanaChain struct {
@@ -676,6 +737,10 @@ type solanaChain struct {
 func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	var solChain *solanaChain
 	chainsFound := 0
+	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Target)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, bcOut := range input.Blockchains {
 		if !bcOut.IsFamily(chain_selectors.FamilySolana) {
@@ -688,6 +753,20 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		}
 
 		solBc := bcOut.(*solana.Blockchain)
+		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainTargetBySelector[solBc.ChainSelector()])
+		if err != nil {
+			return nil, err
+		}
+		resolvedNodeURL, err := connectivity.ResolveAndEnsureReachable(context.Background(), callerPlacement, targetPlacement, connectivity.EndpointPair{
+			Name:     "solana-rpc",
+			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
+		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error {
+			return errors.New("bridge is required for node->solana RPC endpoint (remote caller -> local target), automatic component bridge is not implemented yet")
+		})
+		if err != nil {
+			return nil, err
+		}
 
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
 		chainID, err := solBc.SolClient.GetGenesisHash(ctx)
@@ -700,11 +779,53 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
 			ChainID: chainID.String(),
-			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			NodeURL: resolvedNodeURL.URL,
 		}
 	}
 
 	return solChain, nil
+}
+
+func gatewayPlacementByNodeUUID(topology *cre.Topology) (map[string]connectivity.Placement, error) {
+	out := make(map[string]connectivity.Placement)
+	if topology == nil {
+		return out, nil
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		placement, err := connectivity.PlacementFromTarget(don.MustNodeSet().Target)
+		if err != nil {
+			return nil, err
+		}
+		for _, node := range don.NodesMetadata {
+			if node == nil || strings.TrimSpace(node.UUID) == "" {
+				continue
+			}
+			out[node.UUID] = placement
+		}
+	}
+	return out, nil
+}
+
+func gatewayExternalConnectorURL(gateway *cre.DonGatewayConfiguration) string {
+	if gateway == nil || gateway.GatewayConfiguration == nil {
+		return ""
+	}
+	scheme := "ws"
+	switch strings.ToLower(strings.TrimSpace(gateway.Incoming.Protocol)) {
+	case "https":
+		scheme = "wss"
+	case "wss":
+		scheme = "wss"
+	case "http":
+		scheme = "ws"
+	}
+	path := strings.TrimSpace(gateway.Incoming.Path)
+	if path == "" || path == "/" {
+		path = "/node"
+	} else if !strings.HasSuffix(path, "/node") {
+		path = strings.TrimRight(path, "/") + "/node"
+	}
+	return fmt.Sprintf("%s://%s:%d%s", scheme, gateway.Incoming.Host, gateway.Incoming.ExternalPort, path)
 }
 
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {

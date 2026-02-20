@@ -8,6 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 )
 
@@ -66,6 +67,7 @@ func TestResolveEC2AgentBaseURLRequiresInstanceIDWhenURLMissing(t *testing.T) {
 
 func TestResolveEC2AgentBaseURLRejectsInvalidPort(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
+	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeSSM)
 	t.Setenv(envEC2InstanceID, "i-123")
 	t.Setenv(envEC2AgentPort, "not-a-port")
 
@@ -75,6 +77,25 @@ func TestResolveEC2AgentBaseURLRejectsInvalidPort(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), envEC2AgentPort) {
 		t.Fatalf("expected error to mention %s, got: %v", envEC2AgentPort, err)
+	}
+}
+
+func TestResolveEC2AgentBaseURLDirectMode(t *testing.T) {
+	t.Setenv(envEC2AgentURL, "")
+	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
+	t.Setenv(runtimecfg.EnvEC2HostIP, "10.193.28.183")
+	t.Setenv(envEC2AgentPort, "18080")
+
+	manager := &fakeTunnelManager{}
+	baseURL, err := resolveEC2AgentBaseURL(zerolog.Nop(), manager)
+	if err != nil {
+		t.Fatalf("expected direct mode url resolution to succeed, got %v", err)
+	}
+	if baseURL != "http://10.193.28.183:18080" {
+		t.Fatalf("unexpected direct mode base url: %s", baseURL)
+	}
+	if manager.startCalls != 0 {
+		t.Fatalf("expected direct mode to skip tunnel manager")
 	}
 }
 
@@ -134,6 +155,7 @@ func (f *fakeTunnelManager) IsStarted() bool { return f.startCalls > 0 }
 func (f *fakeTunnelManager) Snapshot() []tunnel.TunnelBinding { return []tunnel.TunnelBinding{} }
 
 func TestRewriteRemoteBlockchainOutputForLocalAccess(t *testing.T) {
+	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeSSM)
 	out := &blockchain.Output{
 		Nodes: []*blockchain.Node{
 			{
@@ -170,6 +192,50 @@ func TestRewriteRemoteBlockchainOutputForLocalAccess(t *testing.T) {
 	}
 	if out.Nodes[0].InternalWSUrl == "" || !strings.Contains(out.Nodes[0].InternalWSUrl, ":19001") {
 		t.Fatalf("expected internal ws url to be rewritten for docker host access, got %s", out.Nodes[0].InternalWSUrl)
+	}
+}
+
+func TestRewriteRemoteBlockchainOutputForLocalAccessDirectMode(t *testing.T) {
+	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
+	t.Setenv(runtimecfg.EnvEC2HostIP, "10.193.28.183")
+
+	out := &blockchain.Output{
+		Nodes: []*blockchain.Node{
+			{
+				ExternalHTTPUrl: "http://anvil-1337:8545",
+				ExternalWSUrl:   "ws://anvil-1337:8546",
+				InternalHTTPUrl: "http://anvil-1337:8545",
+				InternalWSUrl:   "ws://anvil-1337:8546",
+			},
+		},
+	}
+	manager := &fakeTunnelManager{}
+
+	if err := rewriteRemoteBlockchainOutputForLocalAccess(
+		context.Background(),
+		zerolog.Nop(),
+		manager,
+		0,
+		&blockchain.Input{Type: blockchain.TypeAnvil},
+		out,
+		true,
+	); err != nil {
+		t.Fatalf("expected direct mode rewrite helper to succeed: %v", err)
+	}
+	if manager.startCalls != 0 {
+		t.Fatalf("expected direct mode to skip tunnel manager, got %d calls", manager.startCalls)
+	}
+	if out.Nodes[0].ExternalHTTPUrl != "http://10.193.28.183:8545" {
+		t.Fatalf("unexpected rewritten http url in direct mode: %s", out.Nodes[0].ExternalHTTPUrl)
+	}
+	if out.Nodes[0].ExternalWSUrl != "ws://10.193.28.183:8546" {
+		t.Fatalf("unexpected rewritten ws url in direct mode: %s", out.Nodes[0].ExternalWSUrl)
+	}
+	if out.Nodes[0].InternalHTTPUrl != "http://10.193.28.183:8545" {
+		t.Fatalf("unexpected rewritten internal http url in direct mode: %s", out.Nodes[0].InternalHTTPUrl)
+	}
+	if out.Nodes[0].InternalWSUrl != "ws://10.193.28.183:8546" {
+		t.Fatalf("unexpected rewritten internal ws url in direct mode: %s", out.Nodes[0].InternalWSUrl)
 	}
 }
 

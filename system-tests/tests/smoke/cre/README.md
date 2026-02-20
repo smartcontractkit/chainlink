@@ -51,6 +51,7 @@ This guide explains how to set up and run system tests for Chainlink workflows u
 ---
 
 For more information about the local CRE check its [README.md](../../../../core/scripts/cre/environment/README.md).
+For remote/hybrid EC2 execution details, see [REMOTE_HYBRID_RUNBOOK.md](./REMOTE_HYBRID_RUNBOOK.md).
 
 ---
 

@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 const (
@@ -232,22 +233,24 @@ func resolveEC2AgentBaseURL(testLogger zerolog.Logger, tunnelManager tunnel.Mana
 	if configured := os.Getenv(envEC2AgentURL); configured != "" {
 		return configured, nil
 	}
-	if tunnelManager == nil {
-		return "", errors.New("tunnel manager is required to auto-open ec2 agent tunnel")
+	remotePort, err := resolveEC2AgentPort()
+	if err != nil {
+		return "", err
+	}
+	if isRemoteAccessDirectMode() {
+		hostIP, err := resolveDirectAccessHostIP()
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("http://%s:%d", hostIP, remotePort), nil
 	}
 
 	instanceID := strings.TrimSpace(os.Getenv(envEC2InstanceID))
 	if instanceID == "" {
 		return "", fmt.Errorf("%s must be set when %s=ec2 and %s is not provided", envEC2InstanceID, envAgentMode, envEC2AgentURL)
 	}
-
-	remotePort := defaultEC2AgentPort
-	if configuredPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); configuredPort != "" {
-		parsedPort, err := strconv.Atoi(configuredPort)
-		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
-			return "", fmt.Errorf("invalid %s: %q", envEC2AgentPort, configuredPort)
-		}
-		remotePort = parsedPort
+	if tunnelManager == nil {
+		return "", errors.New("tunnel manager is required to auto-open ec2 agent tunnel")
 	}
 
 	bindings, err := tunnelManager.Start(context.Background(), []tunnel.EndpointRef{
@@ -274,6 +277,18 @@ func resolveEC2AgentBaseURL(testLogger zerolog.Logger, tunnelManager tunnel.Mana
 		Msg("Opened SSM tunnel to EC2 agent")
 
 	return bindings[0].LocalURL, nil
+}
+
+func resolveEC2AgentPort() (int, error) {
+	remotePort := defaultEC2AgentPort
+	if configuredPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); configuredPort != "" {
+		parsedPort, err := strconv.Atoi(configuredPort)
+		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
+			return 0, fmt.Errorf("invalid %s: %q", envEC2AgentPort, configuredPort)
+		}
+		remotePort = parsedPort
+	}
+	return remotePort, nil
 }
 
 func blockchainFromOutput(testLogger zerolog.Logger, output *blockchain.Output) (blockchains.Blockchain, error) {
@@ -448,6 +463,9 @@ func newEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {
 	if os.Getenv(envAgentMode) != "ec2" {
 		return tunnel.NewNoopManager(), nil
 	}
+	if isRemoteAccessDirectMode() {
+		return tunnel.NewNoopManager(), nil
+	}
 
 	instanceID := strings.TrimSpace(os.Getenv(envEC2InstanceID))
 	if instanceID == "" {
@@ -473,6 +491,13 @@ func rewriteRemoteBlockchainOutputForLocalAccess(
 ) error {
 	if output == nil {
 		return nil
+	}
+	if isRemoteAccessDirectMode() {
+		hostIP, err := resolveDirectAccessHostIP()
+		if err != nil {
+			return err
+		}
+		return rewriteRemoteBlockchainOutputForDirectAccess(output, hostIP, rewriteInternalForLocalNodes)
 	}
 
 	componentID := tunnel.CanonicalComponentID(tunnel.KindBlockchain, configuredIndex, input.Type)
@@ -505,6 +530,42 @@ func rewriteRemoteBlockchainOutputForLocalAccess(
 		}
 	}
 
+	return nil
+}
+
+func rewriteRemoteBlockchainOutputForDirectAccess(
+	output *blockchain.Output,
+	hostIP string,
+	rewriteInternalForLocalNodes bool,
+) error {
+	if output == nil {
+		return nil
+	}
+	for _, node := range output.Nodes {
+		if node == nil {
+			continue
+		}
+		if node.ExternalHTTPUrl != "" {
+			rewritten, err := rewriteURLHost(node.ExternalHTTPUrl, hostIP)
+			if err != nil {
+				return err
+			}
+			node.ExternalHTTPUrl = rewritten
+			if rewriteInternalForLocalNodes {
+				node.InternalHTTPUrl = rewritten
+			}
+		}
+		if node.ExternalWSUrl != "" {
+			rewritten, err := rewriteURLHost(node.ExternalWSUrl, hostIP)
+			if err != nil {
+				return err
+			}
+			node.ExternalWSUrl = rewritten
+			if rewriteInternalForLocalNodes {
+				node.InternalWSUrl = rewritten
+			}
+		}
+	}
 	return nil
 }
 
@@ -550,6 +611,14 @@ func rewriteURLHost(rawURL, host string) (string, error) {
 	}
 	parsed.Host = host
 	return parsed.String(), nil
+}
+
+func isRemoteAccessDirectMode() bool {
+	return runtimecfg.IsDirectMode()
+}
+
+func resolveDirectAccessHostIP() (string, error) {
+	return runtimecfg.DirectHostIP()
 }
 
 func remoteAgentError(code, message string) error {

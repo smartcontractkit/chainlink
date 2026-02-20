@@ -66,6 +66,7 @@ func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, 
 	AuthorizationKey := "" // required by FakePriceProvider
 	priceProvider, err := NewFakePriceProvider(testLogger, testEnv.Config.Fake, AuthorizationKey, porWfCfg.FeedIDs)
 	require.NoError(t, err, "failed to create fake price provider")
+	t_helpers.EnsureFixtureRelayForPort(t, testEnv, "por-fake-price-provider", testEnv.Config.Fake.Port)
 
 	return priceProvider, porWfCfg
 }

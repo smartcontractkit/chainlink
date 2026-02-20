@@ -12,11 +12,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	blockchainsets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func main() {
-	addr := flag.String("addr", "127.0.0.1:18080", "agent listen address")
+	defaultAddr := "127.0.0.1:18080"
+	if runtimecfg.IsDirectMode() {
+		defaultAddr = "0.0.0.0:18080"
+	}
+	addr := flag.String("addr", defaultAddr, "agent listen address")
 	flag.Parse()
 
 	lggr := zerolog.New(os.Stderr).With().Timestamp().Logger()

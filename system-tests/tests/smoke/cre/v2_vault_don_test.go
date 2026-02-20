@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -50,7 +51,12 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
 				for i, node := range nodeSet.NodeSpecs {
 					if !slices.Contains(node.Roles, cre.BootstrapNode) {
-						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
+						packageCount, err := vault.GetResultPackageCountRemoteAware(
+							t.Context(),
+							i,
+							nodeSet.DbInput.Port,
+							nodeSet.Target == string(creconfig.TargetRemote),
+						)
 						if err != nil || packageCount != 1 {
 							return false
 						}

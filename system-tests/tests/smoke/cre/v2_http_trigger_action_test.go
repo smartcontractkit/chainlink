@@ -50,6 +50,7 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 	fakeServer, err := startTestOrderServer(t, testEnv.Config.Fake.Port)
 	require.NoError(t, err, "failed to start fake HTTP server")
+	t_helpers.EnsureFixtureRelayForPort(t, testEnv, "http-trigger-order-server", testEnv.Config.Fake.Port)
 
 	uniqueWorkflowName := "http-trigger-action-test-" + uuid.New().String()[0:8]
 	httpWorkflowConfig := t_helpers.HTTPWorkflowConfig{

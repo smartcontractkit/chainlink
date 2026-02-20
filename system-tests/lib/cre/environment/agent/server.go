@@ -103,6 +103,8 @@ type Server struct {
 	cacheMu     sync.Mutex
 	cache       map[string]cachedStart
 	runtime     map[string]runtimeState
+	relayMu     sync.Mutex
+	relays      map[string]*relayRegistration
 }
 
 type cachedStart struct {
@@ -121,6 +123,7 @@ func NewServer(lggr zerolog.Logger, deployers map[blockchain.ChainFamily]blockch
 		deployers: deployers,
 		cache:     make(map[string]cachedStart),
 		runtime:   make(map[string]runtimeState),
+		relays:    make(map[string]*relayRegistration),
 	}
 }
 
@@ -128,6 +131,9 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/health", s.health)
 	mux.HandleFunc("/v1/components/start", s.startComponent)
+	mux.HandleFunc("/v1/relay/open", s.openRelay)
+	mux.HandleFunc("/v1/relay/close", s.closeRelay)
+	mux.HandleFunc("/v1/relay/connect", s.connectRelay)
 	return mux
 }
 
@@ -392,6 +398,10 @@ func (s *Server) stopComponentByKey(w http.ResponseWriter, r *http.Request, comp
 }
 
 func (s *Server) respondJSON(w http.ResponseWriter, code int, body StartComponentResponse) {
+	s.respondJSONAny(w, code, body)
+}
+
+func (s *Server) respondJSONAny(w http.ResponseWriter, code int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(body)

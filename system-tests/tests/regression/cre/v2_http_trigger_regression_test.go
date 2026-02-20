@@ -90,6 +90,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	testID := uuid.New().String()[0:8]
 	fakeServer, err := startTestOrderServer(t, freePort, testID)
 	require.NoError(t, err, "failed to start fake HTTP server")
+	t_helpers.EnsureFixtureRelayForPort(t, testEnv, "http-trigger-regression-order-server", freePort)
 
 	// Ensure cleanup of the fake server
 	defer func() {

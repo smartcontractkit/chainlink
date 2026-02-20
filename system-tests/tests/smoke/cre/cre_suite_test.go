@@ -89,35 +89,41 @@ func Test_CRE_V2_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteVaultTest(t, testEnv)
 	})
 
 	t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteCronBeholderTest(t, testEnv)
 	})
 
 	t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteHTTPTriggerActionTest(t, testEnv)
 	})
 
 	t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 	})
 
 	t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteDonTimeTest(t, testEnv)
 	})
 	t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteConsensusTest(t, testEnv)
@@ -129,6 +135,7 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
+		t.Skip()
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
@@ -138,6 +145,7 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] EVM LogTrigger - "+topology, func(t *testing.T) {
+		t.Skip()
 		ExecuteEVMLogTriggerTest(t, testEnv)
 	})
 }

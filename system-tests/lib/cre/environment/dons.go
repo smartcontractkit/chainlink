@@ -193,7 +193,7 @@ func StartDONs(
 				if err != nil {
 					return pkgerrors.Wrap(err, "failed to decode nodeset transport payload")
 				}
-				if err := rewriteRemoteNodeSetOutputForLocalAccess(ctx, lggr, tunnelManager, idx, nodeSet, nodeset); err != nil {
+				if err := rewriteRemoteNodeSetOutputForLocalAccess(ctx, lggr, tunnelManager, topology, idx, nodeSet, nodeset); err != nil {
 					return err
 				}
 			} else {
@@ -302,11 +302,23 @@ func rewriteRemoteNodeSetOutputForLocalAccess(
 	ctx context.Context,
 	lggr zerolog.Logger,
 	tunnelManager tunnel.Manager,
+	topology *cre.Topology,
 	configuredIndex int,
 	nodeSet *cre.NodeSet,
 	output *ns.Output,
 ) error {
 	if output == nil && (nodeSet == nil || nodeSet.DbInput == nil || nodeSet.DbInput.Port == 0) {
+		return nil
+	}
+	if isRemoteAccessDirectMode() {
+		hostIP, err := resolveDirectAccessHostIP()
+		if err != nil {
+			return err
+		}
+		if err := rewriteNodeSetForDirectAccess(output, hostIP); err != nil {
+			return err
+		}
+		rewriteGatewayIncomingForDirectAccess(topology, configuredIndex, hostIP)
 		return nil
 	}
 	componentID := tunnel.CanonicalComponentID(tunnel.KindNodeSet, configuredIndex, nodeSet.Name)
@@ -326,7 +338,26 @@ func rewriteRemoteNodeSetOutputForLocalAccess(
 			Str("localURL", binding.LocalURL).
 			Msg("Established endpoint tunnel")
 	}
+	rewriteGatewayIncomingForNodeSetBindings(topology, configuredIndex, nodeSet, bindings)
 	return rewriteNodeSetWithBindings(output, nodeSet, bindings)
+}
+
+func rewriteNodeSetForDirectAccess(output *ns.Output, hostIP string) error {
+	if output == nil {
+		return nil
+	}
+	for idx := range output.CLNodes {
+		rawURL := output.CLNodes[idx].Node.ExternalURL
+		if strings.TrimSpace(rawURL) == "" {
+			continue
+		}
+		rewritten, err := rewriteURLHost(rawURL, hostIP)
+		if err != nil {
+			return err
+		}
+		output.CLNodes[idx].Node.ExternalURL = rewritten
+	}
+	return nil
 }
 
 const nodeSetDBEndpointName = "nodeset-db"
@@ -335,6 +366,14 @@ func describeNodeSetEndpoints(componentID string, nodeSet *cre.NodeSet, output *
 	sizeHint := 1
 	if output != nil {
 		sizeHint += len(output.CLNodes)
+	}
+	if nodeSet != nil {
+		for _, spec := range nodeSet.NodeSpecs {
+			if spec == nil || spec.Node == nil {
+				continue
+			}
+			sizeHint += len(spec.Node.CustomPorts)
+		}
 	}
 	refs := make([]tunnel.EndpointRef, 0, sizeHint)
 	if output != nil {
@@ -348,6 +387,15 @@ func describeNodeSetEndpoints(componentID string, nodeSet *cre.NodeSet, output *
 			if ref != nil {
 				refs = append(refs, *ref)
 			}
+		}
+	}
+	if nodeSet != nil {
+		for nodeIdx, spec := range nodeSet.NodeSpecs {
+			customRefs, err := nodeSetCustomPortEndpointRefs(componentID, nodeIdx, spec)
+			if err != nil {
+				return nil, err
+			}
+			refs = append(refs, customRefs...)
 		}
 	}
 	dbRef, err := nodeSetDBEndpointRef(componentID, nodeSet)
@@ -384,8 +432,8 @@ func rewriteNodeSetWithBindings(output *ns.Output, nodeSet *cre.NodeSet, binding
 	}
 	if output != nil {
 		for idx := range output.CLNodes {
-		endpointName := fmt.Sprintf("node-%d-api", idx)
-		rawURL := output.CLNodes[idx].Node.ExternalURL
+			endpointName := fmt.Sprintf("node-%d-api", idx)
+			rawURL := output.CLNodes[idx].Node.ExternalURL
 			if rawURL == "" {
 				continue
 			}
@@ -403,7 +451,148 @@ func rewriteNodeSetWithBindings(output *ns.Output, nodeSet *cre.NodeSet, binding
 		}
 		nodeSet.DbInput.Port = binding.LocalPort
 	}
+	if nodeSet != nil {
+		for nodeIdx, spec := range nodeSet.NodeSpecs {
+			if spec == nil || spec.Input == nil || spec.Input.Node == nil || len(spec.Input.Node.CustomPorts) == 0 {
+				continue
+			}
+			for portIdx, mapping := range spec.Input.Node.CustomPorts {
+				_, containerPort, err := parseCustomPortMapping(mapping)
+				if err != nil {
+					return fmt.Errorf("invalid custom_ports entry %q for node %d: %w", mapping, nodeIdx, err)
+				}
+				binding, ok := byName[nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort)]
+				if !ok {
+					return fmt.Errorf("missing tunnel binding for nodeset endpoint %s", nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort))
+				}
+				spec.Input.Node.CustomPorts[portIdx] = rewriteCustomPortMappingHostPort(mapping, binding.LocalPort)
+			}
+		}
+	}
 	return nil
+}
+
+func nodeSetCustomPortEndpointRefs(componentID string, nodeIdx int, spec *cre.NodeSpecWithRole) ([]tunnel.EndpointRef, error) {
+	if spec == nil || spec.Input == nil || spec.Input.Node == nil || len(spec.Input.Node.CustomPorts) == 0 {
+		return nil, nil
+	}
+	refs := make([]tunnel.EndpointRef, 0, len(spec.Input.Node.CustomPorts))
+	for portIdx, mapping := range spec.Input.Node.CustomPorts {
+		hostPort, containerPort, err := parseCustomPortMapping(mapping)
+		if err != nil {
+			return nil, fmt.Errorf("invalid custom_ports entry %q for node %d: %w", mapping, nodeIdx, err)
+		}
+		refs = append(refs, tunnel.EndpointRef{
+			ComponentID:  componentID,
+			EndpointName: nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort),
+			Scheme:       "tcp",
+			Host:         "127.0.0.1",
+			Port:         hostPort,
+			OriginalURL:  fmt.Sprintf("tcp://127.0.0.1:%d", hostPort),
+		})
+	}
+	return refs, nil
+}
+
+func nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort int) string {
+	return fmt.Sprintf("node-%d-custom-%d-%d", nodeIdx, portIdx, containerPort)
+}
+
+func parseCustomPortMapping(mapping string) (hostPort int, containerPort int, err error) {
+	parts := strings.Split(strings.TrimSpace(mapping), ":")
+	if len(parts) < 2 {
+		return 0, 0, fmt.Errorf("expected hostPort:containerPort, got %q", mapping)
+	}
+	hostPortRaw := parts[len(parts)-2]
+	containerPortRaw := parts[len(parts)-1]
+	hostPort, err = strconv.Atoi(hostPortRaw)
+	if err != nil || hostPort <= 0 || hostPort > 65535 {
+		return 0, 0, fmt.Errorf("invalid host port %q", hostPortRaw)
+	}
+	containerPort, err = strconv.Atoi(containerPortRaw)
+	if err != nil || containerPort <= 0 || containerPort > 65535 {
+		return 0, 0, fmt.Errorf("invalid container port %q", containerPortRaw)
+	}
+	return hostPort, containerPort, nil
+}
+
+func rewriteCustomPortMappingHostPort(mapping string, newHostPort int) string {
+	parts := strings.Split(strings.TrimSpace(mapping), ":")
+	if len(parts) < 2 {
+		return mapping
+	}
+	parts[len(parts)-2] = strconv.Itoa(newHostPort)
+	return strings.Join(parts, ":")
+}
+
+func rewriteGatewayIncomingForNodeSetBindings(
+	topology *cre.Topology,
+	configuredIndex int,
+	nodeSet *cre.NodeSet,
+	bindings []tunnel.TunnelBinding,
+) {
+	if topology == nil || topology.GatewayConnectors == nil || len(topology.GatewayConnectors.Configurations) == 0 || nodeSet == nil {
+		return
+	}
+	if configuredIndex < 0 || configuredIndex >= len(topology.DonsMetadata.List()) {
+		return
+	}
+	donMeta := topology.DonsMetadata.List()[configuredIndex]
+	gatewayNode, hasGateway := donMeta.Gateway()
+	if !hasGateway {
+		return
+	}
+	if gatewayNode.Index < 0 || gatewayNode.Index >= len(nodeSet.NodeSpecs) {
+		return
+	}
+	spec := nodeSet.NodeSpecs[gatewayNode.Index]
+	if spec == nil || spec.Input == nil || spec.Input.Node == nil || len(spec.Input.Node.CustomPorts) == 0 {
+		return
+	}
+
+	for _, cfg := range topology.GatewayConnectors.Configurations {
+		if cfg == nil || cfg.GatewayConfiguration == nil || cfg.NodeUUID != gatewayNode.UUID {
+			continue
+		}
+		// Test process reaches gateway via local port (direct for local runs, tunneled for remote runs).
+		cfg.Incoming.Host = "127.0.0.1"
+		// Resolve tunnel by gateway container port (e.g. 5002), not by possibly stale host-side custom port.
+		if localPort, ok := gatewayLocalPortFromBindings(gatewayNode.Index, cfg.Incoming.ExternalPort, bindings); ok {
+			cfg.Incoming.ExternalPort = localPort
+		}
+	}
+}
+
+func rewriteGatewayIncomingForDirectAccess(topology *cre.Topology, configuredIndex int, hostIP string) {
+	if topology == nil || topology.GatewayConnectors == nil || len(topology.GatewayConnectors.Configurations) == 0 {
+		return
+	}
+	if configuredIndex < 0 || configuredIndex >= len(topology.DonsMetadata.List()) {
+		return
+	}
+	donMeta := topology.DonsMetadata.List()[configuredIndex]
+	gatewayNode, hasGateway := donMeta.Gateway()
+	if !hasGateway {
+		return
+	}
+	for _, cfg := range topology.GatewayConnectors.Configurations {
+		if cfg == nil || cfg.GatewayConfiguration == nil || cfg.NodeUUID != gatewayNode.UUID {
+			continue
+		}
+		cfg.Incoming.Host = hostIP
+	}
+}
+
+func gatewayLocalPortFromBindings(gatewayNodeIndex, gatewayContainerPort int, bindings []tunnel.TunnelBinding) (int, bool) {
+	for _, binding := range bindings {
+		if !strings.HasPrefix(binding.EndpointName, fmt.Sprintf("node-%d-custom-", gatewayNodeIndex)) {
+			continue
+		}
+		if strings.HasSuffix(binding.EndpointName, fmt.Sprintf("-%d", gatewayContainerPort)) {
+			return binding.LocalPort, true
+		}
+	}
+	return 0, false
 }
 
 func nodeSetEndpointFromURL(componentID, endpointName, rawURL string) (*tunnel.EndpointRef, error) {

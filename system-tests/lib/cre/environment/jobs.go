@@ -178,6 +178,13 @@ func rewriteRemoteJDOutputForLocalAccess(
 	if output == nil {
 		return nil
 	}
+	if isRemoteAccessDirectMode() {
+		hostIP, err := resolveDirectAccessHostIP()
+		if err != nil {
+			return err
+		}
+		return rewriteJDForDirectAccess(output, hostIP, rewriteInternalForLocalNodes)
+	}
 	if tunnelManager == nil {
 		return errors.New("tunnel manager is required for remote jd target")
 	}
@@ -199,6 +206,39 @@ func rewriteRemoteJDOutputForLocalAccess(
 			Msg("Established endpoint tunnel")
 	}
 	return rewriteJDWithBindings(output, bindings, rewriteInternalForLocalNodes)
+}
+
+func rewriteJDForDirectAccess(output *jd.Output, hostIP string, rewriteInternalForLocalNodes bool) error {
+	if output == nil {
+		return nil
+	}
+
+	if output.ExternalGRPCUrl != "" {
+		rewritten, err := rewriteAddressHost(output.ExternalGRPCUrl, hostIP)
+		if err != nil {
+			return err
+		}
+		output.ExternalGRPCUrl = rewritten
+		if rewriteInternalForLocalNodes {
+			output.InternalGRPCUrl = rewritten
+		}
+	}
+
+	if output.ExternalWSRPCUrl != "" || output.InternalWSRPCUrl != "" {
+		source := output.ExternalWSRPCUrl
+		if source == "" {
+			source = output.InternalWSRPCUrl
+		}
+		rewritten, err := rewriteAddressHost(source, hostIP)
+		if err != nil {
+			return err
+		}
+		output.ExternalWSRPCUrl = rewritten
+		if rewriteInternalForLocalNodes {
+			output.InternalWSRPCUrl = rewritten
+		}
+	}
+	return nil
 }
 
 func describeJDEndpoints(output *jd.Output) ([]tunnel.EndpointRef, error) {
@@ -299,4 +339,28 @@ func jdEndpointFromAddress(componentID, endpointName, rawAddress string) (*tunne
 		Port:         portNumber,
 		OriginalURL:  trimmed,
 	}, nil
+}
+
+func rewriteAddressHost(rawAddress, host string) (string, error) {
+	trimmed := strings.TrimSpace(rawAddress)
+	if trimmed == "" {
+		return "", nil
+	}
+	if strings.Contains(trimmed, "://") {
+		parsed, err := url.Parse(trimmed)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse address %q: %w", rawAddress, err)
+		}
+		port := parsed.Port()
+		if port == "" {
+			return "", fmt.Errorf("address %q must include a port", rawAddress)
+		}
+		parsed.Host = net.JoinHostPort(host, port)
+		return parsed.String(), nil
+	}
+	_, port, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse host:port %q: %w", rawAddress, err)
+	}
+	return net.JoinHostPort(host, port), nil
 }

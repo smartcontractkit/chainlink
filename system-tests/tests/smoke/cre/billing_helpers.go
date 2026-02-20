@@ -24,6 +24,7 @@ import (
 	libcre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -76,7 +77,7 @@ func loadBillingStackCache(relativePathToRepoRoot string) (*config.BillingConfig
 
 func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, environmentDir string, testEnv *ttypes.TestEnvironment) error {
 	if !config.BillingStateFileExists(relativePathToRepoRoot) {
-		priceURL := setupFakeBillingPriceProvider(t, testEnv.Config.Fake)
+		priceURL := setupFakeBillingPriceProvider(t, testEnv.Config.Fake, testEnv)
 
 		t.Cleanup(func() {
 			/*
@@ -279,7 +280,7 @@ func queryCredits(t *testing.T, db *sql.DB) []billingCredit {
 	return credits
 }
 
-func setupFakeBillingPriceProvider(t *testing.T, input *fake.Input) string {
+func setupFakeBillingPriceProvider(t *testing.T, input *fake.Input, testEnv *ttypes.TestEnvironment) string {
 	t.Helper()
 
 	fakeProviderStarted.Do(func() {
@@ -319,6 +320,7 @@ func setupFakeBillingPriceProvider(t *testing.T, input *fake.Input) string {
 	})
 
 	require.NoError(t, err)
+	t_helpers.EnsureFixtureRelayForPort(t, testEnv, "billing-fake-price-provider", input.Port)
 
 	return url
 }

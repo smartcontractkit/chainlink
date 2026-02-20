@@ -28,6 +28,7 @@ import (
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -285,7 +286,13 @@ func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleF
 					}
 
 					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", workerNode.Index)
-					allFilters, filtersErr := getAllFilters(checkCtx, singleFileLogger, big.NewInt(libc.MustSafeInt64(registryChainID)), workerNode.Index, nodeSet[donIdx].DbInput.Port)
+					dbHost, hostErr := resolveNodeSetDBHost(nodeSet[donIdx])
+					if hostErr != nil {
+						cancel()
+						ticker.Stop()
+						return errors.Wrap(hostErr, "failed to resolve nodeset db host")
+					}
+					allFilters, filtersErr := getAllFilters(checkCtx, singleFileLogger, big.NewInt(libc.MustSafeInt64(registryChainID)), workerNode.Index, dbHost, nodeSet[donIdx].DbInput.Port)
 					if filtersErr != nil {
 						cancel()
 						ticker.Stop()
@@ -337,8 +344,8 @@ func StartS3(testLogger zerolog.Logger, input *s3provider.Input, stageGen *stage
 	return s3ProviderOutput, nil
 }
 
-func newORM(logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, postgres.User, postgres.Password, fmt.Sprintf("db_%d", nodeIndex))
+func newORM(logger logger.Logger, chainID *big.Int, nodeIndex int, host string, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, externalPort, postgres.User, postgres.Password, fmt.Sprintf("db_%d", nodeIndex))
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, db, err
@@ -348,12 +355,23 @@ func newORM(logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int)
 	return logpoller.NewORM(chainID, db, logger), db, nil
 }
 
-func getAllFilters(ctx context.Context, logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int) (map[string]logpoller.Filter, error) {
-	orm, db, err := newORM(logger, chainID, nodeIndex, externalPort)
+func getAllFilters(ctx context.Context, logger logger.Logger, chainID *big.Int, nodeIndex int, host string, externalPort int) (map[string]logpoller.Filter, error) {
+	orm, db, err := newORM(logger, chainID, nodeIndex, host, externalPort)
 	if err != nil {
 		return nil, err
 	}
 
 	defer db.Close()
 	return orm.LoadFilters(ctx)
+}
+
+func resolveNodeSetDBHost(nodeSet *cre.NodeSet) (string, error) {
+	defaultHost := "127.0.0.1"
+	if nodeSet == nil || strings.TrimSpace(nodeSet.Target) != string(config.TargetRemote) {
+		return defaultHost, nil
+	}
+	if !runtimecfg.IsDirectMode() {
+		return defaultHost, nil
+	}
+	return runtimecfg.DirectHostIP()
 }

@@ -91,6 +91,7 @@ func ExecuteHTTPActionRegressionTest(t *testing.T, testEnv *ttypes.TestEnvironme
 
 	fakeHTTP, err := fake.NewFakeDataProvider(testEnv.Config.FakeHTTP)
 	require.NoError(t, err, "Failed to start fake HTTP")
+	t_helpers.EnsureFixtureRelayForPort(t, testEnv, "http-action-regression-fake-http", testEnv.Config.FakeHTTP.Port)
 	testLogger.Info().Msg("Fake HTTP started for regression test")
 	defer func() {
 		testLogger.Info().Msgf("Cleaning up fake server on port %d", testEnv.Config.FakeHTTP.Port)
@@ -147,6 +148,7 @@ func ExecuteHTTPActionCRUDSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironm
 	} else {
 		testLogger.Info().Msg("Fake HTTP started successfully")
 	}
+	t_helpers.EnsureFixtureRelayForPort(t, testEnv, "http-action-smoke-fake-http", testEnv.Config.FakeHTTP.Port)
 
 	// Set up a unique endpoint for this test
 	response := map[string]any{

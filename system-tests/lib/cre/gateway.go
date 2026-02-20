@@ -21,6 +21,7 @@ func NewGatewayConfig(p infra.Provider, id, gatewayNodeIdx int, isBootstrap bool
 		},
 		Incoming: Incoming{
 			Protocol:     "http",
+			Host:         p.ExternalGatewayHost(),
 			Path:         "/",
 			InternalPort: gatewayIncomingPort,
 			ExternalPort: p.ExternalGatewayPort(gatewayIncomingPort),

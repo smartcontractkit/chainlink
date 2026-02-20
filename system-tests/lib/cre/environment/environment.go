@@ -222,12 +222,14 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
+	blockchainTargetBySelector := blockchainTargetsBySelector(input.Blockchains)
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
 		topology,
 		creEnvironment,
 		input.NodeSets,
+		blockchainTargetBySelector,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -504,6 +506,23 @@ func SetupTestEnvironment(
 	}, nil
 }
 
+func blockchainTargetsBySelector(blockchains []*config.Blockchain) map[uint64]string {
+	bySelector := make(map[uint64]string, len(blockchains))
+	for _, blockchainCfg := range blockchains {
+		if blockchainCfg == nil {
+			continue
+		}
+		input := blockchainCfg.InputRef()
+		if input == nil {
+			continue
+		}
+		for _, chainID := range input.ChainID {
+			bySelector[uint64(chainID)] = string(blockchainCfg.Target)
+		}
+	}
+	return bySelector
+}
+
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
@@ -550,7 +569,6 @@ func summarizeNodeSetPlacement(nodeSets []*cre.NodeSet) (*nodeSetPlacementSummar
 	}
 	return summary, nil
 }
-
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
 	allChainsCLDEnvironment := &cldf.Environment{

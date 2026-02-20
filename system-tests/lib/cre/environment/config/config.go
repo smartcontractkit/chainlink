@@ -74,6 +74,8 @@ type Config struct {
 type ComponentTarget string
 
 const (
+	TargetLocal ComponentTarget = "local"
+	// TargetDocker is a backward-compatible alias for local placement.
 	TargetDocker ComponentTarget = "docker"
 	TargetRemote ComponentTarget = "remote"
 )
@@ -102,8 +104,9 @@ type JobDistributor struct {
 }
 
 func (b *Blockchain) Normalize() {
+	b.Target = normalizeComponentTarget(b.Target)
 	if b.Target == "" {
-		b.Target = TargetDocker
+		b.Target = TargetLocal
 	}
 	if b.RemoteStartPolicy == "" {
 		b.RemoteStartPolicy = RemoteStartPolicyReuseIfIdentical
@@ -116,7 +119,7 @@ func (b *Blockchain) Validate() error {
 	}
 
 	b.Normalize()
-	if b.Target != TargetDocker && b.Target != TargetRemote {
+	if b.Target != TargetLocal && b.Target != TargetRemote {
 		return fmt.Errorf("invalid blockchain target: %s", b.Target)
 	}
 	if b.RemoteStartPolicy != RemoteStartPolicyReuseIfIdentical && b.RemoteStartPolicy != RemoteStartPolicyAlways {
@@ -134,8 +137,9 @@ func (b *Blockchain) InputRef() *blockchain.Input {
 }
 
 func (j *JobDistributor) Normalize() {
+	j.Target = normalizeComponentTarget(j.Target)
 	if j.Target == "" {
-		j.Target = TargetDocker
+		j.Target = TargetLocal
 	}
 	if j.RemoteStartPolicy == "" {
 		j.RemoteStartPolicy = RemoteStartPolicyReuseIfIdentical
@@ -148,7 +152,7 @@ func (j *JobDistributor) Validate() error {
 	}
 
 	j.Normalize()
-	if j.Target != TargetDocker && j.Target != TargetRemote {
+	if j.Target != TargetLocal && j.Target != TargetRemote {
 		return fmt.Errorf("invalid jd target: %s", j.Target)
 	}
 	if j.RemoteStartPolicy != RemoteStartPolicyReuseIfIdentical && j.RemoteStartPolicy != RemoteStartPolicyAlways {
@@ -234,8 +238,9 @@ func normalizeNodeSetPlacement(nodeSet *cre.NodeSet) {
 	if nodeSet == nil {
 		return
 	}
+	nodeSet.Target = normalizeNodeSetTarget(nodeSet.Target)
 	if strings.TrimSpace(nodeSet.Target) == "" {
-		nodeSet.Target = string(TargetDocker)
+		nodeSet.Target = string(TargetLocal)
 	}
 	if strings.TrimSpace(nodeSet.RemoteStartPolicy) == "" {
 		nodeSet.RemoteStartPolicy = string(RemoteStartPolicyReuseIfIdentical)
@@ -246,7 +251,7 @@ func validateNodeSetPlacement(nodeSet *cre.NodeSet) error {
 	if nodeSet == nil {
 		return errors.New("nodeset is nil")
 	}
-	if nodeSet.Target != string(TargetDocker) && nodeSet.Target != string(TargetRemote) {
+	if nodeSet.Target != string(TargetLocal) && nodeSet.Target != string(TargetRemote) {
 		return fmt.Errorf("invalid nodeset target: %s", nodeSet.Target)
 	}
 	if nodeSet.RemoteStartPolicy != string(RemoteStartPolicyReuseIfIdentical) && nodeSet.RemoteStartPolicy != string(RemoteStartPolicyAlways) {
@@ -268,6 +273,23 @@ func removeChainIDFromFlag(flag string) string {
 	}
 
 	return flag[:lastIdx]
+}
+
+func normalizeComponentTarget(target ComponentTarget) ComponentTarget {
+	switch strings.ToLower(strings.TrimSpace(string(target))) {
+	case "":
+		return ""
+	case string(TargetRemote):
+		return TargetRemote
+	case string(TargetLocal), string(TargetDocker):
+		return TargetLocal
+	default:
+		return target
+	}
+}
+
+func normalizeNodeSetTarget(target string) string {
+	return string(normalizeComponentTarget(ComponentTarget(target)))
 }
 
 func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {
