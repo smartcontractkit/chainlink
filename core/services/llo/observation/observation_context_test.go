@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"math/rand/v2"
+	"strconv"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -332,9 +333,10 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 	pipelines := make([]*mockPipeline, n)
 
 	for i := range n {
-		sid1 := streams.StreamID(i*3 + 1)
-		sid2 := streams.StreamID(i*3 + 2)
-		sid3 := streams.StreamID(i*3 + 3)
+		ui := uint32(i) //nolint:gosec // i bounded by n=20
+		sid1 := streams.StreamID(ui*3 + 1)
+		sid2 := streams.StreamID(ui*3 + 2)
+		sid3 := streams.StreamID(ui*3 + 3)
 		val1 := decimal.NewFromInt(int64(i*10 + 1))
 		val2 := decimal.NewFromInt(int64(i*10 + 2))
 		val3 := decimal.NewFromInt(int64(i*10 + 3))
@@ -364,9 +366,10 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for i := range n {
-		sid1 := streams.StreamID(i*3 + 1)
-		sid2 := streams.StreamID(i*3 + 2)
-		sid3 := streams.StreamID(i*3 + 3)
+		ui := uint32(i) //nolint:gosec // i bounded by n=20
+		sid1 := streams.StreamID(ui*3 + 1)
+		sid2 := streams.StreamID(ui*3 + 2)
+		sid3 := streams.StreamID(ui*3 + 3)
 		for j, strmID := range [3]streams.StreamID{sid1, sid2, sid3} {
 			wg.Go(func() {
 				val, err := oc.Observe(ctx, strmID, opts)
@@ -381,9 +384,9 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 			require.NoError(t, r.err, "pipeline %d, stream %d", i, r.strmID)
 			require.NotNil(t, r.val, "pipeline %d, stream %d: nil value", i, r.strmID)
 		}
-		assert.Equal(t, fmt.Sprintf("%d", i*10+1), group[0].val.(*llo.Decimal).String(), "pipeline %d sid1", i)
-		assert.Equal(t, fmt.Sprintf("%d", i*10+2), group[1].val.(*llo.Decimal).String(), "pipeline %d sid2", i)
-		assert.Equal(t, fmt.Sprintf("%d", i*10+3), group[2].val.(*llo.Decimal).String(), "pipeline %d sid3", i)
+		assert.Equal(t, strconv.Itoa(i*10+1), group[0].val.(*llo.Decimal).String(), "pipeline %d sid1", i)
+		assert.Equal(t, strconv.Itoa(i*10+2), group[1].val.(*llo.Decimal).String(), "pipeline %d sid2", i)
+		assert.Equal(t, strconv.Itoa(i*10+3), group[2].val.(*llo.Decimal).String(), "pipeline %d sid3", i)
 		assert.Equal(t, int32(1), pipelines[i].runCount.Load(), "pipeline %d should have run exactly once", i)
 	}
 }
