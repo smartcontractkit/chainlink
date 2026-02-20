@@ -1,0 +1,95 @@
+name: Detect conflicting PRs
+description: Detects PRs that would conflict with the current PR and posts a comment
+
+inputs:
+  github-token:
+    description: GitHub token with pull-requests write and contents read permissions
+    required: true
+  repository:
+    description: Repository in owner/repo format
+    required: true
+  pr-number:
+    description: Current PR number
+    required: true
+  head-ref:
+    description: Head branch of the current PR
+    required: true
+  base-ref:
+    description: Base branch of the current PR
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch branches
+      shell: bash
+      run: |
+        git fetch origin \
+          ${{ inputs.head-ref }} \
+          '+refs/pull/*/head:refs/remotes/origin/pr/*'
+
+    - name: Detect conflicts and update comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repository }}
+        CURRENT_PR: ${{ inputs.pr-number }}
+        CURRENT_BRANCH: ${{ inputs.head-ref }}
+        BASE_BRANCH: ${{ inputs.base-ref }}
+      run: |
+        set -e
+
+        MARKER="<!-- conflict-check -->"
+
+        mkdir -p worktrees
+
+        conflicts=()
+
+        prs=$(gh api repos/$REPO/pulls \
+          -f state=open \
+          -f base=$BASE_BRANCH \
+          --jq '.[].number')
+
+        for pr in $prs
+        do
+          [ "$pr" = "$CURRENT_PR" ] && continue
+
+          branch="origin/pr/$pr"
+          dir="worktrees/$pr"
+
+          git worktree add -q "$dir" "$CURRENT_BRANCH"
+
+          if ! git -C "$dir" merge --no-commit --no-ff "$branch" >/dev/null 2>&1
+          then
+            conflicts+=("#$pr")
+          fi
+
+          git worktree remove -f "$dir"
+        done
+
+        if [ ${#conflicts[@]} -eq 0 ]; then
+          BODY="$MARKER
+        ✅ No conflicts with other open PRs targeting \`$BASE_BRANCH\`"
+          FAIL=0
+        else
+          BODY="$MARKER
+        ❌ Conflicts with:
+
+        $(printf '%s\n' "${conflicts[@]}")"
+          FAIL=1
+        fi
+
+        COMMENT_ID=$(gh api repos/$REPO/issues/$CURRENT_PR/comments \
+          --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" \
+          | head -n1)
+
+        if [ -n "$COMMENT_ID" ]; then
+          gh api \
+            repos/$REPO/issues/comments/$COMMENT_ID \
+            -X PATCH \
+            -f body="$BODY"
+        else
+          gh pr comment $CURRENT_PR --body "$BODY"
+        fi
+
+        exit 0
