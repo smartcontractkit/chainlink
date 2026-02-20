@@ -25,6 +25,7 @@ runs:
       shell: bash
       run: |
         git fetch origin \
+          ${{ inputs.base-ref }} \
           ${{ inputs.head-ref }} \
           '+refs/pull/*/head:refs/remotes/origin/pr/*'
 
@@ -51,15 +52,25 @@ runs:
         do
           [ "$pr" = "$CURRENT_PR" ] && continue
 
-          branch="origin/pr/$pr"
+          other_branch="origin/pr/$pr"
           dir="worktrees/$pr"
 
-          git worktree add -q "$dir" "$CURRENT_BRANCH"
+          # Start from the base branch (detached HEAD to allow multiple worktrees)
+          git worktree add -q --detach "$dir" "origin/${BASE_BRANCH}"
 
-          if ! git -C "$dir" merge --no-commit --no-ff "$branch" >/dev/null 2>&1
+          # Simulate the other PR being merged first
+          if git -C "$dir" merge --no-commit --no-ff "$other_branch" >/dev/null 2>&1
           then
-            conflicts+=("#$pr")
+            # Commit so we can attempt the next merge
+            git -C "$dir" -c user.email="ci@local" -c user.name="CI" commit --no-edit -m "temp" >/dev/null 2>&1
+
+            # Now try to merge current PR on top - if this fails, they conflict
+            if ! git -C "$dir" merge --no-commit --no-ff "origin/${CURRENT_BRANCH}" >/dev/null 2>&1
+            then
+              conflicts+=("#$pr")
+            fi
           fi
+          # If other PR can't merge to base, that's their issue, not a conflict with us
 
           git worktree remove -f "$dir"
         done
