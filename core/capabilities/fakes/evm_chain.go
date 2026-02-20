@@ -288,10 +288,14 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 	// Convert logs to protobuf
 	logsPb := make([]*evmcappb.Log, len(logs))
 	for i, log := range logs {
+		topics := make([][]byte, len(log.Topics))
+		for j, t := range log.Topics {
+			topics[j] = t.Bytes()
+		}
 		logsPb[i] = &evmcappb.Log{
 			Address: log.Address.Bytes(),
 			Data:    log.Data,
-			Topics:  logsPb[i].Topics,
+			Topics:  topics,
 		}
 	}
 	response := &evmcappb.FilterLogsReply{
@@ -423,8 +427,14 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 		ContractAddress:   receipt.ContractAddress.Bytes(),
 	}
 	for i, log := range receipt.Logs {
+		topics := make([][]byte, len(log.Topics))
+		for j, t := range log.Topics {
+			topics[j] = t.Bytes()
+		}
 		receiptPb.Logs[i] = &evmcappb.Log{
 			Address: log.Address.Bytes(),
+			Data:    log.Data,
+			Topics:  topics,
 		}
 	}
 	response := &evmcappb.GetTransactionReceiptReply{
