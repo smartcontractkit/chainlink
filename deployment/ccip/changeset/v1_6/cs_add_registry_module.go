@@ -161,11 +161,6 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		inspectors[chainSel] = inspector
 	}
 
-	mcmsContractByChain, err = deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig, nil)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
-	}
-
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,

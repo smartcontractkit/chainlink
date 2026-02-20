@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -27,7 +28,7 @@ type DeployRegistryModuleConfig struct {
 
 func (c DeployRegistryModuleConfig) Validate(e cldf.Environment) error {
 	if len(c.ChainSelectors) == 0 {
-		return fmt.Errorf("no chain selectors provided")
+		return errors.New("no chain selectors provided")
 	}
 
 	// Load state to validate chain states and TokenAdminRegistry
