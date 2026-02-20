@@ -153,5 +153,5 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 // - Only non-1.6.0 versions exist
 func NeedsRegistryModule16Deployment(chainState evm.CCIPChainState) bool {
 	// Check if any 1.6.0 registry modules exist
-	return len(chainState.RegistryModules1_6) <= 0
+	return len(chainState.RegistryModules1_6) == 0
 }

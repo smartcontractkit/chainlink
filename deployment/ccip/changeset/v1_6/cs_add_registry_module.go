@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -34,7 +33,7 @@ type AddRegistryModuleConfig struct {
 
 func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 	if len(c.RegistryModuleAddrs) == 0 {
-		return fmt.Errorf("no registry module addresses provided")
+		return errors.New("no registry module addresses provided")
 	}
 
 	// Load state to check TokenAdminRegistry exists
@@ -69,9 +68,7 @@ func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
 		if c.MCMSConfig == nil {
 			return errors.New("mcmsConfig is required for this changeset")
 		}
-
 	}
-
 	return nil
 }
 
@@ -130,7 +127,9 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 
 		op, err := proposalutils.BatchOperationForChain(
 			chainSel, chainState.TokenAdminRegistry.Address().String(), callData, big.NewInt(0), shared.TokenAdminRegistry.String(), nil)
-
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", chainSel, err)
+		}
 		ops = append(ops, op)
 
 		e.Logger.Infow("Added add operation to batch",
@@ -183,15 +182,4 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
-}
-
-// isRegistryModule16 checks if the given registry module address is a 1.6 version
-func isRegistryModule16(chainState evm.CCIPChainState, registryModuleAddr common.Address) bool {
-	// Check if the address exists in the 1.6 registry modules map
-	for _, module16 := range chainState.RegistryModules1_6 {
-		if module16.Address() == registryModuleAddr {
-			return true
-		}
-	}
-	return false
 }
