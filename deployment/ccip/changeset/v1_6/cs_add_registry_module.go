@@ -4,11 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -113,12 +117,19 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		chainsNeedingOps = append(chainsNeedingOps, chainSel)
 
 		// Create add operation for new 1.6 module
-		addTx, err := chainState.TokenAdminRegistry.AddRegistryModule(nil, registryModuleAddr)
+		// Parse the ABI and encode the addRegistryModule call data
+		parsedABI, err := abi.JSON(strings.NewReader(token_admin_registry.TokenAdminRegistryABI))
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create addRegistryModule transaction on chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to parse TokenAdminRegistry ABI on chain %d: %w", chainSel, err)
 		}
+
+		callData, err := parsedABI.Pack("addRegistryModule", registryModuleAddr)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to encode addRegistryModule call data on chain %d: %w", chainSel, err)
+		}
+
 		op, err := proposalutils.BatchOperationForChain(
-			chainSel, chainState.TokenAdminRegistry.Address().String(), addTx.Data(), big.NewInt(0), shared.TokenAdminRegistry.String(), nil)
+			chainSel, chainState.TokenAdminRegistry.Address().String(), callData, big.NewInt(0), shared.TokenAdminRegistry.String(), nil)
 
 		ops = append(ops, op)
 

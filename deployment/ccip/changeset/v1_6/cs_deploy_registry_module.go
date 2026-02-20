@@ -41,10 +41,6 @@ func (c DeployRegistryModuleConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("invalid chain selector %d: %w", chainSel, err)
 		}
 
-		if _, exists := e.BlockChains.EVMChains()[chainSel]; !exists {
-			return fmt.Errorf("chain %d not found in environment", chainSel)
-		}
-
 		// Check if chain state exists
 		chainState, exists := state.Chains[chainSel]
 		if !exists {
