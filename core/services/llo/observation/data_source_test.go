@@ -190,7 +190,7 @@ func newMockCache(inner StreamValueCache) *mockCache {
 	return &mockCache{StreamValueCache: inner}
 }
 
-//AddMany is a spy for the StreamValueCache.AddMany method.
+// AddMany is a spy for the StreamValueCache.AddMany method.
 // It records the values and ttl passed to it and then calls the underlying StreamValueCache.AddMany method.
 func (s *mockCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
 	snapshot := make(map[llotypes.StreamID]llo.StreamValue, len(values))
