@@ -289,7 +289,7 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 	}
 
 	// Convert topics from protobuf []*Topics to geth [][]common.Hash
-	var topics [][]common.Hash
+	topics := make([][]common.Hash, 0, len(filterQueryPb.Topics))
 	for _, topicSet := range filterQueryPb.Topics {
 		if topicSet == nil {
 			topics = append(topics, nil)
