@@ -271,6 +271,9 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 
 	// Prepare filter query
 	filterQueryPb := input.GetFilterQuery()
+	if filterQueryPb == nil {
+		return nil, caperrors.NewPublicSystemError(errors.New("FilterQuery is nil"), caperrors.Unknown)
+	}
 	addresses := make([]common.Address, len(filterQueryPb.Addresses))
 	for i, address := range filterQueryPb.Addresses {
 		addresses[i] = common.Address(address)
