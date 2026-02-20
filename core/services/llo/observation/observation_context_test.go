@@ -6,10 +6,10 @@ import (
 	"io"
 	"math"
 	"math/rand/v2"
-	"strconv"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -334,9 +334,9 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 
 	for i := range n {
 		ui := uint32(i) //nolint:gosec // i bounded by n=20
-		sid1 := streams.StreamID(ui*3 + 1)
-		sid2 := streams.StreamID(ui*3 + 2)
-		sid3 := streams.StreamID(ui*3 + 3)
+		sid1 := ui*3 + 1
+		sid2 := ui*3 + 2
+		sid3 := ui*3 + 3
 		val1 := decimal.NewFromInt(int64(i*10 + 1))
 		val2 := decimal.NewFromInt(int64(i*10 + 2))
 		val3 := decimal.NewFromInt(int64(i*10 + 3))
@@ -367,9 +367,9 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 
 	for i := range n {
 		ui := uint32(i) //nolint:gosec // i bounded by n=20
-		sid1 := streams.StreamID(ui*3 + 1)
-		sid2 := streams.StreamID(ui*3 + 2)
-		sid3 := streams.StreamID(ui*3 + 3)
+		sid1 := ui*3 + 1
+		sid2 := ui*3 + 2
+		sid3 := ui*3 + 3
 		for j, strmID := range [3]streams.StreamID{sid1, sid2, sid3} {
 			wg.Go(func() {
 				val, err := oc.Observe(ctx, strmID, opts)
