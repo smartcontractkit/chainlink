@@ -45,10 +45,7 @@ runs:
 
         conflicts=()
 
-        prs=$(gh api repos/$REPO/pulls \
-          -f state=open \
-          -f base=$BASE_BRANCH \
-          --jq '.[].number')
+        prs=$(gh api --method GET "repos/${REPO}/pulls?state=open&base=${BASE_BRANCH}&per_page=100" --jq '.[].number')
 
         for pr in $prs
         do
@@ -68,30 +65,23 @@ runs:
         done
 
         if [ ${#conflicts[@]} -eq 0 ]; then
-          BODY="$MARKER
-        ✅ No conflicts with other open PRs targeting \`$BASE_BRANCH\`"
-          FAIL=0
+          BODY="${MARKER}
+        ✅ No conflicts with other open PRs targeting \`${BASE_BRANCH}\`"
         else
-          BODY="$MARKER
+          BODY="${MARKER}
         ❌ Conflicts with:
 
         $(printf '%s\n' "${conflicts[@]}")"
-          FAIL=1
         fi
 
-        COMMENT_ID=$(gh api repos/$REPO/issues/$CURRENT_PR/comments \
-          --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" \
+        COMMENT_ID=$(gh api --method GET "repos/${REPO}/issues/${CURRENT_PR}/comments" \
+          --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" \
           | head -n1)
 
         if [ -n "$COMMENT_ID" ]; then
-          gh api \
-            repos/$REPO/issues/comments/$COMMENT_ID \
-            -X PATCH \
+          gh api --method PATCH "repos/${REPO}/issues/comments/${COMMENT_ID}" \
             -f body="$BODY"
         else
-          gh api \
-            repos/$REPO/issues/$CURRENT_PR/comments \
+          gh api --method POST "repos/${REPO}/issues/${CURRENT_PR}/comments" \
             -f body="$BODY"
         fi
-
-        exit 0
