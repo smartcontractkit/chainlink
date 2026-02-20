@@ -21,13 +21,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Fetch branches
+    - name: Fetch base and current branch
       shell: bash
       run: |
-        git fetch origin \
-          ${{ inputs.base-ref }} \
-          ${{ inputs.head-ref }} \
-          '+refs/pull/*/head:refs/remotes/origin/pr/*'
+        git fetch origin ${{ inputs.base-ref }} ${{ inputs.head-ref }}
 
     - name: Detect conflicts and update comment
       shell: bash
@@ -42,38 +39,63 @@ runs:
 
         MARKER="<!-- conflict-check -->"
 
-        mkdir -p worktrees
+        # Get files changed in current PR
+        current_files=$(gh api --method GET --paginate "repos/${REPO}/pulls/${CURRENT_PR}/files" --jq '.[].filename' | sort -u)
+        current_files_count=$(echo "$current_files" | wc -l)
+        echo "Current PR touches $current_files_count files"
 
-        conflicts=()
+        # Get all open PRs targeting same base (paginated)
+        prs=$(gh api --method GET --paginate "repos/${REPO}/pulls?state=open&base=${BASE_BRANCH}" --jq '.[].number')
+        total_prs=$(echo "$prs" | wc -w)
+        echo "Found $total_prs open PRs targeting ${BASE_BRANCH}"
 
-        prs=$(gh api --method GET "repos/${REPO}/pulls?state=open&base=${BASE_BRANCH}&per_page=100" --jq '.[].number')
-
-        for pr in $prs
-        do
+        # Find PRs with overlapping files (fast API check)
+        candidates=()
+        for pr in $prs; do
           [ "$pr" = "$CURRENT_PR" ] && continue
 
-          other_branch="origin/pr/$pr"
-          dir="worktrees/$pr"
+          other_files=$(gh api --method GET --paginate "repos/${REPO}/pulls/${pr}/files" --jq '.[].filename' | sort -u)
 
-          # Start from the base branch (detached HEAD to allow multiple worktrees)
-          git worktree add -q --detach "$dir" "origin/${BASE_BRANCH}"
-
-          # Simulate the other PR being merged first
-          if git -C "$dir" merge --no-commit --no-ff "$other_branch" >/dev/null 2>&1
-          then
-            # Commit so we can attempt the next merge
-            git -C "$dir" -c user.email="ci@local" -c user.name="CI" commit --no-edit -m "temp" >/dev/null 2>&1
-
-            # Now try to merge current PR on top - if this fails, they conflict
-            if ! git -C "$dir" merge --no-commit --no-ff "origin/${CURRENT_BRANCH}" >/dev/null 2>&1
-            then
-              conflicts+=("#$pr")
-            fi
+          # Check for file intersection
+          if comm -12 <(echo "$current_files") <(echo "$other_files") | grep -q .; then
+            candidates+=("$pr")
           fi
-          # If other PR can't merge to base, that's their issue, not a conflict with us
-
-          git worktree remove -f "$dir"
         done
+
+        echo "Found ${#candidates[@]} PRs with overlapping files, checking for conflicts..."
+
+        if [ ${#candidates[@]} -eq 0 ]; then
+          conflicts=()
+        else
+          # Fetch only the PR refs we need
+          fetch_refs=""
+          for pr in "${candidates[@]}"; do
+            fetch_refs="$fetch_refs +refs/pull/${pr}/head:refs/remotes/origin/pr/${pr}"
+          done
+          git fetch origin $fetch_refs
+
+          mkdir -p worktrees
+          conflicts=()
+
+          for pr in "${candidates[@]}"; do
+            other_branch="origin/pr/$pr"
+            dir="worktrees/$pr"
+
+            git worktree add -q --detach "$dir" "origin/${BASE_BRANCH}"
+
+            if git -C "$dir" merge --no-commit --no-ff "$other_branch" >/dev/null 2>&1; then
+              git -C "$dir" -c user.email="ci@local" -c user.name="CI" commit --no-edit -m "temp" >/dev/null 2>&1
+
+              if ! git -C "$dir" merge --no-commit --no-ff "origin/${CURRENT_BRANCH}" >/dev/null 2>&1; then
+                conflicts+=("#$pr")
+              fi
+            fi
+
+            git worktree remove -f "$dir"
+          done
+        fi
+
+        echo "Found ${#conflicts[@]} conflicting PRs"
 
         if [ ${#conflicts[@]} -eq 0 ]; then
           BODY="${MARKER}
