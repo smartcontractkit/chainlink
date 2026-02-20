@@ -61,7 +61,6 @@ jobs:
     steps:
       - name: Notify Slack
         uses: smartcontractkit/.github/actions/slack-notify-git-ref@slack-notify-git-ref/v1
-/
         with:
           slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
