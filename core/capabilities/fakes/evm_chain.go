@@ -322,9 +322,14 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 			logTopics[j] = t.Bytes()
 		}
 		logsPb[i] = &evmcappb.Log{
-			Address: log.Address.Bytes(),
-			Data:    log.Data,
-			Topics:  logTopics,
+			Address:     log.Address.Bytes(),
+			Data:        log.Data,
+			Topics:      logTopics,
+			BlockNumber: pb.NewBigIntFromInt(new(big.Int).SetUint64(log.BlockNumber)),
+			BlockHash:   log.BlockHash.Bytes(),
+			TxHash:      log.TxHash.Bytes(),
+			Index:       uint32(log.Index),
+			Removed:     log.Removed,
 		}
 	}
 	response := &evmcappb.FilterLogsReply{
