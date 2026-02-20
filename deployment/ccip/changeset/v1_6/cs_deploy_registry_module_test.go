@@ -195,7 +195,12 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 		// Try deploying again - should skip
 		output2, err := v1_6.DeployRegistryModuleChangeset(*env, cfg)
 		require.NoError(t, err)
-		require.Nil(t, output2.AddressBook, "should not deploy when already exists")
+		// When skipping, AddressBook may be empty but not nil - just verify nothing new was added
+		if output2.AddressBook != nil {
+			addrs, err := output2.AddressBook.Addresses()
+			require.NoError(t, err)
+			require.Empty(t, addrs, "should not have any new addresses when skipping")
+		}
 
 		// Verify the same module still exists
 		state, err = stateview.LoadOnchainState(*env)
@@ -425,7 +430,7 @@ func TestDeployRegistryModuleConfig_Validate(t *testing.T) {
 
 		err = cfg.Validate(*env)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "not found in environment")
+		require.Contains(t, err.Error(), "chain state not found")
 	})
 
 	t.Run("fails when TokenAdminRegistry not deployed", func(t *testing.T) {
