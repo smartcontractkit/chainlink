@@ -265,16 +265,45 @@ func (fc *FakeEVMChain) createManualTriggerEvent(log *evmcappb.Log) commonCap.Tr
 func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogsRequest) (*commonCap.ResponseAndMetadata[*evmcappb.FilterLogsReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain FilterLogs Started", "input", input)
 
+	if input == nil {
+		return nil, caperrors.NewPublicSystemError(errors.New("FilterLogsRequest is nil"), caperrors.Unknown)
+	}
+
 	// Prepare filter query
 	filterQueryPb := input.GetFilterQuery()
 	addresses := make([]common.Address, len(filterQueryPb.Addresses))
 	for i, address := range filterQueryPb.Addresses {
 		addresses[i] = common.Address(address)
 	}
+
+	// Convert FromBlock/ToBlock using pb.NewIntFromBigInt to preserve sign
+	var fromBlock, toBlock *big.Int
+	if filterQueryPb.FromBlock != nil {
+		fromBlock = pb.NewIntFromBigInt(filterQueryPb.FromBlock)
+	}
+	if filterQueryPb.ToBlock != nil {
+		toBlock = pb.NewIntFromBigInt(filterQueryPb.ToBlock)
+	}
+
+	// Convert topics from protobuf []*Topics to geth [][]common.Hash
+	var topics [][]common.Hash
+	for _, topicSet := range filterQueryPb.Topics {
+		if topicSet == nil {
+			topics = append(topics, nil)
+			continue
+		}
+		hashes := make([]common.Hash, len(topicSet.Topic))
+		for j, t := range topicSet.Topic {
+			hashes[j] = common.BytesToHash(t)
+		}
+		topics = append(topics, hashes)
+	}
+
 	filterQuery := ethereum.FilterQuery{
-		FromBlock: new(big.Int).SetBytes(filterQueryPb.FromBlock.AbsVal),
-		ToBlock:   new(big.Int).SetBytes(filterQueryPb.ToBlock.AbsVal),
+		FromBlock: fromBlock,
+		ToBlock:   toBlock,
 		Addresses: addresses,
+		Topics:    topics,
 	}
 
 	// Filter logs
@@ -288,10 +317,14 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 	// Convert logs to protobuf
 	logsPb := make([]*evmcappb.Log, len(logs))
 	for i, log := range logs {
+		logTopics := make([][]byte, len(log.Topics))
+		for j, t := range log.Topics {
+			logTopics[j] = t.Bytes()
+		}
 		logsPb[i] = &evmcappb.Log{
 			Address: log.Address.Bytes(),
 			Data:    log.Data,
-			Topics:  logsPb[i].Topics,
+			Topics:  logTopics,
 		}
 	}
 	response := &evmcappb.FilterLogsReply{
@@ -337,6 +370,10 @@ func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata commonCap.Reques
 func (fc *FakeEVMChain) EstimateGas(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.EstimateGasRequest) (*commonCap.ResponseAndMetadata[*evmcappb.EstimateGasReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain EstimateGas Started", "input", input)
 
+	if input == nil {
+		return nil, caperrors.NewPublicSystemError(errors.New("EstimateGasRequest is nil"), caperrors.Unknown)
+	}
+
 	// Prepare estimate gas request
 	toAddress := common.Address(input.Msg.To)
 	msg := ethereum.CallMsg{
@@ -366,6 +403,10 @@ func (fc *FakeEVMChain) EstimateGas(ctx context.Context, metadata commonCap.Requ
 func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.GetTransactionByHashRequest) (*commonCap.ResponseAndMetadata[*evmcappb.GetTransactionByHashReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain GetTransactionByHash Started", "input", input)
 
+	if input == nil {
+		return nil, caperrors.NewPublicSystemError(errors.New("GetTransactionByHashRequest is nil"), caperrors.Unknown)
+	}
+
 	// Prepare get transaction by hash request
 	hash := common.Hash(input.Hash)
 
@@ -377,9 +418,15 @@ func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata commo
 
 	fc.eng.Infow("EVM Chain GetTransactionByHash Finished", "transaction", transaction, "pending", pending)
 
+	// Handle nil To() for contract creation transactions
+	var toBytes []byte
+	if transaction.To() != nil {
+		toBytes = transaction.To().Bytes()
+	}
+
 	// Convert transaction to protobuf
 	transactionPb := &evmcappb.Transaction{
-		To:       transaction.To().Bytes(),
+		To:       toBytes,
 		Data:     transaction.Data(),
 		Hash:     transaction.Hash().Bytes(),
 		Value:    pb.NewBigIntFromInt(transaction.Value()),
@@ -398,6 +445,10 @@ func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata commo
 
 func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.GetTransactionReceiptRequest) (*commonCap.ResponseAndMetadata[*evmcappb.GetTransactionReceiptReply], caperrors.Error) {
 	fc.eng.Infow("EVM Chain GetTransactionReceipt Started", "input", input)
+
+	if input == nil {
+		return nil, caperrors.NewPublicSystemError(errors.New("GetTransactionReceiptRequest is nil"), caperrors.Unknown)
+	}
 
 	// Prepare get transaction receipt request
 	hash := common.Hash(input.Hash)
@@ -423,8 +474,14 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 		ContractAddress:   receipt.ContractAddress.Bytes(),
 	}
 	for i, log := range receipt.Logs {
+		topics := make([][]byte, len(log.Topics))
+		for j, t := range log.Topics {
+			topics[j] = t.Bytes()
+		}
 		receiptPb.Logs[i] = &evmcappb.Log{
 			Address: log.Address.Bytes(),
+			Data:    log.Data,
+			Topics:  topics,
 		}
 	}
 	response := &evmcappb.GetTransactionReceiptReply{
