@@ -153,7 +153,7 @@ type AdditionalSourceConfig struct {
 //   - Otherwise -> GRPCWorkflowSource (connects to GRPC server)
 //
 // These sources supplement or replace the primary contract source.
-func WithAdditionalSources(sources []AdditionalSourceConfig) func(*workflowRegistry) {
+func WithAdditionalSources(sources []AdditionalSourceConfig) Option {
 	return func(wr *workflowRegistry) {
 		successCount := 0
 		failedSources := []string{}
@@ -212,20 +212,23 @@ func WithAdditionalSources(sources []AdditionalSourceConfig) func(*workflowRegis
 	}
 }
 
-func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) func(*workflowRegistry) {
+// Option is a functional option for configuring a workflowRegistry.
+type Option func(*workflowRegistry)
+
+func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardOrchestratorClient = client
 	}
 }
 
-func WithShardEnabled(shardingEnabled bool) func(*workflowRegistry) {
+func WithShardEnabled(shardingEnabled bool) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardingEnabled = shardingEnabled
 	}
 }
 
 // WithShardID enables shard filtering and sets the shard ID for this syncer.
-func WithShardID(shardID uint32) func(*workflowRegistry) {
+func WithShardID(shardID uint32) Option {
 	return func(wr *workflowRegistry) {
 		wr.myShardID = shardID
 	}
@@ -244,7 +247,7 @@ func NewWorkflowRegistry(
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
 	engineRegistry *EngineRegistry,
-	opts ...func(*workflowRegistry),
+	opts ...Option,
 ) (*workflowRegistry, error) {
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")

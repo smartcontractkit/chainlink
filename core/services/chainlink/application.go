@@ -1360,49 +1360,40 @@ func newCREServices(
 						})
 					}
 
-					// Build sharding options if sharding is enabled
+					// Build registry options
+					registryOpts := []syncerV2.Option{
+						syncerV2.WithAdditionalSources(addSourceConfigs),
+					}
+
+					// Add sharding options if sharding is enabled
 					if cfg.Sharding().ShardingEnabled() && opts.ShardOrchestratorClient != nil {
-						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
-							lggr,
-							crFactory,
-							capCfg.WorkflowRegistry().Address(),
-							strconv.FormatUint(wrChainDetails.ChainSelector, 10),
-							syncerV2.Config{
-								QueryCount:   100,
-								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
-							},
-							eventHandler,
-							workflowDonNotifier,
-							engineRegistry,
-							syncerV2.WithAdditionalSources(addSourceConfigs),
+						registryOpts = append(registryOpts,
 							syncerV2.WithShardEnabled(true),
 							syncerV2.WithShardOrchestratorClient(opts.ShardOrchestratorClient),
 							syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 						)
-						if err != nil {
-							return nil, fmt.Errorf("unable to create workflow registry syncer with sharding: %w", err)
-						}
 					} else {
-						// Create syncer - contract address may be empty for pure additional-source deployments
-						// File sources are detected by file:// URL prefix in WithAdditionalSources
-						workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
-							lggr,
-							crFactory,
-							capCfg.WorkflowRegistry().Address(),
-							strconv.FormatUint(wrChainDetails.ChainSelector, 10),
-							syncerV2.Config{
-								QueryCount:   100,
-								SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
-							},
-							eventHandler,
-							workflowDonNotifier,
-							engineRegistry,
-							syncerV2.WithAdditionalSources(addSourceConfigs),
-							syncerV2.WithShardEnabled(false),
-						)
-						if err != nil {
-							return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
-						}
+						registryOpts = append(registryOpts, syncerV2.WithShardEnabled(false))
+					}
+
+					// Create syncer - contract address may be empty for pure additional-source deployments
+					// File sources are detected by file:// URL prefix in WithAdditionalSources
+					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
+						lggr,
+						crFactory,
+						capCfg.WorkflowRegistry().Address(),
+						strconv.FormatUint(wrChainDetails.ChainSelector, 10),
+						syncerV2.Config{
+							QueryCount:   100,
+							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+						},
+						eventHandler,
+						workflowDonNotifier,
+						engineRegistry,
+						registryOpts...,
+					)
+					if err != nil {
+						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 					}
 					srvcs = append(srvcs, workflowRegistrySyncerV2)
 					globalLogger.Debugw("Created WorkflowRegistrySyncer V2")
