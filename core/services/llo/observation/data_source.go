@@ -88,7 +88,7 @@ type dataSource struct {
 	lggr                   logger.Logger
 	registry               Registry
 	t                      Telemeter
-	cache                  *Cache
+	cache                  ObservationCache
 	observationLoopStarted atomic.Bool
 	observationLoopCloseCh services.StopChan
 
@@ -247,6 +247,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			wg.Wait()
 			elapsed = time.Since(startTS)
+
 
 			d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
 

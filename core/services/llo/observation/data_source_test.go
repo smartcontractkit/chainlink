@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -41,11 +42,11 @@ type mockPipeline struct {
 
 	streamIDs []streams.StreamID
 
-	runCount int
+	runCount atomic.Int32
 }
 
 func (m *mockPipeline) Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
-	m.runCount++
+	m.runCount.Add(1)
 	return m.run, m.trrs, m.err
 }
 
@@ -173,6 +174,32 @@ func (m *mockTelemeter) CaptureEATelemetry() bool                             { 
 func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { return true }
 
 var observationTimeout = 100 * time.Millisecond
+
+type addManyCall struct {
+	values map[llotypes.StreamID]llo.StreamValue
+	ttl    time.Duration
+}
+
+type spyCache struct {
+	ObservationCache
+	mu       sync.Mutex
+	addCalls []addManyCall
+}
+
+func newSpyCache(inner ObservationCache) *spyCache {
+	return &spyCache{ObservationCache: inner}
+}
+
+func (s *spyCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
+	snapshot := make(map[llotypes.StreamID]llo.StreamValue, len(values))
+	for k, v := range values {
+		snapshot[k] = v
+	}
+	s.mu.Lock()
+	s.addCalls = append(s.addCalls, addManyCall{values: snapshot, ttl: ttl})
+	s.mu.Unlock()
+	s.ObservationCache.AddMany(values, ttl)
+}
 
 func Test_DataSource(t *testing.T) {
 	lggr := logger.NullLogger
@@ -474,7 +501,83 @@ func Test_DataSource(t *testing.T) {
 			wg.Wait()
 
 			// Verify pipeline was only called once
-			assert.Equal(t, 1, reg.pipelines[1].runCount)
+			assert.Equal(t, int32(1), reg.pipelines[1].runCount.Load())
+		})
+
+		t.Run("cache writes are atomic per pipeline group across observation cycles", func(t *testing.T) {
+			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			spy := newSpyCache(ds.cache)
+			ds.cache = spy
+			defer ds.Close()
+
+			sids := []streams.StreamID{1, 2, 3}
+			partialPipeline := makePipelineWithMultipleStreamResults(sids, []any{decimal.NewFromFloat(100.0), "not-a-number", decimal.NewFromFloat(300.0)})
+			reg.mu.Lock()
+			reg.pipelines[1] = partialPipeline
+			reg.pipelines[2] = partialPipeline
+			reg.pipelines[3] = partialPipeline
+			reg.mu.Unlock()
+
+			// Cycle 1: partial extraction failure — entire group should be rejected
+			vals := makeStreamValues(1, 2, 3)
+			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
+			defer cancel()
+			err := ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			assert.Equal(t, llo.StreamValues{1: nil, 2: nil, 3: nil}, vals)
+
+			spy.mu.Lock()
+			for _, call := range spy.addCalls {
+				for _, sid := range sids {
+					assert.NotContains(t, call.values, sid)
+				}
+			}
+			spy.mu.Unlock()
+
+			// Fix the pipeline with distinct values so we can verify generation
+			fixedPipeline := makePipelineWithMultipleStreamResults(sids, []any{decimal.NewFromFloat(111.0), decimal.NewFromFloat(222.0), decimal.NewFromFloat(333.0)})
+			reg.mu.Lock()
+			reg.pipelines[1] = fixedPipeline
+			reg.pipelines[2] = fixedPipeline
+			reg.pipelines[3] = fixedPipeline
+			reg.mu.Unlock()
+
+			time.Sleep(observationTimeout * 3)
+
+			// Cycle 2: all streams valid — group should be cached atomically
+			vals2 := makeStreamValues(1, 2, 3)
+			ctx2, cancel2 := context.WithTimeout(mainCtx, observationTimeout)
+			defer cancel2()
+			err = ds.Observe(ctx2, vals2, opts)
+			require.NoError(t, err)
+
+			expectedCycle2 := llo.StreamValues{
+				1: llo.ToDecimal(decimal.NewFromFloat(111.0)),
+				2: llo.ToDecimal(decimal.NewFromFloat(222.0)),
+				3: llo.ToDecimal(decimal.NewFromFloat(333.0)),
+			}
+			assert.Equal(t, expectedCycle2, vals2, "cycle 2: expected a value from fixedPipeline")
+
+			// Verify the spy recorded an atomic write of all 3 streams with correct values from the same generation
+			spy.mu.Lock()
+			defer spy.mu.Unlock()
+
+			foundAtomicWrite := false
+			for _, call := range spy.addCalls {
+				v1, has1 := call.values[llotypes.StreamID(1)]
+				v2, has2 := call.values[llotypes.StreamID(2)]
+				v3, has3 := call.values[llotypes.StreamID(3)]
+				if has1 && has2 && has3 {
+					assert.Equal(t, expectedCycle2[1], v1, "atomic write: stream 1 value mismatch")
+					assert.Equal(t, expectedCycle2[2], v2, "atomic write: stream 2 value mismatch")
+					assert.Equal(t, expectedCycle2[3], v3, "atomic write: stream 3 value mismatch")
+					foundAtomicWrite = true
+					break
+				}
+			}
+			assert.True(t, foundAtomicWrite, "expected one AddMany call containing all 3 streams atomically")
 		})
 
 		t.Run("handles cache errors gracefully", func(t *testing.T) {
@@ -510,6 +613,120 @@ func Test_DataSource(t *testing.T) {
 
 	promCacheHitCount.Reset()
 	promCacheMissCount.Reset()
+}
+
+func Test_removeIncompleteGroups(t *testing.T) {
+	lggr := logger.NullLogger
+
+	pipelineAB := &mockPipeline{streamIDs: []streams.StreamID{1, 2, 3}}
+	pipelineC := &mockPipeline{streamIDs: []streams.StreamID{10}}
+	pipelineDE := &mockPipeline{streamIDs: []streams.StreamID{20, 21}}
+
+	reg := &mockRegistry{pipelines: map[streams.StreamID]*mockPipeline{
+		1: pipelineAB, 2: pipelineAB, 3: pipelineAB,
+		10: pipelineC,
+		20: pipelineDE, 21: pipelineDE,
+	}}
+	ds := &dataSource{registry: reg}
+
+	t.Run("all streams present for pipeline group, nothing removed", func(t *testing.T) {
+		observed := map[streams.StreamID]llo.StreamValue{
+			1: llo.ToDecimal(decimal.NewFromInt(100)),
+			2: llo.ToDecimal(decimal.NewFromInt(200)),
+			3: llo.ToDecimal(decimal.NewFromInt(300)),
+		}
+		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
+
+		ds.removeIncompleteGroups(lggr, observed, scope)
+
+		assert.Len(t, observed, 3)
+		assert.Contains(t, observed, streams.StreamID(1))
+		assert.Contains(t, observed, streams.StreamID(2))
+		assert.Contains(t, observed, streams.StreamID(3))
+	})
+
+	t.Run("one stream missing from 3-stream pipeline, entire group dropped", func(t *testing.T) {
+		observed := map[streams.StreamID]llo.StreamValue{
+			1: llo.ToDecimal(decimal.NewFromInt(100)),
+			3: llo.ToDecimal(decimal.NewFromInt(300)),
+			// stream 2 missing (e.g. extraction failed)
+		}
+		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
+
+		ds.removeIncompleteGroups(lggr, observed, scope)
+
+		assert.Empty(t, observed, "entire group should be dropped when one stream is missing")
+	})
+
+	t.Run("two independent pipelines, one complete one incomplete, only incomplete dropped", func(t *testing.T) {
+		observed := map[streams.StreamID]llo.StreamValue{
+			1:  llo.ToDecimal(decimal.NewFromInt(100)),
+			3:  llo.ToDecimal(decimal.NewFromInt(300)),
+			10: llo.ToDecimal(decimal.NewFromInt(1000)),
+			// stream 2 missing from pipelineAB; pipelineC (stream 10) is complete
+		}
+		scope := llo.StreamValues{1: nil, 2: nil, 3: nil, 10: nil}
+
+		ds.removeIncompleteGroups(lggr, observed, scope)
+
+		assert.Len(t, observed, 1)
+		assert.Contains(t, observed, streams.StreamID(10), "complete pipeline should be kept")
+		assert.NotContains(t, observed, streams.StreamID(1), "incomplete pipeline streams should be dropped")
+		assert.NotContains(t, observed, streams.StreamID(3), "incomplete pipeline streams should be dropped")
+	})
+
+	t.Run("stream in pipeline.StreamIDs() but not in scope (not requested), group kept", func(t *testing.T) {
+		observed := map[streams.StreamID]llo.StreamValue{
+			1: llo.ToDecimal(decimal.NewFromInt(100)),
+			2: llo.ToDecimal(decimal.NewFromInt(200)),
+			// stream 3 is in pipelineAB.StreamIDs() but NOT in scope
+		}
+		scope := llo.StreamValues{1: nil, 2: nil} // stream 3 not requested
+
+		ds.removeIncompleteGroups(lggr, observed, scope)
+
+		assert.Len(t, observed, 2, "group should be kept; stream 3 is out of scope, not missing")
+		assert.Contains(t, observed, streams.StreamID(1))
+		assert.Contains(t, observed, streams.StreamID(2))
+	})
+
+	t.Run("empty observedValues, no panic", func(t *testing.T) {
+		observed := map[streams.StreamID]llo.StreamValue{}
+		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
+
+		assert.NotPanics(t, func() {
+			ds.removeIncompleteGroups(lggr, observed, scope)
+		})
+		assert.Empty(t, observed)
+	})
+
+	t.Run("single-stream pipeline always kept when present", func(t *testing.T) {
+		observed := map[streams.StreamID]llo.StreamValue{
+			10: llo.ToDecimal(decimal.NewFromInt(1000)),
+		}
+		scope := llo.StreamValues{10: nil}
+
+		ds.removeIncompleteGroups(lggr, observed, scope)
+
+		assert.Len(t, observed, 1)
+		assert.Contains(t, observed, streams.StreamID(10))
+	})
+
+	t.Run("all groups complete with multiple pipelines", func(t *testing.T) {
+		observed := map[streams.StreamID]llo.StreamValue{
+			1:  llo.ToDecimal(decimal.NewFromInt(100)),
+			2:  llo.ToDecimal(decimal.NewFromInt(200)),
+			3:  llo.ToDecimal(decimal.NewFromInt(300)),
+			10: llo.ToDecimal(decimal.NewFromInt(1000)),
+			20: llo.ToDecimal(decimal.NewFromInt(2000)),
+			21: llo.ToDecimal(decimal.NewFromInt(2100)),
+		}
+		scope := llo.StreamValues{1: nil, 2: nil, 3: nil, 10: nil, 20: nil, 21: nil}
+
+		ds.removeIncompleteGroups(lggr, observed, scope)
+
+		assert.Len(t, observed, 6, "all groups complete, nothing should be dropped")
+	})
 }
 
 func BenchmarkObserve(b *testing.B) {
