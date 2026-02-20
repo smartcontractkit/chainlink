@@ -52,6 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
+	ocr3_1beholderwrapper "github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -73,7 +74,7 @@ var (
 )
 
 func metricViews() []sdkmetric.View {
-	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews())
+	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews(), ocr3_1beholderwrapper.MetricViews())
 }
 
 func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
