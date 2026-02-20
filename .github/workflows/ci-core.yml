@@ -323,7 +323,7 @@ jobs:
 
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
-        timeout-minutes: 60
+        timeout-minutes: 50
         continue-on-error: ${{ matrix.type.trunk-auto-quarantine == 'true' }}
         id: run-tests
         shell: bash
