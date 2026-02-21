@@ -35,7 +35,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260220185549-3aac42dd5f83"
+      gitRef: "v1.1.2-0.20260221141945-57530e96a289"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
