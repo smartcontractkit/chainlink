@@ -242,7 +242,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			wg.Wait()
 			elapsed = time.Since(startTS)
 
-			d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
+			droppedStreamIDs := d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
 
 			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
 
@@ -270,8 +270,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 					failedStreamIDs[i] = e.streamID
 				}
 
-				lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
-					len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "errs", errStrs)
+			lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
+				len(observedValues), "nFailedStreams", len(failedStreamIDs), "nDroppedStreams", len(droppedStreamIDs), "errs", errStrs)
 
 				if osv.opts.VerboseLogging() {
 					lggr = logger.With(lggr, "streamValues", osv.streamValues)
@@ -335,7 +335,8 @@ func (d *dataSource) Close() error {
 // must be used together to form a quote. So if any stream in the group failed, we drop
 // the entire group to avoid writing a mix of fresh and stale values to the cache.
 // Mutates observedValues in place.
-func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues map[streams.StreamID]llo.StreamValue, streamValues llo.StreamValues) {
+func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues map[streams.StreamID]llo.StreamValue, streamValues llo.StreamValues) []streams.StreamID {
+	var dropped []streams.StreamID
 	checked := make(map[streams.Pipeline]bool)
 	for streamID := range observedValues {
 		// we only need to check the pipeline once per group. So if we've already checked this pipeline, skip it.
@@ -365,6 +366,7 @@ func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues m
 				}
 				delete(observedValues, sid)
 			}
+			dropped = append(dropped, dropped...)
 			lggr.Debugw("Discarding incomplete pipeline group",
 				"pipelineStreamIDs", p.StreamIDs(),
 				"missingStreamIDs", missing,
@@ -372,6 +374,7 @@ func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues m
 			)
 		}
 	}
+	return dropped
 }
 
 type observableStreamValues struct {

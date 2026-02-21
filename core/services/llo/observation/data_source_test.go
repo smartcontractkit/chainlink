@@ -639,9 +639,10 @@ func Test_removeIncompleteGroups(t *testing.T) {
 		}
 		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
 
-		ds.removeIncompleteGroups(lggr, observed, scope)
+		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
 
 		assert.Len(t, observed, 3)
+		assert.Empty(t, dropped)
 		assert.Contains(t, observed, streams.StreamID(1))
 		assert.Contains(t, observed, streams.StreamID(2))
 		assert.Contains(t, observed, streams.StreamID(3))
@@ -655,9 +656,10 @@ func Test_removeIncompleteGroups(t *testing.T) {
 		}
 		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
 
-		ds.removeIncompleteGroups(lggr, observed, scope)
+		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
 
 		assert.Empty(t, observed, "entire group should be dropped when one stream is missing")
+		assert.ElementsMatch(t, []streams.StreamID{1, 3}, dropped)
 	})
 
 	t.Run("two independent pipelines, one complete one incomplete, only incomplete dropped", func(t *testing.T) {
@@ -669,9 +671,10 @@ func Test_removeIncompleteGroups(t *testing.T) {
 		}
 		scope := llo.StreamValues{1: nil, 2: nil, 3: nil, 10: nil}
 
-		ds.removeIncompleteGroups(lggr, observed, scope)
+		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
 
 		assert.Len(t, observed, 1)
+		assert.ElementsMatch(t, []streams.StreamID{1, 3}, dropped)
 		assert.Contains(t, observed, streams.StreamID(10), "complete pipeline should be kept")
 		assert.NotContains(t, observed, streams.StreamID(1), "incomplete pipeline streams should be dropped")
 		assert.NotContains(t, observed, streams.StreamID(3), "incomplete pipeline streams should be dropped")
@@ -685,9 +688,10 @@ func Test_removeIncompleteGroups(t *testing.T) {
 		}
 		scope := llo.StreamValues{1: nil, 2: nil} // stream 3 not requested
 
-		ds.removeIncompleteGroups(lggr, observed, scope)
+		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
 
 		assert.Len(t, observed, 2, "group should be kept; stream 3 is out of scope, not missing")
+		assert.Empty(t, dropped)
 		assert.Contains(t, observed, streams.StreamID(1))
 		assert.Contains(t, observed, streams.StreamID(2))
 	})
@@ -696,10 +700,12 @@ func Test_removeIncompleteGroups(t *testing.T) {
 		observed := map[streams.StreamID]llo.StreamValue{}
 		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
 
+		var dropped []streams.StreamID
 		assert.NotPanics(t, func() {
-			ds.removeIncompleteGroups(lggr, observed, scope)
+			dropped = ds.removeIncompleteGroups(lggr, observed, scope)
 		})
 		assert.Empty(t, observed)
+		assert.Empty(t, dropped)
 	})
 
 	t.Run("single-stream pipeline always kept when present", func(t *testing.T) {
@@ -708,9 +714,10 @@ func Test_removeIncompleteGroups(t *testing.T) {
 		}
 		scope := llo.StreamValues{10: nil}
 
-		ds.removeIncompleteGroups(lggr, observed, scope)
+		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
 
 		assert.Len(t, observed, 1)
+		assert.Empty(t, dropped)
 		assert.Contains(t, observed, streams.StreamID(10))
 	})
 
@@ -725,9 +732,10 @@ func Test_removeIncompleteGroups(t *testing.T) {
 		}
 		scope := llo.StreamValues{1: nil, 2: nil, 3: nil, 10: nil, 20: nil, 21: nil}
 
-		ds.removeIncompleteGroups(lggr, observed, scope)
+		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
 
 		assert.Len(t, observed, 6, "all groups complete, nothing should be dropped")
+		assert.Empty(t, dropped)
 	})
 }
 
