@@ -182,7 +182,7 @@ type OCR2GenericPluginConfig struct {
 func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
 	err := json.Unmarshal(data, &o.innerConfig)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	m := map[string]any{}
