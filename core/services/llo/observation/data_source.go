@@ -210,15 +210,9 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			var wg sync.WaitGroup
 			oc := NewObservationContext(lggr, d.registry, d.t)
 
-			for streamID := range osv.streamValues {
-				if val, expiresAt := d.cache.Get(streamID); val != nil {
-					if time.Until(expiresAt) > 2*osv.observationTimeout {
-						d.lggr.Debugw("cached stream observation still valid, skipping", "streamID",
-							streamID, "expiresAt", expiresAt.Format(time.RFC3339))
-						continue
-					}
-				}
+			streamsToRefresh := d.getStreamsToRefresh(osv.streamValues, osv.observationTimeout)
 
+			for streamID := range streamsToRefresh {
 				wg.Add(1)
 				go func(streamID llotypes.StreamID) {
 					defer wg.Done()
@@ -293,6 +287,39 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			cancel()
 		}
 	})
+}
+
+// getStreamsToRefresh returns the set of stream IDs that need to be re-observed.
+// When any stream in a pipeline is stale, ALL streams from that pipeline should be
+// re-observed to ensure atomic observation of pipeline groups (e.g. bid/mid/ask must be observed together).
+func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observationTimeout time.Duration) map[streams.StreamID]struct{} {
+	streamIds := make(map[streams.StreamID]struct{})
+	for streamID := range streamValues {
+		if _, exists := streamIds[streamID]; exists {
+			continue
+		}
+		// refresh stream and associated streams from pipeline if this streamID is stale
+		if val, expiresAt := d.cache.Get(streamID); val != nil {
+			if time.Until(expiresAt) > 2*observationTimeout {
+				continue
+			}
+		}
+
+		streamIds[streamID] = struct{}{}
+
+		p, exists := d.registry.Get(streamID)
+		if !exists {
+			// pipeline isn't registered yet so we can't get associated stream IDs
+			// this might happen if the plugin requests observations for streamIDs before
+			// the node operator has registered its job spec or before the registry is fully initialized
+			continue
+		}
+
+		for _, sid := range p.StreamIDs() {
+			streamIds[sid] = struct{}{}
+		}
+	}
+	return streamIds
 }
 
 func (d *dataSource) Close() error {

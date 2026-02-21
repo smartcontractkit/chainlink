@@ -731,6 +731,122 @@ func Test_removeIncompleteGroups(t *testing.T) {
 	})
 }
 
+func Test_getStreamsToRefresh(t *testing.T) {
+	lggr := logger.NullLogger
+	timeout := 100 * time.Millisecond
+
+	pipelineABC := &mockPipeline{streamIDs: []streams.StreamID{1, 2, 3}}
+	pipelineSingle := &mockPipeline{streamIDs: []streams.StreamID{10}}
+	pipelineDE := &mockPipeline{streamIDs: []streams.StreamID{20, 21}}
+
+	reg := &mockRegistry{pipelines: map[streams.StreamID]*mockPipeline{
+		1: pipelineABC, 2: pipelineABC, 3: pipelineABC,
+		10: pipelineSingle,
+		20: pipelineDE, 21: pipelineDE,
+	}}
+
+	t.Run("all streams stale returns all", func(t *testing.T) {
+		cache := NewCache(0)
+		staleTTL := 1 * time.Millisecond
+		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), staleTTL)
+		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), staleTTL)
+		cache.Add(3, llo.ToDecimal(decimal.NewFromInt(300)), staleTTL)
+		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
+		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
+
+		result := ds.getStreamsToRefresh(sv, timeout)
+
+		assert.Len(t, result, 3)
+		for _, id := range []streams.StreamID{1, 2, 3} {
+			assert.Contains(t, result, id)
+		}
+	})
+
+	t.Run("all streams fresh in cache, returns none", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
+		cache.Add(3, llo.ToDecimal(decimal.NewFromInt(300)), time.Hour)
+		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
+		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
+
+		result := ds.getStreamsToRefresh(sv, timeout)
+
+		assert.Empty(t, result)
+	})
+
+	t.Run("one stale stream triggers entire pipeline group", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), 1*time.Millisecond)
+		cache.Add(3, llo.ToDecimal(decimal.NewFromInt(300)), time.Hour)
+		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
+		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
+
+		result := ds.getStreamsToRefresh(sv, timeout)
+
+		assert.Len(t, result, 3, "all pipeline siblings should be included when one is stale")
+		for _, id := range []streams.StreamID{1, 2, 3} {
+			assert.Contains(t, result, id)
+		}
+	})
+
+	t.Run("stale stream adds pipeline siblings even if not in scope", func(t *testing.T) {
+		cache := NewCache(0)
+		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), 1*time.Millisecond)
+		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
+		// pipeline has {1,2,3}, but only {1,2} in scope (plugin requested streamIds)
+		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
+		sv := llo.StreamValues{1: nil, 2: nil} // stream 3 not requested
+
+		result := ds.getStreamsToRefresh(sv, timeout)
+
+		assert.Contains(t, result, streams.StreamID(1))
+		assert.Contains(t, result, streams.StreamID(2))
+		assert.Contains(t, result, streams.StreamID(3), "out-of-scope pipeline sibling should still be included")
+	})
+
+	t.Run("stream not in registry is still included", func(t *testing.T) {
+		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
+		sv := llo.StreamValues{999: nil} // plugin requested streamId not yet in registry
+
+		result := ds.getStreamsToRefresh(sv, timeout)
+
+		assert.Len(t, result, 1)
+		assert.Contains(t, result, streams.StreamID(999))
+	})
+
+	t.Run("empty streamValues returns empty set", func(t *testing.T) {
+		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
+		sv := llo.StreamValues{}
+
+		result := ds.getStreamsToRefresh(sv, timeout)
+
+		assert.Empty(t, result)
+	})
+
+	t.Run("multiple pipelines: only stale pipeline expanded", func(t *testing.T) {
+		cache := NewCache(0)
+		// Pipeline {10}: all fresh
+		cache.Add(10, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+		// Pipeline {20,21}: stream 20 stale, stream 21 fresh
+		cache.Add(20, llo.ToDecimal(decimal.NewFromInt(2000)), 1*time.Millisecond)
+		cache.Add(21, llo.ToDecimal(decimal.NewFromInt(2100)), time.Hour)
+
+		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
+		sv := llo.StreamValues{10: nil, 20: nil, 21: nil}
+
+		result := ds.getStreamsToRefresh(sv, timeout)
+
+		assert.NotContains(t, result, streams.StreamID(10), "fresh pipeline should not be refreshed")
+		assert.Contains(t, result, streams.StreamID(20), "stale stream should be refreshed")
+		assert.Contains(t, result, streams.StreamID(21), "fresh sibling of stale stream should also be refreshed")
+	})
+
+	promCacheHitCount.Reset()
+	promCacheMissCount.Reset()
+}
+
 func BenchmarkObserve(b *testing.B) {
 	lggr := logger.TestLogger(b)
 	ctx := testutils.Context(b)
