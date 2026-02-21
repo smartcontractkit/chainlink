@@ -15,9 +15,8 @@ import (
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -78,7 +77,7 @@ func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
 	}
 
 	discoverer := ragedisco.NewRagep2pDiscoverer(cfg.DeltaReconcile, announceAddresses, cfg.DiscovererDatabase, cfg.MetricsRegisterer)
-	commonLggr := commonlogger.NewOCRWrapper(lggr, true, func(string) {})
+	commonLggr := logger.NewOCRWrapper(lggr, true, func(string) {})
 
 	peerKeyring, err := ocrcommon.NewSignerPeerKeyring(cfg.PrivateKey)
 	if err != nil {
@@ -106,7 +105,7 @@ func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
 		myID:        peerID,
 		recvCh:      make(chan p2ptypes.Message, defaultRecvChSize),
 		stopCh:      make(services.StopChan),
-		lggr:        lggr.Named("P2PPeer"),
+		lggr:        logger.Named(lggr, "P2PPeer"),
 		groupID:     &counter{},
 	}, nil
 }

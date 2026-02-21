@@ -2,7 +2,6 @@ package cre
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -53,7 +52,7 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 
 func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
-	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
 	require.NoError(t, err, "failed to create request")
 
 	req.Header.Set("Content-Type", "application/json")

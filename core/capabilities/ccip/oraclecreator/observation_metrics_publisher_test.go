@@ -11,7 +11,7 @@ import (
 func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 	t.Run("publishes with correct context", func(t *testing.T) {
 		// Create a context with cancellation
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		// Create mock publisher
@@ -40,7 +40,7 @@ func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 			"plugin_type": "commit",
 		}
 
-		mockPub.PublishMetric(context.Background(), "ocr3_sent_observations_total", 5.0, labels)
+		mockPub.PublishMetric(t.Context(), "ocr3_sent_observations_total", 5.0, labels)
 
 		metrics := mockPub.getMetrics()
 		require.Len(t, metrics, 1)
@@ -56,7 +56,7 @@ func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 	t.Run("handles empty labels", func(t *testing.T) {
 		mockPub := &mockPublisher{}
 
-		mockPub.PublishMetric(context.Background(), "test_metric", 1.0, map[string]string{})
+		mockPub.PublishMetric(t.Context(), "test_metric", 1.0, map[string]string{})
 
 		metrics := mockPub.getMetrics()
 		require.Len(t, metrics, 1)
@@ -66,7 +66,7 @@ func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 	t.Run("handles nil labels map", func(t *testing.T) {
 		mockPub := &mockPublisher{}
 
-		mockPub.PublishMetric(context.Background(), "test_metric", 1.0, nil)
+		mockPub.PublishMetric(t.Context(), "test_metric", 1.0, nil)
 
 		assert.NotPanics(t, func() {
 			metrics := mockPub.getMetrics()

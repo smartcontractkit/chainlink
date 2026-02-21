@@ -51,6 +51,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -60,8 +62,6 @@ import (
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -448,6 +448,7 @@ func setupNodeCCIP(
 	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	keyStore := NewKsa(db, csaKeyStore, lggr.Infof)
+	require.NoError(t, keyStore.Unlock(ctx, "password"))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Config:   config,
@@ -473,7 +474,6 @@ func setupNodeCCIP(
 		AuditLogger:              audit.NoopLogger,
 	})
 	require.NoError(t, err)
-	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
 	_, err = app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 

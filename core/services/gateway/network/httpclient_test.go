@@ -285,7 +285,7 @@ func TestHTTPClient_Send(t *testing.T) {
 
 			tt.request.URL = server.URL + tt.request.URL
 
-			resp, err := client.Send(context.Background(), tt.request)
+			resp, err := client.Send(t.Context(), tt.request)
 			if tt.expectedError != nil {
 				require.Error(t, err)
 				require.ErrorContains(t, err, tt.expectedError.Error())
@@ -498,7 +498,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 			client, err := NewHTTPClient(config, lggr)
 			require.NoError(t, err)
 
-			_, err = client.Send(context.Background(), HTTPRequest{
+			_, err = client.Send(t.Context(), HTTPRequest{
 				Method:  "GET",
 				URL:     testURL.String(),
 				Headers: map[string]string{},
@@ -562,7 +562,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 			client, err := NewHTTPClient(config, lggr)
 			require.NoError(t, err)
 
-			_, err = client.Send(context.Background(), HTTPRequest{
+			_, err = client.Send(t.Context(), HTTPRequest{
 				Method:  "GET",
 				URL:     server.URL,
 				Headers: map[string]string{},
@@ -602,6 +602,80 @@ func Test_ConfigApplyDefaults(t *testing.T) {
 		require.Equal(t, defaultAllowedSchemes, config.AllowedSchemes)
 		require.Equal(t, defaultAllowedMethods, config.AllowedMethods)
 		require.Equal(t, defaultBlockedHeaders, config.BlockedHeaders)
+	})
+}
+
+func TestNewHTTPClient_PortRanges(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+
+	t.Run("expands port ranges into AllowedPorts", func(t *testing.T) {
+		c, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"8000-8003"},
+		}, lggr)
+		require.NoError(t, err)
+		require.Equal(t, []int{8000, 8001, 8002, 8003}, c.(*httpClient).config.AllowedPorts)
+	})
+
+	t.Run("merges port ranges with explicit AllowedPorts", func(t *testing.T) {
+		c, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPorts:      []int{443},
+			AllowedPortRanges: []string{"8080-8082"},
+		}, lggr)
+		require.NoError(t, err)
+		require.Equal(t, []int{443, 8080, 8081, 8082}, c.(*httpClient).config.AllowedPorts)
+	})
+
+	t.Run("multiple port ranges", func(t *testing.T) {
+		c, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"80-80", "443-443", "8000-8002"},
+		}, lggr)
+		require.NoError(t, err)
+		require.Equal(t, []int{80, 443, 8000, 8001, 8002}, c.(*httpClient).config.AllowedPorts)
+	})
+
+	t.Run("port range suppresses default ports", func(t *testing.T) {
+		c, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"9000-9001"},
+		}, lggr)
+		require.NoError(t, err)
+		require.Equal(t, []int{9000, 9001}, c.(*httpClient).config.AllowedPorts)
+	})
+
+	t.Run("single port treated as range of one", func(t *testing.T) {
+		c, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"8080"},
+		}, lggr)
+		require.NoError(t, err)
+		require.Equal(t, []int{8080}, c.(*httpClient).config.AllowedPorts)
+	})
+
+	t.Run("rejects invalid port range format", func(t *testing.T) {
+		_, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"not-a-range"},
+		}, lggr)
+		require.ErrorContains(t, err, "invalid port range")
+	})
+
+	t.Run("rejects reversed port range", func(t *testing.T) {
+		_, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"9000-8000"},
+		}, lggr)
+		require.ErrorContains(t, err, "invalid range specified for port")
+	})
+
+	t.Run("rejects port 0", func(t *testing.T) {
+		_, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"0-100"},
+		}, lggr)
+		require.ErrorContains(t, err, "start port must be >= 1")
+	})
+
+	t.Run("rejects port above 65535", func(t *testing.T) {
+		_, err := NewHTTPClient(HTTPClientConfig{
+			AllowedPortRanges: []string{"80-70000"},
+		}, lggr)
+		require.ErrorContains(t, err, "invalid port range")
 	})
 }
 
@@ -814,7 +888,7 @@ func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 				headers = map[string]string{}
 			}
 
-			_, err = client.Send(context.Background(), HTTPRequest{
+			_, err = client.Send(t.Context(), HTTPRequest{
 				Method:  method,
 				URL:     tt.url,
 				Headers: headers,
@@ -868,7 +942,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},
@@ -924,7 +998,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},
@@ -974,7 +1048,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},
@@ -1020,7 +1094,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 		client, err := NewHTTPClient(*config, lggr)
 		require.NoError(t, err)
 
-		resp, err := client.Send(context.Background(), HTTPRequest{
+		resp, err := client.Send(t.Context(), HTTPRequest{
 			Method:  "GET",
 			URL:     server.URL,
 			Headers: map[string]string{},

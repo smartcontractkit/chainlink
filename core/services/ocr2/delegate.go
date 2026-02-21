@@ -62,6 +62,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -70,7 +71,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"

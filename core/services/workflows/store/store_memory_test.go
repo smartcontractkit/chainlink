@@ -1,7 +1,6 @@
 package store
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 func TestInMemoryStore_Add(t *testing.T) {
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 
-	execution, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{
+	execution, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{
 		"step-1": {Ref: "step-1"},
 	}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
@@ -29,7 +28,7 @@ func TestInMemoryStore_Add(t *testing.T) {
 	assert.Equal(t, "step-1", execution.Steps["step-1"].Ref)
 
 	// Try adding the same execution ID again
-	_, err = store.Add(context.Background(), map[string]*WorkflowExecutionStep{}, "test-id", "", "")
+	_, err = store.Add(t.Context(), map[string]*WorkflowExecutionStep{}, "test-id", "", "")
 	assert.Error(t, err)
 }
 
@@ -37,14 +36,14 @@ func TestInMemoryStore_UpsertStep(t *testing.T) {
 	fakeClock := clockwork.NewFakeClock()
 	store := NewInMemoryStore(logger.TestLogger(t), fakeClock)
 
-	initialState, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{}, "test-id", "w1", StatusStarted)
+	initialState, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
 
 	previousUpdatedAt := initialState.UpdatedAt
 	fakeClock.Advance(1 * time.Hour)
 
 	step := &WorkflowExecutionStep{ExecutionID: "test-id", Ref: "step-1"}
-	updatedState, err := store.UpsertStep(context.Background(), step)
+	updatedState, err := store.UpsertStep(t.Context(), step)
 	require.NoError(t, err)
 	assert.Equal(t, step, updatedState.Steps["step-1"])
 
@@ -54,10 +53,10 @@ func TestInMemoryStore_UpsertStep(t *testing.T) {
 
 func TestInMemoryStore_Get(t *testing.T) {
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
-	_, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{}, "test-id", "w1", StatusStarted)
+	_, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
 
-	retrievedState, err := store.Get(context.Background(), "test-id")
+	retrievedState, err := store.Get(t.Context(), "test-id")
 	require.NoError(t, err)
 	assert.Equal(t, "test-id", retrievedState.ExecutionID)
 	assert.Equal(t, "w1", retrievedState.WorkflowID)
@@ -69,19 +68,19 @@ func TestInMemoryStore_FinishedExecution(t *testing.T) {
 		10*time.Millisecond, 1*time.Hour)
 	servicetest.Run(t, store)
 
-	_, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{
+	_, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{
 		"step-1": {Ref: "step-1"},
 	}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
 
-	updatedState, err := store.FinishExecution(context.Background(), "test-id", "completed")
+	updatedState, err := store.FinishExecution(t.Context(), "test-id", "completed")
 	require.NoError(t, err)
 
 	assert.Equal(t, "completed", updatedState.Status)
 
 	// Assert eventually that the execution is no longer in the store
 	require.Eventually(t, func() bool {
-		_, err := store.Get(context.Background(), "test-id")
+		_, err := store.Get(t.Context(), "test-id")
 		return err != nil
 	}, 10*time.Second, 10*time.Millisecond)
 }
@@ -94,14 +93,14 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 
 	servicetest.Run(t, store)
 
-	_, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{
+	_, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{
 		"step-1": {Ref: "step-1"},
 	}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
 
 	// Expect the state to be removed from the store after the expiration duration
 	require.Eventually(t, func() bool {
-		_, err2 := store.Get(context.Background(), "test-id")
+		_, err2 := store.Get(t.Context(), "test-id")
 		return err2 != nil
 	}, 10*time.Second, 50*time.Millisecond)
 
@@ -109,13 +108,13 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 	store = NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
 		10*time.Millisecond, 30*time.Second)
 
-	_, err = store.Add(context.Background(), map[string]*WorkflowExecutionStep{
+	_, err = store.Add(t.Context(), map[string]*WorkflowExecutionStep{
 		"step-1": {Ref: "step-1"},
 	}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
 
 	require.Never(t, func() bool {
-		_, err2 := store.Get(context.Background(), "test-id")
+		_, err2 := store.Get(t.Context(), "test-id")
 		return err2 != nil
 	}, 300*time.Millisecond, 50*time.Millisecond)
 }

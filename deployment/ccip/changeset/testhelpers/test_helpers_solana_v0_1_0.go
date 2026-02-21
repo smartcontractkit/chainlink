@@ -235,7 +235,7 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 		registered, err := isLogFilterRegistered(t, oc, chainSel, eventID, address)
 		require.NoError(t, err)
 		return registered
-	}, 10*time.Minute, 5*time.Second)
+	}, tests.WaitTimeout(t), 5*time.Second)
 
 	return nil
 }

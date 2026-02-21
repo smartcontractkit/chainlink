@@ -55,6 +55,8 @@ URL = 'http://solana.web'
 
 -- out.txt --
 ok BridgeStatusReporter
+ok CRE
+ok CRE.DispatcherWrapper
 ok EVM.1
 ok EVM.1.BalanceMonitor
 ok EVM.1.HeadBroadcaster
@@ -85,8 +87,6 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
-ok WorkflowEngineLimiters
-ok WorkflowExecutionLimiter
 ok WorkflowStore
 
 -- out-unhealthy.txt --
@@ -101,6 +101,24 @@ ok WorkflowStore
       "id": "BridgeStatusReporter",
       "attributes": {
         "name": "BridgeStatusReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "CRE",
+      "attributes": {
+        "name": "CRE",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "CRE.DispatcherWrapper",
+      "attributes": {
+        "name": "CRE.DispatcherWrapper",
         "status": "passing",
         "output": ""
       }
@@ -362,24 +380,6 @@ ok WorkflowStore
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowEngineLimiters",
-      "attributes": {
-        "name": "WorkflowEngineLimiters",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowExecutionLimiter",
-      "attributes": {
-        "name": "WorkflowExecutionLimiter",
         "status": "passing",
         "output": ""
       }

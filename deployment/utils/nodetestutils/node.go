@@ -24,6 +24,10 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -49,13 +53,10 @@ import (
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -517,7 +518,7 @@ func NewNode(
 	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts: chainlink.CREOpts{
+		Opts: cre.Opts{
 			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 		},
 		Config:   cfg,

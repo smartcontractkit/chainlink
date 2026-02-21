@@ -21,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	// "github.com/smartcontractkit/chainlink/common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
 func TestSignedReportAggregator_Aggregate(t *testing.T) {

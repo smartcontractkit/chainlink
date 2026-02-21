@@ -33,11 +33,11 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -432,7 +432,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractSubscribeInterval:          commoncfg.MustNewDuration(time.Minute),
 		ContractTransmitterTransmitTimeout: commoncfg.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    commoncfg.MustNewDuration(8 * time.Second),
-		KeyBundleID:                        ptr(keys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
+		KeyBundleID:                        ptr(corekeys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
 		CaptureAutomationCustomTelemetry:   ptr(true),
 		AllowNoBootstrappers:               ptr(true),
@@ -449,7 +449,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractPollInterval:         commoncfg.MustNewDuration(time.Hour),
 		ContractSubscribeInterval:    commoncfg.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: ptr[uint32](12),
-		KeyBundleID:                  ptr(keys.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
+		KeyBundleID:                  ptr(corekeys.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),

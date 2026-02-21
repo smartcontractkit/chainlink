@@ -1,6 +1,7 @@
 package events_test
 
 import (
+	"errors"
 	"regexp"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestEmit(t *testing.T) {
 	})
 
 	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) {
-		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil))
+		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil, nil))
 		require.Len(t, labels, 1)
 
 		msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v1."+events.WorkflowExecutionFinished)
@@ -55,6 +56,20 @@ func TestEmit(t *testing.T) {
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
 		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
+	})
+
+	t.Run(events.WorkflowExecutionFinished+"_with_error", func(t *testing.T) {
+		testErr := errors.New("something went wrong")
+		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "errored", executionID, testErr, nil))
+
+		v2Msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionFinished)
+		require.NotEmpty(t, v2Msgs)
+
+		// Check the latest v2 message contains the error
+		var v2Event eventsv2.WorkflowExecutionFinished
+		require.NoError(t, proto.Unmarshal(v2Msgs[len(v2Msgs)-1].Body, &v2Event))
+		assert.Equal(t, "something went wrong", v2Event.Error)
+		assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, v2Event.Status)
 	})
 
 	t.Run(events.CapabilityExecutionStarted, func(t *testing.T) {

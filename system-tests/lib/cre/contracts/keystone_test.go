@@ -20,8 +20,8 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 // fakeOffchainClient implements offchain.Client; only ListNodes and

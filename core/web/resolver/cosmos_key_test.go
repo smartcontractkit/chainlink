@@ -8,8 +8,8 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
 func TestResolver_CosmosKeys(t *testing.T) {

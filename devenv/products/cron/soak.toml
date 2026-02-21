@@ -1,0 +1,18 @@
+[[products]]
+name = "cron"
+instances = 10
+
+[[nodesets]]
+  name = "don"
+  nodes = 1
+  override_mode = "each"
+
+  [nodesets.db]
+    image = "postgres:15.0"
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      image = "public.ecr.aws/chainlink/chainlink:2.30.0"
+
+[[cron]]
+schedule = "CRON_TZ=UTC * * * * * *"

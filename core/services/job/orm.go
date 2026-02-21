@@ -17,6 +17,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -1026,7 +1026,7 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 		if err != nil {
 			return nil, err
 		}
-		encryptedOCRKeyBundleID, err := keys.Sha256HashFromHex(kb)
+		encryptedOCRKeyBundleID, err := corekeys.Sha256HashFromHex(kb)
 		if err != nil {
 			return nil, err
 		}

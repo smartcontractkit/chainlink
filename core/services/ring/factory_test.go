@@ -1,7 +1,6 @@
 package ring
 
 import (
-	"context"
 	"testing"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -67,7 +66,7 @@ func TestFactory_NewReportingPlugin(t *testing.T) {
 	require.NoError(t, err)
 
 	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
-	plugin, info, err := f.NewReportingPlugin(context.Background(), config)
+	plugin, info, err := f.NewReportingPlugin(t.Context(), config)
 	require.NoError(t, err)
 	require.NotNil(t, plugin)
 	require.NotEmpty(t, info.Name)
@@ -81,7 +80,7 @@ func TestFactory_Lifecycle(t *testing.T) {
 	f, err := NewFactory(store, nil, &mockArbiter{}, lggr, nil)
 	require.NoError(t, err)
 
-	err = f.Start(context.Background())
+	err = f.Start(t.Context())
 	require.NoError(t, err)
 
 	name := f.Name()
