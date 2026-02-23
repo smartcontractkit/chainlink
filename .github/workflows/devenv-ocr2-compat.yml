@@ -77,6 +77,8 @@ jobs:
 
       - name: Run compat test
         working-directory: devenv
+        env:
+          CTF_LOG_LEVEL: debug
         run: |
           ./bin/ctf compat backward \
           --buildcmd "just cli" \
