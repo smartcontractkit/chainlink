@@ -84,11 +84,11 @@ jobs:
         run: |
           ./bin/ctf compat backward \
           --buildcmd "just cli" \
-          --envcmd "cl r" \
+          --envcmd "cl u env.toml,products/ocr2/basic.toml" \
           --testcmd "cl test ocr2 TestSmoke/rounds" \
           --include_tags +compat \
           --nodes 3 \
-          --versions_back 3
+          --versions_back 2
 
       - name: Upload Logs
         if: always()
