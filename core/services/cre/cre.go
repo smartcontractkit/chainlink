@@ -912,7 +912,8 @@ func newWorkflowRegistrySyncerV2(
 	if opts.ShardOrchestratorClient != nil {
 		shardOrchestratorClient = opts.ShardOrchestratorClient
 	} else {
-		c, err := newShardOrchestratorClient(cfg, lggr)
+		var c shardorchestrator.ClientInterface
+		c, err = newShardOrchestratorClient(cfg, lggr)
 		if err != nil {
 			return nil, nil, err
 		}
