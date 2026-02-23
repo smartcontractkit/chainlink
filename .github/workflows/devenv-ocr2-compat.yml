@@ -70,10 +70,10 @@ jobs:
       # TODO: this is only for demo purposes, remove after we re-tag properly
       - name: Tag compatible versions
         run: |
-          git tag 2.34.0+compat 0d17758699
-          git tag 2.33.0+compat 8253a1a65d
-          git tag 2.32.0+compat e2eca23338
-          git tag 2.31.0+compat e471ecf468
+          git tag 2.34.0+compat 3b14f6de92
+          git tag 2.33.0+compat 673bec1368
+          git tag 2.32.0+compat 5e88c01e5c
+          git tag 2.31.0+compat cdd8b290f1
 
       - name: Run compat test
         working-directory: devenv
