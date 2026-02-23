@@ -521,6 +521,7 @@ func TestEngine_Execution(t *testing.T) {
 			}).
 			Return(eventCh, nil).Once()
 		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+		trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		require.NoError(t, engine.Start(t.Context()))
 
