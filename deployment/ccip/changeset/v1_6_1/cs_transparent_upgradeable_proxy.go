@@ -10,6 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_pausable_freezable_transparent"
 
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 
@@ -50,8 +53,10 @@ type TransparentUpgradeableProxyChangesetConfig struct {
 type TransparentUpgradeableProxyRole string
 
 const (
-	TransparentUpgradeableProxyBurnerRole TransparentUpgradeableProxyRole = "BURNER_ROLE"
-	TransparentUpgradeableProxyMinterRole TransparentUpgradeableProxyRole = "MINTER_ROLE"
+	TransparentUpgradeableProxyBurnerRole  TransparentUpgradeableProxyRole = "BURNER_ROLE"
+	TransparentUpgradeableProxyMinterRole  TransparentUpgradeableProxyRole = "MINTER_ROLE"
+	TransparentUpgradeableProxyFreezerRole TransparentUpgradeableProxyRole = "FREEZER_ROLE"
+	TransparentUpgradeableProxyPauserRole  TransparentUpgradeableProxyRole = "PAUSER_ROLE"
 )
 
 type TransparentUpgradeableProxyGrantRole struct {
@@ -63,6 +68,11 @@ type TransparentUpgradeableProxyGrantRole struct {
 type TransparentUpgradeableProxyGrantRoleChangesetConfig struct {
 	Tokens map[uint64]map[string][]TransparentUpgradeableProxyGrantRole
 	MCMS   *proposalutils.TimelockConfig
+}
+
+type Implementation interface {
+	HasRole(opts *bind.CallOpts, role [32]byte, account common.Address) (bool, error)
+	GrantRole(opts *bind.TransactOpts, role [32]byte, account common.Address) (*types.Transaction, error)
 }
 
 func (c TransparentUpgradeableProxyChangesetConfig) Validate(e cldf.Environment) error {
@@ -135,7 +145,7 @@ func (c TransparentUpgradeableProxyGrantRoleChangesetConfig) Validate(e cldf.Env
 					return fmt.Errorf("TransparentUpgradeableProxy does not exist for %s token symbol on %s", config.Symbol, chain.Name())
 				}
 
-				if config.Role != TransparentUpgradeableProxyBurnerRole && config.Role != TransparentUpgradeableProxyMinterRole {
+				if !isValidRole(config.Role) {
 					return fmt.Errorf("invalid role %s for %s token symbol on %s", config.Role, config.Symbol, chain.Name())
 				}
 			}
@@ -272,22 +282,46 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 }
 
 // GetRoleFromTransparentUpgradeableProxy retrieves the specified role from the TransparentUpgradeableProxy contract.
-func GetRoleFromTransparentUpgradeableProxy(ctx context.Context, transparent *burn_mint_erc20_transparent.BurnMintERC20Transparent, role TransparentUpgradeableProxyRole) ([32]byte, error) {
-	if transparent == nil {
-		return [32]byte{}, errors.New("proxy is nil")
-	}
-
+func GetRoleFromTransparentUpgradeableProxy(ctx context.Context, chain cldf_evm.Chain, address common.Address, role TransparentUpgradeableProxyRole) ([32]byte, error) {
 	switch role {
 	case TransparentUpgradeableProxyBurnerRole:
+		transparent, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(address, chain.Client)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to instantiate BurnMintERC20Transparent at %s", address)
+		}
 		r, err := transparent.BURNERROLE(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to get BURNER_ROLE: %w", err)
 		}
 		return r, nil
 	case TransparentUpgradeableProxyMinterRole:
+		transparent, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(address, chain.Client)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to instantiate BurnMintERC20Transparent at %s", address)
+		}
 		r, err := transparent.MINTERROLE(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to get MINTER_ROLE: %w", err)
+		}
+		return r, nil
+	case TransparentUpgradeableProxyFreezerRole:
+		transparent, err := burn_mint_erc20_pausable_freezable_transparent.NewBurnMintERC20PausableFreezableTransparent(address, chain.Client)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to instantiate BurnMintERC20PausableFreezableTransparent at %s", address)
+		}
+		r, err := transparent.FREEZERROLE(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to get FREEZER_ROLE: %w", err)
+		}
+		return r, nil
+	case TransparentUpgradeableProxyPauserRole:
+		transparent, err := burn_mint_erc20_pausable_freezable_transparent.NewBurnMintERC20PausableFreezableTransparent(address, chain.Client)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to instantiate BurnMintERC20PausableFreezableTransparent at %s", address)
+		}
+		r, err := transparent.PAUSERROLE(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to get PAUSER_ROLE: %w", err)
 		}
 		return r, nil
 	}
@@ -325,24 +359,36 @@ func GrantRoleTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgra
 			for _, config := range roles {
 				proxy := chainState.TransparentUpgradeableProxy[shared.TokenSymbol(config.Symbol)]
 
-				transparent, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(proxy.Address(), chain.Client)
+				standardToken, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(proxy.Address(), chain.Client)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to instantiate BurnMintERC20Transparent at %s for %s token on %s: %w", proxy.Address(), token, chain, err)
 				}
 
-				r, err := GetRoleFromTransparentUpgradeableProxy(e.GetContext(), transparent, config.Role)
+				pausableToken, err := burn_mint_erc20_pausable_freezable_transparent.NewBurnMintERC20PausableFreezableTransparent(proxy.Address(), chain.Client)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to instantiate BurnMintERC20PausableFreezableTransparent at %s for %s token on %s: %w", proxy.Address(), token, chain, err)
+				}
+
+				var impl Implementation
+				if _, isPausedErr := pausableToken.Paused(&bind.CallOpts{Context: e.GetContext()}); isPausedErr == nil {
+					impl = pausableToken
+				} else {
+					impl = standardToken
+				}
+
+				r, err := GetRoleFromTransparentUpgradeableProxy(e.GetContext(), chain, proxy.Address(), config.Role)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to get role from TransparentUpgradeableProxy at %s for %s token on %s: %w", proxy.Address(), token, chain.Name(), err)
 				}
 
-				if hasRole, err := transparent.HasRole(&bind.CallOpts{Context: e.GetContext()}, r, config.Account); err != nil {
+				if hasRole, err := impl.HasRole(&bind.CallOpts{Context: e.GetContext()}, r, config.Account); err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if account %s has role %s on TransparentUpgradeableProxy at %s for %s token on %s: %w", config.Account, config.Role, proxy.Address(), token, chain.Name(), err)
 				} else if hasRole {
 					e.Logger.Infof("Account %s already has role %s on TransparentUpgradeableProxy at %s for %s token on %s, skipping grantRole", config.Account, config.Role, proxy.Address(), token, chain.Name())
 					continue
 				}
 
-				if _, err := transparent.GrantRole(opts, r, config.Account); err != nil {
+				if _, err := impl.GrantRole(opts, r, config.Account); err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create grantRole transaction for role %s to %s on TransparentUpgradeableProxy at %s for %s token on %s: %w", config.Role, config.Account, proxy.Address(), token, chain.Name(), err)
 				}
 			}
@@ -496,4 +542,16 @@ func SetCCIPAdminTransferTransparentUpgradeableProxy(e cldf.Environment, c Trans
 	}
 
 	return deployerGroup.Enact()
+}
+
+func isValidRole(role TransparentUpgradeableProxyRole) bool {
+	switch role {
+	case TransparentUpgradeableProxyBurnerRole,
+		TransparentUpgradeableProxyMinterRole,
+		TransparentUpgradeableProxyFreezerRole,
+		TransparentUpgradeableProxyPauserRole:
+		return true
+	default:
+		return false
+	}
 }
