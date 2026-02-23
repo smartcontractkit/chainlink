@@ -701,9 +701,9 @@ func stopAllCmd() *cobra.Command {
 func stopRemoteCmd() *cobra.Command {
 	var dryRunFlag bool
 	cmd := &cobra.Command{
-		Use:              "stop-remote",
-		Short:            "Stops remote components only",
-		Long:             `Stops remote CRE components through the agent without performing any local cleanup.`,
+		Use:   "stop-remote",
+		Short: "Stops remote components only",
+		Long:  `Stops remote CRE components through the agent without performing any local cleanup.`,
 		Example: strings.TrimSpace(`
 go run . env stop-remote
 go run . env stop-remote --dry-run
@@ -779,14 +779,32 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 		Int("missing", summary.Missing).
 		Int("failed", summary.Failed).
 		Msg("Remote component stop summary")
+	if summary.ResidualQueryError != "" {
+		framework.L.Warn().Msgf("failed to query remote residual CTF resources: %s", summary.ResidualQueryError)
+	} else {
+		framework.L.Info().
+			Int("containers", len(summary.ResidualContainers)).
+			Int("volumes", len(summary.ResidualVolumes)).
+			Msg("Remote residual CTF resources after stop")
+		if len(summary.ResidualContainers) > 0 {
+			framework.L.Warn().Msgf("residual remote CTF containers: %s", strings.Join(summary.ResidualContainers, ", "))
+		}
+		if len(summary.ResidualVolumes) > 0 {
+			framework.L.Warn().Msgf("residual remote CTF volumes: %s", strings.Join(summary.ResidualVolumes, ", "))
+		}
+	}
 	if stopRemoteErr != nil {
 		return errors.Wrap(stopRemoteErr, "failed to stop one or more remote components")
 	}
 	if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
 		framework.L.Warn().Err(err).Msg("failed to stop relay supervisor after remote stop")
+	} else {
+		framework.L.Info().Msg("stopped local relay supervisor after remote stop")
 	}
 	if err := removeRemoteStopConfig(relativePathToRepoRoot); err != nil {
 		framework.L.Warn().Err(err).Msg("failed to remove remote component stop state")
+	} else {
+		framework.L.Info().Msgf("removed remote state directory: %s", filepath.Join(relativePathToRepoRoot, remoteStateDirname))
 	}
 	if !hasLocalComponents(targets) {
 		statePath := envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)
@@ -934,9 +952,6 @@ func StartCLIEnvironment(
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 	relaySupervisorStarted := false
-	defer func() {
-		_ = os.Unsetenv("CRE_USE_PERSISTENT_RELAY_SUPERVISOR")
-	}()
 
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
 	if withPluginsDockerImageFlag != "" {
@@ -962,21 +977,22 @@ func StartCLIEnvironment(
 	singleFileLogger := cldlogger.NewSingleFileLogger(nil)
 
 	universalSetupInput := &creenv.SetupInput{
-		NodeSets:                in.NodeSets,
-		Blockchains:             in.Blockchains,
-		ContractVersions:        env.ContractVersions(),
-		WithV2Registries:        env.WithV2Registries(),
-		JdInput:                 in.JD,
-		Provider:                *in.Infra,
-		S3ProviderInput:         in.S3ProviderInput,
-		CapabilityConfigs:       in.CapabilityConfigs,
-		CopyCapabilityBinaries:  withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
-		Capabilities:            capabilities,
-		JobSpecFactoryFunctions: extraJobSpecFunctions,
-		StageGen:                initLocalCREStageGen(in),
-		Features:                features,
-		GatewayWhitelistConfig:  gatewayWhitelistConfig,
-		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		NodeSets:                     in.NodeSets,
+		Blockchains:                  in.Blockchains,
+		ContractVersions:             env.ContractVersions(),
+		WithV2Registries:             env.WithV2Registries(),
+		JdInput:                      in.JD,
+		Provider:                     *in.Infra,
+		S3ProviderInput:              in.S3ProviderInput,
+		CapabilityConfigs:            in.CapabilityConfigs,
+		CopyCapabilityBinaries:       withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
+		Capabilities:                 capabilities,
+		JobSpecFactoryFunctions:      extraJobSpecFunctions,
+		StageGen:                     initLocalCREStageGen(in),
+		Features:                     features,
+		GatewayWhitelistConfig:       gatewayWhitelistConfig,
+		BlockchainDeployers:          blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		UsePersistentRelaySupervisor: true,
 		PreDONsStartHook: func(context.Context) error {
 			if relaySupervisorStarted {
 				return nil
@@ -987,7 +1003,6 @@ func StartCLIEnvironment(
 			}
 			if started {
 				relaySupervisorStarted = true
-				_ = os.Setenv("CRE_USE_PERSISTENT_RELAY_SUPERVISOR", "true")
 			}
 			return nil
 		},

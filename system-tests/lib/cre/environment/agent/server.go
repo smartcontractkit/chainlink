@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	dockerevents "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/volume"
 	dockerclient "github.com/docker/docker/client"
 	"github.com/rs/zerolog"
 
@@ -96,6 +99,11 @@ type StartComponentResponse struct {
 	Error         string         `json:"error,omitempty"`
 }
 
+type CTFResourcesResponse struct {
+	Containers []string `json:"containers,omitempty"`
+	Volumes    []string `json:"volumes,omitempty"`
+}
+
 type Server struct {
 	lggr        zerolog.Logger
 	deployers   map[blockchain.ChainFamily]blockchains.Deployer
@@ -134,12 +142,67 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/v1/relay/open", s.openRelay)
 	mux.HandleFunc("/v1/relay/close", s.closeRelay)
 	mux.HandleFunc("/v1/relay/connect", s.connectRelay)
+	mux.HandleFunc("/v1/resources/ctf", s.listCTFResources)
 	return mux
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
+}
+
+func (s *Server) listCTFResources(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.respondError(w, http.StatusMethodNotAllowed, ErrCodeMethodNotAllowed, "method not allowed", nil)
+		return
+	}
+
+	client, err := dockerclient.NewClientWithOpts(dockerclient.WithAPIVersionNegotiation())
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to create docker client: %v", err), nil)
+		return
+	}
+	defer client.Close()
+
+	filterArgs := filters.NewArgs(filters.Arg("label", "framework=ctf"))
+	containers, err := client.ContainerList(r.Context(), container.ListOptions{
+		All:     true,
+		Filters: filterArgs,
+	})
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to list ctf containers: %v", err), nil)
+		return
+	}
+	containerNames := make([]string, 0, len(containers))
+	for _, c := range containers {
+		if len(c.Names) > 0 {
+			containerNames = append(containerNames, strings.TrimPrefix(c.Names[0], "/"))
+			continue
+		}
+		containerNames = append(containerNames, c.ID)
+	}
+	slices.Sort(containerNames)
+
+	volResp, err := client.VolumeList(r.Context(), volume.ListOptions{
+		Filters: filterArgs,
+	})
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to list ctf volumes: %v", err), nil)
+		return
+	}
+	volumeNames := make([]string, 0, len(volResp.Volumes))
+	for _, v := range volResp.Volumes {
+		if v == nil || strings.TrimSpace(v.Name) == "" {
+			continue
+		}
+		volumeNames = append(volumeNames, v.Name)
+	}
+	slices.Sort(volumeNames)
+
+	s.respondJSONAny(w, http.StatusOK, CTFResourcesResponse{
+		Containers: containerNames,
+		Volumes:    volumeNames,
+	})
 }
 
 func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
@@ -625,13 +688,61 @@ func stopContainers(ctx context.Context, ids []string) error {
 	}
 	defer client.Close()
 
+	namedVolumes, err := discoverNamedVolumesForContainers(ctx, client, ids)
+	if err != nil {
+		return err
+	}
+
 	for i := len(ids) - 1; i >= 0; i-- {
-		err := client.ContainerRemove(ctx, ids[i], container.RemoveOptions{Force: true})
+		err := client.ContainerRemove(ctx, ids[i], container.RemoveOptions{
+			Force:         true,
+			RemoveVolumes: true,
+		})
 		if err != nil && !cerrdefs.IsNotFound(err) {
 			return fmt.Errorf("failed to remove container %s: %w", ids[i], err)
 		}
 	}
+
+	var removeVolumeErrors []error
+	for _, volumeName := range namedVolumes {
+		err := client.VolumeRemove(ctx, volumeName, true)
+		if err != nil && !cerrdefs.IsNotFound(err) {
+			removeVolumeErrors = append(removeVolumeErrors, fmt.Errorf("remove volume %s: %w", volumeName, err))
+		}
+	}
+	if len(removeVolumeErrors) > 0 {
+		return fmt.Errorf("failed to remove one or more named volumes: %w", errors.Join(removeVolumeErrors...))
+	}
 	return nil
+}
+
+func discoverNamedVolumesForContainers(ctx context.Context, client *dockerclient.Client, ids []string) ([]string, error) {
+	volumes := make(map[string]struct{})
+	for _, id := range ids {
+		inspect, err := client.ContainerInspect(ctx, id)
+		if err != nil {
+			if cerrdefs.IsNotFound(err) {
+				continue
+			}
+			return nil, fmt.Errorf("inspect container %s before removal: %w", id, err)
+		}
+		for _, mountPoint := range inspect.Mounts {
+			if mountPoint.Type != mount.TypeVolume {
+				continue
+			}
+			name := strings.TrimSpace(mountPoint.Name)
+			if name == "" {
+				continue
+			}
+			volumes[name] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(volumes))
+	for name := range volumes {
+		out = append(out, name)
+	}
+	slices.Sort(out)
+	return out, nil
 }
 
 func hashPayload(payload []byte) string {

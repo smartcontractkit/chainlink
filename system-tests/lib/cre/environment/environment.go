@@ -48,8 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-const envUsePersistentRelaySupervisor = "CRE_USE_PERSISTENT_RELAY_SUPERVISOR"
-
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CreEnvironment                      *cre.Environment
@@ -118,6 +116,10 @@ type SetupInput struct {
 	// Optional hook executed after local dependencies are started (including JD),
 	// and right before DON containers are started.
 	PreDONsStartHook func(ctx context.Context) error
+
+	// When true, SetupTestEnvironment skips the in-process relay manager
+	// because a persistent external relay supervisor owns mixed component relays.
+	UsePersistentRelaySupervisor bool
 }
 
 func (s *SetupInput) Validate() error {
@@ -184,7 +186,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(tmErr, "failed to initialize tunnel manager")
 	}
 	var relayManager *componentRelayManager
-	if !strings.EqualFold(strings.TrimSpace(os.Getenv(envUsePersistentRelaySupervisor)), "true") {
+	if !input.UsePersistentRelaySupervisor {
 		rm, rmErr := newComponentRelayManager(testLogger)
 		if rmErr != nil && nodeSetPlacement.HasRemoteTargets {
 			return nil, pkgerrors.Wrap(rmErr, "failed to initialize relay manager")

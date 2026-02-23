@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
@@ -13,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 )
 
 type RemoteStopSummary struct {
@@ -20,6 +23,10 @@ type RemoteStopSummary struct {
 	Stopped   int
 	Missing   int
 	Failed    int
+
+	ResidualContainers []string
+	ResidualVolumes    []string
+	ResidualQueryError string
 }
 
 // StopRemoteComponents sends StopComponent operations for all remote-targeted components.
@@ -109,6 +116,14 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		}
 	}
 
+	containers, volumes, listErr := listRemoteCTFResources(ctx, lggr, tunnelManager)
+	if listErr != nil {
+		summary.ResidualQueryError = listErr.Error()
+	} else {
+		summary.ResidualContainers = containers
+		summary.ResidualVolumes = volumes
+	}
+
 	return summary, joined
 }
 
@@ -172,4 +187,33 @@ func stopRemoteComponent(
 	}
 
 	return response, nil
+}
+
+func listRemoteCTFResources(
+	ctx context.Context,
+	lggr zerolog.Logger,
+	tunnelManager tunnel.Manager,
+) ([]string, []string, error) {
+	baseURL, err := resolveEC2AgentBaseURL(lggr, tunnelManager)
+	if err != nil {
+		return nil, nil, pkgerrors.Wrap(err, "resolve agent base url for ctf resource query")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/v1/resources/ctf", nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, nil, fmt.Errorf("ctf resource query failed: status %s body %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+	var out agent.CTFResourcesResponse
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, nil, err
+	}
+	return out.Containers, out.Volumes, nil
 }

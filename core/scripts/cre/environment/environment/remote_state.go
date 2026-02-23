@@ -19,12 +19,12 @@ const (
 )
 
 type remoteAgentState struct {
-	Mode         string `toml:"mode,omitempty"`
-	LocalURL     string `toml:"local_url,omitempty"`
-	EC2URL       string `toml:"ec2_url,omitempty"`
+	Mode          string `toml:"mode,omitempty"`
+	LocalURL      string `toml:"local_url,omitempty"`
+	EC2URL        string `toml:"ec2_url,omitempty"`
 	EC2InstanceID string `toml:"ec2_instance_id,omitempty"`
-	EC2AgentPort string `toml:"ec2_agent_port,omitempty"`
-	AWSProfile   string `toml:"aws_profile,omitempty"`
+	EC2AgentPort  string `toml:"ec2_agent_port,omitempty"`
+	AWSProfile    string `toml:"aws_profile,omitempty"`
 }
 
 type remoteAgentStateEnvelope struct {
@@ -119,15 +119,12 @@ func firstNonEmpty(values ...string) string {
 }
 
 func removeRemoteStopConfig(relativePathToRepoRoot string) error {
-	for _, path := range []string{
-		remoteStateFileAbsPath(relativePathToRepoRoot),
-		remoteAgentFileAbsPath(relativePathToRepoRoot),
-	} {
-		err := os.Remove(path)
-		if err == nil || os.IsNotExist(err) {
-			continue
-		}
+	stateDir, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, remoteStateDirname))
+	if err != nil {
 		return err
+	}
+	if removeErr := os.RemoveAll(stateDir); removeErr != nil {
+		return removeErr
 	}
 	return nil
 }
