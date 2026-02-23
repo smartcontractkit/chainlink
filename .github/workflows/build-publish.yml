@@ -207,11 +207,11 @@ jobs:
 
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
-  slack-notify-core:
+  slack-notify:
     permissions:
       contents: read
-    if: always() && needs.docker-core.result == 'success'
-    needs: [checks, docker-core]
+    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success')
+    needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
     with:
@@ -225,38 +225,6 @@ jobs:
             github.ref_name
           )
         }}
-      docker-image-name: >-
-        ${{
-          format(
-            'public.ecr.aws/chainlink/chainlink:{0}',
-            needs.docker-core.outputs.docker-manifest-tag
-          )
-        }}
-      docker-image-digest: ${{ needs.docker-core.outputs.docker-manifest-digest }}
-
-  slack-notify-ccip:
-    permissions:
-      contents: read
-    if: always() && needs.docker-ccip.result == 'success'
-    needs: [checks, docker-ccip]
-    uses: ./.github/workflows/release-notifications.yml
-    secrets: inherit
-    with:
-      git-ref: ${{ github.ref_name }}
-      git-ref-type: ${{ github.ref_type }}
-      changelog-url: >-
-        ${{
-          format(
-            'https://github.com/{0}/blob/{1}/CHANGELOG.md',
-            github.repository,
-            github.ref_name
-          )
-        }}
-      docker-image-name: >-
-        ${{
-          format(
-            'public.ecr.aws/chainlink/ccip:{0}',
-            needs.docker-ccip.outputs.docker-manifest-tag
-          )
-        }}
-      docker-image-digest: ${{ needs.docker-ccip.outputs.docker-manifest-digest }}
+      docker-image-names: |
+        ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
+        ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
