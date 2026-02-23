@@ -77,6 +77,7 @@ jobs:
 
       - name: Run compat test
         working-directory: devenv
+        shell: bash
         env:
           CTF_LOG_LEVEL: debug
         run: |
