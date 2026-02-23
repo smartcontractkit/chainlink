@@ -104,7 +104,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260217175957-8f1af02c5075
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260217210647-11c42009ec1f
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260218144352-f8d460be6125
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260223195540-1f0836548c3a
 	github.com/smartcontractkit/cre-sdk-go v1.3.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
