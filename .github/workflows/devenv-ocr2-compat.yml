@@ -74,6 +74,11 @@ jobs:
           git tag 2.33.0+compat 673bec1368
           git tag 2.32.0+compat 5e88c01e5c
           git tag 2.31.0+compat cdd8b290f1
+      
+      - name: Set environment variables
+        id: set-env
+        run: |
+          echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)-plugins" >> $GITHUB_ENV
 
       - name: Run compat test
         working-directory: devenv
