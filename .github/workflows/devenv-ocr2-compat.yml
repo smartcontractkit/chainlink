@@ -76,6 +76,7 @@ jobs:
           git tag 2.31.0+compat e471ecf468
 
       - name: Run compat test
+        working-directory: devenv
         run: |
           ./bin/ctf compat backward \
           --buildcmd "just cli" \
