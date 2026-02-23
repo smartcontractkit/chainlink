@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"net"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -523,6 +525,13 @@ func addWorkerNodeConfig(
 				if err != nil {
 					return existingConfig, err
 				}
+				if resolvedGateway.RequiresBridge {
+					bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedGateway.URL)
+					if bridgeErr != nil {
+						return existingConfig, bridgeErr
+					}
+					resolvedGateway.URL = bridgeURL
+				}
 				gateways = append(gateways, coretoml.ConnectorGateway{
 					ID:  ptr.Ptr(gateway.AuthGatewayID),
 					URL: ptr.Ptr(resolvedGateway.URL),
@@ -701,21 +710,31 @@ func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
 			Name:     fmt.Sprintf("evm-http-%d", bcOut.ChainID()),
 			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
-		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error {
-			return fmt.Errorf("bridge is required for node->blockchain HTTP endpoint on chain %d (remote caller -> local target), automatic component bridge is not implemented yet", bcOut.ChainID())
-		})
+		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil })
 		if err != nil {
 			return nil, err
+		}
+		if resolvedHTTP.RequiresBridge {
+			bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedHTTP.URL)
+			if bridgeErr != nil {
+				return nil, fmt.Errorf("bridge url rewrite failed for node->blockchain HTTP endpoint on chain %d: %w", bcOut.ChainID(), bridgeErr)
+			}
+			resolvedHTTP.URL = bridgeURL
 		}
 		resolvedWS, err := connectivity.ResolveAndEnsureReachable(context.Background(), callerPlacement, targetPlacement, connectivity.EndpointPair{
 			Name:     fmt.Sprintf("evm-ws-%d", bcOut.ChainID()),
 			Internal: bcOut.CtfOutput().Nodes[0].InternalWSUrl,
 			External: bcOut.CtfOutput().Nodes[0].ExternalWSUrl,
-		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error {
-			return fmt.Errorf("bridge is required for node->blockchain WS endpoint on chain %d (remote caller -> local target), automatic component bridge is not implemented yet", bcOut.ChainID())
-		})
+		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil })
 		if err != nil {
 			return nil, err
+		}
+		if resolvedWS.RequiresBridge {
+			bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedWS.URL)
+			if bridgeErr != nil {
+				return nil, fmt.Errorf("bridge url rewrite failed for node->blockchain WS endpoint on chain %d: %w", bcOut.ChainID(), bridgeErr)
+			}
+			resolvedWS.URL = bridgeURL
 		}
 
 		evmChains = append(evmChains, &evmChain{
@@ -761,11 +780,16 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 			Name:     "solana-rpc",
 			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
-		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error {
-			return errors.New("bridge is required for node->solana RPC endpoint (remote caller -> local target), automatic component bridge is not implemented yet")
-		})
+		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil })
 		if err != nil {
 			return nil, err
+		}
+		if resolvedNodeURL.RequiresBridge {
+			bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedNodeURL.URL)
+			if bridgeErr != nil {
+				return nil, fmt.Errorf("bridge url rewrite failed for node->solana RPC endpoint: %w", bridgeErr)
+			}
+			resolvedNodeURL.URL = bridgeURL
 		}
 
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
@@ -826,6 +850,31 @@ func gatewayExternalConnectorURL(gateway *cre.DonGatewayConfiguration) string {
 		path = strings.TrimRight(path, "/") + "/node"
 	}
 	return fmt.Sprintf("%s://%s:%d%s", scheme, gateway.Incoming.Host, gateway.Incoming.ExternalPort, path)
+}
+
+func rewriteEndpointForRemoteCaller(raw string) (string, error) {
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("endpoint is empty")
+	}
+	if strings.Contains(trimmed, "://") {
+		parsed, err := url.Parse(trimmed)
+		if err != nil {
+			return "", fmt.Errorf("parse url %q: %w", raw, err)
+		}
+		if parsed.Port() != "" {
+			parsed.Host = net.JoinHostPort(dockerHost, parsed.Port())
+			return parsed.String(), nil
+		}
+		parsed.Host = dockerHost
+		return parsed.String(), nil
+	}
+	_, port, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("parse host:port %q: %w", raw, err)
+	}
+	return net.JoinHostPort(dockerHost, port), nil
 }
 
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {

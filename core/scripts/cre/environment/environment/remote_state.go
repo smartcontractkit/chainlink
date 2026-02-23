@@ -15,15 +15,8 @@ import (
 const (
 	remoteStateDirname  = "core/scripts/cre/environment/state_remote"
 	remoteStateFilename = "remote_components.toml"
+	remoteAgentFilename = "remote_agent.toml"
 )
-
-type remoteStopState struct {
-	Version     int                     `toml:"version"`
-	Blockchains []*envconfig.Blockchain `toml:"blockchains"`
-	NodeSets    []*cre.NodeSet          `toml:"nodesets"`
-	JD          *envconfig.JobDistributor `toml:"jd"`
-	Agent       remoteAgentState      `toml:"agent"`
-}
 
 type remoteAgentState struct {
 	Mode         string `toml:"mode,omitempty"`
@@ -51,29 +44,16 @@ func remoteStateFileExists(relativePathToRepoRoot string) bool {
 	return statErr == nil
 }
 
-func loadRemoteStopState(relativePathToRepoRoot string) (*remoteStopState, error) {
-	data, err := os.ReadFile(remoteStateFileAbsPath(relativePathToRepoRoot))
-	if err != nil {
+func loadRemoteStopConfig(relativePathToRepoRoot string) (*envconfig.Config, error) {
+	cfg := &envconfig.Config{}
+	if err := cfg.Load(remoteStateFileAbsPath(relativePathToRepoRoot)); err != nil {
 		return nil, err
 	}
-	state := &remoteStopState{}
-	if err := toml.Unmarshal(data, state); err != nil {
-		return nil, err
-	}
-	if state.Version == 0 {
-		state.Version = 1
-	}
-	if state.Blockchains == nil {
-		state.Blockchains = []*envconfig.Blockchain{}
-	}
-	if state.NodeSets == nil {
-		state.NodeSets = []*cre.NodeSet{}
-	}
-	return state, nil
+	return cfg, nil
 }
 
 func loadRemoteAgentState(relativePathToRepoRoot string) (*remoteAgentState, error) {
-	data, err := os.ReadFile(remoteStateFileAbsPath(relativePathToRepoRoot))
+	data, err := os.ReadFile(remoteAgentFileAbsPath(relativePathToRepoRoot))
 	if err != nil {
 		return nil, err
 	}
@@ -84,25 +64,31 @@ func loadRemoteAgentState(relativePathToRepoRoot string) (*remoteAgentState, err
 	return &envelope.Agent, nil
 }
 
-func (s *remoteStopState) Config() *envconfig.Config {
-	if s == nil {
-		return nil
-	}
-	return &envconfig.Config{
-		Blockchains: s.Blockchains,
-		NodeSets:    s.NodeSets,
-		JD:          s.JD,
-	}
-}
-
 func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) error {
 	if cfg == nil {
 		return fmt.Errorf("cannot store nil remote stop config")
 	}
-	state := &remoteStopState{
-		Version:     1,
+	stopCfg := &envconfig.Config{
 		Blockchains: []*envconfig.Blockchain{},
 		NodeSets:    []*cre.NodeSet{},
+	}
+	for _, configuredBlockchain := range cfg.Blockchains {
+		if configuredBlockchain != nil && configuredBlockchain.Target == envconfig.TargetRemote {
+			stopCfg.Blockchains = append(stopCfg.Blockchains, configuredBlockchain)
+		}
+	}
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+			stopCfg.NodeSets = append(stopCfg.NodeSets, nodeSet)
+		}
+	}
+	if cfg.JD != nil && cfg.JD.Target == envconfig.TargetRemote {
+		stopCfg.JD = cfg.JD
+	}
+	if err := stopCfg.Store(remoteStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		return err
+	}
+	agentEnvelope := &remoteAgentStateEnvelope{
 		Agent: remoteAgentState{
 			Mode:          os.Getenv("CRE_AGENT_MODE"),
 			LocalURL:      os.Getenv("CRE_LOCAL_AGENT_URL"),
@@ -112,24 +98,11 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 			AWSProfile:    firstNonEmpty(os.Getenv("CRE_AWS_PROFILE"), os.Getenv("AWS_PROFILE")),
 		},
 	}
-	for _, configuredBlockchain := range cfg.Blockchains {
-		if configuredBlockchain != nil && configuredBlockchain.Target == envconfig.TargetRemote {
-			state.Blockchains = append(state.Blockchains, configuredBlockchain)
-		}
-	}
-	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
-			state.NodeSets = append(state.NodeSets, nodeSet)
-		}
-	}
-	if cfg.JD != nil && cfg.JD.Target == envconfig.TargetRemote {
-		state.JD = cfg.JD
-	}
-	data, err := toml.Marshal(state)
+	data, err := toml.Marshal(agentEnvelope)
 	if err != nil {
 		return err
 	}
-	path := remoteStateFileAbsPath(relativePathToRepoRoot)
+	path := remoteAgentFileAbsPath(relativePathToRepoRoot)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -146,10 +119,23 @@ func firstNonEmpty(values ...string) string {
 }
 
 func removeRemoteStopConfig(relativePathToRepoRoot string) error {
-	path := remoteStateFileAbsPath(relativePathToRepoRoot)
-	err := os.Remove(path)
-	if err == nil || os.IsNotExist(err) {
-		return nil
+	for _, path := range []string{
+		remoteStateFileAbsPath(relativePathToRepoRoot),
+		remoteAgentFileAbsPath(relativePathToRepoRoot),
+	} {
+		err := os.Remove(path)
+		if err == nil || os.IsNotExist(err) {
+			continue
+		}
+		return err
 	}
-	return err
+	return nil
+}
+
+func remoteAgentFileAbsPath(relativePathToRepoRoot string) string {
+	absPath, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, remoteStateDirname, remoteAgentFilename))
+	if err != nil {
+		panic(fmt.Errorf("failed to get absolute path for remote agent state file: %w", err))
+	}
+	return absPath
 }

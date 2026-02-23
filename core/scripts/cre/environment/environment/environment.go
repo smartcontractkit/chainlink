@@ -88,6 +88,7 @@ func init() {
 	EnvironmentCmd.AddCommand(stopCmd())
 	EnvironmentCmd.AddCommand(stopAllCmd())
 	EnvironmentCmd.AddCommand(stopRemoteCmd())
+	EnvironmentCmd.AddCommand(relaySupervisorCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
 	EnvironmentCmd.AddCommand(swapCmds())
@@ -262,6 +263,9 @@ func startCmd() *cobra.Command {
 			if err := cleanupTrackedTunnels(relativePathToRepoRoot); err != nil {
 				framework.L.Warn().Err(err).Msg("failed to clean up tracked SSM tunnels before start")
 			}
+			if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
+				framework.L.Warn().Err(err).Msg("failed to stop tracked relay supervisor before start")
+			}
 
 			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
 			if cleanUpErr != nil {
@@ -306,6 +310,10 @@ func startCmd() *cobra.Command {
 			go func() {
 				sig := <-sigCh
 				fmt.Printf("\nReceived signal: %s\n", sig)
+
+				if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
+					framework.L.Warn().Err(err).Msg("failed to stop relay supervisor during signal cleanup")
+				}
 
 				// Only cleanup Docker containers if using Docker provider
 				if isDocker {
@@ -745,11 +753,11 @@ func loadRemoteStopTargets(relativePathToRepoRoot string) (remoteComponentSummar
 	}
 
 	if summary.Total == 0 && remoteStateFileExists(relativePathToRepoRoot) {
-		remoteState, loadErr := loadRemoteStopState(relativePathToRepoRoot)
+		remoteCfg, loadErr := loadRemoteStopConfig(relativePathToRepoRoot)
 		if loadErr != nil {
 			framework.L.Warn().Err(loadErr).Msgf("failed to load remote component stop state from %s", remoteStateFileAbsPath(relativePathToRepoRoot))
 		} else {
-			targets = remoteState.Config()
+			targets = remoteCfg
 			summary = summarizeRemoteComponents(targets)
 		}
 	}
@@ -761,7 +769,7 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 	if agentLoadErr != nil {
 		framework.L.Warn().Err(agentLoadErr).Msgf("failed to load remote agent state from %s", remoteStateFileAbsPath(relativePathToRepoRoot))
 	} else if agentState != nil {
-		applyRemoteAgentEnvFallback(framework.L, &remoteStopState{Agent: *agentState})
+		applyRemoteAgentEnvFallback(framework.L, agentState)
 	}
 
 	summary, stopRemoteErr := creenv.StopRemoteComponents(ctx, framework.L, targets)
@@ -774,6 +782,9 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 	if stopRemoteErr != nil {
 		return errors.Wrap(stopRemoteErr, "failed to stop one or more remote components")
 	}
+	if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
+		framework.L.Warn().Err(err).Msg("failed to stop relay supervisor after remote stop")
+	}
 	if err := removeRemoteStopConfig(relativePathToRepoRoot); err != nil {
 		framework.L.Warn().Err(err).Msg("failed to remove remote component stop state")
 	}
@@ -781,7 +792,7 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 		statePath := envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)
 		if err := os.Remove(statePath); err == nil {
 			framework.L.Info().Msgf("removed local CRE state file after remote-only stop: %s", statePath)
-		} else if err != nil && !os.IsNotExist(err) {
+		} else if !os.IsNotExist(err) {
 			framework.L.Warn().Err(err).Msgf("failed to remove local CRE state file after remote-only stop: %s", statePath)
 		}
 	}
@@ -789,6 +800,10 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 }
 
 func stopLocalResources(relativePathToRepoRoot string, removeAllState bool) error {
+	if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
+		framework.L.Warn().Err(err).Msg("failed to stop relay supervisor")
+	}
+
 	removeErr := framework.RemoveTestContainers()
 	if removeErr != nil {
 		return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
@@ -882,8 +897,8 @@ func hasLocalComponents(cfg *envconfig.Config) bool {
 	return false
 }
 
-func applyRemoteAgentEnvFallback(logger zerolog.Logger, state *remoteStopState) {
-	if state == nil {
+func applyRemoteAgentEnvFallback(logger zerolog.Logger, agentState *remoteAgentState) {
+	if agentState == nil {
 		return
 	}
 	setIfEmpty := func(key, value string) {
@@ -898,12 +913,12 @@ func applyRemoteAgentEnvFallback(logger zerolog.Logger, state *remoteStopState) 
 		}
 	}
 
-	setIfEmpty("CRE_AGENT_MODE", state.Agent.Mode)
-	setIfEmpty("CRE_LOCAL_AGENT_URL", state.Agent.LocalURL)
-	setIfEmpty("CRE_EC2_AGENT_URL", state.Agent.EC2URL)
-	setIfEmpty("CRE_EC2_INSTANCE_ID", state.Agent.EC2InstanceID)
-	setIfEmpty("CRE_EC2_AGENT_PORT", state.Agent.EC2AgentPort)
-	setIfEmpty("CRE_AWS_PROFILE", state.Agent.AWSProfile)
+	setIfEmpty("CRE_AGENT_MODE", agentState.Mode)
+	setIfEmpty("CRE_LOCAL_AGENT_URL", agentState.LocalURL)
+	setIfEmpty("CRE_EC2_AGENT_URL", agentState.EC2URL)
+	setIfEmpty("CRE_EC2_INSTANCE_ID", agentState.EC2InstanceID)
+	setIfEmpty("CRE_EC2_AGENT_PORT", agentState.EC2AgentPort)
+	setIfEmpty("CRE_AWS_PROFILE", agentState.AWSProfile)
 }
 
 func StartCLIEnvironment(
@@ -918,6 +933,10 @@ func StartCLIEnvironment(
 	gatewayWhitelistConfig gateway.WhitelistConfig,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
+	relaySupervisorStarted := false
+	defer func() {
+		_ = os.Unsetenv("CRE_USE_PERSISTENT_RELAY_SUPERVISOR")
+	}()
 
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
 	if withPluginsDockerImageFlag != "" {
@@ -958,12 +977,31 @@ func StartCLIEnvironment(
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		PreDONsStartHook: func(context.Context) error {
+			if relaySupervisorStarted {
+				return nil
+			}
+			started, err := maybeStartRelaySupervisor(relativePathToRepoRoot, in)
+			if err != nil {
+				return errors.Wrap(err, "failed to start persistent relay supervisor")
+			}
+			if started {
+				relaySupervisorStarted = true
+				_ = os.Setenv("CRE_USE_PERSISTENT_RELAY_SUPERVISOR", "true")
+			}
+			return nil
+		},
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
+		if relaySupervisorStarted {
+			if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
+				framework.L.Warn().Err(err).Msg("failed to stop relay supervisor during startup rollback")
+			}
+		}
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
 

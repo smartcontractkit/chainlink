@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -43,8 +46,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
 )
+
+const envUsePersistentRelaySupervisor = "CRE_USE_PERSISTENT_RELAY_SUPERVISOR"
 
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
@@ -55,6 +59,7 @@ type SetupOutput struct {
 	GatewayConnectors                   *cre.GatewayConnectors
 
 	tunnelManager tunnel.Manager
+	relayManager  *componentRelayManager
 	closeOnce     sync.Once
 	closeErr      error
 }
@@ -69,6 +74,9 @@ func (s *SetupOutput) Close(ctx context.Context) error {
 	}
 
 	s.closeOnce.Do(func() {
+		if s.relayManager != nil {
+			_ = s.relayManager.Close(ctx)
+		}
 		s.closeErr = manager.Stop(ctx)
 	})
 
@@ -106,6 +114,10 @@ type SetupInput struct {
 	CapabilitiesContractFactoryFunctions []cre.CapabilityRegistryConfigFn
 
 	StageGen *stagegen.StageGen
+
+	// Optional hook executed after local dependencies are started (including JD),
+	// and right before DON containers are started.
+	PreDONsStartHook func(ctx context.Context) error
 }
 
 func (s *SetupInput) Validate() error {
@@ -158,6 +170,9 @@ func SetupTestEnvironment(
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "nodeset placement validation failed")
 	}
+	if err := validateUnsupportedPlacements(input.Blockchains, nodeSetPlacement); err != nil {
+		return nil, pkgerrors.Wrap(err, "invalid component placement")
+	}
 
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
@@ -167,6 +182,16 @@ func SetupTestEnvironment(
 	tunnelManager, tmErr := newEC2TunnelManager(testLogger)
 	if tmErr != nil {
 		return nil, pkgerrors.Wrap(tmErr, "failed to initialize tunnel manager")
+	}
+	var relayManager *componentRelayManager
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv(envUsePersistentRelaySupervisor)), "true") {
+		rm, rmErr := newComponentRelayManager(testLogger)
+		if rmErr != nil && nodeSetPlacement.HasRemoteTargets {
+			return nil, pkgerrors.Wrap(rmErr, "failed to initialize relay manager")
+		}
+		relayManager = rm
+	} else {
+		testLogger.Info().Msg("persistent relay supervisor enabled; skipping in-process relay manager")
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.Blockchains))))
@@ -183,9 +208,13 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
 	}
 	cleanupTunnelsOnError := true
+	cleanupRelaysOnError := true
 	defer func() {
 		if cleanupTunnelsOnError {
 			_ = tunnelManager.Stop(ctx)
+		}
+		if cleanupRelaysOnError && relayManager != nil {
+			_ = relayManager.Close(ctx)
 		}
 	}()
 
@@ -238,6 +267,12 @@ func SetupTestEnvironment(
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
+	if nodeSetPlacement.HasRemoteTargets && relayManager != nil {
+		if err := ensureMixedRelaysForLocalBlockchains(ctx, relayManager, input.Blockchains, deployedBlockchains.Outputs); err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to ensure mixed relays for local blockchains")
+		}
+	}
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	var capabilityToOCR3Config = make(map[string]*ocr3.OracleConfig)
@@ -267,47 +302,24 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	queue := worker.New(ctx, 10)
-	defer queue.StopAndWait() // Ensure cleanup on any exit path
-
-	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
-		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
-		jdOutput, startJDErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager, nodeSetPlacement.HasLocalTargets)
-		if startJDErr != nil {
-			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
-		}
-		return jdOutput, nil
-	})
-
-	donsStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
-		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, tunnelManager)
-		if startDonsErr != nil {
-			return nil, pkgerrors.Wrap(startDonsErr, "failed to start DONs")
-		}
-
-		return nodeSetOutput, nil
-	})
-
-	// Await both futures to ensure proper cleanup even if one fails
-	startedJD, jdStartErr := worker.AwaitAs[*StartedJD](ctx, jdStartedFuture)
-	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
-
-	// Check errors after both awaits complete
-	// If both failed, prefer the non-context-cancelled error as it's likely the root cause
-	if jdStartErr != nil && donStartErr != nil {
-		// If one is context.Canceled, it was likely caused by the other task's error
-		if pkgerrors.Is(jdStartErr, context.Canceled) && !pkgerrors.Is(donStartErr, context.Canceled) {
-			return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
-		}
-		if pkgerrors.Is(donStartErr, context.Canceled) && !pkgerrors.Is(jdStartErr, context.Canceled) {
-			return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
-		}
-		// Both real errors
-		return nil, pkgerrors.Wrap(errors.Join(fmt.Errorf("JD failed to start: %w", jdStartErr), fmt.Errorf("DONs failed to start: %w", donStartErr)), "failed to start Job Distributor AND Dons")
-	}
+	// Start JD first when we need to expose local JD endpoints to remote nodesets.
+	requireJDRelayBootstrap := nodeSetPlacement.HasRemoteTargets && input.JdInput != nil && input.JdInput.Target == config.TargetLocal
+	startedJD, jdStartErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager, nodeSetPlacement.HasLocalTargets)
 	if jdStartErr != nil {
 		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
 	}
+	if requireJDRelayBootstrap && relayManager != nil {
+		if err := ensureMixedRelaysForLocalJD(ctx, relayManager, startedJD.JDOutput); err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to ensure mixed relays for local JD")
+		}
+	}
+	if input.PreDONsStartHook != nil {
+		if err := input.PreDONsStartHook(ctx); err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to execute pre-DON startup hook")
+		}
+	}
+
+	startedDONs, donStartErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, tunnelManager)
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
@@ -398,7 +410,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
 	}
 
-	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
+	waitForWorkflowFilters := func(ctx context.Context) error {
 		// we currently have no way of checking if filters were registered in Kubernetes mode
 		// as we don't have a way to get its database connection string
 		if !input.Provider.IsDocker() {
@@ -416,7 +428,7 @@ func SetupTestEnvironment(
 		default:
 			return workflow.WaitForAllNodesToHaveExpectedFiltersRegistered(ctx, singleFileLogger, testLogger, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
 		}
-	})
+	}
 
 	capRegInput := cre.ConfigureCapabilityRegistryInput{
 		ChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
@@ -484,7 +496,7 @@ func SetupTestEnvironment(
 		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	}
 
-	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
+	if err := waitForWorkflowFilters(ctx); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
 
@@ -503,7 +515,96 @@ func SetupTestEnvironment(
 		S3ProviderOutput:                    s3Output,
 		GatewayConnectors:                   topology.GatewayConnectors,
 		tunnelManager:                       tunnelManager,
+		relayManager:                        relayManager,
 	}, nil
+}
+
+func ensureMixedRelaysForLocalBlockchains(
+	ctx context.Context,
+	relayManager *componentRelayManager,
+	configuredBlockchains []*config.Blockchain,
+	deployedBlockchains []blockchains.Blockchain,
+) error {
+	attempted := 0
+	for idx, configured := range configuredBlockchains {
+		if configured == nil || configured.Target != config.TargetLocal {
+			continue
+		}
+		if idx >= len(deployedBlockchains) || deployedBlockchains[idx] == nil {
+			continue
+		}
+		for nodeIdx, node := range deployedBlockchains[idx].CtfOutput().Nodes {
+			if node == nil {
+				continue
+			}
+			if p, ok := extractEndpointPort(node.ExternalHTTPUrl); ok {
+				attempted++
+				if err := relayManager.EnsurePort(ctx, fmt.Sprintf("blockchain-http-%d-%d", idx, nodeIdx), p); err != nil {
+					return err
+				}
+			}
+			if p, ok := extractEndpointPort(node.ExternalWSUrl); ok {
+				attempted++
+				if err := relayManager.EnsurePort(ctx, fmt.Sprintf("blockchain-ws-%d-%d", idx, nodeIdx), p); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if attempted == 0 {
+		relayManager.lggr.Warn().Msg("no local blockchain relay ports were detected; mixed remote nodesets may not reach local blockchains")
+	}
+	return nil
+}
+
+func ensureMixedRelaysForLocalJD(ctx context.Context, relayManager *componentRelayManager, jdOutput *jd.Output) error {
+	if jdOutput == nil {
+		return nil
+	}
+	attempted := 0
+	if p, ok := extractEndpointPort(jdOutput.ExternalGRPCUrl); ok {
+		attempted++
+		if err := relayManager.EnsurePort(ctx, "jd-grpc", p); err != nil {
+			return err
+		}
+	}
+	if p, ok := extractEndpointPort(jdOutput.ExternalWSRPCUrl); ok {
+		attempted++
+		if err := relayManager.EnsurePort(ctx, "jd-wsrpc", p); err != nil {
+			return err
+		}
+	}
+	if attempted == 0 {
+		relayManager.lggr.Warn().Msg("no local JD relay ports were detected; mixed remote nodesets may not reach local JD")
+	}
+	return nil
+}
+
+func extractEndpointPort(raw string) (int, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0, false
+	}
+	if strings.Contains(trimmed, "://") {
+		parsed, err := url.Parse(trimmed)
+		if err != nil || parsed.Port() == "" {
+			return 0, false
+		}
+		port, convErr := strconv.Atoi(parsed.Port())
+		if convErr != nil || port <= 0 || port > 65535 {
+			return 0, false
+		}
+		return port, true
+	}
+	_, portRaw, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return 0, false
+	}
+	port, convErr := strconv.Atoi(portRaw)
+	if convErr != nil || port <= 0 || port > 65535 {
+		return 0, false
+	}
+	return port, true
 }
 
 func blockchainTargetsBySelector(configured []*config.Blockchain, deployed []blockchains.Blockchain) map[uint64]string {
@@ -566,6 +667,27 @@ func summarizeNodeSetPlacement(nodeSets []*cre.NodeSet) (*nodeSetPlacementSummar
 		return nil, errors.New("mixed nodeset targets are not supported yet; set all nodesets target=local or all target=remote")
 	}
 	return summary, nil
+}
+
+func validateUnsupportedPlacements(
+	configuredBlockchains []*config.Blockchain,
+	nodeSetPlacement *nodeSetPlacementSummary,
+) error {
+	if nodeSetPlacement == nil || !nodeSetPlacement.HasRemoteTargets {
+		return nil
+	}
+	for _, bc := range configuredBlockchains {
+		if bc == nil {
+			continue
+		}
+		if bc.Target == config.TargetLocal {
+			return errors.New(
+				"remote nodesets with local blockchains are not supported in this PoC. " +
+					"Set all blockchains to target=remote, or run nodesets with target=local so nodes stay colocated with local blockchains",
+			)
+		}
+	}
+	return nil
 }
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {

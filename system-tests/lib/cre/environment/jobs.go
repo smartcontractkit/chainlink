@@ -147,13 +147,24 @@ func StartJD(
 	// Configure gRPC credentials for JD connection
 	creds := getJDCredentials(lggr, infraInput, jdOutput)
 
+	nodeFacingWSRPC, wsrpcErr := resolveNodeFacingJDWSRPC(jdOutput, rewriteInternalForLocalNodes)
+	if wsrpcErr != nil {
+		return nil, pkgerrors.Wrap(wsrpcErr, "failed to resolve node-facing JD WSRPC endpoint")
+	}
+
 	jdClientConfig := cldf_jd.JDConfig{
 		GRPC:  jdOutput.ExternalGRPCUrl,
-		WSRPC: jdOutput.InternalWSRPCUrl,
+		WSRPC: nodeFacingWSRPC,
 		Creds: creds,
 	}
 
 	lggr.Info().Msgf("Connecting to JD GRPC at: %s", jdOutput.ExternalGRPCUrl)
+	lggr.Info().
+		Str("nodeFacingWSRPC", nodeFacingWSRPC).
+		Str("internalWSRPC", jdOutput.InternalWSRPCUrl).
+		Str("externalWSRPC", jdOutput.ExternalWSRPCUrl).
+		Bool("hasLocalNodeSets", rewriteInternalForLocalNodes).
+		Msg("Resolved JD WSRPC endpoint for node registration")
 
 	jdClient, jdErr := cldf_jd.NewJDClient(jdClientConfig)
 	if jdErr != nil {
@@ -166,6 +177,26 @@ func StartJD(
 		JDOutput: jdOutput,
 		Client:   jdClient,
 	}, nil
+}
+
+func resolveNodeFacingJDWSRPC(output *jd.Output, rewriteInternalForLocalNodes bool) (string, error) {
+	if output == nil {
+		return "", fmt.Errorf("jd output is nil")
+	}
+	// Local nodesets can resolve JD on the Docker network directly.
+	if rewriteInternalForLocalNodes {
+		return output.InternalWSRPCUrl, nil
+	}
+	// Remote nodesets need the relay endpoint on the remote Docker host.
+	source := strings.TrimSpace(output.ExternalWSRPCUrl)
+	if source == "" {
+		source = strings.TrimSpace(output.InternalWSRPCUrl)
+	}
+	if source == "" {
+		return "", fmt.Errorf("jd output does not include WSRPC endpoint")
+	}
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+	return rewriteAddressHost(source, dockerHost)
 }
 
 func rewriteRemoteJDOutputForLocalAccess(

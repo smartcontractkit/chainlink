@@ -2,9 +2,13 @@ package helpers
 
 import (
 	"context"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -31,6 +35,15 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 	creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 	require.NoError(t, err, "failed to load environment")
 
+	testEnv := &ttypes.TestEnvironment{
+		Config:         in,
+		TestConfig:     tconf,
+		Logger:         framework.L,
+		CreEnvironment: creEnvironment,
+		Dons:           dons,
+	}
+	ensureMixedModeComponentRelays(t, testEnv)
+
 	t.Cleanup(func() {
 		if t.Failed() {
 			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
@@ -43,13 +56,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 		}
 	})
 
-	return &ttypes.TestEnvironment{
-		Config:         in,
-		TestConfig:     tconf,
-		Logger:         framework.L,
-		CreEnvironment: creEnvironment,
-		Dons:           dons,
-	}
+	return testEnv
 }
 
 func GetDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
@@ -123,4 +130,101 @@ func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, e
 	}
 
 	return nil
+}
+
+func ensureMixedModeComponentRelays(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+	if testEnv == nil || testEnv.Config == nil || !hasRemoteNodeSets(testEnv.Config) {
+		return
+	}
+	nodeSetTargetsByName := map[string]string{}
+	for _, nsCfg := range testEnv.Config.NodeSets {
+		if nsCfg == nil {
+			continue
+		}
+		name := strings.TrimSpace(nsCfg.Name)
+		if name == "" {
+			continue
+		}
+		nodeSetTargetsByName[name] = strings.TrimSpace(nsCfg.Target)
+	}
+
+	// Local blockchain endpoints used by remote nodesets.
+	for idx, bcCfg := range testEnv.Config.Blockchains {
+		if bcCfg == nil || strings.TrimSpace(string(bcCfg.Target)) != string(envconfig.TargetLocal) {
+			continue
+		}
+		if idx >= len(testEnv.CreEnvironment.Blockchains) || testEnv.CreEnvironment.Blockchains[idx] == nil {
+			continue
+		}
+		for nodeIdx, node := range testEnv.CreEnvironment.Blockchains[idx].CtfOutput().Nodes {
+			if node == nil {
+				continue
+			}
+			if p, ok := extractPort(node.ExternalHTTPUrl); ok {
+				EnsureFixtureRelayForPort(t, testEnv, "blockchain-http-"+strconv.Itoa(idx)+"-"+strconv.Itoa(nodeIdx), p)
+			}
+			if p, ok := extractPort(node.ExternalWSUrl); ok {
+				EnsureFixtureRelayForPort(t, testEnv, "blockchain-ws-"+strconv.Itoa(idx)+"-"+strconv.Itoa(nodeIdx), p)
+			}
+		}
+	}
+
+	// Local JD endpoints used by remote nodesets.
+	if testEnv.Config.JD != nil && strings.TrimSpace(string(testEnv.Config.JD.Target)) == string(envconfig.TargetLocal) && testEnv.Config.JD.Out != nil {
+		if p, ok := extractPort(testEnv.Config.JD.Out.ExternalGRPCUrl); ok {
+			EnsureFixtureRelayForPort(t, testEnv, "jd-grpc", p)
+		}
+		if p, ok := extractPort(testEnv.Config.JD.Out.ExternalWSRPCUrl); ok {
+			EnsureFixtureRelayForPort(t, testEnv, "jd-wsrpc", p)
+		}
+	}
+
+	// Local gateway incoming ports used by remote workflow nodesets.
+	if testEnv.Dons != nil && testEnv.Dons.GatewayConnectors != nil {
+		for _, cfg := range testEnv.Dons.GatewayConnectors.Configurations {
+			if cfg == nil || cfg.GatewayConfiguration == nil {
+				continue
+			}
+			node, found := testEnv.Dons.NodeWithUUID(cfg.NodeUUID)
+			if !found || node == nil || node.DON == nil {
+				continue
+			}
+			donName := strings.TrimSpace(node.DON.Name)
+			target := nodeSetTargetsByName[donName]
+			if target != string(envconfig.TargetLocal) {
+				continue
+			}
+			if cfg.Incoming.ExternalPort > 0 {
+				EnsureFixtureRelayForPort(t, testEnv, "gateway-"+cfg.AuthGatewayID, cfg.Incoming.ExternalPort)
+			}
+		}
+	}
+}
+
+func extractPort(raw string) (int, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0, false
+	}
+	if strings.Contains(trimmed, "://") {
+		parsed, err := url.Parse(trimmed)
+		if err != nil || parsed.Port() == "" {
+			return 0, false
+		}
+		port, convErr := strconv.Atoi(parsed.Port())
+		if convErr != nil || port <= 0 || port > 65535 {
+			return 0, false
+		}
+		return port, true
+	}
+	_, portRaw, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return 0, false
+	}
+	port, convErr := strconv.Atoi(portRaw)
+	if convErr != nil || port <= 0 || port > 65535 {
+		return 0, false
+	}
+	return port, true
 }

@@ -43,6 +43,7 @@ const (
 	LabelNodeTypeValuePlugin    = "plugin"
 
 	LabelNodeP2PIDKey = "p2p_id"
+
 )
 
 type Role string
@@ -704,12 +705,12 @@ func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Env
 			return fmt.Errorf("no node found for node id %s", n.JobDistributorDetails.NodeID)
 		}
 		if !getRes.GetNode().IsConnected {
-			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor", n.Name))
+			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor (jd_uri=%s)", n.Name, jd.WSRPC))
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to connect node %s to job distributor: %w", n.Name, err)
+		return fmt.Errorf("failed to connect node %s to job distributor (jd_uri=%s): %w", n.Name, jd.WSRPC, err)
 	}
 	n.JobDistributorDetails.JDID = id
 	return nil

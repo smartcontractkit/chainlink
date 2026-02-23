@@ -43,6 +43,11 @@ type closeRelayRequest struct {
 	RelayID string `json:"relayId"`
 }
 
+type relayBridgeStats struct {
+	TCPToWSBytes uint64
+	WSToTCPBytes uint64
+}
+
 var relayWSUpgrader = websocket.Upgrader{
 	CheckOrigin: func(_ *http.Request) bool { return true },
 }
@@ -68,15 +73,38 @@ func (s *Server) openRelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Idempotent open: same name+port returns the existing relay.
+	// Idempotent open:
+	// - for fixed ports, any existing relay on the same requested port is reusable
+	// - fallback to same name+port for compatibility with older callers
 	s.relayMu.Lock()
 	for _, relay := range s.relays {
+		if req.RequestedPort > 0 && relay.RequestedPort == req.RequestedPort {
+			s.relayMu.Unlock()
+			s.lggr.Info().
+				Str("relayId", relay.ID).
+				Str("name", relay.Name).
+				Int("requestedPort", relay.RequestedPort).
+				Int("boundPort", listenerPort(relay.Listener)).
+				Msg("reusing existing relay by requested port")
+			s.respondJSONAny(w, http.StatusOK, openRelayResponse{
+				RelayID:       relay.ID,
+				RequestedPort: relay.RequestedPort,
+				BoundPort:     listenerPort(relay.Listener),
+			})
+			return
+		}
 		if relay.Name == req.Name && relay.RequestedPort == req.RequestedPort {
 			s.relayMu.Unlock()
+			s.lggr.Info().
+				Str("relayId", relay.ID).
+				Str("name", relay.Name).
+				Int("requestedPort", relay.RequestedPort).
+				Int("boundPort", listenerPort(relay.Listener)).
+				Msg("reusing existing relay by name+port")
 			s.respondJSONAny(w, http.StatusOK, openRelayResponse{
-				RelayID:      relay.ID,
+				RelayID:       relay.ID,
 				RequestedPort: relay.RequestedPort,
-				BoundPort:    listenerPort(relay.Listener),
+				BoundPort:     listenerPort(relay.Listener),
 			})
 			return
 		}
@@ -105,6 +133,13 @@ func (s *Server) openRelay(w http.ResponseWriter, r *http.Request) {
 	s.relayMu.Unlock()
 
 	go s.acceptRelayConnections(reg)
+
+	s.lggr.Info().
+		Str("relayId", relayID).
+		Str("name", req.Name).
+		Int("requestedPort", req.RequestedPort).
+		Int("boundPort", listenerPort(ln)).
+		Msg("opened relay listener")
 
 	s.respondJSONAny(w, http.StatusOK, openRelayResponse{
 		RelayID:      relayID,
@@ -145,6 +180,12 @@ func (s *Server) closeRelay(w http.ResponseWriter, r *http.Request) {
 	_ = relay.Listener.Close()
 	drainAndCloseIncoming(relay.Incoming)
 
+	s.lggr.Info().
+		Str("relayId", relayID).
+		Str("name", relay.Name).
+		Int("requestedPort", relay.RequestedPort).
+		Msg("closed relay listener")
+
 	s.respondJSONAny(w, http.StatusOK, map[string]any{"relayId": relayID, "closed": true, "found": true})
 }
 
@@ -169,25 +210,76 @@ func (s *Server) connectRelay(w http.ResponseWriter, r *http.Request) {
 
 	wsConn, err := relayWSUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		s.lggr.Warn().Err(err).Str("relayId", relayID).Msg("failed to upgrade relay websocket")
 		return
 	}
 	defer wsConn.Close()
+	s.lggr.Debug().
+		Str("relayId", relayID).
+		Str("name", relay.Name).
+		Str("wsRemoteAddr", wsConn.RemoteAddr().String()).
+		Msg("relay websocket bridge client connected")
 
 	var incoming net.Conn
-	select {
-	case incoming = <-relay.Incoming:
-	case <-relay.Closed:
-		_ = wsConn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "relay closed"), time.Now().Add(2*time.Second))
-		return
-	case <-r.Context().Done():
-		return
+	waitStarted := time.Now()
+	nextWaitLogAt := 30 * time.Second
+	for {
+		select {
+		case incoming = <-relay.Incoming:
+			goto bridge
+		case <-relay.Closed:
+			s.lggr.Info().Str("relayId", relayID).Str("name", relay.Name).Msg("relay closed while waiting for incoming tcp connection")
+			_ = wsConn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "relay closed"), time.Now().Add(2*time.Second))
+			return
+		case <-r.Context().Done():
+			s.lggr.Info().Str("relayId", relayID).Str("name", relay.Name).Msg("relay websocket request context cancelled while waiting for incoming tcp connection")
+			return
+		case <-time.After(5 * time.Second):
+			waited := time.Since(waitStarted)
+			if waited >= nextWaitLogAt {
+				s.lggr.Info().
+					Str("relayId", relayID).
+					Str("name", relay.Name).
+					Dur("waited", waited).
+					Int("queued", len(relay.Incoming)).
+					Msg("relay websocket still waiting for incoming tcp connection")
+				nextWaitLogAt += 30 * time.Second
+			}
+		}
 	}
+
+bridge:
 	if incoming == nil {
+		s.lggr.Warn().Str("relayId", relayID).Str("name", relay.Name).Msg("relay incoming connection was nil")
 		return
 	}
 	defer incoming.Close()
+	s.lggr.Info().
+		Str("relayId", relayID).
+		Str("name", relay.Name).
+		Str("tcpRemoteAddr", incoming.RemoteAddr().String()).
+		Msg("bridging relay tcp connection to websocket client")
 
-	_ = bridgeWebSocketAndTCP(wsConn, incoming)
+	bridgeStarted := time.Now()
+	stats, err := bridgeWebSocketAndTCP(wsConn, incoming)
+	if err != nil {
+		s.lggr.Warn().
+			Err(err).
+			Str("relayId", relayID).
+			Str("name", relay.Name).
+			Uint64("tcpToWSBytes", stats.TCPToWSBytes).
+			Uint64("wsToTCPBytes", stats.WSToTCPBytes).
+			Dur("duration", time.Since(bridgeStarted)).
+			Msg("relay bridge ended with error")
+	} else {
+		s.lggr.Info().
+			Str("relayId", relayID).
+			Str("name", relay.Name).
+			Uint64("tcpToWSBytes", stats.TCPToWSBytes).
+			Uint64("wsToTCPBytes", stats.WSToTCPBytes).
+			Dur("duration", time.Since(bridgeStarted)).
+			Msg("relay bridge stream ended")
+	}
 }
 
 func (s *Server) acceptRelayConnections(relay *relayRegistration) {
@@ -205,30 +297,47 @@ func (s *Server) acceptRelayConnections(relay *relayRegistration) {
 			}
 			return
 		}
+		s.lggr.Info().
+			Str("relayId", relay.ID).
+			Str("name", relay.Name).
+			Int("requestedPort", relay.RequestedPort).
+			Str("tcpRemoteAddr", conn.RemoteAddr().String()).
+			Msg("accepted relay tcp connection")
 
 		select {
 		case relay.Incoming <- conn:
+			s.lggr.Info().
+				Str("relayId", relay.ID).
+				Str("name", relay.Name).
+				Int("queued", len(relay.Incoming)).
+				Msg("queued relay tcp connection for websocket bridge")
 		default:
+			s.lggr.Warn().
+				Str("relayId", relay.ID).
+				Str("name", relay.Name).
+				Msg("dropping relay tcp connection: incoming queue is full")
 			_ = conn.Close()
 		}
 	}
 }
 
-func bridgeWebSocketAndTCP(ws *websocket.Conn, tcp net.Conn) error {
+func bridgeWebSocketAndTCP(ws *websocket.Conn, tcp net.Conn) (*relayBridgeStats, error) {
 	errCh := make(chan error, 2)
+	stats := &relayBridgeStats{}
 
 	go func() {
 		buf := make([]byte, 32*1024)
 		for {
 			n, err := tcp.Read(buf)
 			if n > 0 {
+				atomic.AddUint64(&stats.TCPToWSBytes, uint64(n))
 				if wErr := ws.WriteMessage(websocket.BinaryMessage, buf[:n]); wErr != nil {
-					errCh <- wErr
+					errCh <- fmt.Errorf("tcp->ws write: %w", wErr)
 					return
 				}
 			}
 			if err != nil {
-				errCh <- err
+				errCh <- fmt.Errorf("tcp read: %w", err)
 				return
 			}
 		}
@@ -238,7 +347,7 @@ func bridgeWebSocketAndTCP(ws *websocket.Conn, tcp net.Conn) error {
 		for {
 			msgType, payload, err := ws.ReadMessage()
 			if err != nil {
-				errCh <- err
+				errCh <- fmt.Errorf("ws read: %w", err)
 				return
 			}
 			if msgType != websocket.BinaryMessage && msgType != websocket.TextMessage {
@@ -247,8 +356,9 @@ func bridgeWebSocketAndTCP(ws *websocket.Conn, tcp net.Conn) error {
 			if len(payload) == 0 {
 				continue
 			}
+			atomic.AddUint64(&stats.WSToTCPBytes, uint64(len(payload)))
 			if _, wErr := tcp.Write(payload); wErr != nil {
-				errCh <- wErr
+				errCh <- fmt.Errorf("ws->tcp write: %w", wErr)
 				return
 			}
 		}
@@ -256,9 +366,9 @@ func bridgeWebSocketAndTCP(ws *websocket.Conn, tcp net.Conn) error {
 
 	err := <-errCh
 	if err == nil || errors.Is(err, io.EOF) || websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-		return nil
+		return stats, nil
 	}
-	return err
+	return stats, err
 }
 
 func drainAndCloseIncoming(ch chan net.Conn) {
