@@ -270,8 +270,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 					failedStreamIDs[i] = e.streamID
 				}
 
-			lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
-				len(observedValues), "nFailedStreams", len(failedStreamIDs), "nDroppedStreams", len(droppedStreamIDs), "errs", errStrs)
+				lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
+					len(observedValues), "nFailedStreams", len(failedStreamIDs), "nDroppedStreams", len(droppedStreamIDs), "errs", errStrs)
 
 				if osv.opts.VerboseLogging() {
 					lggr = logger.With(lggr, "streamValues", osv.streamValues)
