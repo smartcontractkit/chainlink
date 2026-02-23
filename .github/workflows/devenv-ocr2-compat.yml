@@ -81,7 +81,7 @@ jobs:
         env:
           CTF_LOG_LEVEL: debug
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
-          CHAINLINK_IMAGE: ${{ secrets.REGISTRY_SDLC }}/chainlink:v2.32.2
+          CHAINLINK_IMAGE: ${{ secrets.REGISTRY_SDLC }}/chainlink:v2.32.0
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
         run: |
           ./bin/ctf compat backward \
