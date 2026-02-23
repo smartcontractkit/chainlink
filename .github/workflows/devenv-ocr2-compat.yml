@@ -70,15 +70,10 @@ jobs:
       # TODO: this is only for demo purposes, remove after we re-tag properly
       - name: Tag compatible versions
         run: |
-          git tag 2.34.0+compat 1e73cc2acf
-          git tag 2.33.0+compat 874e0761be
-          git tag 2.32.0+compat 14a28e8667
-          git tag 2.31.0+compat 3db36a966c
-      
-      - name: Set environment variables
-        id: set-env
-        run: |
-          echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)-plugins" >> $GITHUB_ENV
+          git tag 2.35.0+compat 48c7d8ebfe
+          git tag v2.34.0+compat e25be68a71
+          git tag 2.33.0+compat c078c39fc8
+          git tag 2.32.2-ccip-rc.0+compat 046af9af28
 
       - name: Run compat test
         working-directory: devenv
@@ -86,9 +81,11 @@ jobs:
         env:
           CTF_LOG_LEVEL: debug
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+          CHAINLINK_IMAGE: ${{ secrets.REGISTRY_SDLC }}/chainlink:2.32.2-ccip-rc.0
+          REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
         run: |
           ./bin/ctf compat backward \
-          --buildcmd "just cli" \
+          --registry $REGISTRY \
           --envcmd "cl u env.toml,products/ocr2/basic.toml" \
           --testcmd "cl test ocr2 TestSmoke/rounds" \
           --include_tags +compat \
