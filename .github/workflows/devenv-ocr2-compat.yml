@@ -77,7 +77,7 @@ jobs:
 
       - name: Run compat test
         run: |
-          ctf compat backward \
+          ./bin/ctf compat backward \
           --buildcmd "just cli" \
           --envcmd "cl r" \
           --testcmd "cl test ocr2 TestSmoke/rounds" \
