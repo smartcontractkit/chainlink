@@ -1,7 +1,6 @@
 package db
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -270,7 +269,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 			).(*priceService)
 			priceService.gasPriceEstimator = gasPriceEstimator
 
-			sourceGasPriceUSD, err := priceService.observeGasPriceUpdates(context.Background(), lggr)
+			sourceGasPriceUSD, err := priceService.observeGasPriceUpdates(t.Context(), lggr)
 			if tc.expErr {
 				assert.Error(t, err)
 				return
@@ -491,7 +490,7 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 			).(*priceService)
 			priceService.destPriceRegistryReader = destPriceReg
 
-			tokenPricesUSD, err := priceService.observeTokenPriceUpdates(context.Background(), lggr)
+			tokenPricesUSD, err := priceService.observeTokenPriceUpdates(t.Context(), lggr)
 			if tc.expErr {
 				assert.Error(t, err)
 				return

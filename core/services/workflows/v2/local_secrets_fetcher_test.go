@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	fetcher := NewLocalSecretsFetcher(secrets)
 
 	t.Run("returns known secrets", func(t *testing.T) {
-		resp, err := fetcher.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{
+		resp, err := fetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "api-key", Namespace: "default"},
 				{Id: "db-password"},
@@ -40,7 +39,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	})
 
 	t.Run("returns error for unknown secret", func(t *testing.T) {
-		resp, err := fetcher.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{
+		resp, err := fetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "nonexistent"},
 			},
@@ -55,7 +54,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	})
 
 	t.Run("handles mixed known and unknown", func(t *testing.T) {
-		resp, err := fetcher.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{
+		resp, err := fetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "api-key"},
 				{Id: "missing"},
@@ -70,7 +69,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 
 	t.Run("empty map returns errors for all", func(t *testing.T) {
 		emptyFetcher := NewLocalSecretsFetcher(map[string]string{})
-		resp, err := emptyFetcher.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{
+		resp, err := emptyFetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "anything"},
 			},

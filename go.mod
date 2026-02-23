@@ -80,7 +80,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.91
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260217195306-9fec97c5dfbd
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260203202624-5101f4d33736
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260220192608-af6bd538e0ca
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260219123955-11b2ac2cfa68
@@ -102,7 +102,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260217175957-8f1af02c5075
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223132514-df62be174f36
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260217210647-11c42009ec1f
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260218110243-cd2592187c66
 	github.com/smartcontractkit/cre-sdk-go v1.3.0

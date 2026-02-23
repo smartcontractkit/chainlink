@@ -48,7 +48,7 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 }
 
 func TestNewFetcherService(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	wrapper := &wrapper{c: connector}
@@ -299,7 +299,7 @@ func TestNewFetcherService(t *testing.T) {
 
 func TestNewFetcherFunc(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	testContent := []byte("test content")
 
 	t.Run("error cases", func(t *testing.T) {
@@ -430,7 +430,7 @@ func TestNewFetcherFunc(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a canceled context
-		canceledCtx, cancel := context.WithCancel(context.Background())
+		canceledCtx, cancel := context.WithCancel(t.Context())
 		cancel()
 
 		// Try to fetch with canceled context
@@ -456,7 +456,7 @@ func TestNewFetcherFunc(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a context with short timeout
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		timeoutCtx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 		defer cancel()
 
 		// Try to fetch with timeout context - should fail with deadline exceeded

@@ -1,7 +1,6 @@
 package ccipaptos
 
 import (
-	"context"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -225,7 +224,7 @@ func TestExecutePluginCodecV1_Decode(t *testing.T) {
 	codec := NewExecutePluginCodecV1(nil)
 
 	// Decode the report
-	decodedReport, err := codec.Decode(context.Background(), reportBytes)
+	decodedReport, err := codec.Decode(t.Context(), reportBytes)
 	require.NoError(t, err)
 
 	require.Len(t, decodedReport.ChainReports, 1, "Expected exactly one chain report")

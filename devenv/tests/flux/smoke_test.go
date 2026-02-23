@@ -1,7 +1,6 @@
 package flux
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -20,7 +19,6 @@ import (
 )
 
 func TestSmoke(t *testing.T) {
-	ctx := context.Background()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
@@ -32,7 +30,7 @@ func TestSmoke(t *testing.T) {
 	})
 
 	c, _, _, err := products.ETHClient(
-		ctx,
+		t.Context(),
 		in.Blockchains[0].Out.Nodes[0].ExternalWSUrl,
 		productCfg.Config[0].GasSettings.FeeCapMultiplier,
 		productCfg.Config[0].GasSettings.TipCapMultiplier,
