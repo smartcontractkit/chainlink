@@ -1,7 +1,6 @@
 package shardorchestrator_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,10 +12,9 @@ import (
 )
 
 func TestServer_GetWorkflowShardMapping(t *testing.T) {
-	ctx := context.Background()
-	lggr := logger.Test(t)
-
 	t.Run("returns_mappings_for_multiple_workflows", func(t *testing.T) {
+		ctx := t.Context()
+		lggr := logger.Test(t)
 		ringStore := ring.NewStore()
 		server := shardorchestrator.NewServer(ringStore, lggr)
 
@@ -39,6 +37,8 @@ func TestServer_GetWorkflowShardMapping(t *testing.T) {
 	})
 
 	t.Run("rejects_empty_workflow_ids", func(t *testing.T) {
+		ctx := t.Context()
+		lggr := logger.Test(t)
 		ringStore := ring.NewStore()
 		server := shardorchestrator.NewServer(ringStore, lggr)
 
@@ -53,6 +53,8 @@ func TestServer_GetWorkflowShardMapping(t *testing.T) {
 	})
 
 	t.Run("handles_partial_results_for_nonexistent_workflows", func(t *testing.T) {
+		ctx := t.Context()
+		lggr := logger.Test(t)
 		ringStore := ring.NewStore()
 		server := shardorchestrator.NewServer(ringStore, lggr)
 

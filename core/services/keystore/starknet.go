@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/starkkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
 type StarkNet interface {

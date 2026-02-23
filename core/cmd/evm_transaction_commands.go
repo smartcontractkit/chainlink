@@ -9,9 +9,9 @@ import (
 
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -186,7 +186,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
 		Amount:             amount,
-		EVMChainID:         (*ubig.Big)(evmChainID),
+		EVMChainID:         (*sqlutil.Big)(evmChainID),
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 

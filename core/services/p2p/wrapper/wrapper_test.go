@@ -9,12 +9,12 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 )

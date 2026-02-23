@@ -13,12 +13,12 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 )
 
 type NodeConfig struct {

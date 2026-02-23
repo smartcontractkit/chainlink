@@ -16,13 +16,13 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	mercuryv4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -152,7 +152,7 @@ func TestGetChainID(t *testing.T) {
 	}
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
-	j.OCROracleSpec.EVMChainID = (*ubig.Big)(big.NewInt(1234567890))
+	j.OCROracleSpec.EVMChainID = (*sqlutil.Big)(big.NewInt(1234567890))
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
@@ -303,7 +303,7 @@ func TestSendEATelemetry(t *testing.T) {
 		OCROracleSpec: &job.OCROracleSpec{
 			ContractAddress:    evmtypes.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
-			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
+			EVMChainID:         (*sqlutil.Big)(big.NewInt(9)),
 		},
 	}
 

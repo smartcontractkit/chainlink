@@ -17,13 +17,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 type contract struct {

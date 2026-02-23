@@ -2,11 +2,13 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
+  container_name = "anvil-1337"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
   type = "anvil"
   chain_id = "2337"
+  container_name = "anvil-2337"
   port = "8546"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
@@ -27,13 +29,8 @@
 #  console_port = 9001
 
 [infra]
-  # either "docker" or "crib"
+  # either "docker" or "kubernetes"
   type = "docker"
-
-#[infra.crib]
-#  namespace = "crib-local"
-#  folder_location = "/absolute/path/to/crib/deployments/cre"
-#  provider = "kind"  # or "aws"
 
 [[nodesets]]
   nodes = 4

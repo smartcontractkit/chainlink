@@ -16,12 +16,12 @@ import (
 	"github.com/smartcontractkit/quarantine"
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -34,7 +34,7 @@ import (
 func Test_EVMChainsController_Show(t *testing.T) {
 	t.Parallel()
 
-	validID := ubig.New(testutils.NewRandomEVMChainID())
+	validID := sqlutil.New(testutils.NewRandomEVMChainID())
 
 	testCases := []struct {
 		name           string
@@ -120,9 +120,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	})
 
 	configuredChains := toml.EVMConfigs{
-		{ChainID: ubig.New(chainIDs[0]), Chain: toml.Defaults(nil)},
+		{ChainID: sqlutil.New(chainIDs[0]), Chain: toml.Defaults(nil)},
 		{
-			ChainID: ubig.New(chainIDs[1]),
+			ChainID: sqlutil.New(chainIDs[1]),
 			Chain: toml.Defaults(nil, &toml.Chain{
 				RPCBlockQueryDelay: ptr[uint16](13),
 				GasEstimator: toml.GasEstimator{
@@ -135,7 +135,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 			}),
 		},
 		{
-			ChainID: ubig.New(chainIDs[2]),
+			ChainID: sqlutil.New(chainIDs[2]),
 			Chain: toml.Defaults(nil, &toml.Chain{
 				RPCBlockQueryDelay: ptr[uint16](5),
 				GasEstimator: toml.GasEstimator{

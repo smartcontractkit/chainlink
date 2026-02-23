@@ -63,7 +63,7 @@ func (g ChainCWProvider) GetChainWriter(ctx context.Context, params ccipcommon.C
 
 	evmConfig, err := evmconfig.ChainWriterConfigRaw(
 		fromAddress,
-		defaultCommitGasLimit,
+		params.CommitEvmBatchGasLimit,
 		params.ExecBatchGasLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create EVM chain writer config: %w", err)

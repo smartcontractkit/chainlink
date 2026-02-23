@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"

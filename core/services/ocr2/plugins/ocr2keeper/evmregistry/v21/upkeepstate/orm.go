@@ -8,16 +8,15 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 type orm struct {
-	chainID *ubig.Big
+	chainID *sqlutil.Big
 	ds      sqlutil.DataSource
 }
 
 type persistedStateRecord struct {
-	UpkeepID            *ubig.Big
+	UpkeepID            *sqlutil.Big
 	WorkID              string
 	CompletionState     uint8
 	BlockNumber         int64
@@ -28,7 +27,7 @@ type persistedStateRecord struct {
 // NewORM creates an ORM scoped to chainID.
 func NewORM(chainID *big.Int, ds sqlutil.DataSource) *orm {
 	return &orm{
-		chainID: ubig.New(chainID),
+		chainID: sqlutil.New(chainID),
 		ds:      ds,
 	}
 }
@@ -40,12 +39,12 @@ func (o *orm) BatchInsertRecords(ctx context.Context, state []persistedStateReco
 	}
 
 	type row struct {
-		EvmChainId          *ubig.Big
+		EvmChainId          *sqlutil.Big
 		WorkId              string
 		CompletionState     uint8
 		BlockNumber         int64
 		InsertedAt          time.Time
-		UpkeepId            *ubig.Big
+		UpkeepId            *sqlutil.Big
 		IneligibilityReason uint8
 	}
 

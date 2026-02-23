@@ -1,5 +1,19 @@
 # Changelog Chainlink Core
 
+## 2.35.0
+
+### Minor Changes
+
+- [#21142](https://github.com/smartcontractkit/chainlink/pull/21142) [`f39d501`](https://github.com/smartcontractkit/chainlink/commit/f39d501aa1be09ed2ff69a06c2fdb29c39a88df7) - #added Add countNilsAsFaults flag to MedianTask. When enabled, nil values are counted toward allowedFaults and filtered out before median calculation, preventing nils from crashing the task while preserving fault
+
+- [#21095](https://github.com/smartcontractkit/chainlink/pull/21095) [`4921537`](https://github.com/smartcontractkit/chainlink/commit/49215375727a3dcca77a9f0835bec1a07b1723d1) - Minor bump to start next version
+
+### Patch Changes
+
+- [#21043](https://github.com/smartcontractkit/chainlink/pull/21043) [`015109a`](https://github.com/smartcontractkit/chainlink/commit/015109a55615d092e821502da575398dc62d8d1e) - #bugfix passes http capability headers via MultiHeaders
+
+- [#21171](https://github.com/smartcontractkit/chainlink/pull/21171) [`eac9bd6`](https://github.com/smartcontractkit/chainlink/commit/eac9bd6247d2f6453c669d6758d300abffdd921c) - Vault cap validations for workflow owner
+
 ## 2.34.0
 
 ### Minor Changes

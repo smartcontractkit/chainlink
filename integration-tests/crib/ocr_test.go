@@ -1,7 +1,6 @@
 package crib
 
 import (
-	"context"
 	"os"
 	"testing"
 	"time"
@@ -47,10 +46,10 @@ func TestCRIBChaos(t *testing.T) {
 			os.Getenv("CRIB_NAMESPACE"),
 		)
 		require.NoError(t, err, "Error rebooting CL namespace")
-		ch.Create(context.Background())
+		ch.Create(t.Context())
 		ch.AddListener(havoc.NewChaosLogger(l))
 		t.Cleanup(func() {
-			err := ch.Delete(context.Background())
+			err := ch.Delete(t.Context())
 			require.NoError(t, err, "Error deleting chaos")
 		})
 		require.Eventually(t, func() bool {

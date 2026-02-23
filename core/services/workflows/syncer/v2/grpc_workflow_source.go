@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/grpcsource"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -133,7 +133,7 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 	}
 
 	return &GRPCWorkflowSource{
-		lggr:           lggr.Named(cfg.Name),
+		lggr:           logger.Named(lggr, cfg.Name),
 		client:         client,
 		name:           cfg.Name,
 		pageSize:       pageSize,

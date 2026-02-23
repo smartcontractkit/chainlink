@@ -589,7 +589,7 @@ func (l *ldapAuthenticator) SetAuthToken(ctx context.Context, user *sessions.Use
 
 // DeleteAuthToken clears and disables the users Authentication Token.
 func (l *ldapAuthenticator) DeleteAuthToken(ctx context.Context, user *sessions.User) error {
-	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE email = $1")
+	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email)
 	return err
 }
 

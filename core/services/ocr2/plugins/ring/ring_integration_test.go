@@ -59,7 +59,7 @@ func TestRingStoreIntegration(t *testing.T) {
 			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 1},
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		shardID, err := store.GetShardForWorkflow(ctx, "workflow1")
 		require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestRingStoreIntegration(t *testing.T) {
 			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		shard1, err := store.GetShardForWorkflow(ctx, "workflow-a")
@@ -102,7 +102,7 @@ func TestRingStoreIntegration(t *testing.T) {
 
 		store.SetShardForWorkflow("cached-workflow", 0)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		shardID, err := store.GetShardForWorkflow(ctx, "cached-workflow")

@@ -89,7 +89,7 @@ func createTestClient(t *testing.T, lis *bufconn.Listener) *Client {
 }
 
 func TestClient_GetWorkflowShardMapping(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
 		mappings: map[string]uint32{
@@ -143,7 +143,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 }
 
 func TestClient_ReportWorkflowTriggerRegistration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
 		mappings: map[string]uint32{},
@@ -188,7 +188,7 @@ func TestClient_Close(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify connection is closed by attempting to use it
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	_, err = client.GetWorkflowShardMapping(ctx, []string{"test"})
@@ -196,12 +196,11 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	ctx := context.Background()
 	lggr := logger.Test(t)
 
 	t.Run("creates client successfully", func(t *testing.T) {
 		// Note: This creates a client but doesn't connect immediately with grpc.NewClient
-		client, err := NewClient(ctx, "localhost:50051", lggr)
+		client, err := NewClient("localhost:50051", lggr)
 		require.NoError(t, err)
 		require.NotNil(t, client)
 		defer client.Close()

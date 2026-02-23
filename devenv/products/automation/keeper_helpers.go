@@ -117,11 +117,12 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 				return
 			}
 
-			tx, err = linkToken.TransferAndCallFromKey(registrar.Address(), fundsForEachUpkeep, req, keyNum)
+			decodedTx, err := client.Decode(linkToken.TransferAndCallFromKey(registrar.Address(), fundsForEachUpkeep, req, keyNum))
 			if err != nil {
 				errorCh <- errors.Wrapf(err, "[id: %s] Failed to register upkeep at %s", id, config.address)
 				return
 			}
+			tx = decodedTx.Transaction
 		}
 
 		// parse txn to get upkeep ID
@@ -238,6 +239,42 @@ func SetupKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts i
 	}
 
 	return results
+}
+
+// RegisterNewUpkeeps concurrently registers the given amount of new upkeeps, using the registry and registrar,
+// which are passed as parameters. It returns the newly deployed contracts (consumers), as well as their upkeep IDs.
+func RegisterNewUpkeeps(
+	t *testing.T,
+	chainClient *seth.Client,
+	linkToken contracts.LinkToken,
+	registry contracts.KeeperRegistry,
+	registrar contracts.KeeperRegistrar,
+	upkeepGasLimit uint32,
+	numberOfNewUpkeeps int,
+) ([]contracts.KeeperConsumer, []*big.Int) {
+	newlyDeployedUpkeeps := DeployKeeperConsumers(t, chainClient, numberOfNewUpkeeps, false, false)
+
+	addressesOfNewUpkeeps := []string{}
+	for _, upkeep := range newlyDeployedUpkeeps {
+		addressesOfNewUpkeeps = append(addressesOfNewUpkeeps, upkeep.Address())
+	}
+
+	concurrency, err := GetAndAssertCorrectConcurrency(chainClient, 1)
+	require.NoError(t, err, "Insufficient concurrency to execute action")
+
+	operationsPerAddress := numberOfNewUpkeeps / concurrency
+
+	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
+	require.NoError(t, err, "Error deploying multicall contract")
+
+	linkFundsForEachUpkeep := big.NewInt(9e18)
+
+	err = SendLinkFundsToDeploymentAddresses(chainClient, concurrency, numberOfNewUpkeeps, operationsPerAddress, multicallAddress, linkFundsForEachUpkeep, linkToken)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
+
+	newUpkeepIDs := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps, false, false, false, nil)
+
+	return newlyDeployedUpkeeps, newUpkeepIDs
 }
 
 var InsufficientStaticKeys = `

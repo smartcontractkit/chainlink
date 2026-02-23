@@ -1,7 +1,6 @@
 package shardorchestrator_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ func setupShardOrchestrator(t *testing.T) (*ring.Store, ringpb.ShardOrchestrator
 	lggr := logger.Test(t)
 	ringStore := ring.NewStore()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	orchestrator := shardorchestrator.New(0, ringStore, lggr)
 
 	err := orchestrator.Start(ctx)
@@ -50,7 +49,7 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 		ringStore, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		ringStore.SetShardForWorkflow("workflow1", 1)
 		ringStore.SetShardForWorkflow("workflow2", 2)
@@ -71,7 +70,7 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 			WorkflowIds: []string{},
@@ -88,7 +87,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId: 2,
@@ -108,7 +107,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
 			SourceShardId:        3,
@@ -120,6 +119,33 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		require.NotNil(t, resp)
 		assert.True(t, resp.Success)
 	})
+
+	t.Run("handles multiple shards reporting", func(t *testing.T) {
+		_, client, cleanup := setupShardOrchestrator(t)
+		defer cleanup()
+
+		ctx := t.Context()
+
+		resp1, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
+			SourceShardId: 1,
+			RegisteredWorkflows: map[string]uint32{
+				"workflow1": 1,
+			},
+			TotalActiveWorkflows: 1,
+		})
+		require.NoError(t, err)
+		assert.True(t, resp1.Success)
+
+		resp2, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
+			SourceShardId: 2,
+			RegisteredWorkflows: map[string]uint32{
+				"workflow2": 1,
+			},
+			TotalActiveWorkflows: 1,
+		})
+		require.NoError(t, err)
+		assert.True(t, resp2.Success)
+	})
 }
 
 func TestShardOrchestrator_Integration(t *testing.T) {
@@ -127,7 +153,7 @@ func TestShardOrchestrator_Integration(t *testing.T) {
 		ringStore, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		ringStore.SetShardForWorkflow("workflow-a", 1)
 		ringStore.SetShardForWorkflow("workflow-b", 2)

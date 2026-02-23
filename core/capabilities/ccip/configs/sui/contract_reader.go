@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-sui/relayer/client"
 	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 )
 
 func PublicKeyToAddress(pubKeyHex string) (string, error) {

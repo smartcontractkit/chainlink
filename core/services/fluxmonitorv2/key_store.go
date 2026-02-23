@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // KeyStoreInterface defines an interface to interact with the keystore

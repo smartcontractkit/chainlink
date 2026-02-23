@@ -7,8 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

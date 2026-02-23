@@ -16,13 +16,13 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -38,7 +38,7 @@ import (
 )
 
 func newHead() evmtypes.Head {
-	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), ubig.NewI(0))
+	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), sqlutil.NewI(0))
 }
 
 func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (
@@ -125,7 +125,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t,
 			func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+				c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 			})
 
 		gasLimit := uint64(5_000_000 + config.Keeper().Registry().PerformGasOverhead())
@@ -170,7 +170,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		runTest := func(t *testing.T, eip1559 bool) {
 			db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
-				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+				c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 			})
 
 			gasLimit := uint64(5_000_000 + config.Keeper().Registry().PerformGasOverhead())
@@ -224,7 +224,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("errors if submission key not found", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+			c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 		})
 
 		// replace expected key with random one
@@ -261,7 +261,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 		// change chain ID to non-configured chain
-		jb.KeeperSpec.EVMChainID = (*ubig.Big)(big.NewInt(999))
+		jb.KeeperSpec.EVMChainID = (*sqlutil.Big)(big.NewInt(999))
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 		lggr := logger.TestLogger(t)
 		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, cfg.Keeper(), jb.KeeperSpec.FromAddress.Address())
@@ -276,7 +276,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 	t.Run("triggers if heads are skipped but later heads arrive within range", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+			c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 		})
 
 		etxs := []cltest.Awaiter{
@@ -319,7 +319,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t,
 		func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+			c.EVM[0].ChainID = (*sqlutil.Big)(testutils.SimulatedChainID)
 		})
 
 	var wasCalled atomic.Bool

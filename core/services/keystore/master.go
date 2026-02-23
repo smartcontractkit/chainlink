@@ -11,22 +11,23 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/models"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/starkkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tronkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 )
 
 var (
@@ -175,20 +176,20 @@ func (ks *master) DKGRecipient() DKGRecipient {
 
 type ORM interface {
 	isEmpty(context.Context) (bool, error)
-	saveEncryptedKeyRing(context.Context, *encryptedKeyRing, ...func(sqlutil.DataSource) error) error
-	getEncryptedKeyRing(context.Context) (encryptedKeyRing, error)
+	saveEncryptedKeyRing(context.Context, *models.EncryptedKeyRing, ...func(sqlutil.DataSource) error) error
+	getEncryptedKeyRing(context.Context) (models.EncryptedKeyRing, error)
 }
 
 type keystateORM interface {
-	loadKeyStates(context.Context) (*keyStates, error)
+	loadKeyStates(context.Context) (*models.KeyStates, error)
 }
 
 type keyManager struct {
 	orm          ORM
 	keystateORM  keystateORM
 	scryptParams keystore.ScryptParams
-	keyRing      *keyRing
-	keyStates    *keyStates
+	keyRing      *models.KeyRing
+	keyStates    *models.KeyStates
 	lock         *sync.RWMutex
 	password     string
 	announce     func(Key)

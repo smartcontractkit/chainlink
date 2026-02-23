@@ -44,10 +44,12 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
@@ -75,10 +77,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
@@ -2158,7 +2157,7 @@ func TestStartingCountsV1(t *testing.T) {
 	md2, err := json.Marshal(&m2)
 	md2SQL := sqlutil.JSON(md2)
 	require.NoError(t, err)
-	chainID := ubig.New(testutils.SimulatedChainID)
+	chainID := sqlutil.New(testutils.SimulatedChainID)
 	confirmedTxes := []txmgr.Tx{
 		{
 			Sequence:           &n1,

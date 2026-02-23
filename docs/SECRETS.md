@@ -212,3 +212,13 @@ ApiSecret = "streams-api-secret" # Example
 ```
 ApiSecret is the API secret used for authenticating with the CLL Data Streams SDK.
 
+## CRE.LocalSecrets
+```toml
+[CRE.LocalSecrets]
+```
+LocalSecrets is a static map of secret ID to plaintext value.
+When non-empty, all workflow secrets are served from this map instead of calling the vault capability.
+Only use when the vault capability is not available.
+
+"my-secret-id" = "my-secret-value" # Example
+

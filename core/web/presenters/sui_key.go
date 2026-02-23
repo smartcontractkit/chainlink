@@ -1,6 +1,6 @@
 package presenters
 
-import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
+import "github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 
 // SuiKeyResource represents a Sui key JSONAPI resource.
 type SuiKeyResource struct {

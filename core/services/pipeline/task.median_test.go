@@ -142,6 +142,22 @@ func TestMedianTask(t *testing.T) {
 			"true",
 			pipeline.Result{Error: pipeline.ErrTooManyErrors},
 		},
+		{
+			// A bridge returning HTTP 200 with null numeric values produces a nil result.
+			// The nil passes through FilterErrors (it's not an error), then hits
+			// DecimalSliceParam.UnmarshalPipelineParam which fails hard on nil.
+			// The entire median task errors out even though 3 valid values were available.
+			"single nil from bridge returning null kills entire median",
+			[]pipeline.Result{
+				{},                           // bridge returned HTTP 200 with null value
+				{Value: mustDecimal(t, "1")}, // 3 valid bridges — enough for a median
+				{Value: mustDecimal(t, "2")},
+				{Value: mustDecimal(t, "3")},
+			},
+			"3",
+			"",
+			pipeline.Result{Error: pipeline.ErrBadInput}, // nil poisons the entire batch
+		},
 	}
 
 	for _, test := range tests {
@@ -251,6 +267,153 @@ func TestMedianTask(t *testing.T) {
 	}
 }
 
+func TestMedianTask_CountNilsAsFaults(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		inputs            []pipeline.Result
+		allowedFaults     string
+		countNilsAsFaults string
+		want              pipeline.Result
+	}{
+		{
+			name: "1 nil + 7 errors exceeds allowedFaults",
+			inputs: []pipeline.Result{
+				{}, // nil
+				{Value: errors.New("e1")}, {Value: errors.New("e2")}, {Value: errors.New("e3")},
+				{Value: errors.New("e4")}, {Value: errors.New("e5")}, {Value: errors.New("e6")},
+				{Value: errors.New("e7")},
+			},
+			allowedFaults:     "7",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Error: pipeline.ErrTooManyErrors},
+		},
+		{
+			// With countNilsAsFaults enabled, the nil is counted as a fault (1 fault total)
+			// which is within allowedFaults=3, then filtered out before decimal parsing.
+			// Median proceeds on the 3 valid values instead of crashing with ErrBadInput.
+			name: "countNilsAsFaults prevents nil from killing median",
+			inputs: []pipeline.Result{
+				{},                           // bridge returned HTTP 200 with null value
+				{Value: mustDecimal(t, "1")}, // 3 valid bridges
+				{Value: mustDecimal(t, "2")},
+				{Value: mustDecimal(t, "3")},
+			},
+			allowedFaults:     "3",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Value: mustDecimal(t, "2")},
+		},
+		{
+			// Nils and errors are both counted as faults. Together they exceed allowedFaults,
+			// so the task correctly fails even though valid values exist.
+			name: "combined nils and errors exceed allowedFaults",
+			inputs: []pipeline.Result{
+				{},                           // nil (1 fault)
+				{},                           // nil (2 faults)
+				{Value: errors.New("err1")},  // error (3 faults)
+				{Value: mustDecimal(t, "5")}, // valid
+			},
+			allowedFaults:     "2",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Error: pipeline.ErrTooManyErrors}, // 3 faults > 2
+		},
+		{
+			name: "nils and errors within threshold returns valid median",
+			inputs: []pipeline.Result{
+				{},                           // nil (counted as fault)
+				{Value: errors.New("err")},   // error (counted as fault)
+				{Value: mustDecimal(t, "2")}, // valid
+				{Value: mustDecimal(t, "4")}, // valid
+			},
+			allowedFaults:     "2",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Value: mustDecimal(t, "3")},
+		},
+		{
+			name:              "all nils exceed threshold",
+			inputs:            []pipeline.Result{{}, {}, {}},
+			allowedFaults:     "2",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Error: pipeline.ErrTooManyErrors},
+		},
+		{
+			name:              "all nils within threshold returns empty result",
+			inputs:            []pipeline.Result{{}, {}},
+			allowedFaults:     "2",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{},
+		},
+		{
+			name: "no nils no errors returns normal median",
+			inputs: []pipeline.Result{
+				{Value: mustDecimal(t, "1")},
+				{Value: mustDecimal(t, "2")},
+				{Value: mustDecimal(t, "3")},
+			},
+			allowedFaults:     "1",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Value: mustDecimal(t, "2")},
+		},
+		{
+			name: "only errors no nils behaves like default",
+			inputs: []pipeline.Result{
+				{Value: errors.New("e1")}, {Value: errors.New("e2")}, {Value: errors.New("e3")},
+				{Value: mustDecimal(t, "4")},
+			},
+			allowedFaults:     "2",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Error: pipeline.ErrTooManyErrors},
+		},
+		{
+			name: "single nil with one valid value within threshold",
+			inputs: []pipeline.Result{
+				{},
+				{Value: mustDecimal(t, "42")},
+			},
+			allowedFaults:     "1",
+			countNilsAsFaults: "true",
+			want:              pipeline.Result{Value: mustDecimal(t, "42")},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			task := pipeline.MedianTask{
+				BaseTask:          pipeline.NewBaseTask(0, "task", nil, nil, 0),
+				AllowedFaults:     test.allowedFaults,
+				CountNilsAsFaults: test.countNilsAsFaults,
+			}
+			output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			if output.Error != nil {
+				require.Equal(t, test.want.Error, errors.Cause(output.Error))
+				require.Nil(t, output.Value)
+			} else {
+				if test.want.Value == nil {
+					require.Nil(t, output.Value)
+				} else {
+					require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+				}
+				require.NoError(t, output.Error)
+			}
+		})
+	}
+
+	t.Run("mutual exclusion: lax and countNilsAsFaults cannot both be enabled", func(t *testing.T) {
+		task := pipeline.MedianTask{
+			BaseTask:          pipeline.NewBaseTask(0, "task", nil, nil, 0),
+			AllowedFaults:     "1",
+			Lax:               "true",
+			CountNilsAsFaults: "true",
+		}
+		output, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: mustDecimal(t, "1")}})
+		require.Error(t, output.Error)
+		require.Contains(t, output.Error.Error(), "lax and countNilsAsFaults cannot both be enabled")
+	})
+}
+
 func TestMedianTask_AllowedFaultsAndLax_Unmarshal(t *testing.T) {
 	t.Parallel()
 
@@ -276,6 +439,31 @@ func TestMedianTask_AllowedFaultsAndLax_Unmarshal(t *testing.T) {
 		if task.Type() == pipeline.TaskTypeMedian {
 			require.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
 			require.Equal(t, "true", task.(*pipeline.MedianTask).Lax)
+		}
+	}
+}
+
+func TestMedianTask_CountNilsAsFaults_Unmarshal(t *testing.T) {
+	t.Parallel()
+
+	p, err := pipeline.Parse(`
+	ds1          [type=bridge name=voter_turnout];
+	ds1_parse    [type=jsonparse path="one,two"];
+
+	ds2          [type=bridge name=voter_turnout2];
+	ds2_parse    [type=jsonparse path="three,four"];
+
+	ds1 -> ds1_parse -> answer1;
+	ds2 -> ds2_parse -> answer1;
+
+	answer1 [type=median index=0 allowedFaults=5 countNilsAsFaults=true];
+`)
+	require.NoError(t, err)
+	for _, task := range p.Tasks {
+		if task.Type() == pipeline.TaskTypeMedian {
+			require.Equal(t, "5", task.(*pipeline.MedianTask).AllowedFaults)
+			require.Equal(t, "true", task.(*pipeline.MedianTask).CountNilsAsFaults)
+			require.Empty(t, task.(*pipeline.MedianTask).Lax)
 		}
 	}
 }

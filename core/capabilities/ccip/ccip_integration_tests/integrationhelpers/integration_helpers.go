@@ -37,11 +37,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 const chainID = 1337
