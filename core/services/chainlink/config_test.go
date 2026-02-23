@@ -898,6 +898,7 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitLimitDefault:   ptr[uint32](100_000),
 				EstimateComputeUnitLimit:  ptr(false),
 				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
+				LogPollerCPIEventsEnabled: ptr(true),
 			},
 			MultiNode: mnCfg.MultiNodeConfig{
 				MultiNode: mnCfg.MultiNode{
