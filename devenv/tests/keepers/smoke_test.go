@@ -1,7 +1,6 @@
 package keepers
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -170,7 +169,7 @@ func TestKeeperBasic(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			upkeeps, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -313,7 +312,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			upkeeps, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -516,7 +515,7 @@ func TestKeeperSimulation(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			t.Cleanup(func() {
@@ -663,7 +662,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			t.Cleanup(func() {
@@ -878,7 +877,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -1033,7 +1032,7 @@ func TestKeeperAddFunds(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			// don't fund the upkeeps with LINK, we will add funds later
@@ -1167,7 +1166,7 @@ func TestKeeperRemove(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -1314,7 +1313,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -1439,7 +1438,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -1655,7 +1654,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -1816,7 +1815,7 @@ func TestKeeperNodeDown(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -2001,7 +2000,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := automation.DeployLegacyConsumers(t, chainClient, test.Registry, test.Registrar, test.LinkToken, testcase.UpkeepCount, big.NewInt(0).Mul(big.NewInt(testcase.UpkeepFundingLink), big.NewInt(1e18)), defaultUpkeepGasLimit, false, false, false, nil)
@@ -2150,7 +2149,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 			err = test.LinkToken.Transfer(test.Registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(testcase.UpkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			performDataChecker := keepers.DeployPerformDataChecker(t, chainClient, testcase.UpkeepCount, []byte(expectedData))

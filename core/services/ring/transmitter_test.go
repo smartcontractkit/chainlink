@@ -47,7 +47,7 @@ func TestTransmitter_FromAccount(t *testing.T) {
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, nil, "my-account")
 
-	account, err := tx.FromAccount(context.Background())
+	account, err := tx.FromAccount(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, types.Account("my-account"), account)
 }
@@ -72,7 +72,7 @@ func TestTransmitter_Transmit(t *testing.T) {
 	require.NoError(t, err)
 
 	report := ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}
-	err = tx.Transmit(context.Background(), types.ConfigDigest{}, 0, report, nil)
+	err = tx.Transmit(t.Context(), types.ConfigDigest{}, 0, report, nil)
 	require.NoError(t, err)
 
 	// Verify arbiter was notified
@@ -100,7 +100,7 @@ func TestTransmitter_Transmit_NilArbiter(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.NoError(t, err)
 }
 
@@ -120,7 +120,7 @@ func TestTransmitter_Transmit_TransitionState(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint32(5), mock.nShards)
 }
@@ -132,7 +132,7 @@ func TestTransmitter_Transmit_InvalidReport(t *testing.T) {
 
 	// Send invalid protobuf data
 	report := ocr3types.ReportWithInfo[[]byte]{Report: []byte("invalid protobuf")}
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, report, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, report, nil)
 	require.Error(t, err)
 }
 
@@ -150,7 +150,7 @@ func TestTransmitter_Transmit_ArbiterError(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
@@ -165,7 +165,7 @@ func TestTransmitter_Transmit_NilState(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.NoError(t, err)
 
 	// Routes should still be applied

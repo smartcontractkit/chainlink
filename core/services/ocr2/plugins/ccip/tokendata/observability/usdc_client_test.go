@@ -1,7 +1,6 @@
 package observability
 
 import (
-	"context"
 	"encoding/json"
 	"math/big"
 	"math/rand"
@@ -93,7 +92,7 @@ func testMonitoring(t *testing.T, name string, server *httptest.Server, requests
 	require.NotNil(t, tokenDataReader)
 
 	for range requests {
-		_, _ = tokenDataReader.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+		_, _ = tokenDataReader.ReadTokenData(t.Context(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 			EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 				TokenAmounts: []cciptypes.TokenAmount{
 					{

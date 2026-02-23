@@ -39,7 +39,7 @@ func TestThreadControl_GoCtx(t *testing.T) {
 	timeout := 100 * time.Millisecond
 
 	start := time.Now()
-	ctx, cancel := context.WithDeadline(context.Background(), start.Add(timeout))
+	ctx, cancel := context.WithDeadline(t.Context(), start.Add(timeout))
 	defer cancel()
 
 	wg.Add(1)

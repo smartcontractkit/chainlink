@@ -1,7 +1,6 @@
 package stateview_test
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"testing"
 	"time"
@@ -34,7 +33,7 @@ func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	fq1 := utils.RandomAddress().Hex()
 	fq2 := utils.RandomAddress().Hex()
-	state, err := stateview.LoadChainState(context.Background(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], map[string]cldf.TypeAndVersion{
+	state, err := stateview.LoadChainState(t.Context(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], map[string]cldf.TypeAndVersion{
 		fq1: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0),
 		fq2: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_2_0),
 	})

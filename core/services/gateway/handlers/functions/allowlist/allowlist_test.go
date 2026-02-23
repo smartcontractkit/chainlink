@@ -40,7 +40,7 @@ func TestUpdateAndCheck(t *testing.T) {
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
-		typeAndVersionResponse, err := encodeTypeAndVersionResponse(ToSContractV100)
+		typeAndVersionResponse, err := encodeTypeAndVersionResponse(t, ToSContractV100)
 		require.NoError(t, err)
 
 		client.On("CallContract", mock.Anything, ethereum.CallMsg{ // typeAndVersion
@@ -80,7 +80,7 @@ func TestUpdateAndCheck(t *testing.T) {
 		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
-		typeAndVersionResponse, err := encodeTypeAndVersionResponse(ToSContractV110)
+		typeAndVersionResponse, err := encodeTypeAndVersionResponse(t, ToSContractV110)
 		require.NoError(t, err)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
@@ -142,7 +142,7 @@ func TestUpdatePeriodically(t *testing.T) {
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
-		typeAndVersionResponse, err := encodeTypeAndVersionResponse(ToSContractV100)
+		typeAndVersionResponse, err := encodeTypeAndVersionResponse(t, ToSContractV100)
 		require.NoError(t, err)
 
 		client.On("CallContract", mock.Anything, ethereum.CallMsg{ // typeAndVersion
@@ -186,7 +186,7 @@ func TestUpdatePeriodically(t *testing.T) {
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
-		typeAndVersionResponse, err := encodeTypeAndVersionResponse(ToSContractV110)
+		typeAndVersionResponse, err := encodeTypeAndVersionResponse(t, ToSContractV110)
 		require.NoError(t, err)
 
 		client.On("CallContract", mock.Anything, ethereum.CallMsg{ // typeAndVersion
@@ -234,7 +234,7 @@ func TestUpdateFromContract(t *testing.T) {
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
-		typeAndVersionResponse, err := encodeTypeAndVersionResponse(ToSContractV100)
+		typeAndVersionResponse, err := encodeTypeAndVersionResponse(t, ToSContractV100)
 		require.NoError(t, err)
 
 		client.On("CallContract", mock.Anything, ethereum.CallMsg{ // typeAndVersion
@@ -277,7 +277,7 @@ func TestUpdateFromContract(t *testing.T) {
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
-		typeAndVersionResponse, err := encodeTypeAndVersionResponse(ToSContractV110)
+		typeAndVersionResponse, err := encodeTypeAndVersionResponse(t, ToSContractV110)
 		require.NoError(t, err)
 
 		client.On("CallContract", mock.Anything, ethereum.CallMsg{ // typeAndVersion
@@ -369,7 +369,7 @@ func TestExtractContractVersion(t *testing.T) {
 	}
 }
 
-func encodeTypeAndVersionResponse(typeAndVersion string) ([]byte, error) {
+func encodeTypeAndVersionResponse(t *testing.T, typeAndVersion string) ([]byte, error) {
 	codecName := "my_codec"
 	evmEncoderConfig := `[{"Name":"typeAndVersion","Type":"string"}]`
 	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
@@ -383,7 +383,7 @@ func encodeTypeAndVersionResponse(typeAndVersion string) ([]byte, error) {
 	input := map[string]any{
 		"typeAndVersion": typeAndVersion,
 	}
-	typeAndVersionResponse, err := encoder.Encode(context.Background(), input, codecName)
+	typeAndVersionResponse, err := encoder.Encode(t.Context(), input, codecName)
 	if err != nil {
 		return nil, err
 	}

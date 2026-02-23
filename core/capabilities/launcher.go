@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -56,6 +57,7 @@ type launcher struct {
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
 	metrics             *launcherMetrics
+	localCapMgr         localcapmgr.LocalCapabilityManager
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -244,6 +246,11 @@ func (w *launcher) Close() error {
 	return nil
 }
 
+// LocalCapabilityManager is initialized after the Launcher is created
+func (w *launcher) SetLocalCapabilityManager(lcm localcapmgr.LocalCapabilityManager) {
+	w.localCapMgr = lcm
+}
+
 func (w *launcher) Ready() error {
 	return nil
 }
@@ -363,6 +370,16 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	} else {
 		// legacy / Keystone setting
 		w.lggr.Debug("My node doesn't belong to any DON families. No filtering will be applied.")
+	}
+
+	// Reconcile local capabilities: start/stop/restart capabilities based on registry state.
+	if w.localCapMgr != nil {
+		myDONs := make([]registrysyncer.DON, 0, len(myCapabilityDONs)+len(myWorkflowDONs))
+		myDONs = append(myDONs, myCapabilityDONs...)
+		myDONs = append(myDONs, myWorkflowDONs...)
+		if err := w.localCapMgr.Reconcile(ctx, myDONs); err != nil {
+			w.lggr.Errorw("Failed to reconcile local capabilities", "error", err)
+		}
 	}
 
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0

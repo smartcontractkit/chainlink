@@ -19,7 +19,7 @@ import (
 
 func TestUpdateAllowedSendersInBatches(t *testing.T) {
 	t.Run("OK-simple_update_in_batches", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := t.Context()
 		config := OnchainAllowlistConfig{
 			ContractAddress:           testutils.NewAddress(),
 			ContractVersion:           1,
@@ -49,12 +49,12 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 
 		// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
 		orm := amocks.NewORM(t)
-		firstCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[43:53]).Times(1).Return(nil)
-		secondCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[33:43]).Times(1).Return(nil).NotBefore(firstCall)
-		thirdCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[23:33]).Times(1).Return(nil).NotBefore(secondCall)
-		forthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[13:23]).Times(1).Return(nil).NotBefore(thirdCall)
-		fifthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[3:13]).Times(1).Return(nil).NotBefore(forthCall)
-		orm.On("CreateAllowedSenders", context.Background(), allowlist[0:3]).Times(1).Return(nil).NotBefore(fifthCall)
+		firstCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[43:53]).Times(1).Return(nil)
+		secondCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[33:43]).Times(1).Return(nil).NotBefore(firstCall)
+		thirdCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[23:33]).Times(1).Return(nil).NotBefore(secondCall)
+		forthCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[13:23]).Times(1).Return(nil).NotBefore(thirdCall)
+		fifthCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[3:13]).Times(1).Return(nil).NotBefore(forthCall)
+		orm.On("CreateAllowedSenders", t.Context(), allowlist[0:3]).Times(1).Return(nil).NotBefore(fifthCall)
 
 		onchainAllowlist := &onchainAllowlist{
 			config:             config,
@@ -76,7 +76,7 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 	})
 
 	t.Run("OK-new_address_added_while_updating_in_batches", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := t.Context()
 		config := OnchainAllowlistConfig{
 			ContractAddress:           testutils.NewAddress(),
 			ContractVersion:           1,
@@ -106,7 +106,7 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 
 		// with the orm mock we can validate the actual order in which the allowlist is fetched giving priority to newest addresses
 		orm := amocks.NewORM(t)
-		firstCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[40:50]).Times(1).Run(func(args mock.Arguments) {
+		firstCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[40:50]).Times(1).Run(func(args mock.Arguments) {
 			// after the first call we update the tosContract by adding a new address
 			addr := testutils.NewAddress()
 			allowlist = append(allowlist, addr)
@@ -115,12 +115,12 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 		}).Return(nil)
 
 		// this is the extra step that will fetch the new address we want to validate
-		extraStepCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[50:51]).Times(1).Return(nil).NotBefore(firstCall)
+		extraStepCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[50:51]).Times(1).Return(nil).NotBefore(firstCall)
 
-		secondCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[30:40]).Times(1).Return(nil).NotBefore(extraStepCall)
-		thirdCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[20:30]).Times(1).Return(nil).NotBefore(secondCall)
-		forthCall := orm.On("CreateAllowedSenders", context.Background(), allowlist[10:20]).Times(1).Return(nil).NotBefore(thirdCall)
-		orm.On("CreateAllowedSenders", context.Background(), allowlist[0:10]).Times(1).Return(nil).NotBefore(forthCall)
+		secondCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[30:40]).Times(1).Return(nil).NotBefore(extraStepCall)
+		thirdCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[20:30]).Times(1).Return(nil).NotBefore(secondCall)
+		forthCall := orm.On("CreateAllowedSenders", t.Context(), allowlist[10:20]).Times(1).Return(nil).NotBefore(thirdCall)
+		orm.On("CreateAllowedSenders", t.Context(), allowlist[0:10]).Times(1).Return(nil).NotBefore(forthCall)
 
 		onchainAllowlist := &onchainAllowlist{
 			config:             config,

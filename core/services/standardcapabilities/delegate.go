@@ -3,16 +3,12 @@ package standardcapabilities
 import (
 	"context"
 	"crypto"
-	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -28,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -38,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities/conversions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -66,6 +64,7 @@ type Delegate struct {
 	orgResolver             orgresolver.OrgResolver
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
+	localCfg                coreconfig.LocalCapabilities
 
 	isNewlyCreatedJob bool
 }
@@ -75,29 +74,6 @@ const (
 	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
 	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
-
-// WARNING: Hacky and brittle - used only during migration to map job specs to capability IDs
-// before executing the LOOPP. When std cap job specs are deprecated, capability IDs will be known upfront.
-func getCapabilityID(command string, config string) string {
-	switch filepath.Base(command) {
-	case "evm":
-		var cfg struct {
-			ChainID uint64 `json:"chainId"`
-		}
-		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
-			return ""
-		}
-		selector, err := chainselectors.SelectorFromChainId(cfg.ChainID)
-		if err != nil {
-			return ""
-		}
-		return "evm:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
-	case "consensus":
-		return "consensus@1.0.0-alpha"
-	default:
-		return ""
-	}
-}
 
 type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
@@ -119,6 +95,7 @@ func NewDelegate(
 	orgResolver orgresolver.OrgResolver,
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
+	localCfg coreconfig.LocalCapabilities,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
@@ -140,6 +117,7 @@ func NewDelegate(
 		orgResolver:             orgResolver,
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
+		localCfg:                localCfg,
 		selectorOpts:            opts,
 	}
 }
@@ -154,7 +132,21 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	return d.NewServices(ctx, spec.StandardCapabilitiesSpec.Command, spec.StandardCapabilitiesSpec.Config, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory)
+	command := spec.StandardCapabilitiesSpec.Command
+	configJSON := spec.StandardCapabilitiesSpec.Config
+
+	if d.localCfg != nil {
+		capabilityID := conversions.GetCapabilityIDFromCommand(command, configJSON)
+		if capabilityID != "" && d.localCfg.IsAllowlisted(capabilityID) {
+			return nil, fmt.Errorf(
+				"capability %q is in the RegistryBasedLaunchAllowlist and will be started from the on-chain registry; "+
+					"remove the job spec and let the LocalCapabilityManager handle it via [Capabilities.Local] TOML config",
+				capabilityID,
+			)
+		}
+	}
+
+	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory)
 }
 
 func (d *Delegate) NewServices(
@@ -222,7 +214,7 @@ func (d *Delegate) NewServices(
 		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 	}
 
-	capabilityID := getCapabilityID(command, configJSON)
+	capabilityID := conversions.GetCapabilityIDFromCommand(command, configJSON)
 	if d.ocrConfigService != nil && capabilityID == "" {
 		log.Warnw("No capability ID mapping for command, using legacy config only",
 			"command", command)
