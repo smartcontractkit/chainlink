@@ -1,6 +1,7 @@
 name: OCR2 Upgrade Compatibility Test
 
 on:
+  push:
   workflow_dispatch:
 
 defaults:
