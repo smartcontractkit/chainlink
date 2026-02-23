@@ -45,7 +45,7 @@ plugins:
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "b6b3254ce15d17244875073e0e3b665562d73395"
+      gitRef: "27e366130edc831bca2d11d22e8815ef53cc10c0"
       installPath: "."
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"

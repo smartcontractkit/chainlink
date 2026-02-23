@@ -50,7 +50,7 @@ func TestLBTCReader_callAttestationApi(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 
-	attestation, err := lbtcService.callAttestationAPI(context.Background(), [32]byte(common.FromHex(lbtcMessageHash)))
+	attestation, err := lbtcService.callAttestationAPI(t.Context(), [32]byte(common.FromHex(lbtcMessageHash)))
 	require.NoError(t, err)
 
 	require.Equal(t, lbtcMessageHash, attestation.Attestations[0].MessageHash)
@@ -76,7 +76,7 @@ func TestLBTCReader_callAttestationApiMock(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
-	attestation, err := lbtcService.callAttestationAPI(context.Background(), [32]byte(common.FromHex(lbtcMessageHash)))
+	attestation, err := lbtcService.callAttestationAPI(t.Context(), [32]byte(common.FromHex(lbtcMessageHash)))
 	require.NoError(t, err)
 
 	require.Equal(t, response.Attestations[0].Status, attestation.Attestations[0].Status)
@@ -177,7 +177,7 @@ func TestLBTCReader_callAttestationApiMockError(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, test.customTimeoutSeconds, common.Address{}, APIIntervalRateLimitDisabled)
 
-			parentCtx, cancel := context.WithTimeout(context.Background(), time.Duration(test.parentTimeoutSeconds)*time.Second)
+			parentCtx, cancel := context.WithTimeout(t.Context(), time.Duration(test.parentTimeoutSeconds)*time.Second)
 			defer cancel()
 
 			_, err = lbtcService.callAttestationAPI(parentCtx, [32]byte(common.FromHex(lbtcMessageHash)))
@@ -261,7 +261,7 @@ func TestLBTCReader_rateLimiting(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, utils.RandomAddress(), tc.rateConfig)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			if tc.timeout > 0 {
 				var cf context.CancelFunc
 				ctx, cf = context.WithTimeout(ctx, tc.timeout)
@@ -346,7 +346,7 @@ func TestLBTCReader_skipApiOnFullPayload(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, utils.RandomAddress(), APIIntervalRateLimitDefault)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	destTokenData, err := lbtcService.ReadTokenData(ctx, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 		EVM2EVMMessage: cciptypes.EVM2EVMMessage{
@@ -462,7 +462,7 @@ func TestLBTCReader_expectedOutput(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, utils.RandomAddress(), APIIntervalRateLimitDefault)
 
-			ctx := context.Background()
+			ctx := t.Context()
 
 			payloadAndProof, err := lbtcService.ReadTokenData(ctx, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 				EVM2EVMMessage: cciptypes.EVM2EVMMessage{

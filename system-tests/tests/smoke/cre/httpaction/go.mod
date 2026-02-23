@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction
 
-go 1.25.5
+go 1.25.7
 
 require (
 	github.com/smartcontractkit/cre-sdk-go v1.3.0

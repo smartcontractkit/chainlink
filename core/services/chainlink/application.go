@@ -615,7 +615,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
 
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
-	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
+	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
 		opts.DS, jobORM,
 		opts.CapabilitiesRegistry,
@@ -632,7 +632,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		creServices.OrgResolver,
 		atomicSettings,
 		creServices.OCRConfigService,
+		cfg.Capabilities().Local(),
 	)
+	delegates[job.StandardCapabilities] = stdcapDelegate
+	if creServices.SetDelegatesDeps != nil {
+		err = creServices.SetDelegatesDeps(stdcapDelegate)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set CRE delegates dependencies: %w", err)
+		}
+	}
 
 	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(

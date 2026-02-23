@@ -35,7 +35,7 @@ func TestOCRConfigService_StartClose(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	require.NoError(t, svc.Close())
 }
@@ -44,7 +44,7 @@ func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, nil, 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := svc.Start(ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "peerIDProvider function is required")
@@ -54,7 +54,7 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -106,7 +106,7 @@ func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -124,7 +124,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -188,7 +188,7 @@ func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -206,7 +206,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -262,7 +262,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -357,7 +357,7 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -415,7 +415,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -476,7 +476,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -533,7 +533,7 @@ func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -588,7 +588,7 @@ func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 
@@ -665,7 +665,7 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 	peerIDProvider := func() (ragetypes.PeerID, error) { return myPeerID, nil }
 	svc := NewOCRConfigService(lggr, peerIDProvider, 1, "0x1234567890abcdef")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
 	defer svc.Close()
 

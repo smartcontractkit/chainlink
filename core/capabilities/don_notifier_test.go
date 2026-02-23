@@ -28,7 +28,7 @@ func TestDonNotifier_WaitForDon(t *testing.T) {
 		close(setCh)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	close(notifyCh)
@@ -47,7 +47,7 @@ func TestDonNotifier_WaitForDon(t *testing.T) {
 func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 	notifier := capabilities.NewDonNotifier()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	_, err := notifier.WaitForDon(ctx)
@@ -80,7 +80,7 @@ func TestDonNotifier_DonUpdate(t *testing.T) {
 		notifier.NotifyDonSet(don2)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Call notify with don 1 and wait for don 1

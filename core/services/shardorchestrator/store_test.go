@@ -1,7 +1,6 @@
 package shardorchestrator_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +11,7 @@ import (
 )
 
 func TestStore_BatchUpdateAndQuery(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 
@@ -60,7 +59,7 @@ func TestStore_BatchUpdateAndQuery(t *testing.T) {
 }
 
 func TestStore_WorkflowTransition(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 
@@ -94,7 +93,7 @@ func TestStore_WorkflowTransition(t *testing.T) {
 }
 
 func TestStore_VersionTracking(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 
@@ -120,7 +119,7 @@ func TestStore_VersionTracking(t *testing.T) {
 }
 
 func TestStore_ShardRegistrations(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 
@@ -161,7 +160,7 @@ func TestStore_ShardRegistrations(t *testing.T) {
 }
 
 func TestStore_NotFoundError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 
@@ -172,7 +171,7 @@ func TestStore_NotFoundError(t *testing.T) {
 }
 
 func TestStore_BatchQueryPartialResults(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	store := shardorchestrator.NewStore(lggr)
 

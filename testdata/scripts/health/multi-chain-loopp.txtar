@@ -114,6 +114,7 @@ ok Cosmos.Foo.RelayerService
 ok Cosmos.Foo.RelayerService.PluginRelayerClient
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.PluginRelayerConfigEmitter
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm
 ok EVM.1.RelayerService
@@ -289,6 +290,15 @@ ok WorkflowStore
       "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
       "attributes": {
         "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.PluginRelayerConfigEmitter",
         "status": "passing",
         "output": ""
       }

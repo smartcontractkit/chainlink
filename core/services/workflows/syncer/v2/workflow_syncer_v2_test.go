@@ -146,7 +146,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	}
 
 	assert.Len(t,
-		worker.GetAllowlistedRequests(context.Background()),
+		worker.GetAllowlistedRequests(t.Context()),
 		activeAllowlistedRequestsCount,
 		"synced allowlisted requests do not match expectations",
 	)

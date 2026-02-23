@@ -1,7 +1,6 @@
 package directrequest
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -21,7 +20,7 @@ import (
 )
 
 func TestSmoke(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)

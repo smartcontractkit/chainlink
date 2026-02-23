@@ -1,7 +1,6 @@
 package bridges_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -32,13 +31,13 @@ func TestBridgeCache_Type(t *testing.T) {
 
 		// first call to find should fallthrough to data source
 		mORM.On("FindBridge", mock.Anything, bridge).Return(expected, nil)
-		result, err := cache.FindBridge(context.Background(), bridge)
+		result, err := cache.FindBridge(t.Context(), bridge)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
 		// calling find again should return from cache
-		result, err = cache.FindBridge(context.Background(), bridge)
+		result, err = cache.FindBridge(t.Context(), bridge)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
@@ -51,7 +50,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		lggr, _ := logger.NewLogger()
 		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
-		ctx := context.Background()
+		ctx := t.Context()
 		nameA := bridges.BridgeName("A")
 		nameB := bridges.BridgeName("B")
 		nameC := bridges.BridgeName("C")
@@ -85,7 +84,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		lggr, _ := logger.NewLogger()
 		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
-		ctx := context.Background()
+		ctx := t.Context()
 		bridge := bridges.BridgeName("test")
 		expected := &bridges.BridgeType{
 			Name:          bridge,
@@ -138,7 +137,7 @@ func TestBridgeCache_Response(t *testing.T) {
 		lggr, _ := logger.NewLogger()
 		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
-		ctx := context.Background()
+		ctx := t.Context()
 		dotId := "test"
 		specId := int32(42)
 		responseData := []byte("test")
@@ -168,9 +167,9 @@ func TestBridgeCache_Response(t *testing.T) {
 			require.NoError(t, cache.Close())
 		})
 
-		require.NoError(t, cache.Start(context.Background()))
+		require.NoError(t, cache.Start(t.Context()))
 
-		ctx := context.Background()
+		ctx := t.Context()
 		dotId := "test"
 		specId := int32(42)
 		expected := []byte("test")

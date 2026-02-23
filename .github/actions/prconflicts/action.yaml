@@ -1,0 +1,161 @@
+name: Detect conflicting PRs
+description: Detects PRs that would conflict with the current PR and posts a comment
+
+inputs:
+  github-token:
+    description: GitHub token with pull-requests write and contents read permissions
+    required: true
+  repository:
+    description: Repository in owner/repo format
+    required: true
+  pr-number:
+    description: Current PR number
+    required: true
+  head-ref:
+    description: Head branch of the current PR
+    required: true
+  base-ref:
+    description: Base branch of the current PR
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch base and current branch
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+        HEAD_REF: ${{ inputs.head-ref }}
+      run: |
+        git fetch origin "${BASE_REF}" "${HEAD_REF}"
+
+    - name: Detect conflicts and update comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repository }}
+        CURRENT_PR: ${{ inputs.pr-number }}
+        CURRENT_BRANCH: ${{ inputs.head-ref }}
+        BASE_BRANCH: ${{ inputs.base-ref }}
+      run: |
+        set -e
+
+        MARKER="<!-- conflict-check -->"
+
+        update_comment() {
+          local body="$1"
+          local comment_id
+          comment_id=$(gh api --method GET "repos/${REPO}/issues/${CURRENT_PR}/comments" \
+            --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" \
+            | head -n1)
+
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${REPO}/issues/comments/${comment_id}" \
+              -f body="$body"
+          else
+            gh api --method POST "repos/${REPO}/issues/${CURRENT_PR}/comments" \
+              -f body="$body"
+          fi
+        }
+
+        # Get files changed in current PR
+        current_files=$(gh api --method GET --paginate "repos/${REPO}/pulls/${CURRENT_PR}/files" --jq '.[].filename' | sort -u)
+        if [ -z "$current_files" ]; then
+          current_files_count=0
+        else
+          current_files_count=$(echo "$current_files" | wc -l | tr -d ' ')
+        fi
+        echo "Current PR touches $current_files_count files"
+
+        # Early exit if no files changed
+        if [ "$current_files_count" -eq 0 ]; then
+          echo "No files changed, skipping conflict check"
+          update_comment "${MARKER}
+        ✅ No conflicts with other open PRs targeting \`${BASE_BRANCH}\`"
+          exit 0
+        fi
+
+        SINCE_DATE=$(date -u -d '21 days ago' '+%Y-%m-%d' 2>/dev/null || date -u -v-21d '+%Y-%m-%d')
+        SEARCH_QUERY="repo:${REPO} is:pr is:open base:${BASE_BRANCH} created:>=${SINCE_DATE}"
+        echo "Searching PRs with: ${SEARCH_QUERY}"
+
+        prs=$(gh api graphql --paginate -f query='
+          query($searchQuery: String!, $endCursor: String) {
+            search(query: $searchQuery, type: ISSUE, first: 100, after: $endCursor) {
+              pageInfo { hasNextPage endCursor }
+              nodes { ... on PullRequest { number } }
+            }
+          }' -f searchQuery="${SEARCH_QUERY}" --jq '.data.search.nodes[].number')
+
+        if [ -z "$prs" ]; then
+          total_prs=0
+        else
+          total_prs=$(echo "$prs" | wc -w | tr -d ' ')
+        fi
+        echo "Found $total_prs open PRs targeting ${BASE_BRANCH} (created in last 21 days)"
+
+        # Early exit if no other PRs to check
+        if [ "$total_prs" -eq 0 ]; then
+          echo "No recent open PRs, skipping conflict check"
+          update_comment "${MARKER}
+        ✅ No conflicts with other open PRs targeting \`${BASE_BRANCH}\`"
+          exit 0
+        fi
+
+        # Find PRs with overlapping files (fast API check)
+        candidates=()
+        for pr in $prs; do
+          [ "$pr" = "$CURRENT_PR" ] && continue
+
+          other_files=$(gh api --method GET --paginate "repos/${REPO}/pulls/${pr}/files" --jq '.[].filename' | sort -u)
+
+          # Check for file intersection
+          if comm -12 <(echo "$current_files") <(echo "$other_files") | grep -q .; then
+            candidates+=("$pr")
+          fi
+        done
+
+        echo "Found ${#candidates[@]} PRs with overlapping files, checking for conflicts..."
+
+        if [ ${#candidates[@]} -eq 0 ]; then
+          conflicts=()
+        else
+          # Fetch only the PR refs we need
+          fetch_refs=""
+          for pr in "${candidates[@]}"; do
+            fetch_refs="$fetch_refs +refs/pull/${pr}/head:refs/remotes/origin/pr/${pr}"
+          done
+          git fetch origin $fetch_refs
+
+          mkdir -p worktrees
+          conflicts=()
+
+          for pr in "${candidates[@]}"; do
+            other_branch="origin/pr/$pr"
+            dir="worktrees/$pr"
+
+            git worktree add -q --detach "$dir" "origin/${BASE_BRANCH}"
+
+            if git -C "$dir" merge --no-commit --no-ff "$other_branch" >/dev/null 2>&1; then
+              git -C "$dir" -c user.email="ci@local" -c user.name="CI" commit --no-edit -m "temp" >/dev/null 2>&1
+
+              if ! git -C "$dir" merge --no-commit --no-ff "origin/${CURRENT_BRANCH}" >/dev/null 2>&1; then
+                conflicts+=("#$pr")
+              fi
+            fi
+
+            git worktree remove -f "$dir"
+          done
+        fi
+
+        echo "Found ${#conflicts[@]} conflicting PRs"
+
+        if [ ${#conflicts[@]} -eq 0 ]; then
+          update_comment "${MARKER}
+        ✅ No conflicts with other open PRs targeting \`${BASE_BRANCH}\`"
+        else
+          update_comment "${MARKER}
+        ❌ Conflicts with:
+
+        $(printf '%s\n' "${conflicts[@]}")"
+        fi

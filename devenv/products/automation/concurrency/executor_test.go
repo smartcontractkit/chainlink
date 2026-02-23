@@ -261,7 +261,7 @@ func TestExecuteSimple(t *testing.T) {
 }
 
 func TestParentContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	executor := concurrency.NewConcurrentExecutor(framework.L, concurrency.WithContext[int, result, config](ctx))
 
 	processorFn := func(resultCh chan result, errCh chan error, keyNum int, _ config) {

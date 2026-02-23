@@ -75,13 +75,15 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, isSupported)
 
-	_, _, router, err := aptosOnRamp.Onramp().GetDestChainConfig(&bind.CallOpts{}, emvSelector)
+	_, _, router, routerState, err := aptosOnRamp.Onramp().GetDestChainConfigV2(&bind.CallOpts{}, emvSelector)
 	require.NoError(t, err)
 	require.NotEqual(t, aptos.AccountAddress{}, router)
+	require.NotEqual(t, aptos.AccountAddress{}, routerState)
 
-	_, _, router2, err := aptosOnRamp.Onramp().GetDestChainConfig(&bind.CallOpts{}, emvSelector2)
+	_, _, router2, routerState2, err := aptosOnRamp.Onramp().GetDestChainConfigV2(&bind.CallOpts{}, emvSelector2)
 	require.NoError(t, err)
 	require.NotEqual(t, aptos.AccountAddress{}, router2)
+	require.NotEqual(t, aptos.AccountAddress{}, routerState2)
 
 	versions, err := aptosRouter.Router().GetOnRampVersions(&bind.CallOpts{}, []uint64{emvSelector, emvSelector2})
 	require.NoError(t, err)

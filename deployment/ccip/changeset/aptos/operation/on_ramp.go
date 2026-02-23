@@ -43,6 +43,7 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 	// Transform the updates into the format expected by the Aptos contract
 	var destChainSelectors []uint64
 	var destChainRouters []aptos.AccountAddress
+	var destChainRouterStateAddresses []aptos.AccountAddress
 	var destChainAllowlistEnabled []bool
 
 	// Get routers state addresses
@@ -56,7 +57,9 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 		}
 		testRouterStateAddress = stateAddress
 	}
+	// Router address is the router module address
 	router := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
+	// Router state address is the router state signer address
 	routerStateAddress, err := router.Router().GetStateAddress(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get router state address: %w", err)
@@ -64,15 +67,19 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 
 	// Process each destination chain config update
 	for destChainSelector, update := range in.Updates {
-		// destChainRouters
+		// destChainRouters and destChainRouterStateAddresses
 		if !update.IsEnabled {
 			destChainRouters = append(destChainRouters, aptos.AccountAddress{})
+			destChainRouterStateAddresses = append(destChainRouterStateAddresses, aptos.AccountAddress{})
 			continue
 		}
+
 		if update.TestRouter {
-			destChainRouters = append(destChainRouters, testRouterStateAddress)
+			destChainRouters = append(destChainRouters, aptosState.TestRouterAddress)
+			destChainRouterStateAddresses = append(destChainRouterStateAddresses, testRouterStateAddress)
 		} else {
-			destChainRouters = append(destChainRouters, routerStateAddress)
+			destChainRouters = append(destChainRouters, ccipAddress)
+			destChainRouterStateAddresses = append(destChainRouterStateAddresses, routerStateAddress)
 		}
 		// destChainSelectors
 		destChainSelectors = append(destChainSelectors, destChainSelector)
@@ -86,9 +93,10 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 	}
 
 	// Encode the update operation
-	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().ApplyDestChainConfigUpdates(
+	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().ApplyDestChainConfigUpdatesV2(
 		destChainSelectors,
 		destChainRouters,
+		destChainRouterStateAddresses,
 		destChainAllowlistEnabled,
 	)
 	if err != nil {

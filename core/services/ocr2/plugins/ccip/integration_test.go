@@ -1,7 +1,6 @@
 package ccip_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -385,12 +384,12 @@ func TestIntegration_CCIP(t *testing.T) {
 					id := node.FindJobIDForContract(t, commitStoreV1.Address())
 					require.Positive(t, id)
 					t.Logf("deleting job %d", id)
-					err = node.App.DeleteJob(context.Background(), id)
+					err = node.App.DeleteJob(t.Context(), id)
 					require.NoError(t, err)
 					id = node.FindJobIDForContract(t, offRampV1.Address())
 					require.Positive(t, id)
 					t.Logf("deleting job %d", id)
-					err = node.App.DeleteJob(context.Background(), id)
+					err = node.App.DeleteJob(t.Context(), id)
 					require.NoError(t, err)
 				}
 
@@ -709,7 +708,7 @@ func TestReorg(t *testing.T) {
 	gasLimit := big.NewInt(200_00)
 	tokenAmount := big.NewInt(1)
 
-	forkBlock, err := ccipTH.Dest.Chain.Client().BlockByNumber(context.Background(), nil)
+	forkBlock, err := ccipTH.Dest.Chain.Client().BlockByNumber(t.Context(), nil)
 	require.NoError(t, err, "Error while fetching the destination chain current block number")
 
 	// Adjust time to start next blocks with timestamps two hours after the fork block.
@@ -726,7 +725,7 @@ func TestReorg(t *testing.T) {
 	executionLog := ccipTH.AllNodesHaveExecutedSeqNums(t, 1, 1)
 	ccipTH.AssertExecState(t, executionLog[0], testhelpers.ExecutionStateSuccess)
 
-	currentBlock, err := ccipTH.Dest.Chain.Client().BlockByNumber(context.Background(), nil)
+	currentBlock, err := ccipTH.Dest.Chain.Client().BlockByNumber(t.Context(), nil)
 	require.NoError(t, err, "Error while fetching the current block number of destination chain")
 
 	// Reorg back to the `forkBlock`. Next blocks in the fork will have block_timestamps right after the fork,
