@@ -45,9 +45,19 @@ func (t *Transmitter) Transmit(ctx context.Context, _ types.ConfigDigest, _ uint
 
 	t.ringStore.SetRoutingState(outcome.State)
 
-	for workflowID, route := range outcome.Routes {
-		t.ringStore.SetShardForWorkflow(workflowID, route.Shard)
-		t.lggr.Debugw("Updated workflow shard mapping", "workflowID", workflowID, "shard", route.Shard)
+	applyRoutes := outcome.State == nil || IsInSteadyState(outcome.State)
+	if !applyRoutes {
+		if tr := outcome.State.GetTransition(); tr != nil && tr.WantShards == 0 {
+			applyRoutes = true // fallback when no healthy shards
+		}
+	}
+	if applyRoutes {
+		for workflowID, route := range outcome.Routes {
+			t.ringStore.SetShardForWorkflow(workflowID, route.Shard)
+			t.lggr.Debugw("Updated workflow shard mapping", "workflowID", workflowID, "shard", route.Shard)
+		}
+	} else {
+		t.lggr.Debugw("Skipping route updates while in transition", "state", outcome.State)
 	}
 
 	return nil

@@ -933,6 +933,17 @@ func newWorkflowRegistrySyncerV2(
 		}
 	}
 
+	registryOpts := []syncerV2.Option{
+		syncerV2.WithAdditionalSources(addSourceConfigs),
+		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
+	}
+	if cfg.Sharding().ShardingEnabled() {
+		registryOpts = append(registryOpts,
+			syncerV2.WithShardEnabled(true),
+			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
+		)
+	}
+
 	workflowRegistrySyncerV2, err := syncerV2.NewWorkflowRegistry(
 		lggr,
 		crFactory,
@@ -945,8 +956,7 @@ func newWorkflowRegistrySyncerV2(
 		eventHandler,
 		workflowDonNotifier,
 		engineRegistry,
-		syncerV2.WithAdditionalSources(addSourceConfigs),
-		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
+		registryOpts...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)

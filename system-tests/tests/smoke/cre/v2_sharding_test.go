@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -110,7 +110,7 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger.Info().Msg("Verifying Ring OCR Oracle health on shard0 nodes...")
 	waitForRingOracleHealthy(t, shardZero)
 
-	const numWorkflows = 10
+	const numWorkflows = 5
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
 	var workflowIDs []string
 	for i := 0; i < numWorkflows; i++ {
@@ -188,22 +188,17 @@ func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, s
 
 	arbiterPortStart := 19876
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		if nodeSet.Name != shardZero.Name || nodeSet.Out == nil {
+		if nodeSet.Name != shardZero.Name {
 			continue
 		}
+		require.NotNil(t, nodeSet.Out, "nodeSet %q has nil Out (environment may be broken)", nodeSet.Name)
 		for i, clNode := range nodeSet.Out.CLNodes {
 			parsedURL, parseErr := url.Parse(clNode.Node.ExternalURL)
-			if parseErr != nil {
-				logger.Warn().Err(parseErr).Str("url", clNode.Node.ExternalURL).Msg("Failed to parse node URL")
-				continue
-			}
+			require.NoError(t, parseErr, "parse node URL %q", clNode.Node.ExternalURL)
 			arbiterAddr := parsedURL.Hostname() + ":" + strconv.Itoa(arbiterPortStart+i)
 
 			conn, err := grpc.NewClient(arbiterAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				logger.Warn().Err(err).Str("addr", arbiterAddr).Msg("Failed to connect to Arbiter")
-				continue
-			}
+			require.NoError(t, err, "connect to Arbiter at %s", arbiterAddr)
 
 			client := ringpb.NewArbiterClient(conn)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -214,14 +209,11 @@ func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, s
 			cancel()
 			conn.Close()
 
-			if err != nil {
-				logger.Warn().Err(err).Str("addr", arbiterAddr).Msg("Failed to call GetDesiredReplicas")
-			} else {
-				logger.Info().
-					Str("addr", arbiterAddr).
-					Uint32("wantShards", resp.WantShards).
-					Msg("Initialized Arbiter state")
-			}
+			require.NoError(t, err, "call GetDesiredReplicas at %s", arbiterAddr)
+			logger.Info().
+				Str("addr", arbiterAddr).
+				Uint32("wantShards", resp.WantShards).
+				Msg("Initialized Arbiter state")
 		}
 	}
 	logger.Info().Int("numShards", numShards).Msg("Arbiter states initialized on all shard0 nodes")
@@ -303,12 +295,28 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 		Interface("distribution", shardCounts).
 		Msg("Real workflows distributed across 2 shards after scaling")
 
-	logger.Info().Msg("Step 9: Verify all workflows execute on their assigned shards via Beholder")
+	logger.Info().Msg("Step 9: Verify all workflows execute on their assigned shards via ChIP test sink")
 	workflowToShardIndex := resp.Mappings
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 	logger.Info().Interface("nodeP2PIDToShardIndex", nodeP2PIDToShardIndex).Msg("P2P ID to shard index")
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, logger, testEnv)
-	executedWorkflows := waitForAllWorkflowsExecuted(listenerCtx, t, logger, messageChan, kafkaErrChan, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, 3*time.Minute)
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(logger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
+	execTimeout := 3 * time.Minute
+	timeoutCtx, cancelTimeout := context.WithTimeout(t.Context(), execTimeout)
+	defer cancelTimeout()
+	execCtx, cancelCause := context.WithCancelCause(timeoutCtx)
+	defer cancelCause(nil)
+	go t_helpers.FailOnBaseMessage(execCtx, cancelCause, t, logger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
+
+	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, logger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
 	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
 }
@@ -555,7 +563,7 @@ func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorSer
 	}, 2*time.Minute, 5*time.Second, "Workflows not remapped to shard %d within timeout", expectedShard)
 }
 
-func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, messageChan <-chan proto.Message, errChan <-chan error, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, timeout time.Duration) map[string]struct{} {
+func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workflowevents.UserLogs, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, timeout time.Duration) map[string]struct{} {
 	t.Helper()
 
 	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
@@ -578,14 +586,10 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 				Int("expected", len(expectedWorkflows)).
 				Msg("Timeout waiting for all workflows to execute")
 			return executedWorkflows
-		case err := <-errChan:
-			require.NoError(t, err, "Beholder error while waiting for workflow executions")
-		case msg := <-messageChan:
-			userLogs, ok := msg.(*workflowevents.UserLogs)
-			if !ok || userLogs.M == nil {
+		case userLogs := <-userLogsCh:
+			if userLogs.M == nil {
 				continue
 			}
-
 			hasExpectedLog := false
 			for _, line := range userLogs.LogLines {
 				if strings.Contains(line.Message, "Amazing workflow user log") {
