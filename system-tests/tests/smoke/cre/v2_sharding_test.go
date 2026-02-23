@@ -19,8 +19,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -401,33 +401,38 @@ func waitForRingOracleHealthy(t *testing.T, shardZero *cre.Don) {
 	require.NotEmpty(t, workers, "No worker nodes in shard0")
 
 	node := workers[0]
-	logger.Info().Str("node", node.Name).Msg("Checking available health components...")
+	logger.Info().Str("node", node.Name).Msg("Waiting for Ring Oracle health...")
 
-	health, _, healthErr := node.Clients.RestClient.Health()
-	if healthErr != nil {
-		logger.Error().Err(healthErr).Msg("Failed to get health status")
-	} else if health != nil && health.Data != nil {
-		var ocrComponents []string
-		for _, check := range health.Data {
-			if strings.Contains(strings.ToLower(check.Attributes.Name), "ocr") ||
-				strings.Contains(strings.ToLower(check.Attributes.Name), "oracle") ||
-				strings.Contains(strings.ToLower(check.Attributes.Name), "ring") {
-				ocrComponents = append(ocrComponents, check.Attributes.Name+" ("+check.Attributes.Status+")")
-			}
+	require.Eventually(t, func() bool {
+		health, _, healthErr := node.Clients.RestClient.Health()
+		if healthErr != nil {
+			logger.Warn().Err(healthErr).Msg("Waiting for health status")
+			return false
 		}
-		if len(ocrComponents) > 0 {
-			logger.Info().Strs("ocrComponents", ocrComponents).Msg("Found OCR-related health components")
-		} else {
-			logger.Warn().Int("totalComponents", len(health.Data)).Msg("No OCR/Oracle/Ring health components found - Ring Oracle likely not running")
-			var allNames []string
+		if health != nil && health.Data != nil {
+			var ocrComponents []string
 			for _, check := range health.Data {
-				allNames = append(allNames, check.Attributes.Name)
+				if strings.Contains(strings.ToLower(check.Attributes.Name), "ocr") ||
+					strings.Contains(strings.ToLower(check.Attributes.Name), "oracle") ||
+					strings.Contains(strings.ToLower(check.Attributes.Name), "ring") {
+					ocrComponents = append(ocrComponents, check.Attributes.Name+" ("+check.Attributes.Status+")")
+				}
 			}
-			logger.Debug().Strs("allComponents", allNames).Msg("All available health components")
+			if len(ocrComponents) > 0 {
+				logger.Info().Strs("ocrComponents", ocrComponents).Msg("Found OCR-related health components")
+			} else {
+				logger.Warn().Int("totalComponents", len(health.Data)).Msg("No OCR/Oracle/Ring health components found - Ring Oracle likely not running")
+				var allNames []string
+				for _, check := range health.Data {
+					allNames = append(allNames, check.Attributes.Name)
+				}
+				logger.Debug().Strs("allComponents", allNames).Msg("All available health components")
+			}
 		}
-	}
+		return true
+	}, 2*time.Minute, 5*time.Second, "Ring Oracle health check failed: could not get successful health response")
 
-	logger.Info().Msg("Ring Oracle health check complete - if no OCR components found, Ring job may not be running")
+	logger.Info().Msg("Ring Oracle health check complete")
 }
 
 func verifyStoreConnection(t *testing.T, client ringpb.ShardOrchestratorServiceClient) {
