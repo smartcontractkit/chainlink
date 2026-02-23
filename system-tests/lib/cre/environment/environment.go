@@ -222,7 +222,7 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
-	blockchainTargetBySelector := blockchainTargetsBySelector(input.Blockchains)
+	blockchainTargetBySelector := blockchainTargetsBySelector(input.Blockchains, deployedBlockchains.Outputs)
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
@@ -506,19 +506,17 @@ func SetupTestEnvironment(
 	}, nil
 }
 
-func blockchainTargetsBySelector(blockchains []*config.Blockchain) map[uint64]string {
-	bySelector := make(map[uint64]string, len(blockchains))
-	for _, blockchainCfg := range blockchains {
+func blockchainTargetsBySelector(configured []*config.Blockchain, deployed []blockchains.Blockchain) map[uint64]string {
+	bySelector := make(map[uint64]string, len(deployed))
+	for idx, blockchainCfg := range configured {
 		if blockchainCfg == nil {
 			continue
 		}
-		input := blockchainCfg.InputRef()
-		if input == nil {
+		if idx >= len(deployed) || deployed[idx] == nil {
 			continue
 		}
-		for _, chainID := range input.ChainID {
-			bySelector[uint64(chainID)] = string(blockchainCfg.Target)
-		}
+		selector := deployed[idx].ChainSelector()
+		bySelector[selector] = string(blockchainCfg.Target)
 	}
 	return bySelector
 }
@@ -551,7 +549,7 @@ func summarizeNodeSetPlacement(nodeSets []*cre.NodeSet) (*nodeSetPlacementSummar
 			continue
 		}
 		configTarget := strings.TrimSpace(nodeSet.Target)
-		if configTarget == "" || configTarget == string(config.TargetDocker) {
+		if configTarget == "" || configTarget == string(config.TargetLocal) {
 			summary.HasLocalTargets = true
 			continue
 		}
@@ -565,7 +563,7 @@ func summarizeNodeSetPlacement(nodeSets []*cre.NodeSet) (*nodeSetPlacementSummar
 	// Mixed local and remote nodeset targets need per-DON node-facing URL config selection.
 	// Current PrepareNodeTOMLs builds one node-facing URL shape, so keep this unsupported for now.
 	if summary.HasLocalTargets && summary.HasRemoteTargets {
-		return nil, errors.New("mixed nodeset targets are not supported yet; set all nodesets target=docker or all target=remote")
+		return nil, errors.New("mixed nodeset targets are not supported yet; set all nodesets target=local or all target=remote")
 	}
 	return summary, nil
 }

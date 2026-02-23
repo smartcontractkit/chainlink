@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 type SSMProvider struct {
@@ -38,7 +39,7 @@ func (p *SSMProvider) Name() string {
 }
 
 func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding, error) {
-	profile, authMode := resolveAWSProfileSelection()
+	profile, authMode := runtimecfg.ResolveAWSCLIProfileSelection()
 	if err := validateAWSSession(ctx, p.region, profile, authMode); err != nil {
 		return TunnelBinding{}, err
 	}
@@ -101,27 +102,6 @@ func (p *SSMProvider) Open(ctx context.Context, ref EndpointRef) (TunnelBinding,
 		LocalURL:    localURLFromScheme(ref.Scheme, localPort),
 		PID:         cmd.Process.Pid,
 	}, nil
-}
-
-func resolveAWSProfileSelection() (string, string) {
-	if hasStaticAWSKeys() {
-		return "", "env-creds"
-	}
-
-	if profile := strings.TrimSpace(os.Getenv("CRE_AWS_PROFILE")); profile != "" {
-		return profile, "profile:CRE_AWS_PROFILE"
-	}
-	if profile := strings.TrimSpace(os.Getenv("AWS_PROFILE")); profile != "" {
-		return profile, "profile:AWS_PROFILE"
-	}
-
-	return "", "default-profile"
-}
-
-func hasStaticAWSKeys() bool {
-	accessKeyID := strings.TrimSpace(os.Getenv("AWS_ACCESS_KEY_ID"))
-	secretAccessKey := strings.TrimSpace(os.Getenv("AWS_SECRET_ACCESS_KEY"))
-	return accessKeyID != "" && secretAccessKey != ""
 }
 
 func validateAWSSession(ctx context.Context, region, profile, authMode string) error {

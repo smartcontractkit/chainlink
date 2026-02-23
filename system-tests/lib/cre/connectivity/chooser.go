@@ -82,7 +82,7 @@ func ResolveAndEnsureReachable(
 
 func PlacementFromTarget(target string) (Placement, error) {
 	switch strings.ToLower(strings.TrimSpace(target)) {
-	case "", "docker", "local":
+	case "", "local":
 		return PlacementLocal, nil
 	case "remote":
 		return PlacementRemote, nil

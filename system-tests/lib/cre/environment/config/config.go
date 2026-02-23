@@ -57,7 +57,7 @@ func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
 }
 
 type Config struct {
-	Blockchains       []*Blockchain                  `toml:"blockchains" validate:"required"`
+	Blockchains       []*Blockchain                   `toml:"blockchains" validate:"required"`
 	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
 	JD                *JobDistributor                 `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
@@ -74,9 +74,7 @@ type Config struct {
 type ComponentTarget string
 
 const (
-	TargetLocal ComponentTarget = "local"
-	// TargetDocker is a backward-compatible alias for local placement.
-	TargetDocker ComponentTarget = "docker"
+	TargetLocal  ComponentTarget = "local"
 	TargetRemote ComponentTarget = "remote"
 )
 
@@ -281,7 +279,7 @@ func normalizeComponentTarget(target ComponentTarget) ComponentTarget {
 		return ""
 	case string(TargetRemote):
 		return TargetRemote
-	case string(TargetLocal), string(TargetDocker):
+	case string(TargetLocal):
 		return TargetLocal
 	default:
 		return target
