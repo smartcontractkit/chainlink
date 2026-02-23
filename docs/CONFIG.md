@@ -18476,6 +18476,7 @@ BlockHistoryBatchLoadSize = 20 # Default
 ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
+LogPollerCPIEventsEnabled = true # Default
 ```
 
 
@@ -18641,6 +18642,12 @@ EstimateComputeUnitLimit enables or disables compute unit limit estimations per 
 LogPollerStartingLookback = '24h0m0s' # Default
 ```
 LogPollerStartingLookback
+
+### LogPollerCPIEventsEnabled
+```toml
+LogPollerCPIEventsEnabled = true # Default
+```
+LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
 
 ## Solana.Workflow
 ```toml
