@@ -147,8 +147,6 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	// TODO: we should modify arbiter not to report or report something else when health data is not available from Scaler
 	initializeAllArbiterStates(t, testEnv, shardZero, len(shardDONs))
 
-	// TODO: check edge case what happens when the GetWorkflowMappingsBatch returns mappings with missing workflows
-	// TODO: check what happens if workflows is being removed, if there are no artifacts in the routing state (ringStore)
 	validateShardingScaleScenario(t, testEnv, rpcHost, workflowIDs)
 
 	testLogger.Info().Msg("Sharding test completed successfully")
@@ -265,7 +263,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	initializeAllArbiterStates(t, testEnv, shardZero, 1)
 
 	logger.Info().Msg("Step 3: Verify Arbiter returns WantShards=1")
-	waitForArbiterShardCount(t, arbiterClient, 1)
+	waitForArbiterShardCount(t, arbiterClient, 1, 60*time.Second)
 
 	logger.Info().Msg("Step 4: Wait for all workflows to be remapped to shard 0")
 	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, 0)
@@ -282,7 +280,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	initializeAllArbiterStates(t, testEnv, shardZero, 2)
 
 	logger.Info().Msg("Step 6: Verify Arbiter returns WantShards=2")
-	waitForArbiterShardCount(t, arbiterClient, 2)
+	waitForArbiterShardCount(t, arbiterClient, 2, 60*time.Second)
 
 	logger.Info().Msg("Step 7: Wait for workflow redistribution after scaling")
 	waitForWorkflowsDistributed(t, shardOrchClient, workflowIDs, 2)
@@ -306,10 +304,11 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 		Msg("Real workflows distributed across 2 shards after scaling")
 
 	logger.Info().Msg("Step 9: Verify all workflows execute on their assigned shards via Beholder")
-	p2pToShard := buildP2PIDToShardMap(t, testEnv)
-	logger.Info().Interface("p2pToShard", p2pToShard).Msg("P2P ID to shard mapping")
+	workflowToShardIndex := resp.Mappings
+	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
+	logger.Info().Interface("nodeP2PIDToShardIndex", nodeP2PIDToShardIndex).Msg("P2P ID to shard index")
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, logger, testEnv)
-	executedWorkflows := waitForAllWorkflowsExecuted(listenerCtx, t, logger, messageChan, kafkaErrChan, workflowIDs, resp.Mappings, p2pToShard, 3*time.Minute)
+	executedWorkflows := waitForAllWorkflowsExecuted(listenerCtx, t, logger, messageChan, kafkaErrChan, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, 3*time.Minute)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
 	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
 }
@@ -352,8 +351,11 @@ func updateShardCount(t *testing.T, testEnv *ttypes.TestEnvironment, chainSelect
 	framework.L.Info().Uint64("count", count).Msg("Updated ShardConfig shard count")
 }
 
-func waitForArbiterShardCount(t *testing.T, client ringpb.ArbiterClient, expected uint32) {
+func waitForArbiterShardCount(t *testing.T, client ringpb.ArbiterClient, expected uint32, timeout time.Duration) {
 	t.Helper()
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
 	require.Eventually(t, func() bool {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
@@ -363,7 +365,7 @@ func waitForArbiterShardCount(t *testing.T, client ringpb.ArbiterClient, expecte
 		}
 		framework.L.Info().Uint32("wantShards", resp.WantShards).Uint32("expected", expected).Msg("Arbiter response")
 		return resp.WantShards == expected
-	}, 30*time.Second, 2*time.Second, "Arbiter did not return expected WantShards=%d", expected)
+	}, timeout, 2*time.Second, "Arbiter did not return expected WantShards=%d", expected)
 }
 
 func newArbiterClient(t *testing.T, addr string) ringpb.ArbiterClient {
@@ -518,18 +520,18 @@ func waitForWorkflowsDistributed(t *testing.T, client ringpb.ShardOrchestratorSe
 	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards within timeout", minShards)
 }
 
-func buildP2PIDToShardMap(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]uint32 {
+func buildNodeP2PIDToShardIndex(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]uint32 {
 	t.Helper()
 	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
-	p2pToShard := make(map[string]uint32)
+	nodeP2PIDToShardIndex := make(map[string]uint32)
 	for _, don := range shardDONs {
 		shardIndex := uint32(don.ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 		for _, node := range don.Nodes {
 			p2pID := strings.TrimPrefix(node.Keys.PeerID(), "p2p_")
-			p2pToShard[p2pID] = shardIndex
+			nodeP2PIDToShardIndex[p2pID] = shardIndex
 		}
 	}
-	return p2pToShard
+	return nodeP2PIDToShardIndex
 }
 
 func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string, expectedShard uint32) {
@@ -553,7 +555,7 @@ func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorSer
 	}, 2*time.Minute, 5*time.Second, "Workflows not remapped to shard %d within timeout", expectedShard)
 }
 
-func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, messageChan <-chan proto.Message, errChan <-chan error, workflowIDs []string, shardMappings map[string]uint32, p2pToShard map[string]uint32, timeout time.Duration) map[string]struct{} {
+func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, messageChan <-chan proto.Message, errChan <-chan error, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, timeout time.Duration) map[string]struct{} {
 	t.Helper()
 
 	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
@@ -563,7 +565,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 
 	executedWorkflows := make(map[string]struct{})
 	seenNodes := make(map[string]struct{})
-	seenShards := make(map[uint32]struct{})
+	seenShardIndices := make(map[uint32]struct{})
 
 	timeoutCh := time.After(timeout)
 	for {
@@ -598,20 +600,20 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 			wfID := userLogs.M.WorkflowID
 			if _, expected := expectedWorkflows[wfID]; expected {
 				if _, seen := executedWorkflows[wfID]; !seen {
-					p2pID := userLogs.M.P2PID
-					actualShard, knownNode := p2pToShard[p2pID]
-					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, p2pID)
-					expectedShard := shardMappings[wfID]
-					require.Equal(t, expectedShard, actualShard, "Workflow %s executed on shard %d but expected shard %d (node %s)", wfID, actualShard, expectedShard, p2pID)
+					normalizedP2PID := strings.TrimPrefix(userLogs.M.P2PID, "p2p_")
+					actualShardIndex, knownNode := nodeP2PIDToShardIndex[normalizedP2PID]
+					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, userLogs.M.P2PID)
+					expectedShardIndex := workflowToShardIndex[wfID]
+					require.Equal(t, expectedShardIndex, actualShardIndex, "Workflow %s executed on shard index %d but expected %d (node %s)", wfID, actualShardIndex, expectedShardIndex, userLogs.M.P2PID)
 
 					executedWorkflows[wfID] = struct{}{}
-					seenNodes[p2pID] = struct{}{}
-					seenShards[actualShard] = struct{}{}
+					seenNodes[normalizedP2PID] = struct{}{}
+					seenShardIndices[actualShardIndex] = struct{}{}
 					logger.Info().
 						Str("workflowID", wfID).
 						Str("workflowName", userLogs.M.WorkflowName).
-						Str("p2pID", p2pID).
-						Uint32("shard", actualShard).
+						Str("p2pID", normalizedP2PID).
+						Uint32("shardIndex", actualShardIndex).
 						Int("progress", len(executedWorkflows)).
 						Int("total", len(expectedWorkflows)).
 						Msg("Workflow executed on correct shard")
@@ -621,7 +623,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 			if len(executedWorkflows) == len(expectedWorkflows) {
 				logger.Info().
 					Int("uniqueNodes", len(seenNodes)).
-					Int("uniqueShards", len(seenShards)).
+					Int("uniqueShardIndices", len(seenShardIndices)).
 					Msg("All workflows executed on correct shards")
 				return executedWorkflows
 			}

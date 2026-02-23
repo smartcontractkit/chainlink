@@ -530,6 +530,26 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	require.Equal(t, uint32(0), route.Shard, "workflow-123 should be assigned to shard 0 (fallback)")
 }
 
+func TestPlugin_ValidateObservation_RejectsWantShardsZero(t *testing.T) {
+	lggr := logger.Test(t)
+	store := NewStore()
+	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
+	plugin, err := NewPlugin(store, &mockArbiter{}, config, lggr, nil)
+	require.NoError(t, err)
+
+	obs := &ringpb.Observation{
+		Now:        timestamppb.Now(),
+		WantShards: 0,
+	}
+	obsBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(obs)
+	require.NoError(t, err)
+
+	ctx := t.Context()
+	err = plugin.ValidateObservation(ctx, ocr3types.OutcomeContext{}, nil, types.AttributedObservation{Observer: 0, Observation: obsBytes})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "WantShards")
+}
+
 func TestPlugin_ObservationQuorum(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()

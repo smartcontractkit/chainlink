@@ -45,6 +45,8 @@ type Store struct {
 const (
 	AllocationRequestChannelCapacity = 1000
 	getShardTransitionTimeout        = 30 * time.Second
+	submitAllocRetries               = 5
+	submitAllocRetryInterval         = 20 * time.Millisecond
 )
 
 func NewStore() *Store {
@@ -295,16 +297,28 @@ func (s *Store) RegisterWorkflowsFromShard(shardID uint32, workflowIDs []string)
 	s.mappingVersion++
 }
 
-func (s *Store) SubmitWorkflowsForAllocation(workflowIDs []string) {
+func (s *Store) SubmitWorkflowsForAllocation(workflowIDs []string) (dropped int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for _, wfID := range workflowIDs {
 		if _, exists := s.routingState[wfID]; !exists {
-			select {
-			case s.allocRequests <- AllocationRequest{WorkflowID: wfID, Result: nil}:
-			default:
+			enqueued := false
+			for attempt := 0; attempt < submitAllocRetries && !enqueued; attempt++ {
+				select {
+				case s.allocRequests <- AllocationRequest{WorkflowID: wfID, Result: nil}:
+					enqueued = true
+				default:
+					if attempt < submitAllocRetries-1 {
+						s.mu.Unlock()
+						time.Sleep(submitAllocRetryInterval)
+						s.mu.Lock()
+					} else {
+						dropped++
+					}
+				}
 			}
 		}
 	}
+	return dropped
 }

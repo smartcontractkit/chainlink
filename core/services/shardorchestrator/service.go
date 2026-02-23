@@ -51,8 +51,11 @@ func (s *Server) GetWorkflowShardMapping(_ context.Context, req *ringpb.GetWorkf
 	}
 
 	if len(missing) > 0 {
-		s.ringStore.SubmitWorkflowsForAllocation(missing)
+		dropped := s.ringStore.SubmitWorkflowsForAllocation(missing)
 		s.logger.Debugw("Submitted missing workflows for allocation", "count", len(missing))
+		if dropped > 0 {
+			s.logger.Warnw("Allocation request channel full, workflows dropped after retries", "dropped", dropped)
+		}
 	}
 
 	simpleMappings := make(map[string]uint32, len(mappings))
