@@ -293,9 +293,9 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 // When any stream in a pipeline is stale, ALL streams from that pipeline should be
 // re-observed to ensure atomic observation of pipeline groups (e.g. bid/mid/ask must be observed together).
 func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observationTimeout time.Duration) map[streams.StreamID]struct{} {
-	streamIds := make(map[streams.StreamID]struct{})
+	streamIDs := make(map[streams.StreamID]struct{})
 	for streamID := range streamValues {
-		if _, exists := streamIds[streamID]; exists {
+		if _, exists := streamIDs[streamID]; exists {
 			continue
 		}
 		// refresh stream and associated streams from pipeline if this streamID is stale
@@ -305,7 +305,7 @@ func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observat
 			}
 		}
 
-		streamIds[streamID] = struct{}{}
+		streamIDs[streamID] = struct{}{}
 
 		p, exists := d.registry.Get(streamID)
 		if !exists {
@@ -316,10 +316,10 @@ func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observat
 		}
 
 		for _, sid := range p.StreamIDs() {
-			streamIds[sid] = struct{}{}
+			streamIDs[sid] = struct{}{}
 		}
 	}
-	return streamIds
+	return streamIDs
 }
 
 func (d *dataSource) Close() error {
@@ -359,18 +359,18 @@ func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues m
 		}
 
 		if len(missing) > 0 {
-			var dropped []streams.StreamID
+			var droppedFromGroup []streams.StreamID
 			for _, sid := range p.StreamIDs() {
 				if _, ok := observedValues[sid]; ok {
-					dropped = append(dropped, sid)
+					droppedFromGroup = append(droppedFromGroup, sid)
 				}
 				delete(observedValues, sid)
 			}
-			dropped = append(dropped, dropped...)
+			dropped = append(dropped, droppedFromGroup...)
 			lggr.Debugw("Discarding incomplete pipeline group",
 				"pipelineStreamIDs", p.StreamIDs(),
 				"missingStreamIDs", missing,
-				"droppedStreamIDs", dropped,
+				"droppedStreamIDs", droppedFromGroup,
 			)
 		}
 	}
