@@ -45,8 +45,12 @@ func remoteStateFileExists(relativePathToRepoRoot string) bool {
 }
 
 func loadRemoteStopConfig(relativePathToRepoRoot string) (*envconfig.Config, error) {
+	data, err := os.ReadFile(remoteStateFileAbsPath(relativePathToRepoRoot))
+	if err != nil {
+		return nil, err
+	}
 	cfg := &envconfig.Config{}
-	if err := cfg.Load(remoteStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+	if err := toml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil

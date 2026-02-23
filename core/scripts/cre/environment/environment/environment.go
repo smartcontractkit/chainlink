@@ -977,22 +977,21 @@ func StartCLIEnvironment(
 	singleFileLogger := cldlogger.NewSingleFileLogger(nil)
 
 	universalSetupInput := &creenv.SetupInput{
-		NodeSets:                     in.NodeSets,
-		Blockchains:                  in.Blockchains,
-		ContractVersions:             env.ContractVersions(),
-		WithV2Registries:             env.WithV2Registries(),
-		JdInput:                      in.JD,
-		Provider:                     *in.Infra,
-		S3ProviderInput:              in.S3ProviderInput,
-		CapabilityConfigs:            in.CapabilityConfigs,
-		CopyCapabilityBinaries:       withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
-		Capabilities:                 capabilities,
-		JobSpecFactoryFunctions:      extraJobSpecFunctions,
-		StageGen:                     initLocalCREStageGen(in),
-		Features:                     features,
-		GatewayWhitelistConfig:       gatewayWhitelistConfig,
-		BlockchainDeployers:          blockchains_sets.NewDeployerSet(testLogger, in.Infra),
-		UsePersistentRelaySupervisor: true,
+		NodeSets:                in.NodeSets,
+		Blockchains:             in.Blockchains,
+		ContractVersions:        env.ContractVersions(),
+		WithV2Registries:        env.WithV2Registries(),
+		JdInput:                 in.JD,
+		Provider:                *in.Infra,
+		S3ProviderInput:         in.S3ProviderInput,
+		CapabilityConfigs:       in.CapabilityConfigs,
+		CopyCapabilityBinaries:  withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
+		Capabilities:            capabilities,
+		JobSpecFactoryFunctions: extraJobSpecFunctions,
+		StageGen:                initLocalCREStageGen(in),
+		Features:                features,
+		GatewayWhitelistConfig:  gatewayWhitelistConfig,
+		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 		PreDONsStartHook: func(context.Context) error {
 			if relaySupervisorStarted {
 				return nil
