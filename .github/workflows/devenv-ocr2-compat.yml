@@ -80,6 +80,7 @@ jobs:
         shell: bash
         env:
           CTF_LOG_LEVEL: debug
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           ./bin/ctf compat backward \
           --buildcmd "just cli" \
