@@ -1,0 +1,95 @@
+name: OCR2 Upgrade Compatibility Test
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: devenv
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  soak:
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        with:
+          just-version: "1.40.0"
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
+          aws-region: us-west-2
+
+      - name: Authenticate to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v6 # v6
+        with:
+          cache: true
+          go-version-file: devenv/go.mod
+          cache-dependency-path: devenv/go.sum
+
+      - name: Download Go dependencies
+        run: |
+          go mod download
+
+      - name: Install CTF binary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CTF_TAG: "framework/v0.14.4"
+        run: |
+          echo "::startgroup::Install CTF binary"
+          mkdir -p bin
+          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          tar -xzf ctf.tar.gz
+          mv ctf bin/ctf
+          chmod +x bin/ctf
+          echo "::endgroup::"
+
+      # TODO: this is only for demo purposes, remove after we re-tag properly
+      - name: Tag compatible versions
+        run: |
+          git tag 2.34.0+compat 0d17758699
+          git tag 2.33.0+compat 8253a1a65d
+          git tag 2.32.0+compat e2eca23338
+          git tag 2.31.0+compat e471ecf468
+
+      - name: Run compat test
+        id: set-env
+        run: |
+          ctf compat backward \
+          --buildcmd "just cli" \
+          --envcmd "cl r" \
+          --testcmd "cl test ocr2 TestSmoke/rounds" \
+          --include_tags +compat \
+          --nodes 3 \
+          --versions_back 3
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-smoke
+          path: devenv/tests/ocr2/logs
+          retention-days: 3
