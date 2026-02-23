@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  soak:
+  compatibility:
     permissions:
       id-token: write
       contents: read
@@ -76,7 +76,6 @@ jobs:
           git tag 2.31.0+compat e471ecf468
 
       - name: Run compat test
-        id: set-env
         run: |
           ctf compat backward \
           --buildcmd "just cli" \
