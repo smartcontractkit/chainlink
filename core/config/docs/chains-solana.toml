@@ -57,7 +57,8 @@ ComputeUnitLimitDefault = 200_000 # Default
 # EstimateComputeUnitLimit enables or disables compute unit limit estimations per transaction. If estimations return 0 used compute, the ComputeUnitLimitDefault value is used, if set.
 EstimateComputeUnitLimit = false # Default
 # LogPollerStartingLookback
-LogPollerStartingLookback = '24h0m0s' # Default
+LogPollerStartingLookback = '24h0m0s'
+LogPollerCPIEventsEnabled = true # Default
 
 [Solana.Workflow]
 # AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
