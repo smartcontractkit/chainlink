@@ -28,10 +28,10 @@ import (
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
@@ -367,7 +367,7 @@ func getAllFilters(ctx context.Context, logger logger.Logger, chainID *big.Int, 
 
 func resolveNodeSetDBHost(nodeSet *cre.NodeSet) (string, error) {
 	defaultHost := "127.0.0.1"
-	if nodeSet == nil || strings.TrimSpace(nodeSet.Target) != string(config.TargetRemote) {
+	if nodeSet == nil || strings.TrimSpace(nodeSet.Placement) != string(config.PlacementRemote) {
 		return defaultHost, nil
 	}
 	if !runtimecfg.IsDirectMode() {

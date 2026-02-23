@@ -31,6 +31,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/connectivity"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
@@ -43,7 +44,6 @@ const (
 	LabelNodeTypeValuePlugin    = "plugin"
 
 	LabelNodeP2PIDKey = "p2p_id"
-
 )
 
 type Role string
@@ -108,6 +108,7 @@ type Don struct {
 	Name string `toml:"name" json:"name"`
 	ID   uint64 `toml:"id" json:"id"`
 	F    uint8  `toml:"f" json:"f"` // max faulty nodes
+	Placement string `toml:"placement" json:"placement"`
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
@@ -230,6 +231,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		Name:                 donMetadata.Name,
 		ID:                   donMetadata.ID,
 		Flags:                donMetadata.Flags,
+		Placement:            donMetadata.MustNodeSet().Placement,
 		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
 		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
 	}
@@ -271,19 +273,38 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, cldfEnv *cldf.Environment) error {
+func registerWithJD(
+	ctx context.Context,
+	d *Don,
+	donMetadata *DonMetadata,
+	supportedChains []blockchains.Blockchain,
+	cldfEnv *cldf.Environment,
+	jdPlacement string,
+	jdInternalWSRPC string,
+	jdExternalWSRPC string,
+) error {
 	mu := &sync.Mutex{}
 
 	jd, ok := cldfEnv.Offchain.(*jd.JobDistributor)
 	if !ok {
 		return fmt.Errorf("offchain environment is not a *.jd.JobDistributor, but %T", cldfEnv.Offchain)
 	}
+	internalWSRPC := strings.TrimSpace(jdInternalWSRPC)
+	externalWSRPC := strings.TrimSpace(jdExternalWSRPC)
+	if internalWSRPC == "" && externalWSRPC == "" {
+		internalWSRPC = jd.WSRPC
+		externalWSRPC = jd.WSRPC
+	}
 
 	errgroup := errgroup.Group{}
+	nodeFacingJDUri, uriErr := resolveNodeFacingJDUriForDON(donMetadata, jdPlacement, internalWSRPC, externalWSRPC)
+	if uriErr != nil {
+		return uriErr
+	}
 	for idx, node := range d.Nodes {
 		errgroup.Go(func() error {
 			// Set up Job distributor in node and register node with the job distributor
-			setupErr := node.setUpAndLinkJobDistributor(ctx, cldfEnv)
+			setupErr := node.setUpAndLinkJobDistributor(ctx, cldfEnv, nodeFacingJDUri)
 			if setupErr != nil {
 				return fmt.Errorf("failed to set up job distributor in node %s: %w", node.Name, setupErr)
 			}
@@ -649,7 +670,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, cldfEnv *cldf.E
 
 // CreateJobDistributor fetches the keypairs from the job distributor and creates the job distributor in the node
 // and returns the job distributor id
-func (n *Node) CreateJobDistributor(ctx context.Context, jd *jd.JobDistributor) (string, error) {
+func (n *Node) CreateJobDistributor(ctx context.Context, jd *jd.JobDistributor, jdWSRPC string) (string, error) {
 	// Get the keypairs from the job distributor
 	csaKey, err := jd.GetCSAPublicKey(ctx)
 	if err != nil {
@@ -669,14 +690,14 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd *jd.JobDistributor) 
 	}
 	return n.Clients.GQLClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
-		Uri:       jd.WSRPC,
+		Uri:       jdWSRPC,
 		PublicKey: csaKey,
 	})
 }
 
 // setUpAndLinkJobDistributor sets up the job distributor in the node and registers the node with the job distributor
 // it sets the job distributor id for node
-func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Environment) error {
+func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Environment, jdWSRPC string) error {
 	err := n.RegisterNodeToJobDistributor(ctx, cldfEnv)
 	if err != nil {
 		return err
@@ -688,7 +709,7 @@ func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Env
 	}
 
 	// now create the job distributor in the node
-	id, err := n.CreateJobDistributor(ctx, jd)
+	id, err := n.CreateJobDistributor(ctx, jd, jdWSRPC)
 	if err != nil &&
 		!strings.Contains(err.Error(), "DuplicateFeedsManagerError") {
 		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
@@ -705,12 +726,12 @@ func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Env
 			return fmt.Errorf("no node found for node id %s", n.JobDistributorDetails.NodeID)
 		}
 		if !getRes.GetNode().IsConnected {
-			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor (jd_uri=%s)", n.Name, jd.WSRPC))
+			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor (jd_uri=%s)", n.Name, jdWSRPC))
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to connect node %s to job distributor (jd_uri=%s): %w", n.Name, jd.WSRPC, err)
+		return fmt.Errorf("failed to connect node %s to job distributor (jd_uri=%s): %w", n.Name, jdWSRPC, err)
 	}
 	n.JobDistributorDetails.JDID = id
 	return nil
@@ -779,7 +800,16 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 			return errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
 
-		if err := registerWithJD(ctx, don, supportedChains, input.CldfEnvironment); err != nil {
+		if err := registerWithJD(
+			ctx,
+			don,
+			input.Topology.DonsMetadata.List()[idx],
+			supportedChains,
+			input.CldfEnvironment,
+			input.JDPlacement,
+			input.JDInternalWSRPC,
+			input.JDExternalWSRPC,
+		); err != nil {
 			return fmt.Errorf("failed to register DON with JD: %w", err)
 		}
 		nodeIDs = append(nodeIDs, don.JDNodeIDs()...)
@@ -788,6 +818,37 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	input.CldfEnvironment.NodeIDs = nodeIDs
 
 	return nil
+}
+
+func resolveNodeFacingJDUriForDON(donMetadata *DonMetadata, jdPlacement, internalWSRPC, externalWSRPC string) (string, error) {
+	if donMetadata == nil {
+		return "", fmt.Errorf("don metadata is nil")
+	}
+	nodeSet := donMetadata.MustNodeSet()
+	callerPlacement, err := connectivity.PlacementFromTarget(nodeSet.Placement)
+	if err != nil {
+		return "", err
+	}
+	targetPlacement, err := connectivity.PlacementFromTarget(jdPlacement)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := connectivity.Resolve(callerPlacement, targetPlacement, connectivity.EndpointPair{
+		Name:     "jd-wsrpc",
+		Internal: strings.TrimSpace(internalWSRPC),
+		External: strings.TrimSpace(externalWSRPC),
+	})
+	if err != nil {
+		return "", err
+	}
+	if !resolved.RequiresBridge {
+		return resolved.URL, nil
+	}
+	bridgeURL, err := rewriteEndpointForRemoteCaller(resolved.URL)
+	if err != nil {
+		return "", err
+	}
+	return bridgeURL, nil
 }
 
 // copied from flags package to avoid circular dependency

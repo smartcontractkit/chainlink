@@ -51,6 +51,7 @@ For both SSM and direct-mode auto IP lookup, AWS CLI auth selection follows:
 
 ## Placement Rules
 
+- Use `placement = "local" | "remote"` in CRE component config (NodeSets, JD, Blockchains).
 - Same placement (`local->local`, `remote->remote`) uses **internal** URLs.
 - Cross placement (`local->remote`, `remote->local`) uses **external** URLs.
 - Remote NodeSets targeting local gateway are allowed when bridge/tunnel plumbing for gateway ingress is present.
@@ -71,6 +72,6 @@ For both SSM and direct-mode auto IP lookup, AWS CLI auth selection follows:
 
 - Agent unreachable: verify bind address/port vs chosen access mode.
 - Direct mode cannot resolve EC2 IP: ensure `CRE_EC2_INSTANCE_ID` is set and AWS CLI credentials are valid, or set `CRE_EC2_HOST_IP` explicitly.
-- `invalid jd target`: use `target=local` or `target=remote` (only supported values).
+- `invalid jd placement`: use `placement=local` or `placement=remote` (only supported values).
 - Remote nodes hitting local-only fixtures: ensure fixture relay helper is active.
 - Mixed remote->local gateway from NodeSets is supported when bridge plumbing is present.

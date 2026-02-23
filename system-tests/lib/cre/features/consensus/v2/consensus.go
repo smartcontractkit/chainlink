@@ -138,8 +138,12 @@ func createJobs(
 
 	specs := make(map[string][]string)
 
+	bootstrapPeer, bootstrapErr := formatBootstrapPeer(don, bootstrap)
+	if bootstrapErr != nil {
+		return bootstrapErr
+	}
 	// Create node job
-	if nodeSpecs, err := proposeNodeJob(creEnv, don, command, []string{formatBootstrapPeer(bootstrap)}, configStr); err != nil {
+	if nodeSpecs, err := proposeNodeJob(creEnv, don, command, []string{bootstrapPeer}, configStr); err != nil {
 		return err
 	} else if err := mergo.Merge(&specs, nodeSpecs); err != nil {
 		return fmt.Errorf("failed to merge node job specs: %w", err)
@@ -195,11 +199,18 @@ func buildCapabilityConfig(
 	return configStr, nil
 }
 
-func formatBootstrapPeer(bootstrap *cre.Node) string {
-	return fmt.Sprintf("%s@%s:%d",
-		strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"),
-		bootstrap.Host,
-		cre.OCRPeeringPort)
+func formatBootstrapPeer(caller *cre.Don, bootstrap *cre.Node) (string, error) {
+	if caller == nil {
+		return "", errors.New("caller don is nil")
+	}
+	if bootstrap == nil || bootstrap.DON == nil {
+		return "", errors.New("bootstrap node is nil")
+	}
+	peerURL, err := cre.ResolveBootstrapPeerURL(caller.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
+	if err != nil {
+		return "", fmt.Errorf("resolve bootstrap peer url: %w", err)
+	}
+	return peerURL, nil
 }
 
 func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, bootstrapPeers []string, configStr string) (map[string][]string, error) {

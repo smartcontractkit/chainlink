@@ -598,7 +598,7 @@ func compileAndCopyWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workf
 	containerTargetDir := creworkflow.DefaultWorkflowTargetDir
 	mode := creworkflow.ArtifactDeployModeLocal
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		if nodeSet != nil && nodeSet.Name == workflowDONName && nodeSet.Target == string(envconfig.TargetRemote) {
+		if nodeSet != nil && nodeSet.Name == workflowDONName && nodeSet.Placement == string(envconfig.PlacementRemote) {
 			mode = creworkflow.ArtifactDeployModeRemote
 			break
 		}

@@ -152,7 +152,7 @@ func StartDONs(
 			if nodeSet.Out != nil {
 				lggr.Info().Msgf("Using pre-configured node URLs for DON %s", nodeSet.Name)
 				nodeset = nodeSet.Out
-			} else if strings.TrimSpace(nodeSet.Target) == string(config.TargetRemote) {
+			} else if strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
 				registryChainPayload, err := agent.EncodeForTransport(registryChainBlockchainOutput)
 				if err != nil {
 					return pkgerrors.Wrap(err, "failed to encode registry blockchain payload for remote nodeset start")
@@ -245,7 +245,7 @@ func StartDONs(
 
 func hasRemoteNodeSets(nodeSets []*cre.NodeSet) bool {
 	for _, nodeSet := range nodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(config.TargetRemote) {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
 			return true
 		}
 	}

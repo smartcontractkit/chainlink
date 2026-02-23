@@ -3,7 +3,6 @@ package dontime
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -121,9 +120,9 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
+	bootstrapPeerURL, err := cre.ResolveBootstrapPeerURL(don.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
 	if err != nil {
-		return errors.Wrap(err, "failed to get peering configs")
+		return errors.Wrap(err, "failed to resolve bootstrap peer URL")
 	}
 
 	workerInput := cre_jobs.ProposeJobSpecInput{
@@ -140,7 +139,7 @@ func createJobs(
 			"chainSelectorEVM":     creEnv.RegistryChainSelector,
 			"contractQualifier":    ContractQualifier,
 			"templateName":         "don-time",
-			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
+			"bootstrapperOCR3Urls": []string{bootstrapPeerURL},
 		},
 	}
 

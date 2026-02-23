@@ -229,14 +229,14 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
-	blockchainTargetBySelector := blockchainTargetsBySelector(input.Blockchains, deployedBlockchains.Outputs)
+	blockchainPlacementBySelector := blockchainPlacementsBySelector(input.Blockchains, deployedBlockchains.Outputs)
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
 		topology,
 		creEnvironment,
 		input.NodeSets,
-		blockchainTargetBySelector,
+		blockchainPlacementBySelector,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -274,7 +274,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	startedJD, jdStartErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager, nodeSetPlacement.HasLocalTargets)
+	startedJD, jdStartErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager)
 	if jdStartErr != nil {
 		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
 	}
@@ -296,6 +296,9 @@ func SetupTestEnvironment(
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
 		Dons:            dons,
+		JDPlacement:     string(input.JdInput.Placement),
+		JDInternalWSRPC: startedJD.JDOutput.InternalWSRPCUrl,
+		JDExternalWSRPC: startedJD.JDOutput.ExternalWSRPCUrl,
 	}
 
 	cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
@@ -483,7 +486,7 @@ func SetupTestEnvironment(
 	}, nil
 }
 
-func blockchainTargetsBySelector(configured []*config.Blockchain, deployed []blockchains.Blockchain) map[uint64]string {
+func blockchainPlacementsBySelector(configured []*config.Blockchain, deployed []blockchains.Blockchain) map[uint64]string {
 	bySelector := make(map[uint64]string, len(deployed))
 	for idx, blockchainCfg := range configured {
 		if blockchainCfg == nil {
@@ -493,7 +496,7 @@ func blockchainTargetsBySelector(configured []*config.Blockchain, deployed []blo
 			continue
 		}
 		selector := deployed[idx].ChainSelector()
-		bySelector[selector] = string(blockchainCfg.Target)
+		bySelector[selector] = string(blockchainCfg.Placement)
 	}
 	return bySelector
 }
@@ -525,23 +528,18 @@ func summarizeNodeSetPlacement(nodeSets []*cre.NodeSet) (*nodeSetPlacementSummar
 		if nodeSet == nil {
 			continue
 		}
-		configTarget := strings.TrimSpace(nodeSet.Target)
-		if configTarget == "" || configTarget == string(config.TargetLocal) {
+		configPlacement := strings.TrimSpace(nodeSet.Placement)
+		if configPlacement == "" || configPlacement == string(config.PlacementLocal) {
 			summary.HasLocalTargets = true
 			continue
 		}
-		if configTarget == string(config.TargetRemote) {
+		if configPlacement == string(config.PlacementRemote) {
 			summary.HasRemoteTargets = true
 			continue
 		}
-		return nil, fmt.Errorf("invalid nodeset target: %s", nodeSet.Target)
+		return nil, fmt.Errorf("invalid nodeset placement: %s", nodeSet.Placement)
 	}
 
-	// Mixed local and remote nodeset targets need per-DON node-facing URL config selection.
-	// Current PrepareNodeTOMLs builds one node-facing URL shape, so keep this unsupported for now.
-	if summary.HasLocalTargets && summary.HasRemoteTargets {
-		return nil, errors.New("mixed nodeset targets are not supported yet; set all nodesets target=local or all target=remote")
-	}
 	return summary, nil
 }
 
@@ -556,10 +554,10 @@ func validateUnsupportedPlacements(
 		if bc == nil {
 			continue
 		}
-		if bc.Target == config.TargetLocal {
+		if bc.Placement == config.PlacementLocal {
 			return errors.New(
 				"remote nodesets with local blockchains are not supported in this PoC. " +
-					"Set all blockchains to target=remote, or run nodesets with target=local so nodes stay colocated with local blockchains",
+					"Set all blockchains to placement=remote, or run nodesets with placement=local so nodes stay colocated with local blockchains",
 			)
 		}
 	}

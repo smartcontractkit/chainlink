@@ -879,16 +879,16 @@ func summarizeRemoteComponents(cfg *envconfig.Config) remoteComponentSummary {
 		return summary
 	}
 	for _, configuredBlockchain := range cfg.Blockchains {
-		if configuredBlockchain != nil && configuredBlockchain.Target == envconfig.TargetRemote {
+		if configuredBlockchain != nil && configuredBlockchain.Placement == envconfig.PlacementRemote {
 			summary.Blockchains++
 		}
 	}
 	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(envconfig.PlacementRemote) {
 			summary.NodeSets++
 		}
 	}
-	if cfg.JD != nil && cfg.JD.Target == envconfig.TargetRemote {
+	if cfg.JD != nil && cfg.JD.Placement == envconfig.PlacementRemote {
 		summary.JD = 1
 	}
 	summary.Total = summary.Blockchains + summary.NodeSets + summary.JD
@@ -900,16 +900,16 @@ func hasLocalComponents(cfg *envconfig.Config) bool {
 		return false
 	}
 	for _, configuredBlockchain := range cfg.Blockchains {
-		if configuredBlockchain != nil && configuredBlockchain.Target != envconfig.TargetRemote {
+		if configuredBlockchain != nil && configuredBlockchain.Placement != envconfig.PlacementRemote {
 			return true
 		}
 	}
 	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) != string(envconfig.TargetRemote) {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) != string(envconfig.PlacementRemote) {
 			return true
 		}
 	}
-	if cfg.JD != nil && cfg.JD.Target != envconfig.TargetRemote {
+	if cfg.JD != nil && cfg.JD.Placement != envconfig.PlacementRemote {
 		return true
 	}
 	return false
@@ -1352,7 +1352,7 @@ func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *env
 	}
 
 	if in.JD != nil {
-		if in.JD.Target == envconfig.TargetRemote {
+		if in.JD.Placement == envconfig.PlacementRemote {
 			logger.Info().Msg("Skipping local JD image check for remote JD target")
 		} else if err := ensureDockerImageExists(ctx, logger, in.JD.Image); err != nil {
 			return errors.Wrapf(err, "Job Distributor image '%s' not found. Make sure it exists locally or run 'go run . env setup' to pull it and other dependencies that also might be missing", in.JD.Image)

@@ -1,7 +1,6 @@
 package environment
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -55,14 +54,14 @@ func TestRewriteJDWithBindingsRewritesNodeFacingWSRPC(t *testing.T) {
 		},
 	}
 
-	if err := rewriteJDWithBindings(output, bindings, true); err != nil {
+	if err := rewriteJDWithBindings(output, bindings); err != nil {
 		t.Fatalf("rewriteJDWithBindings returned error: %v", err)
 	}
 
 	if output.ExternalWSRPCUrl != "127.0.0.1:61002" {
 		t.Fatalf("expected external wsrpc url to be rewritten to 127.0.0.1:61002, got %s", output.ExternalWSRPCUrl)
 	}
-	if !strings.HasSuffix(output.InternalWSRPCUrl, ":61002") {
-		t.Fatalf("expected internal wsrpc url to use tunneled port 61002, got %s", output.InternalWSRPCUrl)
+	if output.InternalWSRPCUrl != "job-distributor:8080" {
+		t.Fatalf("expected internal wsrpc url to remain unchanged, got %s", output.InternalWSRPCUrl)
 	}
 }

@@ -55,7 +55,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 							t.Context(),
 							i,
 							nodeSet.DbInput.Port,
-							nodeSet.Target == string(creconfig.TargetRemote),
+							nodeSet.Placement == string(creconfig.PlacementRemote),
 						)
 						if err != nil || packageCount != 1 {
 							return false

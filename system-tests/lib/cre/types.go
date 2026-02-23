@@ -456,7 +456,8 @@ type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
 	Blockchains             map[uint64]blockchains.Blockchain
-	BlockchainTargetBySelector map[uint64]string
+	BlockchainPlacementBySelector map[uint64]string
+	OCRBootstrapPlacement         string
 	RegistryChainSelector   uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
@@ -475,6 +476,9 @@ func (g *GenerateConfigsInput) Validate() error {
 	}
 	if g.RegistryChainSelector == 0 {
 		return errors.New("home chain selector not set")
+	}
+	if strings.TrimSpace(g.OCRBootstrapPlacement) == "" {
+		return errors.New("ocr bootstrap placement not set")
 	}
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
@@ -1185,7 +1189,7 @@ type NodeSpecWithRole struct {
 type NodeSet struct {
 	*ns.Input
 
-	Target            string `toml:"target"`              // docker (default) or remote
+	Placement         string `toml:"placement"`           // local (default) or remote
 	RemoteStartPolicy string `toml:"remote_start_policy"` // reuse_if_identical (default) or always
 
 	// Our role-aware node specs (shadows ns.Input.NodeSpecs)
@@ -1457,6 +1461,9 @@ type LinkDonsToJDInput struct {
 	Dons            *Dons
 	Topology        *Topology
 	CldfEnvironment *cldf.Environment
+	JDPlacement     string
+	JDInternalWSRPC string
+	JDExternalWSRPC string
 }
 
 type Environment struct {

@@ -276,9 +276,9 @@ func createJobs(
 
 	specs := make(map[string][]string)
 
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
+	bootstrapPeerURL, err := cre.ResolveBootstrapPeerURL(don.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
 	if err != nil {
-		return errors.Wrap(err, "failed to get peering configs")
+		return errors.Wrap(err, "failed to resolve bootstrap peer URL")
 	}
 
 	workerInput := cre_jobs.ProposeJobSpecInput{
@@ -296,7 +296,7 @@ func createJobs(
 			"contractQualifier":    ContractQualifier + "_plugin",
 			"dkgContractQualifier": ContractQualifier + "_dkg",
 			"templateName":         "worker-vault",
-			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
+			"bootstrapperOCR3Urls": []string{bootstrapPeerURL},
 		},
 	}
 

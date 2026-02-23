@@ -3,7 +3,6 @@ package sharding
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -62,7 +61,7 @@ func SetupSharding(ctx context.Context, input SetupShardingInput) error {
 	}
 
 	// 3. Get bootstrap URLs for Ring P2P
-	bootstrapURLs, err := getBootstrapURLs(input.Dons)
+	bootstrapURLs, err := getBootstrapURLs(shardLeaderDON, input.Dons)
 	if err != nil {
 		return fmt.Errorf("failed to get bootstrap URLs: %w", err)
 	}
@@ -164,18 +163,19 @@ func deployRingOCR3Contract(creEnv *cre.Environment, logger zerolog.Logger) (com
 }
 
 // getBootstrapURLs extracts P2P bootstrap URLs from the topology's bootstrap node
-func getBootstrapURLs(dons *cre.Dons) ([]string, error) {
+func getBootstrapURLs(callerDON *cre.Don, dons *cre.Dons) ([]string, error) {
+	if callerDON == nil {
+		return nil, errors.New("caller DON is nil")
+	}
 	bootstrap, ok := dons.Bootstrap()
 	if !ok {
 		return nil, errors.New("no bootstrap node found in dons")
 	}
 
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
+	bootstrapURL, err := cre.ResolveBootstrapPeerURL(callerDON.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get peering configs: %w", err)
+		return nil, fmt.Errorf("failed to resolve bootstrap peer URL: %w", err)
 	}
-
-	bootstrapURL := ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)
 	return []string{bootstrapURL}, nil
 }
 

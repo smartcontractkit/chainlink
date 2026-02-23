@@ -120,7 +120,7 @@ func hasRemoteNodeSets(cfg *envconfig.Config) bool {
 		return false
 	}
 	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet != nil && strings.EqualFold(strings.TrimSpace(nodeSet.Target), string(envconfig.TargetRemote)) {
+		if nodeSet != nil && strings.EqualFold(strings.TrimSpace(nodeSet.Placement), string(envconfig.PlacementRemote)) {
 			return true
 		}
 	}

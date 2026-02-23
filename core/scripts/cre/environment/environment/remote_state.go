@@ -77,16 +77,16 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 		NodeSets:    []*cre.NodeSet{},
 	}
 	for _, configuredBlockchain := range cfg.Blockchains {
-		if configuredBlockchain != nil && configuredBlockchain.Target == envconfig.TargetRemote {
+		if configuredBlockchain != nil && configuredBlockchain.Placement == envconfig.PlacementRemote {
 			stopCfg.Blockchains = append(stopCfg.Blockchains, configuredBlockchain)
 		}
 	}
 	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(envconfig.PlacementRemote) {
 			stopCfg.NodeSets = append(stopCfg.NodeSets, nodeSet)
 		}
 	}
-	if cfg.JD != nil && cfg.JD.Target == envconfig.TargetRemote {
+	if cfg.JD != nil && cfg.JD.Placement == envconfig.PlacementRemote {
 		stopCfg.JD = cfg.JD
 	}
 	if err := stopCfg.Store(remoteStateFileAbsPath(relativePathToRepoRoot)); err != nil {

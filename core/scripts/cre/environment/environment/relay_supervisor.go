@@ -30,8 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 const (
@@ -80,10 +80,10 @@ type relayOpenResponse struct {
 }
 
 type localBridgeStats struct {
-	WSMessages    uint64
-	WSToTCPBytes  uint64
-	TCPToWSBytes  uint64
-	LocalDialed   bool
+	WSMessages     uint64
+	WSToTCPBytes   uint64
+	TCPToWSBytes   uint64
+	LocalDialed    bool
 	LocalDialFails uint64
 }
 
@@ -158,6 +158,7 @@ func maybeStartRelaySupervisor(relativePathToRepoRoot string, cfg *envconfig.Con
 		}
 		return false, nil
 	}
+	framework.L.Info().Int("relaySpecs", len(specs)).Msgf("starting persistent relay supervisor with specs: %s", relaySpecsCSV(specs))
 	return true, startRelaySupervisor(relativePathToRepoRoot, specs)
 }
 
@@ -167,7 +168,7 @@ func relaySpecsFromConfig(cfg *envconfig.Config) []relaySpec {
 	}
 	hasRemoteNodeSets := false
 	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(envconfig.PlacementRemote) {
 			hasRemoteNodeSets = true
 			break
 		}
@@ -187,7 +188,7 @@ func relaySpecsFromConfig(cfg *envconfig.Config) []relaySpec {
 		specByPort[port] = relaySpec{Name: name, Port: port}
 	}
 	for _, blockchainCfg := range cfg.Blockchains {
-		if blockchainCfg == nil || blockchainCfg.Target != envconfig.TargetLocal {
+		if blockchainCfg == nil || blockchainCfg.Placement != envconfig.PlacementLocal {
 			continue
 		}
 		if blockchainCfg.Out != nil {
@@ -209,7 +210,7 @@ func relaySpecsFromConfig(cfg *envconfig.Config) []relaySpec {
 		}
 	}
 
-	if cfg.JD != nil && cfg.JD.Target == envconfig.TargetLocal {
+	if cfg.JD != nil && cfg.JD.Placement == envconfig.PlacementLocal {
 		if cfg.JD.Out != nil {
 			if p, ok := endpointPort(cfg.JD.Out.ExternalGRPCUrl); ok {
 				addSpec("jd-grpc", p)
@@ -230,6 +231,18 @@ func relaySpecsFromConfig(cfg *envconfig.Config) []relaySpec {
 				}
 				addSpec(fmt.Sprintf("jd-port-%d", p), p)
 			}
+		}
+	}
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet == nil || strings.TrimSpace(nodeSet.Placement) != string(envconfig.PlacementLocal) {
+			continue
+		}
+		for _, nodeSpec := range nodeSet.NodeSpecs {
+			if nodeSpec == nil || !hasBootstrapRole(nodeSpec.Roles) {
+				continue
+			}
+			addSpec("ocr-bootstrap", 5001)
+			break
 		}
 	}
 
@@ -301,6 +314,15 @@ func inferLocalJDPortsFromInput(in jd.Input) []int {
 	}
 	sort.Ints(out)
 	return out
+}
+
+func hasBootstrapRole(roles []string) bool {
+	for _, role := range roles {
+		if strings.EqualFold(strings.TrimSpace(role), "bootstrap") {
+			return true
+		}
+	}
+	return false
 }
 
 func endpointPort(raw string) (int, bool) {
@@ -1108,4 +1130,3 @@ func relayKeepAlive(ctx context.Context, ws *websocket.Conn, writeMu *sync.Mutex
 		}
 	}
 }
-

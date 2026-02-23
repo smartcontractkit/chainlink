@@ -359,7 +359,7 @@ func startBlockchainsWithTargets(
 	localInputs := make([]*blockchain.Input, 0, len(configuredBlockchains))
 	remoteIdx := make([]int, 0, len(configuredBlockchains))
 	for idx, configuredBlockchain := range configuredBlockchains {
-		if configuredBlockchain.Target == config.TargetRemote {
+		if configuredBlockchain.Placement == config.PlacementRemote {
 			remoteIdx = append(remoteIdx, idx)
 			continue
 		}
@@ -497,7 +497,7 @@ func rewriteRemoteBlockchainOutputForLocalAccess(
 		if err != nil {
 			return err
 		}
-		return rewriteRemoteBlockchainOutputForDirectAccess(output, hostIP, rewriteInternalForLocalNodes)
+		return rewriteRemoteBlockchainOutputForDirectAccess(output, hostIP)
 	}
 
 	componentID := tunnel.CanonicalComponentID(tunnel.KindBlockchain, configuredIndex, input.Type)
@@ -533,11 +533,7 @@ func rewriteRemoteBlockchainOutputForLocalAccess(
 	return nil
 }
 
-func rewriteRemoteBlockchainOutputForDirectAccess(
-	output *blockchain.Output,
-	hostIP string,
-	rewriteInternalForLocalNodes bool,
-) error {
+func rewriteRemoteBlockchainOutputForDirectAccess(output *blockchain.Output, hostIP string) error {
 	if output == nil {
 		return nil
 	}
@@ -551,9 +547,6 @@ func rewriteRemoteBlockchainOutputForDirectAccess(
 				return err
 			}
 			node.ExternalHTTPUrl = rewritten
-			if rewriteInternalForLocalNodes {
-				node.InternalHTTPUrl = rewritten
-			}
 		}
 		if node.ExternalWSUrl != "" {
 			rewritten, err := rewriteURLHost(node.ExternalWSUrl, hostIP)
@@ -561,9 +554,6 @@ func rewriteRemoteBlockchainOutputForDirectAccess(
 				return err
 			}
 			node.ExternalWSUrl = rewritten
-			if rewriteInternalForLocalNodes {
-				node.InternalWSUrl = rewritten
-			}
 		}
 	}
 	return nil

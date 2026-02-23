@@ -590,7 +590,7 @@ func resolveWorkflowArtifactDeployModeFromState(containerNamePattern, nodeSetNam
 			if cfgNodeSet == nil || cfgNodeSet.Name != nodeSetName {
 				continue
 			}
-			if cfgNodeSet.Target == string(envconfig.TargetRemote) {
+			if cfgNodeSet.Placement == string(envconfig.PlacementRemote) {
 				return creworkflow.ArtifactDeployModeRemote, nodeSetName, nil
 			}
 			return creworkflow.ArtifactDeployModeLocal, nodeSetName, nil
@@ -600,7 +600,7 @@ func resolveWorkflowArtifactDeployModeFromState(containerNamePattern, nodeSetNam
 
 	matches := make([]string, 0)
 	for _, cfgNodeSet := range cfg.NodeSets {
-		if cfgNodeSet == nil || cfgNodeSet.Target != string(envconfig.TargetRemote) {
+		if cfgNodeSet == nil || cfgNodeSet.Placement != string(envconfig.PlacementRemote) {
 			continue
 		}
 		prefix := ns.NodeNamePrefix(cfgNodeSet.Name)

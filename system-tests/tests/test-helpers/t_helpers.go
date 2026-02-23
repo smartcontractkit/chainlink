@@ -696,7 +696,7 @@ func resolveWorkflowDONArtifactMode(cfg *envconfig.Config, donName string) (crew
 		if nodeSet == nil || nodeSet.Name != donName {
 			continue
 		}
-		if strings.TrimSpace(nodeSet.Target) == string(envconfig.TargetRemote) {
+		if strings.TrimSpace(nodeSet.Placement) == string(envconfig.PlacementRemote) {
 			return creworkflow.ArtifactDeployModeRemote, nodeSet.Name
 		}
 		return creworkflow.ArtifactDeployModeLocal, nodeSet.Name

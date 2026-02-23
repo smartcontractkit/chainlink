@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
@@ -68,7 +67,6 @@ func StartJD(
 	jdConfig *config.JobDistributor,
 	infraInput infra.Provider,
 	tunnelManager tunnel.Manager,
-	rewriteInternalForLocalNodes bool,
 ) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
@@ -79,7 +77,7 @@ func StartJD(
 	var jdOutput *jd.Output
 	var jdErr error
 
-	if jdConfig.Target == config.TargetRemote {
+	if jdConfig.Placement == config.PlacementRemote {
 		startClient, err := newStartComponentClient(lggr, tunnelManager)
 		if err != nil {
 			return nil, err
@@ -115,7 +113,7 @@ func StartJD(
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to decode jd transport payload")
 		}
-		if err := rewriteRemoteJDOutputForLocalAccess(ctx, lggr, tunnelManager, jdOutput, rewriteInternalForLocalNodes); err != nil {
+		if err := rewriteRemoteJDOutputForLocalAccess(ctx, lggr, tunnelManager, jdOutput); err != nil {
 			return nil, err
 		}
 	} else if infraInput.IsKubernetes() {
@@ -147,24 +145,17 @@ func StartJD(
 	// Configure gRPC credentials for JD connection
 	creds := getJDCredentials(lggr, infraInput, jdOutput)
 
-	nodeFacingWSRPC, wsrpcErr := resolveNodeFacingJDWSRPC(jdOutput, rewriteInternalForLocalNodes)
-	if wsrpcErr != nil {
-		return nil, pkgerrors.Wrap(wsrpcErr, "failed to resolve node-facing JD WSRPC endpoint")
-	}
-
 	jdClientConfig := cldf_jd.JDConfig{
 		GRPC:  jdOutput.ExternalGRPCUrl,
-		WSRPC: nodeFacingWSRPC,
+		WSRPC: jdOutput.ExternalWSRPCUrl,
 		Creds: creds,
 	}
 
 	lggr.Info().Msgf("Connecting to JD GRPC at: %s", jdOutput.ExternalGRPCUrl)
 	lggr.Info().
-		Str("nodeFacingWSRPC", nodeFacingWSRPC).
 		Str("internalWSRPC", jdOutput.InternalWSRPCUrl).
 		Str("externalWSRPC", jdOutput.ExternalWSRPCUrl).
-		Bool("hasLocalNodeSets", rewriteInternalForLocalNodes).
-		Msg("Resolved JD WSRPC endpoint for node registration")
+		Msg("Resolved JD endpoints")
 
 	jdClient, jdErr := cldf_jd.NewJDClient(jdClientConfig)
 	if jdErr != nil {
@@ -179,32 +170,11 @@ func StartJD(
 	}, nil
 }
 
-func resolveNodeFacingJDWSRPC(output *jd.Output, rewriteInternalForLocalNodes bool) (string, error) {
-	if output == nil {
-		return "", fmt.Errorf("jd output is nil")
-	}
-	// Local nodesets can resolve JD on the Docker network directly.
-	if rewriteInternalForLocalNodes {
-		return output.InternalWSRPCUrl, nil
-	}
-	// Remote nodesets need the relay endpoint on the remote Docker host.
-	source := strings.TrimSpace(output.ExternalWSRPCUrl)
-	if source == "" {
-		source = strings.TrimSpace(output.InternalWSRPCUrl)
-	}
-	if source == "" {
-		return "", fmt.Errorf("jd output does not include WSRPC endpoint")
-	}
-	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-	return rewriteAddressHost(source, dockerHost)
-}
-
 func rewriteRemoteJDOutputForLocalAccess(
 	ctx context.Context,
 	lggr zerolog.Logger,
 	tunnelManager tunnel.Manager,
 	output *jd.Output,
-	rewriteInternalForLocalNodes bool,
 ) error {
 	if output == nil {
 		return nil
@@ -214,7 +184,7 @@ func rewriteRemoteJDOutputForLocalAccess(
 		if err != nil {
 			return err
 		}
-		return rewriteJDForDirectAccess(output, hostIP, rewriteInternalForLocalNodes)
+		return rewriteJDForDirectAccess(output, hostIP)
 	}
 	if tunnelManager == nil {
 		return errors.New("tunnel manager is required for remote jd target")
@@ -236,10 +206,10 @@ func rewriteRemoteJDOutputForLocalAccess(
 			Str("localURL", binding.LocalURL).
 			Msg("Established endpoint tunnel")
 	}
-	return rewriteJDWithBindings(output, bindings, rewriteInternalForLocalNodes)
+	return rewriteJDWithBindings(output, bindings)
 }
 
-func rewriteJDForDirectAccess(output *jd.Output, hostIP string, rewriteInternalForLocalNodes bool) error {
+func rewriteJDForDirectAccess(output *jd.Output, hostIP string) error {
 	if output == nil {
 		return nil
 	}
@@ -250,9 +220,6 @@ func rewriteJDForDirectAccess(output *jd.Output, hostIP string, rewriteInternalF
 			return err
 		}
 		output.ExternalGRPCUrl = rewritten
-		if rewriteInternalForLocalNodes {
-			output.InternalGRPCUrl = rewritten
-		}
 	}
 
 	if output.ExternalWSRPCUrl != "" || output.InternalWSRPCUrl != "" {
@@ -265,9 +232,6 @@ func rewriteJDForDirectAccess(output *jd.Output, hostIP string, rewriteInternalF
 			return err
 		}
 		output.ExternalWSRPCUrl = rewritten
-		if rewriteInternalForLocalNodes {
-			output.InternalWSRPCUrl = rewritten
-		}
 	}
 	return nil
 }
@@ -295,7 +259,7 @@ func describeJDEndpoints(output *jd.Output) ([]tunnel.EndpointRef, error) {
 	return refs, nil
 }
 
-func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding, rewriteInternalForLocalNodes bool) error {
+func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding) error {
 	byName := make(map[string]tunnel.TunnelBinding, len(bindings))
 	for _, binding := range bindings {
 		byName[binding.EndpointName] = binding
@@ -307,10 +271,6 @@ func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding, r
 			return fmt.Errorf("missing tunnel binding for jd grpc endpoint")
 		}
 		output.ExternalGRPCUrl = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", binding.LocalPort))
-		if rewriteInternalForLocalNodes {
-			dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-			output.InternalGRPCUrl = net.JoinHostPort(dockerHost, fmt.Sprintf("%d", binding.LocalPort))
-		}
 	}
 
 	if output.ExternalWSRPCUrl != "" || output.InternalWSRPCUrl != "" {
@@ -319,10 +279,6 @@ func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding, r
 			return fmt.Errorf("missing tunnel binding for jd wsrpc endpoint")
 		}
 		output.ExternalWSRPCUrl = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", binding.LocalPort))
-		if rewriteInternalForLocalNodes {
-			dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-			output.InternalWSRPCUrl = net.JoinHostPort(dockerHost, fmt.Sprintf("%d", binding.LocalPort))
-		}
 	}
 
 	return nil

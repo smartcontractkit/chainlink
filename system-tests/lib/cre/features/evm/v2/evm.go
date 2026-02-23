@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"text/template"
 	"time"
 
@@ -216,6 +215,10 @@ func createJobs(
 	if !isBootstrap {
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
+	bootstrapPeerURL, peerErr := cre.ResolveBootstrapPeerURL(don.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
+	if peerErr != nil {
+		return errors.Wrap(peerErr, "failed to resolve bootstrap peer URL")
+	}
 
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
@@ -303,7 +306,7 @@ func createJobs(
 				return errors.New("failed to get key bundle id for evm family")
 			}
 
-			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
+			bootstrapPeers := []string{bootstrapPeerURL}
 
 			strategyName := "single-chain"
 			if len(workerNode.Keys.OCR2BundleIDs) > 1 {

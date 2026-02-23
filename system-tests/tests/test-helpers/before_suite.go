@@ -146,12 +146,12 @@ func ensureMixedModeComponentRelays(t *testing.T, testEnv *ttypes.TestEnvironmen
 		if name == "" {
 			continue
 		}
-		nodeSetTargetsByName[name] = strings.TrimSpace(nsCfg.Target)
+		nodeSetTargetsByName[name] = strings.TrimSpace(nsCfg.Placement)
 	}
 
 	// Local blockchain endpoints used by remote nodesets.
 	for idx, bcCfg := range testEnv.Config.Blockchains {
-		if bcCfg == nil || strings.TrimSpace(string(bcCfg.Target)) != string(envconfig.TargetLocal) {
+		if bcCfg == nil || strings.TrimSpace(string(bcCfg.Placement)) != string(envconfig.PlacementLocal) {
 			continue
 		}
 		if idx >= len(testEnv.CreEnvironment.Blockchains) || testEnv.CreEnvironment.Blockchains[idx] == nil {
@@ -171,7 +171,7 @@ func ensureMixedModeComponentRelays(t *testing.T, testEnv *ttypes.TestEnvironmen
 	}
 
 	// Local JD endpoints used by remote nodesets.
-	if testEnv.Config.JD != nil && strings.TrimSpace(string(testEnv.Config.JD.Target)) == string(envconfig.TargetLocal) && testEnv.Config.JD.Out != nil {
+	if testEnv.Config.JD != nil && strings.TrimSpace(string(testEnv.Config.JD.Placement)) == string(envconfig.PlacementLocal) && testEnv.Config.JD.Out != nil {
 		if p, ok := extractPort(testEnv.Config.JD.Out.ExternalGRPCUrl); ok {
 			EnsureFixtureRelayForPort(t, testEnv, "jd-grpc", p)
 		}
@@ -192,7 +192,7 @@ func ensureMixedModeComponentRelays(t *testing.T, testEnv *ttypes.TestEnvironmen
 			}
 			donName := strings.TrimSpace(node.DON.Name)
 			target := nodeSetTargetsByName[donName]
-			if target != string(envconfig.TargetLocal) {
+			if target != string(envconfig.PlacementLocal) {
 				continue
 			}
 			if cfg.Incoming.ExternalPort > 0 {

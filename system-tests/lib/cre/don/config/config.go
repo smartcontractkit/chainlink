@@ -62,6 +62,11 @@ func PrepareNodeTOMLs(
 	if peeringErr != nil {
 		return nil, errors.Wrap(peeringErr, "failed to find peering data")
 	}
+	ocrBootstrapPlacement, placementErr := resolveBootstrapPlacement(topology, bt.UUID)
+	if placementErr != nil {
+		return nil, placementErr
+	}
+	framework.L.Info().Str("placement", strings.TrimSpace(ocrBootstrapPlacement)).Str("bootstrapNodeUUID", bt.UUID).Msg("resolved OCR bootstrap placement")
 
 	localNodeSets := topology.NodeSets()
 	chainPerSelector := make(map[uint64]creblockchains.Blockchain)
@@ -112,7 +117,8 @@ func PrepareNodeTOMLs(
 					ContractVersions:           creEnv.ContractVersions,
 					DonMetadata:                donMetadata,
 					Blockchains:                chainPerSelector,
-					BlockchainTargetBySelector: blockchainTargetBySelector,
+					BlockchainPlacementBySelector: blockchainTargetBySelector,
+					OCRBootstrapPlacement:      ocrBootstrapPlacement,
 					Flags:                      donMetadata.Flags,
 					CapabilitiesPeeringData:    capabilitiesPeeringData,
 					OCRPeeringData:             ocrPeeringData,
@@ -224,7 +230,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, commonInputs, input.DonMetadata, nodeMetadata)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, input.OCRBootstrapPlacement, commonInputs, input.DonMetadata, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -379,11 +385,16 @@ func addWorkerNodeConfig(
 	existingConfig corechainlink.Config,
 	topology *cre.Topology,
 	ocrPeeringData cre.OCRPeeringData,
+	ocrBootstrapPlacement string,
 	commonInputs *commonInputs,
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	bootstrapAddress, bootstrapAddressErr := cre.ResolveBootstrapAddress(donMetadata.MustNodeSet().Placement, ocrBootstrapPlacement, ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port)
+	if bootstrapAddressErr != nil {
+		return existingConfig, errors.Wrap(bootstrapAddressErr, "failed to resolve bootstrap address for worker node")
+	}
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{bootstrapAddress})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -492,7 +503,7 @@ func addWorkerNodeConfig(
 		if !ok {
 			return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
 		}
-		callerPlacement, placementErr := connectivity.PlacementFromTarget(donMetadata.MustNodeSet().Target)
+		callerPlacement, placementErr := connectivity.PlacementFromTarget(donMetadata.MustNodeSet().Placement)
 		if placementErr != nil {
 			return existingConfig, placementErr
 		}
@@ -688,7 +699,7 @@ type evmChain struct {
 
 func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
 	evmChains := make([]*evmChain, 0)
-	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Target)
+	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Placement)
 	if err != nil {
 		return nil, err
 	}
@@ -702,7 +713,7 @@ func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
 			continue
 		}
 
-		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainTargetBySelector[chainSelector])
+		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainPlacementBySelector[chainSelector])
 		if err != nil {
 			return nil, err
 		}
@@ -756,7 +767,7 @@ type solanaChain struct {
 func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	var solChain *solanaChain
 	chainsFound := 0
-	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Target)
+	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Placement)
 	if err != nil {
 		return nil, err
 	}
@@ -772,7 +783,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		}
 
 		solBc := bcOut.(*solana.Blockchain)
-		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainTargetBySelector[solBc.ChainSelector()])
+		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainPlacementBySelector[solBc.ChainSelector()])
 		if err != nil {
 			return nil, err
 		}
@@ -816,7 +827,7 @@ func gatewayPlacementByNodeUUID(topology *cre.Topology) (map[string]connectivity
 		return out, nil
 	}
 	for _, don := range topology.DonsMetadata.List() {
-		placement, err := connectivity.PlacementFromTarget(don.MustNodeSet().Target)
+		placement, err := connectivity.PlacementFromTarget(don.MustNodeSet().Placement)
 		if err != nil {
 			return nil, err
 		}
@@ -828,6 +839,31 @@ func gatewayPlacementByNodeUUID(topology *cre.Topology) (map[string]connectivity
 		}
 	}
 	return out, nil
+}
+
+func resolveBootstrapPlacement(topology *cre.Topology, bootstrapNodeUUID string) (string, error) {
+	if topology == nil {
+		return "", fmt.Errorf("topology is nil")
+	}
+	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
+	if bootstrapNodeUUID == "" {
+		return "", fmt.Errorf("bootstrap node UUID is empty")
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil {
+			continue
+		}
+		for _, node := range don.NodesMetadata {
+			if node == nil || strings.TrimSpace(node.UUID) == "" {
+				continue
+			}
+			if node.UUID != bootstrapNodeUUID {
+				continue
+			}
+			return strings.TrimSpace(don.MustNodeSet().Placement), nil
+		}
+	}
+	return "", fmt.Errorf("failed to resolve bootstrap placement for node UUID %s", bootstrapNodeUUID)
 }
 
 func gatewayExternalConnectorURL(gateway *cre.DonGatewayConfiguration) string {

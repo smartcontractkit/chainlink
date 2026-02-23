@@ -71,11 +71,11 @@ type Config struct {
 	loaded bool
 }
 
-type ComponentTarget string
+type ComponentPlacement string
 
 const (
-	TargetLocal  ComponentTarget = "local"
-	TargetRemote ComponentTarget = "remote"
+	PlacementLocal  ComponentPlacement = "local"
+	PlacementRemote ComponentPlacement = "remote"
 )
 
 type RemoteStartPolicy string
@@ -89,7 +89,7 @@ const (
 // The embedded input keeps TOML fields backward-compatible.
 type Blockchain struct {
 	blockchain.Input
-	Target            ComponentTarget   `toml:"target"`
+	Placement         ComponentPlacement `toml:"placement"`
 	RemoteStartPolicy RemoteStartPolicy `toml:"remote_start_policy"`
 }
 
@@ -97,14 +97,14 @@ type Blockchain struct {
 // The embedded input keeps TOML fields backward-compatible.
 type JobDistributor struct {
 	jd.Input
-	Target            ComponentTarget   `toml:"target"`
+	Placement         ComponentPlacement `toml:"placement"`
 	RemoteStartPolicy RemoteStartPolicy `toml:"remote_start_policy"`
 }
 
 func (b *Blockchain) Normalize() {
-	b.Target = normalizeComponentTarget(b.Target)
-	if b.Target == "" {
-		b.Target = TargetLocal
+	b.Placement = normalizeComponentPlacement(b.Placement)
+	if b.Placement == "" {
+		b.Placement = PlacementLocal
 	}
 	if b.RemoteStartPolicy == "" {
 		b.RemoteStartPolicy = RemoteStartPolicyReuseIfIdentical
@@ -117,8 +117,8 @@ func (b *Blockchain) Validate() error {
 	}
 
 	b.Normalize()
-	if b.Target != TargetLocal && b.Target != TargetRemote {
-		return fmt.Errorf("invalid blockchain target: %s", b.Target)
+	if b.Placement != PlacementLocal && b.Placement != PlacementRemote {
+		return fmt.Errorf("invalid blockchain placement: %s", b.Placement)
 	}
 	if b.RemoteStartPolicy != RemoteStartPolicyReuseIfIdentical && b.RemoteStartPolicy != RemoteStartPolicyAlways {
 		return fmt.Errorf("invalid blockchain remote_start_policy: %s", b.RemoteStartPolicy)
@@ -135,9 +135,9 @@ func (b *Blockchain) InputRef() *blockchain.Input {
 }
 
 func (j *JobDistributor) Normalize() {
-	j.Target = normalizeComponentTarget(j.Target)
-	if j.Target == "" {
-		j.Target = TargetLocal
+	j.Placement = normalizeComponentPlacement(j.Placement)
+	if j.Placement == "" {
+		j.Placement = PlacementLocal
 	}
 	if j.RemoteStartPolicy == "" {
 		j.RemoteStartPolicy = RemoteStartPolicyReuseIfIdentical
@@ -150,8 +150,8 @@ func (j *JobDistributor) Validate() error {
 	}
 
 	j.Normalize()
-	if j.Target != TargetLocal && j.Target != TargetRemote {
-		return fmt.Errorf("invalid jd target: %s", j.Target)
+	if j.Placement != PlacementLocal && j.Placement != PlacementRemote {
+		return fmt.Errorf("invalid jd placement: %s", j.Placement)
 	}
 	if j.RemoteStartPolicy != RemoteStartPolicyReuseIfIdentical && j.RemoteStartPolicy != RemoteStartPolicyAlways {
 		return fmt.Errorf("invalid jd remote_start_policy: %s", j.RemoteStartPolicy)
@@ -236,9 +236,9 @@ func normalizeNodeSetPlacement(nodeSet *cre.NodeSet) {
 	if nodeSet == nil {
 		return
 	}
-	nodeSet.Target = normalizeNodeSetTarget(nodeSet.Target)
-	if strings.TrimSpace(nodeSet.Target) == "" {
-		nodeSet.Target = string(TargetLocal)
+	nodeSet.Placement = normalizeNodeSetPlacementValue(nodeSet.Placement)
+	if strings.TrimSpace(nodeSet.Placement) == "" {
+		nodeSet.Placement = string(PlacementLocal)
 	}
 	if strings.TrimSpace(nodeSet.RemoteStartPolicy) == "" {
 		nodeSet.RemoteStartPolicy = string(RemoteStartPolicyReuseIfIdentical)
@@ -249,8 +249,8 @@ func validateNodeSetPlacement(nodeSet *cre.NodeSet) error {
 	if nodeSet == nil {
 		return errors.New("nodeset is nil")
 	}
-	if nodeSet.Target != string(TargetLocal) && nodeSet.Target != string(TargetRemote) {
-		return fmt.Errorf("invalid nodeset target: %s", nodeSet.Target)
+	if nodeSet.Placement != string(PlacementLocal) && nodeSet.Placement != string(PlacementRemote) {
+		return fmt.Errorf("invalid nodeset placement: %s", nodeSet.Placement)
 	}
 	if nodeSet.RemoteStartPolicy != string(RemoteStartPolicyReuseIfIdentical) && nodeSet.RemoteStartPolicy != string(RemoteStartPolicyAlways) {
 		return fmt.Errorf("invalid nodeset remote_start_policy: %s", nodeSet.RemoteStartPolicy)
@@ -273,21 +273,21 @@ func removeChainIDFromFlag(flag string) string {
 	return flag[:lastIdx]
 }
 
-func normalizeComponentTarget(target ComponentTarget) ComponentTarget {
-	switch strings.ToLower(strings.TrimSpace(string(target))) {
+func normalizeComponentPlacement(placement ComponentPlacement) ComponentPlacement {
+	switch strings.ToLower(strings.TrimSpace(string(placement))) {
 	case "":
 		return ""
-	case string(TargetRemote):
-		return TargetRemote
-	case string(TargetLocal):
-		return TargetLocal
+	case string(PlacementRemote):
+		return PlacementRemote
+	case string(PlacementLocal):
+		return PlacementLocal
 	default:
-		return target
+		return placement
 	}
 }
 
-func normalizeNodeSetTarget(target string) string {
-	return string(normalizeComponentTarget(ComponentTarget(target)))
+func normalizeNodeSetPlacementValue(placement string) string {
+	return string(normalizeComponentPlacement(ComponentPlacement(placement)))
 }
 
 func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {

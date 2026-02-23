@@ -54,7 +54,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 
 	var joined error
 	for _, configuredBlockchain := range cfg.Blockchains {
-		if configuredBlockchain == nil || configuredBlockchain.Target != config.TargetRemote {
+		if configuredBlockchain == nil || configuredBlockchain.Placement != config.PlacementRemote {
 			continue
 		}
 		payload := agent.StartComponentPayload{
@@ -76,7 +76,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 	}
 
 	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet == nil || strings.TrimSpace(nodeSet.Target) != string(config.TargetRemote) {
+		if nodeSet == nil || strings.TrimSpace(nodeSet.Placement) != string(config.PlacementRemote) {
 			continue
 		}
 		payload := agent.StartComponentPayload{
@@ -97,7 +97,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		}
 	}
 
-	if cfg.JD != nil && cfg.JD.Target == config.TargetRemote {
+	if cfg.JD != nil && cfg.JD.Placement == config.PlacementRemote {
 		payload := agent.StartComponentPayload{
 			ComponentType: componentTypeJD,
 			JD:            cfg.JD.InputRef(),
@@ -133,16 +133,16 @@ func countRemoteStopTargets(cfg *config.Config) int {
 	}
 	count := 0
 	for _, configuredBlockchain := range cfg.Blockchains {
-		if configuredBlockchain != nil && configuredBlockchain.Target == config.TargetRemote {
+		if configuredBlockchain != nil && configuredBlockchain.Placement == config.PlacementRemote {
 			count++
 		}
 	}
 	for _, nodeSet := range cfg.NodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Target) == string(config.TargetRemote) {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
 			count++
 		}
 	}
-	if cfg.JD != nil && cfg.JD.Target == config.TargetRemote {
+	if cfg.JD != nil && cfg.JD.Placement == config.PlacementRemote {
 		count++
 	}
 	return count
