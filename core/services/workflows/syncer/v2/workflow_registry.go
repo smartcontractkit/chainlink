@@ -34,6 +34,7 @@ var (
 	defaultTickInterval          = 12 * time.Second
 	defaultRetryInterval         = 12 * time.Second
 	defaultMaxRetryInterval      = 5 * time.Minute
+	defaultMaxConcurrency        = 50
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
@@ -102,6 +103,7 @@ type workflowRegistry struct {
 
 	retryInterval    time.Duration
 	maxRetryInterval time.Duration
+	maxConcurrency   int
 	clock            clockwork.Clock
 
 	hooks Hooks
@@ -139,6 +141,14 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.retryInterval = retryInterval
+	}
+}
+
+func WithMaxConcurrency(maxConcurrency int) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		if maxConcurrency > 0 {
+			wr.maxConcurrency = maxConcurrency
+		}
 	}
 }
 
@@ -288,6 +298,7 @@ func NewWorkflowRegistry(
 		engineRegistry:                   engineRegistry,
 		retryInterval:                    defaultRetryInterval,
 		maxRetryInterval:                 defaultMaxRetryInterval,
+		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
@@ -753,6 +764,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				// Handle events concurrently — each event targets a distinct workflow ID
 				var wg sync.WaitGroup
 				var mu sync.Mutex
+				sem := make(chan struct{}, w.maxConcurrency)
 				for _, event := range events {
 					select {
 					case <-ctx.Done():
@@ -776,9 +788,19 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						continue
 					}
 
+					select {
+					case sem <- struct{}{}:
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped waiting for semaphore")
+						return
+					}
+
 					wg.Add(1)
 					go func(evt *reconciliationEvent) {
-						defer wg.Done()
+						defer func() {
+							<-sem
+							wg.Done()
+						}()
 						handleErr := w.handleWithMetrics(ctx, evt.Event)
 						if handleErr != nil {
 							evt.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
