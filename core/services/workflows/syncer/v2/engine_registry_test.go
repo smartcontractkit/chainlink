@@ -130,6 +130,28 @@ func TestEngineRegistry_PopReturnsSource(t *testing.T) {
 	require.Equal(t, ContractWorkflowSourceName, engine.Source)
 }
 
+func TestEngineRegistry_PopMany(t *testing.T) {
+	er := NewEngineRegistry()
+
+	wfID1 := types.WorkflowID([32]byte{1})
+	wfID2 := types.WorkflowID([32]byte{2})
+	wfID3 := types.WorkflowID([32]byte{3})
+	wfID4 := types.WorkflowID([32]byte{4})
+
+	require.NoError(t, er.Add(wfID1, "S1", &fakeService{}))
+	require.NoError(t, er.Add(wfID2, "S1", &fakeService{}))
+	require.NoError(t, er.Add(wfID3, "S2", &fakeService{}))
+
+	popped := er.PopMany([]types.WorkflowID{wfID1, wfID3, wfID4})
+	require.Len(t, popped, 2)
+
+	require.False(t, er.Contains(wfID1))
+	require.True(t, er.Contains(wfID2))
+	require.False(t, er.Contains(wfID3))
+
+	require.Len(t, er.GetAll(), 1)
+}
+
 func TestEngineRegistry_PopAllReturnsSource(t *testing.T) {
 	er := NewEngineRegistry()
 

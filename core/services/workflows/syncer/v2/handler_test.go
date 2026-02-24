@@ -971,6 +971,130 @@ func Test_workflowDeletedHandler(t *testing.T) {
 	})
 }
 
+type stubArtifactStore struct {
+	deleteBatchErr error
+}
+
+func (s *stubArtifactStore) FetchWorkflowArtifacts(context.Context, string, string, string) ([]byte, []byte, error) {
+	return nil, nil, nil
+}
+func (s *stubArtifactStore) GetWorkflowSpec(context.Context, string) (*job.WorkflowSpec, error) {
+	return nil, nil
+}
+func (s *stubArtifactStore) UpsertWorkflowSpec(context.Context, *job.WorkflowSpec) (int64, error) {
+	return 0, nil
+}
+func (s *stubArtifactStore) DeleteWorkflowArtifacts(context.Context, string) error { return nil }
+func (s *stubArtifactStore) DeleteWorkflowArtifactsBatch(_ context.Context, _ []string) error {
+	return s.deleteBatchErr
+}
+
+func Test_HandleDeleteBatch(t *testing.T) {
+	t.Run("closes engines concurrently and cleans up", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		lf := limits.Factory{Logger: lggr}
+		er := NewEngineRegistry()
+		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, custmsg.NewLabeler(), limiters, rl, workflowLimits, &stubArtifactStore{}, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+		)
+		require.NoError(t, err)
+
+		wfID1 := types.WorkflowID([32]byte{1})
+		wfID2 := types.WorkflowID([32]byte{2})
+		wfID3 := types.WorkflowID([32]byte{3})
+
+		e1 := &mockEngine{}
+		e2 := &mockEngine{}
+		e3 := &mockEngine{}
+		require.NoError(t, er.Add(wfID1, "src", e1))
+		require.NoError(t, er.Add(wfID2, "src", e2))
+		require.NoError(t, er.Add(wfID3, "src", e3))
+
+		ctx := testutils.Context(t)
+		err = h.HandleDeleteBatch(ctx, []WorkflowDeletedEvent{
+			{WorkflowID: wfID1},
+			{WorkflowID: wfID3},
+		})
+		require.NoError(t, err)
+
+		require.False(t, er.Contains(wfID1))
+		require.True(t, er.Contains(wfID2))
+		require.False(t, er.Contains(wfID3))
+	})
+
+	t.Run("returns error when batch DB delete fails", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		lf := limits.Factory{Logger: lggr}
+		er := NewEngineRegistry()
+		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, custmsg.NewLabeler(), limiters, rl, workflowLimits,
+			&stubArtifactStore{deleteBatchErr: errors.New("db failure")},
+			workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+		)
+		require.NoError(t, err)
+
+		wfID1 := types.WorkflowID([32]byte{1})
+		require.NoError(t, er.Add(wfID1, "src", &mockEngine{}))
+
+		ctx := testutils.Context(t)
+		err = h.HandleDeleteBatch(ctx, []WorkflowDeletedEvent{{WorkflowID: wfID1}})
+		require.ErrorContains(t, err, "db failure")
+
+		// Engine stays in registry since DB delete failed
+		require.True(t, er.Contains(wfID1))
+	})
+
+	t.Run("handles empty batch", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		lf := limits.Factory{Logger: lggr}
+		er := NewEngineRegistry()
+		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, custmsg.NewLabeler(), limiters, rl, workflowLimits, &stubArtifactStore{}, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+		)
+		require.NoError(t, err)
+
+		ctx := testutils.Context(t)
+		err = h.HandleDeleteBatch(ctx, nil)
+		require.NoError(t, err)
+	})
+}
+
 // mockLinkingService implements the LinkingServiceServer interface for testing
 type mockLinkingService struct {
 	linkingclient.UnimplementedLinkingServiceServer

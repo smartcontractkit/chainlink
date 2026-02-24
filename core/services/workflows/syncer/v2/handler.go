@@ -637,6 +637,38 @@ func (h *eventHandler) workflowDeletedEvent(
 	return err
 }
 
+// HandleDeleteBatch closes engines concurrently and batch-deletes artifacts.
+// Engine close errors are logged but do not prevent cleanup — matching the
+// handler.close() shutdown pattern that uses services.CloseAll.
+func (h *eventHandler) HandleDeleteBatch(ctx context.Context, payloads []WorkflowDeletedEvent) error {
+	if len(payloads) == 0 {
+		return nil
+	}
+
+	var closers []io.Closer
+	ids := make([]string, 0, len(payloads))
+	wfIDs := make([]types.WorkflowID, 0, len(payloads))
+
+	for _, p := range payloads {
+		if e, ok := h.engineRegistry.Get(p.WorkflowID); ok {
+			closers = append(closers, e)
+		}
+		ids = append(ids, p.WorkflowID.Hex())
+		wfIDs = append(wfIDs, p.WorkflowID)
+	}
+
+	if err := services.CloseAll(closers...); err != nil {
+		h.lggr.Errorw("errors closing engines in batch delete", "err", err, "count", len(closers))
+	}
+
+	if err := h.workflowArtifactsStore.DeleteWorkflowArtifactsBatch(ctx, ids); err != nil {
+		return fmt.Errorf("failed to batch delete workflow artifacts: %w", err)
+	}
+
+	h.engineRegistry.PopMany(wfIDs)
+	return nil
+}
+
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
 // workflow engine is not running.
 func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {

@@ -120,6 +120,25 @@ func (r *EngineRegistry) Pop(workflowID types.WorkflowID) (ServiceWithMetadata, 
 	}, nil
 }
 
+// PopMany removes the specified engines from the registry in a single lock acquisition.
+func (r *EngineRegistry) PopMany(workflowIDs []types.WorkflowID) []ServiceWithMetadata {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var result []ServiceWithMetadata
+	for _, id := range workflowIDs {
+		entry, ok := r.engines[id]
+		if ok {
+			result = append(result, ServiceWithMetadata{
+				WorkflowID: id,
+				Source:     entry.source,
+				Service:    entry.engine,
+			})
+			delete(r.engines, id)
+		}
+	}
+	return result
+}
+
 // PopAll removes and returns all engines.
 func (r *EngineRegistry) PopAll() []ServiceWithMetadata {
 	r.mu.Lock()

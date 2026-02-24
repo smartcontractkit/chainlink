@@ -48,6 +48,21 @@ func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	return nil
 }
 
+func (m *testEvtHandler) HandleDeleteBatch(_ context.Context, payloads []WorkflowDeletedEvent) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	for _, p := range payloads {
+		m.events = append(m.events, Event{
+			Name: WorkflowDeleted,
+			Data: p,
+		})
+	}
+	if m.errFn != nil {
+		return m.errFn()
+	}
+	return nil
+}
+
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()
 	defer m.mux.Unlock()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -1393,6 +1394,94 @@ func Test_isZeroOwner(t *testing.T) {
 		almostZero[0] = 1 // first byte is 1
 		require.False(t, isZeroOwner(almostZero))
 	})
+}
+
+type batchTrackingHandler struct {
+	testEvtHandler
+	batchPayloads []WorkflowDeletedEvent
+	mux           sync.Mutex
+}
+
+func (h *batchTrackingHandler) HandleDeleteBatch(_ context.Context, payloads []WorkflowDeletedEvent) error {
+	h.mux.Lock()
+	defer h.mux.Unlock()
+	h.batchPayloads = append(h.batchPayloads, payloads...)
+	return nil
+}
+
+func (h *batchTrackingHandler) GetBatchPayloads() []WorkflowDeletedEvent {
+	h.mux.Lock()
+	defer h.mux.Unlock()
+	out := make([]WorkflowDeletedEvent, len(h.batchPayloads))
+	copy(out, h.batchPayloads)
+	return out
+}
+
+func Test_ReconciliationBatchDeletes(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+	workflowDonNotifier := capabilities.NewDonNotifier()
+	er := NewEngineRegistry()
+
+	n := 5
+	wfIDs := make([]wfTypes.WorkflowID, n)
+	for i := range wfIDs {
+		wfIDs[i] = wfTypes.WorkflowID([32]byte{byte(i + 1)})
+		require.NoError(t, er.Add(wfIDs[i], "TestSource", &mockService{}))
+	}
+
+	handler := &batchTrackingHandler{
+		testEvtHandler: testEvtHandler{events: make([]Event, 0)},
+	}
+
+	wr, err := NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		},
+		"",
+		"test-chain-selector",
+		Config{
+			QueryCount:   20,
+			SyncStrategy: SyncStrategyReconciliation,
+		},
+		handler,
+		workflowDonNotifier,
+		er,
+	)
+	require.NoError(t, err)
+
+	pendingEvents := map[string]*reconciliationEvent{}
+	events, err := wr.generateReconciliationEvents(ctx, pendingEvents, []WorkflowMetadataView{}, &types.Head{Height: "123"}, "TestSource")
+	require.NoError(t, err)
+	require.Len(t, events, n)
+
+	for _, event := range events {
+		require.Equal(t, WorkflowDeleted, event.Name)
+	}
+
+	// Simulate the reconciliation loop's partitioning and batch dispatch
+	var batchDeletePayloads []WorkflowDeletedEvent
+	for _, event := range events {
+		if d, ok := event.Data.(WorkflowDeletedEvent); ok {
+			batchDeletePayloads = append(batchDeletePayloads, d)
+		}
+	}
+	require.Len(t, batchDeletePayloads, n)
+
+	err = handler.HandleDeleteBatch(ctx, batchDeletePayloads)
+	require.NoError(t, err)
+
+	got := handler.GetBatchPayloads()
+	require.Len(t, got, n)
+
+	gotIDs := make(map[wfTypes.WorkflowID]bool)
+	for _, p := range got {
+		gotIDs[p.WorkflowID] = true
+	}
+	for _, id := range wfIDs {
+		require.True(t, gotIDs[id], "expected workflow %x in batch delete payloads", id)
+	}
 }
 
 type mockShardMappingClient struct {
