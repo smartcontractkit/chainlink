@@ -89,7 +89,7 @@ jobs:
           --testcmd "cl test ocr2 TestSmoke/rounds" \
           --include-refs +test \
           --nodes 3 \
-          --versions_back 3
+          --versions-back 2
 
       - name: Upload Logs
         if: always()
