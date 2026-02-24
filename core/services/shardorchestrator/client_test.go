@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 )
 
 const bufSize = 1024 * 1024
@@ -208,4 +209,40 @@ func TestNewClient(t *testing.T) {
 		assert.NotNil(t, client.client)
 		assert.NotNil(t, client.logger)
 	})
+}
+
+func TestLocalClient_GetWorkflowShardMapping(t *testing.T) {
+	ctx := context.Background()
+	lggr := logger.Test(t)
+	ringStore := ring.NewStore()
+	ringStore.SetShardForWorkflow("wf-a", 1)
+	ringStore.SetShardForWorkflow("wf-b", 2)
+	server := NewServer(ringStore, lggr)
+	client := NewLocalClient(server, lggr)
+
+	resp, err := client.GetWorkflowShardMapping(ctx, []string{"wf-a", "wf-b"})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, uint32(1), resp.Mappings["wf-a"])
+	assert.Equal(t, uint32(2), resp.Mappings["wf-b"])
+	assert.NoError(t, client.Close())
+}
+
+func TestLocalClient_ReportWorkflowTriggerRegistration(t *testing.T) {
+	ctx := context.Background()
+	lggr := logger.Test(t)
+	ringStore := ring.NewStore()
+	server := NewServer(ringStore, lggr)
+	client := NewLocalClient(server, lggr)
+
+	req := &ringpb.ReportWorkflowTriggerRegistrationRequest{
+		SourceShardId:        1,
+		RegisteredWorkflows:  map[string]uint32{"wf-1": 0, "wf-2": 0},
+		TotalActiveWorkflows: 2,
+	}
+	resp, err := client.ReportWorkflowTriggerRegistration(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.True(t, resp.Success)
+	assert.NoError(t, client.Close())
 }

@@ -561,12 +561,20 @@ jobs:
       - name: Ensure clean after generate
         run: |
           git add --all
-          git diff --stat --cached --exit-code
+          if ! git diff --cached --quiet; then
+            echo "::error::Tree is dirty after 'make generate'. Full diff below:"
+            git diff --cached
+            exit 1
+          fi
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: |
           git add --all
-          git diff --minimal --cached --exit-code
+          if ! git diff --cached --quiet; then
+            echo "::error::Tree is dirty after 'make gomodtidy'. Full diff below:"
+            git diff --cached
+            exit 1
+          fi
 
   run-frequency:
     name: Run frequency

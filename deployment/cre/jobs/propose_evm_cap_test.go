@@ -348,6 +348,7 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 
 	// Explicit per-node override on first node (should be preserved).
 	input.EVMCapabilityInputs[0].OverrideDefaultCfg.ForwarderLookbackBlocks = overrideCustom
+	input.EVMCapabilityInputs[0].OverrideDefaultCfg.DeltaStage = 5 * time.Second
 
 	// Verify should pass
 	require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(*env, input))
@@ -360,7 +361,9 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
 	count999 := strings.Count(outputStr, `"forwarderLookbackBlocks":999`)
 	count123 := strings.Count(outputStr, `"forwarderLookbackBlocks":123`)
+	countDeltaStage := strings.Count(outputStr, `"deltaStage":5000000000`)
 	assert.Equal(t, 1, count999, "expected exactly one override lookbackBlocks=999")
+	assert.Equal(t, 1, countDeltaStage, "expected exactly one override deltaStage=5s")
 	assert.Equal(t, 3, count123, "expected exactly three defaulted lookbackBlocks=123")
 }
 

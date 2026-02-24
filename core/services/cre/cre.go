@@ -89,6 +89,8 @@ type Opts struct {
 
 	WorkflowKey  workflowkey.Key
 	JWTGenerator nodeauthjwt.JWTGenerator
+
+	ShardOrchestratorClient shardorchestrator.ClientInterface
 }
 
 // Services contains all CRE-related services
@@ -906,9 +908,16 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, errors.New("failed to instantiate contract reader factory")
 	}
 
-	shardOrchestratorClient, err := newShardOrchestratorClient(cfg, lggr)
-	if err != nil {
-		return nil, nil, err
+	var shardOrchestratorClient shardorchestrator.ClientInterface
+	if opts.ShardOrchestratorClient != nil {
+		shardOrchestratorClient = opts.ShardOrchestratorClient
+	} else {
+		var c shardorchestrator.ClientInterface
+		c, err = newShardOrchestratorClient(cfg, lggr)
+		if err != nil {
+			return nil, nil, err
+		}
+		shardOrchestratorClient = c
 	}
 
 	addSources := capCfg.WorkflowRegistry().AdditionalSources()
@@ -924,6 +933,17 @@ func newWorkflowRegistrySyncerV2(
 		}
 	}
 
+	registryOpts := []syncerV2.Option{
+		syncerV2.WithAdditionalSources(addSourceConfigs),
+		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
+	}
+	if cfg.Sharding().ShardingEnabled() {
+		registryOpts = append(registryOpts,
+			syncerV2.WithShardEnabled(true),
+			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
+		)
+	}
+
 	workflowRegistrySyncerV2, err := syncerV2.NewWorkflowRegistry(
 		lggr,
 		crFactory,
@@ -936,8 +956,7 @@ func newWorkflowRegistrySyncerV2(
 		eventHandler,
 		workflowDonNotifier,
 		engineRegistry,
-		syncerV2.WithAdditionalSources(addSourceConfigs),
-		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
+		registryOpts...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)

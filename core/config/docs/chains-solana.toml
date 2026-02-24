@@ -58,6 +58,8 @@ ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 # LogPollerStartingLookback
 LogPollerStartingLookback = '24h0m0s' # Default
+# LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
+LogPollerCPIEventsEnabled = true # Default
 
 [Solana.Workflow]
 # AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain

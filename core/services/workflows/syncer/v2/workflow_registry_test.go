@@ -18,9 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -1391,4 +1393,55 @@ func Test_isZeroOwner(t *testing.T) {
 		almostZero[0] = 1 // first byte is 1
 		require.False(t, isZeroOwner(almostZero))
 	})
+}
+
+type mockShardMappingClient struct {
+	mappings map[string]uint32
+}
+
+func (m *mockShardMappingClient) GetWorkflowShardMapping(_ context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
+	out := make(map[string]uint32)
+	for _, id := range workflowIDs {
+		if shard, ok := m.mappings[id]; ok {
+			out[id] = shard
+		}
+	}
+	return &ringpb.GetWorkflowShardMappingResponse{Mappings: out, MappingVersion: 1}, nil
+}
+
+func (m *mockShardMappingClient) ReportWorkflowTriggerRegistration(context.Context, *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{Success: true}, nil
+}
+
+func (m *mockShardMappingClient) Close() error { return nil }
+
+var _ shardorchestrator.ClientInterface = (*mockShardMappingClient)(nil)
+
+func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
+	ctx := testutils.Context(t)
+	wf1 := wfTypes.WorkflowID([32]byte{1})
+	wf2 := wfTypes.WorkflowID([32]byte{2})
+	wf3 := wfTypes.WorkflowID([32]byte{3})
+	workflows := []WorkflowMetadataView{
+		{WorkflowID: wf1, WorkflowName: "wf1"},
+		{WorkflowID: wf2, WorkflowName: "wf2"},
+		{WorkflowID: wf3, WorkflowName: "wf3"},
+	}
+
+	client := &mockShardMappingClient{
+		mappings: map[string]uint32{
+			wf1.Hex(): 0,
+			wf2.Hex(): 1,
+		},
+	}
+	wr := &workflowRegistry{
+		shardOrchestratorClient: client,
+		myShardID:               1,
+		shardingEnabled:         true,
+	}
+
+	filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+	require.NoError(t, err)
+	require.Len(t, filtered, 1)
+	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
 }

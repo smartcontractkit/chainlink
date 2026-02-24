@@ -189,6 +189,31 @@ func TestStore_GetShardForWorkflow_CacheHit(t *testing.T) {
 	require.Equal(t, uint32(2), shard)
 }
 
+func TestStore_GetShardForWorkflow_NoHealthyShards(t *testing.T) {
+	store := NewStore()
+	store.SetAllShardHealth(map[uint32]bool{})
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 0},
+	})
+	_, err := store.GetShardForWorkflow(context.Background(), "workflow-1")
+	require.ErrorIs(t, err, ErrNoHealthyShards)
+}
+
+func TestStore_GetShardForWorkflow_TransitionTimeoutFallback(t *testing.T) {
+	store := NewStore()
+	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true})
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_Transition{
+			Transition: &ringpb.Transition{WantShards: 2},
+		},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	shard, err := store.GetShardForWorkflow(ctx, "workflow-x")
+	require.NoError(t, err)
+	require.Contains(t, []uint32{0, 1}, shard)
+}
+
 func TestStore_GetShardForWorkflow_ContextCancelledDuringSend(t *testing.T) {
 	store := NewStore()
 
@@ -311,4 +336,61 @@ func TestStore_AccessorMethods(t *testing.T) {
 		store.SetRoutingState(nil)
 		require.True(t, store.IsInTransition())
 	})
+}
+
+func TestStore_RegisterWorkflowsFromShard(t *testing.T) {
+	store := NewStore()
+
+	store.RegisterWorkflowsFromShard(1, []string{"wf-a", "wf-b"})
+
+	routes := store.GetAllRoutingState()
+	require.Len(t, routes, 2)
+	require.Equal(t, uint32(1), routes["wf-a"])
+	require.Equal(t, uint32(1), routes["wf-b"])
+
+	require.Equal(t, uint64(1), store.GetMappingVersion())
+
+	store.RegisterWorkflowsFromShard(2, []string{"wf-c"})
+	routes = store.GetAllRoutingState()
+	require.Len(t, routes, 3)
+	require.Equal(t, uint32(2), routes["wf-c"])
+
+	store.RegisterWorkflowsFromShard(1, []string{"wf-a"})
+	routes = store.GetAllRoutingState()
+	require.Equal(t, uint32(1), routes["wf-a"])
+}
+
+func TestStore_GetWorkflowMappingsBatch(t *testing.T) {
+	store := NewStore()
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
+	})
+
+	store.SetShardForWorkflow("wf-1", 0)
+	store.SetShardForWorkflow("wf-2", 1)
+
+	mappings, version := store.GetWorkflowMappingsBatch([]string{"wf-1", "wf-2", "wf-nonexistent"})
+	require.Len(t, mappings, 2)
+	require.Equal(t, uint32(0), mappings["wf-1"].NewShardID)
+	require.Equal(t, uint32(1), mappings["wf-2"].NewShardID)
+	require.NotContains(t, mappings, "wf-nonexistent")
+	require.Equal(t, uint64(2), version)
+}
+
+func TestStore_SubmitWorkflowsForAllocation(t *testing.T) {
+	store := NewStore()
+
+	store.SubmitWorkflowsForAllocation([]string{"wf-new-1", "wf-new-2"})
+
+	pending := store.GetPendingAllocations()
+	require.Len(t, pending, 2)
+	require.Contains(t, pending, "wf-new-1")
+	require.Contains(t, pending, "wf-new-2")
+
+	store.SetShardForWorkflow("wf-existing", 0)
+	store.SubmitWorkflowsForAllocation([]string{"wf-existing", "wf-new-3"})
+
+	pending = store.GetPendingAllocations()
+	require.Len(t, pending, 1)
+	require.Contains(t, pending, "wf-new-3")
 }

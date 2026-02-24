@@ -3,26 +3,26 @@ package shardorchestrator
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 )
 
 // Server implements the gRPC ShardOrchestratorService
 // This runs on shard zero and serves requests from other shards
 type Server struct {
 	ringpb.UnimplementedShardOrchestratorServiceServer
-	store  *Store
-	logger logger.Logger
+	ringStore *ring.Store
+	logger    logger.Logger
 }
 
-func NewServer(store *Store, lggr logger.Logger) *Server {
+func NewServer(ringStore *ring.Store, lggr logger.Logger) *Server {
 	return &Server{
-		store:  store,
-		logger: logger.Named(lggr, "ShardOrchestratorServer"),
+		ringStore: ringStore,
+		logger:    logger.Named(lggr, "ShardOrchestratorServer"),
 	}
 }
 
@@ -34,34 +34,39 @@ func (s *Server) RegisterWithGRPCServer(grpcServer *grpc.Server) {
 
 // GetWorkflowShardMapping handles batch requests for workflow-to-shard mappings
 // This is called by other shards to determine where to route workflow executions
-func (s *Server) GetWorkflowShardMapping(ctx context.Context, req *ringpb.GetWorkflowShardMappingRequest) (*ringpb.GetWorkflowShardMappingResponse, error) {
+func (s *Server) GetWorkflowShardMapping(_ context.Context, req *ringpb.GetWorkflowShardMappingRequest) (*ringpb.GetWorkflowShardMappingResponse, error) {
 	s.logger.Debugw("GetWorkflowShardMapping called", "workflowCount", len(req.WorkflowIds))
 
 	if len(req.WorkflowIds) == 0 {
 		return nil, errors.New("workflow_ids is required and must not be empty")
 	}
 
-	// Retrieve batch from store
-	mappings, version, err := s.store.GetWorkflowMappingsBatch(ctx, req.WorkflowIds)
-	if err != nil {
-		s.logger.Errorw("Failed to get workflow mappings", "error", err)
-		return nil, fmt.Errorf("failed to get workflow mappings: %w", err)
+	mappings, version := s.ringStore.GetWorkflowMappingsBatch(req.WorkflowIds)
+
+	var missing []string
+	for _, wfID := range req.WorkflowIds {
+		if _, exists := mappings[wfID]; !exists {
+			missing = append(missing, wfID)
+		}
 	}
 
-	// Build simple mappings map (workflow_id -> shard_id)
+	if len(missing) > 0 {
+		dropped := s.ringStore.SubmitWorkflowsForAllocation(missing)
+		s.logger.Debugw("Submitted missing workflows for allocation", "count", len(missing))
+		if dropped > 0 {
+			s.logger.Warnw("Allocation request channel full, workflows dropped after retries", "dropped", dropped)
+		}
+	}
+
 	simpleMappings := make(map[string]uint32, len(mappings))
-	// Build detailed mapping states
 	mappingStates := make(map[string]*ringpb.WorkflowMappingState, len(mappings))
 
-	for workflowID, mapping := range mappings {
-		// Simple mapping: just the current shard
-		simpleMappings[workflowID] = mapping.NewShardID
-
-		// Detailed state: includes transition information
+	for workflowID, meta := range mappings {
+		simpleMappings[workflowID] = meta.NewShardID
 		mappingStates[workflowID] = &ringpb.WorkflowMappingState{
-			OldShardId:   mapping.OldShardID,
-			NewShardId:   mapping.NewShardID,
-			InTransition: mapping.TransitionState.InTransition(),
+			OldShardId:   meta.OldShardID,
+			NewShardId:   meta.NewShardID,
+			InTransition: meta.InTransition,
 		}
 	}
 
@@ -74,29 +79,19 @@ func (s *Server) GetWorkflowShardMapping(ctx context.Context, req *ringpb.GetWor
 
 // ReportWorkflowTriggerRegistration handles shard registration reports
 // Shards call this to inform shard zero about which workflows they have loaded
-func (s *Server) ReportWorkflowTriggerRegistration(ctx context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+func (s *Server) ReportWorkflowTriggerRegistration(_ context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
 	s.logger.Debugw("ReportWorkflowTriggerRegistration called",
 		"shardID", req.SourceShardId,
 		"workflowCount", len(req.RegisteredWorkflows),
 		"totalActive", req.TotalActiveWorkflows,
 	)
 
-	// Extract workflow IDs from the map
 	workflowIDs := make([]string, 0, len(req.RegisteredWorkflows))
 	for workflowID := range req.RegisteredWorkflows {
 		workflowIDs = append(workflowIDs, workflowID)
 	}
 
-	err := s.store.ReportShardRegistration(ctx, req.SourceShardId, workflowIDs)
-	if err != nil {
-		s.logger.Errorw("Failed to update shard registrations",
-			"shardID", req.SourceShardId,
-			"error", err,
-		)
-		return &ringpb.ReportWorkflowTriggerRegistrationResponse{
-			Success: false,
-		}, nil
-	}
+	s.ringStore.RegisterWorkflowsFromShard(req.SourceShardId, workflowIDs)
 
 	s.logger.Infow("Successfully registered workflows",
 		"shardID", req.SourceShardId,
