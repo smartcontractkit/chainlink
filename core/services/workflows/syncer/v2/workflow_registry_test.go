@@ -12,14 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func Test_generateReconciliationEventsV2(t *testing.T) {
@@ -778,6 +783,19 @@ func Test_Start(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		mockReader := &mockContractReader{startErr: nil}
 		er := NewEngineRegistry()
+		lf := limits.Factory{Logger: lggr}
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		h := &eventHandler{
+			engineRegistry: &EngineRegistry{},
+			engineLimiters: limiters,
+		}
+		svc, eng := services.Config{
+			Name:  "EventHandler",
+			Close: h.close,
+		}.NewServiceEngine(lggr)
+		h.Service = svc
+		h.eng = eng
 		wr, err := NewWorkflowRegistry(
 			lggr,
 			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
@@ -789,9 +807,7 @@ func Test_Start(t *testing.T) {
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
 			},
-			&eventHandler{
-				engineRegistry: &EngineRegistry{},
-			},
+			h,
 			workflowDonNotifier,
 			er,
 		)
@@ -1340,4 +1356,92 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.Equal(t, WorkflowDeleted, grpcEvents[0].Name)
 		require.Equal(t, wfTypes.WorkflowID(wfIDGrpc2), grpcEvents[0].Data.(WorkflowDeletedEvent).WorkflowID)
 	})
+}
+
+func Test_isZeroOwner(t *testing.T) {
+	t.Run("returns true for nil slice", func(t *testing.T) {
+		require.True(t, isZeroOwner(nil))
+	})
+
+	t.Run("returns true for empty slice", func(t *testing.T) {
+		require.True(t, isZeroOwner([]byte{}))
+	})
+
+	t.Run("returns true for all zeros (20 bytes - Ethereum address)", func(t *testing.T) {
+		zeroAddress := make([]byte, 20)
+		require.True(t, isZeroOwner(zeroAddress))
+	})
+
+	t.Run("returns true for all zeros (arbitrary length)", func(t *testing.T) {
+		zeros := make([]byte, 32)
+		require.True(t, isZeroOwner(zeros))
+	})
+
+	t.Run("returns false for valid owner address", func(t *testing.T) {
+		validOwner, _ := hex.DecodeString("1234567890123456789012345678901234567890")
+		require.False(t, isZeroOwner(validOwner))
+	})
+
+	t.Run("returns false for address with single non-zero byte", func(t *testing.T) {
+		almostZero := make([]byte, 20)
+		almostZero[19] = 1 // last byte is 1
+		require.False(t, isZeroOwner(almostZero))
+	})
+
+	t.Run("returns false for address with non-zero first byte", func(t *testing.T) {
+		almostZero := make([]byte, 20)
+		almostZero[0] = 1 // first byte is 1
+		require.False(t, isZeroOwner(almostZero))
+	})
+}
+
+type mockShardMappingClient struct {
+	mappings map[string]uint32
+}
+
+func (m *mockShardMappingClient) GetWorkflowShardMapping(_ context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
+	out := make(map[string]uint32)
+	for _, id := range workflowIDs {
+		if shard, ok := m.mappings[id]; ok {
+			out[id] = shard
+		}
+	}
+	return &ringpb.GetWorkflowShardMappingResponse{Mappings: out, MappingVersion: 1}, nil
+}
+
+func (m *mockShardMappingClient) ReportWorkflowTriggerRegistration(context.Context, *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{Success: true}, nil
+}
+
+func (m *mockShardMappingClient) Close() error { return nil }
+
+var _ shardorchestrator.ClientInterface = (*mockShardMappingClient)(nil)
+
+func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
+	ctx := testutils.Context(t)
+	wf1 := wfTypes.WorkflowID([32]byte{1})
+	wf2 := wfTypes.WorkflowID([32]byte{2})
+	wf3 := wfTypes.WorkflowID([32]byte{3})
+	workflows := []WorkflowMetadataView{
+		{WorkflowID: wf1, WorkflowName: "wf1"},
+		{WorkflowID: wf2, WorkflowName: "wf2"},
+		{WorkflowID: wf3, WorkflowName: "wf3"},
+	}
+
+	client := &mockShardMappingClient{
+		mappings: map[string]uint32{
+			wf1.Hex(): 0,
+			wf2.Hex(): 1,
+		},
+	}
+	wr := &workflowRegistry{
+		shardOrchestratorClient: client,
+		myShardID:               1,
+		shardingEnabled:         true,
+	}
+
+	filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+	require.NoError(t, err)
+	require.Len(t, filtered, 1)
+	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
 }

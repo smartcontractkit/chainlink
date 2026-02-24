@@ -48,9 +48,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
+	ocr3_1beholderwrapper "github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -72,7 +74,7 @@ var (
 )
 
 func metricViews() []sdkmetric.View {
-	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews())
+	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews(), ocr3_1beholderwrapper.MetricViews())
 }
 
 func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
@@ -235,7 +237,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
-	creOpts := chainlink.CREOpts{
+	creOpts := cre.Opts{
 		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
@@ -245,7 +247,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 	}
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts:                  creOpts,
+		Opts:                     creOpts,
 		Config:                   cfg,
 		DS:                       ds,
 		KeyStore:                 keyStore,

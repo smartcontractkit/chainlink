@@ -1,6 +1,8 @@
 package arbiter
 
 import (
+	"slices"
+	"strconv"
 	"sync"
 )
 
@@ -53,6 +55,8 @@ func (s *State) GetConsensusWantShards() int {
 // GetRoutableShards returns the count and status of shards ready for routing.
 // This is used by Ring OCR to determine which shards can receive traffic.
 // Only shards with Status == READY are counted as routable.
+// Replica keys are iterated in sorted order so that shard IDs are deterministic
+// and match the client's shard indices (e.g. from GetDesiredReplicas).
 func (s *State) GetRoutableShards() RoutableShardsInfo {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -60,17 +64,28 @@ func (s *State) GetRoutableShards() RoutableShardsInfo {
 	readyCount := 0
 	shardInfo := make(map[uint32]ShardHealth)
 
-	// Iterate through current replicas and count READY ones
-	shardID := uint32(0)
-	for _, replica := range s.currentReplicas {
+	// Sort keys so shard ID assignment is deterministic and matches caller's shard indices.
+	// Callers (e.g. test env) send status with keys 0, 1, 2...; we must preserve that mapping.
+	keys := make([]string, 0, len(s.currentReplicas))
+	for k := range s.currentReplicas {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	for i, key := range keys {
+		replica := s.currentReplicas[key]
 		isHealthy := replica.Status == StatusReady
+		shardID := uint32(i) //nolint:gosec // G115: range index i is non-negative; shard count is small
+		// If key is numeric, use it as shard ID so Ring's shard 0/1 matches topology's ShardIndex 0/1.
+		if id, err := strconv.ParseUint(key, 10, 32); err == nil {
+			shardID = uint32(id)
+		}
 		shardInfo[shardID] = ShardHealth{
 			IsHealthy: isHealthy,
 		}
 		if isHealthy {
 			readyCount++
 		}
-		shardID++
 	}
 
 	return RoutableShardsInfo{

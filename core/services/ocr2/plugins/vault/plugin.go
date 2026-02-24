@@ -43,11 +43,6 @@ import (
 )
 
 const (
-	defaultMaxCiphertextLengthBytes          = 2 * 1024 // 2KB
-	defaultMaxIdentifierKeyLengthBytes       = 64
-	defaultMaxIdentifierOwnerLengthBytes     = 64
-	defaultMaxIdentifierNamespaceLengthBytes = 64
-
 	// The query is empty in this plugin.
 	defaultLimitsMaxQueryLength = 100
 
@@ -91,8 +86,6 @@ type ReportingPluginConfig struct {
 	// the limiter.
 	BatchSize    settings.Setting[int]
 	MaxBatchSize limits.BoundLimiter[int]
-
-	EnableDeterministicPendingQueue bool
 }
 
 func NewReportingPluginFactory(
@@ -291,7 +284,6 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"maxIdentifierOwnerLengthBytes", logLimit(ctx, r.lggr, maxIdentifierOwnerLengthBytesLimiter),
 		"maxIdentifierNamespaceLengthBytes", logLimit(ctx, r.lggr, maxIdentifierNamespaceLengthBytesLimiter),
 		"batchSize", logLimit(ctx, r.lggr, maxBatchSizeLimiter),
-		"enableDeterministicPendingQueue", configProto.EnableDeterministicPendingQueue,
 	)
 
 	cfg := &ReportingPluginConfig{
@@ -304,7 +296,6 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
 		BatchSize:                         batchSize,
 		MaxBatchSize:                      maxBatchSizeLimiter,
-		EnableDeterministicPendingQueue:   configProto.EnableDeterministicPendingQueue,
 	}
 
 	metrics, err := newPluginMetrics(config.ConfigDigest.String())
@@ -361,34 +352,6 @@ func (r *ReportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueReade
 	return types.Query{}, nil
 }
 
-func (r *ReportingPlugin) getPendingRequests(store *KVStore) ([]*vaultcommon.StoredPendingQueueItem, error) {
-	if r.cfg.EnableDeterministicPendingQueue {
-		return store.GetPendingQueue()
-	}
-
-	// Note: this could mean that we end up processing more than `batchSize` requests
-	// in the aggregate, since all nodes will fetch `batchSize` requests and they aren't
-	// guaranteed to fetch the same requests.
-	items, err := r.store.FirstN(r.cfg.BatchSize.DefaultValue)
-	if err != nil {
-		return nil, err
-	}
-
-	pendingQueue := make([]*vaultcommon.StoredPendingQueueItem, 0, len(items))
-	for _, i := range items {
-		anyMsg, err := anypb.New(i.Payload)
-		if err != nil {
-			return nil, fmt.Errorf("could not marshal request payload to Any: %w", err)
-		}
-		pendingQueue = append(pendingQueue, &vaultcommon.StoredPendingQueueItem{
-			Id:   i.ID(),
-			Item: anyMsg,
-		})
-	}
-
-	return pendingQueue, nil
-}
-
 func generateRandomNonce() ([]byte, error) {
 	nonceBytes := make([]byte, 32)
 	_, err := rand.Read(nonceBytes)
@@ -402,7 +365,7 @@ func generateRandomNonce() ([]byte, error) {
 func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
 	readStore := NewReadStore(keyValueReader)
 
-	batch, err := r.getPendingRequests(readStore)
+	batch, err := readStore.GetPendingQueue()
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 	}
@@ -448,97 +411,95 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		Observations: obs,
 	}
 
-	if r.cfg.EnableDeterministicPendingQueue {
-		// First, observe the pending queue that I have.
-		// This will get aggregated in the state transition phase
-		// to form the DON wide pending queue.
-		localQueueItems, ierr := r.store.All()
-		if ierr != nil {
-			return nil, ierr
-		}
-
-		// Sort the local queue by ID as we may have to limit its contents
-		// later on and we want to maximize the possibility of overlap among
-		// honest nodes.
-		slices.SortFunc(localQueueItems, func(a, b *vaulttypes.Request) int {
-			switch {
-			case a.ID() < b.ID():
-				return -1
-			case a.ID() > b.ID():
-				return 1
-			default:
-				return 0
-			}
-		})
-
-		// Next, get the current pending queue. We'll use this to dedupe
-		// requests when generating an observation for the next state of the
-		// pending queue.
-		pendingQueue, ierr := readStore.GetPendingQueue()
-		if ierr != nil {
-			return nil, ierr
-		}
-
-		pendingQueueHasID := map[string]bool{}
-		for _, item := range pendingQueue {
-			pendingQueueHasID[item.Id] = true
-		}
-
-		observedLocalQueue := make([][]byte, 0, len(localQueueItems))
-		for _, item := range localQueueItems {
-			// The item is already in the pending queue. We'll be processing it
-			// this round. Let's skip it for now so we don't process duplicates.
-			if pendingQueueHasID[item.ID()] {
-				continue
-			}
-
-			anyMsg, ierr2 := anypb.New(item.Payload)
-			if ierr2 != nil {
-				return nil, fmt.Errorf("could not marshal request payload to Any: %w", ierr2)
-			}
-
-			item := &vaultcommon.StoredPendingQueueItem{
-				Id:   item.ID(),
-				Item: anyMsg,
-			}
-
-			itemb, ierr2 := proto.Marshal(item)
-			if ierr2 != nil {
-				return nil, fmt.Errorf("could not marshal pending queue item: %w", ierr2)
-			}
-
-			blobHandle, ierr2 := blobBroadcastFetcher.BroadcastBlob(ctx, itemb, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
-			if ierr2 != nil {
-				return nil, fmt.Errorf("could not broadcast pending queue item as blob: %w", ierr2)
-			}
-
-			blobHandleBytes, ierr2 := r.marshalBlob(blobHandle)
-			if ierr2 != nil {
-				return nil, fmt.Errorf("could not marshal blob handle to bytes: %w", ierr2)
-			}
-
-			observedLocalQueue = append(observedLocalQueue, blobHandleBytes)
-
-			if len(observedLocalQueue) > 2*r.cfg.BatchSize.DefaultValue {
-				r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
-					"queueSize", len(observedLocalQueue),
-					"batchSizeLimit", 2*r.cfg.BatchSize.DefaultValue)
-				r.metrics.trackQueueOverflow(ctx, len(observedLocalQueue), r.cfg.BatchSize.DefaultValue)
-				break
-			}
-		}
-
-		obspb.PendingQueueItems = observedLocalQueue
-
-		// Second, generate a random nonce that we'll use to sort the observations.
-		// Each node generates a nonce idepedently, to be concatenated later on.
-		nonce, ierr := generateRandomNonce()
-		if ierr != nil {
-			return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
-		}
-
-		obspb.SortNonce = nonce
+	// First, observe the pending queue that I have.
+	// This will get aggregated in the state transition phase
+	// to form the DON wide pending queue.
+	localQueueItems, ierr := r.store.All()
+	if ierr != nil {
+		return nil, ierr
 	}
+
+	// Sort the local queue by ID as we may have to limit its contents
+	// later on and we want to maximize the possibility of overlap among
+	// honest nodes.
+	slices.SortFunc(localQueueItems, func(a, b *vaulttypes.Request) int {
+		switch {
+		case a.ID() < b.ID():
+			return -1
+		case a.ID() > b.ID():
+			return 1
+		default:
+			return 0
+		}
+	})
+
+	// Next, get the current pending queue. We'll use this to dedupe
+	// requests when generating an observation for the next state of the
+	// pending queue.
+	pendingQueue, ierr := readStore.GetPendingQueue()
+	if ierr != nil {
+		return nil, ierr
+	}
+
+	pendingQueueHasID := map[string]bool{}
+	for _, item := range pendingQueue {
+		pendingQueueHasID[item.Id] = true
+	}
+
+	observedLocalQueue := make([][]byte, 0, len(localQueueItems))
+	for _, item := range localQueueItems {
+		// The item is already in the pending queue. We'll be processing it
+		// this round. Let's skip it for now so we don't process duplicates.
+		if pendingQueueHasID[item.ID()] {
+			continue
+		}
+
+		anyMsg, ierr2 := anypb.New(item.Payload)
+		if ierr2 != nil {
+			return nil, fmt.Errorf("could not marshal request payload to Any: %w", ierr2)
+		}
+
+		item := &vaultcommon.StoredPendingQueueItem{
+			Id:   item.ID(),
+			Item: anyMsg,
+		}
+
+		itemb, ierr2 := proto.Marshal(item)
+		if ierr2 != nil {
+			return nil, fmt.Errorf("could not marshal pending queue item: %w", ierr2)
+		}
+
+		blobHandle, ierr2 := blobBroadcastFetcher.BroadcastBlob(ctx, itemb, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
+		if ierr2 != nil {
+			return nil, fmt.Errorf("could not broadcast pending queue item as blob: %w", ierr2)
+		}
+
+		blobHandleBytes, ierr2 := r.marshalBlob(blobHandle)
+		if ierr2 != nil {
+			return nil, fmt.Errorf("could not marshal blob handle to bytes: %w", ierr2)
+		}
+
+		observedLocalQueue = append(observedLocalQueue, blobHandleBytes)
+
+		if len(observedLocalQueue) > 2*r.cfg.BatchSize.DefaultValue {
+			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
+				"queueSize", len(observedLocalQueue),
+				"batchSizeLimit", 2*r.cfg.BatchSize.DefaultValue)
+			r.metrics.trackQueueOverflow(ctx, len(observedLocalQueue), r.cfg.BatchSize.DefaultValue)
+			break
+		}
+	}
+
+	obspb.PendingQueueItems = observedLocalQueue
+
+	// Second, generate a random nonce that we'll use to sort the observations.
+	// Each node generates a nonce idepedently, to be concatenated later on.
+	nonce, ierr := generateRandomNonce()
+	if ierr != nil {
+		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
+	}
+
+	obspb.SortNonce = nonce
 
 	obsb, err := proto.MarshalOptions{Deterministic: true}.Marshal(obspb)
 	if err != nil {
@@ -1051,41 +1012,38 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		idToObs[o.Id] = o
 	}
 
-	// If v2 is enabled, we expect
+	// We expect
 	// - an observation for each item in the pending queue.
 	//   This is because honest nodes will all be reading from
 	//   the same deterministic key-value store-based queue.
 	// - that all pending queue items can be fetched as blobs.
-	if r.cfg.EnableDeterministicPendingQueue {
-		store := NewReadStore(keyValueReader)
-		pendingQueueItems, err := store.GetPendingQueue()
+	store := NewReadStore(keyValueReader)
+	pendingQueueItems, err := store.GetPendingQueue()
+	if err != nil {
+		return fmt.Errorf("could not fetch pending queue from store: %w", err)
+	}
+
+	if len(idToObs) != len(pendingQueueItems) {
+		return errors.New("invalid observation: number of observations doesn't match number of pending requests")
+	}
+
+	for _, i := range pendingQueueItems {
+		_, seen := idToObs[i.Id]
+		if !seen {
+			return fmt.Errorf("invalid observation: missing observation for pending request id %s", i.Id)
+		}
+	}
+
+	for _, i := range obs.PendingQueueItems {
+		bh, err := r.unmarshalBlob(i)
 		if err != nil {
-			return fmt.Errorf("could not fetch pending queue from store: %w", err)
+			return fmt.Errorf("could not unmarshal blob handle from observation pending queue item: %w", err)
 		}
 
-		if len(idToObs) != len(pendingQueueItems) {
-			return errors.New("invalid observation: number of observations doesn't match number of pending requests")
+		_, err = blobFetcher.FetchBlob(ctx, bh)
+		if err != nil {
+			return fmt.Errorf("could not fetch blob for observation pending queue item: %w", err)
 		}
-
-		for _, i := range pendingQueueItems {
-			_, seen := idToObs[i.Id]
-			if !seen {
-				return fmt.Errorf("invalid observation: missing observation for pending request id %s", i.Id)
-			}
-		}
-
-		for _, i := range obs.PendingQueueItems {
-			bh, err := r.unmarshalBlob(i)
-			if err != nil {
-				return fmt.Errorf("could not unmarshal blob handle from observation pending queue item: %w", err)
-			}
-
-			_, err = blobFetcher.FetchBlob(ctx, bh)
-			if err != nil {
-				return fmt.Errorf("could not fetch blob for observation pending queue item: %w", err)
-			}
-		}
-
 	}
 
 	return nil
@@ -1275,24 +1233,19 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			obs := shaToObs[sha]
 
 			o := obs[0]
-			if r.cfg.EnableDeterministicPendingQueue {
-				switch {
-				case o.RequestType == vaultcommon.RequestType_GET_SECRETS && len(obs) >= 2*r.onchainCfg.F+1:
-					// GetRequests required 2F+1 observations because we need exactly T=F+1 shares to reconstruct the secret.
-					// Since F shares can be fault, that means T+F=2F+1 shares are required, necessitating 2F+1 observations.
-					chosen = shaToObs[sha]
-					r.lggr.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
-				case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
-					// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
-					// types.
-					// Technically we could have two shas with F+1 observations. If that happens we'll pick the first one.
-					// This is deterministic since we're sorting by shas above.
-					chosen = shaToObs[sha]
-					r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", r.onchainCfg.F+1, "id", id)
-				}
-			} else if len(obs) >= 2*r.onchainCfg.F+1 {
+			switch {
+			case o.RequestType == vaultcommon.RequestType_GET_SECRETS && len(obs) >= 2*r.onchainCfg.F+1:
+				// GetRequests required 2F+1 observations because we need exactly T=F+1 shares to reconstruct the secret.
+				// Since F shares can be fault, that means T+F=2F+1 shares are required, necessitating 2F+1 observations.
 				chosen = shaToObs[sha]
-				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
+				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
+			case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
+				// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
+				// types.
+				// Technically we could have two shas with F+1 observations. If that happens we'll pick the first one.
+				// This is deterministic since we're sorting by shas above.
+				chosen = shaToObs[sha]
+				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", r.onchainCfg.F+1, "id", id)
 			}
 		}
 
@@ -1334,14 +1287,12 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 	}
 
-	if r.cfg.EnableDeterministicPendingQueue {
-		// ---
-		// Phase 2: Process the pending queue.
-		// ---
-		err := r.stateTransitionPendingQueue(ctx, store, marshalledObs, blobFetcher)
-		if err != nil {
-			return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not process pending queue during state transition: %w", err)
-		}
+	// ---
+	// Phase 2: Process the pending queue.
+	// ---
+	err := r.stateTransitionPendingQueue(ctx, store, marshalledObs, blobFetcher)
+	if err != nil {
+		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not process pending queue during state transition: %w", err)
 	}
 
 	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(os)

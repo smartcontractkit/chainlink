@@ -447,6 +447,6 @@ func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing
 		Method:  invalidMsg.Body.Method,
 		Params:  &rawParams,
 	}
-	err = handler.HandleGatewayMessage(context.Background(), "gateway1", req)
+	err = handler.HandleGatewayMessage(t.Context(), "gateway1", req)
 	require.NoError(t, err)
 }

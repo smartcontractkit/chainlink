@@ -1,7 +1,6 @@
 package v1_5_1_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -223,7 +222,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			err = test.Input.Validate(context.Background(), e.BlockChains.EVMChains()[selectorA], state.Chains[selectorA], test.Symbol)
+			err = test.Input.Validate(t.Context(), e.BlockChains.EVMChains()[selectorA], state.Chains[selectorA], test.Symbol)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}

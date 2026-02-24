@@ -127,12 +127,12 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	blockTimes := make(map[uint64]uint64)
 	for _, cs := range evmChains {
 		// Get the first block
-		block1, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
+		block1, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(t.Context(), big.NewInt(1))
 		require.NoError(t, err)
 		time1 := time.Unix(int64(block1.Time), 0) //nolint:gosec // G115
 
 		// Get the second block
-		block2, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
+		block2, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(t.Context(), big.NewInt(2))
 		require.NoError(t, err)
 		time2 := time.Unix(int64(block2.Time), 0) //nolint:gosec // G115
 

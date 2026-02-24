@@ -1,7 +1,6 @@
 package prices
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -16,8 +15,6 @@ import (
 )
 
 func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
-	ctx := context.Background()
-
 	testCases := []struct {
 		name                      string
 		sourceFeeEstimatorRespFee gas.EvmFee
@@ -85,6 +82,7 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := t.Context()
 			sourceFeeEstimator := mocks.NewEvmFeeEstimator(t)
 			sourceFeeEstimator.On("GetFee", ctx, []byte(nil), uint64(0), assets.NewWei(tc.maxGasPrice), (*common.Address)(nil), (*common.Address)(nil)).Return(
 				tc.sourceFeeEstimatorRespFee, uint64(0), tc.sourceFeeEstimatorRespErr)

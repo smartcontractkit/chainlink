@@ -202,14 +202,14 @@ var obsRestartCmd = &cobra.Command{
 }
 
 var testCmd = &cobra.Command{
-	Use:   "ocr2:test",
-	Short: "Run the OCR2 tests",
+	Use:   "test",
+	Short: "Run the tests",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) != 1 {
-			return errors.New("specify the 'go test -run' filter, ex.: $TestName/$subtest")
+		if len(args) != 2 {
+			return errors.New("specify the test folder and run filter: $test_folder $go_test_run_filter")
 		}
-		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", args[0]) //nolint:gosec //nothing else can run here except tests
-		testCmd.Dir = filepath.Join("tests", "ocr2")
+		testCmd := exec.Command("go", "test", "-v", "-timeout", "4h", "-run", args[1]) //nolint:gosec //nothing else can run here except tests
+		testCmd.Dir = filepath.Join("tests", args[0])
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr
 		testCmd.Stdin = os.Stdin

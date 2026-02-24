@@ -15,7 +15,7 @@ import (
 func TestRetryableZeroMaxRetries(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	defer cancel()
 
 	fn := func() error {
@@ -93,7 +93,7 @@ func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
 func TestRetryableCancellationHandling(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	fn := func() error {
 		return errors.New("test error")

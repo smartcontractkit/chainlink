@@ -31,6 +31,7 @@ import (
 	ocr3capability "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -40,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -66,6 +68,12 @@ var (
 	OCR2AggregatorTransmissionContractABI abi.ABI
 	OCR2AggregatorLogDecoder              LogDecoder
 	OCR3CapabilityLogDecoder              LogDecoder
+)
+
+const (
+	nodeURLKeyHTTP           = "HTTPURL"
+	nodeURLKeyWS             = "WSURL"
+	nodeURLKeyHTTPExtraWrite = "HTTPURLExtraWrite"
 )
 
 func init() {
@@ -148,6 +156,7 @@ type Relayer struct {
 	evmKeystore          keys.Store
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
+	pluginConfigEmitter  services.Service
 	evmService
 
 	// Mercury
@@ -214,6 +223,12 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		lloORM := llo.NewChainScopedORM(opts.DS, chainSelector)
 		return channeldefinitions.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
 	})
+	pluginConfigEmitter := loop.NewPluginRelayerConfigEmitter(
+		sugared,
+		"",
+		chain.ID().String(),
+		rawNodeURLsFromChainConfig(chain.Config()),
+	)
 	return &Relayer{
 		ds:                    opts.DS,
 		chain:                 chain,
@@ -227,6 +242,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryORM:            mercuryORM,
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
+		pluginConfigEmitter:   pluginConfigEmitter,
 		evmService: evmService{
 			addressLister: opts.EVMKeystore,
 			chain:         chain,
@@ -240,6 +256,12 @@ func (r *Relayer) Name() string {
 }
 
 func (r *Relayer) Start(ctx context.Context) error {
+	if r.pluginConfigEmitter != nil {
+		if err := r.pluginConfigEmitter.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start plugin relayer config emitter: %w", err)
+		}
+	}
+
 	wCfg := r.chain.Config().EVM().Workflow()
 	// Initialize write target capability if configuration is defined
 	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
@@ -259,7 +281,7 @@ func (r *Relayer) Start(ctx context.Context) error {
 }
 
 func (r *Relayer) Close() error {
-	cs := make([]io.Closer, 0, 2)
+	cs := make([]io.Closer, 0, 3)
 	if r.triggerCapability != nil {
 		cs = append(cs, r.triggerCapability)
 
@@ -270,6 +292,9 @@ func (r *Relayer) Close() error {
 		if err != nil {
 			return err
 		}
+	}
+	if r.pluginConfigEmitter != nil {
+		cs = append(cs, r.pluginConfigEmitter)
 	}
 	cs = append(cs, r.chain)
 	return services.MultiCloser(cs).Close()
@@ -316,6 +341,42 @@ func (r *Relayer) ID() string {
 
 func (r *Relayer) Chain() legacyevm.Chain {
 	return r.chain
+}
+
+type chainConfigWithNodes interface {
+	Nodes() evmtoml.EVMNodes
+}
+
+func rawNodeURLsFromChainConfig(chainConfig config.ChainScopedConfig) []map[string]string {
+	withNodes, ok := chainConfig.(chainConfigWithNodes)
+	if !ok {
+		return nil
+	}
+
+	nodes := withNodes.Nodes()
+	rawNodes := make([]map[string]string, 0, len(nodes))
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+
+		nodeURLs := make(map[string]string)
+		if n.HTTPURL != nil {
+			nodeURLs[nodeURLKeyHTTP] = n.HTTPURL.String()
+		}
+		if n.WSURL != nil {
+			nodeURLs[nodeURLKeyWS] = n.WSURL.String()
+		}
+		if n.HTTPURLExtraWrite != nil {
+			nodeURLs[nodeURLKeyHTTPExtraWrite] = n.HTTPURLExtraWrite.String()
+		}
+		if len(nodeURLs) == 0 {
+			continue
+		}
+
+		rawNodes = append(rawNodes, nodeURLs)
+	}
+	return rawNodes
 }
 
 func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *config.RelayOpts) (*configWatcher, error) {
