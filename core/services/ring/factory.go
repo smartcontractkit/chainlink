@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 )
 
 const (
@@ -22,16 +21,15 @@ const (
 var _ core.OCR3ReportingPluginFactory = &Factory{}
 
 type Factory struct {
-	ringStore              *Store
-	shardOrchestratorStore *shardorchestrator.Store
-	arbiterScaler          ringpb.ArbiterScalerClient
-	config                 *ConsensusConfig
-	lggr                   logger.Logger
+	ringStore     *Store
+	arbiterScaler ringpb.ArbiterScalerClient
+	config        *ConsensusConfig
+	lggr          logger.Logger
 
 	services.StateMachine
 }
 
-func NewFactory(s *Store, shardOrchestratorStore *shardorchestrator.Store, arbiterScaler ringpb.ArbiterScalerClient, lggr logger.Logger, cfg *ConsensusConfig) (*Factory, error) {
+func NewFactory(s *Store, arbiterScaler ringpb.ArbiterScalerClient, lggr logger.Logger, cfg *ConsensusConfig) (*Factory, error) {
 	if arbiterScaler == nil {
 		return nil, errors.New("arbiterScaler is required")
 	}
@@ -41,11 +39,10 @@ func NewFactory(s *Store, shardOrchestratorStore *shardorchestrator.Store, arbit
 		}
 	}
 	return &Factory{
-		ringStore:              s,
-		shardOrchestratorStore: shardOrchestratorStore,
-		arbiterScaler:          arbiterScaler,
-		config:                 cfg,
-		lggr:                   logger.Named(lggr, "RingPluginFactory"),
+		ringStore:     s,
+		arbiterScaler: arbiterScaler,
+		config:        cfg,
+		lggr:          logger.Named(lggr, "RingPluginFactory"),
 	}, nil
 }
 

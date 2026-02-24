@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -124,7 +123,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Realistic RPC Latency",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/name",
@@ -144,7 +143,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail EVM Chain",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -158,7 +157,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "400ms+200ms jitter for EVM Chain",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -175,7 +174,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% corrupt for EVM Chain",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodCorrupt(context.Background(),
+					_, err := cr.RunPodCorrupt(t.Context(),
 						havoc.PodCorruptCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -191,7 +190,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% loss for EVM Chain",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodLoss(context.Background(),
+					_, err := cr.RunPodLoss(t.Context(),
 						havoc.PodLossCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -207,7 +206,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition EVM Chain from 2 Assets nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -223,7 +222,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition EVM Chain from 2 Workflow nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -239,7 +238,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition EVM Chain from 2 Writer nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -259,7 +258,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail Assets Node",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -273,7 +272,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "400ms+200ms jitter for 2 DBs of Assets Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -290,7 +289,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "400ms+200ms jitter for 2 Assets Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -307,7 +306,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% corrupt for 2 Assets Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodCorrupt(context.Background(),
+					_, err := cr.RunPodCorrupt(t.Context(),
 						havoc.PodCorruptCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -323,7 +322,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% loss for 2 Assets Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodLoss(context.Background(),
+					_, err := cr.RunPodLoss(t.Context(),
 						havoc.PodLossCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -339,7 +338,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition 2 Assets nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -355,7 +354,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail 2 Assets Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -369,7 +368,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition 2 Assets Nodes <> 2 Assets Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -387,7 +386,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail Workflow Node",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -401,7 +400,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "400ms+200ms jitter for 2 DBs of Workflow Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -418,7 +417,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "400ms+200ms jitter for 2 Workflow Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -435,7 +434,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% corrupt for 2 Workflow Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodCorrupt(context.Background(),
+					_, err := cr.RunPodCorrupt(t.Context(),
 						havoc.PodCorruptCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -451,7 +450,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% loss for 2 Workflow Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodLoss(context.Background(),
+					_, err := cr.RunPodLoss(t.Context(),
 						havoc.PodLossCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -467,7 +466,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition 2 Workflow nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -483,7 +482,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail 2 Workflow Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -497,7 +496,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition 2 Workflow Nodes <> 2 Workflow Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -515,7 +514,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail Writer Node",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -529,7 +528,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "400ms+200ms jitter for 2 DBs of Writer Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -546,7 +545,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "400ms+200ms jitter for 2 Writer Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodDelay(context.Background(),
+					_, err := cr.RunPodDelay(t.Context(),
 						havoc.PodDelayCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -563,7 +562,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% corrupt for 2 Writer Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodCorrupt(context.Background(),
+					_, err := cr.RunPodCorrupt(t.Context(),
 						havoc.PodCorruptCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -579,7 +578,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "30% loss for 2 Writer Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodLoss(context.Background(),
+					_, err := cr.RunPodLoss(t.Context(),
 						havoc.PodLossCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -595,7 +594,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition 2 Writer nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -611,7 +610,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail 2 Writer Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -625,7 +624,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Partition 2 Writer Nodes <> 2 Writer Nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -643,7 +642,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "2 Assets Nodes <> 2 Workflow Nodes partition",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -659,7 +658,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "2 Workflow Nodes <> 2 Writer Nodes partition",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodPartition(context.Background(),
+					_, err := cr.RunPodPartition(t.Context(),
 						havoc.PodPartitionCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
@@ -677,7 +676,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail Job Distributor",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
@@ -691,7 +690,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			{
 				name: "Fail Job Distributor DB",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
+					_, err := cr.RunPodFail(t.Context(),
 						havoc.PodFailCfg{
 							Namespace:         kubernetesCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",

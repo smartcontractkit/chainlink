@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -76,15 +78,31 @@ func TestObservationContext_Observe(t *testing.T) {
 
 	multiPipelineDecimal := makePipelineWithMultipleStreamResults([]streams.StreamID{streamID4, streamID5, streamID6}, []any{decimal.NewFromFloat(12.34), decimal.NewFromFloat(56.78), decimal.NewFromFloat(90.12)})
 
+	streamID9 := streams.StreamID(9)
+	streamID10 := streams.StreamID(10)
+	streamID11 := streams.StreamID(11)
+	multiPipelinePartialFail := &mockPipeline{
+		run: &pipeline.Run{},
+		trrs: []pipeline.TaskRunResult{
+			{Task: &pipeline.MemoTask{BaseTask: pipeline.BaseTask{StreamID: clnull.Uint32From(streamID9)}}, Result: pipeline.Result{Value: decimal.NewFromFloat(100.5)}},
+			{Task: &pipeline.MemoTask{BaseTask: pipeline.BaseTask{StreamID: clnull.Uint32From(streamID10)}}, Result: pipeline.Result{Value: "not-a-number"}},
+			{Task: &pipeline.MemoTask{BaseTask: pipeline.BaseTask{StreamID: clnull.Uint32From(streamID11)}}, Result: pipeline.Result{Value: decimal.NewFromFloat(200.5)}},
+		},
+		streamIDs: []streams.StreamID{streamID9, streamID10, streamID11},
+	}
+
 	r.pipelines = map[streams.StreamID]*mockPipeline{
-		streamID1: &mockPipeline{},
-		streamID2: makePipelineWithSingleResult[decimal.Decimal](rand.Int64(), decimal.NewFromFloat(12.34), nil),
-		streamID3: makeErroringPipeline(),
-		streamID4: multiPipelineDecimal,
-		streamID5: multiPipelineDecimal,
-		streamID6: multiPipelineDecimal,
-		streamID7: makePipelineWithSingleResult[float64](rand.Int64(), 1.23, nil),
-		streamID8: makePipelineWithSingleResult[int64](rand.Int64(), 5, nil),
+		streamID1:  &mockPipeline{},
+		streamID2:  makePipelineWithSingleResult[decimal.Decimal](rand.Int64(), decimal.NewFromFloat(12.34), nil),
+		streamID3:  makeErroringPipeline(),
+		streamID4:  multiPipelineDecimal,
+		streamID5:  multiPipelineDecimal,
+		streamID6:  multiPipelineDecimal,
+		streamID7:  makePipelineWithSingleResult[float64](rand.Int64(), 1.23, nil),
+		streamID8:  makePipelineWithSingleResult[int64](rand.Int64(), 5, nil),
+		streamID9:  multiPipelinePartialFail,
+		streamID10: multiPipelinePartialFail,
+		streamID11: multiPipelinePartialFail,
 	}
 
 	t.Run("returns error in case of missing pipeline", func(t *testing.T) {
@@ -118,14 +136,14 @@ func TestObservationContext_Observe(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "90.12", val.(*llo.Decimal).String())
 
-		assert.Equal(t, 1, multiPipelineDecimal.runCount)
+		assert.Equal(t, int32(1), multiPipelineDecimal.runCount.Load())
 
 		// returns cached values on subsequent calls
 		val, err = oc.Observe(ctx, streamID6, opts)
 		require.NoError(t, err)
 		assert.Equal(t, "90.12", val.(*llo.Decimal).String())
 
-		assert.Equal(t, 1, multiPipelineDecimal.runCount)
+		assert.Equal(t, int32(1), multiPipelineDecimal.runCount.Load())
 	})
 	t.Run("returns value from float64 value", func(t *testing.T) {
 		val, err := oc.Observe(ctx, streamID7, opts)
@@ -138,6 +156,20 @@ func TestObservationContext_Observe(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "5", val.(*llo.Decimal).String())
+	})
+	t.Run("partial extraction failure in multi-stream pipeline", func(t *testing.T) {
+		val, err := oc.Observe(ctx, streamID9, opts)
+		require.NoError(t, err)
+		assert.Equal(t, "100.5", val.(*llo.Decimal).String())
+
+		_, err = oc.Observe(ctx, streamID10, opts)
+		require.Error(t, err, "unparseable value should fail extraction")
+
+		val, err = oc.Observe(ctx, streamID11, opts)
+		require.NoError(t, err)
+		assert.Equal(t, "200.5", val.(*llo.Decimal).String())
+
+		assert.Equal(t, int32(1), multiPipelinePartialFail.runCount.Load())
 	})
 }
 
@@ -291,6 +323,72 @@ result3 -> result3_parse -> multiply3;
 			Ask:       decimal.NewFromFloat32(124.456),
 		}, val.(*llo.Quote))
 	})
+}
+
+func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
+	ctx := t.Context()
+	const n = 20
+
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	pipelines := make([]*mockPipeline, n)
+
+	for i := range n {
+		ui := uint32(i) //nolint:gosec // i bounded by n=20
+		sid1 := ui*3 + 1
+		sid2 := ui*3 + 2
+		sid3 := ui*3 + 3
+		val1 := decimal.NewFromInt(int64(i*10 + 1))
+		val2 := decimal.NewFromInt(int64(i*10 + 2))
+		val3 := decimal.NewFromInt(int64(i*10 + 3))
+
+		mp := makePipelineWithMultipleStreamResults(
+			[]streams.StreamID{sid1, sid2, sid3},
+			[]any{val1, val2, val3},
+		)
+		pipelines[i] = mp
+		reg.pipelines[sid1] = mp
+		reg.pipelines[sid2] = mp
+		reg.pipelines[sid3] = mp
+	}
+
+	lggr := logger.TestLogger(t)
+	telem := &mockTelemeter{}
+	oc := newObservationContext(lggr, reg, telem)
+	opts := llo.DSOpts(nil)
+
+	type result struct {
+		strmID uint32
+		val    llo.StreamValue
+		err    error
+	}
+
+	pipelineGroupResults := make([][3]result, n)
+	var wg sync.WaitGroup
+
+	for i := range n {
+		ui := uint32(i) //nolint:gosec // i bounded by n=20
+		sid1 := ui*3 + 1
+		sid2 := ui*3 + 2
+		sid3 := ui*3 + 3
+		for j, strmID := range [3]streams.StreamID{sid1, sid2, sid3} {
+			wg.Go(func() {
+				val, err := oc.Observe(ctx, strmID, opts)
+				pipelineGroupResults[i][j] = result{strmID, val, err}
+			})
+		}
+	}
+	wg.Wait()
+
+	for i, group := range pipelineGroupResults {
+		for _, r := range group {
+			require.NoError(t, r.err, "pipeline %d, stream %d", i, r.strmID)
+			require.NotNil(t, r.val, "pipeline %d, stream %d: nil value", i, r.strmID)
+		}
+		assert.Equal(t, strconv.Itoa(i*10+1), group[0].val.(*llo.Decimal).String(), "pipeline %d sid1", i)
+		assert.Equal(t, strconv.Itoa(i*10+2), group[1].val.(*llo.Decimal).String(), "pipeline %d sid2", i)
+		assert.Equal(t, strconv.Itoa(i*10+3), group[2].val.(*llo.Decimal).String(), "pipeline %d sid3", i)
+		assert.Equal(t, int32(1), pipelines[i].runCount.Load(), "pipeline %d should have run exactly once", i)
+	}
 }
 
 func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStressTest_manyStreams(b *testing.B) {

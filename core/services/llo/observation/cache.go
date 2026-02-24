@@ -31,6 +31,14 @@ var (
 	)
 )
 
+// StreamValueCache is used by dataSource to decouple the read/write paths for stream values.
+type StreamValueCache interface {
+	Get(id llotypes.StreamID) (llo.StreamValue, time.Time)
+	GetMany(streamValues llo.StreamValues)
+	AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration)
+	Close() error
+}
+
 // Cache of stream values.
 // It maintains a cache of stream values fetched from adapters until the last
 // transmission sequence number is greater or equal the sequence number at which

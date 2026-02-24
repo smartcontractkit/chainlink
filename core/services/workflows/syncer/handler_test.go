@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -800,8 +801,8 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, opts...)
+		servicetest.Run(t, h)
 		require.NoError(t, err)
-		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
 		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, "workflow-name", wfID, fetcher)
 	})
@@ -1281,7 +1282,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 		&testDonNotifier{},
 	)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, eventHandler.Close()) }()
+	servicetest.Run(t, eventHandler)
 	secretsURL := "http://example.com/secrets"
 	wfOwner := "1234567890123456789012345678901234567890"
 

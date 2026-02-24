@@ -12,6 +12,8 @@ import (
 var errInvalidRing = errors.New("RingOCR invalid ring for consistent hashing")
 var errInvalidMember = errors.New("RingOCR invalid member for consistent hashing")
 
+var ErrNoHealthyShards = errors.New("no healthy shards for routing")
+
 func uniqueSorted(s []string) []string {
 	result := slices.Clone(s)
 	slices.Sort(result)
@@ -52,7 +54,7 @@ func newShardRing(healthyShards []uint32) *consistent.Consistent {
 
 func locateShard(ring *consistent.Consistent, workflowID string) (uint32, error) {
 	if ring == nil {
-		return 0, errInvalidRing
+		return 0, ErrNoHealthyShards
 	}
 	member := ring.LocateKey([]byte(workflowID))
 	if member == nil {

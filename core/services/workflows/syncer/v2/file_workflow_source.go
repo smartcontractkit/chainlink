@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -72,7 +72,7 @@ func NewFileWorkflowSourceWithPath(lggr logger.Logger, name string, path string)
 		return nil, errors.New("workflow metadata file does not exist: " + path)
 	}
 	return &FileWorkflowSource{
-		lggr:     lggr.Named(name),
+		lggr:     logger.Named(lggr, name),
 		filePath: path,
 		name:     name,
 	}, nil

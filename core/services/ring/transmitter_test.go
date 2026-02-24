@@ -38,16 +38,16 @@ func (m *mockArbiterScaler) ConsensusWantShards(ctx context.Context, req *ringpb
 func TestTransmitter_NewTransmitter(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
-	tx := NewTransmitter(lggr, store, nil, nil, "test-account")
+	tx := NewTransmitter(lggr, store, nil, "test-account")
 	require.NotNil(t, tx)
 }
 
 func TestTransmitter_FromAccount(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
-	tx := NewTransmitter(lggr, store, nil, nil, "my-account")
+	tx := NewTransmitter(lggr, store, nil, "my-account")
 
-	account, err := tx.FromAccount(context.Background())
+	account, err := tx.FromAccount(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, types.Account("my-account"), account)
 }
@@ -56,7 +56,7 @@ func TestTransmitter_Transmit(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
 	mock := &mockArbiterScaler{}
-	tx := NewTransmitter(lggr, store, nil, mock, "test-account")
+	tx := NewTransmitter(lggr, store, mock, "test-account")
 
 	outcome := &ringpb.Outcome{
 		State: &ringpb.RoutingState{
@@ -72,7 +72,7 @@ func TestTransmitter_Transmit(t *testing.T) {
 	require.NoError(t, err)
 
 	report := ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}
-	err = tx.Transmit(context.Background(), types.ConfigDigest{}, 0, report, nil)
+	err = tx.Transmit(t.Context(), types.ConfigDigest{}, 0, report, nil)
 	require.NoError(t, err)
 
 	// Verify arbiter was notified
@@ -89,7 +89,7 @@ func TestTransmitter_Transmit(t *testing.T) {
 func TestTransmitter_Transmit_NilArbiter(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
-	tx := NewTransmitter(lggr, store, nil, nil, "test-account")
+	tx := NewTransmitter(lggr, store, nil, "test-account")
 
 	outcome := &ringpb.Outcome{
 		State: &ringpb.RoutingState{
@@ -100,7 +100,7 @@ func TestTransmitter_Transmit_NilArbiter(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.NoError(t, err)
 }
 
@@ -108,7 +108,7 @@ func TestTransmitter_Transmit_TransitionState(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
 	mock := &mockArbiterScaler{}
-	tx := NewTransmitter(lggr, store, nil, mock, "test-account")
+	tx := NewTransmitter(lggr, store, mock, "test-account")
 
 	outcome := &ringpb.Outcome{
 		State: &ringpb.RoutingState{
@@ -120,7 +120,7 @@ func TestTransmitter_Transmit_TransitionState(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint32(5), mock.nShards)
 }
@@ -128,11 +128,11 @@ func TestTransmitter_Transmit_TransitionState(t *testing.T) {
 func TestTransmitter_Transmit_InvalidReport(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
-	tx := NewTransmitter(lggr, store, nil, nil, "test-account")
+	tx := NewTransmitter(lggr, store, nil, "test-account")
 
 	// Send invalid protobuf data
 	report := ocr3types.ReportWithInfo[[]byte]{Report: []byte("invalid protobuf")}
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, report, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, report, nil)
 	require.Error(t, err)
 }
 
@@ -140,7 +140,7 @@ func TestTransmitter_Transmit_ArbiterError(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
 	mock := &mockArbiterScaler{err: context.DeadlineExceeded}
-	tx := NewTransmitter(lggr, store, nil, mock, "test-account")
+	tx := NewTransmitter(lggr, store, mock, "test-account")
 
 	outcome := &ringpb.Outcome{
 		State: &ringpb.RoutingState{
@@ -150,14 +150,14 @@ func TestTransmitter_Transmit_ArbiterError(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestTransmitter_Transmit_NilState(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()
-	tx := NewTransmitter(lggr, store, nil, nil, "test-account")
+	tx := NewTransmitter(lggr, store, nil, "test-account")
 
 	outcome := &ringpb.Outcome{
 		State:  nil,
@@ -165,7 +165,7 @@ func TestTransmitter_Transmit_NilState(t *testing.T) {
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
-	err := tx.Transmit(context.Background(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	err := tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
 	require.NoError(t, err)
 
 	// Routes should still be applied

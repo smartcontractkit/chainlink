@@ -1,4 +1,6 @@
 ok BridgeStatusReporter
+ok CRE
+ok CRE.DispatcherWrapper
 ok EVM.1399100
 ok EVM.1399100.BalanceMonitor
 ok EVM.1399100.HeadBroadcaster
@@ -29,6 +31,4 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
-ok WorkflowEngineLimiters
-ok WorkflowExecutionLimiter
 ok WorkflowStore

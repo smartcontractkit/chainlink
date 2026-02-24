@@ -126,23 +126,6 @@ jobs:
               )
           ')
 
-          # Extra tests:
-          # - legacy vault plugin
-          extra_tests='[
-            {
-              "test_name": "Test_CRE_V2_Suite_Bucket_B/[v2]_Vault_DON_-_workflow-gateway-legacy-vault-don",
-              "topology": "workflow-gateway-legacy-vault-don",
-              "configs": "configs/workflow-gateway-legacy-vault-don.toml",
-              "test_id": null,
-              "cre_version": "v1"
-            }
-          ]'
-
-          # Merge and reassign test_id sequentially
-          tests=$(echo "$tests" | jq -c \
-            --argjson manual "$extra_tests" \
-            '. + $manual | to_entries | map(.value + {test_id: .key})')
-
           tests=$(echo "$tests" | jq -c .)
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 

@@ -88,7 +88,7 @@ type dataSource struct {
 	lggr                   logger.Logger
 	registry               Registry
 	t                      Telemeter
-	cache                  *Cache
+	cache                  StreamValueCache
 	observationLoopStarted atomic.Bool
 	observationLoopCloseCh services.StopChan
 
@@ -210,15 +210,9 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			var wg sync.WaitGroup
 			oc := NewObservationContext(lggr, d.registry, d.t)
 
-			for streamID := range osv.streamValues {
-				if val, expiresAt := d.cache.Get(streamID); val != nil {
-					if time.Until(expiresAt) > 2*osv.observationTimeout {
-						d.lggr.Debugw("cached stream observation still valid, skipping", "streamID",
-							streamID, "expiresAt", expiresAt.Format(time.RFC3339))
-						continue
-					}
-				}
+			streamsToRefresh := d.getStreamsToRefresh(osv.streamValues, osv.observationTimeout)
 
+			for streamID := range streamsToRefresh {
 				wg.Add(1)
 				go func(streamID llotypes.StreamID) {
 					defer wg.Done()
@@ -248,6 +242,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			wg.Wait()
 			elapsed = time.Since(startTS)
 
+			droppedStreamIDs := d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
+
 			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
 
 			// notify the caller that we've completed our first round of observations.
@@ -275,7 +271,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				}
 
 				lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
-					len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "errs", errStrs)
+					len(observedValues), "nFailedStreams", len(failedStreamIDs), "nDroppedStreams", len(droppedStreamIDs), "errs", errStrs)
 
 				if osv.opts.VerboseLogging() {
 					lggr = logger.With(lggr, "streamValues", osv.streamValues)
@@ -293,12 +289,92 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	})
 }
 
+// getStreamsToRefresh returns the set of stream IDs that need to be re-observed.
+// When any stream in a pipeline is stale, ALL streams from that pipeline should be
+// re-observed to ensure atomic observation of pipeline groups (e.g. bid/mid/ask must be observed together).
+func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observationTimeout time.Duration) map[streams.StreamID]struct{} {
+	streamIDs := make(map[streams.StreamID]struct{})
+	for streamID := range streamValues {
+		if _, exists := streamIDs[streamID]; exists {
+			continue
+		}
+		// refresh stream and associated streams from pipeline if this streamID is stale
+		if val, expiresAt := d.cache.Get(streamID); val != nil {
+			if time.Until(expiresAt) > 2*observationTimeout {
+				continue
+			}
+		}
+
+		streamIDs[streamID] = struct{}{}
+
+		p, exists := d.registry.Get(streamID)
+		if !exists {
+			// pipeline isn't registered yet so we can't get associated stream IDs
+			// this might happen if the plugin requests observations for streamIDs before
+			// the node operator has registered its job spec or before the registry is fully initialized
+			continue
+		}
+
+		for _, sid := range p.StreamIDs() {
+			streamIDs[sid] = struct{}{}
+		}
+	}
+	return streamIDs
+}
+
 func (d *dataSource) Close() error {
 	close(d.observationLoopCloseCh)
 	d.wg.Wait()
 	d.cache.Close()
 
 	return nil
+}
+
+// removeIncompleteGroups enforces all-or-nothing (atomic) writes per pipeline group.
+// Some pipelines produce values that must be used together. For example jobs that output a bid/mid/ask
+// must be used together to form a quote. So if any stream in the group failed, we drop
+// the entire group to avoid writing a mix of fresh and stale values to the cache.
+// Mutates observedValues in place.
+func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues map[streams.StreamID]llo.StreamValue, streamValues llo.StreamValues) []streams.StreamID {
+	var dropped []streams.StreamID
+	checked := make(map[streams.Pipeline]bool)
+	for streamID := range observedValues {
+		// we only need to check the pipeline once per group. So if we've already checked this pipeline, skip it.
+		p, exists := d.registry.Get(streamID)
+		if !exists || checked[p] {
+			continue
+		}
+		checked[p] = true
+
+		// Check that every in-scope stream for this pipeline succeeded.
+		// This is because some pipelines might emit values for streams that the plugin is not requesting to be observed
+		var missing []streams.StreamID
+		for _, sid := range p.StreamIDs() {
+			if _, inScope := streamValues[sid]; !inScope {
+				continue // not requested this cycle so we can skip evaluating result
+			}
+			if _, ok := observedValues[sid]; !ok {
+				missing = append(missing, sid)
+			}
+		}
+
+		if len(missing) > 0 {
+			var droppedFromGroup []streams.StreamID
+			for _, sid := range p.StreamIDs() {
+				if _, ok := observedValues[sid]; ok {
+					droppedFromGroup = append(droppedFromGroup, sid)
+				}
+				delete(observedValues, sid)
+			}
+			dropped = append(dropped, droppedFromGroup...)
+			lggr.Debugw("Discarding incomplete pipeline group",
+				"pipelineStreamIDs", p.StreamIDs(),
+				"missingStreamIDs", missing,
+				"droppedStreamIDs", droppedFromGroup,
+			)
+		}
+	}
+	return dropped
 }
 
 type observableStreamValues struct {

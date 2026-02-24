@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"context"
 	"sync"
 	"testing"
 	"time"
@@ -588,7 +587,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NotNil(t, sentEvent)
 	evmChains := e.Env.BlockChains.EVMChains()
 	destChain := evmChains[dest]
-	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+	destStartBlock, err := destChain.Client.HeaderByNumber(t.Context(), nil)
 	require.NoError(t, err)
 	v1_5testhelpers.WaitForCommit(t, evmChains[src2], destChain, state.MustGetEVMChainState(dest).CommitStore[src2],
 		sentEvent.Message.SequenceNumber)
@@ -865,7 +864,7 @@ func sendContinuousMessages(
 				v1_5Msgs = append(v1_5Msgs, msg)
 				if initialDestBlock == 0 {
 					destChain := e.Env.BlockChains.EVMChains()[dest]
-					destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+					destStartBlock, err := destChain.Client.HeaderByNumber(t.Context(), nil)
 					if err != nil {
 						t.Errorf("failed to get block header")
 					}
@@ -907,7 +906,7 @@ func sendMessageInRealRouter(
 	if err != nil {
 		t.Errorf("failed to send message: %v", err)
 	}
-	receipt, err := e.Env.BlockChains.EVMChains()[src].Client.TransactionReceipt(context.Background(), tx.Hash())
+	receipt, err := e.Env.BlockChains.EVMChains()[src].Client.TransactionReceipt(t.Context(), tx.Hash())
 	if err != nil {
 		t.Errorf("failed to get transaction receipt: %v", err)
 	}

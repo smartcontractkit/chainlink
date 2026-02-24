@@ -10,10 +10,10 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p"
@@ -35,7 +35,7 @@ func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, ds s
 	return &peerWrapper{
 		keystoreP2P: keystoreP2P,
 		p2pConfig:   p2pConfig,
-		lggr:        lggr.Named("PeerWrapper"),
+		lggr:        logger.Named(lggr, "PeerWrapper"),
 		ds:          ds,
 	}
 }

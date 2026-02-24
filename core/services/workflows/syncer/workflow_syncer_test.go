@@ -62,6 +62,8 @@ type testEvtHandler struct {
 
 func (m *testEvtHandler) Close() error { return nil }
 
+func (m *testEvtHandler) Start(context.Context) error { return nil }
+
 func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -1012,6 +1014,10 @@ type testSecretsWorkEventHandler struct {
 }
 
 func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
+
+func (m *testSecretsWorkEventHandler) Start(ctx context.Context) error {
+	return m.wrappedHandler.Start(ctx)
+}
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event Event) error {
 	switch event.EventType {

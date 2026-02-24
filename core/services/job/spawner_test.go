@@ -321,7 +321,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil }, func(loopId string) {})
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), processConfig, config.Sharding())
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), processConfig, config.Sharding(), nil)
 
 		d := ocr2.NewDelegate(ocr2.DelegateOpts{JobORM: orm, MonitoringEndpointGen: monitoringEndpoint, LegacyChains: legacyChains, Lggr: lggr, Ks: keyStore.OCR2(), EthKs: keyStore.Eth(), Relayers: testRelayGetter, MailMon: mailMon, CapabilitiesRegistry: capabilities.NewRegistry(lggr)}, ocr2DelegateConfig)
 		delegateOCR2 := &delegate{jobOCR2Keeper.Type, []job.ServiceCtx{}, 0, nil, d}
