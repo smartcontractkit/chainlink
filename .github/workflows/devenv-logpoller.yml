@@ -1,8 +1,38 @@
 name: Logpoller Smoke Tests
 
 on:
-  pull_request:
-  merge_group:
+  workflow_dispatch:
+    inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+      chainlink_version:
+        required: true
+        type: string
+        description: "The version of Chainlink repository to use for the tests."
+        default: "develop"
+  workflow_call:
+    inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+      chainlink_version:
+        required: true
+        type: string
+        description: "The version of Chainlink repository to use for the tests."
+        default: "develop"
 
 defaults:
   run:
@@ -28,7 +58,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.chainlink_version }}
 
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
@@ -54,6 +84,8 @@ jobs:
         environment:
           - tests/logpoller/finality_tag.toml
           - tests/logpoller/fixed_depth.toml
+    env:
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
     permissions:
       id-token: write
       contents: read
@@ -67,6 +99,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ inputs.chainlink_version }}
 
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -101,11 +134,6 @@ jobs:
       - name: Download Go dependencies
         run: |
           go mod download
-
-      - name: Set environment variables
-        id: set-env
-        run: |
-          echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)" >> $GITHUB_ENV
 
       - name: Run Automation environment
         env:
