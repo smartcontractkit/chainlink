@@ -233,12 +233,14 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
+	blockchainPlacementBySelector := blockchainPlacementsBySelector(input.Blockchains, deployedBlockchains.Outputs)
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
 		topology,
 		creEnvironment,
 		input.NodeSets,
+		blockchainPlacementBySelector,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -505,6 +507,21 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput,
 
 	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	input.JdInput.Out = jdOutput
+}
+
+func blockchainPlacementsBySelector(configured []*config.Blockchain, deployed []blockchains.Blockchain) map[uint64]string {
+	bySelector := make(map[uint64]string, len(deployed))
+	for idx, blockchainCfg := range configured {
+		if blockchainCfg == nil {
+			continue
+		}
+		if idx >= len(deployed) || deployed[idx] == nil {
+			continue
+		}
+		selector := deployed[idx].ChainSelector()
+		bySelector[selector] = string(blockchainCfg.Placement)
+	}
+	return bySelector
 }
 
 type nodeSetPlacementSummary struct {

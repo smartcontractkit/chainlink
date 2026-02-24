@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -34,9 +35,11 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/connectivity"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -47,6 +50,7 @@ func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
+	blockchainPlacementBySelector map[uint64]string,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 ) ([]*cre.NodeSet, error) {
@@ -58,6 +62,14 @@ func PrepareNodeTOMLs(
 	capabilitiesPeeringData, ocrPeeringData, peeringErr := cre.PeeringCfgs(bt)
 	if peeringErr != nil {
 		return nil, errors.Wrap(peeringErr, "failed to find peering data")
+	}
+	ocrBootstrapPlacement, placementErr := resolveBootstrapPlacement(topology, bt.UUID)
+	if placementErr != nil {
+		return nil, placementErr
+	}
+	ocrBootstrapAnnouncePort, announcePortErr := resolveBootstrapAnnouncePort(topology, bt.UUID)
+	if announcePortErr != nil {
+		return nil, announcePortErr
 	}
 
 	localNodeSets := topology.NodeSets()
@@ -105,16 +117,19 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:               creEnv.CldfEnvironment.DataStore,
-					ContractVersions:        creEnv.ContractVersions,
-					DonMetadata:             donMetadata,
-					Blockchains:             chainPerSelector,
-					Flags:                   donMetadata.Flags,
-					CapabilitiesPeeringData: capabilitiesPeeringData,
-					OCRPeeringData:          ocrPeeringData,
-					RegistryChainSelector:   creEnv.RegistryChainSelector,
-					Topology:                topology,
-					Provider:                creEnv.Provider,
+					Datastore:                     creEnv.CldfEnvironment.DataStore,
+					ContractVersions:              creEnv.ContractVersions,
+					DonMetadata:                   donMetadata,
+					Blockchains:                   chainPerSelector,
+					BlockchainPlacementBySelector: blockchainPlacementBySelector,
+					OCRBootstrapPlacement:         ocrBootstrapPlacement,
+					OCRBootstrapAnnouncePort:      ocrBootstrapAnnouncePort,
+					Flags:                         donMetadata.Flags,
+					CapabilitiesPeeringData:       capabilitiesPeeringData,
+					OCRPeeringData:                ocrPeeringData,
+					RegistryChainSelector:         creEnv.RegistryChainSelector,
+					Topology:                      topology,
+					Provider:                      creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -227,7 +242,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, commonInputs, input.DonMetadata, nodeMetadata)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, input.OCRBootstrapPlacement, input.OCRBootstrapAnnouncePort, commonInputs, input.DonMetadata, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -399,11 +414,23 @@ func addWorkerNodeConfig(
 	existingConfig corechainlink.Config,
 	topology *cre.Topology,
 	ocrPeeringData cre.OCRPeeringData,
+	ocrBootstrapPlacement string,
+	ocrBootstrapAnnouncePort int,
 	commonInputs *commonInputs,
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	bootstrapAddress, bootstrapAddressErr := resolveNodeFacingBootstrapAddress(
+		donMetadata.MustNodeSet().Placement,
+		ocrBootstrapPlacement,
+		ocrPeeringData.OCRBootstraperHost,
+		ocrPeeringData.Port,
+		ocrBootstrapAnnouncePort,
+	)
+	if bootstrapAddressErr != nil {
+		return existingConfig, errors.Wrap(bootstrapAddressErr, "failed to resolve OCR bootstrapper address")
+	}
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{bootstrapAddress})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -649,7 +676,10 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
 	}
 
-	evmChains := findEVMChains(input)
+	evmChains, evmErr := findEVMChains(input)
+	if evmErr != nil {
+		return nil, errors.Wrap(evmErr, "failed to resolve EVM chain endpoints for node config")
+	}
 	solanaChain, solErr := findOneSolanaChain(input)
 	if solErr != nil {
 		return nil, errors.Wrap(solErr, "failed to find Solana chain in the environment configuration")
@@ -682,8 +712,12 @@ type evmChain struct {
 	WSRPC   string
 }
 
-func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
+func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
 	evmChains := make([]*evmChain, 0)
+	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Placement)
+	if err != nil {
+		return nil, err
+	}
 	for chainSelector, bcOut := range input.Blockchains {
 		if bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
@@ -694,14 +728,38 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 			continue
 		}
 
+		targetPlacementRaw, ok := input.BlockchainPlacementBySelector[chainSelector]
+		if !ok || strings.TrimSpace(targetPlacementRaw) == "" {
+			targetPlacementRaw = string(connectivity.PlacementLocal)
+		}
+		targetPlacement, err := connectivity.PlacementFromTarget(targetPlacementRaw)
+		if err != nil {
+			return nil, err
+		}
+		resolvedHTTP, err := connectivity.Resolve(callerPlacement, targetPlacement, connectivity.EndpointPair{
+			Name:     fmt.Sprintf("evm-http-%d", bcOut.ChainID()),
+			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
+		})
+		if err != nil {
+			return nil, err
+		}
+		resolvedWS, err := connectivity.Resolve(callerPlacement, targetPlacement, connectivity.EndpointPair{
+			Name:     fmt.Sprintf("evm-ws-%d", bcOut.ChainID()),
+			Internal: bcOut.CtfOutput().Nodes[0].InternalWSUrl,
+			External: bcOut.CtfOutput().Nodes[0].ExternalWSUrl,
+		})
+		if err != nil {
+			return nil, err
+		}
 		evmChains = append(evmChains, &evmChain{
 			Name:    fmt.Sprintf("node-%d", chainSelector),
 			ChainID: bcOut.ChainID(),
-			HTTPRPC: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.CtfOutput().Nodes[0].InternalWSUrl,
+			HTTPRPC: resolvedHTTP.URL,
+			WSRPC:   resolvedWS.URL,
 		})
 	}
-	return evmChains
+	return evmChains, nil
 }
 
 type solanaChain struct {
@@ -713,6 +771,10 @@ type solanaChain struct {
 func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	var solChain *solanaChain
 	chainsFound := 0
+	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Placement)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, bcOut := range input.Blockchains {
 		if !bcOut.IsFamily(chain_selectors.FamilySolana) {
@@ -725,6 +787,22 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		}
 
 		solBc := bcOut.(*solana.Blockchain)
+		targetPlacementRaw, ok := input.BlockchainPlacementBySelector[solBc.ChainSelector()]
+		if !ok || strings.TrimSpace(targetPlacementRaw) == "" {
+			targetPlacementRaw = string(connectivity.PlacementLocal)
+		}
+		targetPlacement, err := connectivity.PlacementFromTarget(targetPlacementRaw)
+		if err != nil {
+			return nil, err
+		}
+		resolvedNodeURL, err := connectivity.Resolve(callerPlacement, targetPlacement, connectivity.EndpointPair{
+			Name:     "solana-rpc",
+			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
+		})
+		if err != nil {
+			return nil, err
+		}
 
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
 		chainID, err := solBc.SolClient.GetGenesisHash(ctx)
@@ -737,7 +815,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
 			ChainID: chainID.String(),
-			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			NodeURL: resolvedNodeURL.URL,
 		}
 	}
 
@@ -850,6 +928,79 @@ func resolveNodeOCR2AnnouncePort(nodeSet *cre.NodeSet, nodeIndex int) int {
 		nodeIndex = 0
 	}
 	return base + nodeIndex
+}
+
+func resolveBootstrapPlacement(topology *cre.Topology, bootstrapNodeUUID string) (string, error) {
+	if topology == nil {
+		return "", fmt.Errorf("topology is nil")
+	}
+	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
+	if bootstrapNodeUUID == "" {
+		return "", fmt.Errorf("bootstrap node UUID is empty")
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil {
+			continue
+		}
+		for _, node := range don.NodesMetadata {
+			if node == nil || strings.TrimSpace(node.UUID) == "" {
+				continue
+			}
+			if node.UUID != bootstrapNodeUUID {
+				continue
+			}
+			return strings.TrimSpace(don.MustNodeSet().Placement), nil
+		}
+	}
+	return "", fmt.Errorf("failed to resolve bootstrap placement for node UUID %s", bootstrapNodeUUID)
+}
+
+func resolveBootstrapAnnouncePort(topology *cre.Topology, bootstrapNodeUUID string) (int, error) {
+	if topology == nil {
+		return 0, fmt.Errorf("topology is nil")
+	}
+	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
+	if bootstrapNodeUUID == "" {
+		return 0, fmt.Errorf("bootstrap node UUID is empty")
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil {
+			continue
+		}
+		for _, node := range don.NodesMetadata {
+			if node == nil || strings.TrimSpace(node.UUID) == "" {
+				continue
+			}
+			if node.UUID != bootstrapNodeUUID {
+				continue
+			}
+			return resolveNodeOCR2AnnouncePort(don.MustNodeSet(), node.Index), nil
+		}
+	}
+	return 0, fmt.Errorf("failed to resolve bootstrap announce port for node UUID %s", bootstrapNodeUUID)
+}
+
+func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, bootstrapHost string, internalPort, externalPort int) (string, error) {
+	caller, err := connectivity.PlacementFromTarget(callerPlacement)
+	if err != nil {
+		return "", err
+	}
+	target, err := connectivity.PlacementFromTarget(bootstrapPlacement)
+	if err != nil {
+		return "", err
+	}
+	// Local callers need EC2-host reachable port for remote bootstrap nodes.
+	if caller == connectivity.PlacementLocal && target == connectivity.PlacementRemote {
+		if !runtimecfg.IsDirectMode() {
+			return "", fmt.Errorf("mixed DON bootstrap resolution requires direct mode")
+		}
+		hostIP, err := runtimecfg.DirectHostIP()
+		if err != nil {
+			return "", err
+		}
+		return net.JoinHostPort(hostIP, strconv.Itoa(externalPort)), nil
+	}
+	return cre.ResolveBootstrapAddress(callerPlacement, bootstrapPlacement, bootstrapHost, internalPort)
 }
 
 // transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use

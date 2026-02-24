@@ -20,6 +20,7 @@ func TestResolveP2PAnnounceAddresses_LocalOnly_UsesInternalHost(t *testing.T) {
 func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
 	prevMode, hadMode := os.LookupEnv(runtimecfg.EnvRemoteAccessMode)
 	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvEC2HostIP)
+	prevLocalIP, hadLocalIP := os.LookupEnv(runtimecfg.EnvLocalHostIP)
 	t.Cleanup(func() {
 		if hadMode {
 			_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, prevMode)
@@ -31,19 +32,28 @@ func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
 		} else {
 			_ = os.Unsetenv(runtimecfg.EnvEC2HostIP)
 		}
+		if hadLocalIP {
+			_ = os.Setenv(runtimecfg.EnvLocalHostIP, prevLocalIP)
+		} else {
+			_ = os.Unsetenv(runtimecfg.EnvLocalHostIP)
+		}
 	})
 	_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
 	_ = os.Setenv(runtimecfg.EnvEC2HostIP, "10.1.2.3")
+	_ = os.Setenv(runtimecfg.EnvLocalHostIP, "192.168.1.10")
 
 	addresses, err := ResolveP2PAnnounceAddresses("local", true, 15002)
 	if err != nil {
 		t.Fatalf("ResolveP2PAnnounceAddresses returned error: %v", err)
 	}
-	if len(addresses) != 1 {
-		t.Fatalf("expected one announce address for mixed mode, got %d (%v)", len(addresses), addresses)
+	if len(addresses) != 2 {
+		t.Fatalf("expected two announce addresses for mixed mode, got %d (%v)", len(addresses), addresses)
 	}
-	if addresses[0] != "10.1.2.3:15002" {
-		t.Fatalf("expected external EC2 address 10.1.2.3:15002, got %s", addresses[0])
+	if addresses[0] != "192.168.1.10:15002" {
+		t.Fatalf("expected local host address 192.168.1.10:15002, got %s", addresses[0])
+	}
+	if addresses[1] != "10.1.2.3:15002" {
+		t.Fatalf("expected external EC2 address 10.1.2.3:15002, got %s", addresses[1])
 	}
 }
 

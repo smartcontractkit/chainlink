@@ -72,21 +72,31 @@ func ResolveP2PAnnounceAddresses(nodePlacement string, hasRemoteNodeSets bool, a
 	}
 
 	addresses := []string{}
+	seen := map[string]struct{}{}
 	add := func(addr string) {
 		trimmed := strings.TrimSpace(addr)
-		if trimmed != "" {
-			addresses = append(addresses, trimmed)
+		if trimmed == "" {
+			return
 		}
+		if _, exists := seen[trimmed]; exists {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		addresses = append(addresses, trimmed)
 	}
 
 	switch placement {
 	case connectivity.PlacementLocal:
 		if !hasRemoteNodeSets {
-			// Keep AnnounceAddresses unset for local-only setups.
-			// This lets libocr use default/local-network behavior.
+			// Keep local announce addresses unset for local-only topologies.
 			return addresses, nil
 		}
-		// In mixed mode, local nodes are reached through EC2 relay listeners.
+		localHostIP, localErr := resolveLocalAnnounceHostIP()
+		if localErr != nil {
+			return nil, localErr
+		}
+		add(net.JoinHostPort(localHostIP, strconv.Itoa(advertisedPort)))
+		// In mixed mode, remote peers must reach local nodes through EC2 relay listeners.
 		external, externalErr := resolveBootstrapExternalAddress(connectivity.PlacementRemote, advertisedPort)
 		if externalErr != nil {
 			return nil, externalErr
@@ -104,6 +114,13 @@ func ResolveP2PAnnounceAddresses(nodePlacement string, hasRemoteNodeSets bool, a
 	}
 
 	return addresses, nil
+}
+
+func resolveLocalAnnounceHostIP() (string, error) {
+	if hostIP := strings.TrimSpace(runtimecfg.LocalHostIP()); hostIP != "" {
+		return hostIP, nil
+	}
+	return "", fmt.Errorf("failed to auto-resolve local docker-host gateway IP for mixed local/remote P2P announce; set %s to override", runtimecfg.EnvLocalHostIP)
 }
 
 func resolveBootstrapExternalAddress(targetPlacement connectivity.Placement, port int) (string, error) {

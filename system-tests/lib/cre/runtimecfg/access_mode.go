@@ -2,16 +2,21 @@ package runtimecfg
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 const (
 	EnvRemoteAccessMode = "CRE_REMOTE_ACCESS_MODE"
 	EnvEC2HostIP        = "CRE_EC2_HOST_IP"
+	EnvLocalHostIP      = "CRE_LOCAL_HOST_IP"
 	EnvEC2InstanceID    = "CRE_EC2_INSTANCE_ID"
 	EnvAWSProfile       = "CRE_AWS_PROFILE"
 
@@ -46,6 +51,61 @@ func DirectHostIP() (string, error) {
 		return "", fmt.Errorf("%s must be set when %s=%s (or set %s explicitly)", EnvEC2InstanceID, EnvRemoteAccessMode, RemoteAccessModeDirect, EnvEC2HostIP)
 	}
 	return discoverEC2HostIP(instanceID)
+}
+
+func LocalHostIP() string {
+	raw := strings.TrimSpace(os.Getenv(EnvLocalHostIP))
+	if ip := net.ParseIP(raw); ip != nil {
+		return ip.String()
+	}
+	// Best-effort ensure the default CTF network exists before gateway discovery.
+	// This avoids startup-order coupling where announce resolution runs before first container start.
+	_ = framework.DefaultNetwork(nil)
+	if gatewayIP := discoverDockerNetworkGatewayIP(framework.DefaultNetworkName); gatewayIP != "" {
+		return gatewayIP
+	}
+	ips, err := net.LookupIP("host.docker.internal")
+	if err != nil {
+		return ""
+	}
+	for _, ip := range ips {
+		if ipv4 := ip.To4(); ipv4 != nil {
+			return ipv4.String()
+		}
+	}
+	return ""
+}
+
+func discoverDockerNetworkGatewayIP(networkName string) string {
+	name := strings.TrimSpace(networkName)
+	if name == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "docker", "network", "inspect", name).Output()
+	if err != nil {
+		return ""
+	}
+	var inspected []struct {
+		IPAM struct {
+			Config []struct {
+				Gateway string `json:"Gateway"`
+			} `json:"Config"`
+		} `json:"IPAM"`
+	}
+	if jsonErr := json.Unmarshal(out, &inspected); jsonErr != nil {
+		return ""
+	}
+	for _, netCfg := range inspected {
+		for _, ipamCfg := range netCfg.IPAM.Config {
+			if ip := net.ParseIP(strings.TrimSpace(ipamCfg.Gateway)); ip != nil && ip.To4() != nil {
+				return ip.String()
+			}
+		}
+	}
+	return ""
 }
 
 func ResolveAWSCLIProfileSelection() (string, string) {

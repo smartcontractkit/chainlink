@@ -458,6 +458,7 @@ type GenerateConfigsInput struct {
 	Blockchains                   map[uint64]blockchains.Blockchain
 	BlockchainPlacementBySelector map[uint64]string
 	OCRBootstrapPlacement         string
+	OCRBootstrapAnnouncePort      int
 	RegistryChainSelector         uint64
 	Flags                         []string
 	CapabilitiesPeeringData       CapabilitiesPeeringData
@@ -479,6 +480,9 @@ func (g *GenerateConfigsInput) Validate() error {
 	}
 	if strings.TrimSpace(g.OCRBootstrapPlacement) == "" {
 		return errors.New("ocr bootstrap placement not set")
+	}
+	if g.OCRBootstrapAnnouncePort <= 0 || g.OCRBootstrapAnnouncePort > 65535 {
+		return errors.New("ocr bootstrap announce port not set")
 	}
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
