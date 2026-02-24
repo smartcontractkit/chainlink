@@ -34,7 +34,7 @@ var (
 // StreamValueCache is used by dataSource to decouple the read/write paths for stream values.
 type StreamValueCache interface {
 	Get(id llotypes.StreamID) (llo.StreamValue, time.Time)
-	GetMany(streamValues llo.StreamValues)
+	UpdateStreamValues(streamValues llo.StreamValues)
 	AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration)
 	Close() error
 }
