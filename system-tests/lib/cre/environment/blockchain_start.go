@@ -35,12 +35,8 @@ const (
 	componentTypeBlockchain = "blockchain"
 	componentTypeJD         = "jd"
 	componentTypeNodeSet    = "nodeset"
-	envLocalAgentURL        = "CRE_LOCAL_AGENT_URL"
 	envEC2AgentURL          = "CRE_EC2_AGENT_URL"
-	envEC2InstanceID        = "CRE_EC2_INSTANCE_ID"
 	envEC2AgentPort         = "CRE_EC2_AGENT_PORT"
-	envAgentMode            = "CRE_AGENT_MODE"
-	ec2Region               = "us-west-2"
 	defaultEC2AgentPort     = 8080
 )
 
@@ -213,70 +209,29 @@ func isRetriableNetworkError(err error) bool {
 }
 
 func newStartComponentClient(testLogger zerolog.Logger, tunnelManager tunnel.Manager) (componentClient, error) {
-	agentMode := strings.TrimSpace(os.Getenv(envAgentMode))
-	if strings.EqualFold(agentMode, "ec2") {
-		baseURL, err := resolveEC2AgentBaseURL(testLogger, tunnelManager)
-		if err != nil {
-			return nil, err
-		}
-		return newEC2HTTPComponentClient(baseURL), nil
-	}
+	_ = tunnelManager // legacy parameter retained for call-site compatibility
 
-	baseURL := os.Getenv(envLocalAgentURL)
-	if baseURL == "" {
-		return nil, fmt.Errorf("%s must be set for remote component startup", envLocalAgentURL)
+	baseURL, err := resolveEC2AgentBaseURL(testLogger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve EC2 agent base URL: %w", err)
 	}
-	return newHTTPComponentClient(baseURL), nil
+	return newEC2HTTPComponentClient(baseURL), nil
 }
 
-func resolveEC2AgentBaseURL(testLogger zerolog.Logger, tunnelManager tunnel.Manager) (string, error) {
-	if configured := os.Getenv(envEC2AgentURL); configured != "" {
+func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
+	if configured := strings.TrimSpace(os.Getenv(envEC2AgentURL)); configured != "" {
 		return configured, nil
 	}
 	remotePort, err := resolveEC2AgentPort()
 	if err != nil {
 		return "", err
 	}
-	if isRemoteAccessDirectMode() {
-		hostIP, err := resolveDirectAccessHostIP()
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("http://%s:%d", hostIP, remotePort), nil
-	}
-
-	instanceID := strings.TrimSpace(os.Getenv(envEC2InstanceID))
-	if instanceID == "" {
-		return "", fmt.Errorf("%s must be set when %s=ec2 and %s is not provided", envEC2InstanceID, envAgentMode, envEC2AgentURL)
-	}
-	if tunnelManager == nil {
-		return "", errors.New("tunnel manager is required to auto-open ec2 agent tunnel")
-	}
-
-	bindings, err := tunnelManager.Start(context.Background(), []tunnel.EndpointRef{
-		{
-			ComponentID:  "agent",
-			EndpointName: "api",
-			Scheme:       "http",
-			Host:         "127.0.0.1",
-			Port:         remotePort,
-			OriginalURL:  fmt.Sprintf("http://127.0.0.1:%d", remotePort),
-		},
-	})
+	hostIP, err := resolveDirectAccessHostIP()
 	if err != nil {
-		return "", pkgerrors.Wrap(err, "failed to open ssm tunnel to ec2 agent")
+		return "", err
 	}
-	if len(bindings) == 0 {
-		return "", errors.New("failed to open ssm tunnel to ec2 agent: no bindings returned")
-	}
-
-	testLogger.Info().
-		Str("instanceID", instanceID).
-		Int("remotePort", remotePort).
-		Int("localPort", bindings[0].LocalPort).
-		Msg("Opened SSM tunnel to EC2 agent")
-
-	return bindings[0].LocalURL, nil
+	testLogger.Debug().Str("hostIP", hostIP).Int("port", remotePort).Msg("resolved EC2 CRE agent base URL from direct mode host")
+	return fmt.Sprintf("http://%s:%d", hostIP, remotePort), nil
 }
 
 func resolveEC2AgentPort() (int, error) {
@@ -460,20 +415,8 @@ func startBlockchainsWithTargets(
 }
 
 func newEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {
-	if os.Getenv(envAgentMode) != "ec2" {
-		return tunnel.NewNoopManager(), nil
-	}
-	if isRemoteAccessDirectMode() {
-		return tunnel.NewNoopManager(), nil
-	}
-
-	instanceID := strings.TrimSpace(os.Getenv(envEC2InstanceID))
-	if instanceID == "" {
-		// Keep compatibility with pure manual-tunneling mode.
-		return tunnel.NewNoopManager(), nil
-	}
-
-	return tunnel.NewManager(tunnel.NewSSMProvider(instanceID, ec2Region, testLogger)), nil
+	_ = testLogger
+	return tunnel.NewNoopManager(), nil
 }
 
 func NewEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {

@@ -931,8 +931,6 @@ func applyRemoteAgentEnvFallback(logger zerolog.Logger, agentState *remoteAgentS
 		}
 	}
 
-	setIfEmpty("CRE_AGENT_MODE", agentState.Mode)
-	setIfEmpty("CRE_LOCAL_AGENT_URL", agentState.LocalURL)
 	setIfEmpty("CRE_EC2_AGENT_URL", agentState.EC2URL)
 	setIfEmpty("CRE_EC2_INSTANCE_ID", agentState.EC2InstanceID)
 	setIfEmpty("CRE_EC2_AGENT_PORT", agentState.EC2AgentPort)

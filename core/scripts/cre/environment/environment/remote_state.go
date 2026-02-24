@@ -19,8 +19,6 @@ const (
 )
 
 type remoteAgentState struct {
-	Mode          string `toml:"mode,omitempty"`
-	LocalURL      string `toml:"local_url,omitempty"`
 	EC2URL        string `toml:"ec2_url,omitempty"`
 	EC2InstanceID string `toml:"ec2_instance_id,omitempty"`
 	EC2AgentPort  string `toml:"ec2_agent_port,omitempty"`
@@ -94,8 +92,6 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 	}
 	agentEnvelope := &remoteAgentStateEnvelope{
 		Agent: remoteAgentState{
-			Mode:          os.Getenv("CRE_AGENT_MODE"),
-			LocalURL:      os.Getenv("CRE_LOCAL_AGENT_URL"),
 			EC2URL:        os.Getenv("CRE_EC2_AGENT_URL"),
 			EC2InstanceID: os.Getenv("CRE_EC2_INSTANCE_ID"),
 			EC2AgentPort:  os.Getenv("CRE_EC2_AGENT_PORT"),

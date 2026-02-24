@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	envLocalAgentURL = "CRE_LOCAL_AGENT_URL"
-	envEC2AgentURL   = "CRE_EC2_AGENT_URL"
-	envEC2AgentPort  = "CRE_EC2_AGENT_PORT"
+	envEC2AgentURL  = "CRE_EC2_AGENT_URL"
+	envEC2AgentPort = "CRE_EC2_AGENT_PORT"
 )
 
 type relayOpenResponse struct {
@@ -131,25 +130,19 @@ func resolveAgentBaseURLForRelay() (string, error) {
 	if v := strings.TrimSpace(os.Getenv(envEC2AgentURL)); v != "" {
 		return v, nil
 	}
-	if runtimecfg.IsDirectMode() {
-		hostIP, err := runtimecfg.DirectHostIP()
-		if err != nil {
-			return "", err
-		}
-		port := 8080
-		if rawPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); rawPort != "" {
-			parsed, err := strconv.Atoi(rawPort)
-			if err != nil || parsed <= 0 || parsed > 65535 {
-				return "", fmt.Errorf("invalid %s: %q", envEC2AgentPort, rawPort)
-			}
-			port = parsed
-		}
-		return fmt.Sprintf("http://%s:%d", hostIP, port), nil
+	hostIP, err := runtimecfg.DirectHostIP()
+	if err != nil {
+		return "", err
 	}
-	if v := strings.TrimSpace(os.Getenv(envLocalAgentURL)); v != "" {
-		return v, nil
+	port := 8080
+	if rawPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); rawPort != "" {
+		parsed, err := strconv.Atoi(rawPort)
+		if err != nil || parsed <= 0 || parsed > 65535 {
+			return "", fmt.Errorf("invalid %s: %q", envEC2AgentPort, rawPort)
+		}
+		port = parsed
 	}
-	return "", fmt.Errorf("missing agent URL for fixture relay (set %s, or set %s/%s for direct mode)", envEC2AgentURL, runtimecfg.EnvRemoteAccessMode, runtimecfg.EnvEC2HostIP)
+	return fmt.Sprintf("http://%s:%d", hostIP, port), nil
 }
 
 func openRelay(ctx context.Context, agentBaseURL, name string, requestedPort int) (string, error) {

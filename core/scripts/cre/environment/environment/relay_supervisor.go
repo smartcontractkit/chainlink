@@ -799,21 +799,15 @@ func resolveAgentBaseURLForRelay() (string, error) {
 	if v := strings.TrimSpace(os.Getenv("CRE_EC2_AGENT_URL")); v != "" {
 		return v, nil
 	}
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("CRE_AGENT_MODE")), "ec2") && runtimecfg.IsDirectMode() {
-		hostIP, err := runtimecfg.DirectHostIP()
-		if err != nil {
-			return "", err
-		}
+	hostIP, err := runtimecfg.DirectHostIP()
+	if err == nil {
 		port, err := resolveEC2AgentPortForRelay()
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("http://%s:%d", hostIP, port), nil
 	}
-	if v := strings.TrimSpace(os.Getenv("CRE_LOCAL_AGENT_URL")); v != "" {
-		return v, nil
-	}
-	return "", fmt.Errorf("cannot resolve agent base URL for relay; set CRE_EC2_AGENT_URL or CRE_LOCAL_AGENT_URL")
+	return "", fmt.Errorf("cannot resolve agent base URL for relay; set CRE_EC2_AGENT_URL or provide EC2 discovery envs: %w", err)
 }
 
 func resolveEC2AgentPortForRelay() (int, error) {

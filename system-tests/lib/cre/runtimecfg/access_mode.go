@@ -14,30 +14,17 @@ import (
 )
 
 const (
-	EnvRemoteAccessMode = "CRE_REMOTE_ACCESS_MODE"
-	EnvEC2HostIP        = "CRE_EC2_HOST_IP"
-	EnvLocalHostIP      = "CRE_LOCAL_HOST_IP"
-	EnvEC2InstanceID    = "CRE_EC2_INSTANCE_ID"
-	EnvAWSProfile       = "CRE_AWS_PROFILE"
+	EnvEC2HostIP     = "CRE_EC2_HOST_IP"
+	EnvLocalHostIP   = "CRE_LOCAL_HOST_IP"
+	EnvEC2InstanceID = "CRE_EC2_INSTANCE_ID"
+	EnvAWSProfile    = "CRE_AWS_PROFILE"
 
-	RemoteAccessModeSSM    = "ssm"
-	RemoteAccessModeDirect = "direct"
-	defaultEC2Region       = "us-west-2"
+	defaultEC2Region = "us-west-2"
 )
 
-func RemoteAccessMode() string {
-	mode := strings.ToLower(strings.TrimSpace(os.Getenv(EnvRemoteAccessMode)))
-	if mode == "" {
-		return RemoteAccessModeDirect
-	}
-	if mode == RemoteAccessModeDirect || mode == RemoteAccessModeSSM {
-		return mode
-	}
-	return RemoteAccessModeDirect
-}
-
+// IsDirectMode is retained for compatibility; CRE now only supports direct mode.
 func IsDirectMode() bool {
-	return RemoteAccessMode() == RemoteAccessModeDirect
+	return true
 }
 
 func DirectHostIP() (string, error) {
@@ -48,7 +35,7 @@ func DirectHostIP() (string, error) {
 
 	instanceID := strings.TrimSpace(os.Getenv(EnvEC2InstanceID))
 	if instanceID == "" {
-		return "", fmt.Errorf("%s must be set when %s=%s (or set %s explicitly)", EnvEC2InstanceID, EnvRemoteAccessMode, RemoteAccessModeDirect, EnvEC2HostIP)
+		return "", fmt.Errorf("%s must be set (or set %s explicitly)", EnvEC2InstanceID, EnvEC2HostIP)
 	}
 	return discoverEC2HostIP(instanceID)
 }

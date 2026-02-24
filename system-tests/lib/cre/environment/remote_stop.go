@@ -194,7 +194,8 @@ func listRemoteCTFResources(
 	lggr zerolog.Logger,
 	tunnelManager tunnel.Manager,
 ) ([]string, []string, error) {
-	baseURL, err := resolveEC2AgentBaseURL(lggr, tunnelManager)
+	_ = tunnelManager
+	baseURL, err := resolveEC2AgentBaseURL(lggr)
 	if err != nil {
 		return nil, nil, pkgerrors.Wrap(err, "resolve agent base url for ctf resource query")
 	}

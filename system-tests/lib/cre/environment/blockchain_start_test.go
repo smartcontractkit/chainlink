@@ -1,15 +1,13 @@
 package environment
 
 import (
-	"context"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 func TestValidatePhase2ARemoteBlockchainInput(t *testing.T) {
@@ -26,20 +24,14 @@ func TestValidatePhase2ARemoteBlockchainInput(t *testing.T) {
 	}
 }
 
-func TestNewStartComponentClientEC2Mode(t *testing.T) {
-	t.Setenv(envAgentMode, "ec2")
-	t.Setenv(envLocalAgentURL, "")
+func TestNewStartComponentClientPrefersEC2(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
-	t.Setenv(envEC2InstanceID, "")
+	t.Setenv(runtimecfg.EnvEC2HostIP, "10.193.28.183")
+	t.Setenv(envEC2AgentPort, "18080")
 
-	if _, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{}); err == nil {
-		t.Fatalf("expected ec2 mode without %s or %s to fail", envEC2AgentURL, envEC2InstanceID)
-	}
-
-	t.Setenv(envEC2AgentURL, "http://127.0.0.1:18080") // manual tunnel override
-	client, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{})
+	client, err := newStartComponentClient(zerolog.Nop(), tunnel.NewNoopManager())
 	if err != nil {
-		t.Fatalf("expected ec2 mode client to be created, got %v", err)
+		t.Fatalf("expected ec2-first client to be created, got %v", err)
 	}
 
 	httpClient, ok := client.(*httpComponentClient)
@@ -52,26 +44,29 @@ func TestNewStartComponentClientEC2Mode(t *testing.T) {
 	if httpClient.maxAttempts != 3 {
 		t.Fatalf("expected ec2 client retries to be enabled")
 	}
+	if httpClient.baseURL != "http://10.193.28.183:18080" {
+		t.Fatalf("unexpected ec2 base url: %s", httpClient.baseURL)
+	}
 }
 
-func TestResolveEC2AgentBaseURLRequiresInstanceIDWhenURLMissing(t *testing.T) {
+func TestResolveEC2AgentBaseURLRequiresHostOrInstanceInfoWhenURLMissing(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
-	t.Setenv(envEC2InstanceID, "")
+	t.Setenv(runtimecfg.EnvEC2HostIP, "")
+	t.Setenv(runtimecfg.EnvEC2InstanceID, "")
 	t.Setenv(envEC2AgentPort, "")
 
-	_, err := resolveEC2AgentBaseURL(zerolog.Nop(), &fakeTunnelManager{})
+	_, err := resolveEC2AgentBaseURL(zerolog.Nop())
 	if err == nil {
-		t.Fatalf("expected missing %s to fail when %s is not set", envEC2InstanceID, envEC2AgentURL)
+		t.Fatalf("expected missing direct host resolution inputs to fail when %s is not set", envEC2AgentURL)
 	}
 }
 
 func TestResolveEC2AgentBaseURLRejectsInvalidPort(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
-	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeSSM)
-	t.Setenv(envEC2InstanceID, "i-123")
+	t.Setenv(runtimecfg.EnvEC2HostIP, "10.193.28.183")
 	t.Setenv(envEC2AgentPort, "not-a-port")
 
-	_, err := resolveEC2AgentBaseURL(zerolog.Nop(), &fakeTunnelManager{})
+	_, err := resolveEC2AgentBaseURL(zerolog.Nop())
 	if err == nil {
 		t.Fatalf("expected invalid %s to fail", envEC2AgentPort)
 	}
@@ -82,123 +77,30 @@ func TestResolveEC2AgentBaseURLRejectsInvalidPort(t *testing.T) {
 
 func TestResolveEC2AgentBaseURLDirectMode(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
-	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
 	t.Setenv(runtimecfg.EnvEC2HostIP, "10.193.28.183")
 	t.Setenv(envEC2AgentPort, "18080")
 
-	manager := &fakeTunnelManager{}
-	baseURL, err := resolveEC2AgentBaseURL(zerolog.Nop(), manager)
+	baseURL, err := resolveEC2AgentBaseURL(zerolog.Nop())
 	if err != nil {
 		t.Fatalf("expected direct mode url resolution to succeed, got %v", err)
 	}
 	if baseURL != "http://10.193.28.183:18080" {
 		t.Fatalf("unexpected direct mode base url: %s", baseURL)
 	}
-	if manager.startCalls != 0 {
-		t.Fatalf("expected direct mode to skip tunnel manager")
-	}
 }
 
-func TestNewStartComponentClientLocalMode(t *testing.T) {
-	t.Setenv(envAgentMode, "")
+func TestNewStartComponentClientRequiresEC2Resolution(t *testing.T) {
 	t.Setenv(envEC2AgentURL, "")
-	t.Setenv(envLocalAgentURL, "")
+	t.Setenv(runtimecfg.EnvEC2HostIP, "")
+	t.Setenv(runtimecfg.EnvEC2InstanceID, "")
 
-	if _, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{}); err == nil {
-		t.Fatalf("expected local mode without %s to fail", envLocalAgentURL)
-	}
-
-	t.Setenv(envLocalAgentURL, "http://127.0.0.1:8080")
-	client, err := newStartComponentClient(zerolog.Nop(), &fakeTunnelManager{})
-	if err != nil {
-		t.Fatalf("expected local mode client to be created, got %v", err)
-	}
-
-	httpClient, ok := client.(*httpComponentClient)
-	if !ok {
-		t.Fatalf("expected httpComponentClient, got %T", client)
-	}
-	if httpClient.checkHealth {
-		t.Fatalf("expected local client health checks to be disabled")
-	}
-	if httpClient.maxAttempts != 1 {
-		t.Fatalf("expected local client retries to be disabled")
-	}
-
-	if os.Getenv(envLocalAgentURL) == "" {
-		t.Fatalf("expected local agent url to remain set")
+	if _, err := newStartComponentClient(zerolog.Nop(), tunnel.NewNoopManager()); err == nil {
+		t.Fatalf("expected client creation without EC2 resolution to fail")
 	}
 }
-
-type fakeTunnelManager struct {
-	startCalls int
-}
-
-func (f *fakeTunnelManager) Start(_ context.Context, refs []tunnel.EndpointRef) ([]tunnel.TunnelBinding, error) {
-	f.startCalls++
-	bindings := make([]tunnel.TunnelBinding, 0, len(refs))
-	for i, ref := range refs {
-		bindings = append(bindings, tunnel.TunnelBinding{
-			EndpointRef: ref,
-			LocalPort:   19000 + i,
-			LocalURL: map[string]string{
-				"http": "http://127.0.0.1:19000",
-				"ws":   "ws://127.0.0.1:19001",
-			}[ref.Scheme],
-		})
-	}
-	return bindings, nil
-}
-
-func (f *fakeTunnelManager) Stop(_ context.Context) error { return nil }
-func (f *fakeTunnelManager) IsStarted() bool { return f.startCalls > 0 }
-func (f *fakeTunnelManager) Snapshot() []tunnel.TunnelBinding { return []tunnel.TunnelBinding{} }
 
 func TestRewriteRemoteBlockchainOutputForLocalAccess(t *testing.T) {
-	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeSSM)
-	out := &blockchain.Output{
-		Nodes: []*blockchain.Node{
-			{
-				ExternalHTTPUrl: "http://10.0.0.10:8545",
-				ExternalWSUrl:   "ws://10.0.0.10:8546",
-			},
-		},
-	}
-	manager := &fakeTunnelManager{}
-
-	if err := rewriteRemoteBlockchainOutputForLocalAccess(
-		context.Background(),
-		zerolog.Nop(),
-		manager,
-		0,
-		&blockchain.Input{Type: blockchain.TypeAnvil},
-		out,
-		true,
-	); err != nil {
-		t.Fatalf("expected rewrite helper to succeed: %v", err)
-	}
-
-	if manager.startCalls != 1 {
-		t.Fatalf("expected tunnel manager start to be called once, got %d", manager.startCalls)
-	}
-	if out.Nodes[0].ExternalHTTPUrl != "http://127.0.0.1:19000" {
-		t.Fatalf("unexpected rewritten http url: %s", out.Nodes[0].ExternalHTTPUrl)
-	}
-	if out.Nodes[0].ExternalWSUrl != "ws://127.0.0.1:19001" {
-		t.Fatalf("unexpected rewritten ws url: %s", out.Nodes[0].ExternalWSUrl)
-	}
-	if out.Nodes[0].InternalHTTPUrl == "" || !strings.Contains(out.Nodes[0].InternalHTTPUrl, ":19000") {
-		t.Fatalf("expected internal http url to be rewritten for docker host access, got %s", out.Nodes[0].InternalHTTPUrl)
-	}
-	if out.Nodes[0].InternalWSUrl == "" || !strings.Contains(out.Nodes[0].InternalWSUrl, ":19001") {
-		t.Fatalf("expected internal ws url to be rewritten for docker host access, got %s", out.Nodes[0].InternalWSUrl)
-	}
-}
-
-func TestRewriteRemoteBlockchainOutputForLocalAccessDirectMode(t *testing.T) {
-	t.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
 	t.Setenv(runtimecfg.EnvEC2HostIP, "10.193.28.183")
-
 	out := &blockchain.Output{
 		Nodes: []*blockchain.Node{
 			{
@@ -209,52 +111,36 @@ func TestRewriteRemoteBlockchainOutputForLocalAccessDirectMode(t *testing.T) {
 			},
 		},
 	}
-	manager := &fakeTunnelManager{}
-
 	if err := rewriteRemoteBlockchainOutputForLocalAccess(
-		context.Background(),
+		t.Context(),
 		zerolog.Nop(),
-		manager,
+		tunnel.NewNoopManager(),
 		0,
 		&blockchain.Input{Type: blockchain.TypeAnvil},
 		out,
 		true,
 	); err != nil {
-		t.Fatalf("expected direct mode rewrite helper to succeed: %v", err)
+		t.Fatalf("expected rewrite helper to succeed: %v", err)
 	}
-	if manager.startCalls != 0 {
-		t.Fatalf("expected direct mode to skip tunnel manager, got %d calls", manager.startCalls)
-	}
+
 	if out.Nodes[0].ExternalHTTPUrl != "http://10.193.28.183:8545" {
-		t.Fatalf("unexpected rewritten http url in direct mode: %s", out.Nodes[0].ExternalHTTPUrl)
+		t.Fatalf("unexpected rewritten http url: %s", out.Nodes[0].ExternalHTTPUrl)
 	}
 	if out.Nodes[0].ExternalWSUrl != "ws://10.193.28.183:8546" {
-		t.Fatalf("unexpected rewritten ws url in direct mode: %s", out.Nodes[0].ExternalWSUrl)
+		t.Fatalf("unexpected rewritten ws url: %s", out.Nodes[0].ExternalWSUrl)
 	}
-	if out.Nodes[0].InternalHTTPUrl != "http://10.193.28.183:8545" {
-		t.Fatalf("unexpected rewritten internal http url in direct mode: %s", out.Nodes[0].InternalHTTPUrl)
+	if out.Nodes[0].InternalHTTPUrl != "http://anvil-1337:8545" {
+		t.Fatalf("expected internal http url unchanged in direct mode, got %s", out.Nodes[0].InternalHTTPUrl)
 	}
-	if out.Nodes[0].InternalWSUrl != "ws://10.193.28.183:8546" {
-		t.Fatalf("unexpected rewritten internal ws url in direct mode: %s", out.Nodes[0].InternalWSUrl)
+	if out.Nodes[0].InternalWSUrl != "ws://anvil-1337:8546" {
+		t.Fatalf("expected internal ws url unchanged in direct mode, got %s", out.Nodes[0].InternalWSUrl)
 	}
 }
 
-func TestNewEC2TunnelManagerReturnsNoopWhenNotApplicable(t *testing.T) {
-	t.Setenv(envAgentMode, "")
-	t.Setenv(envEC2InstanceID, "")
+func TestNewEC2TunnelManagerAlwaysReturnsNoop(t *testing.T) {
 	manager, err := newEC2TunnelManager(zerolog.Nop())
 	if err != nil {
-		t.Fatalf("expected noop manager for local mode, got error: %v", err)
-	}
-	if manager.IsStarted() {
-		t.Fatalf("expected noop manager to report not started")
-	}
-
-	t.Setenv(envAgentMode, "ec2")
-	t.Setenv(envEC2InstanceID, "")
-	manager, err = newEC2TunnelManager(zerolog.Nop())
-	if err != nil {
-		t.Fatalf("expected noop manager for ec2 mode without instance, got error: %v", err)
+		t.Fatalf("expected noop manager, got error: %v", err)
 	}
 	if manager.IsStarted() {
 		t.Fatalf("expected noop manager to report not started")

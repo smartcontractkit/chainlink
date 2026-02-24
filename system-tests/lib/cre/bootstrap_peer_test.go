@@ -18,15 +18,9 @@ func TestResolveP2PAnnounceAddresses_LocalOnly_UsesInternalHost(t *testing.T) {
 }
 
 func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
-	prevMode, hadMode := os.LookupEnv(runtimecfg.EnvRemoteAccessMode)
 	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvEC2HostIP)
 	prevLocalIP, hadLocalIP := os.LookupEnv(runtimecfg.EnvLocalHostIP)
 	t.Cleanup(func() {
-		if hadMode {
-			_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, prevMode)
-		} else {
-			_ = os.Unsetenv(runtimecfg.EnvRemoteAccessMode)
-		}
 		if hadIP {
 			_ = os.Setenv(runtimecfg.EnvEC2HostIP, prevIP)
 		} else {
@@ -38,7 +32,6 @@ func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
 			_ = os.Unsetenv(runtimecfg.EnvLocalHostIP)
 		}
 	})
-	_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
 	_ = os.Setenv(runtimecfg.EnvEC2HostIP, "10.1.2.3")
 	_ = os.Setenv(runtimecfg.EnvLocalHostIP, "192.168.1.10")
 
@@ -58,21 +51,14 @@ func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
 }
 
 func TestResolveP2PAnnounceAddresses_Remote_AddsDirectHostIP(t *testing.T) {
-	prevMode, hadMode := os.LookupEnv(runtimecfg.EnvRemoteAccessMode)
 	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvEC2HostIP)
 	t.Cleanup(func() {
-		if hadMode {
-			_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, prevMode)
-		} else {
-			_ = os.Unsetenv(runtimecfg.EnvRemoteAccessMode)
-		}
 		if hadIP {
 			_ = os.Setenv(runtimecfg.EnvEC2HostIP, prevIP)
 		} else {
 			_ = os.Unsetenv(runtimecfg.EnvEC2HostIP)
 		}
 	})
-	_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
 	_ = os.Setenv(runtimecfg.EnvEC2HostIP, "10.1.2.3")
 
 	addresses, err := ResolveP2PAnnounceAddresses("remote", true, 16001)
