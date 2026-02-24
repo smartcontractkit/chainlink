@@ -187,7 +187,7 @@ CREATE INDEX IF NOT EXISTS idx_ccv_storage_writer_jobs_archive_chain
 DROP TABLE IF EXISTS ccv_storage_writer_jobs_archive;
 DROP TABLE IF EXISTS ccv_task_verifier_jobs_archive;
 
--- Drop main tables (results first due to foreign key)
+-- Drop main tables
 DROP TABLE IF EXISTS ccv_storage_writer_jobs;
 DROP TABLE IF EXISTS ccv_task_verifier_jobs;
 
