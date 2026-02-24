@@ -98,9 +98,9 @@ func TestInMemoryStore_DeleteByWorkflowID(t *testing.T) {
 	require.NoError(t, s.DeleteByWorkflowID(t.Context(), "wf-A"))
 
 	_, err = s.Get(t.Context(), "exec-1")
-	assert.Error(t, err)
+	require.Error(t, err)
 	_, err = s.Get(t.Context(), "exec-2")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	got, err := s.Get(t.Context(), "exec-3")
 	require.NoError(t, err)
