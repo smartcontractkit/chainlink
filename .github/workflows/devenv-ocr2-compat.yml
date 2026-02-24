@@ -57,7 +57,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CTF_TAG: "framework/v0.14.5"
+          CTF_TAG: "framework/v0.14.6"
         run: |
           echo "::startgroup::Install CTF binary"
           mkdir -p bin
@@ -70,10 +70,10 @@ jobs:
       # TODO: this is only for demo purposes, remove after we re-tag properly
       - name: Tag compatible versions
         run: |
-          git tag 2.35.0+test 84989d444b
-          git tag v2.34.0+test f72f557c2b
-          git tag 2.33.0+test 2881ab34fd
-          git tag v2.32.0+test 6ff1919992
+          git tag 2.35.0+test fc851870f7
+          git tag v2.34.0+test b76d5debbe
+          git tag 2.33.0+test 95d4c2c423
+          git tag v2.32.0+test 73c2710e55
 
       - name: Run compat test
         working-directory: devenv
@@ -81,14 +81,13 @@ jobs:
         env:
           CTF_LOG_LEVEL: debug
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
-          CHAINLINK_IMAGE: ${{ secrets.REGISTRY_SDLC }}/chainlink:v2.32.0
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
         run: |
           ./bin/ctf compat backward \
           --registry $REGISTRY \
           --envcmd "cl u env.toml,products/ocr2/basic.toml" \
           --testcmd "cl test ocr2 TestSmoke/rounds" \
-          --include_tags +test \
+          --include-tags +test \
           --nodes 3 \
           --versions_back 3
 
