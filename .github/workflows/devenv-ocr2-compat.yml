@@ -1,5 +1,7 @@
 name: OCR2 Upgrade Compatibility Test
 
+# this pipeline will be enabled before next release when we connect it to build on tag action
+
 on:
   workflow_dispatch:
 
