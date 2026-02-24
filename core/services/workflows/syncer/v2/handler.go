@@ -514,6 +514,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
 		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+		SdkLabeler:                   func(sdkName string) { h.emitter = h.emitter.With("sdk", sdkName) },
 	}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
