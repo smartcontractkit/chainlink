@@ -94,6 +94,7 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.changes == 'true'
     timeout-minutes: 15
+    environment: "integration"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -114,15 +115,21 @@ jobs:
         with:
           just-version: "1.40.0"
 
-      - name: Configure AWS credentials using OIDC
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
-          aws-region: us-west-2
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
 
       - name: Authenticate to ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
