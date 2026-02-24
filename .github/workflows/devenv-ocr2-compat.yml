@@ -70,16 +70,16 @@ jobs:
       # TODO: this is only for demo purposes, remove after we re-tag properly
       - name: Tag compatible versions
         run: |
-          git tag 2.35.0+test fc851870f7
-          git tag v2.34.0+test b76d5debbe
-          git tag 2.33.0+test 95d4c2c423
-          git tag v2.32.0+test 73c2710e55
+          git tag 2.35.0+test c3e031d390
+          git tag v2.34.0+test 1e1ad054fa
+          git tag 2.33.0+test 3bac73d008
+          git tag v2.32.0+test 92ab7ccf4e
 
       - name: Run compat test
         working-directory: devenv
         shell: bash
         env:
-          CTF_LOG_LEVEL: debug
+          CTF_LOG_LEVEL: info
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
         run: |
@@ -88,8 +88,9 @@ jobs:
           --envcmd "cl u env.toml,products/ocr2/basic.toml" \
           --testcmd "cl test ocr2 TestSmoke/rounds" \
           --include-refs +test \
+          --strip-image-suffix +test \
           --nodes 3 \
-          --versions-back 2
+          --versions-back 3
 
       - name: Upload Logs
         if: always()
