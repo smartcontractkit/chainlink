@@ -133,7 +133,8 @@ func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.D
 	}
 }
 
-//nolint:revive // UpdateStreamValues mutates streamValues in-place for zero-allocation reads. Emits cache hit/miss metrics async.
+// UpdateStreamValues mutates streamValues in-place for zero-allocation reads.
+// Emits cache hit/miss metrics async.
 func (c *Cache) UpdateStreamValues(streamValues llo.StreamValues) {
 	events := make([]metricEvent, 0, len(streamValues))
 
