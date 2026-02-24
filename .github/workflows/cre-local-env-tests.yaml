@@ -147,8 +147,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AWS_ECR: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.us-west-2.amazonaws.com
         run: |
-          # Remove chip_ingress config sections since CI role lacks ECR permissions for the Atlas repo
-          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
+          # Remove chip_ingress/chip_config sections since CI role lacks ECR permissions for the Atlas repo
+          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} /^\[chip_config\.build_config\]/,/^$/{next} /^\[chip_config\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
           go run . env setup --no-prompt
 
       - name: Start the environment
