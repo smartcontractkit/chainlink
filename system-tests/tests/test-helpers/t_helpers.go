@@ -679,7 +679,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
 		ChainID:                 registryChainSelector,
-		DonID:                   testEnv.Dons.List()[0].ID,
+		DonID:                   workflowDONs[0].ID, //TODO think how to make this more robust, we are naively assuming that the first workflow DON is the one we want to register the workflow for
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		Blockchains:             testEnv.CreEnvironment.Blockchains,
 	}

@@ -117,19 +117,19 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:                     creEnv.CldfEnvironment.DataStore,
-					ContractVersions:              creEnv.ContractVersions,
-					DonMetadata:                   donMetadata,
+					Datastore:               creEnv.CldfEnvironment.DataStore,
+					ContractVersions:        creEnv.ContractVersions,
+					DonMetadata:             donMetadata,
 					Blockchains:                   chainPerSelector,
 					BlockchainPlacementBySelector: blockchainPlacementBySelector,
 					OCRBootstrapPlacement:         ocrBootstrapPlacement,
 					OCRBootstrapAnnouncePort:      ocrBootstrapAnnouncePort,
-					Flags:                         donMetadata.Flags,
-					CapabilitiesPeeringData:       capabilitiesPeeringData,
-					OCRPeeringData:                ocrPeeringData,
-					RegistryChainSelector:         creEnv.RegistryChainSelector,
-					Topology:                      topology,
-					Provider:                      creEnv.Provider,
+					Flags:                   donMetadata.Flags,
+					CapabilitiesPeeringData: capabilitiesPeeringData,
+					OCRPeeringData:          ocrPeeringData,
+					RegistryChainSelector:   creEnv.RegistryChainSelector,
+					Topology:                topology,
+					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -555,12 +555,13 @@ func addWorkerNodeConfig(
 		gateways := []coretoml.ConnectorGateway{}
 		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
 			for _, gateway := range topology.GatewayConnectors.Configurations {
+				connectorURL, urlErr := resolveGatewayConnectorURL(donMetadata.MustNodeSet().Placement, topology, gateway)
+				if urlErr != nil {
+					return existingConfig, errors.Wrap(urlErr, "failed to resolve gateway connector url")
+				}
 				gateways = append(gateways, coretoml.ConnectorGateway{
-					ID: ptr.Ptr(gateway.AuthGatewayID),
-					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
-						gateway.Outgoing.Host,
-						gateway.Outgoing.Port,
-						gateway.Outgoing.Path)),
+					ID:  ptr.Ptr(gateway.AuthGatewayID),
+					URL: ptr.Ptr(connectorURL),
 				})
 			}
 
@@ -1001,6 +1002,77 @@ func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, boot
 		return net.JoinHostPort(hostIP, strconv.Itoa(externalPort)), nil
 	}
 	return cre.ResolveBootstrapAddress(callerPlacement, bootstrapPlacement, bootstrapHost, internalPort)
+}
+
+func resolveGatewayConnectorURL(callerPlacementRaw string, topology *cre.Topology, gateway *cre.DonGatewayConfiguration) (string, error) {
+	if gateway == nil || gateway.GatewayConfiguration == nil {
+		return "", fmt.Errorf("gateway configuration is nil")
+	}
+	callerPlacement, err := connectivity.PlacementFromTarget(callerPlacementRaw)
+	if err != nil {
+		return "", err
+	}
+	targetPlacement, err := resolveNodePlacement(topology, gateway.NodeUUID)
+	if err != nil {
+		return "", err
+	}
+
+	internalURL := fmt.Sprintf("ws://%s:%d%s", gateway.Outgoing.Host, gateway.Outgoing.Port, gateway.Outgoing.Path)
+
+	externalHost, err := gatewayExternalHost(targetPlacement)
+	if err != nil {
+		return "", err
+	}
+	externalURL := fmt.Sprintf("ws://%s:%d%s", externalHost, gateway.Outgoing.Port, gateway.Outgoing.Path)
+
+	resolved, err := connectivity.Resolve(callerPlacement, targetPlacement, connectivity.EndpointPair{
+		Name:     fmt.Sprintf("gateway-%s-outgoing", gateway.AuthGatewayID),
+		Internal: internalURL,
+		External: externalURL,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resolved.URL, nil
+}
+
+func resolveNodePlacement(topology *cre.Topology, nodeUUID string) (connectivity.Placement, error) {
+	if topology == nil {
+		return "", fmt.Errorf("topology is nil")
+	}
+	trimmedUUID := strings.TrimSpace(nodeUUID)
+	if trimmedUUID == "" {
+		return "", fmt.Errorf("node uuid is empty")
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil {
+			continue
+		}
+		for _, node := range don.NodesMetadata {
+			if node == nil || strings.TrimSpace(node.UUID) == "" {
+				continue
+			}
+			if node.UUID != trimmedUUID {
+				continue
+			}
+			return connectivity.PlacementFromTarget(don.MustNodeSet().Placement)
+		}
+	}
+	return "", fmt.Errorf("failed to resolve placement for node uuid %s", trimmedUUID)
+}
+
+func gatewayExternalHost(targetPlacement connectivity.Placement) (string, error) {
+	switch targetPlacement {
+	case connectivity.PlacementRemote:
+		if !runtimecfg.IsDirectMode() {
+			return "", fmt.Errorf("gateway connector resolution for remote targets requires direct mode")
+		}
+		return runtimecfg.DirectHostIP()
+	case connectivity.PlacementLocal:
+		return strings.TrimPrefix(framework.HostDockerInternal(), "http://"), nil
+	default:
+		return "", fmt.Errorf("unsupported gateway placement: %s", targetPlacement)
+	}
 }
 
 // transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use

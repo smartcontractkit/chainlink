@@ -82,11 +82,13 @@ func StartDONs(
 		}
 	}
 
-	// Skip binary operations for Kubernetes (binaries are in the cluster images)
-	if infraInput.IsDocker() && !hasRemoteNodeSets(nodeSets) {
-		// TODO in the future check here if don is remote and skip if it is instead of !hasRemoteNodeSets()
+	// Skip binary operations for Kubernetes (binaries are in the cluster images) and for remote DONs
+	if infraInput.IsDocker() {
 		for donIdx, donMetadata := range topology.DonsMetadata.List() {
 			if !copyCapabilityBinaries {
+				continue
+			}
+			if donMetadata.MustNodeSet().Placement == string(config.PlacementRemote) {
 				continue
 			}
 
