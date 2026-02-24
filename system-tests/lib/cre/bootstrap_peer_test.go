@@ -8,31 +8,42 @@ import (
 )
 
 func TestResolveP2PAnnounceAddresses_LocalOnly_UsesInternalHost(t *testing.T) {
-	addresses, err := ResolveP2PAnnounceAddresses("local", false, "workflow-node0", 5001)
+	addresses, err := ResolveP2PAnnounceAddresses("local", false, 15001)
 	if err != nil {
 		t.Fatalf("ResolveP2PAnnounceAddresses returned error: %v", err)
 	}
-	if len(addresses) != 1 {
-		t.Fatalf("expected a single announce address, got %d (%v)", len(addresses), addresses)
-	}
-	if addresses[0] != "workflow-node0:5001" {
-		t.Fatalf("expected workflow-node0:5001, got %s", addresses[0])
+	if len(addresses) != 0 {
+		t.Fatalf("expected local-only setup to leave announce addresses unset, got %v", addresses)
 	}
 }
 
 func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
-	addresses, err := ResolveP2PAnnounceAddresses("local", true, "bootstrap-gateway-node0", 5001)
+	prevMode, hadMode := os.LookupEnv(runtimecfg.EnvRemoteAccessMode)
+	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvEC2HostIP)
+	t.Cleanup(func() {
+		if hadMode {
+			_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, prevMode)
+		} else {
+			_ = os.Unsetenv(runtimecfg.EnvRemoteAccessMode)
+		}
+		if hadIP {
+			_ = os.Setenv(runtimecfg.EnvEC2HostIP, prevIP)
+		} else {
+			_ = os.Unsetenv(runtimecfg.EnvEC2HostIP)
+		}
+	})
+	_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
+	_ = os.Setenv(runtimecfg.EnvEC2HostIP, "10.1.2.3")
+
+	addresses, err := ResolveP2PAnnounceAddresses("local", true, 15002)
 	if err != nil {
 		t.Fatalf("ResolveP2PAnnounceAddresses returned error: %v", err)
 	}
-	if len(addresses) != 2 {
-		t.Fatalf("expected two announce addresses for mixed mode, got %d (%v)", len(addresses), addresses)
+	if len(addresses) != 1 {
+		t.Fatalf("expected one announce address for mixed mode, got %d (%v)", len(addresses), addresses)
 	}
-	if addresses[0] != "bootstrap-gateway-node0:5001" {
-		t.Fatalf("expected first address to stay internal, got %s", addresses[0])
-	}
-	if addresses[1] != "host.docker.internal:5001" {
-		t.Fatalf("expected bridged host.docker.internal:5001, got %s", addresses[1])
+	if addresses[0] != "10.1.2.3:15002" {
+		t.Fatalf("expected external EC2 address 10.1.2.3:15002, got %s", addresses[0])
 	}
 }
 
@@ -54,18 +65,15 @@ func TestResolveP2PAnnounceAddresses_Remote_AddsDirectHostIP(t *testing.T) {
 	_ = os.Setenv(runtimecfg.EnvRemoteAccessMode, runtimecfg.RemoteAccessModeDirect)
 	_ = os.Setenv(runtimecfg.EnvEC2HostIP, "10.1.2.3")
 
-	addresses, err := ResolveP2PAnnounceAddresses("remote", true, "workflow-node0", 5001)
+	addresses, err := ResolveP2PAnnounceAddresses("remote", true, 16001)
 	if err != nil {
 		t.Fatalf("ResolveP2PAnnounceAddresses returned error: %v", err)
 	}
-	if len(addresses) != 2 {
-		t.Fatalf("expected two announce addresses for remote node, got %d (%v)", len(addresses), addresses)
+	if len(addresses) != 1 {
+		t.Fatalf("expected one announce address for remote node, got %d (%v)", len(addresses), addresses)
 	}
-	if addresses[0] != "workflow-node0:5001" {
-		t.Fatalf("expected first address to stay internal, got %s", addresses[0])
-	}
-	if addresses[1] != "10.1.2.3:5001" {
-		t.Fatalf("expected external EC2 address 10.1.2.3:5001, got %s", addresses[1])
+	if addresses[0] != "10.1.2.3:16001" {
+		t.Fatalf("expected external EC2 address 10.1.2.3:16001, got %s", addresses[0])
 	}
 }
 

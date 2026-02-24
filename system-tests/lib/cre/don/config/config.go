@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
-	"net"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,6 +25,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -35,7 +34,6 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/connectivity"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
@@ -49,7 +47,6 @@ func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
-	blockchainTargetBySelector map[uint64]string,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 ) ([]*cre.NodeSet, error) {
@@ -62,11 +59,6 @@ func PrepareNodeTOMLs(
 	if peeringErr != nil {
 		return nil, errors.Wrap(peeringErr, "failed to find peering data")
 	}
-	ocrBootstrapPlacement, placementErr := resolveBootstrapPlacement(topology, bt.UUID)
-	if placementErr != nil {
-		return nil, placementErr
-	}
-	framework.L.Info().Str("placement", strings.TrimSpace(ocrBootstrapPlacement)).Str("bootstrapNodeUUID", bt.UUID).Msg("resolved OCR bootstrap placement")
 
 	localNodeSets := topology.NodeSets()
 	chainPerSelector := make(map[uint64]creblockchains.Blockchain)
@@ -113,18 +105,16 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:                     creEnv.CldfEnvironment.DataStore,
-					ContractVersions:              creEnv.ContractVersions,
-					DonMetadata:                   donMetadata,
-					Blockchains:                   chainPerSelector,
-					BlockchainPlacementBySelector: blockchainTargetBySelector,
-					OCRBootstrapPlacement:         ocrBootstrapPlacement,
-					Flags:                         donMetadata.Flags,
-					CapabilitiesPeeringData:       capabilitiesPeeringData,
-					OCRPeeringData:                ocrPeeringData,
-					RegistryChainSelector:         creEnv.RegistryChainSelector,
-					Topology:                      topology,
-					Provider:                      creEnv.Provider,
+					Datastore:               creEnv.CldfEnvironment.DataStore,
+					ContractVersions:        creEnv.ContractVersions,
+					DonMetadata:             donMetadata,
+					Blockchains:             chainPerSelector,
+					Flags:                   donMetadata.Flags,
+					CapabilitiesPeeringData: capabilitiesPeeringData,
+					OCRPeeringData:          ocrPeeringData,
+					RegistryChainSelector:   creEnv.RegistryChainSelector,
+					Topology:                topology,
+					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -237,7 +227,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, input.OCRBootstrapPlacement, commonInputs, input.DonMetadata, nodeMetadata)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.Topology, input.OCRPeeringData, commonInputs, input.DonMetadata, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -342,16 +332,18 @@ func addBootstrapNodeConfig(
 		EnableExperimentalRageP2P: ptr.Ptr(true),
 	}
 	if donMetadata != nil && nodeMetadata != nil {
+		announcePort := resolveNodeOCR2AnnouncePort(donMetadata.MustNodeSet(), nodeMetadata.Index)
 		announceAddresses, announceErr := cre.ResolveP2PAnnounceAddresses(
 			donMetadata.MustNodeSet().Placement,
 			hasRemoteNodeSets(topology),
-			nodeMetadata.Host,
-			ocrPeeringData.Port,
+			announcePort,
 		)
 		if announceErr != nil {
 			return existingConfig, errors.Wrap(announceErr, "failed to resolve P2P announce addresses for bootstrap node")
 		}
-		existingConfig.P2P.V2.AnnounceAddresses = ptr.Ptr(announceAddresses)
+		if len(announceAddresses) > 0 {
+			existingConfig.P2P.V2.AnnounceAddresses = ptr.Ptr(announceAddresses)
+		}
 	}
 
 	if commonInputs.provider.IsDocker() {
@@ -407,16 +399,11 @@ func addWorkerNodeConfig(
 	existingConfig corechainlink.Config,
 	topology *cre.Topology,
 	ocrPeeringData cre.OCRPeeringData,
-	ocrBootstrapPlacement string,
 	commonInputs *commonInputs,
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
-	bootstrapAddress, bootstrapAddressErr := cre.ResolveBootstrapAddress(donMetadata.MustNodeSet().Placement, ocrBootstrapPlacement, ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port)
-	if bootstrapAddressErr != nil {
-		return existingConfig, errors.Wrap(bootstrapAddressErr, "failed to resolve bootstrap address for worker node")
-	}
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{bootstrapAddress})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -435,16 +422,18 @@ func addWorkerNodeConfig(
 		},
 		EnableExperimentalRageP2P: ptr.Ptr(true),
 	}
+	announcePort := resolveNodeOCR2AnnouncePort(donMetadata.MustNodeSet(), m.Index)
 	announceAddresses, announceErr := cre.ResolveP2PAnnounceAddresses(
 		donMetadata.MustNodeSet().Placement,
 		hasRemoteNodeSets(topology),
-		m.Host,
-		ocrPeeringData.Port,
+		announcePort,
 	)
 	if announceErr != nil {
 		return existingConfig, errors.Wrap(announceErr, "failed to resolve P2P announce addresses for worker node")
 	}
-	existingConfig.P2P.V2.AnnounceAddresses = ptr.Ptr(announceAddresses)
+	if len(announceAddresses) > 0 {
+		existingConfig.P2P.V2.AnnounceAddresses = ptr.Ptr(announceAddresses)
+	}
 
 	if commonInputs.provider.IsDocker() {
 		existingConfig.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{
@@ -535,49 +524,16 @@ func addWorkerNodeConfig(
 		if !ok {
 			return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
 		}
-		callerPlacement, placementErr := connectivity.PlacementFromTarget(donMetadata.MustNodeSet().Placement)
-		if placementErr != nil {
-			return existingConfig, placementErr
-		}
-		placementByGatewayNodeUUID, placementMapErr := gatewayPlacementByNodeUUID(topology)
-		if placementMapErr != nil {
-			return existingConfig, placementMapErr
-		}
 
 		gateways := []coretoml.ConnectorGateway{}
 		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
 			for _, gateway := range topology.GatewayConnectors.Configurations {
-				gatewayPlacement, ok := placementByGatewayNodeUUID[gateway.NodeUUID]
-				if !ok {
-					return existingConfig, fmt.Errorf("failed to resolve placement for gateway node UUID %s", gateway.NodeUUID)
-				}
-				internalURL := fmt.Sprintf("ws://%s:%d%s", gateway.Outgoing.Host, gateway.Outgoing.Port, gateway.Outgoing.Path)
-				externalURL := gatewayExternalConnectorURL(gateway)
-				resolvedGateway, err := connectivity.ResolveAndEnsureReachable(
-					context.Background(),
-					callerPlacement,
-					gatewayPlacement,
-					connectivity.EndpointPair{
-						Name:     fmt.Sprintf("gateway-%s", gateway.AuthGatewayID),
-						Internal: internalURL,
-						External: externalURL,
-					},
-					// Bridge creation for remote->local gateway is handled outside config generation.
-					func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil },
-				)
-				if err != nil {
-					return existingConfig, err
-				}
-				if resolvedGateway.RequiresBridge {
-					bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedGateway.URL)
-					if bridgeErr != nil {
-						return existingConfig, bridgeErr
-					}
-					resolvedGateway.URL = bridgeURL
-				}
 				gateways = append(gateways, coretoml.ConnectorGateway{
-					ID:  ptr.Ptr(gateway.AuthGatewayID),
-					URL: ptr.Ptr(resolvedGateway.URL),
+					ID: ptr.Ptr(gateway.AuthGatewayID),
+					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+						gateway.Outgoing.Host,
+						gateway.Outgoing.Port,
+						gateway.Outgoing.Path)),
 				})
 			}
 
@@ -693,10 +649,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
 	}
 
-	evmChains, evmErr := findEVMChains(input)
-	if evmErr != nil {
-		return nil, errors.Wrap(evmErr, "failed to resolve EVM chain endpoints for node config")
-	}
+	evmChains := findEVMChains(input)
 	solanaChain, solErr := findOneSolanaChain(input)
 	if solErr != nil {
 		return nil, errors.Wrap(solErr, "failed to find Solana chain in the environment configuration")
@@ -729,12 +682,8 @@ type evmChain struct {
 	WSRPC   string
 }
 
-func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
+func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
-	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Placement)
-	if err != nil {
-		return nil, err
-	}
 	for chainSelector, bcOut := range input.Blockchains {
 		if bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
@@ -745,49 +694,14 @@ func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
 			continue
 		}
 
-		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainPlacementBySelector[chainSelector])
-		if err != nil {
-			return nil, err
-		}
-		resolvedHTTP, err := connectivity.ResolveAndEnsureReachable(context.Background(), callerPlacement, targetPlacement, connectivity.EndpointPair{
-			Name:     fmt.Sprintf("evm-http-%d", bcOut.ChainID()),
-			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
-			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
-		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil })
-		if err != nil {
-			return nil, err
-		}
-		if resolvedHTTP.RequiresBridge {
-			bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedHTTP.URL)
-			if bridgeErr != nil {
-				return nil, fmt.Errorf("bridge url rewrite failed for node->blockchain HTTP endpoint on chain %d: %w", bcOut.ChainID(), bridgeErr)
-			}
-			resolvedHTTP.URL = bridgeURL
-		}
-		resolvedWS, err := connectivity.ResolveAndEnsureReachable(context.Background(), callerPlacement, targetPlacement, connectivity.EndpointPair{
-			Name:     fmt.Sprintf("evm-ws-%d", bcOut.ChainID()),
-			Internal: bcOut.CtfOutput().Nodes[0].InternalWSUrl,
-			External: bcOut.CtfOutput().Nodes[0].ExternalWSUrl,
-		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil })
-		if err != nil {
-			return nil, err
-		}
-		if resolvedWS.RequiresBridge {
-			bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedWS.URL)
-			if bridgeErr != nil {
-				return nil, fmt.Errorf("bridge url rewrite failed for node->blockchain WS endpoint on chain %d: %w", bcOut.ChainID(), bridgeErr)
-			}
-			resolvedWS.URL = bridgeURL
-		}
-
 		evmChains = append(evmChains, &evmChain{
 			Name:    fmt.Sprintf("node-%d", chainSelector),
 			ChainID: bcOut.ChainID(),
-			HTTPRPC: resolvedHTTP.URL,
-			WSRPC:   resolvedWS.URL,
+			HTTPRPC: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			WSRPC:   bcOut.CtfOutput().Nodes[0].InternalWSUrl,
 		})
 	}
-	return evmChains, nil
+	return evmChains
 }
 
 type solanaChain struct {
@@ -799,10 +713,6 @@ type solanaChain struct {
 func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	var solChain *solanaChain
 	chainsFound := 0
-	callerPlacement, err := connectivity.PlacementFromTarget(input.DonMetadata.MustNodeSet().Placement)
-	if err != nil {
-		return nil, err
-	}
 
 	for _, bcOut := range input.Blockchains {
 		if !bcOut.IsFamily(chain_selectors.FamilySolana) {
@@ -815,25 +725,6 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		}
 
 		solBc := bcOut.(*solana.Blockchain)
-		targetPlacement, err := connectivity.PlacementFromTarget(input.BlockchainPlacementBySelector[solBc.ChainSelector()])
-		if err != nil {
-			return nil, err
-		}
-		resolvedNodeURL, err := connectivity.ResolveAndEnsureReachable(context.Background(), callerPlacement, targetPlacement, connectivity.EndpointPair{
-			Name:     "solana-rpc",
-			Internal: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
-			External: bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl,
-		}, func(_ context.Context, _ connectivity.EndpointPair, _ int) error { return nil })
-		if err != nil {
-			return nil, err
-		}
-		if resolvedNodeURL.RequiresBridge {
-			bridgeURL, bridgeErr := rewriteEndpointForRemoteCaller(resolvedNodeURL.URL)
-			if bridgeErr != nil {
-				return nil, fmt.Errorf("bridge url rewrite failed for node->solana RPC endpoint: %w", bridgeErr)
-			}
-			resolvedNodeURL.URL = bridgeURL
-		}
 
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
 		chainID, err := solBc.SolClient.GetGenesisHash(ctx)
@@ -846,118 +737,11 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
 			ChainID: chainID.String(),
-			NodeURL: resolvedNodeURL.URL,
+			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
 
 	return solChain, nil
-}
-
-func gatewayPlacementByNodeUUID(topology *cre.Topology) (map[string]connectivity.Placement, error) {
-	out := make(map[string]connectivity.Placement)
-	if topology == nil {
-		return out, nil
-	}
-	for _, don := range topology.DonsMetadata.List() {
-		placement, err := connectivity.PlacementFromTarget(don.MustNodeSet().Placement)
-		if err != nil {
-			return nil, err
-		}
-		for _, node := range don.NodesMetadata {
-			if node == nil || strings.TrimSpace(node.UUID) == "" {
-				continue
-			}
-			out[node.UUID] = placement
-		}
-	}
-	return out, nil
-}
-
-func hasRemoteNodeSets(topology *cre.Topology) bool {
-	if topology == nil {
-		return false
-	}
-	for _, don := range topology.DonsMetadata.List() {
-		if don == nil || don.MustNodeSet() == nil {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(don.MustNodeSet().Placement), string(connectivity.PlacementRemote)) {
-			return true
-		}
-	}
-	return false
-}
-
-func resolveBootstrapPlacement(topology *cre.Topology, bootstrapNodeUUID string) (string, error) {
-	if topology == nil {
-		return "", fmt.Errorf("topology is nil")
-	}
-	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
-	if bootstrapNodeUUID == "" {
-		return "", fmt.Errorf("bootstrap node UUID is empty")
-	}
-	for _, don := range topology.DonsMetadata.List() {
-		if don == nil {
-			continue
-		}
-		for _, node := range don.NodesMetadata {
-			if node == nil || strings.TrimSpace(node.UUID) == "" {
-				continue
-			}
-			if node.UUID != bootstrapNodeUUID {
-				continue
-			}
-			return strings.TrimSpace(don.MustNodeSet().Placement), nil
-		}
-	}
-	return "", fmt.Errorf("failed to resolve bootstrap placement for node UUID %s", bootstrapNodeUUID)
-}
-
-func gatewayExternalConnectorURL(gateway *cre.DonGatewayConfiguration) string {
-	if gateway == nil || gateway.GatewayConfiguration == nil {
-		return ""
-	}
-	scheme := "ws"
-	switch strings.ToLower(strings.TrimSpace(gateway.Incoming.Protocol)) {
-	case "https":
-		scheme = "wss"
-	case "wss":
-		scheme = "wss"
-	case "http":
-		scheme = "ws"
-	}
-	path := strings.TrimSpace(gateway.Incoming.Path)
-	if path == "" || path == "/" {
-		path = "/node"
-	} else if !strings.HasSuffix(path, "/node") {
-		path = strings.TrimRight(path, "/") + "/node"
-	}
-	return fmt.Sprintf("%s://%s:%d%s", scheme, gateway.Incoming.Host, gateway.Incoming.ExternalPort, path)
-}
-
-func rewriteEndpointForRemoteCaller(raw string) (string, error) {
-	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "", fmt.Errorf("endpoint is empty")
-	}
-	if strings.Contains(trimmed, "://") {
-		parsed, err := url.Parse(trimmed)
-		if err != nil {
-			return "", fmt.Errorf("parse url %q: %w", raw, err)
-		}
-		if parsed.Port() != "" {
-			parsed.Host = net.JoinHostPort(dockerHost, parsed.Port())
-			return parsed.String(), nil
-		}
-		parsed.Host = dockerHost
-		return parsed.String(), nil
-	}
-	_, port, err := net.SplitHostPort(trimmed)
-	if err != nil {
-		return "", fmt.Errorf("parse host:port %q: %w", raw, err)
-	}
-	return net.JoinHostPort(dockerHost, port), nil
 }
 
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
@@ -1008,7 +792,7 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 
 	// add only unconfigured chains, since other roles might have already added some chains
 	for _, existingEVM := range *existingConfig {
-		if existingEVM.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID)))) == 0 {
+		if existingEVM.ChainID.ToInt().Cmp(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))) == 0 {
 			return
 		}
 	}
@@ -1033,6 +817,39 @@ func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain
 			},
 		},
 	})
+}
+
+func hasRemoteNodeSets(topology *cre.Topology) bool {
+	if topology == nil {
+		return false
+	}
+	for _, nodeSet := range topology.NodeSets() {
+		if nodeSet != nil && strings.EqualFold(strings.TrimSpace(nodeSet.Placement), "remote") {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveNodeOCR2AnnouncePort(nodeSet *cre.NodeSet, nodeIndex int) int {
+	base := 0
+	if nodeSet != nil {
+		base = nodeSet.OCR2P2PRangeStart
+		if base == 0 {
+			httpStart := nodeSet.HTTPPortRangeStart
+			if httpStart == 0 {
+				httpStart = ns.DefaultHTTPPortStaticRangeStart
+			}
+			base = httpStart + (ns.DefaultOCR2P2PStaticRangeStart - ns.DefaultHTTPPortStaticRangeStart)
+		}
+	}
+	if base == 0 {
+		base = ns.DefaultOCR2P2PStaticRangeStart
+	}
+	if nodeIndex < 0 {
+		nodeIndex = 0
+	}
+	return base + nodeIndex
 }
 
 // transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use

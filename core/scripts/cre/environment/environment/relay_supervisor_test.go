@@ -3,6 +3,7 @@ package environment
 import (
 	"testing"
 
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
@@ -11,12 +12,21 @@ func TestRelaySpecsFromConfig_AddsBootstrapPeeringPortForRemoteToLocalMixedDONs(
 	cfg := &envconfig.Config{
 		NodeSets: []*cre.NodeSet{
 			{
+				Input: &ns.Input{
+					Name:               "workflow",
+					Nodes:              2,
+					HTTPPortRangeStart: 10100,
+				},
 				Placement: "local",
 				NodeSpecs: []*cre.NodeSpecWithRole{
 					{Roles: []string{cre.BootstrapNode}},
 				},
 			},
 			{
+				Input: &ns.Input{
+					Name:  "capabilities",
+					Nodes: 1,
+				},
 				Placement: "remote",
 				NodeSpecs: []*cre.NodeSpecWithRole{
 					{Roles: []string{cre.WorkerNode}},
@@ -26,15 +36,12 @@ func TestRelaySpecsFromConfig_AddsBootstrapPeeringPortForRemoteToLocalMixedDONs(
 	}
 
 	specs := relaySpecsFromConfig(cfg)
-	foundBootstrap := false
+	got := map[int]bool{}
 	for _, spec := range specs {
-		if spec.Name == "ocr-bootstrap" && spec.Port == 5001 {
-			foundBootstrap = true
-			break
-		}
+		got[spec.Port] = true
 	}
-	if !foundBootstrap {
-		t.Fatalf("expected relay specs to include ocr-bootstrap:5001, got %#v", specs)
+	if !got[14100] || !got[14101] {
+		t.Fatalf("expected relay specs to include per-node OCR relay ports 14100/14101, got %#v", specs)
 	}
 }
 
@@ -52,8 +59,8 @@ func TestRelaySpecsFromConfig_DoesNotAddBootstrapWhenNoRemoteNodeSets(t *testing
 
 	specs := relaySpecsFromConfig(cfg)
 	for _, spec := range specs {
-		if spec.Name == "ocr-bootstrap" && spec.Port == 5001 {
-			t.Fatalf("did not expect ocr-bootstrap relay spec without remote nodesets, got %#v", specs)
+		if spec.Port == 14100 || spec.Port == 5001 {
+			t.Fatalf("did not expect OCR relay specs without remote nodesets, got %#v", specs)
 		}
 	}
 }

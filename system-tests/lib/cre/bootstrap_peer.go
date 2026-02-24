@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
-const placeholderHostForPortRewrite = "127.0.0.1"
-
 func ResolveBootstrapAddress(callerTarget, bootstrapTarget, internalHost string, port int) (string, error) {
 	if strings.TrimSpace(internalHost) == "" {
 		return "", fmt.Errorf("bootstrap internal host is empty")
@@ -63,12 +61,9 @@ func ResolveBootstrapPeerURL(callerTarget, bootstrapTarget, peerID, internalHost
 	return trimmedPeerID + "@" + address, nil
 }
 
-func ResolveP2PAnnounceAddresses(nodePlacement string, hasRemoteNodeSets bool, internalHost string, port int) ([]string, error) {
-	if strings.TrimSpace(internalHost) == "" {
-		return nil, fmt.Errorf("p2p internal host is empty")
-	}
-	if port <= 0 || port > 65535 {
-		return nil, fmt.Errorf("invalid p2p port: %d", port)
+func ResolveP2PAnnounceAddresses(nodePlacement string, hasRemoteNodeSets bool, advertisedPort int) ([]string, error) {
+	if advertisedPort <= 0 || advertisedPort > 65535 {
+		return nil, fmt.Errorf("invalid p2p announce port: %d", advertisedPort)
 	}
 
 	placement, err := connectivity.PlacementFromTarget(nodePlacement)
@@ -76,34 +71,30 @@ func ResolveP2PAnnounceAddresses(nodePlacement string, hasRemoteNodeSets bool, i
 		return nil, err
 	}
 
-	internal := net.JoinHostPort(strings.TrimSpace(internalHost), strconv.Itoa(port))
-	addresses := []string{internal}
-	seen := map[string]struct{}{internal: {}}
+	addresses := []string{}
 	add := func(addr string) {
-		addr = strings.TrimSpace(addr)
-		if addr == "" {
-			return
+		trimmed := strings.TrimSpace(addr)
+		if trimmed != "" {
+			addresses = append(addresses, trimmed)
 		}
-		if _, ok := seen[addr]; ok {
-			return
-		}
-		seen[addr] = struct{}{}
-		addresses = append(addresses, addr)
 	}
 
 	switch placement {
 	case connectivity.PlacementLocal:
-		if hasRemoteNodeSets {
-			// rewriteEndpointForRemoteCaller only uses the port for host:port inputs.
-			// The host here is an explicit placeholder and is not part of the final address.
-			bridged, bridgeErr := rewriteEndpointForRemoteCaller(net.JoinHostPort(placeholderHostForPortRewrite, strconv.Itoa(port)))
-			if bridgeErr != nil {
-				return nil, bridgeErr
-			}
-			add(bridged)
+		if !hasRemoteNodeSets {
+			// Keep AnnounceAddresses unset for local-only setups.
+			// This lets libocr use default/local-network behavior.
+			return addresses, nil
 		}
+		// In mixed mode, local nodes are reached through EC2 relay listeners.
+		external, externalErr := resolveBootstrapExternalAddress(connectivity.PlacementRemote, advertisedPort)
+		if externalErr != nil {
+			return nil, externalErr
+		}
+		add(external)
 	case connectivity.PlacementRemote:
-		external, externalErr := resolveBootstrapExternalAddress(connectivity.PlacementRemote, port)
+		// Remote nodes advertise direct EC2-reachable host ports.
+		external, externalErr := resolveBootstrapExternalAddress(connectivity.PlacementRemote, advertisedPort)
 		if externalErr != nil {
 			return nil, externalErr
 		}

@@ -38,11 +38,42 @@
   type = "docker"
 
 [[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10000
+  ocr2_p2p_port_range_start = 10050
+  placement = "remote"
+  remote_start_policy = "always"
+
+  env_vars = { CL_EVM_CMD = "" }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      #ocker_ctx = "../../../.."
+      #docker_file = "core/chainlink.Dockerfile"
+      #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      image = "chainlink-amd:latest"
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = ""
+
+[[nodesets]]
   nodes = 4
   name = "workflow"
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
+  ocr2_p2p_port_range_start = 10150
   placement = "local"
 
   env_vars = { CL_EVM_CMD = "" }
@@ -68,6 +99,7 @@
   exposes_remote_capabilities = true
   override_mode = "all"
   http_port_range_start = 10200
+  ocr2_p2p_port_range_start = 10250
   placement = "remote"
   remote_start_policy = "always"
 
@@ -89,33 +121,4 @@
       #docker_file = "core/chainlink.Dockerfile"
       #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       image = "chainlink-amd:latest"
-      user_config_overrides = ""
-
-[[nodesets]]
-  nodes = 1
-  name = "bootstrap-gateway"
-  don_types = ["bootstrap", "gateway"]
-  override_mode = "each"
-  http_port_range_start = 10300
-  placement = "remote"
-  remote_start_policy = "always"
-
-  env_vars = { CL_EVM_CMD = "" }
-  supported_evm_chains = [1337, 2337]
-
-  [nodesets.db]
-    image = "postgres:12.0"
-    port = 13200
-
-  [[nodesets.node_specs]]
-    roles = ["bootstrap", "gateway"]
-    [nodesets.node_specs.node]
-      #ocker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      image = "chainlink-amd:latest"
-      # 5002 is the web API capabilities port for incoming requests
-      # 15002 is the vault port for incoming requests
-      custom_ports = ["5002:5002","15002:15002"]
-      # image = "chainlink-tmp:latest"
       user_config_overrides = ""

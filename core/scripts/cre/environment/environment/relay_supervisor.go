@@ -30,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
@@ -237,12 +239,8 @@ func relaySpecsFromConfig(cfg *envconfig.Config) []relaySpec {
 		if nodeSet == nil || strings.TrimSpace(nodeSet.Placement) != string(envconfig.PlacementLocal) {
 			continue
 		}
-		for _, nodeSpec := range nodeSet.NodeSpecs {
-			if nodeSpec == nil || !hasBootstrapRole(nodeSpec.Roles) {
-				continue
-			}
-			addSpec("ocr-bootstrap", 5001)
-			break
+		for idx, p := range inferLocalNodeSetOCR2Ports(nodeSet) {
+			addSpec(fmt.Sprintf("%s-ocr-%d", strings.TrimSpace(nodeSet.Name), idx), p)
 		}
 	}
 
@@ -323,6 +321,36 @@ func hasBootstrapRole(roles []string) bool {
 		}
 	}
 	return false
+}
+
+func inferLocalNodeSetOCR2Ports(nodeSet *cre.NodeSet) []int {
+	if nodeSet == nil {
+		return nil
+	}
+	nodeCount := nodeSet.Nodes
+	if nodeCount <= 0 {
+		nodeCount = len(nodeSet.NodeSpecs)
+	}
+	if nodeCount <= 0 {
+		return nil
+	}
+	base := nodeSet.OCR2P2PRangeStart
+	if base == 0 {
+		httpStart := nodeSet.HTTPPortRangeStart
+		if httpStart == 0 {
+			httpStart = ns.DefaultHTTPPortStaticRangeStart
+		}
+		base = httpStart + (ns.DefaultOCR2P2PStaticRangeStart - ns.DefaultHTTPPortStaticRangeStart)
+	}
+	out := make([]int, 0, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		p := base + i
+		if p <= 0 || p > 65535 {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 func endpointPort(raw string) (int, bool) {
