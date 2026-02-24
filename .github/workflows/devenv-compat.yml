@@ -1,14 +1,62 @@
-name: OCR2 Upgrade Compatibility Test
-
-# this pipeline will be enabled before next release when we connect it to build on tag action
+name: OCR2 Upgrade Compatibility Test (Reusable)
 
 on:
-  workflow_dispatch:
   workflow_call:
+    inputs:
+      buildcmd:
+        description: "Build command to run"
+        required: true
+        type: string
+      envcmd:
+        description: "Environment setup command to run"
+        required: true
+        type: string
+      testcmd:
+        description: "Test command to run"
+        required: true
+        type: string
+      nodes:
+        description: "Number of nodes for the test"
+        required: false
+        default: "3"
+        type: string
+      versions-back:
+        description: "Number of versions to go back for compatibility testing"
+        required: false
+        default: "2"
+        type: string
+      working-directory:
+        description: "Working directory for commands"
+        required: false
+        default: "devenv"
+        type: string
+      logs-directory:
+        description: "Logs directory"
+        required: true
+        type: string
+      ctf-log-level:
+        description: "CTF log level"
+        required: false
+        default: "info"
+        type: string
+    secrets:
+      AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN:
+        description: "AWS OIDC role ARN for ECR read access"
+        required: true
+      FAKE_SERVER_IMAGE:
+        description: "Fake server image"
+        required: true
+      REGISTRY_SDLC:
+        description: "SDLC registry URL"
+        required: true
+      GITHUB_TOKEN:
+        description: "GitHub token for downloading releases"
+        required: false
+        default: ${{ github.token }}
 
 defaults:
   run:
-    working-directory: devenv
+    working-directory: ${{ inputs.working-directory }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
@@ -49,21 +97,23 @@ jobs:
         uses: actions/setup-go@v6 # v6
         with:
           cache: true
-          go-version-file: devenv/go.mod
-          cache-dependency-path: devenv/go.sum
+          go-version-file: ${{ inputs.working-directory }}/go.mod
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
 
       - name: Download Go dependencies
         run: |
           go mod download
-      
+
       - name: Get CTF version from go.mod
         shell: bash
+        working-directory: ${{ inputs.working-directory }}
         run: |
           CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
           echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
-      
+
       - name: Install CTF binary
         shell: bash
+        working-directory: ${{ inputs.working-directory }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -72,27 +122,27 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
-      
+
       - name: Run compat test
-        working-directory: devenv
+        working-directory: ${{ inputs.working-directory }}
         shell: bash
         env:
-          CTF_LOG_LEVEL: info
+          CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
         run: |
           ./bin/ctf compat backward \
           --registry $REGISTRY \
-          --buildcmd "just cli" \
-          --envcmd "cl u env.toml,products/ocr2/basic.toml" \
-          --testcmd "cl test ocr2 TestSmoke/rounds" \
-          --nodes 3 \
-          --versions-back 2
+          --buildcmd "${{ inputs.buildcmd }}" \
+          --envcmd "${{ inputs.envcmd }}" \
+          --testcmd "${{ inputs.testcmd }}" \
+          --nodes ${{ inputs.nodes }} \
+          --versions-back ${{ inputs.versions-back }}
 
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke
-          path: devenv/tests/ocr2/logs
+          path: ${{ inputs.logs-directory }}
           retention-days: 3
