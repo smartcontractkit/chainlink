@@ -751,74 +751,74 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				// Clear pending events after successful reconciliation
 				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
 
-			// Partition events: ready deletes go to batch, everything else is sequential
-			var batchDeletePayloads []WorkflowDeletedEvent
-			var batchDeleteEvents []*reconciliationEvent
-			var sequentialEvents []*reconciliationEvent
+				// Partition events: ready deletes go to batch, everything else is sequential
+				var batchDeletePayloads []WorkflowDeletedEvent
+				var batchDeleteEvents []*reconciliationEvent
+				var sequentialEvents []*reconciliationEvent
 
-			for _, event := range events {
-				isDelete := event.Name == WorkflowDeleted || event.Name == WorkflowPaused
-				isReady := event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt)
+				for _, event := range events {
+					isDelete := event.Name == WorkflowDeleted || event.Name == WorkflowPaused
+					isReady := event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt)
 
-				if isDelete && isReady {
-					var payload WorkflowDeletedEvent
-					switch d := event.Data.(type) {
-					case WorkflowDeletedEvent:
-						payload = d
-					case WorkflowPausedEvent:
-						payload = WorkflowDeletedEvent{WorkflowID: d.WorkflowID, Source: d.Source}
+					if isDelete && isReady {
+						var payload WorkflowDeletedEvent
+						switch d := event.Data.(type) {
+						case WorkflowDeletedEvent:
+							payload = d
+						case WorkflowPausedEvent:
+							payload = WorkflowDeletedEvent{WorkflowID: d.WorkflowID, Source: d.Source}
+						}
+						batchDeletePayloads = append(batchDeletePayloads, payload)
+						batchDeleteEvents = append(batchDeleteEvents, event)
+						reconcileReport.NumEventsByType[string(event.Name)]++
+					} else {
+						sequentialEvents = append(sequentialEvents, event)
 					}
-					batchDeletePayloads = append(batchDeletePayloads, payload)
-					batchDeleteEvents = append(batchDeleteEvents, event)
-					reconcileReport.NumEventsByType[string(event.Name)]++
-				} else {
-					sequentialEvents = append(sequentialEvents, event)
 				}
-			}
 
-			// Batch delete
-			if len(batchDeletePayloads) > 0 {
-				batchStart := time.Now()
-				if batchErr := w.handler.HandleDeleteBatch(ctx, batchDeletePayloads); batchErr != nil {
-					for _, event := range batchDeleteEvents {
-						event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
-						pendingEventsBySource[sourceIdentifier][event.id] = event
-						reconcileReport.Backoffs[event.id] = event.nextRetryAt
-					}
-					w.lggr.Errorw("batch delete failed", "err", batchErr, "count", len(batchDeleteEvents), "durationMs", time.Since(batchStart).Milliseconds())
-				} else {
-					w.lggr.Debugw("batch delete succeeded", "source", sourceName, "count", len(batchDeletePayloads), "durationMs", time.Since(batchStart).Milliseconds())
-				}
-			}
-
-			// Handle remaining events sequentially
-			for _, event := range sequentialEvents {
-				select {
-				case <-ctx.Done():
-					w.lggr.Debug("readRegistryStateLoop stopped during processing")
-					return
-				default:
-					w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
-					reconcileReport.NumEventsByType[string(event.Name)]++
-
-					if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-						handleErr := w.handleWithMetrics(ctx, event.Event)
-						if handleErr != nil {
+				// Batch delete
+				if len(batchDeletePayloads) > 0 {
+					batchStart := time.Now()
+					if batchErr := w.handler.HandleDeleteBatch(ctx, batchDeletePayloads); batchErr != nil {
+						for _, event := range batchDeleteEvents {
 							event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+							pendingEventsBySource[sourceIdentifier][event.id] = event
+							reconcileReport.Backoffs[event.id] = event.nextRetryAt
+						}
+						w.lggr.Errorw("batch delete failed", "err", batchErr, "count", len(batchDeleteEvents), "durationMs", time.Since(batchStart).Milliseconds())
+					} else {
+						w.lggr.Debugw("batch delete succeeded", "source", sourceName, "count", len(batchDeletePayloads), "durationMs", time.Since(batchStart).Milliseconds())
+					}
+				}
 
+				// Handle remaining events sequentially
+				for _, event := range sequentialEvents {
+					select {
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped during processing")
+						return
+					default:
+						w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
+						reconcileReport.NumEventsByType[string(event.Name)]++
+
+						if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
+							handleErr := w.handleWithMetrics(ctx, event.Event)
+							if handleErr != nil {
+								event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+
+								pendingEventsBySource[sourceIdentifier][event.id] = event
+
+								reconcileReport.Backoffs[event.id] = event.nextRetryAt
+								w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
+							}
+						} else {
 							pendingEventsBySource[sourceIdentifier][event.id] = event
 
 							reconcileReport.Backoffs[event.id] = event.nextRetryAt
-							w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
+							w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 						}
-					} else {
-						pendingEventsBySource[sourceIdentifier][event.id] = event
-
-						reconcileReport.Backoffs[event.id] = event.nextRetryAt
-						w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 					}
 				}
-			}
 			}
 
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)
