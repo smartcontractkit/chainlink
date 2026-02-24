@@ -35,7 +35,9 @@ type triggerPublisher struct {
 
 	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
-	mu            sync.RWMutex // protects messageCache and registrations
+	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
+	mu            sync.RWMutex // protects messageCache, ackCache, and registrations
+
 	batchingQueue map[[32]byte]*batchedResponse
 	bqMu          sync.Mutex // protects batchingQueue
 	stopCh        services.StopChan
@@ -56,6 +58,12 @@ type registrationKey struct {
 	callerDonID uint32
 	workflowID  string
 	triggerID   string
+}
+
+type ackKey struct {
+	callerDonID    uint32
+	triggerEventID string
+	triggerID      string // triggerID contains the workflowID
 }
 
 type pubRegState struct {
@@ -88,6 +96,7 @@ func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher t
 		capMethodName: capMethodName,
 		dispatcher:    dispatcher,
 		messageCache:  messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		ackCache:      messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
 		registrations: make(map[registrationKey]*pubRegState),
 		batchingQueue: make(map[[32]byte]*batchedResponse),
 		stopCh:        make(services.StopChan),
@@ -247,6 +256,51 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
+	case types.MethodTriggerEventAck:
+		triggerMetadata := msg.GetTriggerEventMetadata()
+		if triggerMetadata == nil {
+			p.lggr.Errorw("received empty trigger event ack metadata", "sender", sender)
+			break
+		}
+		triggerEventID := triggerMetadata.TriggerEventId
+		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID)
+
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
+		if !ok {
+			p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
+			return
+		}
+		if !cfg.membersCache[msg.CallerDonId][sender] {
+			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
+			return
+		}
+
+		if len(triggerMetadata.TriggerIds) != 1 {
+			p.lggr.Errorw("did not receive single triggerID in ACK request", "callerDonId", msg.CallerDonId, "sender", sender, "triggerIDs", triggerMetadata.TriggerIds)
+			return
+		}
+		triggerID := triggerMetadata.TriggerIds[0]
+
+		key := ackKey{msg.CallerDonId, triggerEventID, triggerID}
+		nowMs := time.Now().UnixMilli()
+		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
+		minRequired := uint32(2*callerDon.F + 1)
+		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
+		if !ready {
+			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
+			return
+		}
+
+		ctx, cancel := p.stopCh.NewCtx()
+		defer cancel()
+		p.lggr.Debugw("ACKing trigger event", "triggerEventId", triggerEventID)
+		err = cfg.underlying.AckEvent(ctx, p.capabilityID, triggerEventID, p.capMethodName)
+		if err != nil {
+			p.lggr.Errorf("failed to AckEvent on underlying trigger capability (eventID = %s, capabilityID: %s): %v",
+				triggerEventID, p.capabilityID, err)
+		}
 	default:
 		p.lggr.Errorw("received message with unknown method",
 			"method", SanitizeLogString(msg.Method), "sender", sender)

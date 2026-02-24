@@ -89,6 +89,10 @@ type enqueuedTriggerEvent struct {
 	event        capabilities.TriggerResponse
 }
 
+func TriggerRegistrationID(workflowID string, triggerIndex int) string {
+	return fmt.Sprintf("trigger_reg_%s_%d", workflowID, triggerIndex)
+}
+
 // buildLabels creates the label slice for the beholder logger based on config and localNode state.
 // This is used both during engine creation and when updating labels after a DON configuration change.
 func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
@@ -418,7 +422,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	for i, sub := range subs.Subscriptions {
 		triggerCap := triggers[i]
 		g.Go(func() error {
-			registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
 			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
@@ -666,6 +670,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+
+	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+	err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
+	if err != nil {
+		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
+	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 
 	// Track execution error for deferred event emission
@@ -767,6 +777,17 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)
+}
+
+func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
+	e.triggersRegMu.Lock()
+	trigger, ok := e.triggers[triggerRegistrationID]
+	e.triggersRegMu.Unlock()
+
+	if !ok {
+		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
+	}
+	return trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
 }
 
 func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {

@@ -55,6 +55,10 @@ func (f *ManualHTTPTriggerService) UnregisterTrigger(ctx context.Context, trigge
 	return nil
 }
 
+func (f *ManualHTTPTriggerService) AckEvent(ctx context.Context, triggerID string, eventID string, method string) caperrors.Error {
+	return nil
+}
+
 func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	f.lggr.Debugf("Initialising %s", HTTPTriggerServiceName)
 	return f.Start(ctx)

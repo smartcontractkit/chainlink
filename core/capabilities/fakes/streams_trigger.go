@@ -65,6 +65,10 @@ func (st *fakeStreamsTrigger) Info(ctx context.Context) (commonCap.CapabilityInf
 	}, nil
 }
 
+func (st *fakeStreamsTrigger) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	return nil
+}
+
 func (st *fakeStreamsTrigger) RegisterTrigger(ctx context.Context, request commonCap.TriggerRegistrationRequest) (<-chan commonCap.TriggerResponse, error) {
 	st.mu.Lock()
 	defer st.mu.Unlock()

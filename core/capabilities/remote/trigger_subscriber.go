@@ -135,6 +135,31 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return cfg.capInfo, nil
 }
 
+func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	s.lggr.Debugf("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerID, eventID)
+	cfg := s.cfg.Load()
+	for _, peerID := range cfg.capDonInfo.Members {
+		m := &types.MessageBody{
+			CapabilityId:     cfg.capInfo.ID,
+			CapabilityDonId:  cfg.capDonInfo.ID,
+			CallerDonId:      cfg.localDonID,
+			Method:           types.MethodTriggerEventAck,
+			CapabilityMethod: s.capMethodName,
+			Metadata: &types.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &types.TriggerEventMetadata{
+					TriggerEventId: eventID,
+					TriggerIds:     []string{triggerID}, // triggerID contains workflowID
+				},
+			},
+		}
+		err := s.dispatcher.Send(peerID, m)
+		if err != nil {
+			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+		}
+	}
+	return nil
+}
+
 func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
 	rawRequest, err := pb.MarshalTriggerRegistrationRequest(request)
 	if err != nil {
