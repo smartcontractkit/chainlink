@@ -876,6 +876,13 @@ func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastoreForChain(e cldf
 		return fmt.Errorf("failed to load mcms state from datastore with qualifier %s: %w", qualifier, err)
 	}
 	for chainSelector, mcmsState := range mcmsStateWithQualifier {
+		// When Bypasser and Canceller share the same contract address for some legacy networks, fill the gap.
+		if mcmsState.BypasserMcm == nil && mcmsState.CancellerMcm != nil {
+			mcmsState.BypasserMcm = mcmsState.CancellerMcm
+		}
+		if mcmsState.CancellerMcm == nil && mcmsState.BypasserMcm != nil {
+			mcmsState.CancellerMcm = mcmsState.BypasserMcm
+		}
 		if chainState, ok := c.EVMChainState(chainSelector); ok {
 			chainState.MCMSWithTimelockState = *mcmsState
 			chainState.ABIByAddress[mcmsState.ProposerMcm.Address().Hex()] = gethwrappers.ManyChainMultiSigABI
