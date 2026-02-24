@@ -172,7 +172,7 @@ func getBootstrapURLs(callerDON *cre.Don, dons *cre.Dons) ([]string, error) {
 		return nil, errors.New("no bootstrap node found in dons")
 	}
 
-	bootstrapURL, err := cre.ResolveBootstrapPeerURL(callerDON.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
+	bootstrapURL, err := cre.ResolveBootstrapPeerURL(callerDON.Placement, bootstrap.DON.Placement, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve bootstrap peer URL: %w", err)
 	}

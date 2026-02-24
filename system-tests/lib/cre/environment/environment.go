@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -282,6 +286,9 @@ func SetupTestEnvironment(
 		if err := input.PreDONsStartHook(ctx); err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to execute pre-DON startup hook")
 		}
+	}
+	if err := verifyRemoteToLocalBootstrapReachability(ctx, testLogger, topology); err != nil {
+		return nil, pkgerrors.Wrap(err, "bootstrap reachability sanity check failed")
 	}
 
 	startedDONs, donStartErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, tunnelManager)
@@ -562,6 +569,70 @@ func validateUnsupportedPlacements(
 		}
 	}
 	return nil
+}
+
+func verifyRemoteToLocalBootstrapReachability(ctx context.Context, lggr zerolog.Logger, topology *cre.Topology) error {
+	if topology == nil {
+		return nil
+	}
+	hasRemoteDONs := false
+	hasLocalBootstrap := false
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil || don.MustNodeSet() == nil {
+			continue
+		}
+		placement := strings.TrimSpace(don.MustNodeSet().Placement)
+		if placement == string(config.PlacementRemote) {
+			hasRemoteDONs = true
+		}
+		if placement == string(config.PlacementLocal) {
+			for _, node := range don.NodesMetadata {
+				if node != nil && node.HasRole(cre.BootstrapNode) {
+					hasLocalBootstrap = true
+					break
+				}
+			}
+		}
+	}
+	if !hasRemoteDONs || !hasLocalBootstrap {
+		return nil
+	}
+	if !runtimecfg.IsDirectMode() {
+		return nil
+	}
+
+	hostIP, err := runtimecfg.DirectHostIP()
+	if err != nil {
+		return fmt.Errorf("resolve direct EC2 host ip: %w", err)
+	}
+	remoteRelayAddr := net.JoinHostPort(hostIP, strconv.Itoa(cre.OCRPeeringPort))
+	if err := waitForTCPReachable(ctx, remoteRelayAddr, 6*time.Second); err != nil {
+		return fmt.Errorf("remote relay listener for bootstrap peering is not reachable at %s: %w", remoteRelayAddr, err)
+	}
+	lggr.Info().Str("remoteRelay", remoteRelayAddr).Msg("verified remote->local bootstrap relay listener reachability")
+	return nil
+}
+
+func waitForTCPReachable(ctx context.Context, addr string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for {
+		dialer := net.Dialer{Timeout: 600 * time.Millisecond}
+		conn, err := dialer.DialContext(ctx, "tcp", addr)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		lastErr = err
+		if time.Now().After(deadline) {
+			return lastErr
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
 }
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {

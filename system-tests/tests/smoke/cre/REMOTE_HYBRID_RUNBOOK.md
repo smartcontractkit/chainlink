@@ -56,6 +56,24 @@ For both SSM and direct-mode auto IP lookup, AWS CLI auth selection follows:
 - Cross placement (`local->remote`, `remote->local`) uses **external** URLs.
 - Remote NodeSets targeting local gateway are allowed when bridge/tunnel plumbing for gateway ingress is present.
 
+## P2P Peering Rules (SharedPeering)
+
+- `P2P.V2.ListenAddresses` is the **bind** interface used by the node process (CRE sets `0.0.0.0:5001`).
+- `P2P.V2.AnnounceAddresses` is the **routable** endpoint set peers learn via discovery.
+- In mixed placement:
+  - local node announce set includes internal node host and a bridged host (`host.docker.internal:5001`) for remote callers.
+  - remote node announce set includes internal node host and direct EC2 host IP address (`<ec2-private-ip>:5001`) in direct mode.
+- If announce addresses are not routable from the caller placement, DON2DON discovery can succeed but stream establishment will fail.
+
+## Mixed Bootstrap Reachability
+
+- When remote DONs and a local bootstrap node are both present, CRE starts persistent relay plumbing for bootstrap peering on `5001`.
+- Before DON startup, CRE performs a fail-fast sanity check that the remote relay listener for bootstrap peering is reachable.
+- If startup fails on bootstrap reachability:
+  - ensure relay supervisor was started,
+  - ensure EC2 agent is reachable and has relay open for `5001`,
+  - verify direct mode host IP resolution (`CRE_EC2_HOST_IP` or `CRE_EC2_INSTANCE_ID` + AWS CLI auth).
+
 ## Bridge and Fixture Relay
 
 - Remote components cannot directly call local in-process fixtures.
@@ -75,3 +93,4 @@ For both SSM and direct-mode auto IP lookup, AWS CLI auth selection follows:
 - `invalid jd placement`: use `placement=local` or `placement=remote` (only supported values).
 - Remote nodes hitting local-only fixtures: ensure fixture relay helper is active.
 - Mixed remote->local gateway from NodeSets is supported when bridge plumbing is present.
+- DON2DON flakiness in mixed mode: check generated node TOML includes `P2P.V2.AnnounceAddresses` that are routable from the opposite placement.

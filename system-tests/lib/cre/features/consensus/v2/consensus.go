@@ -206,7 +206,7 @@ func formatBootstrapPeer(caller *cre.Don, bootstrap *cre.Node) (string, error) {
 	if bootstrap == nil || bootstrap.DON == nil {
 		return "", errors.New("bootstrap node is nil")
 	}
-	peerURL, err := cre.ResolveBootstrapPeerURL(caller.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
+	peerURL, err := cre.ResolveBootstrapPeerURL(caller.Placement, bootstrap.DON.Placement, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
 	if err != nil {
 		return "", fmt.Errorf("resolve bootstrap peer url: %w", err)
 	}

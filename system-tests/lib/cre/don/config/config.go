@@ -113,18 +113,18 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:                  creEnv.CldfEnvironment.DataStore,
-					ContractVersions:           creEnv.ContractVersions,
-					DonMetadata:                donMetadata,
-					Blockchains:                chainPerSelector,
+					Datastore:                     creEnv.CldfEnvironment.DataStore,
+					ContractVersions:              creEnv.ContractVersions,
+					DonMetadata:                   donMetadata,
+					Blockchains:                   chainPerSelector,
 					BlockchainPlacementBySelector: blockchainTargetBySelector,
-					OCRBootstrapPlacement:      ocrBootstrapPlacement,
-					Flags:                      donMetadata.Flags,
-					CapabilitiesPeeringData:    capabilitiesPeeringData,
-					OCRPeeringData:             ocrPeeringData,
-					RegistryChainSelector:      creEnv.RegistryChainSelector,
-					Topology:                   topology,
-					Provider:                   creEnv.Provider,
+					OCRBootstrapPlacement:         ocrBootstrapPlacement,
+					Flags:                         donMetadata.Flags,
+					CapabilitiesPeeringData:       capabilitiesPeeringData,
+					OCRPeeringData:                ocrPeeringData,
+					RegistryChainSelector:         creEnv.RegistryChainSelector,
+					Topology:                      topology,
+					Provider:                      creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -224,7 +224,14 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 			switch role {
 			case cre.BootstrapNode:
 				var cErr error
-				nodeConfig, cErr = addBootstrapNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs)
+				nodeConfig, cErr = addBootstrapNodeConfig(
+					nodeConfig,
+					input.OCRPeeringData,
+					commonInputs,
+					input.DonMetadata,
+					nodeMetadata,
+					input.Topology,
+				)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add bootstrap node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -311,6 +318,9 @@ func addBootstrapNodeConfig(
 	existingConfig corechainlink.Config,
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
+	donMetadata *cre.DonMetadata,
+	nodeMetadata *cre.NodeMetadata,
+	topology *cre.Topology,
 ) (corechainlink.Config, error) {
 	existingConfig.OCR2 = coretoml.OCR2{
 		Enabled:              ptr.Ptr(true),
@@ -330,6 +340,18 @@ func addBootstrapNodeConfig(
 			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 		},
 		EnableExperimentalRageP2P: ptr.Ptr(true),
+	}
+	if donMetadata != nil && nodeMetadata != nil {
+		announceAddresses, announceErr := cre.ResolveP2PAnnounceAddresses(
+			donMetadata.MustNodeSet().Placement,
+			hasRemoteNodeSets(topology),
+			nodeMetadata.Host,
+			ocrPeeringData.Port,
+		)
+		if announceErr != nil {
+			return existingConfig, errors.Wrap(announceErr, "failed to resolve P2P announce addresses for bootstrap node")
+		}
+		existingConfig.P2P.V2.AnnounceAddresses = ptr.Ptr(announceAddresses)
 	}
 
 	if commonInputs.provider.IsDocker() {
@@ -413,6 +435,16 @@ func addWorkerNodeConfig(
 		},
 		EnableExperimentalRageP2P: ptr.Ptr(true),
 	}
+	announceAddresses, announceErr := cre.ResolveP2PAnnounceAddresses(
+		donMetadata.MustNodeSet().Placement,
+		hasRemoteNodeSets(topology),
+		m.Host,
+		ocrPeeringData.Port,
+	)
+	if announceErr != nil {
+		return existingConfig, errors.Wrap(announceErr, "failed to resolve P2P announce addresses for worker node")
+	}
+	existingConfig.P2P.V2.AnnounceAddresses = ptr.Ptr(announceAddresses)
 
 	if commonInputs.provider.IsDocker() {
 		existingConfig.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{
@@ -839,6 +871,21 @@ func gatewayPlacementByNodeUUID(topology *cre.Topology) (map[string]connectivity
 		}
 	}
 	return out, nil
+}
+
+func hasRemoteNodeSets(topology *cre.Topology) bool {
+	if topology == nil {
+		return false
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil || don.MustNodeSet() == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(don.MustNodeSet().Placement), string(connectivity.PlacementRemote)) {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveBootstrapPlacement(topology *cre.Topology, bootstrapNodeUUID string) (string, error) {

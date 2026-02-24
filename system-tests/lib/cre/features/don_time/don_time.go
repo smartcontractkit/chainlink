@@ -120,7 +120,7 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	bootstrapPeerURL, err := cre.ResolveBootstrapPeerURL(don.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
+	bootstrapPeerURL, err := cre.ResolveBootstrapPeerURL(don.Placement, bootstrap.DON.Placement, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
 	if err != nil {
 		return errors.Wrap(err, "failed to resolve bootstrap peer URL")
 	}

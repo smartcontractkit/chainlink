@@ -453,18 +453,18 @@ type (
 )
 
 type GenerateConfigsInput struct {
-	Datastore               datastore.DataStore
-	DonMetadata             *DonMetadata
-	Blockchains             map[uint64]blockchains.Blockchain
+	Datastore                     datastore.DataStore
+	DonMetadata                   *DonMetadata
+	Blockchains                   map[uint64]blockchains.Blockchain
 	BlockchainPlacementBySelector map[uint64]string
 	OCRBootstrapPlacement         string
-	RegistryChainSelector   uint64
-	Flags                   []string
-	CapabilitiesPeeringData CapabilitiesPeeringData
-	OCRPeeringData          OCRPeeringData
-	ContractVersions        map[ContractType]*semver.Version
-	Topology                *Topology
-	Provider                infra.Provider
+	RegistryChainSelector         uint64
+	Flags                         []string
+	CapabilitiesPeeringData       CapabilitiesPeeringData
+	OCRPeeringData                OCRPeeringData
+	ContractVersions              map[ContractType]*semver.Version
+	Topology                      *Topology
+	Provider                      infra.Provider
 }
 
 func (g *GenerateConfigsInput) Validate() error {

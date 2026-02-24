@@ -127,3 +127,6 @@ core/scripts/cre/environment/logs/
 core/scripts/cre/environment/cron
 core/scripts/cre/environment/binaries/*
 *.br.b64
+
+# TODO remove later
+system-tests/lib/cre/environment/agent/cre_agent

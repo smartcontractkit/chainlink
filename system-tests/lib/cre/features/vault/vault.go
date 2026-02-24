@@ -276,7 +276,7 @@ func createJobs(
 
 	specs := make(map[string][]string)
 
-	bootstrapPeerURL, err := cre.ResolveBootstrapPeerURL(don.Target, bootstrap.DON.Target, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
+	bootstrapPeerURL, err := cre.ResolveBootstrapPeerURL(don.Placement, bootstrap.DON.Placement, bootstrap.Keys.PeerID(), bootstrap.Host, cre.OCRPeeringPort)
 	if err != nil {
 		return errors.Wrap(err, "failed to resolve bootstrap peer URL")
 	}
