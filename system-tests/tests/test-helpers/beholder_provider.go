@@ -19,6 +19,7 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 const (
@@ -61,12 +62,12 @@ type ConsumerOptions struct {
 }
 
 // NewBeholder creates a Beholder instance, even if it's not already running.
-func NewBeholder(lggr zerolog.Logger, relativePathToRepoRoot, environmentDir string) (*Beholder, error) {
-	if err := startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir); err != nil {
+func NewBeholder(lggr zerolog.Logger, testConfig *configuration.TestConfig) (*Beholder, error) {
+	if err := startBeholderIfNotRunning(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, testConfig.ChipIngressGRPCPort); err != nil {
 		return nil, errors.Wrap(err, "Beholder failed to start")
 	}
 
-	chipConfig, err := loadBeholderStackCache(relativePathToRepoRoot)
+	chipConfig, err := loadBeholderStackCache(testConfig.RelativePathToRepoRoot)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load beholder stack cache")
 	}
@@ -75,7 +76,7 @@ func NewBeholder(lggr zerolog.Logger, relativePathToRepoRoot, environmentDir str
 }
 
 // startBeholderIfNotRunning starts the Beholder stack if it's not already running.
-func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir string) error {
+func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir, grpcPort string) error {
 	if config.ChipIngressStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Msg("No need to start Beholder - it is already running")
 		return nil
@@ -85,7 +86,7 @@ func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir string) er
 	ctx, cancel := context.WithTimeout(context.Background(), beholderStartTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "start")
+	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "start", "--grpc-port", grpcPort)
 	cmd.Dir = environmentDir
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 
@@ -97,6 +98,31 @@ func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir string) er
 	}
 
 	framework.L.Info().Msg("Beholder started successfully")
+	return nil
+}
+
+func StopBeholder(relativePathToRepoRoot, environmentDir string) error {
+	if !config.ChipIngressStateFileExists(relativePathToRepoRoot) {
+		framework.L.Info().Msg("No need to stop Beholder - it is not running")
+		return nil
+	}
+
+	framework.L.Info().Dur("timeout", beholderStartTimeout).Msg("Beholder state file found. Stopping Beholder...")
+	ctx, cancel := context.WithTimeout(context.Background(), beholderStartTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "stop")
+	cmd.Dir = environmentDir
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.Wrap(err, "timeout stopping Beholder")
+		}
+		return errors.Wrap(err, "failed to stop Beholder")
+	}
+
+	framework.L.Info().Msg("Beholder stopped successfully")
 	return nil
 }
 

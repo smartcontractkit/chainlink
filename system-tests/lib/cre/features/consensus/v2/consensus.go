@@ -17,24 +17,22 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
 )
 
 const flag = cre.ConsensusCapabilityV2
+const consensusLabelledName = "consensus"
 
 type Consensus struct{}
 
@@ -51,7 +49,7 @@ func (c *Consensus) PreEnvStartup(
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
-			LabelledName:   "consensus",
+			LabelledName:   consensusLabelledName,
 			Version:        "1.0.0-alpha",
 			CapabilityType: 2, // CONSENSUS
 			ResponseType:   0, // REPORT
@@ -59,10 +57,14 @@ func (c *Consensus) PreEnvStartup(
 		Config: &capabilitiespb.CapabilityConfig{
 			LocalOnly: don.HasOnlyLocalCapabilities(),
 		},
+		UseCapRegOCRConfig: true,
 	}}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
+		CapabilityToOCR3Config: map[string]*ocr3.OracleConfig{
+			consensusLabelledName: contracts.DefaultOCR3Config(),
+		},
 	}, nil
 }
 
@@ -80,11 +82,6 @@ func (c *Consensus) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
-	if ocrErr != nil {
-		return fmt.Errorf("failed to deploy OCR3 (consensus v2) contract: %w", ocrErr)
-	}
-
 	jobsErr := createJobs(
 		ctx,
 		don,
@@ -93,53 +90,6 @@ func (c *Consensus) PostEnvStartup(
 	)
 	if jobsErr != nil {
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobsErr)
-	}
-
-	// wait for LP to be started (otherwise it won't pick up contract's configuration events)
-	if err := consensus.WaitForLogPollerToBeHealthy(don); err != nil {
-		return fmt.Errorf("failed while waiting for Log Poller to become healthy: %w", err)
-	}
-
-	ocr3Config, ocr3confErr := contracts.DefaultOCR3Config()
-	if ocr3confErr != nil {
-		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
-	}
-
-	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
-	if !ok {
-		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
-	}
-
-	strategy, err := strategies.CreateStrategy(
-		chain,
-		*creEnv.CldfEnvironment,
-		nil,
-		nil,
-		*ocr3ContractAddr,
-		"PostEnvStartup - Configure OCR3 Contract - v2 Consensus",
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create strategy: %w", err)
-	}
-
-	_, ocr3Err := operations.ExecuteOperation(
-		creEnv.CldfEnvironment.OperationsBundle,
-		ks_contracts_op.ConfigureOCR3Op,
-		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      creEnv.CldfEnvironment,
-			Strategy: strategy,
-		},
-		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress: ocr3ContractAddr,
-			ChainSelector:   creEnv.RegistryChainSelector,
-			DON:             don.KeystoneDONConfig(),
-			Config:          don.ResolveORC3Config(ocr3Config),
-			DryRun:          false,
-		},
-	)
-
-	if ocr3Err != nil {
-		return fmt.Errorf("failed to configure OCR3 contract: %w", ocr3Err)
 	}
 
 	return nil
@@ -187,13 +137,6 @@ func createJobs(
 	}
 
 	specs := make(map[string][]string)
-
-	// Create bootstrap job
-	if bootSpecs, err := proposeBootstrapJob(creEnv, bootstrap, don); err != nil {
-		return err
-	} else if err := mergo.Merge(&specs, bootSpecs, mergo.WithAppendSlice); err != nil {
-		return fmt.Errorf("failed to merge bootstrap job specs: %w", err)
-	}
 
 	// Create node job
 	if nodeSpecs, err := proposeNodeJob(creEnv, don, command, []string{formatBootstrapPeer(bootstrap)}, configStr); err != nil {
@@ -259,53 +202,18 @@ func formatBootstrapPeer(bootstrap *cre.Node) string {
 		cre.OCRPeeringPort)
 }
 
-func proposeBootstrapJob(creEnv *cre.Environment, bootstrap *cre.Node, don *cre.Don) (map[string][]string, error) {
-	input := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
-		DONName:     bootstrap.DON.Name,
-		JobName:     "consensus-v2-bootstrap-" + don.Name,
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
-		},
-		Template: job_types.BootstrapOCR3,
-		Inputs: job_types.JobSpecInput{
-			"chainSelector":     creEnv.RegistryChainSelector,
-			"contractQualifier": ContractQualifier,
-		},
-	}
-
-	proposer := cre_jobs.ProposeJobSpec{}
-	if verErr := proposer.VerifyPreconditions(*creEnv.CldfEnvironment, input); verErr != nil {
-		return nil, fmt.Errorf("precondition verification failed for Consensus v2 bootstrap job: %w", verErr)
-	}
-
-	report, applyErr := proposer.Apply(*creEnv.CldfEnvironment, input)
-	if applyErr != nil {
-		return nil, fmt.Errorf("failed to propose Consensus v2 bootstrap job spec: %w", applyErr)
-	}
-
-	specs := make(map[string][]string)
-	for _, r := range report.Reports {
-		out, ok := r.Output.(cre_jobs_ops.ProposeOCR3BootstrapJobOutput)
-		if !ok {
-			return nil, fmt.Errorf("unable to cast to ProposeOCR3BootstrapJobOutput, actual type: %T", r.Output)
-		}
-		if mergeErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice); mergeErr != nil {
-			return nil, fmt.Errorf("failed to merge bootstrap job specs: %w", mergeErr)
-		}
-	}
-
-	return specs, nil
-}
-
 func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, bootstrapPeers []string, configStr string) (map[string][]string, error) {
+	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+	if !ok {
+		return nil, errors.New("CapabilitiesRegistry version not found in contract versions")
+	}
+
 	inputs := job_types.JobSpecInput{
-		"command":           command,
-		"chainSelectorEVM":  creEnv.RegistryChainSelector,
-		"contractQualifier": ContractQualifier,
-		"bootstrapPeers":    bootstrapPeers,
+		"command":            command,
+		"chainSelectorEVM":   creEnv.RegistryChainSelector,
+		"bootstrapPeers":     bootstrapPeers,
+		"useCapRegOCRConfig": true,
+		"capRegVersion":      capRegVersion.String(),
 	}
 
 	// Add config if provided (allows overriding limits from capability_defaults.toml)

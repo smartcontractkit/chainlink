@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	relayConfig "github.com/smartcontractkit/chainlink-evm/pkg/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
@@ -21,14 +22,8 @@ import (
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
+	relayConfig.RelayConfig
 	EnableRequestSignatureCheck              bool                                      `json:"enableRequestSignatureCheck"`
-	DONID                                    string                                    `json:"donID"`
-	ContractVersion                          uint32                                    `json:"contractVersion"`
-	MinRequestConfirmations                  uint32                                    `json:"minRequestConfirmations"`
-	MinResponseConfirmations                 uint32                                    `json:"minResponseConfirmations"`
-	MinIncomingConfirmations                 uint32                                    `json:"minIncomingConfirmations"`
-	PastBlocksToPoll                         uint32                                    `json:"pastBlocksToPoll"`
-	LogPollerCacheDurationSec                uint32                                    `json:"logPollerCacheDurationSec"` // Duration to cache previously detected request or response logs such that they can be filtered when calling logpoller_wrapper.LatestEvents()
 	RequestTimeoutSec                        uint32                                    `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec          uint32                                    `json:"requestTimeoutCheckFrequencySec"`
 	RequestTimeoutBatchLookupSize            uint32                                    `json:"requestTimeoutBatchLookupSize"`
@@ -37,7 +32,6 @@ type PluginConfig struct {
 	PruneBatchSize                           uint32                                    `json:"pruneBatchSize"`
 	ListenerEventHandlerTimeoutSec           uint32                                    `json:"listenerEventHandlerTimeoutSec"`
 	ListenerEventsCheckFrequencyMillis       uint32                                    `json:"listenerEventsCheckFrequencyMillis"`
-	ContractUpdateCheckFrequencySec          uint32                                    `json:"contractUpdateCheckFrequencySec"`
 	MaxRequestSizeBytes                      uint32                                    `json:"maxRequestSizeBytes"`
 	MaxRequestSizesList                      []uint32                                  `json:"maxRequestSizesList"`
 	MaxSecretsSizesList                      []uint32                                  `json:"maxSecretsSizesList"`

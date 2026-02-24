@@ -4,11 +4,13 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
+	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -93,26 +95,76 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 	// Exclude SpendLimits from RequestMetadata to ensure identical requests
 	// with different SpendLimits produce the same hash
 	req.Metadata.SpendLimits = nil
-
-	var wrReq evmcappb.WriteReportRequest
-	if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-		return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-	}
-	if wrReq.Report == nil {
-		return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+	family, familyErr := getWriteReportFamily(msg)
+	if familyErr != nil {
+		return [32]byte{}, familyErr
 	}
 
-	wrReq.Report.Sigs = nil // exclude signatures from hash
+	var payload *anypb.Any
+	switch family {
+	case writeReportFamilyEVM:
+		var wrReq evmcappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
 
-	req.Payload, err = anypb.New(&wrReq)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		wrReq.Report.Sigs = nil // exclude signatures from hash
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
+	case writeReportFamilySolana:
+		var wrReq solcappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
+
+		wrReq.Report.Sigs = nil // exclude signatures from hash
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
+	default:
+		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
+
 	}
+
+	req.Payload = payload
+
 	reqBytes, err := pb.MarshalCapabilityRequest(req)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
 	return sha256.Sum256(reqBytes), nil
+}
+
+type writeReportFamily string
+
+var (
+	writeReportFamilyEVM    writeReportFamily = "evm"
+	writeReportFamilySolana writeReportFamily = "solana"
+)
+
+func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
+	ss := strings.Split(msg.CapabilityId, ":")
+	if len(ss) < 1 {
+		return "", errors.New("failed to parse family from capability id")
+	}
+	family := ss[0]
+	switch family {
+	case "evm":
+		return writeReportFamilyEVM, nil
+	case "solana":
+		return writeReportFamilySolana, nil
+	}
+
+	return "", errors.New("report family is unknown, available families: evm, solana")
 }
 
 func NewWriteReportExcludeSignaturesHasher() types.MessageHasher {

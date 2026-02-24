@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/binary"
 	"math"
+	"math/big"
 	"sync"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 func (rs *RegistrySynchronizer) fullSync(ctx context.Context) {
@@ -55,15 +57,15 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(ctx context.Context, reg Registr
 	}
 
 	activeSet := make(map[string]bool)
-	allActiveUpkeeps := make([]big.Big, 0)
+	allActiveUpkeeps := make([]sqlutil.Big, 0)
 	for _, upkeepID := range activeUpkeepIDs {
 		activeSet[upkeepID.String()] = true
-		allActiveUpkeeps = append(allActiveUpkeeps, *big.New(upkeepID))
+		allActiveUpkeeps = append(allActiveUpkeeps, *sqlutil.New(upkeepID))
 	}
 	rs.batchSyncUpkeepsOnRegistry(ctx, reg, allActiveUpkeeps)
 
 	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
-	canceled := make([]big.Big, 0)
+	canceled := make([]sqlutil.Big, 0)
 	for _, upkeepID := range existingUpkeepIDs {
 		if _, found := activeSet[upkeepID.ToInt().String()]; !found {
 			canceled = append(canceled, upkeepID)
@@ -77,7 +79,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(ctx context.Context, reg Registr
 
 // batchSyncUpkeepsOnRegistry syncs <syncUpkeepQueueSize> upkeeps at a time in parallel
 // for all the IDs within newUpkeeps slice
-func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(ctx context.Context, reg Registry, newUpkeeps []big.Big) {
+func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(ctx context.Context, reg Registry, newUpkeeps []sqlutil.Big) {
 	wg := sync.WaitGroup{}
 	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
 
@@ -94,7 +96,7 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(ctx context.Context, 
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(ctx context.Context, getter upkeepGetter, registry Registry, upkeepID *big.Big, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(ctx context.Context, getter upkeepGetter, registry Registry, upkeepID *sqlutil.Big, doneCallback func()) {
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(ctx, getter, registry, upkeepID); err != nil {
@@ -105,7 +107,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(ctx context.Context, gett
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(ctx context.Context, getter upkeepGetter, registry Registry, upkeepID *big.Big) error {
+func (rs *RegistrySynchronizer) syncUpkeep(ctx context.Context, getter upkeepGetter, registry Registry, upkeepID *sqlutil.Big) error {
 	upkeep, err := getter.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
@@ -174,9 +176,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain(ctx context.Context) (Regis
 
 // CalcPositioningConstant calculates a positioning constant.
 // The positioning constant is fixed because upkeepID and registryAddress are immutable
-func CalcPositioningConstant(upkeepID *big.Big, registryAddress types.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID *sqlutil.Big, registryAddress types.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(upkeepBytes, upkeepID.Mod(big.NewI(math.MaxInt64)).Int64())
+	binary.PutVarint(upkeepBytes, bigmath.Mod(upkeepID.ToInt(), big.NewInt(math.MaxInt64)).Int64())
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
 	checksum, err := utils.Keccak256(bytesToHash)
 	if err != nil {

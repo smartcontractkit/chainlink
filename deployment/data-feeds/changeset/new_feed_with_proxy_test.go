@@ -34,13 +34,17 @@ func TestNewFeedWithProxy(t *testing.T) {
 	))
 	require.NoError(t, err)
 
+	MCMScfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	MCMSQualifier := "MCMS_EVM_1"
+	MCMScfg.Qualifier = &MCMSQualifier
+
 	err = rt.Exec(
 		runtime.ChangesetTask(changeset.DeployCacheChangeset, types.DeployConfig{
 			ChainsToDeploy: []uint64{selector},
 			Labels:         []string{"data-feeds"},
 		}),
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+			selector: MCMScfg,
 		}),
 	)
 	require.NoError(t, err)
@@ -64,7 +68,12 @@ func TestNewFeedWithProxy(t *testing.T) {
 			ContractsByChain: map[uint64][]common.Address{
 				selector: {common.HexToAddress(cacheAddress)},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig: proposalutils.TimelockConfig{
+				MinDelay: 0,
+				TimelockQualifierPerChain: map[uint64]string{
+					selector: MCMSQualifier,
+				},
+			},
 		}),
 		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 	)
@@ -91,7 +100,8 @@ func TestNewFeedWithProxy(t *testing.T) {
 			},
 			Qualifiers: []string{"qualifier1", "qualifier2", "qualifier3"},
 			McmsConfig: &types.MCMSConfig{
-				MinDelay: 0,
+				MinDelay:          0,
+				TimeLockQualifier: MCMSQualifier,
 			},
 		}),
 		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),

@@ -11,7 +11,6 @@ Slack: #topic-local-dev-environments
 1. [Using the CLI](#using-the-cli)
    - [Installing the binary](#installing-the-binary)
    - [Prerequisites (for Docker)](#prerequisites-for-docker)
-   - [Prerequisites For CRIB](#prerequisites-for-crib)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
       - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
@@ -23,6 +22,16 @@ Slack: #topic-local-dev-environments
    - [Debugging core nodes](#debugging-core-nodes)
    - [Debugging capabilities (mac)](#debugging-capabilities-mac)
    - [Workflow Commands](#workflow-commands)
+   - [Additional Workflow Sources](#additional-workflow-sources)
+     - [Overview](#additional-sources-overview)
+     - [Configuration](#additional-sources-configuration)
+     - [File Source JSON Format](#file-source-json-format)
+     - [Helper Tool: generate_file_source](#helper-tool-generate_file_source)
+     - [Deploying a File-Source Workflow](#deploying-a-file-source-workflow)
+     - [Mixed Sources (Contract + File)](#mixed-sources-contract--file)
+     - [Pausing and Deleting File-Source Workflows](#pausing-and-deleting-file-source-workflows)
+     - [Key Behaviors](#additional-sources-key-behaviors)
+     - [Debugging Additional Sources](#debugging-additional-sources)
    - [Further use](#further-use)
    - [Advanced Usage](#advanced-usage)
    - [Testing Billing](#testing-billing)
@@ -136,11 +145,6 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
 
   Git access to `Capabilities` repository is required in order to build capability binaries. Unless you plan on only using Docker images with all capabilities baked in.
 
-
-## Prerequisites For CRIB ###
-1. telepresence installed: `brew install telepresenceio/telepresence/telepresence-oss`
-2. Telepresence will update the /etc/resolver configs and will require to enter sudo password the first time you run it
-
 # QUICKSTART
 ```
 # e.g. AWS_ECR=<PROD_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com
@@ -157,8 +161,12 @@ Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOi
 Environment can be setup by running `go run . env setup` inside `core/scripts/cre/environment` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
 - you have AWS CLI installed and configured
 - you have GH CLI installed and authenticated
-- you have required Job Distributor and Chip Ingress (Beholder) images
+- you have required Job Distributor, Chip Ingress, and Chip Config images
 - install and copy all capability binaries to expected location
+
+**Image Versioning:**
+
+Docker images for Beholder services (chip-ingress, chip-config) use commit-based tags instead of mutable tags like `local-cre`. This ensures you always know which version is running and prevents hard-to-debug issues from version mismatches. The exact versions are defined in [configs/setup.toml](configs/setup.toml).
 
 Capability installation is two fold. Private and local plugins are compiled locally and then copied to the running Docker container. Public plugins are installed, when the Docker image is built. The reason is that capability developers need a way to quickly test capabilities they are working on, without having to push the code to remote repository, so that it could be installed in the Docker image (and that's because local capability code is usually located outside Docker build context and thus unavailable).
 
@@ -192,6 +200,9 @@ go run . env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_AC
 
 # to start environment with local Beholder
 go run . env start --with-beholder
+
+# to start environment with legacy v1 contracts (default is v2)
+go run . env start --with-contracts-version v1
 ```
 
 > Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
@@ -205,6 +216,7 @@ Optional parameters:
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
+- `--with-contracts-version`: Version of workflow/capability registries to use (`v2` by default, use `v1` explicitly for legacy coverage)
 
 ## Purging environment state
 To remove all state and cache files used by the environment execute:
@@ -228,12 +240,28 @@ Once up and running you will be able to access [CRE topic view](http://localhost
 #### Filtering out heartbeats
 Heartbeat messages spam the topic, so it's highly recommended that you add a JavaScript filter that will exclude them using the following code: `return value.msg !== 'heartbeat';`.
 
-If environment is aready running you can start just the Beholder stack (and register protos) with:
+If environment is already running you can start just the Beholder stack (and register protos) with:
 ```bash
 go run . env beholder start
 ```
 
-> This assumes you have `chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf .`
+**Image Requirements:**
+
+Beholder requires `chip-ingress` and `chip-config` Docker images with specific versions defined in [configs/setup.toml](configs/setup.toml). The image tags use commit hashes for version tracking (e.g., `chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f`).
+
+When starting Beholder, the system will:
+- **In CI (`CI=true`)**: Skip image checks (docker-compose will pull at runtime)
+- **Interactive terminal**: Auto-build missing images from sources. If build fails and `AWS_ECR` is set, you'll be offered to pull from ECR instead
+- **Non-interactive (tests, scripts)**: Auto-pull from ECR if `AWS_ECR` is set, otherwise fail with instructions
+
+To manually ensure images are available, run:
+```bash
+# Build from sources
+go run . env setup
+
+# Or pull from ECR (requires AWS SSO access)
+AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup
+```
 
 ### Storage
 
@@ -383,6 +411,306 @@ This command uses default values and is useful for testing the workflow deployme
 
 ---
 
+## Additional Workflow Sources
+
+The workflow registry syncer supports multiple sources of workflow metadata beyond the on-chain contract. This enables flexible deployment scenarios including pure file-based or GRPC-based workflow deployments.
+
+### Additional Sources Overview
+
+Three source types are supported:
+
+1. **ContractWorkflowSource** (optional): Reads from the on-chain workflow registry contract
+2. **GRPCWorkflowSource** (additional): Fetches from external GRPC services
+3. **FileWorkflowSource** (additional): Reads from a local JSON file
+
+**Key Features:**
+- Contract source is optional - enables pure GRPC-only or file-only deployments
+- All additional sources (GRPC and file) are configured via unified `AdditionalSources` config
+- Source type is auto-detected by URL scheme (`file://` for file, otherwise GRPC)
+
+### Additional Sources Configuration
+
+All additional sources are configured via the `AdditionalSources` config in TOML. The source type is auto-detected based on the URL scheme:
+
+**File source (detected by `file://` prefix):**
+```toml
+[WorkflowRegistry]
+Address = "0x1234..."  # Optional - leave empty for pure file-only deployments
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "local-file"
+URL = "file:///tmp/workflows_metadata.json"
+```
+
+**GRPC source (URL without `file://` prefix):**
+```toml
+[WorkflowRegistry]
+Address = "0x1234..."
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "private-registry"
+URL = "grpc.private-registry.example.com:443"
+TLSEnabled = true
+```
+
+**Pure GRPC-only deployment (no contract):**
+```toml
+[WorkflowRegistry]
+# No Address = no contract source
+
+[[WorkflowRegistry.AdditionalSources]]
+Name = "private-registry"
+URL = "grpc.private-registry.example.com:443"
+TLSEnabled = true
+```
+
+### File Source JSON Format
+
+The file source reads from the path specified in the URL (e.g., `/tmp/workflows_metadata.json`).
+
+**JSON Schema:**
+```json
+{
+  "workflows": [
+    {
+      "workflow_id": "<32-byte hex string without 0x prefix>",
+      "owner": "<owner address hex without 0x prefix>",
+      "created_at": "<unix timestamp>",
+      "status": "<0=active, 1=paused>",
+      "workflow_name": "<name>",
+      "binary_url": "<URL to fetch binary - same format as contract>",
+      "config_url": "<URL to fetch config - same format as contract>",
+      "tag": "<version tag>",
+      "attributes": "<optional JSON string>",
+      "don_family": "<DON family name>"
+    }
+  ]
+}
+```
+
+**Example:**
+```json
+{
+  "workflows": [
+    {
+      "workflow_id": "0102030405060708091011121314151617181920212223242526272829303132",
+      "owner": "f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "created_at": 1733250000,
+      "status": 0,
+      "workflow_name": "my-file-workflow",
+      "binary_url": "file:///home/chainlink/workflows/my_workflow.wasm",
+      "config_url": "file:///home/chainlink/workflows/my_config.json",
+      "tag": "v1.0.0",
+      "don_family": "workflow"
+    }
+  ]
+}
+```
+
+See [examples/workflows_metadata_example.json](./examples/workflows_metadata_example.json) for a reference file.
+
+### Helper Tool: generate_file_source
+
+A helper tool is provided to generate the workflow metadata JSON with the correct workflowID (which is a hash of the workflow artifacts):
+
+```bash
+cd core/scripts/cre/environment
+go run ./cmd/generate_file_source \
+  --binary /path/to/workflow.wasm \
+  --config /path/to/config.json \
+  --name my-workflow \
+  --owner f39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
+  --output /tmp/workflows_metadata.json \
+  --don-family workflow
+```
+
+**Additional flags:**
+- `--binary-url-prefix`: Prefix for the binary URL in the output (e.g., `file:///home/chainlink/workflows/`)
+- `--config-url-prefix`: Prefix for the config URL in the output
+
+### Deploying a File-Source Workflow
+
+This walkthrough demonstrates deploying a workflow via file source in a local CRE environment.
+
+**Prerequisites:**
+- Local CRE environment set up
+- Docker running
+- Go toolchain installed
+
+**Step-by-step:**
+
+```bash
+# 1. Start the environment
+cd core/scripts/cre/environment
+go run . env start --auto-setup
+
+# 2. Deploy a workflow via contract first (this creates the compiled binary in containers)
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron_contract
+
+# 3. Get the existing workflow binary from a container
+docker cp workflow-node1:/home/chainlink/workflows/cron_contract.wasm /tmp/cron_contract.wasm
+
+# 4. Generate the file source metadata with a DIFFERENT workflow name
+go run ./cmd/generate_file_source \
+  --binary /tmp/cron_contract.wasm \
+  --name file_source_cron \
+  --owner f39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
+  --output /tmp/workflows_metadata.json \
+  --don-family workflow \
+  --binary-url-prefix "file:///home/chainlink/workflows/" \
+  --config-url-prefix "file:///home/chainlink/workflows/"
+
+# 5. Copy the binary to all containers with new name
+docker cp /tmp/cron_contract.wasm workflow-node1:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node2:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node3:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node4:/home/chainlink/workflows/file_source_workflow.wasm
+docker cp /tmp/cron_contract.wasm workflow-node5:/home/chainlink/workflows/file_source_workflow.wasm
+
+# 6. Create an empty config file and copy to all containers
+echo '{}' > /tmp/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node1:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node2:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node3:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node4:/home/chainlink/workflows/file_source_config.json
+docker cp /tmp/file_source_config.json workflow-node5:/home/chainlink/workflows/file_source_config.json
+
+# 7. Copy the metadata file to all nodes
+docker cp /tmp/workflows_metadata.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata.json workflow-node5:/tmp/workflows_metadata.json
+
+# 8. Wait for the syncer to pick up the workflow (default 12 second interval)
+# Check logs for "Loaded workflows from file" messages
+docker logs workflow-node1 2>&1 | grep -i "file"
+
+# 9. Verify the workflow is running
+docker logs workflow-node1 2>&1 | grep -i "workflow engine"
+```
+
+### Mixed Sources (Contract + File)
+
+You can run both contract-deployed and file-source workflows simultaneously:
+
+```bash
+# 1. Deploy workflow via contract
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n contract_workflow
+
+# 2. Add a different workflow via file source (follow steps 3-7 from above)
+
+# 3. Verify both workflows are running
+docker logs workflow-node1 2>&1 | grep -i "Aggregated workflows from all sources"
+# Should show totalWorkflows: 2
+```
+
+### Pausing and Deleting File-Source Workflows
+
+**Pausing a workflow** - Change the `status` field to `1`:
+
+```bash
+# Create updated metadata with status=1 (paused)
+cat > /tmp/workflows_metadata_paused.json << 'EOF'
+{
+  "workflows": [
+    {
+      "workflow_id": "<YOUR_WORKFLOW_ID>",
+      "owner": "f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "status": 1,
+      "workflow_name": "file_source_cron",
+      "binary_url": "file:///home/chainlink/workflows/file_source_workflow.wasm",
+      "config_url": "file:///home/chainlink/workflows/file_source_config.json",
+      "don_family": "workflow"
+    }
+  ]
+}
+EOF
+
+# Copy to all nodes
+docker cp /tmp/workflows_metadata_paused.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/workflows_metadata_paused.json workflow-node5:/tmp/workflows_metadata.json
+
+# Wait for syncer to detect the change
+docker logs workflow-node1 2>&1 | grep -i "paused"
+```
+
+**Deleting a workflow** - Remove it from the JSON file:
+
+```bash
+# Create empty metadata file
+echo '{"workflows":[]}' > /tmp/empty_metadata.json
+
+# Copy to all nodes
+docker cp /tmp/empty_metadata.json workflow-node1:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node2:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node3:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node4:/tmp/workflows_metadata.json
+docker cp /tmp/empty_metadata.json workflow-node5:/tmp/workflows_metadata.json
+
+# Contract workflows continue running; file-source workflow is removed
+```
+
+### Additional Sources Key Behaviors
+
+**Source Aggregation:**
+- Workflows from all sources are merged into a single list
+- Only ContractWorkflowSource provides real blockchain head (block height/hash)
+- For pure additional-source deployments, a synthetic head is created (Unix timestamp)
+- If one source fails, others continue to work (graceful degradation)
+
+**Contract Source Optional:**
+- If no contract address is configured, the contract source is skipped
+- Enables pure GRPC-only or file-only workflow deployments
+- Synthetic heads are used when no contract source is present
+
+**File Source Characteristics:**
+- File is read on every sync interval (default 12 seconds)
+- Missing file = empty workflow list (not an error)
+- Invalid JSON entries are skipped with a warning
+- File source is always "ready" (unlike contract source which needs initialization)
+
+**GRPC Source:**
+- Supports JWT-based authentication
+- Includes automatic retry logic with exponential backoff (max 2 retries, 100ms-5s delay)
+- Only transient errors (Unavailable, ResourceExhausted) are retried
+
+**Source Tracking:**
+- Each workflow includes a `Source` field identifying where it was deployed from
+- Source identifiers: `ContractWorkflowSource`, `FileWorkflowSource`, `GRPCWorkflowSource`
+
+### Debugging Additional Sources
+
+**Check if file source is being read:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Loaded workflows from file"
+docker logs workflow-node1 2>&1 | grep "Workflow metadata file does not exist"
+```
+
+**Check aggregated workflows:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Aggregated workflows from all sources"
+docker logs workflow-node1 2>&1 | grep "fetching workflow metadata from all sources"
+```
+
+**Verify workflow engine started:**
+```bash
+docker logs workflow-node1 2>&1 | grep "Creating Workflow Engine for workflow spec"
+```
+
+**Key log messages:**
+- `"Loaded workflows from file"` - File was successfully read
+- `"Workflow metadata file does not exist"` - File doesn't exist (normal if not using file source)
+- `"Source not ready, skipping"` - Contract source not yet initialized
+- `"Aggregated workflows from all sources"` with `totalWorkflows` count - Sync completed
+- `"All workflow sources failed - will retry next cycle"` (WARN) - All sources failed
+- `"Failed to fetch workflows from source"` (ERROR) - Individual source failure
+
+---
+
 ## Further use
 To manage workflows you will need the CRE CLI. You can either:
 - download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
@@ -399,6 +727,18 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 1. **Choose the Right Topology**
    - For a single DON with all capabilities, but with a separate gateway and bootstrap node: `configs/workflow-gateway-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-gateway-capabilities-don.toml`
+   - Use the topology CLI to inspect and compare configs before startup:
+     ```bash
+     # list available topology configs
+     go run . topology list
+
+     # show compact DON + capability matrix view for one config
+     go run . topology show --config configs/workflow-gateway-capabilities-don.toml
+
+     # regenerate topology docs
+     go run . topology generate
+     ```
+   - `env start` now prints a compact topology summary with a capability matrix.
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
    - If your use case requires them, you should build them manually by:
@@ -434,7 +774,7 @@ Optional environment variables used by the CLI:
 - `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
 - `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
 
-When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
+When starting the environment in AWS-managed Kubernetes, make sure required ingress/domain environment variables are set before running commands.
 
 ### Testing Billing
 Spin up the billing service and necessary migrations in the `billing-platform-service` repo.
@@ -1062,7 +1402,6 @@ This section explains how to enable already implemented capabilities in existing
 The `configs/` directory contains several topology configurations:
 - `workflow-gateway-don.toml` - Workflow DON with gateway and bootstrap in a separate node (default)
 - `workflow-gateway-capabilities-don.toml` - Full topology with multiple DONs
-- `workflow-don-crib.toml` - CRIB/Kubernetes deployment configuration
 - `capability_defaults.toml` - Default capability configurations and binary paths
 
 ### Capability Types and Configuration
@@ -1555,7 +1894,7 @@ Check [workflow-gateway-don.toml](configs/workflow-gateway-don.toml) for an exam
 
 ## Kubernetes Deployment
 
-This section explains how to deploy and connect to Chainlink nodes running in an existing Kubernetes cluster. Unlike Docker (which starts containers locally) or CRIB (which deploys nodes via devspace), Kubernetes mode assumes nodes are **already running** in the cluster and generates the appropriate service URLs to connect to them.
+This section explains how to deploy and connect to Chainlink nodes running in an existing Kubernetes cluster. Unlike Docker (which starts containers locally), Kubernetes mode assumes nodes are **already running** in the cluster and generates the appropriate service URLs to connect to them.
 
 The support for Kubernetes is designed to work with an internal platform for running and managing containerized applications. For more details on where to find domain names and how to configure a DON running on it, please check the internal docs.
 

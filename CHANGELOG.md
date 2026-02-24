@@ -1,5 +1,43 @@
 # Changelog Chainlink Core
 
+## 2.35.0
+
+### Minor Changes
+
+- [#21142](https://github.com/smartcontractkit/chainlink/pull/21142) [`f39d501`](https://github.com/smartcontractkit/chainlink/commit/f39d501aa1be09ed2ff69a06c2fdb29c39a88df7) - #added Add countNilsAsFaults flag to MedianTask. When enabled, nil values are counted toward allowedFaults and filtered out before median calculation, preventing nils from crashing the task while preserving fault
+
+- [#21095](https://github.com/smartcontractkit/chainlink/pull/21095) [`4921537`](https://github.com/smartcontractkit/chainlink/commit/49215375727a3dcca77a9f0835bec1a07b1723d1) - Minor bump to start next version
+
+### Patch Changes
+
+- [#21043](https://github.com/smartcontractkit/chainlink/pull/21043) [`015109a`](https://github.com/smartcontractkit/chainlink/commit/015109a55615d092e821502da575398dc62d8d1e) - #bugfix passes http capability headers via MultiHeaders
+
+- [#21171](https://github.com/smartcontractkit/chainlink/pull/21171) [`eac9bd6`](https://github.com/smartcontractkit/chainlink/commit/eac9bd6247d2f6453c669d6758d300abffdd921c) - Vault cap validations for workflow owner
+
+## 2.34.0
+
+### Minor Changes
+
+- [#21015](https://github.com/smartcontractkit/chainlink/pull/21015) [`d23bf1d`](https://github.com/smartcontractkit/chainlink/commit/d23bf1d1f6ff912a7dd587dab031c8881d1b53ba) - Minor bump to start next version
+
+- [#20960](https://github.com/smartcontractkit/chainlink/pull/20960) [`4fe9eaa`](https://github.com/smartcontractkit/chainlink/commit/4fe9eaa80eeace375f42abb50f67f7ad97327ebe) - #added adds the option to not specify a node address in gateway connector config
+
+## 2.33.0
+
+### Minor Changes
+
+- [#20749](https://github.com/smartcontractkit/chainlink/pull/20749) [`7c60a20`](https://github.com/smartcontractkit/chainlink/commit/7c60a208545f1d58db39cb8296c6c218a259dac0) - Minor bump to start next version
+
+### Patch Changes
+
+- [#20861](https://github.com/smartcontractkit/chainlink/pull/20861) [`575232b`](https://github.com/smartcontractkit/chainlink/commit/575232b023181091adad65e425ff3e0b86a1083b) - #internal chore(cre): bumps consensus capability to include user error for too large observations
+
+- [#20766](https://github.com/smartcontractkit/chainlink/pull/20766) [`6487df6`](https://github.com/smartcontractkit/chainlink/commit/6487df63fa63a50c9e7408b2c1c8bac66d50b5d9) - #updated chain-selectors version to 1.0.88
+
+- [#20926](https://github.com/smartcontractkit/chainlink/pull/20926) [`42581da`](https://github.com/smartcontractkit/chainlink/commit/42581dad642893b61767ed3e3bf4ce3334b7a29f) - #changed Send custom event on atlas error and split MetaClient errors from RPC errors
+
+- [#20941](https://github.com/smartcontractkit/chainlink/pull/20941) [`2420fc6`](https://github.com/smartcontractkit/chainlink/commit/2420fc6bfe4c8c780cb8948d54363cba22d03d2e) - #internal consistent error handling in app startup
+
 ## 2.32.0
 
 ### Minor Changes

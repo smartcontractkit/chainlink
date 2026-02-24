@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func TestNode_OCRConfigForChainSelector(t *testing.T) {
@@ -145,6 +145,7 @@ func TestNode_ChainConfigs(t *testing.T) {
 					{
 						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+						NetworkType:   chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.NetworkType,
 					}: {
 						KeyBundleID:               "bundle1",
 						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),
@@ -184,6 +185,7 @@ func TestNode_ChainConfigs(t *testing.T) {
 					{
 						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+						NetworkType:   chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.NetworkType,
 					}: {
 						KeyBundleID:               "bundle1",
 						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),
@@ -390,6 +392,7 @@ func TestNewNodeFromJD(t *testing.T) {
 					{
 						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+						NetworkType:   chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.NetworkType,
 					}: {
 						KeyBundleID:               "bundle1",
 						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),

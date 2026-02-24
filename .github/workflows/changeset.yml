@@ -107,7 +107,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           message: |
-            I see you updated files related to `core`. Please run `pnpm changeset` in the root directory to add a changeset as well as in the text include at least one of the following tags:
+            I see you updated files related to `core`. Please run `make gocs` in the root directory to add a changeset as well as in the text include at least one of the following tags:
             ${{ env.TAGS }}
           reactions: eyes
           comment_tag: changeset-core

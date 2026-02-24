@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/quarantine"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -39,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -61,6 +61,8 @@ type testEvtHandler struct {
 }
 
 func (m *testEvtHandler) Close() error { return nil }
+
+func (m *testEvtHandler) Start(context.Context) error { return nil }
 
 func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	m.mux.Lock()
@@ -1012,6 +1014,10 @@ type testSecretsWorkEventHandler struct {
 }
 
 func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
+
+func (m *testSecretsWorkEventHandler) Start(ctx context.Context) error {
+	return m.wrappedHandler.Start(ctx)
+}
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event Event) error {
 	switch event.EventType {

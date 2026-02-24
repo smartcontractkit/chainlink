@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 const (
@@ -33,7 +32,7 @@ func NewPostgresORM(ds sqlutil.DataSource, tableName, namespace string) ORM {
 	}
 }
 
-func (o *orm) Get(ctx context.Context, address *big.Big, slotId uint) (*Row, error) {
+func (o *orm) Get(ctx context.Context, address *sqlutil.Big, slotId uint) (*Row, error) {
 	row := &Row{}
 
 	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload, signature FROM %s 

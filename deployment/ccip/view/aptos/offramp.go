@@ -15,10 +15,9 @@ import (
 type OffRampView struct {
 	aptosCommon.ContractMetaData
 
-	LatestPriceSequenceNumber uint64                              `json:"latestPriceSequenceNumber"`
-	StaticConfig              OffRampStaticConfig                 `json:"staticConfig"`
-	DynamicConfig             OffRampDynamicConfig                `json:"dynamicConfig"`
-	SourceChainConfigs        map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigs"`
+	StaticConfig       OffRampStaticConfig                 `json:"staticConfig"`
+	DynamicConfig      OffRampDynamicConfig                `json:"dynamicConfig"`
+	SourceChainConfigs map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigs"`
 }
 
 type OffRampStaticConfig struct {
@@ -36,7 +35,6 @@ type OffRampDynamicConfig struct {
 type OffRampSourceChainConfig struct {
 	Router                    string
 	IsEnabled                 bool
-	MinSeqNr                  uint64
 	IsRMNVerificationDisabled bool
 	OnRamp                    string
 }
@@ -52,11 +50,6 @@ func GenerateOffRampView(chain cldf_aptos.Chain, offRampAddress aptos.AccountAdd
 	owner, err := boundOffRamp.Offramp().Owner(nil)
 	if err != nil {
 		return OffRampView{}, fmt.Errorf("failed to get owner of offRamp %s: %w", offRampAddress.StringLong(), err)
-	}
-
-	latestPriceSequenceNumber, err := boundOffRamp.Offramp().GetLatestPriceSequenceNumber(nil)
-	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to get latestPriceSequenceNumber of offRamp %s: %w", offRampAddress.StringLong(), err)
 	}
 
 	destChainSelectors, err := boundRouter.Router().GetDestChains(nil)
@@ -82,7 +75,6 @@ func GenerateOffRampView(chain cldf_aptos.Chain, offRampAddress aptos.AccountAdd
 		sourceChainConfigs[destChainSelector] = OffRampSourceChainConfig{
 			Router:                    sourceChainConfig.Router.StringLong(),
 			IsEnabled:                 sourceChainConfig.IsEnabled,
-			MinSeqNr:                  sourceChainConfig.MinSeqNr,
 			IsRMNVerificationDisabled: sourceChainConfig.IsRMNVerificationDisabled,
 			OnRamp:                    shared.GetAddressFromBytes(destChainSelector, sourceChainConfig.OnRamp),
 		}
@@ -94,7 +86,6 @@ func GenerateOffRampView(chain cldf_aptos.Chain, offRampAddress aptos.AccountAdd
 			Owner:          owner.StringLong(),
 			TypeAndVersion: typeAndVersion,
 		},
-		LatestPriceSequenceNumber: latestPriceSequenceNumber,
 		StaticConfig: OffRampStaticConfig{
 			ChainSelector:      staticConfig.ChainSelector,
 			RMNRemote:          staticConfig.RMNRemote.StringLong(),

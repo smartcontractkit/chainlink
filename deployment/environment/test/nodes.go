@@ -13,12 +13,12 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 )
 
 type NodeConfig struct {
@@ -33,7 +33,14 @@ func NewNode(t *testing.T, c NodeConfig) *deployment.Node {
 	p2p := p2pkey.MustNewV2XXXTestingOnly(k)
 	ocrConfigs := make(map[chain_selectors.ChainDetails]deployment.OCRConfig)
 	for _, cs := range c.ChainSelectors {
-		ocrConfigs[chain_selectors.ChainDetails{ChainSelector: cs}] = testOCRConfig(t, cs, p2p)
+		// populate name and networkType based on chain selector
+		family, err := chain_selectors.GetSelectorFamily(cs)
+		require.NoError(t, err)
+		chainID, err := chain_selectors.GetChainIDFromSelector(cs)
+		require.NoError(t, err)
+		details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainID, family)
+		require.NoError(t, err)
+		ocrConfigs[details] = testOCRConfig(t, cs, p2p)
 	}
 	if c.Labels == nil {
 		c.Labels = map[string]string{}

@@ -34,6 +34,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -41,7 +42,9 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -59,6 +62,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -67,10 +71,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -91,7 +94,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -99,6 +101,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+)
+
+const (
+	vaultCapabilityID   = "vault@1.0.0"
+	vaultOCRConfigKey   = "vault"
+	dkgOCRConfigKey     = "dkg"
+	dontimeCapabilityID = "dontime@1.0.0"
 )
 
 type ErrJobSpecNoRelayer struct {
@@ -154,6 +163,7 @@ type Delegate struct {
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 	limitsFactory                  limits.Factory
+	ocrConfigService               capregconfig.OCRConfigService
 }
 
 type DelegateConfig interface {
@@ -164,6 +174,7 @@ type DelegateConfig interface {
 	Mercury() coreconfig.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
+	RingStoreForShard0() *ring.Store
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -175,6 +186,7 @@ type delegateConfig struct {
 	mercury     mercuryConfig
 	threshold   thresholdConfig
 	sharding    coreconfig.Sharding
+	ringStore   *ring.Store
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -199,6 +211,10 @@ func (d *delegateConfig) OCR2() ocr2Config {
 
 func (d *delegateConfig) Sharding() coreconfig.Sharding {
 	return d.sharding
+}
+
+func (d *delegateConfig) RingStoreForShard0() *ring.Store {
+	return d.ringStore
 }
 
 type ocr2Config interface {
@@ -239,7 +255,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -248,6 +264,7 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 		mercury:         m,
 		threshold:       t,
 		sharding:        s,
+		ringStore:       ringStore,
 	}
 }
 
@@ -276,6 +293,7 @@ type DelegateOpts struct {
 	DKGRecipientKs                 keystore.DKGRecipient
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 	LimitsFactory                  limits.Factory
+	OCRConfigService               capregconfig.OCRConfigService
 }
 
 func NewDelegate(
@@ -310,6 +328,7 @@ func NewDelegate(
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
 		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
 		limitsFactory:                  opts.LimitsFactory,
+		ocrConfigService:               opts.OCRConfigService,
 	}
 }
 
@@ -766,17 +785,32 @@ func (d *Delegate) newServicesVaultPlugin(
 	kvFactory := kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 
 	keyBundles := map[string]ocr2key.KeyBundle{
-		string(chaintype.EVM): kb,
+		string(corekeys.EVM): kb,
 	}
 	onchainKeyringAdapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
 	if err != nil {
 		return nil, err
 	}
 
+	// Get config tracker and digester, optionally wrapping with OCRConfigService
+	configTracker := provider.ContractConfigTracker()
+	configDigester := provider.OffchainConfigDigester()
+	if d.ocrConfigService != nil {
+		configTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, vaultOCRConfigKey, configTracker)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config tracker from OCRConfigService: %w", err)
+		}
+		configDigester, err = d.ocrConfigService.GetConfigDigester(vaultCapabilityID, vaultOCRConfigKey, configDigester)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
+		}
+		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", vaultCapabilityID, "ocrConfigKey", vaultOCRConfigKey)
+	}
+
 	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
-		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractConfigTracker:        configTracker,
 		ContractTransmitter: vaultocrplugin.NewTransmitter(
 			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
@@ -787,7 +821,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		LocalConfig:             lc,
 		Logger:                  ocrLogger,
 		MonitoringEndpoint:      oracleEndpoint,
-		OffchainConfigDigester:  provider.OffchainConfigDigester(),
+		OffchainConfigDigester:  configDigester,
 		OffchainKeyring:         kb,
 		OnchainKeyring:          onchainKeyringAdapter,
 		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
@@ -852,17 +886,32 @@ func (d *Delegate) newServicesVaultPlugin(
 		synchronization.TelemetryType(types.DKG),
 	)
 
+	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
+	dkgConfigTracker := dkgProvider.ContractConfigTracker()
+	dkgConfigDigester := dkgProvider.OffchainConfigDigester()
+	if d.ocrConfigService != nil {
+		dkgConfigTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, dkgOCRConfigKey, dkgConfigTracker)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get DKG config tracker from OCRConfigService: %w", err)
+		}
+		dkgConfigDigester, err = d.ocrConfigService.GetConfigDigester(vaultCapabilityID, dkgOCRConfigKey, dkgConfigDigester)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get DKG config digester from OCRConfigService: %w", err)
+		}
+		lggr.Infow("Using dynamic OCR config from registry for DKG", "capabilityID", vaultCapabilityID, "ocrConfigKey", dkgOCRConfigKey)
+	}
+
 	dkgOracleArgs := oracleargs.OCR3_1OracleArgsForSanMarinoDKG(
 		d.peerWrapper.Peer3_1,
 		bootstrapPeers,
-		dkgProvider.ContractConfigTracker(),
+		dkgConfigTracker,
 		ocrDB,
 		kvdb.NewPebbleKeyValueDatabaseFactory(fullPathDKG),
 		lc,
 		dkgOcrLogger,
 		prometheus.WrapRegistererWith(map[string]string{"job_name": string(types.DKG)}, prometheus.DefaultRegisterer),
 		dkgOracleEndpoint,
-		dkgProvider.OffchainConfigDigester(),
+		dkgConfigDigester,
 		kb,
 		dkgRecipientKey,
 		vaultocrplugin.NewVaultORM(d.ds),
@@ -958,16 +1007,31 @@ func (d *Delegate) newDonTimePlugin(
 		onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
 	}
 
+	// Get config tracker and digester, optionally wrapping with OCRConfigService
+	configTracker := provider.ContractConfigTracker()
+	configDigester := provider.OffchainConfigDigester()
+	if d.ocrConfigService != nil {
+		configTracker, err = d.ocrConfigService.GetConfigTracker(dontimeCapabilityID, capabilitiespb.OCR3ConfigDefaultKey, configTracker)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config tracker from OCRConfigService: %w", err)
+		}
+		configDigester, err = d.ocrConfigService.GetConfigDigester(dontimeCapabilityID, capabilitiespb.OCR3ConfigDefaultKey, configDigester)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
+		}
+		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", dontimeCapabilityID)
+	}
+
 	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
-		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractConfigTracker:        configTracker,
 		ContractTransmitter:          transmitter,
 		Database:                     ocrDB,
-		LocalConfig:                  lc,
+		LocalConfig:                  generic.AdjustLocalConfigForRegistryBasedConfig(lc),
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,
-		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainConfigDigester:       configDigester,
 		OffchainKeyring:              kb,
 		OnchainKeyring:               onchainKeyringAdapter,
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
@@ -1071,12 +1135,13 @@ func (d *Delegate) newServicesRing(
 	srvs = append(srvs, arbiterSvc)
 	lggr.Info("Arbiter service created")
 
-	ringStore := ring.NewStore()
-	shardOrchestratorStore := shardorchestrator.NewStore(lggr)
-	// Start ShardOrchestrator
+	ringStore := d.cfg.RingStoreForShard0()
+	if ringStore == nil {
+		ringStore = ring.NewStore()
+	}
 	orchestratorSvc := shardorchestrator.New(
 		int(shardingCfg.ShardOrchestratorPort()),
-		shardOrchestratorStore,
+		ringStore,
 		lggr,
 	)
 	srvs = append(srvs, orchestratorSvc)
@@ -1085,7 +1150,7 @@ func (d *Delegate) newServicesRing(
 	// Create RingArbiterClient that calls the Arbiter directly (no gRPC network)
 	arbiterScalerClient := arbiter.NewRingArbiterClient(arbiterSvc.ArbiterScalerServer(), lggr)
 
-	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchestratorStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
+	transmitter := ring.NewTransmitter(lggr, ringStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
@@ -1134,7 +1199,7 @@ func (d *Delegate) newServicesRing(
 		OnchainKeyring:               onchainKeyringAdapter,
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, shardOrchestratorStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
 		BatchSize:  100,         // Default batch size
 		TimeToSync: time.Second, // Default sync time
 	})

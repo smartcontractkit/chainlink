@@ -1,17 +1,24 @@
 package environment
 
 import (
+	"bufio"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
+	retry "github.com/avast/retry-go/v4"
+	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -113,6 +120,123 @@ func isHexString(s string) bool {
 	return err == nil
 }
 
+// getComposeFileFromGoMod extracts the version of chainlink-testing-framework/framework/components/dockercompose
+// from go.mod and returns the URL to the docker-compose.yml file for that version.
+// It caches the file locally to avoid re-downloading.
+func getComposeFileFromGoMod(ctx context.Context) (string, error) {
+	const targetModule = "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose"
+
+	// Get the absolute path to the core/scripts directory (where go.mod is located for this package)
+	scriptsDir, err := filepath.Abs("../../")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get absolute path to scripts directory")
+	}
+
+	// Use `go list -m -json` to get module information
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-json", targetModule)
+	cmd.Dir = scriptsDir
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to run 'go list -m -json %s'", targetModule)
+	}
+
+	// Parse JSON output
+	var modInfo moduleInfo
+	if unmarshalErr := json.Unmarshal(output, &modInfo); unmarshalErr != nil {
+		return "", errors.Wrap(unmarshalErr, "failed to parse go list JSON output")
+	}
+
+	if modInfo.Version == "" {
+		return "", errors.Errorf("no version found for module %s", targetModule)
+	}
+
+	// Determine the GitHub ref to use
+	version := modInfo.Version
+	var githubRef string
+	var cacheKey string
+
+	// Check if it's a pseudo-version (format: v0.1.19-0.20260130101725-678aa4ae7ce6)
+	if strings.Contains(version, "-0.") && strings.Count(version, "-") >= 2 {
+		// Extract commit hash from pseudo-version
+		parts := strings.Split(version, "-")
+		commitHash := parts[len(parts)-1]
+		githubRef = commitHash // Use commit hash directly
+		cacheKey = commitHash  // Use commit hash for cache
+		framework.L.Info().Msgf("Detected pseudo-version: %s, using commit: %s", version, commitHash)
+	} else {
+		// It's a proper version tag
+		githubRef = "framework/components/dockercompose/" + version
+		cacheKey = version
+		framework.L.Info().Msgf("Detected version tag: %s", version)
+	}
+
+	// Check if file is already cached locally
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get user home directory")
+	}
+	cacheDir := filepath.Join(homeDir, ".local", "share", "chip_ingress_set")
+	cachedFile := filepath.Join(cacheDir, fmt.Sprintf("docker-compose-%s.yml", cacheKey))
+
+	if _, statErr := os.Stat(cachedFile); statErr == nil {
+		framework.L.Info().Msgf("Using cached compose file: %s", cachedFile)
+		return "file://" + cachedFile, nil
+	}
+
+	// Download and cache the file
+	url := fmt.Sprintf("https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/%s/framework/components/dockercompose/chip_ingress_set/docker-compose.yml", githubRef)
+	framework.L.Info().Msgf("Downloading compose file from: %s", url)
+
+	// Create cache directory
+	if mkdirErr := os.MkdirAll(cacheDir, 0o755); mkdirErr != nil {
+		return "", errors.Wrap(mkdirErr, "failed to create cache directory")
+	}
+
+	// Download file with retries to withstand transient GitHub/network issues
+	var respBody []byte
+	downloadErr := retry.Do(
+		func() error {
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if reqErr != nil {
+				return errors.Wrapf(reqErr, "failed to create HTTP request for %s", url)
+			}
+
+			resp, httpErr := http.DefaultClient.Do(req)
+			if httpErr != nil {
+				return errors.Wrapf(httpErr, "failed to download compose file from %s", url)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return errors.Errorf("failed to download compose file: HTTP %d", resp.StatusCode)
+			}
+
+			bodyBytes, readErr := io.ReadAll(resp.Body)
+			if readErr != nil {
+				return errors.Wrap(readErr, "failed to read compose file contents")
+			}
+			respBody = bodyBytes
+			return nil
+		},
+		retry.Context(ctx),
+		retry.Delay(500*time.Millisecond),
+		retry.Attempts(5),
+		retry.DelayType(retry.BackOffDelay),
+	)
+	if downloadErr != nil {
+		return "", errors.Wrap(downloadErr, "failed to download compose file")
+	}
+
+	// Save to cache
+	if writeErr := os.WriteFile(cachedFile, respBody, 0o644); writeErr != nil { //nolint: gosec // it's fine for permissions to be a bit wider
+		return "", errors.Wrap(writeErr, "failed to write compose file to cache")
+	}
+
+	framework.L.Info().Msgf("Cached compose file at: %s", cachedFile)
+	return "file://" + cachedFile, nil
+}
+
 func beholderCmds() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "beholder",
@@ -131,6 +255,7 @@ func beholderCmds() *cobra.Command {
 func startBeholderCmd() *cobra.Command {
 	var (
 		timeout time.Duration
+		port    int
 	)
 	cmd := &cobra.Command{
 		Use:              "start",
@@ -162,7 +287,7 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			startBeholderErr = startBeholder(cmd.Context(), timeout)
+			startBeholderErr = startBeholder(cmd.Context(), timeout, port)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -178,9 +303,20 @@ func startBeholderCmd() *cobra.Command {
 			return nil
 		},
 	}
+
 	cmd.Flags().DurationVarP(&timeout, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
+	cmd.Flags().IntVarP(&port, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
 	return cmd
+}
+
+func mustStringToInt(in string) int {
+	out, err := strconv.Atoi(in)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse default ChIP Ingress port: %w", err))
+	}
+
+	return out
 }
 
 var stopBeholderCmd = &cobra.Command{
@@ -217,9 +353,220 @@ func removeBeholderStateFiles(relativePathToRepoRoot string) error {
 	return os.Remove(absPath)
 }
 
+func isPortAvailable(addr string) bool {
+	lc := net.ListenConfig{}
+	l, err := lc.Listen(context.Background(), "tcp", addr)
+	if err != nil {
+		return false // already in use or permission denied
+	}
+	_ = l.Close()
+	return true
+}
+
 var protoRegistrationErrMsg = "proto registration failed"
 
-func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (startupErr error) {
+// MissingImage represents an image that needs to be built or pulled
+type MissingImage struct {
+	Name        string
+	Tag         string
+	FullImage   string
+	BuildConfig BuildConfig
+	PullConfig  PullConfig
+}
+
+// ensureChipImagesExist checks if required chip images exist and auto-builds them if missing.
+// In CI environments (CI=true), this check is skipped as images will be pulled at runtime.
+func ensureChipImagesExist(ctx context.Context, cfg *SetupConfigFile) error {
+	// Skip checks in CI environment - docker-compose will pull at runtime
+	if os.Getenv("CI") == "true" {
+		framework.L.Info().Msg("CI environment detected, skipping chip image pre-check")
+		return nil
+	}
+
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return errors.Wrap(err, "failed to create Docker client")
+	}
+	defer dockerClient.Close()
+
+	// Check if Docker is running
+	_, err = dockerClient.Ping(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Docker is not running")
+	}
+
+	// Collect required images
+	var requiredImages []MissingImage
+
+	if cfg.ChipIngress != nil {
+		requiredImages = append(requiredImages, MissingImage{
+			Name:        "chip-ingress",
+			Tag:         cfg.ChipIngress.BuildConfig.Commit,
+			FullImage:   cfg.ChipIngress.BuildConfig.LocalImage,
+			BuildConfig: cfg.ChipIngress.BuildConfig,
+			PullConfig:  cfg.ChipIngress.PullConfig,
+		})
+	}
+
+	if cfg.ChipConfig != nil {
+		requiredImages = append(requiredImages, MissingImage{
+			Name:        "chip-config",
+			Tag:         cfg.ChipConfig.BuildConfig.Commit,
+			FullImage:   cfg.ChipConfig.BuildConfig.LocalImage,
+			BuildConfig: cfg.ChipConfig.BuildConfig,
+			PullConfig:  cfg.ChipConfig.PullConfig,
+		})
+	}
+
+	// Find missing images
+	var missing []MissingImage
+	for _, img := range requiredImages {
+		_, err := dockerClient.ImageInspect(ctx, img.FullImage)
+		if err != nil {
+			framework.L.Info().Msgf("Image %s not found locally", img.FullImage)
+			missing = append(missing, img)
+		} else {
+			framework.L.Info().Msgf("✓ Image %s is available", img.FullImage)
+		}
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+
+	ecrURL := os.Getenv("AWS_ECR")
+	interactive := isInteractiveTerminal()
+
+	// Non-interactive mode handling
+	if !interactive {
+		if ecrURL != "" {
+			// Non-interactive with AWS_ECR - pull images
+			framework.L.Info().Msgf("Non-interactive mode with AWS_ECR set. Pulling %d missing image(s) from ECR...", len(missing))
+			return pullAllImages(ctx, cfg, missing)
+		}
+		// Non-interactive without AWS_ECR - fail with instructions
+		framework.L.Error().Msgf("Missing %d required image(s) and AWS_ECR is not set:", len(missing))
+		for _, img := range missing {
+			framework.L.Error().Msgf("  - %s", img.FullImage)
+		}
+		printChipImagePullInstructions()
+		return errors.Errorf("missing %d required image(s). Set AWS_ECR to enable auto-pull or run 'go run . env setup' manually", len(missing))
+	}
+
+	// Interactive mode - try building first
+	framework.L.Info().Msgf("Building %d missing image(s) from sources...", len(missing))
+
+	var failedBuilds []MissingImage
+	var buildErrors []error
+
+	for _, img := range missing {
+		framework.L.Info().Msgf("🔨 Building %s from sources...", img.FullImage)
+
+		_, buildErr := img.BuildConfig.Build(ctx)
+		if buildErr != nil {
+			framework.L.Error().Msgf("Failed to build %s: %v", img.FullImage, buildErr)
+			failedBuilds = append(failedBuilds, img)
+			buildErrors = append(buildErrors, buildErr)
+		} else {
+			framework.L.Info().Msgf("✓ %s built successfully", img.FullImage)
+		}
+	}
+
+	// If all builds succeeded, we're done
+	if len(failedBuilds) == 0 {
+		return nil
+	}
+
+	// Some builds failed - offer to pull all failed images
+	return handleChipImageBuildFailures(ctx, cfg, failedBuilds, buildErrors)
+}
+
+// pullAllImages pulls all specified images from ECR
+func pullAllImages(ctx context.Context, cfg *SetupConfigFile, images []MissingImage) error {
+	for _, img := range images {
+		framework.L.Info().Msgf("Pulling %s from ECR...", img.Name)
+		_, pullErr := img.PullConfig.Pull(ctx, cfg.General.AWSProfile)
+		if pullErr != nil {
+			return errors.Wrapf(pullErr, "failed to pull %s", img.Name)
+		}
+		framework.L.Info().Msgf("✓ %s pulled successfully", img.FullImage)
+	}
+	return nil
+}
+
+// isInteractiveTerminal checks if stdin is connected to an interactive terminal
+func isInteractiveTerminal() bool {
+	fileInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	// Check if stdin is a character device (terminal)
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
+
+// handleChipImageBuildFailures handles build failures by offering to pull all failed images
+func handleChipImageBuildFailures(ctx context.Context, cfg *SetupConfigFile, failedImages []MissingImage, buildErrors []error) error {
+	// List all failed images
+	fmt.Println()
+	framework.L.Error().Msgf("Failed to build %d image(s):", len(failedImages))
+	for i, img := range failedImages {
+		framework.L.Error().Msgf("  - %s: %v", img.FullImage, buildErrors[i])
+	}
+
+	ecrURL := os.Getenv("AWS_ECR")
+	if ecrURL != "" {
+		shouldPull := false
+
+		if isInteractiveTerminal() {
+			// Interactive mode - ask user
+			fmt.Println()
+			fmt.Printf("AWS_ECR is set. Would you like to pull all %d failed image(s) from ECR instead? [Y/n] ", len(failedImages))
+
+			reader := bufio.NewReader(os.Stdin)
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(strings.ToLower(input))
+
+			shouldPull = input == "" || input == "y" || input == "yes"
+		} else {
+			// Non-interactive mode (e.g., automated tests) - auto-pull
+			framework.L.Info().Msg("Non-interactive mode detected. Auto-pulling failed images from ECR...")
+			shouldPull = true
+		}
+
+		if shouldPull {
+			// Pull all failed images
+			for _, img := range failedImages {
+				framework.L.Info().Msgf("Pulling %s from ECR...", img.Name)
+				_, pullErr := img.PullConfig.Pull(ctx, cfg.General.AWSProfile)
+				if pullErr != nil {
+					return errors.Wrapf(pullErr, "failed to pull %s", img.Name)
+				}
+				framework.L.Info().Msgf("✓ %s pulled successfully", img.FullImage)
+			}
+			return nil
+		}
+	}
+
+	// Show manual instructions
+	printChipImagePullInstructions()
+	return errors.Errorf("failed to build %d image(s)", len(failedImages))
+}
+
+// printChipImagePullInstructions prints helpful instructions for pulling images manually
+func printChipImagePullInstructions() {
+	fmt.Println()
+	fmt.Println("────────────────────────────────────────────────────────────────")
+	fmt.Println("To pull pre-built images instead, run:")
+	fmt.Println()
+	fmt.Println("  AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup")
+	fmt.Println()
+	fmt.Println("Replace <account-id> with prod AWS account number.")
+	fmt.Println("See: https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923")
+	fmt.Println("────────────────────────────────────────────────────────────────")
+	fmt.Println()
+}
+
+func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port int) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -255,6 +602,47 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 	stageGen := stagegen.NewStageGen(3, "STAGE")
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Chip Ingress stack")))
 
+	if !isPortAvailable(":" + strconv.Itoa(port)) {
+		return fmt.Errorf(`port %d is already in use. Most probably an instance of ChIP Test Sink is already running.
+If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
+and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, port)
+	}
+
+	// Load setup config to check for required images
+	setupCfg, setupCfgErr := ReadSetupConfig(DefaultSetupConfigPath)
+	if setupCfgErr != nil {
+		return errors.Wrap(setupCfgErr, "failed to read setup config")
+	}
+
+	// Ensure required chip images exist (auto-builds if missing, skipped in CI)
+	if err := ensureChipImagesExist(cmdContext, setupCfg); err != nil {
+		return errors.Wrap(err, "failed to ensure chip images exist")
+	}
+
+	// Don't set image version environment variables for CI environment, since we set them on the GHA workflow level
+	if os.Getenv("CI") != "true" {
+		// Set image version environment variables for docker-compose
+		if setupCfg.ChipIngress != nil {
+			if err := os.Setenv(chipingressset.ChipIngressImageEnvVar, setupCfg.ChipIngress.BuildConfig.LocalImage); err != nil {
+				return fmt.Errorf("failed to set CHIP_INGRESS_IMAGE environment variable: %w", err)
+			}
+		}
+		if setupCfg.ChipConfig != nil {
+			if err := os.Setenv(chipingressset.ChipConfigImageEnvVar, setupCfg.ChipConfig.BuildConfig.LocalImage); err != nil {
+				return fmt.Errorf("failed to set CHIP_CONFIG_IMAGE environment variable: %w", err)
+			}
+		}
+	}
+
+	// set both internal and external (host) ChIP Ingress GRPC port to the same value
+	if err := os.Setenv(chipingressset.ChipIngressGRPCHostPortEnvVar, strconv.Itoa(port)); err != nil {
+		return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCHostPortEnvVar, err)
+	}
+
+	if err := os.Setenv(chipingressset.ChipIngressGRPCPortEnvVar, strconv.Itoa(port)); err != nil {
+		return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCPortEnvVar, err)
+	}
+
 	// we want to restore previous configs, because Beholder might be started within the context of a different command,
 	// which is also using CTF_CONFIGS environment variable to load or later store configs
 	previousCTFConfig := os.Getenv("CTF_CONFIGS")
@@ -274,6 +662,15 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 	in, err := framework.Load[envconfig.ChipIngressConfig](nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to load test configuration")
+	}
+
+	// Auto-detect compose file from go.mod if not specified
+	if in.ChipIngress != nil && in.ChipIngress.ComposeFile == "" {
+		composeFile, composeErr := getComposeFileFromGoMod(cmdContext)
+		if composeErr != nil {
+			return errors.Wrap(composeErr, "failed to get compose file from go.mod")
+		}
+		in.ChipIngress.ComposeFile = composeFile
 	}
 
 	out, startErr := chipingressset.NewWithContext(cmdContext, in.ChipIngress)

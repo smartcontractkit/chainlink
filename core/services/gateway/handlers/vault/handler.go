@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -272,7 +273,12 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 	}
 	h.lggr.Debugw("fetchVaultPublicKey: trying to fetch vault public key", "request", getPublicKeyRequest)
 	callback := handlerscommon.NewCallback()
-	err = h.HandleJSONRPCUserMessage(ctx, getPublicKeyRequest, callback)
+	ar, err := h.newActiveRequest(getPublicKeyRequest, callback)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to create new activeRequest", "error", err)
+		return
+	}
+	err = h.handlePublicKeyGet(ctx, ar)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
 		return
@@ -287,9 +293,9 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
 	if httpStatus != http.StatusOK {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
-	} else {
-		h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
+		return
 	}
+	h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
 }
 
 // removeExpiredRequests removes expired requests from the pending requests map
@@ -325,23 +331,33 @@ func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ g
 }
 
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
-	// Generate a unique ID for the request.
-	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	if req.ID == "" {
 		return errors.New("request ID cannot be empty")
 	}
+	if len(req.ID) > 200 {
+		// Arbitrary limit to prevent abuse
+		return errors.New("request ID is too long: " + strconv.Itoa(len(req.ID)) + ". max is 200 characters")
+	}
 
 	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID, "request", req)
-	// Public key requests don't require authorization,
-	// Let's process this request right away.
-	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	switch req.Method {
 	case vaulttypes.MethodPublicKeyGet:
-		ar, err := h.newActiveRequest(req, callback)
+		// Public key requests don't require authorization,
+		// Let's process this request right away.
+		// Note we cache this value quite aggressively so don't need to worry about DoS.
+		publicKeyResponseBytes, _, err := h.getCachedPublicKey()
 		if err != nil {
-			return err
+			// Not found in cache. Fetch from nodes.
+			ar, err := h.newActiveRequest(req, callback)
+			if err != nil {
+				h.lggr.Errorw("failed to create new activeRequest", "error", err)
+				return err
+			}
+			return h.handlePublicKeyGet(ctx, ar)
 		}
-		return h.handlePublicKeyGet(ctx, ar)
+		h.lggr.Debugw("returning cached public key response")
+		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
+
 	case vaulttypes.MethodSecretsGet:
 		// Secrets get is only allowed in non-production builds for testing purposes
 		// So no authorization is required
@@ -357,7 +373,9 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Errorw("request not authorized", "requestID", req.ID, "owner", owner, "reason:", err)
 		return errors.New("request not authorized: " + err.Error())
 	}
+	// Generate a unique ID for the request.
 	// Prefix request id with owner, to ensure uniqueness across different owners
+	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
 	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
@@ -707,6 +725,32 @@ func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) err
 
 	l.Debugw("cache stale: forwarding request to nodes", "now", h.clock.Now(), "err", err)
 	return h.fanOutToVaultNodes(ctx, l, ar)
+}
+
+func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonrpc.Request[json.RawMessage], publicKeyResponseBytes []byte, callback gwhandlers.Callback) error {
+	resp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&publicKeyResponseBytes),
+	}
+	rawResponse, err := jsonrpc.EncodeResponse(&resp)
+	if err != nil {
+		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("error", api.NodeReponseEncodingError.String()),
+		))
+		h.lggr.Errorw("failed to encode response", "error", err)
+		return errors.New("failed to marshal response: " + err.Error())
+	}
+	successResp := gwhandlers.UserCallbackPayload{
+		RawResponse: rawResponse,
+		ErrorCode:   api.NoError,
+	}
+	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("don_id", h.donConfig.DonId),
+	))
+	return callback.SendResponse(successResp)
 }
 
 func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {

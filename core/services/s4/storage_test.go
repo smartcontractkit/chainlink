@@ -6,7 +6,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
@@ -53,7 +53,7 @@ func TestStorage_Errors(t *testing.T) {
 			SlotId:  1,
 			Version: 0,
 		}
-		ormMock.On("Get", mock.Anything, big.New(key.Address.Big()), key.SlotId).Return(nil, s4.ErrNotFound)
+		ormMock.On("Get", mock.Anything, sqlutil.New(key.Address.Big()), key.SlotId).Return(nil, s4.ErrNotFound)
 		_, _, err := storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
@@ -181,8 +181,8 @@ func TestStorage_PutAndGet(t *testing.T) {
 	assert.NoError(t, err)
 
 	ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
-	ormMock.On("Get", mock.Anything, big.New(key.Address.Big()), uint(2)).Return(&s4.Row{
-		Address:    big.New(key.Address.Big()),
+	ormMock.On("Get", mock.Anything, sqlutil.New(key.Address.Big()), uint(2)).Return(&s4.Row{
+		Address:    sqlutil.New(key.Address.Big()),
 		SlotId:     key.SlotId,
 		Version:    key.Version,
 		Payload:    record.Payload,
@@ -219,7 +219,7 @@ func TestStorage_List(t *testing.T) {
 		},
 	}
 
-	addressRange, err := s4.NewSingleAddressRange(big.New(address.Big()))
+	addressRange, err := s4.NewSingleAddressRange(sqlutil.New(address.Big()))
 	assert.NoError(t, err)
 	ormMock.On("GetSnapshot", mock.Anything, addressRange).Return(ormRows, nil)
 
