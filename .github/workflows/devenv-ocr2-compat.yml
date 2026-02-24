@@ -55,20 +55,23 @@ jobs:
       - name: Download Go dependencies
         run: |
           go mod download
-
+      
+      - name: Get CTF version from go.mod
+        shell: bash
+        run: |
+          CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
+          echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
+      
       - name: Install CTF binary
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CTF_TAG: "framework/v0.14.6"
         run: |
-          echo "::startgroup::Install CTF binary"
           mkdir -p bin
-          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          gh release download "${{ env.CTF_TAG }}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
-          echo "::endgroup::"
       
       - name: Run compat test
         working-directory: devenv
