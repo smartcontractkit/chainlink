@@ -69,6 +69,53 @@ func (_c *ORM_DeleteWorkflowSpec_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
+// DeleteWorkflowSpecs provides a mock function with given fields: ctx, ids
+func (_m *ORM) DeleteWorkflowSpecs(ctx context.Context, ids []string) error {
+	ret := _m.Called(ctx, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteWorkflowSpecs")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) error); ok {
+		r0 = rf(ctx, ids)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ORM_DeleteWorkflowSpecs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteWorkflowSpecs'
+type ORM_DeleteWorkflowSpecs_Call struct {
+	*mock.Call
+}
+
+// DeleteWorkflowSpecs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ids []string
+func (_e *ORM_Expecter) DeleteWorkflowSpecs(ctx interface{}, ids interface{}) *ORM_DeleteWorkflowSpecs_Call {
+	return &ORM_DeleteWorkflowSpecs_Call{Call: _e.mock.On("DeleteWorkflowSpecs", ctx, ids)}
+}
+
+func (_c *ORM_DeleteWorkflowSpecs_Call) Run(run func(ctx context.Context, ids []string)) *ORM_DeleteWorkflowSpecs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]string))
+	})
+	return _c
+}
+
+func (_c *ORM_DeleteWorkflowSpecs_Call) Return(_a0 error) *ORM_DeleteWorkflowSpecs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_DeleteWorkflowSpecs_Call) RunAndReturn(run func(context.Context, []string) error) *ORM_DeleteWorkflowSpecs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetWorkflowSpec provides a mock function with given fields: ctx, id
 func (_m *ORM) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error) {
 	ret := _m.Called(ctx, id)

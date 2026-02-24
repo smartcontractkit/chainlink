@@ -308,6 +308,10 @@ func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) 
 	return nil
 }
 
+func (h *Store) DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error {
+	return h.orm.DeleteWorkflowSpecs(ctx, workflowIDs)
+}
+
 func (h *Store) GetWasmBinary(ctx context.Context, workflowID string) ([]byte, error) {
 	spec, err := h.orm.GetWorkflowSpec(ctx, workflowID)
 	if err != nil {

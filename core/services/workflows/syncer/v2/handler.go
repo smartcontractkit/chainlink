@@ -141,6 +141,7 @@ type WorkflowArtifactsStore interface {
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
+	DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error
 }
 
 // NewEventHandler returns a new eventHandler instance.
