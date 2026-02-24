@@ -1,4 +1,4 @@
-IMAGE_NAME := "ocr2-fakes"
+IMAGE_NAME := "chainlink-fakes"
 
 run:
     docker run --rm -it -v $(pwd):/app -p 9111:9111 {{IMAGE_NAME}}:latest

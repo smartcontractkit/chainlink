@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -47,7 +46,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -80,7 +79,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 				WorkflowID:   hex.EncodeToString(workflowID),
 				Owner:        hex.EncodeToString(owner),
 				CreatedAt:    1234567890,
-				Status:       WorkflowStatusActive,
+				Status:       WorkflowStatusActive, // File format uses 0=active
 				WorkflowName: "test-workflow",
 				BinaryURL:    "file:///path/to/binary.wasm",
 				ConfigURL:    "file:///path/to/config.json",
@@ -91,7 +90,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 				WorkflowID:   hex.EncodeToString(workflowID),
 				Owner:        hex.EncodeToString(owner),
 				CreatedAt:    1234567891,
-				Status:       WorkflowStatusActive,
+				Status:       WorkflowStatusActive, // File format uses 0=active
 				WorkflowName: "other-workflow",
 				BinaryURL:    "file:///path/to/other.wasm",
 				ConfigURL:    "file:///path/to/other.json",
@@ -113,7 +112,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -156,7 +155,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 			{
 				WorkflowID:   hex.EncodeToString(workflowID1),
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusActive,
+				Status:       WorkflowStatusActive, // File format uses 0=active
 				WorkflowName: "workflow-a",
 				BinaryURL:    "file:///a.wasm",
 				ConfigURL:    "file:///a.json",
@@ -165,7 +164,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 			{
 				WorkflowID:   hex.EncodeToString(workflowID2),
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusActive,
+				Status:       WorkflowStatusActive, // File format uses 0=active
 				WorkflowName: "workflow-b",
 				BinaryURL:    "file:///b.wasm",
 				ConfigURL:    "file:///b.json",
@@ -185,7 +184,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"family-a", "family-b"},
@@ -210,7 +209,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 			{
 				WorkflowID:   hex.EncodeToString(workflowID),
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusPaused, // Paused status
+				Status:       WorkflowStatusPaused, // File format uses 1=paused
 				WorkflowName: "paused-workflow",
 				BinaryURL:    "file:///paused.wasm",
 				ConfigURL:    "file:///paused.json",
@@ -230,7 +229,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -284,7 +283,7 @@ func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -304,7 +303,7 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 			{
 				WorkflowID:   "invalid-hex",
 				Owner:        hex.EncodeToString(owner),
-				Status:       WorkflowStatusActive,
+				Status:       WorkflowStatusActive, // File format uses 0=active
 				WorkflowName: "invalid-workflow",
 				BinaryURL:    "file:///invalid.wasm",
 				ConfigURL:    "file:///invalid.json",
@@ -324,7 +323,7 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},

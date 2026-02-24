@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -61,6 +60,7 @@ func upgradeChainlinkNodeVersionsLocal(
 	return nil
 }
 
+// Deprecated: run tests from devenv/tests/automation/smoke_test.go
 func TestMain(m *testing.M) {
 	logging.Init()
 	// config, err := tc.GetConfig(tc.NoTest, tc.Smoke, tc.Automation)
@@ -73,10 +73,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// Deprecated: run tests from devenv/tests/automation/smoke_test.go
 func TestAutomationBasic(t *testing.T) {
 	SetupAutomationBasic(t, false)
 }
 
+// Deprecated: run tests from devenv/tests/automation/smoke_test.go
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 
@@ -128,7 +130,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				t, registryVersion, actions.ReadRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -268,7 +270,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, true, false, false, nil, &config)
@@ -438,7 +440,7 @@ func TestAutomationAddFunds(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
@@ -505,7 +507,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
@@ -593,7 +595,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
@@ -676,7 +678,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
@@ -743,7 +745,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
@@ -838,7 +840,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
@@ -910,7 +912,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
@@ -1066,7 +1068,7 @@ func TestUpdateCheckData(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
@@ -1149,7 +1151,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)

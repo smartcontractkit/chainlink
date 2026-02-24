@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type nodeSecret struct {

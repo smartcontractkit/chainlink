@@ -34,6 +34,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -41,6 +42,7 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -60,6 +62,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -68,8 +71,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
@@ -93,7 +94,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -174,6 +174,7 @@ type DelegateConfig interface {
 	Mercury() coreconfig.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
+	RingStoreForShard0() *ring.Store
 }
 
 // concrete implementation of DelegateConfig so it can be explicitly composed
@@ -185,6 +186,7 @@ type delegateConfig struct {
 	mercury     mercuryConfig
 	threshold   thresholdConfig
 	sharding    coreconfig.Sharding
+	ringStore   *ring.Store
 }
 
 func (d *delegateConfig) JobPipeline() jobPipelineConfig {
@@ -209,6 +211,10 @@ func (d *delegateConfig) OCR2() ocr2Config {
 
 func (d *delegateConfig) Sharding() coreconfig.Sharding {
 	return d.sharding
+}
+
+func (d *delegateConfig) RingStoreForShard0() *ring.Store {
+	return d.ringStore
 }
 
 type ocr2Config interface {
@@ -249,7 +255,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -258,6 +264,7 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 		mercury:         m,
 		threshold:       t,
 		sharding:        s,
+		ringStore:       ringStore,
 	}
 }
 
@@ -778,7 +785,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	kvFactory := kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 
 	keyBundles := map[string]ocr2key.KeyBundle{
-		string(chaintype.EVM): kb,
+		string(corekeys.EVM): kb,
 	}
 	onchainKeyringAdapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
 	if err != nil {
@@ -1021,7 +1028,7 @@ func (d *Delegate) newDonTimePlugin(
 		ContractConfigTracker:        configTracker,
 		ContractTransmitter:          transmitter,
 		Database:                     ocrDB,
-		LocalConfig:                  lc,
+		LocalConfig:                  generic.AdjustLocalConfigForRegistryBasedConfig(lc),
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,
 		OffchainConfigDigester:       configDigester,
@@ -1128,12 +1135,13 @@ func (d *Delegate) newServicesRing(
 	srvs = append(srvs, arbiterSvc)
 	lggr.Info("Arbiter service created")
 
-	ringStore := ring.NewStore()
-	shardOrchestratorStore := shardorchestrator.NewStore(lggr)
-	// Start ShardOrchestrator
+	ringStore := d.cfg.RingStoreForShard0()
+	if ringStore == nil {
+		ringStore = ring.NewStore()
+	}
 	orchestratorSvc := shardorchestrator.New(
 		int(shardingCfg.ShardOrchestratorPort()),
-		shardOrchestratorStore,
+		ringStore,
 		lggr,
 	)
 	srvs = append(srvs, orchestratorSvc)
@@ -1142,7 +1150,7 @@ func (d *Delegate) newServicesRing(
 	// Create RingArbiterClient that calls the Arbiter directly (no gRPC network)
 	arbiterScalerClient := arbiter.NewRingArbiterClient(arbiterSvc.ArbiterScalerServer(), lggr)
 
-	transmitter := ring.NewTransmitter(lggr, ringStore, shardOrchestratorStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
+	transmitter := ring.NewTransmitter(lggr, ringStore, arbiterScalerClient, ocrtypes.Account(spec.TransmitterID.String))
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
@@ -1191,7 +1199,7 @@ func (d *Delegate) newServicesRing(
 		OnchainKeyring:               onchainKeyringAdapter,
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, shardOrchestratorStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
+	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
 		BatchSize:  100,         // Default batch size
 		TimeToSync: time.Second, // Default sync time
 	})

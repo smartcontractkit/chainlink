@@ -208,7 +208,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Deletes the workflow file after deployment")
 	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compiles the workflow before deploying it")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("workflow-file-path"); err != nil {
 		panic(err)
@@ -294,7 +294,7 @@ func deleteWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow registry contract to use (v1 or v2)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("name"); err != nil {
 		panic(err)

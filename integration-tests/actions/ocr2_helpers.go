@@ -22,13 +22,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 )
 
@@ -121,7 +121,7 @@ func GetOracleIdentitiesWithKeyIndex(
 			}
 			var ocr2Config nodeclient.OCR2KeyAttributes
 			for _, key := range ocr2Keys.Data {
-				if key.Attributes.ChainType == string(chaintype.EVM) {
+				if key.Attributes.ChainType == string(corekeys.EVM) {
 					ocr2Config = key.Attributes
 					break
 				}

@@ -25,6 +25,7 @@ import (
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -60,7 +61,6 @@ const (
 	EVMCapability             CapabilityFlag = "evm"
 	CustomComputeCapability   CapabilityFlag = "custom-compute"
 	WriteEVMCapability        CapabilityFlag = "write-evm"
-	WriteSolanaCapability     CapabilityFlag = "write-solana"
 	ReadContractCapability    CapabilityFlag = "read-contract"
 	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
 	WebAPITargetCapability    CapabilityFlag = "web-api-target"
@@ -119,8 +119,8 @@ func NewContractVersionsProvider(overrides map[ContractType]*semver.Version) *co
 	cvp := &contractVersionsProvider{
 		contracts: map[ContractType]*semver.Version{
 			keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
-			keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
-			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+			keystone_changeset.WorkflowRegistry.String():     semver.MustParse("2.0.0"),
+			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("2.0.0"),
 			keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 			ks_sol.ForwarderContract.String():                semver.MustParse("1.0.0"),
 			ks_sol.ForwarderState.String():                   semver.MustParse("1.0.0"),
@@ -391,6 +391,9 @@ type ConfigureCapabilityRegistryInput struct {
 	WithV2Registries bool
 
 	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
+
+	// keyed by LabelledName
+	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -1116,7 +1119,7 @@ type NodeMetadata struct {
 	Keys  *secrets.NodeKeys `toml:"keys" json:"keys"`
 	Host  string            `toml:"host" json:"host"`
 	Roles []string          `toml:"roles" json:"roles"`
-	Index int               `toml:"index" json:"index"` // hopefully we can remove it later, but for now we need it to construct urls in CRIB
+	Index int               `toml:"index" json:"index"` // hopefully we can remove it later, but for now we need it for node URL construction
 	UUID  string            `toml:"uuid" json:"uuid"`
 }
 
@@ -1606,4 +1609,6 @@ type Feature interface {
 
 type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
+	// keyed by LabelledName
+	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
 }

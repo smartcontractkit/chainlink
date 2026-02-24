@@ -394,12 +394,16 @@ IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
 [Sharding]
+ShardingEnabled = false
 ArbiterPort = 9876
 ArbiterPollInterval = '12s'
 ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32.00mb'
 
 [[EVM]]
 ChainID = '1'
@@ -786,6 +790,7 @@ BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
+LogPollerCPIEventsEnabled = true
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'
@@ -848,6 +853,7 @@ BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
+LogPollerCPIEventsEnabled = true
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'

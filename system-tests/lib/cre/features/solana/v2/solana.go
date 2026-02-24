@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"text/template"
 	"time"
@@ -53,10 +54,8 @@ const (
 		"chainId":"{{.ChainID}}",
 		"network":"{{.Network}}"
 	}`
-	registrationRefresh = 20 * time.Second
-	registrationExpiry  = 60 * time.Second
-	deltaStage          = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
-	requestTimeout      = 30 * time.Second
+	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
+	requestTimeout = 30 * time.Second
 )
 
 type SolChain interface {
@@ -87,16 +86,21 @@ func (s *Solana) PreEnvStartup(
 		ForwarderState:   *state,
 	}
 	// 2. Patch nodes TOML config to include workflow From Address
-	cfgErr := updateNodeConfigs(creEnv, don, input, solChain.ChainSelector())
+	cfgErr := patchNodeTOML(creEnv, don, input, solChain.ChainSelector())
 	if cfgErr != nil {
 		return nil, errors.Wrapf(cfgErr, "failed to update node configs for solana")
 	}
 
-	// 3. Register Solana capability & its methods with Keystone
-	capabilities, capErr := registerSolanaCapability(solChain.ChainSelector(), don)
-	if capErr != nil {
-		return nil, errors.Wrapf(capErr, "failed to register solana capability")
+	// 3. Patch wf nodes TOML config to enable solana relayer
+	for _, ns := range topology.NodeSets() {
+		if slices.Contains(ns.DONTypes, "workflow") {
+			for _, spec := range ns.NodeSpecs {
+				fmt.Println("test config override:", spec.Node.TestConfigOverrides)
+			}
+		}
 	}
+	// 4. Register Solana capability & its methods with Keystone
+	capabilities := registerSolanaCapability(solChain.ChainSelector())
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
@@ -159,7 +163,6 @@ func createJobs(
 		return errors.Wrap(cErr, "failed to get command for cron capability")
 	}
 
-	// propose bootstrap job once consensus reads are enabled
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
@@ -281,12 +284,9 @@ func createJobs(
 }
 
 // pre env
-func registerSolanaCapability(selector uint64, don *cre.DonMetadata) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilityWithConfig {
 	var caps []keystone_changeset.DONCapabilityWithConfig
-	methodConfigs, err := getMethodConfigs(don)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get method configs")
-	}
+	methodConfigs := getMethodConfigs()
 	caps = append(caps, keystone_changeset.DONCapabilityWithConfig{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName: "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
@@ -297,41 +297,17 @@ func registerSolanaCapability(selector uint64, don *cre.DonMetadata) ([]keystone
 		},
 	})
 
-	return caps, nil
+	return caps
 }
 
-func getMethodConfigs(don *cre.DonMetadata) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
+func getMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
 	methodConfigs := make(map[string]*capabilitiespb.CapabilityMethodConfig)
 
 	methodConfigs["WriteReport"] = writeReportActionConfig()
+	// PLEX-1828
+	// PLEX-1918 Add the rest of solana methods here
 
-	triggerConfig, err := logTriggerConfig(don)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get LogTrigger config")
-	}
-	methodConfigs["LogTrigger"] = triggerConfig
-
-	return methodConfigs, nil
-}
-
-func logTriggerConfig(don *cre.DonMetadata) (*capabilitiespb.CapabilityMethodConfig, error) {
-	faultyNodes, faultyErr := don.MustNodeSet().MaxFaultyNodes()
-	if faultyErr != nil {
-		return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
-	}
-
-	return &capabilitiespb.CapabilityMethodConfig{
-		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(registrationRefresh),
-				RegistrationExpiry:      durationpb.New(registrationExpiry),
-				MinResponsesToAggregate: faultyNodes + 1,
-				MessageExpiry:           durationpb.New(2 * registrationExpiry),
-				MaxBatchSize:            25,
-				BatchCollectionPeriod:   durationpb.New(200 * time.Millisecond),
-			},
-		},
-	}, nil
+	return methodConfigs
 }
 
 func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
@@ -348,7 +324,7 @@ func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	}
 }
 
-func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data input, selector uint64) error {
+func patchNodeTOML(creEnv *cre.Environment, don *cre.DonMetadata, data input, selector uint64) error {
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
@@ -360,7 +336,7 @@ func updateNodeConfigs(creEnv *cre.Environment, don *cre.DonMetadata, data input
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := UpdateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
+		updatedConfig, updErr := updateNodeConfig(workerNode, chainID, data, currentConfig, don.CapabilityConfigs[cre.SolanaCapability])
 		if updErr != nil {
 			return errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -429,7 +405,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 	return ptr.Ptr(out.Output.ProgramID.String()), ptr.Ptr(out.Output.State.String()), nil
 }
 
-func UpdateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
 	key, ok := workerNode.Keys.Solana[chainID]
 	if !ok {
 		return nil, errors.Errorf("missing Solana key for chainID %s on node index %d", chainID, workerNode.Index)

@@ -405,3 +405,60 @@ func TestUpdateDONChangeset_ByName_QualifierNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get registry address")
 }
+
+// TestUpdateDON_FirstOCR3ConfigCapabilities exercises the first-config gate in
+// processOCR3Configs by going through UpdateDON.Apply with ocr3Configs entries.
+func TestUpdateDON_FirstOCR3ConfigCapabilities(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	// A minimal ocr3Configs entry matching the proto structure: oracle config
+	// params are nested under the "offchainConfig" key.
+	ocr3Entry := map[string]any{
+		"offchainConfig": map[string]any{
+			"deltaProgressMillis":  5000,
+			"maxFaultyOracles":     1,
+			"transmissionSchedule": []any{2},
+		},
+	}
+
+	makeInput := func(capID string, firstCaps []string) changeset.UpdateDONInput {
+		return changeset.UpdateDONInput{
+			RegistryQualifier: fx.qualifier,
+			RegistryChainSel:  fx.selector,
+			DONName:           fx.donName,
+			CapabilityConfigs: []contracts.CapabilityConfig{
+				{
+					Capability: contracts.Capability{CapabilityID: capID},
+					Config: map[string]any{
+						"defaultConfig": map[string]any{},
+						"ocr3Configs": map[string]any{
+							"__default__": ocr3Entry,
+						},
+					},
+				},
+			},
+			FirstOCR3ConfigCapabilities: firstCaps,
+		}
+	}
+
+	t.Run("rejects when capability is not in FirstOCR3ConfigCapabilities", func(t *testing.T) {
+		_, err := changeset.UpdateDON{}.Apply(fx.env, makeInput(fx.capIDs[0], nil))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "firstOCR3ConfigCapabilities")
+	})
+
+	t.Run("passes first-config check when capability is listed", func(t *testing.T) {
+		_, err := changeset.UpdateDON{}.Apply(fx.env, makeInput(fx.capIDs[0], []string{fx.capIDs[0]}))
+		require.Error(t, err)
+		// Should fail later (e.g. ComputeOCR3Config), NOT at the first-config gate.
+		assert.NotContains(t, err.Error(), "firstOCR3ConfigCapabilities")
+	})
+
+	t.Run("rejects unlisted capability even when another is listed", func(t *testing.T) {
+		// List capIDs[0] but provide ocr3Configs for capIDs[1] → should fail
+		_, err := changeset.UpdateDON{}.Apply(fx.env, makeInput(fx.capIDs[1], []string{fx.capIDs[0]}))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "firstOCR3ConfigCapabilities")
+	})
+}

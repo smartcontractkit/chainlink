@@ -11,6 +11,24 @@
     },
     {
       "type": "checks",
+      "id": "CRE",
+      "attributes": {
+        "name": "CRE",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "CRE.DispatcherWrapper",
+      "attributes": {
+        "name": "CRE.DispatcherWrapper",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.1399100",
       "attributes": {
         "name": "EVM.1399100",
@@ -266,24 +284,6 @@
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowEngineLimiters",
-      "attributes": {
-        "name": "WorkflowEngineLimiters",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "WorkflowExecutionLimiter",
-      "attributes": {
-        "name": "WorkflowExecutionLimiter",
         "status": "passing",
         "output": ""
       }

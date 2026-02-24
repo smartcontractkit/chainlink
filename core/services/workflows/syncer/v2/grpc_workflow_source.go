@@ -2,10 +2,12 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand/v2"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/grpcsource"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -131,7 +133,7 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 	}
 
 	return &GRPCWorkflowSource{
-		lggr:           lggr.Named(cfg.Name),
+		lggr:           logger.Named(lggr, cfg.Name),
 		client:         client,
 		name:           cfg.Name,
 		pageSize:       pageSize,
@@ -329,23 +331,24 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	var workflowID types.WorkflowID
 	copy(workflowID[:], workflowIDBytes)
 
-	// Get owner bytes directly
-	ownerBytes := wf.GetOwner()
+	// Parse owner from hex string (proto changed from bytes to string)
+	ownerStr := wf.GetOwner()
+	ownerBytes, err := hex.DecodeString(strings.TrimPrefix(ownerStr, "0x"))
+	if err != nil {
+		return WorkflowMetadataView{}, fmt.Errorf("invalid owner hex string: %w", err)
+	}
 
 	// Get attributes directly (already bytes in proto)
 	attributes := wf.GetAttributes()
 
-	// Safe conversion of status (uint32 to uint8)
-	statusVal := wf.GetStatus()
-	if statusVal > 255 {
-		return WorkflowMetadataView{}, fmt.Errorf("status value %d exceeds uint8 range", statusVal)
-	}
+	// Map proto status enum to internal representation
+	statusVal := GRPCStatusToInternal(wf.GetStatus(), g.lggr)
 
 	return WorkflowMetadataView{
 		WorkflowID:   workflowID,
 		Owner:        ownerBytes,
 		CreatedAt:    wf.GetCreatedAt(),
-		Status:       uint8(statusVal),
+		Status:       statusVal,
 		WorkflowName: wf.GetWorkflowName(),
 		BinaryURL:    wf.GetBinaryUrl(),
 		ConfigURL:    wf.GetConfigUrl(),

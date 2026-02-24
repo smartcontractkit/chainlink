@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )

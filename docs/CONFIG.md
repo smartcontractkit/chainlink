@@ -1883,6 +1883,39 @@ BytesRateLimiterCapacity = 10000000 # Default
 ```
 BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 
+## Capabilities.Local
+```toml
+[Capabilities.Local]
+RegistryBasedLaunchAllowlist = [] # Default
+```
+
+
+### RegistryBasedLaunchAllowlist
+```toml
+RegistryBasedLaunchAllowlist = [] # Default
+```
+RegistryBasedLaunchAllowlist contains regex patterns that match capability IDs to be launched
+from the on-chain capabilities registry instead of via job specs. Adding a pattern to this
+list has two effects:
+1. Disables job-spec-based launching - the delegate refuses to start matching capabilities via job specs
+2. Enables registry-based launching - the LocalCapabilityManager starts matching capabilities from on-chain registry
+This allows staged rollout: capabilities not matching any pattern continue launching via job specs,
+while matching capabilities transition to registry-based launching.
+Examples (using single-quoted TOML strings where backslashes are literal):
+- '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
+- '^http-action@.*$' matches any version of http-action
+- '.*' matches all capabilities
+
+Per-capability configuration. Each capability ID can have its own configuration section.
+Capability IDs must be in the format "name@version".
+[Capabilities.Local.Capabilities."http-action@1.0.0"]
+BinaryPathOverride overrides the default binary path for a LOOP capability.
+BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
+[Capabilities.Local.Capabilities."http-action@1.0.0".Config]
+Capability-specific configuration as key-value pairs.
+proxyMode = 'gateway' # Example
+allowedPorts = '443,8443' # Example
+
 ## Keeper
 ```toml
 [Keeper]
@@ -2642,6 +2675,7 @@ EnableDKGRecipient should be set to true if the DON runs a capability that uses 
 ## Sharding
 ```toml
 [Sharding]
+ShardingEnabled = false # Default
 ArbiterPort = 9876 # Default
 ArbiterPollInterval = '12s' # Default
 ArbiterRetryInterval = '12s' # Default
@@ -2650,6 +2684,14 @@ ShardOrchestratorPort = 50051 # Default
 ShardOrchestratorAddress = '' # Default
 ```
 Sharding holds settings for node sharding configuration.
+
+### ShardingEnabled
+```toml
+ShardingEnabled = false # Default
+```
+ShardingEnabled enables workflow sharding across multiple nodes.
+When false (default), all workflows are processed by this node (backwards compatible mode).
+When true, workflows are distributed across shards based on ShardIndex and shard orchestrator mappings.
 
 ### ArbiterPort
 ```toml
@@ -2688,6 +2730,21 @@ When a ring OCR job is created, the shard orchestrator server is spun up on this
 ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
+Required when ShardingEnabled=true and ShardIndex > 0.
+
+## LOOPP
+```toml
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+Local Out-Of-Process Plugins
+
+### GRPCServerMaxRecvMsgSize
+```toml
+GRPCServerMaxRecvMsgSize = '32mb' # Default
+```
+GRPCServerMaxRecvMsgSize is the maximum received message size configured for grpc servers.
+We use a higher limit than the grpc default of 4mb.
 
 ## EVM
 EVM defaults depend on ChainID:
@@ -18429,6 +18486,7 @@ BlockHistoryBatchLoadSize = 20 # Default
 ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
+LogPollerCPIEventsEnabled = true # Default
 ```
 
 
@@ -18594,6 +18652,12 @@ EstimateComputeUnitLimit enables or disables compute unit limit estimations per 
 LogPollerStartingLookback = '24h0m0s' # Default
 ```
 LogPollerStartingLookback
+
+### LogPollerCPIEventsEnabled
+```toml
+LogPollerCPIEventsEnabled = true # Default
+```
+LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
 
 ## Solana.Workflow
 ```toml

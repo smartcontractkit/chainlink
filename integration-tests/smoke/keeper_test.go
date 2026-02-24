@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -77,6 +76,7 @@ var (
 	}
 )
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperBasicSmoke(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -95,7 +95,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -158,6 +158,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperBlockCountPerTurn(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -180,7 +181,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -307,6 +308,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperSimulation(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -324,7 +326,7 @@ func TestKeeperSimulation(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
@@ -386,6 +388,7 @@ func TestKeeperSimulation(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -403,7 +406,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
@@ -522,6 +525,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperRegisterUpkeep(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -540,7 +544,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -618,6 +622,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperAddFunds(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -636,7 +641,7 @@ func TestKeeperAddFunds(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -693,6 +698,7 @@ func TestKeeperAddFunds(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperRemove(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -717,7 +723,7 @@ func TestKeeperRemove(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -785,6 +791,7 @@ func TestKeeperRemove(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperPauseRegistry(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -802,7 +809,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -861,6 +868,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 	}
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperMigrateRegistry(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -868,7 +876,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-	sb, err := chainClient.Client.BlockNumber(context.Background())
+	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -954,6 +962,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	}, "1m", "1s").Should(gomega.Succeed())
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperNodeDown(t *testing.T) {
 	t.Parallel()
 	registryVersions := []ethereum.KeeperRegistryVersion{
@@ -976,7 +985,7 @@ func TestKeeperNodeDown(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -1078,6 +1087,7 @@ type nodeAndJob struct {
 	job  *nodeclient.Job
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -1086,7 +1096,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-	sb, err := chainClient.Client.BlockNumber(context.Background())
+	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -1170,6 +1180,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	}, "3m", "1s").Should(gomega.Succeed())
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -1178,7 +1189,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-	sb, err := chainClient.Client.BlockNumber(context.Background())
+	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
 	registry, _, performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerContracts(
@@ -1275,6 +1286,7 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 	return sethClient, env.ClCluster.NodeAPIs(), linkTokenContract, env
 }
 
+// Deprecated: use devenv/tests/keepers/smoke_test.go instead
 func TestKeeperJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)

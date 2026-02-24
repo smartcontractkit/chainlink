@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -68,7 +67,7 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 		{
 			name: "Realistic RPC Latency",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
+				_, err := cr.RunPodDelay(t.Context(),
 					havoc.PodDelayCfg{
 						Namespace:         cfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -157,7 +156,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Fail 3 chains",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
+				_, err := cr.RunPodFail(t.Context(),
 					havoc.PodFailCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -171,7 +170,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Fail 3 CL nodes",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
+				_, err := cr.RunPodFail(t.Context(),
 					havoc.PodFailCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -185,7 +184,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Fail 3 CL node DB",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
+				_, err := cr.RunPodFail(t.Context(),
 					havoc.PodFailCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -201,7 +200,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Fail two RMN nodes",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
+				_, err := cr.RunPodFail(t.Context(),
 					havoc.PodFailCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -217,7 +216,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Three slow chains",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
+				_, err := cr.RunPodDelay(t.Context(),
 					havoc.PodDelayCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -234,7 +233,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Three slow CL nodes",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
+				_, err := cr.RunPodDelay(t.Context(),
 					havoc.PodDelayCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -251,7 +250,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Three slow CL node DBs",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
+				_, err := cr.RunPodDelay(t.Context(),
 					havoc.PodDelayCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -270,7 +269,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "Two slow RMN nodes",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
+				_, err := cr.RunPodDelay(t.Context(),
 					havoc.PodDelayCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
@@ -289,7 +288,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "2 CL nodes <> 2 CL nodes partition",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
+				_, err := cr.RunPodPartition(t.Context(),
 					havoc.PodPartitionCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",
@@ -305,7 +304,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "4 nodes partition",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
+				_, err := cr.RunPodPartition(t.Context(),
 					havoc.PodPartitionCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",
@@ -321,7 +320,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "CL node <> DB partition",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
+				_, err := cr.RunPodPartition(t.Context(),
 					havoc.PodPartitionCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",
@@ -339,7 +338,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "2 RMN nodes <> 2 RMN nodes partition",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
+				_, err := cr.RunPodPartition(t.Context(),
 					havoc.PodPartitionCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",
@@ -356,7 +355,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "2 CL nodes <> 2 RMN nodes partition",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
+				_, err := cr.RunPodPartition(t.Context(),
 					havoc.PodPartitionCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",
@@ -382,7 +381,7 @@ func runFullChaosSuite(t *testing.T) {
 		{
 			name: "8-8 CL nodes split brain",
 			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
+				_, err := cr.RunPodPartition(t.Context(),
 					havoc.PodPartitionCfg{
 						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",

@@ -11,8 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -101,7 +100,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 
 		// this update call will invalidate the cache
 		row := &s4.Row{
-			Address:    big.New(common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000005").Big()),
+			Address:    sqlutil.New(common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000005").Big()),
 			SlotId:     1,
 			Payload:    cltest.MustRandomBytes(t, 32),
 			Version:    1,
@@ -125,8 +124,8 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 		rows := generateTestSnapshotRows(t, 5)
 
 		addressRange := &s4.AddressRange{
-			MinAddress: ubig.New(common.BytesToAddress(bytes.Repeat([]byte{0x00}, common.AddressLength)).Big()),
-			MaxAddress: ubig.New(common.BytesToAddress(append(bytes.Repeat([]byte{0x00}, common.AddressLength-1), 3)).Big()),
+			MinAddress: sqlutil.New(common.BytesToAddress(bytes.Repeat([]byte{0x00}, common.AddressLength)).Big()),
+			MaxAddress: sqlutil.New(common.BytesToAddress(append(bytes.Repeat([]byte{0x00}, common.AddressLength-1), 3)).Big()),
 		}
 
 		lggr := logger.TestLogger(t)
@@ -146,7 +145,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 		assert.Len(t, cache_snapshot, len(rows))
 
 		// this update call wont invalidate the cache because the address is out of the cache address range
-		outOfCachedRangeAddress := ubig.New(common.BytesToAddress(append(bytes.Repeat([]byte{0x00}, common.AddressLength-1), 5)).Big())
+		outOfCachedRangeAddress := sqlutil.New(common.BytesToAddress(append(bytes.Repeat([]byte{0x00}, common.AddressLength-1), 5)).Big())
 		row := &s4.Row{
 			Address:    outOfCachedRangeAddress,
 			SlotId:     1,
@@ -168,7 +167,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	address := big.New(testutils.NewAddress().Big())
+	address := sqlutil.New(testutils.NewAddress().Big())
 	var slotID uint = 1
 
 	lggr := logger.TestLogger(t)
@@ -236,7 +235,7 @@ func TestGetUnconfirmedRows(t *testing.T) {
 
 	t.Run("OK-GetUnconfirmedRows_underlaying_ORM_returns_a_row", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		address := big.New(testutils.NewAddress().Big())
+		address := sqlutil.New(testutils.NewAddress().Big())
 		var slotID uint = 1
 
 		expectedRow := []*s4.Row{{
@@ -269,7 +268,7 @@ func generateTestSnapshotRows(t *testing.T, n int) []*s4.SnapshotRow {
 	rows := make([]*s4.SnapshotRow, n)
 	for i := range n {
 		row := &s4.SnapshotRow{
-			Address:     big.New(testutils.NewAddress().Big()),
+			Address:     sqlutil.New(testutils.NewAddress().Big()),
 			SlotId:      1,
 			PayloadSize: 32,
 			Version:     1 + uint64(i),

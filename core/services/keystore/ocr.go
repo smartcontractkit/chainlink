@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 )
 
 type OCR interface {

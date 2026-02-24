@@ -9,6 +9,7 @@ type CRE interface {
 	UseLocalTimeProvider() bool
 	EnableDKGRecipient() bool
 	Linking() CRELinking
+	LocalSecrets() map[string]string
 }
 
 // WorkflowFetcher defines configuration for fetching workflow files

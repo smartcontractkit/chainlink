@@ -1,3 +1,5 @@
+# THIS DOCUMENT IS OUTDATED.
+
 ## Prerequisites
 
 Before running the load tests, ensure you have the following set up:
@@ -18,11 +20,11 @@ Before running the load tests, ensure you have the following set up:
 4. **Observability stack**
     - Tests require Grafana and Loki for monitoring and logging
     - To set up the observability stack, use the chainlink-testing-framework command: `ctf obs up`
- 
+
 
 ### Cloud Requirements
 - **For AWS Testing Only:**
-    - Access to the CRIB repository
+    - Access to required test repos and images
     - AWS credentials configured
     - Appropriate permissions set up
     - Devspace installed
@@ -46,13 +48,13 @@ For installation:
 1. See the [CTF documentation](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html) for up-to-date setup instructions
 2. After installing the CTF CLI, run `ctf obs up` to launch local Grafana and Loki instances
 
-### Clone CRIB repo
-1. Clone the CRIB repository and checkout branch `dx-50-cre-crib-df-perf-testing`
-2. Create a `.env` file in `crib/deployments/cre` (use `.env.example` as a template)
+### Prepare environment assets
+1. Ensure required repositories/images are available for your environment
+2. Configure `.env` values required by your test topology
 
 ## Deployment Types
 
-After completing the prerequisites, configure your testing TOML file. The load tests support two deployment types (`...-kind.toml` and `...-crib.toml`):
+After completing the prerequisites, configure your testing TOML file. The load tests include multiple TOML variants (including `...-kind.toml` and legacy-named `...-crib.toml`):
 
 ### Kind Deployment
 - **Environment**: Runs locally using Docker with Anvil for blockchain simulation
@@ -68,10 +70,6 @@ After completing the prerequisites, configure your testing TOML file. The load t
     - Requires active VPN connection (may fail due to connectivity issues)
     - Deployments persist longer-term
 - **Advanced Testing**: Values are saved after deployment to support `TestXXXWithReconnect` methods, allowing you to simulate different load scenarios without redeploying
-
-
-
-
 
 ### 10. Run test
 Cd into the current directory and run the command:
@@ -103,14 +101,9 @@ The test runs with a 60-minute timeout using the local Kind deployment configura
 | CHAINLINK_CLUSTER_VERSION | Helmchart version with ingress mock support                                                      |
 | LOAD_TEST                 | When "true", increases resource limits for production-like testing                               |
 
-
-
-
-
-
 ## Chaos tests
 
-! These tests require CRIB environment with 3 DONS: Asset, Workflow and Writer, and at least one EVM chain !
+! These tests require an environment with 3 DONs (Asset, Workflow, Writer) and at least one EVM chain !
 
 Chaos tests are added to the load test by default but can be run only on `main.stage`.
 

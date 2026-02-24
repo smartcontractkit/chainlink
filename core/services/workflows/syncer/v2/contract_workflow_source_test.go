@@ -98,7 +98,7 @@ func createTestWorkflowMetadata(name string, family string) workflow_registry_wr
 
 func TestContractWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mockReader := &mockWorkflowContractReader{
 		workflowList: []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView{
@@ -135,7 +135,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 
 func TestContractWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// This mock will be called twice (once for each DON family)
 	mockReader := &mockWorkflowContractReader{
@@ -170,7 +170,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *test
 
 func TestContractWorkflowSource_ListWorkflowMetadata_NotInitialized(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Factory that always fails
 	source := NewContractWorkflowSource(
@@ -197,7 +197,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_NotInitialized(t *testing.T
 
 func TestContractWorkflowSource_ListWorkflowMetadata_ContractReaderError(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mockReader := &mockWorkflowContractReader{
 		getLatestErr: errors.New("contract read failed"),
@@ -227,7 +227,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_ContractReaderError(t *test
 
 func TestContractWorkflowSource_ListWorkflowMetadata_EmptyResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mockReader := &mockWorkflowContractReader{
 		workflowList: []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView{},
@@ -293,7 +293,7 @@ func TestContractWorkflowSource_Ready_Initialized(t *testing.T) {
 
 func TestContractWorkflowSource_tryInitialize_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mockReader := &mockWorkflowContractReader{}
 
@@ -319,7 +319,7 @@ func TestContractWorkflowSource_tryInitialize_Success(t *testing.T) {
 
 func TestContractWorkflowSource_tryInitialize_AlreadyInitialized(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	callCount := 0
 	mockReader := &mockWorkflowContractReader{}
@@ -347,7 +347,7 @@ func TestContractWorkflowSource_tryInitialize_AlreadyInitialized(t *testing.T) {
 
 func TestContractWorkflowSource_tryInitialize_FactoryError(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	source := NewContractWorkflowSource(
 		lggr,

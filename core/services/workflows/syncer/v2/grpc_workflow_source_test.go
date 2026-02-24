@@ -32,8 +32,6 @@ var (
 )
 
 // mockGRPCClient is a mock implementation of grpcClient for testing.
-// It supports stateless pagination - callers provide all workflow data and the mock
-// returns appropriate slices based on offset/limit parameters.
 type mockGRPCClient struct {
 	// allWorkflows contains all workflows to be returned (used for stateless pagination)
 	allWorkflows []*pb.WorkflowMetadata
@@ -103,9 +101,9 @@ func createTestProtoWorkflow(name string, family string) *pb.WorkflowMetadata {
 
 	return &pb.WorkflowMetadata{
 		WorkflowId:   workflowID[:],
-		Owner:        owner,
+		Owner:        grpcTestOwnerHex, // Proto uses hex string, not bytes
 		CreatedAt:    1234567890,
-		Status:       0, // Active
+		Status:       pb.WorkflowStatus_WORKFLOW_STATUS_ACTIVE,
 		WorkflowName: name,
 		BinaryUrl:    grpcTestBinaryURL,
 		ConfigUrl:    grpcTestConfigURL,
@@ -152,7 +150,7 @@ func TestGRPCWorkflowSourceWithClient_EmptyName(t *testing.T) {
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mockClient := &mockGRPCClient{
 		allWorkflows: []*pb.WorkflowMetadata{
@@ -184,7 +182,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Configure mock with all workflows - pagination is handled stateless via offset/limit
 	mockClient := &mockGRPCClient{
@@ -216,7 +214,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Create a workflow with invalid ID (not 32 bytes)
 	invalidWorkflow := &pb.WorkflowMetadata{
@@ -251,7 +249,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 
 func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Use errSequence to return errors on first two calls, then succeed
 	mockClient := &mockGRPCClient{
@@ -288,7 +286,7 @@ func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 
 func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mockClient := &mockGRPCClient{
 		allWorkflows: []*pb.WorkflowMetadata{
@@ -320,7 +318,7 @@ func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
 
 func TestGRPCWorkflowSource_Retry_MaxExceeded(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Always return unavailable error
 	mockClient := &mockGRPCClient{
@@ -347,7 +345,7 @@ func TestGRPCWorkflowSource_Retry_MaxExceeded(t *testing.T) {
 
 func TestGRPCWorkflowSource_Retry_NonRetryable(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mockClient := &mockGRPCClient{
 		err: status.Error(codes.InvalidArgument, "bad request"),
@@ -401,7 +399,7 @@ func TestGRPCWorkflowSource_Backoff_Jitter(t *testing.T) {
 
 func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	// Always return unavailable to trigger retries
 	mockClient := &mockGRPCClient{
@@ -467,7 +465,7 @@ func TestGRPCWorkflowSource_Ready(t *testing.T) {
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_NotReady(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
 		Name: "test-source",

@@ -1,19 +1,19 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite
 
-go 1.25.5
+go 1.25.7
 
 require (
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/solana-go v1.14.0
 	github.com/smartcontractkit/chain-selectors v1.0.90
 	github.com/smartcontractkit/cre-sdk-go v1.1.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260128204834-51a77a3ffe17
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fatih/color v1.18.0 // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260128193424-4b6c859e4e0b // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	go.mongodb.org/mongo-driver v1.17.2 // indirect

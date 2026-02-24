@@ -749,23 +749,29 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	// peer (not bootstrap) that doesn't belong to any DON connects to nobody
 	require.Empty(t, launcher.donPairsToUpdate(other, localRegistry))
 
-	// bootstrap node adds all 3 DON pairs
+	// bootstrap node adds all 3 DON pairs + 3 self-pairs
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
-	require.Len(t, res, 3)
+	require.Len(t, res, 6)
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[2])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[wfDONID].DON}, res[3])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[4])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[mixedDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[5])
 
-	// bootstrap node adds only allowed DON pairs
+	// bootstrap node adds only allowed DON pairs + 3 self-pairs
 	mixedDON := localRegistry.IDsToDONs[mixedDONID]
 	mixedDON.AcceptsWorkflows = false
 	localRegistry.IDsToDONs[mixedDONID] = mixedDON
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
-	require.Len(t, res, 2)
+	require.Len(t, res, 5)
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[wfDONID].DON}, res[2])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[3])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[mixedDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[4])
 }
 
 func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
@@ -815,11 +821,14 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	require.Len(t, res, 1, "expected only one DON pair (zone-a workflow to zone-a capability)")
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[0])
 
-	// Bootstrap node should still respect family boundaries
+	// Bootstrap node should still respect family boundaries, plus add self-pairs for all DONs
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
-	require.Len(t, res, 1, "bootstrap should also filter based on families")
+	require.Len(t, res, 4, "bootstrap should also filter based on families but add self-pairs")
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON}, res[1])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[2])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON}, res[3])
 }
 
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
@@ -1111,4 +1120,121 @@ func addCapabilityToDON(registry *registrysyncer.LocalRegistry, donID uint32, ca
 		ID:             capabilityID,
 		CapabilityType: capabilityType,
 	}
+}
+
+func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.T) {
+	lggr := logger.Test(t)
+	registry := NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	capabilityDonNodes := newNodes(4)
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(capabilityDonNodes[0])
+	peer.On("IsBootstrap").Return(false)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullTriggerCapID,
+		capabilities.CapabilityTypeTrigger,
+		"streams trigger",
+	))
+	require.NoError(t, registry.Add(t.Context(), mt))
+
+	triggerCapIDHash := RandomUTF8BytesWord()
+	capDonID := uint32(1)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, capDonID, uint32(0), uint8(1), true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
+
+	reconcileCalled := make(chan struct{}, 1)
+	mockLCM := &mockLocalCapabilityManager{
+		reconcileFn: func(ctx context.Context, dons []registrysyncer.DON) error {
+			assert.Len(t, dons, 1, "should pass all DONs")
+			assert.Equal(t, capDonID, dons[0].ID)
+			reconcileCalled <- struct{}{}
+			return nil
+		},
+	}
+
+	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.Anything).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		wrapper,
+		nil,
+		nil,
+		dispatcher,
+		registry,
+		&mockDonNotifier{},
+	)
+	require.NoError(t, err)
+	launcher.SetLocalCapabilityManager(mockLCM)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	err = launcher.OnNewRegistry(t.Context(), localRegistry)
+	require.NoError(t, err)
+
+	select {
+	case <-reconcileCalled:
+		// success
+	default:
+		t.Fatal("Reconcile was not called on LocalCapabilityManager")
+	}
+}
+
+func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
+	lggr := logger.Test(t)
+	registry := NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	nodes := newNodes(4)
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(nodes[0])
+	peer.On("IsBootstrap").Return(false)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	localRegistry := buildLocalRegistry()
+	dID := uint32(1)
+	addDON(localRegistry, dID, uint32(0), uint8(1), true, true, nodes, []string{"zone-a"}, 1, nil)
+
+	// Don't set localCapMgr - should not panic.
+	launcher, err := NewLauncher(
+		lggr,
+		wrapper,
+		nil,
+		nil,
+		dispatcher,
+		registry,
+		&mockDonNotifier{},
+	)
+	require.NoError(t, err)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	err = launcher.OnNewRegistry(t.Context(), localRegistry)
+	require.NoError(t, err)
+}
+
+// mockLocalCapabilityManager is a test mock that records calls to Reconcile.
+type mockLocalCapabilityManager struct {
+	reconcileFn func(ctx context.Context, dons []registrysyncer.DON) error
+}
+
+func (m *mockLocalCapabilityManager) Start(context.Context) error    { return nil }
+func (m *mockLocalCapabilityManager) Close() error                   { return nil }
+func (m *mockLocalCapabilityManager) Ready() error                   { return nil }
+func (m *mockLocalCapabilityManager) HealthReport() map[string]error { return nil }
+func (m *mockLocalCapabilityManager) Name() string                   { return "mockLocalCapMgr" }
+func (m *mockLocalCapabilityManager) Reconcile(ctx context.Context, dons []registrysyncer.DON) error {
+	if m.reconcileFn != nil {
+		return m.reconcileFn(ctx, dons)
+	}
+	return nil
 }

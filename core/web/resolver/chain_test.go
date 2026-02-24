@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
@@ -21,7 +21,7 @@ import (
 
 func TestResolver_Chains(t *testing.T) {
 	var (
-		chainID = *big.NewI(1)
+		chainID = *sqlutil.NewI(1)
 		query   = `
 			query GetChains {
 				chains {
@@ -141,7 +141,7 @@ ResendAfterThreshold = '1h0m0s'
 
 func TestResolver_Chain(t *testing.T) {
 	var (
-		chainID = *big.NewI(1)
+		chainID = *sqlutil.NewI(1)
 		query   = `
 			query GetChain {
 				chain(id: "1") {

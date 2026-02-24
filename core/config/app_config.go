@@ -66,6 +66,7 @@ type AppConfig interface {
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
 	Sharding() Sharding
+	LOOPP() LOOPP
 }
 
 type DatabaseBackupMode string

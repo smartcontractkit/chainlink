@@ -14,8 +14,8 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	serializablebig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -290,8 +290,8 @@ func (ds *inMemoryDataSourceCache) updater() {
 }
 
 type ResultTimePair struct {
-	Result serializablebig.Big `json:"result"`
-	Time   time.Time           `json:"time"`
+	Result sqlutil.Big `json:"result"`
+	Time   time.Time   `json:"time"`
 }
 
 func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
@@ -322,7 +322,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	ds.latestUpdateErr = nil
 
 	// backup in case data source fails continuously and node gets rebooted
-	timePairBytes, err := json.Marshal(&ResultTimePair{Result: *serializablebig.New(value), Time: time.Now()})
+	timePairBytes, err := json.Marshal(&ResultTimePair{Result: *sqlutil.New(value), Time: time.Now()})
 	if err != nil {
 		return fmt.Errorf("failed to marshal result time pair, err: %w", err)
 	}

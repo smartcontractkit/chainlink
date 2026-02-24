@@ -34,6 +34,7 @@ import (
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -46,6 +47,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp/benchspy"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -55,12 +57,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
-	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -140,7 +139,7 @@ func setupLoadTestEnvironment(
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
-		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
@@ -351,7 +350,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		cacheClients = true
 		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
 
-		// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+		// Export key bundles so we can import them later in another test.
 		require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
 	}
 	testLogger.Info().Msg("Connecting to mock capabilities...")
@@ -370,9 +369,13 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				}
 			}
 		}
-	} else {
+	} else if in.Infra.Kubernetes != nil {
+		domain := in.Infra.Kubernetes.ExternalDomain
+		if domain == "" {
+			domain = "main.stage.cldev.sh"
+		}
 		for i := range setupOutput.nodeOutput[1].CLNodes {
-			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1))
+			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.%s:443", in.Infra.Kubernetes.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1, domain))
 		}
 	}
 
@@ -777,7 +780,7 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 				return nil, fmt.Errorf("failed to read key bundle file %s: %w", file.Name(), err)
 			}
 
-			kb, err := ocr2key.New(chaintype.EVM)
+			kb, err := ocr2key.New(corekeys.EVM)
 			if err != nil {
 				return nil, fmt.Errorf("cannot create new key bundle from %s: %w", file.Name(), err)
 			}
@@ -1129,15 +1132,19 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get Vault capability address")
 		}
 
-		donTimeKey := datastore.NewAddressRefKey(
+		capRegVersion, ok := input.CreEnvironment.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+		if !ok {
+			return nil, errors.New("CapabilitiesRegistry version not found in contract versions")
+		}
+		capRegKey := datastore.NewAddressRefKey(
 			input.CreEnvironment.RegistryChainSelector,
-			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
-			semver.MustParse("1.0.0"),
-			don_time_feature.ContractQualifier,
+			datastore.ContractType(keystone_changeset.CapabilitiesRegistry.String()),
+			capRegVersion,
+			"",
 		)
-		donTimeAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(donTimeKey)
+		capRegAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(capRegKey)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get DON Time address")
+			return nil, errors.Wrap(err, "failed to get CapabilitiesRegistry address for DON Time")
 		}
 
 		// create job specs for the worker nodes
@@ -1175,7 +1182,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			}
 
 			jobSpecs = append(jobSpecs, WorkerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-			jobSpecs = append(jobSpecs, WorkerDonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, WorkerDonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, capRegAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 		}
 
 		return jobSpecs, nil

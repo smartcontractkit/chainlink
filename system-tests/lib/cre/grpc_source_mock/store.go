@@ -11,13 +11,14 @@ import (
 // ErrWorkflowNotFound is returned when a workflow is not found in the store
 var ErrWorkflowNotFound = errors.New("workflow not found")
 
-// WorkflowStatus represents the status of a workflow
-type WorkflowStatus uint32
+// WorkflowStatus represents the status of a workflow.
+// Values match the on-chain contract status (0=active, 1=paused).
+type WorkflowStatus uint8
 
 const (
-	// WorkflowStatusActive indicates the workflow is active
+	// WorkflowStatusActive indicates the workflow is active (matches contract status 0)
 	WorkflowStatusActive WorkflowStatus = 0
-	// WorkflowStatusPaused indicates the workflow is paused
+	// WorkflowStatusPaused indicates the workflow is paused (matches contract status 1)
 	WorkflowStatusPaused WorkflowStatus = 1
 )
 

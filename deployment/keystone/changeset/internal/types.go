@@ -22,7 +22,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 )
 
 var (
@@ -100,8 +100,9 @@ func (v DonCapabilities) N() int {
 }
 
 type DONCapabilityWithConfig struct {
-	Capability kcr.CapabilitiesRegistryCapability
-	Config     *capabilitiespb.CapabilityConfig
+	Capability         kcr.CapabilitiesRegistryCapability
+	Config             *capabilitiespb.CapabilityConfig
+	UseCapRegOCRConfig bool
 }
 
 func (v DonCapabilities) Validate() error {

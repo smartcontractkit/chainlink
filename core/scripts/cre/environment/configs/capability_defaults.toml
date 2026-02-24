@@ -121,7 +121,7 @@
 [capability_configs.write-solana.values]
   # Solana Workflow configuration for write capabilities
   TxAcceptanceState = 3
-  TxRetentonTimeout = "120s"
+  TxRetentionTimeout = "120s"
   AcceptanceTimeout = "30s"
   PollPeriod = "2s"
   SkipPreflight = true
@@ -143,6 +143,3 @@
 
 [capability_configs.mock.values]
   Port = 7777  # Default port for mock service
-
-[capability_configs.vault.values]
-  EnableDeterministicPendingQueue = true

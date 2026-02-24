@@ -1,3 +1,7 @@
+[[products]]
+name = "ocr2"
+instances = 1
+
 [[ocr2]]
   # LINK token contract address (static for Anvil and testnets)
   link_contract_address = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"

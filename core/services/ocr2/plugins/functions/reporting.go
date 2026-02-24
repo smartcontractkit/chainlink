@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/encoding"
 )
 
 type FunctionsReportingPluginFactory struct {

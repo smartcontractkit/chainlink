@@ -13,13 +13,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions/encoding"
 )
 
 func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding.ReportCodec, *functions_mocks.OffchainTransmitter) {

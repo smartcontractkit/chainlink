@@ -7,15 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
 
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
 func MarshalQuery(rows []*SnapshotRow, addressRange *s4.AddressRange) ([]byte, error) {
 	rr := &Query{
 		AddressRange: &AddressRange{
-			MinAddress: addressRange.MinAddress.Bytes(),
-			MaxAddress: addressRange.MaxAddress.Bytes(),
+			MinAddress: addressRange.MinAddress.ToInt().Bytes(),
+			MaxAddress: addressRange.MaxAddress.ToInt().Bytes(),
 		},
 		Rows: rows,
 	}
@@ -58,8 +58,8 @@ func UnmarshalRows(data []byte) ([]*Row, error) {
 	return rows.Rows, nil
 }
 
-func UnmarshalAddress(address []byte) *ubig.Big {
-	return ubig.New(new(big.Int).SetBytes(address))
+func UnmarshalAddress(address []byte) *sqlutil.Big {
+	return sqlutil.New(new(big.Int).SetBytes(address))
 }
 
 func (row *Row) VerifySignature() error {

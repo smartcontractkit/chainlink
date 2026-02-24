@@ -5,8 +5,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -16,7 +16,7 @@ type DirectRequestToml struct {
 	ContractAddress          types.EIP55Address       `toml:"contractAddress"`
 	Requesters               models.AddressCollection `toml:"requesters"`
 	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID               *big.Big                 `toml:"evmChainID"`
+	EVMChainID               *sqlutil.Big             `toml:"evmChainID"`
 	MinIncomingConfirmations null.Uint32              `toml:"minIncomingConfirmations"`
 }
 

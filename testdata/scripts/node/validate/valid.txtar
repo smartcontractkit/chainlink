@@ -447,12 +447,16 @@ IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
 [Sharding]
+ShardingEnabled = false
 ArbiterPort = 9876
 ArbiterPollInterval = '12s'
 ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+
+[LOOPP]
+GRPCServerMaxRecvMsgSize = '32.00mb'
 
 [[EVM]]
 ChainID = '1'

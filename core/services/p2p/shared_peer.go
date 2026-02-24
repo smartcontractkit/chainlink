@@ -18,8 +18,8 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -72,7 +72,7 @@ func NewDon2DonSharedPeer(singletonPeerWrapper *ocrcommon.SingletonPeerWrapper, 
 		recvCh:               make(chan p2ptypes.Message, defaultRecvChSize),
 		discoveryGroups:      make(map[string]networking.PeerGroup),
 		remotePeers:          make(map[ragetypes.PeerID]*remotePeer),
-		lggr:                 lggr.Named("Don2DonSharedPeer"),
+		lggr:                 logger.Named(lggr, "Don2DonSharedPeer"),
 	}
 	sp.Service, sp.srvcEng = services.Config{
 		Name:  "Don2DonSharedPeer",

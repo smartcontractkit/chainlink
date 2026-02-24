@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -24,6 +25,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
+)
+
+const (
+	nodeURLKeyHTTP           = "HTTPURL"
+	nodeURLKeyWS             = "WSURL"
+	nodeURLKeyHTTPExtraWrite = "HTTPURLExtraWrite"
 )
 
 func main() {
@@ -61,17 +68,50 @@ type pluginRelayer struct {
 }
 
 func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keystore, csaKeystore core.Keystore, capRegistry core.CapabilitiesRegistry) (loop.Relayer, error) {
-	d := toml.NewDecoder(strings.NewReader(configTOML))
-	d.DisallowUnknownFields()
 	var cfg struct {
 		EVM evmcfg.EVMConfig
 	}
 
-	if err := d.Decode(&cfg); err != nil {
+	if err := commonconfig.DecodeTOML(strings.NewReader(configTOML), &cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, configTOML)
 	}
 
 	// TODO validate?
+
+	rawNodes := make([]map[string]string, 0, len(cfg.EVM.Nodes))
+	for _, n := range cfg.EVM.Nodes {
+		if n == nil {
+			continue
+		}
+		nodeURLs := make(map[string]string)
+		if n.HTTPURL != nil {
+			nodeURLs[nodeURLKeyHTTP] = n.HTTPURL.String()
+		}
+		if n.WSURL != nil {
+			nodeURLs[nodeURLKeyWS] = n.WSURL.String()
+		}
+		if n.HTTPURLExtraWrite != nil {
+			nodeURLs[nodeURLKeyHTTPExtraWrite] = n.HTTPURLExtraWrite.String()
+		}
+		if len(nodeURLs) == 0 {
+			continue
+		}
+		rawNodes = append(rawNodes, nodeURLs)
+	}
+	chainID := ""
+	if cfg.EVM.ChainID != nil {
+		chainID = cfg.EVM.ChainID.String()
+	}
+	emitter := loop.NewPluginRelayerConfigEmitter(
+		c.Logger,
+		beholder.GetClient().Config.AuthPublicKeyHex,
+		chainID,
+		rawNodes,
+	)
+	if err := emitter.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start plugin relayer config emitter: %w", err)
+	}
+	c.SubService(emitter)
 
 	evmKeystore := keys.NewChainStore(keystore, cfg.EVM.ChainID.ToInt())
 
