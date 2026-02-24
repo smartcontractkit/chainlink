@@ -3,15 +3,15 @@
 -- This table stores tasks that need to be verified by the TaskVerifierProcessor
 
 CREATE TABLE IF NOT EXISTS ccv_task_verifier_jobs (
-                                                      id BIGSERIAL PRIMARY KEY,
-                                                      job_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
+    job_id UUID UNIQUE NOT NULL,
 
     -- Owner identification (e.g. "CCTPVerifier", "LombardVerifier")
     -- Multiple verifiers share the same table but only consume their own jobs
     owner_id TEXT NOT NULL,
 
     -- Chain and message identification
-    chain_selector BIGINT NOT NULL,
+    chain_selector NUMERIC(20,0) NOT NULL,
     message_id BYTEA NOT NULL,
 
     -- Job payload stored as JSONB for flexibility
@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS ccv_task_verifier_jobs (
 
     -- Constraints
     CONSTRAINT ccv_task_verifier_jobs_status_check
-    CHECK (status IN ('pending', 'processing', 'completed', 'failed'))
-    );
+        CHECK (status IN ('pending', 'processing', 'completed', 'failed'))
+);
 
 -- Index for efficient job consumption
 -- Using partial index to only index jobs that can be consumed
@@ -64,20 +64,20 @@ CREATE INDEX IF NOT EXISTS idx_ccv_task_verifier_jobs_created
 
 -- Archive table for completed verification tasks
 CREATE TABLE IF NOT EXISTS ccv_task_verifier_jobs_archive (
-                                                              id BIGINT PRIMARY KEY,
-                                                              job_id UUID UNIQUE NOT NULL,
-                                                              owner_id TEXT NOT NULL,
-                                                              chain_selector BIGINT NOT NULL,
-                                                              message_id BYTEA NOT NULL,
-                                                              task_data JSONB NOT NULL,
-                                                              status TEXT NOT NULL,
-                                                              created_at TIMESTAMPTZ NOT NULL,
-                                                              available_at TIMESTAMPTZ NOT NULL,
-                                                              started_at TIMESTAMPTZ,
-                                                              attempt_count INT NOT NULL,
-                                                              retry_deadline TIMESTAMPTZ NOT NULL,
-                                                              last_error TEXT,
-                                                              completed_at TIMESTAMPTZ NOT NULL
+    id BIGINT PRIMARY KEY,
+    job_id UUID UNIQUE NOT NULL,
+    owner_id TEXT NOT NULL,
+    chain_selector NUMERIC(20,0) NOT NULL,
+    message_id BYTEA NOT NULL,
+    task_data JSONB NOT NULL,
+    status TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    available_at TIMESTAMPTZ NOT NULL,
+    started_at TIMESTAMPTZ,
+    attempt_count INT NOT NULL,
+    retry_deadline TIMESTAMPTZ NOT NULL,
+    last_error TEXT,
+    completed_at TIMESTAMPTZ NOT NULL
 );
 
 -- Index for archive cleanup
@@ -92,14 +92,14 @@ CREATE INDEX IF NOT EXISTS idx_ccv_task_verifier_jobs_archive_chain
 -- This table stores verification results that need to be written to storage
 
 CREATE TABLE IF NOT EXISTS ccv_storage_writer_jobs (
-                                                       id BIGSERIAL PRIMARY KEY,
-                                                       job_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
+    job_id UUID UNIQUE NOT NULL,
 
     -- Owner identification (e.g. "CCTPVerifier", "LombardVerifier")
     owner_id TEXT NOT NULL,
 
     -- Chain and message identification
-    chain_selector BIGINT NOT NULL,
+    chain_selector NUMERIC(20,0) NOT NULL,
     message_id BYTEA NOT NULL,
 
     -- Job payload stored as JSONB
@@ -123,8 +123,8 @@ CREATE TABLE IF NOT EXISTS ccv_storage_writer_jobs (
 
     -- Constraints
     CONSTRAINT ccv_storage_writer_jobs_status_check
-    CHECK (status IN ('pending', 'processing', 'completed', 'failed'))
-    );
+        CHECK (status IN ('pending', 'processing', 'completed', 'failed'))
+);
 
 -- Index for efficient job consumption
 CREATE INDEX IF NOT EXISTS idx_ccv_storage_writer_jobs_consume
@@ -155,21 +155,21 @@ CREATE INDEX IF NOT EXISTS idx_ccv_storage_writer_jobs_created
 
 -- Archive table for completed verification results
 CREATE TABLE IF NOT EXISTS ccv_storage_writer_jobs_archive (
-                                                               id BIGINT PRIMARY KEY,
-                                                               job_id UUID UNIQUE NOT NULL,
-                                                               owner_id TEXT NOT NULL,
-                                                               chain_selector BIGINT NOT NULL,
-                                                               message_id BYTEA NOT NULL,
-                                                               task_data JSONB NOT NULL,
-                                                               status TEXT NOT NULL,
-                                                               created_at TIMESTAMPTZ NOT NULL,
-                                                               available_at TIMESTAMPTZ NOT NULL,
-                                                               started_at TIMESTAMPTZ,
-                                                               attempt_count INT NOT NULL,
-                                                               retry_deadline TIMESTAMPTZ NOT NULL,
-                                                               last_error TEXT,
-                                                               task_job_id UUID,
-                                                               completed_at TIMESTAMPTZ NOT NULL
+    id BIGINT PRIMARY KEY,
+    job_id UUID UNIQUE NOT NULL,
+    owner_id TEXT NOT NULL,
+    chain_selector NUMERIC(20,0) NOT NULL,
+    message_id BYTEA NOT NULL,
+    task_data JSONB NOT NULL,
+    status TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    available_at TIMESTAMPTZ NOT NULL,
+    started_at TIMESTAMPTZ,
+    attempt_count INT NOT NULL,
+    retry_deadline TIMESTAMPTZ NOT NULL,
+    last_error TEXT,
+    task_job_id UUID,
+    completed_at TIMESTAMPTZ NOT NULL
 );
 
 -- Index for archive cleanup
