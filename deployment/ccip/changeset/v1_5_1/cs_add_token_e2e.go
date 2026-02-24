@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -683,14 +684,27 @@ func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *b
 	}
 	env.Logger.Infow("Transaction minting token mined successfully", "Hash", tx.Hash().Hex())
 
-	balance, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, recipient)
-	if err != nil {
-		return fmt.Errorf("failed to get balance of %s on chain %d: %w",
-			recipient.Hex(), selector, err)
+	// Retry balance check to handle RPC propagation delay after Confirm()
+	const maxRetries = 5
+	const initialDelay = 2 * time.Second
+	var balance *big.Int
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		balance, err = token.BalanceOf(&bind.CallOpts{Context: ctx}, recipient)
+		if err != nil {
+			return fmt.Errorf("failed to get balance of %s on chain %d: %w",
+				recipient.Hex(), selector, err)
+		}
+		if balance.Cmp(amount) >= 0 {
+			break
+		}
+		if attempt < maxRetries-1 {
+			delay := initialDelay * time.Duration(attempt+1)
+			time.Sleep(delay)
+		}
 	}
 	if balance.Cmp(amount) != 0 {
-		return fmt.Errorf("expected balance of %s, got %s",
-			amount.String(), balance.String())
+		return fmt.Errorf("expected balance of %s, got %s, after %d retries",
+			amount.String(), balance.String(), maxRetries)
 	}
 	symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
 	if err != nil {
