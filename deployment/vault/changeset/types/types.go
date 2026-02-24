@@ -72,3 +72,30 @@ type BatchNativeTransferState struct {
 	// ValidationErrors contains any validation errors found
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
 }
+
+// TransferMCMSOwnershipToTimelockConfig configures transferring ownership of
+// Bypasser, Canceller, and Proposer ManyChainMultiSig contracts to the RBAC Timelock.
+// Used for both migration (existing deployments) and for new deployments after deploy_timelock + set_mcms_config.
+// Excludes CallProxy as per operational requirement.
+type TransferMCMSOwnershipToTimelockConfig struct {
+	// ChainSelectors is the list of chain selectors to process
+	ChainSelectors []uint64 `json:"chain_selectors"`
+
+	// TimelockIdentifier is the qualifier for the timelock (e.g. "default"). Use "" for legacy.
+	TimelockIdentifier string `json:"timelock_identifier"`
+
+	// MCMSConfig contains timelock and MCMS configuration for building the accept-ownership proposal
+	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config"`
+
+	// OnlyAcceptOwnership if true skips the transfer step and only builds the MCMS proposal for acceptOwnership.
+	// Use false for migration and new deployments (KMS transfers then proposal for accept).
+	OnlyAcceptOwnership bool `json:"only_accept_ownership"`
+}
+
+// RenounceTimelockDeployerChainsConfig configures renouncing the deployer/KMS key's
+// ADMIN role on the RBAC Timelock for each chain so that only the Timelock is admin of itself.
+// Run after the transfer_mcms_ownership_to_timelock proposal has been executed.
+type RenounceTimelockDeployerChainsConfig struct {
+	// ChainSelectors is the list of chain selectors on which to renounce
+	ChainSelectors []uint64 `json:"chain_selectors"`
+}

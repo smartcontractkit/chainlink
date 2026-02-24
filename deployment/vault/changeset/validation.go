@@ -11,7 +11,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	evmstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -219,5 +219,42 @@ func ValidateSetWhitelistConfig(e cldf.Environment, cfg types.SetWhitelistConfig
 		}
 	}
 
+	return nil
+}
+
+func ValidateTransferMCMSOwnershipToTimelockConfig(e cldf.Environment, cfg types.TransferMCMSOwnershipToTimelockConfig) error {
+	if len(cfg.ChainSelectors) == 0 {
+		return errors.New("chain_selectors must not be empty")
+	}
+	if cfg.MCMSConfig == nil {
+		return errors.New("MCMSConfig is required for transfer_mcms_ownership_to_timelock")
+	}
+	qualifier := cfg.TimelockIdentifier
+	if qualifier == "" {
+		qualifier = commonchangeset.DefaultTimelockQualifier
+	}
+	for _, chainSelector := range cfg.ChainSelectors {
+		if err := validateChainSelector(chainSelector, e); err != nil {
+			return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
+		}
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+			return fmt.Errorf("chain %d: timelock not found: %w", chainSelector, err)
+		}
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+			return fmt.Errorf("chain %d: proposer MCMS not found: %w", chainSelector, err)
+		}
+	}
+	return nil
+}
+
+func ValidateRenounceTimelockDeployerChainsConfig(e cldf.Environment, cfg types.RenounceTimelockDeployerChainsConfig) error {
+	if len(cfg.ChainSelectors) == 0 {
+		return errors.New("chain_selectors must not be empty")
+	}
+	for _, chainSelector := range cfg.ChainSelectors {
+		if err := validateChainSelector(chainSelector, e); err != nil {
+			return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
+		}
+	}
 	return nil
 }
