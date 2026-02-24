@@ -125,8 +125,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		}
 	}
 
-	// Fetch the cached observations for all streams.
-	d.cache.GetMany(streamValues)
+	// Update stream values with the cached observations for all streams.
+	d.cache.UpdateStreamValues(streamValues)
 
 	return nil
 }

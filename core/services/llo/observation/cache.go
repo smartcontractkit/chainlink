@@ -42,13 +42,29 @@ type Cache struct {
 	mu              sync.RWMutex
 	values          map[llotypes.StreamID]item
 	cleanupInterval time.Duration
+	metricsCh       chan []metricEvent
 
+	wg        sync.WaitGroup
+	closeOnce sync.Once
 	closeChan chan struct{}
 }
 
 type item struct {
 	value     llo.StreamValue
 	expiresAt time.Time
+}
+
+type cacheOutcome string
+
+const (
+	cacheOutcomeNotFound cacheOutcome = "notFound"
+	cacheOutcomeMaxAge   cacheOutcome = "maxAge"
+	cacheOutcomeHit      cacheOutcome = "" // empty string means cache hit
+)
+
+type metricEvent struct {
+	id           llotypes.StreamID
+	cacheOutcome cacheOutcome
 }
 
 // NewCache creates a new cache.
@@ -59,11 +75,17 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 	c := &Cache{
 		values:          make(map[llotypes.StreamID]item),
 		cleanupInterval: cleanupInterval,
+		metricsCh:       make(chan []metricEvent, 64),
 		closeChan:       make(chan struct{}),
 	}
 
+	c.wg.Add(1)
+	go c.updateMetrics()
+
 	if cleanupInterval > 0 {
+		c.wg.Add(1)
 		go func() {
+			defer c.wg.Done()
 			ticker := time.NewTicker(cleanupInterval)
 			defer ticker.Stop()
 			for {
@@ -103,21 +125,8 @@ func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.D
 	}
 }
 
-type cacheOutcome string
-
-const (
-	cacheOutcomeNotFound cacheOutcome = "notFound"
-	cacheOutcomeMaxAge   cacheOutcome = "maxAge"
-	cacheOutcomeHit      cacheOutcome = "" // empty string means cache hit
-)
-
-type metricEvent struct {
-	id           llotypes.StreamID
-	cacheOutcome cacheOutcome
-}
-
-//nolint:revive // GetMany mutates streamValues in-place for zero-allocation reads.
-func (c *Cache) GetMany(streamValues llo.StreamValues) {
+//nolint:revive // UpdateStreamValues mutates streamValues in-place for zero-allocation reads. Emits cache hit/miss metrics async.
+func (c *Cache) UpdateStreamValues(streamValues llo.StreamValues) {
 	events := make([]metricEvent, 0, len(streamValues))
 
 	c.mu.RLock()
@@ -139,41 +148,50 @@ func (c *Cache) GetMany(streamValues llo.StreamValues) {
 	}
 	c.mu.RUnlock()
 
-	// defer metric updates until after the read lock is released
-	for _, e := range events {
-		if e.cacheOutcome == cacheOutcomeHit {
-			promCacheHitCount.WithLabelValues(strconv.FormatUint(uint64(e.id), 10)).Inc()
-		} else {
-			promCacheMissCount.WithLabelValues(strconv.FormatUint(uint64(e.id), 10), string(e.cacheOutcome)).Inc()
-		}
-	}
+	c.sendMetrics(events)
 }
 
 func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	c.mu.RLock()
-	value, expiresAt, event := c.get(id)
-	c.mu.RUnlock()
-
-	// defer metric updates until after the read lock is released
-	if event.cacheOutcome != cacheOutcomeHit {
-		promCacheMissCount.WithLabelValues(strconv.FormatUint(uint64(id), 10), string(event.cacheOutcome)).Inc()
-	} else {
-		promCacheHitCount.WithLabelValues(strconv.FormatUint(uint64(id), 10)).Inc()
-	}
-	return value, expiresAt
-}
-
-func (c *Cache) get(id llotypes.StreamID) (llo.StreamValue, time.Time, metricEvent) {
+	defer c.mu.RUnlock()
 	item, ok := c.values[id]
 	if !ok {
-		return nil, time.Time{}, metricEvent{id: id, cacheOutcome: cacheOutcomeNotFound}
+		return nil, time.Time{}
 	}
 
 	if time.Now().After(item.expiresAt) {
-		return nil, time.Time{}, metricEvent{id: id, cacheOutcome: cacheOutcomeMaxAge}
+		return nil, time.Time{}
 	}
 
-	return item.value, item.expiresAt, metricEvent{id: id, cacheOutcome: cacheOutcomeHit}
+	return item.value, item.expiresAt
+}
+
+// sendMetrics enqueues metric events for async processing, dropping if the
+// channel is full to avoid blocking the caller.
+func (c *Cache) sendMetrics(events []metricEvent) {
+	select {
+	case c.metricsCh <- events:
+	default:
+	}
+}
+
+func (c *Cache) updateMetrics() {
+	defer c.wg.Done()
+	for {
+		select {
+		case events := <-c.metricsCh:
+			for _, e := range events {
+				idStr := strconv.FormatUint(uint64(e.id), 10)
+				if e.cacheOutcome == cacheOutcomeHit {
+					promCacheHitCount.WithLabelValues(idStr).Inc()
+				} else {
+					promCacheMissCount.WithLabelValues(idStr, string(e.cacheOutcome)).Inc()
+				}
+			}
+		case <-c.closeChan:
+			return
+		}
+	}
 }
 
 func (c *Cache) cleanup() {
@@ -192,11 +210,12 @@ func (c *Cache) cleanup() {
 }
 
 func (c *Cache) Close() error {
+	c.closeOnce.Do(func() {
+		close(c.closeChan)
+	})
+	c.wg.Wait()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.cleanupInterval > 0 {
-		close(c.closeChan)
-	}
 	c.values = nil
 	return nil
 }
