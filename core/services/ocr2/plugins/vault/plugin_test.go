@@ -3,9 +3,12 @@ package vault
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -1895,6 +1898,74 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	assert.Empty(t, resp.GetError())
 }
 
+func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
+	t.Helper()
+	share, err := tdh2easy.Decrypt(ciphertext, privateShare)
+	require.NoError(t, err)
+	shareBytes, err := share.Marshal()
+	require.NoError(t, err)
+
+	result := make([]*vaultcommon.EncryptedShares, len(keys))
+	for i, pk := range keys {
+		pkBytes, err := hex.DecodeString(pk)
+		require.NoError(t, err)
+		pubKey := [32]byte(pkBytes)
+		encrypted, err := box.SealAnonymous(nil, shareBytes, &pubKey, rand.Reader)
+		require.NoError(t, err)
+		result[i] = &vaultcommon.EncryptedShares{
+			EncryptionKey: pk,
+			Shares:        []string{hex.EncodeToString(encrypted)},
+		}
+	}
+	return result
+}
+
+func makeGetSecretsObservations(
+	t *testing.T,
+	numRequests int,
+	owner string,
+	namespace string,
+	encryptionKeys []string,
+	encryptedValue string,
+	ciphertext *tdh2easy.Ciphertext,
+	privateShare *tdh2easy.PrivateShare,
+) []byte {
+	t.Helper()
+	var obs []observation
+	for i := range numRequests {
+		maxKey := fmt.Sprintf("%s%d", strings.Repeat("c", defaultMaxIdentifierKeyLengthBytes-1), i)
+
+		id := &vaultcommon.SecretIdentifier{
+			Owner:     owner,
+			Namespace: namespace,
+			Key:       maxKey,
+		}
+		req := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id:             id,
+					EncryptionKeys: encryptionKeys,
+				},
+			},
+		}
+		resp := &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{
+				{
+					Id: id,
+					Result: &vaultcommon.SecretResponse_Data{
+						Data: &vaultcommon.SecretData{
+							EncryptedValue:               encryptedValue,
+							EncryptedDecryptionKeyShares: makeEncryptedShares(t, ciphertext, privateShare, encryptionKeys),
+						},
+					},
+				},
+			},
+		}
+		obs = append(obs, observation{id, req, resp})
+	}
+	return marshalObservations(t, obs...)
+}
+
 type observation struct {
 	id   *vaultcommon.SecretIdentifier
 	req  proto.Message
@@ -2395,6 +2466,79 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	assert.True(t, proto.Equal(resp, o.GetGetSecretsResponse()))
 
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(4, 10)
+	require.NoError(t, err)
+
+	numObservers := 10
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 10,
+			F: 3,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			100,
+			defaultMaxCiphertextLengthBytes,
+			defaultMaxIdentifierOwnerLengthBytes,
+			defaultMaxIdentifierNamespaceLengthBytes,
+			defaultMaxIdentifierKeyLengthBytes,
+			false,
+		),
+	}
+
+	maxOwner := strings.Repeat("a", defaultMaxIdentifierOwnerLengthBytes)
+	maxNamespace := strings.Repeat("b", defaultMaxIdentifierNamespaceLengthBytes)
+
+	numEncryptionKeys := 10
+	encryptionKeys := make([]string, numEncryptionKeys)
+	for i := range numEncryptionKeys {
+		pubK, _, err := box.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		encryptionKeys[i] = hex.EncodeToString(pubK[:])
+	}
+
+	plaintext := make([]byte, 1)
+	_, err = rand.Read(plaintext)
+	require.NoError(t, err)
+	var label [32]byte
+	copy(label[:], maxOwner[:32])
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
+	require.NoError(t, err)
+	ciphertextBytes, err := ciphertext.Marshal()
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(ciphertextBytes), defaultMaxCiphertextLengthBytes)
+	encryptedValue := hex.EncodeToString(ciphertextBytes)
+
+	// Create 10 observations from different observers, each with a distinct decryption share.
+	aos := make([]types.AttributedObservation, numObservers)
+	for i := range numObservers {
+		aos[i] = types.AttributedObservation{
+			Observer:    commontypes.OracleID(i),
+			Observation: types.Observation(makeGetSecretsObservations(t, 10, maxOwner, maxNamespace, encryptionKeys, encryptedValue, ciphertext, shares[i])),
+		}
+	}
+
+	kvStore := &kv{m: make(map[string]response)}
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		aos, kvStore, nil)
+	require.NoError(t, err)
+
+	maxResponseSize := 512 * 1024
+	assert.LessOrEqual(t, len(reportPrecursor), maxResponseSize,
+		"StateTransition response size %d exceeds 512KB limit", len(reportPrecursor))
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
