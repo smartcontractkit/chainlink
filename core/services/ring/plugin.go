@@ -95,6 +95,8 @@ func (p *Plugin) Observation(ctx context.Context, _ ocr3types.OutcomeContext, _ 
 	wantShards = status.WantShards
 	shardStatus = status.Status
 
+	p.lggr.Debugw("State from Arbiter", "wantShards", wantShards, "shardStatus", shardStatus)
+
 	allWorkflowIDs := make([]string, 0)
 	for wfID := range p.store.GetAllRoutingState() {
 		allWorkflowIDs = append(allWorkflowIDs, wfID)

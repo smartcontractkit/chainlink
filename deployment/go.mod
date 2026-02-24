@@ -46,21 +46,21 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260217160002-b56cb5356cc7
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.80.1-0.20260209182815-b296b7df28a6
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260217171105-755485c4e00f
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260223142528-fe0bf6474c99
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-e86785845942
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260217043601-5cc966896c4f
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260217175957-8f1af02c5075
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db0
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260217210647-11c42009ec1f
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260223231841-af91ea434e03
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260217210647-11c42009ec1f
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.1-0.20260212100725-fbd6b3bca4d1
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260218110243-cd2592187c66
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260218110243-cd2592187c66
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260223231247-735246035dab
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260223231247-735246035dab
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20260130195252-6e18e2a30acc
 	github.com/smartcontractkit/mcms v0.35.1-0.20260209175626-b68b54b6e8d0
@@ -417,7 +417,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260216170932-c8081efc1ae5 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260219123955-11b2ac2cfa68 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260224105024-807568ff394d // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.11 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect

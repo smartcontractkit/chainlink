@@ -3,6 +3,7 @@ package shardorchestrator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -11,7 +12,17 @@ import (
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
-// Client wraps gRPC client for communicating with shard 0's orchestrator service
+const getWorkflowShardMappingTimeout = 15 * time.Second
+
+type ClientInterface interface {
+	GetWorkflowShardMapping(ctx context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error)
+	ReportWorkflowTriggerRegistration(ctx context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error)
+	Close() error
+}
+
+var _ ClientInterface = (*Client)(nil)
+var _ ClientInterface = (*LocalClient)(nil)
+
 type Client struct {
 	conn   *grpc.ClientConn
 	client ringpb.ShardOrchestratorServiceClient
@@ -38,11 +49,17 @@ func NewClient(address string, lggr logger.Logger) (*Client, error) {
 func (c *Client) GetWorkflowShardMapping(ctx context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
 	c.logger.Debugw("Calling GetWorkflowShardMapping", "workflowCount", len(workflowIDs))
 
+	runCtx := ctx
+	var cancel context.CancelFunc
+	if _, ok := ctx.Deadline(); !ok {
+		runCtx, cancel = context.WithTimeout(ctx, getWorkflowShardMappingTimeout)
+		defer cancel()
+	}
 	req := &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	}
 
-	resp, err := c.client.GetWorkflowShardMapping(ctx, req)
+	resp, err := c.client.GetWorkflowShardMapping(runCtx, req)
 	if err != nil {
 		return nil, fmt.Errorf("gRPC GetWorkflowShardMapping failed: %w", err)
 	}
@@ -76,3 +93,23 @@ func (c *Client) Close() error {
 	c.logger.Info("Closing ShardOrchestrator gRPC client")
 	return c.conn.Close()
 }
+
+type LocalClient struct {
+	server *Server
+	logger logger.Logger
+}
+
+func NewLocalClient(server *Server, lggr logger.Logger) *LocalClient {
+	return &LocalClient{server: server, logger: logger.Named(lggr, "ShardOrchestratorLocalClient")}
+}
+
+func (c *LocalClient) GetWorkflowShardMapping(ctx context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
+	req := &ringpb.GetWorkflowShardMappingRequest{WorkflowIds: workflowIDs}
+	return c.server.GetWorkflowShardMapping(ctx, req)
+}
+
+func (c *LocalClient) ReportWorkflowTriggerRegistration(ctx context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+	return c.server.ReportWorkflowTriggerRegistration(ctx, req)
+}
+
+func (c *LocalClient) Close() error { return nil }
