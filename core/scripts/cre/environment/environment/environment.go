@@ -1,7 +1,6 @@
 package environment
 
 import (
-	"bufio"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -14,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -260,9 +258,6 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to set default CTF configs")
 			}
 
-			if err := cleanupTrackedTunnels(relativePathToRepoRoot); err != nil {
-				framework.L.Warn().Err(err).Msg("failed to clean up tracked SSM tunnels before start")
-			}
 			if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
 				framework.L.Warn().Err(err).Msg("failed to stop tracked relay supervisor before start")
 			}
@@ -526,10 +521,6 @@ func startCmd() *cobra.Command {
 			} else if err := removeRemoteStopConfig(relativePathToRepoRoot); err != nil {
 				framework.L.Warn().Err(err).Msg("failed to clear stale remote component stop state")
 			}
-			if err := persistTunnelState(relativePathToRepoRoot, output); err != nil {
-				return errors.Wrap(err, "failed to store tunnel state")
-			}
-
 			return nil
 		},
 	}
@@ -827,10 +818,6 @@ func stopLocalResources(relativePathToRepoRoot string, removeAllState bool) erro
 		return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 	}
 
-	if err := cleanupTrackedTunnels(relativePathToRepoRoot); err != nil {
-		framework.L.Warn().Err(err).Msg("failed to clean up tracked SSM tunnels")
-	}
-
 	if removeAllState {
 		stopBeholderErr := stopBeholder()
 		if stopBeholderErr != nil {
@@ -1098,184 +1085,6 @@ func oneLineErrorMessage(errOrPanic any) string {
 	}
 
 	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
-}
-
-func cleanupTrackedTunnels(relativePathToRepoRoot string) error {
-	state, err := envconfig.LoadTunnelState(relativePathToRepoRoot)
-	if err != nil {
-		return errors.Wrap(err, "failed to load tracked tunnel state")
-	}
-	if len(state.Tunnels) == 0 {
-		return nil
-	}
-
-	framework.L.Info().Msgf("Found %d tracked SSM tunnel process(es), cleaning up", len(state.Tunnels))
-	failed := 0
-	for _, t := range state.Tunnels {
-		// First, aggressively kill known long-lived plugin children by local forwarded port.
-		if pluginKilled, pluginErr := killSessionManagerPluginByLocalPort(t.LocalPort); pluginErr != nil {
-			framework.L.Warn().Err(pluginErr).Msgf("failed to clean session-manager-plugin for localPort=%d", t.LocalPort)
-		} else if pluginKilled {
-			framework.L.Info().Msgf("stopped session-manager-plugin for localPort=%d", t.LocalPort)
-		}
-
-		if t.PID <= 0 {
-			continue
-		}
-		if !processExists(t.PID) {
-			continue
-		}
-		isSSM, checkErr := isSSMStartSessionProcess(t.PID)
-		if checkErr != nil {
-			framework.L.Warn().Err(checkErr).Msgf("failed to inspect process pid=%d before tunnel cleanup", t.PID)
-			failed++
-			continue
-		}
-		if !isSSM {
-			framework.L.Warn().Msgf("refusing to kill non-SSM process pid=%d recorded in tunnel state", t.PID)
-			failed++
-			continue
-		}
-
-		proc, findErr := os.FindProcess(t.PID)
-		if findErr != nil {
-			failed++
-			continue
-		}
-
-		_ = proc.Signal(syscall.SIGTERM)
-		deadline := time.Now().Add(2 * time.Second)
-		for processExists(t.PID) && time.Now().Before(deadline) {
-			time.Sleep(150 * time.Millisecond)
-		}
-		if processExists(t.PID) {
-			_ = proc.Kill()
-		}
-		if processExists(t.PID) {
-			failed++
-			framework.L.Warn().Msgf("failed to stop tracked tunnel process pid=%d localPort=%d remotePort=%d", t.PID, t.LocalPort, t.RemotePort)
-			continue
-		}
-
-		framework.L.Info().Msgf("stopped tracked tunnel process pid=%d localPort=%d remotePort=%d kind=%s", t.PID, t.LocalPort, t.RemotePort, t.Kind)
-	}
-
-	if clearErr := envconfig.ClearTunnelState(relativePathToRepoRoot); clearErr != nil {
-		framework.L.Warn().Err(clearErr).Msg("failed to clear tunnel state file after cleanup")
-	}
-
-	if failed > 0 {
-		return fmt.Errorf("failed to clean up %d tracked tunnel process(es)", failed)
-	}
-	return nil
-}
-
-func processExists(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	err = proc.Signal(syscall.Signal(0))
-	return err == nil
-}
-
-func isSSMStartSessionProcess(pid int) (bool, error) {
-	out, err := exec.Command("ps", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
-	if err != nil {
-		return false, err
-	}
-	cmd := strings.TrimSpace(string(out))
-	if cmd == "" {
-		return false, nil
-	}
-
-	return strings.Contains(cmd, "aws ssm start-session"), nil
-}
-
-func killSessionManagerPluginByLocalPort(localPort int) (bool, error) {
-	if localPort <= 0 {
-		return false, nil
-	}
-
-	out, err := exec.Command("ps", "-axo", "pid=,command=").Output()
-	if err != nil {
-		return false, err
-	}
-
-	pattern := fmt.Sprintf(`"localPortNumber": ["%d"]`, localPort)
-	killedAny := false
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		if !strings.Contains(line, "session-manager-plugin") || !strings.Contains(line, pattern) {
-			continue
-		}
-
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		pid, parseErr := strconv.Atoi(fields[0])
-		if parseErr != nil || pid <= 0 {
-			continue
-		}
-
-		proc, findErr := os.FindProcess(pid)
-		if findErr != nil {
-			continue
-		}
-		_ = proc.Signal(syscall.SIGTERM)
-		deadline := time.Now().Add(2 * time.Second)
-		for processExists(pid) && time.Now().Before(deadline) {
-			time.Sleep(100 * time.Millisecond)
-		}
-		if processExists(pid) {
-			_ = proc.Kill()
-		}
-		if !processExists(pid) {
-			killedAny = true
-		}
-	}
-	if scanErr := scanner.Err(); scanErr != nil {
-		return killedAny, scanErr
-	}
-
-	return killedAny, nil
-}
-
-func persistTunnelState(relativePathToRepoRoot string, output *creenv.SetupOutput) error {
-	if output == nil {
-		return envconfig.ClearTunnelState(relativePathToRepoRoot)
-	}
-
-	bindings := output.TunnelBindings()
-	processes := make([]envconfig.TunnelProcess, 0, len(bindings))
-	for _, b := range bindings {
-		if b.PID <= 0 {
-			continue
-		}
-		processes = append(processes, envconfig.TunnelProcess{
-			PID:         b.PID,
-			Kind:        "ssm",
-			InstanceID:  os.Getenv("CRE_EC2_INSTANCE_ID"),
-			Region:      "us-west-2",
-			RemotePort:  b.Port,
-			LocalPort:   b.LocalPort,
-			ComponentID: b.ComponentID,
-			Endpoint:    b.EndpointName,
-		})
-	}
-
-	return envconfig.StoreTunnelState(relativePathToRepoRoot, &envconfig.TunnelState{
-		Version: 1,
-		Tunnels: processes,
-	})
 }
 
 func initDxTracker() {
