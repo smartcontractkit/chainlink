@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -642,7 +643,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		shares = append(shares, &vaultcommon.EncryptedShares{
 			EncryptionKey: pk,
 			Shares: []string{
-				hex.EncodeToString(encrypted),
+				base64.StdEncoding.EncodeToString(encrypted),
 			},
 		})
 	}
@@ -1461,32 +1462,9 @@ func sortKey(id string, nonce []byte) []byte {
 }
 
 func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
-	first := chosen[0]
-	// First, let's generate the aggregated request.
-	// We've validated that all requests with the same sha have the same
-	// contents, so we can just sort the SecretRequests by their ID
-	// and use that as the aggregated request.
-	reqs := first.GetGetSecretsRequest().Requests
-	idToReqs := map[string]*vaultcommon.SecretRequest{}
-	for _, req := range reqs {
-		idToReqs[vaulttypes.KeyFor(req.Id)] = req
-	}
-
-	newReqs := []*vaultcommon.SecretRequest{}
-	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
-		newReqs = append(newReqs, idToReqs[sreq])
-	}
-
-	o.Request = &vaultcommon.Outcome_GetSecretsRequest{
-		GetSecretsRequest: &vaultcommon.GetSecretsRequest{
-			Requests: newReqs,
-		},
-	}
-
-	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
-	// then aggregate the encrypted shares across all observations.
-	// Like with the requests, we sort these by Id and use the result as the response.
+	// then aggregate the encrypted shares across all observations,
+	// sorted by Id.
 	idToAggResponse := map[string]*vaultcommon.SecretResponse{}
 	for _, resp := range chosen {
 		getSecretsResp := resp.GetGetSecretsResponse()
@@ -1516,7 +1494,13 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 
 				for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
 					if shares, ok := keyToShares[existing.EncryptionKey]; ok {
-						shares.Shares = append(shares.Shares, existing.Shares...)
+						// TODO: check sorting
+						// TODO: add comment
+						if len(shares.Shares) < 2*r.onchainCfg.F+1 {
+							shares.Shares = append(shares.Shares, existing.Shares...)
+						} else {
+							r.lggr.Debugw("already have 2F+1 shares, skipping additional shares", "id", rsp.Id, "encryptionKey", existing.EncryptionKey)
+						}
 					} else {
 						// This shouldn't happen -- this is because we're aggregating
 						// requests that have a matching sha (excluding the decryption share).

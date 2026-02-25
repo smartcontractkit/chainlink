@@ -2,6 +2,7 @@ package vault
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -1914,7 +1915,7 @@ func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateS
 		require.NoError(t, err)
 		result[i] = &vaultcommon.EncryptedShares{
 			EncryptionKey: pk,
-			Shares:        []string{hex.EncodeToString(encrypted)},
+			Shares:        []string{base64.StdEncoding.EncodeToString(encrypted)},
 		}
 	}
 	return result
@@ -2462,7 +2463,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
+	assert.Nil(t, o.GetGetSecretsRequest())
 	assert.True(t, proto.Equal(resp, o.GetGetSecretsResponse()))
 
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
@@ -2536,6 +2537,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 		aos, kvStore, nil)
 	require.NoError(t, err)
 
+	t.Logf("StateTransition response size: %d bytes (%.2f KB)", len(reportPrecursor), float64(len(reportPrecursor))/1024.0)
 	maxResponseSize := 512 * 1024
 	assert.LessOrEqual(t, len(reportPrecursor), maxResponseSize,
 		"StateTransition response size %d exceeds 512KB limit", len(reportPrecursor))
@@ -2660,7 +2662,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
+	assert.Nil(t, o.GetGetSecretsRequest())
 
 	expectedResp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
@@ -4968,7 +4970,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
+	assert.Nil(t, o.GetGetSecretsRequest())
 	assert.True(t, proto.Equal(resp, o.GetGetSecretsResponse()))
 
 	ss, err := rs.GetSecret(id)
