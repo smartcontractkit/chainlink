@@ -38,7 +38,7 @@ func TestUpdateMCMSStateWithAddressFromDatastoreForChain(t *testing.T) {
 	rmnBypasser := common.HexToAddress("0x0000000000000000000000000000000000200004")
 	rmnCanceller := common.HexToAddress("0x0000000000000000000000000000000000200005")
 
-	// Populate DataStore with both MCMS with different qualifiers.
+	// Populate DataStore with both MCMS with different qualifiers
 	store := datastore.NewMemoryDataStore()
 	addBundle := func(qualifier string, timelock, callProxy, proposer, bypasser, canceller common.Address) {
 		for _, ref := range []datastore.AddressRef{
@@ -66,7 +66,7 @@ func TestUpdateMCMSStateWithAddressFromDatastoreForChain(t *testing.T) {
 		DataStore:   store.Seal(),
 	}
 
-	// Load CLLCCIP qualifier — state should contain the CLLCCIP bundle.
+	// state should contain the CLLCCIP bundle
 	require.NoError(t, state.UpdateMCMSStateWithAddressFromDatastoreForChain(cldfEnv, selector, "CLLCCIP"))
 
 	chainState, ok := state.EVMChainState(selector)
@@ -77,7 +77,7 @@ func TestUpdateMCMSStateWithAddressFromDatastoreForChain(t *testing.T) {
 	require.Equal(t, cllccipBypasser, chainState.BypasserMcm.Address())
 	require.Equal(t, cllccipCanceller, chainState.CancellerMcm.Address())
 
-	// Load RMNMCMS qualifier — state should now contain the RMN bundle.
+	// state should now contain the RMN bundle
 	require.NoError(t, state.UpdateMCMSStateWithAddressFromDatastoreForChain(cldfEnv, selector, "RMNMCMS"))
 
 	chainState, ok = state.EVMChainState(selector)
@@ -88,7 +88,7 @@ func TestUpdateMCMSStateWithAddressFromDatastoreForChain(t *testing.T) {
 	require.Equal(t, rmnBypasser, chainState.BypasserMcm.Address())
 	require.Equal(t, rmnCanceller, chainState.CancellerMcm.Address())
 
-	// Verify the two bundles have distinct addresses.
+	// the contracts for each qualifier should be different
 	require.NotEqual(t, cllccipTimelock, rmnTimelock, "qualifiers should isolate timelocks")
 	require.NotEqual(t, cllccipProposer, rmnProposer, "qualifiers should isolate proposers")
 }
