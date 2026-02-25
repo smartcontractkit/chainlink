@@ -46,6 +46,7 @@ type httpComponentClient struct {
 type resolvedRemoteRuntime struct {
 	AgentBaseURL string
 	EC2HostIP    string
+	Client       componentClient
 }
 
 func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
@@ -69,15 +70,23 @@ func resolveRemoteRuntime(testLogger zerolog.Logger) (*resolvedRemoteRuntime, er
 	if err != nil {
 		return nil, err
 	}
+	client := newEC2HTTPComponentClient(baseURL)
 	return &resolvedRemoteRuntime{
 		AgentBaseURL: baseURL,
 		EC2HostIP:    ec2HostIP,
+		Client:       client,
 	}, nil
 }
 
 func newRemoteComponentClient(runtime *resolvedRemoteRuntime) (componentClient, error) {
-	if runtime == nil || strings.TrimSpace(runtime.AgentBaseURL) == "" {
-		return nil, errors.New("resolved runtime is nil or missing agent base url")
+	if runtime == nil {
+		return nil, errors.New("resolved runtime is nil")
+	}
+	if runtime.Client != nil {
+		return runtime.Client, nil
+	}
+	if strings.TrimSpace(runtime.AgentBaseURL) == "" {
+		return nil, errors.New("resolved runtime is missing agent base url")
 	}
 	return newEC2HTTPComponentClient(runtime.AgentBaseURL), nil
 }
@@ -208,6 +217,10 @@ func isRetriableStatus(statusCode int) bool {
 func isRetriableNetworkError(err error) bool {
 	var netErr net.Error
 	return errors.As(err, &netErr)
+}
+
+func remoteAgentError(code, message string) error {
+	return fmt.Errorf("remote agent error (%s): %s", code, message)
 }
 
 func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {

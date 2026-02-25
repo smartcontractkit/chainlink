@@ -39,6 +39,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -50,7 +51,7 @@ func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
-	blockchainPlacementBySelector map[uint64]string,
+	configuredBlockchains []*envconfig.Blockchain,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 ) ([]*cre.NodeSet, error) {
@@ -77,6 +78,7 @@ func PrepareNodeTOMLs(
 	for _, bc := range creEnv.Blockchains {
 		chainPerSelector[bc.ChainSelector()] = bc
 	}
+	blockchainPlacementBySelector := blockchainPlacementsBySelector(configuredBlockchains, creEnv.Blockchains)
 
 	for i, donMetadata := range topology.DonsMetadata.List() {
 		// make sure that either all or none of the node specs have config or secrets provided in the TOML config
@@ -117,19 +119,19 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:               creEnv.CldfEnvironment.DataStore,
-					ContractVersions:        creEnv.ContractVersions,
-					DonMetadata:             donMetadata,
+					Datastore:                     creEnv.CldfEnvironment.DataStore,
+					ContractVersions:              creEnv.ContractVersions,
+					DonMetadata:                   donMetadata,
 					Blockchains:                   chainPerSelector,
 					BlockchainPlacementBySelector: blockchainPlacementBySelector,
 					OCRBootstrapPlacement:         ocrBootstrapPlacement,
 					OCRBootstrapAnnouncePort:      ocrBootstrapAnnouncePort,
-					Flags:                   donMetadata.Flags,
-					CapabilitiesPeeringData: capabilitiesPeeringData,
-					OCRPeeringData:          ocrPeeringData,
-					RegistryChainSelector:   creEnv.RegistryChainSelector,
-					Topology:                topology,
-					Provider:                creEnv.Provider,
+					Flags:                         donMetadata.Flags,
+					CapabilitiesPeeringData:       capabilitiesPeeringData,
+					OCRPeeringData:                ocrPeeringData,
+					RegistryChainSelector:         creEnv.RegistryChainSelector,
+					Topology:                      topology,
+					Provider:                      creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -1034,6 +1036,21 @@ func resolveGatewayConnectorURL(callerPlacementRaw string, topology *cre.Topolog
 		return "", err
 	}
 	return resolved.URL, nil
+}
+
+func blockchainPlacementsBySelector(configured []*envconfig.Blockchain, deployed []creblockchains.Blockchain) map[uint64]string {
+	bySelector := make(map[uint64]string, len(deployed))
+	for idx, blockchainCfg := range configured {
+		if blockchainCfg == nil {
+			continue
+		}
+		if idx >= len(deployed) || deployed[idx] == nil {
+			continue
+		}
+		selector := deployed[idx].ChainSelector()
+		bySelector[selector] = string(blockchainCfg.Placement)
+	}
+	return bySelector
 }
 
 func resolveNodePlacement(topology *cre.Topology, nodeUUID string) (connectivity.Placement, error) {

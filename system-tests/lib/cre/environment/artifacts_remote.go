@@ -32,10 +32,6 @@ func DeployArtifactsToRemoteNodeSet(
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to resolve remote runtime settings for artifact deploy")
 	}
-	startClient, err := newRemoteComponentClient(remoteRuntime)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to initialize remote component client for artifact deploy")
-	}
 
 	payloadFiles := make([]agent.DeployArtifactsFile, 0, len(files))
 	for _, path := range files {
@@ -64,7 +60,7 @@ func DeployArtifactsToRemoteNodeSet(
 		return pkgerrors.Wrap(err, "failed to encode deploy artifacts payload")
 	}
 
-	response, err := startClient.StartComponent(ctx, agent.StartComponentEnvelope{
+	response, err := remoteRuntime.Client.StartComponent(ctx, agent.StartComponentEnvelope{
 		SchemaVersion: agent.SchemaVersionV1,
 		Operation:     agent.OperationDeployArtifacts,
 		Payload:       payloadBytes,

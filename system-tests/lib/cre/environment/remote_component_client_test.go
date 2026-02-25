@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveRemoteRuntimeWithExplicitEnv(t *testing.T) {
@@ -24,6 +24,7 @@ func TestResolveRemoteRuntimeWithExplicitEnv(t *testing.T) {
 	require.NoError(t, err, "expected runtime resolution to succeed")
 	require.Equal(t, "http://198.51.100.20:19090", runtime.AgentBaseURL, "unexpected agent base url")
 	require.Equal(t, "198.51.100.20", runtime.EC2HostIP, "unexpected ec2 host ip")
+	require.NotNil(t, runtime.Client, "expected resolved runtime to include component client")
 }
 
 func TestResolveRemoteRuntimeRequiresHostResolution(t *testing.T) {

@@ -55,8 +55,8 @@ type SetupOutput struct {
 	NodeOutput                          []*cre.NodeSetOutput
 	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
-	closeOnce sync.Once
-	closeErr  error
+	closeOnce                           sync.Once
+	closeErr                            error
 }
 
 func (s *SetupOutput) Close(ctx context.Context) error {
@@ -158,19 +158,17 @@ func SetupTestEnvironment(
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
 	}
-	var remoteRuntime *resolvedRemoteRuntime
-	if hasRemoteComponents(input.Blockchains, input.JdInput, input.NodeSets) {
-		remoteRuntime, err = resolveRemoteRuntime(testLogger)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to resolve remote runtime settings")
-		}
+
+	remoteRuntime, err := resolveRemoteRuntimeForSetup(testLogger, input.Blockchains, input.JdInput, input.NodeSets)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to resolve remote runtime settings")
 	}
 
 	testLogger.Info().Msg("using persistent relay supervisor for mixed component relays")
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.Blockchains))))
 
-	deployedBlockchains, startErr := startBlockchainsWithTargets(
+	deployedBlockchains, startErr := startBlockchains(
 		ctx,
 		testLogger,
 		input.Blockchains,
@@ -215,14 +213,13 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
-	blockchainPlacementBySelector := blockchainPlacementsBySelector(input.Blockchains, deployedBlockchains.Outputs)
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
 		topology,
 		creEnvironment,
 		input.NodeSets,
-		blockchainPlacementBySelector,
+		input.Blockchains,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -268,9 +265,6 @@ func SetupTestEnvironment(
 		if err := input.PreDONsStartHook(ctx); err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to execute pre-DON startup hook")
 		}
-	}
-	if err := verifyRemoteToLocalBootstrapReachability(ctx, testLogger, topology); err != nil {
-		return nil, pkgerrors.Wrap(err, "bootstrap reachability sanity check failed")
 	}
 
 	startedDONs, donStartErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, remoteRuntime)
@@ -489,21 +483,6 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput,
 	input.JdInput.Out = jdOutput
 }
 
-func blockchainPlacementsBySelector(configured []*config.Blockchain, deployed []blockchains.Blockchain) map[uint64]string {
-	bySelector := make(map[uint64]string, len(deployed))
-	for idx, blockchainCfg := range configured {
-		if blockchainCfg == nil {
-			continue
-		}
-		if idx >= len(deployed) || deployed[idx] == nil {
-			continue
-		}
-		selector := deployed[idx].ChainSelector()
-		bySelector[selector] = string(blockchainCfg.Placement)
-	}
-	return bySelector
-}
-
 func hasRemoteComponents(blockchains []*config.Blockchain, jdInput *config.JobDistributor, nodeSets []*cre.NodeSet) bool {
 	for _, configuredBlockchain := range blockchains {
 		if configuredBlockchain != nil && configuredBlockchain.Placement == config.PlacementRemote {
@@ -519,6 +498,18 @@ func hasRemoteComponents(blockchains []*config.Blockchain, jdInput *config.JobDi
 		}
 	}
 	return false
+}
+
+func resolveRemoteRuntimeForSetup(
+	testLogger zerolog.Logger,
+	blockchains []*config.Blockchain,
+	jdInput *config.JobDistributor,
+	nodeSets []*cre.NodeSet,
+) (*resolvedRemoteRuntime, error) {
+	if !hasRemoteComponents(blockchains, jdInput, nodeSets) {
+		return nil, nil
+	}
+	return resolveRemoteRuntime(testLogger)
 }
 
 type nodeSetPlacementSummary struct {

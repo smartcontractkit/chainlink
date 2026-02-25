@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -13,45 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type fakeBlockchain struct {
-	out *blockchain.Output
+type fakeStarterDeployer struct {
+	startCalls int
 }
 
-func (f *fakeBlockchain) ChainSelector() uint64                           { return 0 }
-func (f *fakeBlockchain) ChainID() uint64                                 { return 0 }
-func (f *fakeBlockchain) ChainFamily() string                             { return "" }
-func (f *fakeBlockchain) IsFamily(string) bool                            { return false }
-func (f *fakeBlockchain) Fund(context.Context, string, uint64) error      { return nil }
-func (f *fakeBlockchain) CtfOutput() *blockchain.Output                   { return f.out }
-func (f *fakeBlockchain) ToCldfChain() (cldf_chain.BlockChain, error)     { return nil, nil }
-
-type outputPreferringDeployer struct {
-	deployCalls       int
-	deployOutputCalls int
-}
-
-func (d *outputPreferringDeployer) Deploy(context.Context, *blockchain.Input) (blockchains.Blockchain, error) {
-	d.deployCalls++
-	return &fakeBlockchain{out: &blockchain.Output{ChainID: "fallback"}}, nil
-}
-
-func (d *outputPreferringDeployer) DeployOutput(context.Context, *blockchain.Input) (*blockchain.Output, error) {
-	d.deployOutputCalls++
+func (d *fakeStarterDeployer) Start(context.Context, *blockchain.Input) (*blockchain.Output, error) {
+	d.startCalls++
 	return &blockchain.Output{ChainID: "1337", Type: blockchain.TypeAnvil}, nil
-}
-
-type fallbackOnlyDeployer struct {
-	deployCalls int
-}
-
-func (d *fallbackOnlyDeployer) Deploy(context.Context, *blockchain.Input) (blockchains.Blockchain, error) {
-	d.deployCalls++
-	return &fakeBlockchain{
-		out: &blockchain.Output{
-			ChainID: "2337",
-			Type:    blockchain.TypeAnvil,
-		},
-	}, nil
 }
 
 func TestBuildRemoteJDInputEnablesDNSIsolationOverride(t *testing.T) {
@@ -76,8 +43,8 @@ func TestDeployBlockchainComponentNoDeployerFails(t *testing.T) {
 	require.Contains(t, err.Error(), "no deployer found")
 }
 
-func TestDeployBlockchainComponentPrefersOutputDeployer(t *testing.T) {
-	deployer := &outputPreferringDeployer{}
+func TestDeployBlockchainComponentStartsBlockchain(t *testing.T) {
+	deployer := &fakeStarterDeployer{}
 	output, err := DeployBlockchainComponent(
 		context.Background(),
 		map[blockchain.ChainFamily]blockchains.Deployer{blockchain.FamilyEVM: deployer},
@@ -85,20 +52,7 @@ func TestDeployBlockchainComponentPrefersOutputDeployer(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, "1337", output.ChainID)
-	require.Equal(t, 1, deployer.deployOutputCalls, "DeployOutput should be used when available")
-	require.Equal(t, 0, deployer.deployCalls, "Deploy fallback should not be called")
-}
-
-func TestDeployBlockchainComponentFallsBackToDeploy(t *testing.T) {
-	deployer := &fallbackOnlyDeployer{}
-	output, err := DeployBlockchainComponent(
-		context.Background(),
-		map[blockchain.ChainFamily]blockchains.Deployer{blockchain.FamilyEVM: deployer},
-		&blockchain.Input{Type: blockchain.TypeAnvil},
-	)
-	require.NoError(t, err)
-	require.Equal(t, "2337", output.ChainID)
-	require.Equal(t, 1, deployer.deployCalls, "Deploy should be called for non-output deployers")
+	require.Equal(t, 1, deployer.startCalls, "expected starter to be called once")
 }
 
 func TestDeployJDComponentNilInputFails(t *testing.T) {

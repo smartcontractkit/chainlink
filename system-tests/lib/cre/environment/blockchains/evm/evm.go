@@ -134,16 +134,7 @@ func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	return provider, nil
 }
 
-func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
-	bcOut, err := e.DeployOutput(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-
-	return FromOutput(e.testLogger, bcOut)
-}
-
-func (e *Deployer) DeployOutput(ctx context.Context, input *blockchain.Input) (*blockchain.Output, error) {
+func (e *Deployer) Start(ctx context.Context, input *blockchain.Input) (*blockchain.Output, error) {
 	var bcOut *blockchain.Output
 	var err error
 
@@ -173,7 +164,7 @@ func (e *Deployer) DeployOutput(ctx context.Context, input *blockchain.Input) (*
 	return bcOut, nil
 }
 
-func FromOutput(testLogger zerolog.Logger, out *blockchain.Output) (*Blockchain, error) {
+func From(testLogger zerolog.Logger, out *blockchain.Output) (*Blockchain, error) {
 	if out == nil {
 		return nil, pkgerrors.New("blockchain output is nil")
 	}

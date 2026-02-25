@@ -42,15 +42,17 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	if effErr != nil {
 		return nil, nil, errors.Wrap(effErr, "failed to resolve cached blockchain inputs")
 	}
-	deployedBlockchains, startErr := blockchains.Start(
-		ctx,
-		framework.L,
-		cldLogger,
-		effectiveBlockchains,
-		blockchainDeployers,
-	)
-	if startErr != nil {
-		return nil, nil, errors.Wrap(startErr, "failed to start blockchains")
+	blockchainClients := make([]blockchains.Blockchain, 0, len(effectiveBlockchains))
+	for _, input := range effectiveBlockchains {
+		started, err := blockchains.StartChain(ctx, blockchainDeployers, input)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to start blockchains")
+		}
+		reconstructed, err := blockchainFromOutput(framework.L, input, started)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to reconstruct blockchain from started data")
+		}
+		blockchainClients = append(blockchainClients, reconstructed)
 	}
 
 	datastore := datastore.NewMemoryDataStore()
@@ -91,8 +93,8 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		donsSlice = append(donsSlice, startedDON)
 	}
 
-	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(deployedBlockchains.Outputs))
-	for _, db := range deployedBlockchains.Outputs {
+	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(blockchainClients))
+	for _, db := range blockchainClients {
 		chain, chainErr := db.ToCldfChain()
 		if chainErr != nil {
 			return nil, nil, errors.Wrap(chainErr, "failed to create cldf chain from blockchain")
@@ -116,7 +118,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 
 	dons := cre.NewDons(donsSlice, topology.GatewayConnectors)
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		Blockchains:     deployedBlockchains.Outputs,
+		Blockchains:     blockchainClients,
 		CldfEnvironment: cldEnv,
 		Topology:        topology,
 		Dons:            dons,
@@ -133,8 +135,8 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 
 	return &cre.Environment{
 		CldfEnvironment:       cldEnv,
-		Blockchains:           deployedBlockchains.Outputs,
-		RegistryChainSelector: deployedBlockchains.Outputs[0].ChainSelector(),
+		Blockchains:           blockchainClients,
+		RegistryChainSelector: blockchainClients[0].ChainSelector(),
 		Provider:              *cachedInput.Infra,
 		ContractVersions:      contractVersions.ContractVersions(),
 	}, dons, nil

@@ -2,13 +2,9 @@ package environment
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
@@ -27,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -66,24 +61,70 @@ func StartDONs(
 	nodeSets []*cre.NodeSet,
 	remoteRuntime *resolvedRemoteRuntime,
 ) (*StartedDONs, error) {
-	if infraInput.IsKubernetes() {
-		// For Kubernetes, DONs are already running in the cluster, generate service URLs
-		lggr.Info().Msg("Generating Kubernetes service URLs for DONs (already running in cluster)")
-		for idx, nodeSet := range nodeSets {
-			donMetadata := topology.DonsMetadata.List()[idx]
-
-			// Extract bootstrap flags for each node
-			nodeMetadataRoles := make([]bool, len(donMetadata.NodesMetadata))
-			for i, nodeMeta := range donMetadata.NodesMetadata {
-				nodeMetadataRoles[i] = nodeMeta.HasRole(cre.BootstrapNode)
-			}
-
-			creds := infra.GetNodeCredentials(&infraInput)
-			nodeSet.Out = infra.GenerateKubernetesNodeSetOutput(&infraInput, nodeSet.Name, nodeSet.Nodes, nodeMetadataRoles, creds, lggr)
-		}
+	if err := verifyRemoteToLocalBootstrapReachability(ctx, lggr, topology); err != nil {
+		return nil, pkgerrors.Wrap(err, "bootstrap reachability sanity check failed")
 	}
 
-	// Skip binary operations for Kubernetes (binaries are in the cluster images) and for remote DONs
+	switch {
+	case infraInput.IsKubernetes():
+		return startDONsKubernetes(ctx, lggr, topology, infraInput, nodeSets)
+	default:
+		return startDONsContainerized(
+			ctx,
+			lggr,
+			topology,
+			infraInput,
+			registryChainBlockchainOutput,
+			capabilityConfigs,
+			copyCapabilityBinaries,
+			nodeSets,
+			remoteRuntime,
+		)
+	}
+}
+
+func startDONsKubernetes(
+	ctx context.Context,
+	lggr zerolog.Logger,
+	topology *cre.Topology,
+	infraInput infra.Provider,
+	nodeSets []*cre.NodeSet,
+) (*StartedDONs, error) {
+	lggr.Info().Msg("Generating Kubernetes service URLs for DONs (already running in cluster)")
+	for idx, nodeSet := range nodeSets {
+		donMetadata := topology.DonsMetadata.List()[idx]
+
+		// Extract bootstrap flags for each node.
+		nodeMetadataRoles := make([]bool, len(donMetadata.NodesMetadata))
+		for i, nodeMeta := range donMetadata.NodesMetadata {
+			nodeMetadataRoles[i] = nodeMeta.HasRole(cre.BootstrapNode)
+		}
+
+		creds := infra.GetNodeCredentials(&infraInput)
+		nodeSet.Out = infra.GenerateKubernetesNodeSetOutput(&infraInput, nodeSet.Name, nodeSet.Nodes, nodeMetadataRoles, creds, lggr)
+	}
+	if err := applyNodeSetEnvVars(topology, nodeSets); err != nil {
+		return nil, err
+	}
+
+	return buildDONsConcurrently(ctx, lggr, false, nodeSets, func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error) {
+		lggr.Info().Msgf("Kubernetes mode: using existing DON named %s", configuredNodeSet.Name)
+		return buildStartedDON(ctx, topology, configuredIndex, configuredNodeSet, configuredNodeSet.Out)
+	})
+}
+
+func startDONsContainerized(
+	ctx context.Context,
+	lggr zerolog.Logger,
+	topology *cre.Topology,
+	infraInput infra.Provider,
+	registryChainBlockchainOutput *blockchain.Output,
+	capabilityConfigs cre.CapabilityConfigs,
+	copyCapabilityBinaries bool,
+	nodeSets []*cre.NodeSet,
+	remoteRuntime *resolvedRemoteRuntime,
+) (*StartedDONs, error) {
+	// Skip binary operations for remote DONs.
 	if infraInput.IsDocker() {
 		for donIdx, donMetadata := range topology.DonsMetadata.List() {
 			if !copyCapabilityBinaries {
@@ -105,7 +146,6 @@ func StartDONs(
 				return nil, pkgerrors.Wrap(executableErr, "failed to make binaries executable")
 			}
 
-			var err error
 			ns, err := crecapabilities.AppendBinariesPathsNodeSpec(nodeSets[donIdx], donMetadata, customBinariesPaths)
 			if err != nil {
 				return nil, pkgerrors.Wrapf(err, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
@@ -113,7 +153,24 @@ func StartDONs(
 			nodeSets[donIdx] = ns
 		}
 	}
+	if err := applyNodeSetEnvVars(topology, nodeSets); err != nil {
+		return nil, err
+	}
 
+	return buildDONsConcurrently(ctx, lggr, true, nodeSets, func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error) {
+		return startDON(
+			ctx,
+			lggr,
+			topology,
+			configuredIndex,
+			configuredNodeSet,
+			registryChainBlockchainOutput,
+			remoteRuntime,
+		)
+	})
+}
+
+func applyNodeSetEnvVars(topology *cre.Topology, nodeSets []*cre.NodeSet) error {
 	// Add env vars, which were provided programmatically, to the node specs
 	// or fail, if node specs already had some env vars set in the TOML config
 	for donIdx, donMetadata := range topology.DonsMetadata.List() {
@@ -128,134 +185,162 @@ func StartDONs(
 		}
 
 		if hasEnvVarsInTomlConfig && len(nodeSets[donIdx].EnvVars) > 0 {
-			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
+			return fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
 		}
 	}
+	return nil
+}
 
+func buildDONsConcurrently(
+	ctx context.Context,
+	lggr zerolog.Logger,
+	printFailedContainerLogs bool,
+	nodeSets []*cre.NodeSet,
+	startFn func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error),
+) (*StartedDONs, error) {
 	errGroup, _ := errgroup.WithContext(ctx)
-	var resultMap sync.Map
-	var startClient componentClient
-	if hasRemoteNodeSets(nodeSets) {
-		if remoteRuntime == nil {
-			return nil, errors.New("remote runtime is required when starting remote nodesets")
-		}
-		client, clientErr := newRemoteComponentClient(remoteRuntime)
-		if clientErr != nil {
-			return nil, clientErr
-		}
-		startClient = client
-	}
+	startedDONs := make(StartedDONs, len(nodeSets))
 
 	for idx, nodeSet := range nodeSets {
+		configuredIndex := idx
+		configuredNodeSet := nodeSet
 		errGroup.Go(func() error {
-			startTime := time.Now()
-			lggr.Info().Msgf("Starting DON named %s", nodeSet.Name)
-
-			var nodeset *ns.Output
-			var nodesetErr error
-
-			// If output is already set (Kubernetes or cached), use it
-			if nodeSet.Out != nil {
-				lggr.Info().Msgf("Using pre-configured node URLs for DON %s", nodeSet.Name)
-				nodeset = nodeSet.Out
-			} else if strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
-				registryChainPayload, err := agent.EncodeForTransport(registryChainBlockchainOutput)
-				if err != nil {
-					return pkgerrors.Wrap(err, "failed to encode registry blockchain payload for remote nodeset start")
-				}
-				remoteInput, err := buildRemoteNodeSetInput(nodeSet)
-				if err != nil {
-					return err
-				}
-				payload := startComponentRequest{
-					ComponentType:      componentTypeNodeSet,
-					NodeSet:            remoteInput,
-					RegistryBlockchain: registryChainPayload,
-					ReusePolicy:        nodeSetRemoteStartPolicy(nodeSet),
-				}
-				payloadBytes, err := json.Marshal(payload)
-				if err != nil {
-					return pkgerrors.Wrap(err, "failed to encode nodeset payload")
-				}
-				response, err := startClient.StartComponent(ctx, startComponentEnvelope{
-					SchemaVersion: agent.SchemaVersionV1,
-					Operation:     agent.OperationStartComponent,
-					Payload:       payloadBytes,
-				})
-				if err != nil {
-					return err
-				}
-				if response.ComponentType != componentTypeNodeSet {
-					return fmt.Errorf("unexpected component type in start response: %s", response.ComponentType)
-				}
-				for _, logLine := range response.AgentLogs {
-					pretty := prettifyAgentLogLine(logLine)
-					if pretty == "" {
-						continue
-					}
-					lggr.Info().Msgf("[agent] %s", pretty)
-				}
-				nodeset, err = agent.DecodeFromTransport[ns.Output](response.Output)
-				if err != nil {
-					return pkgerrors.Wrap(err, "failed to decode nodeset transport payload")
-				}
-				if err := rewriteRemoteNodeSetOutputForLocalAccess(topology, idx, nodeSet, nodeset, remoteRuntime.EC2HostIP); err != nil {
-					return err
-				}
-			} else {
-				// For Docker, start the nodes
-				nodeSet.Input.NodeSpecs = nodeSet.ExtractCTFInputs()
-				nodeset, nodesetErr = ns.NewSharedDBNodeSetWithContext(ctx, nodeSet.Input, registryChainBlockchainOutput)
-				if nodesetErr != nil {
-					return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSet.Name)
-				}
+			startedDON, startErr := startFn(configuredIndex, configuredNodeSet)
+			if startErr != nil {
+				return startErr
 			}
-
-			// For Kubernetes, we still need to create clients to register nodes with JD
-			don, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], nodeset.CLNodes)
-			if donErr != nil {
-				return pkgerrors.Wrapf(donErr, "failed to create DON from node set named %s", nodeSet.Name)
-			}
-
-			resultMap.Store(idx, &StartedDON{
-				NodeSetOutput: &cre.NodeSetOutput{
-					Output:       nodeset,
-					NodeSetName:  nodeSet.Name,
-					Capabilities: nodeSet.Capabilities,
-				},
-				DON: don,
-			})
-
-			lggr.Info().Msgf("DON %s started in %.2f seconds", nodeSet.Name, time.Since(startTime).Seconds())
-
+			startedDONs[configuredIndex] = startedDON
 			return nil
 		})
 	}
 
 	if err := errGroup.Wait(); err != nil {
-		if !infraInput.IsKubernetes() {
+		if printFailedContainerLogs {
 			infra.PrintFailedContainerLogs(lggr, 30)
 		}
 		return nil, err
 	}
 
-	startedDONs := make(StartedDONs, len(nodeSets))
-	resultMap.Range(func(key, value any) bool {
-		// key is index in the original slice
-		startedDONs[key.(int)] = value.(*StartedDON)
-		return true
-	})
-
 	return &startedDONs, nil
 }
 
-func hasRemoteNodeSets(nodeSets []*cre.NodeSet) bool {
-	for _, nodeSet := range nodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
-			return true
-		}
+func startDON(
+	ctx context.Context,
+	lggr zerolog.Logger,
+	topology *cre.Topology,
+	configuredIndex int,
+	nodeSet *cre.NodeSet,
+	registryChainBlockchainOutput *blockchain.Output,
+	remoteRuntime *resolvedRemoteRuntime,
+) (*StartedDON, error) {
+	if nodeSet == nil {
+		return nil, errors.New("nodeSet is nil")
 	}
-	return false
+	startTime := time.Now()
+	lggr.Info().Msgf("Starting DON named %s", nodeSet.Name)
+
+	nodeset, err := startNodeSet(ctx, lggr, topology, configuredIndex, nodeSet, registryChainBlockchainOutput, remoteRuntime)
+	if err != nil {
+		return nil, err
+	}
+
+	startedDON, buildErr := buildStartedDON(ctx, topology, configuredIndex, nodeSet, nodeset)
+	if buildErr != nil {
+		return nil, buildErr
+	}
+
+	lggr.Info().Msgf("DON %s started in %.2f seconds", nodeSet.Name, time.Since(startTime).Seconds())
+	return startedDON, nil
+}
+
+func buildStartedDON(
+	ctx context.Context,
+	topology *cre.Topology,
+	configuredIndex int,
+	nodeSet *cre.NodeSet,
+	nodeset *ns.Output,
+) (*StartedDON, error) {
+	if nodeSet == nil {
+		return nil, errors.New("nodeSet is nil")
+	}
+	if nodeset == nil {
+		return nil, fmt.Errorf("nodeSet output is nil for DON %s", nodeSet.Name)
+	}
+
+	donsMetadata := topology.DonsMetadata.List()
+	if configuredIndex < 0 || configuredIndex >= len(donsMetadata) {
+		return nil, fmt.Errorf("configured index %d out of bounds for dons metadata", configuredIndex)
+	}
+	don, donErr := cre.NewDON(ctx, donsMetadata[configuredIndex], nodeset.CLNodes)
+	if donErr != nil {
+		return nil, pkgerrors.Wrapf(donErr, "failed to create DON from node set named %s", nodeSet.Name)
+	}
+
+	return &StartedDON{
+		NodeSetOutput: &cre.NodeSetOutput{
+			Output:       nodeset,
+			NodeSetName:  nodeSet.Name,
+			Capabilities: nodeSet.Capabilities,
+		},
+		DON: don,
+	}, nil
+}
+func startNodeSet(
+	ctx context.Context,
+	lggr zerolog.Logger,
+	topology *cre.Topology,
+	configuredIndex int,
+	nodeSet *cre.NodeSet,
+	registryChainBlockchainOutput *blockchain.Output,
+	remoteRuntime *resolvedRemoteRuntime,
+) (*ns.Output, error) {
+	// If output is already set (Kubernetes or cached), use it.
+	if nodeSet.Out != nil {
+		lggr.Info().Msgf("Using pre-configured node URLs for DON %s", nodeSet.Name)
+		return nodeSet.Out, nil
+	}
+
+	if strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
+		if remoteRuntime == nil {
+			return nil, errors.New("remote runtime is required for remote nodeset placement")
+		}
+		registryChainPayload, err := agent.EncodeForTransport(registryChainBlockchainOutput)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to encode registry blockchain payload for remote nodeset start")
+		}
+		remoteInput, err := buildRemoteNodeSetInput(nodeSet)
+		if err != nil {
+			return nil, err
+		}
+		payload := agent.StartComponentPayload{
+			ComponentType:      componentTypeNodeSet,
+			NodeSet:            remoteInput,
+			RegistryBlockchain: registryChainPayload,
+			ReusePolicy:        nodeSetRemoteStartPolicy(nodeSet),
+		}
+		nodeset, err := startRemoteComponent[ns.Output](
+			ctx,
+			lggr,
+			remoteRuntime.Client,
+			payload,
+			componentTypeNodeSet,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := rewriteRemoteNodeSetOutputForLocalAccess(topology, configuredIndex, nodeSet, nodeset, remoteRuntime.EC2HostIP); err != nil {
+			return nil, err
+		}
+		return nodeset, nil
+	}
+
+	// For Docker, start the nodes.
+	nodeSet.Input.NodeSpecs = nodeSet.ExtractCTFInputs()
+	nodeset, err := ns.NewSharedDBNodeSetWithContext(ctx, nodeSet.Input, registryChainBlockchainOutput)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to start nodeSet named %s", nodeSet.Name)
+	}
+	return nodeset, nil
 }
 
 func nodeSetRemoteStartPolicy(nodeSet *cre.NodeSet) string {
@@ -333,209 +418,6 @@ func rewriteNodeSetForDirectAccess(output *ns.Output, ec2HostIP string) error {
 	return nil
 }
 
-const nodeSetDBEndpointName = "nodeset-db"
-
-func describeNodeSetEndpoints(componentID string, nodeSet *cre.NodeSet, output *ns.Output) ([]tunnel.EndpointRef, error) {
-	sizeHint := 1
-	if output != nil {
-		sizeHint += len(output.CLNodes)
-	}
-	if nodeSet != nil {
-		for _, spec := range nodeSet.NodeSpecs {
-			if spec == nil || spec.Node == nil {
-				continue
-			}
-			sizeHint += len(spec.Node.CustomPorts)
-		}
-	}
-	refs := make([]tunnel.EndpointRef, 0, sizeHint)
-	if output != nil {
-		for idx := range output.CLNodes {
-			endpointName := fmt.Sprintf("node-%d-api", idx)
-			rawURL := output.CLNodes[idx].Node.ExternalURL
-			ref, err := nodeSetEndpointFromURL(componentID, endpointName, rawURL)
-			if err != nil {
-				return nil, err
-			}
-			if ref != nil {
-				refs = append(refs, *ref)
-			}
-		}
-	}
-	if nodeSet != nil {
-		for nodeIdx, spec := range nodeSet.NodeSpecs {
-			customRefs, err := nodeSetCustomPortEndpointRefs(componentID, nodeIdx, spec)
-			if err != nil {
-				return nil, err
-			}
-			refs = append(refs, customRefs...)
-		}
-	}
-	dbRef, err := nodeSetDBEndpointRef(componentID, nodeSet)
-	if err != nil {
-		return nil, err
-	}
-	if dbRef != nil {
-		refs = append(refs, *dbRef)
-	}
-	return refs, nil
-}
-
-func nodeSetDBEndpointRef(componentID string, nodeSet *cre.NodeSet) (*tunnel.EndpointRef, error) {
-	if nodeSet == nil || nodeSet.DbInput == nil || nodeSet.DbInput.Port == 0 {
-		return nil, nil
-	}
-	if nodeSet.DbInput.Port < 0 || nodeSet.DbInput.Port > 65535 {
-		return nil, fmt.Errorf("nodeset db port %d is invalid", nodeSet.DbInput.Port)
-	}
-	return &tunnel.EndpointRef{
-		ComponentID:  componentID,
-		EndpointName: nodeSetDBEndpointName,
-		Scheme:       "tcp",
-		Host:         "127.0.0.1",
-		Port:         nodeSet.DbInput.Port,
-		OriginalURL:  fmt.Sprintf("tcp://127.0.0.1:%d", nodeSet.DbInput.Port),
-	}, nil
-}
-
-func rewriteNodeSetWithBindings(output *ns.Output, nodeSet *cre.NodeSet, bindings []tunnel.TunnelBinding) error {
-	byName := make(map[string]tunnel.TunnelBinding, len(bindings))
-	for _, binding := range bindings {
-		byName[binding.EndpointName] = binding
-	}
-	if output != nil {
-		for idx := range output.CLNodes {
-			endpointName := fmt.Sprintf("node-%d-api", idx)
-			rawURL := output.CLNodes[idx].Node.ExternalURL
-			if rawURL == "" {
-				continue
-			}
-			binding, ok := byName[endpointName]
-			if !ok {
-				return fmt.Errorf("missing tunnel binding for nodeset endpoint %s", endpointName)
-			}
-			output.CLNodes[idx].Node.ExternalURL = binding.LocalURL
-		}
-	}
-	if nodeSet != nil && nodeSet.DbInput != nil && nodeSet.DbInput.Port != 0 {
-		binding, ok := byName[nodeSetDBEndpointName]
-		if !ok {
-			return fmt.Errorf("missing tunnel binding for nodeset endpoint %s", nodeSetDBEndpointName)
-		}
-		nodeSet.DbInput.Port = binding.LocalPort
-	}
-	if nodeSet != nil {
-		for nodeIdx, spec := range nodeSet.NodeSpecs {
-			if spec == nil || spec.Input == nil || spec.Input.Node == nil || len(spec.Input.Node.CustomPorts) == 0 {
-				continue
-			}
-			for portIdx, mapping := range spec.Input.Node.CustomPorts {
-				_, containerPort, err := parseCustomPortMapping(mapping)
-				if err != nil {
-					return fmt.Errorf("invalid custom_ports entry %q for node %d: %w", mapping, nodeIdx, err)
-				}
-				binding, ok := byName[nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort)]
-				if !ok {
-					return fmt.Errorf("missing tunnel binding for nodeset endpoint %s", nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort))
-				}
-				spec.Input.Node.CustomPorts[portIdx] = rewriteCustomPortMappingHostPort(mapping, binding.LocalPort)
-			}
-		}
-	}
-	return nil
-}
-
-func nodeSetCustomPortEndpointRefs(componentID string, nodeIdx int, spec *cre.NodeSpecWithRole) ([]tunnel.EndpointRef, error) {
-	if spec == nil || spec.Input == nil || spec.Input.Node == nil || len(spec.Input.Node.CustomPorts) == 0 {
-		return nil, nil
-	}
-	refs := make([]tunnel.EndpointRef, 0, len(spec.Input.Node.CustomPorts))
-	for portIdx, mapping := range spec.Input.Node.CustomPorts {
-		hostPort, containerPort, err := parseCustomPortMapping(mapping)
-		if err != nil {
-			return nil, fmt.Errorf("invalid custom_ports entry %q for node %d: %w", mapping, nodeIdx, err)
-		}
-		refs = append(refs, tunnel.EndpointRef{
-			ComponentID:  componentID,
-			EndpointName: nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort),
-			Scheme:       "tcp",
-			Host:         "127.0.0.1",
-			Port:         hostPort,
-			OriginalURL:  fmt.Sprintf("tcp://127.0.0.1:%d", hostPort),
-		})
-	}
-	return refs, nil
-}
-
-func nodeSetCustomPortEndpointName(nodeIdx, portIdx, containerPort int) string {
-	return fmt.Sprintf("node-%d-custom-%d-%d", nodeIdx, portIdx, containerPort)
-}
-
-func parseCustomPortMapping(mapping string) (hostPort int, containerPort int, err error) {
-	parts := strings.Split(strings.TrimSpace(mapping), ":")
-	if len(parts) < 2 {
-		return 0, 0, fmt.Errorf("expected hostPort:containerPort, got %q", mapping)
-	}
-	hostPortRaw := parts[len(parts)-2]
-	containerPortRaw := parts[len(parts)-1]
-	hostPort, err = strconv.Atoi(hostPortRaw)
-	if err != nil || hostPort <= 0 || hostPort > 65535 {
-		return 0, 0, fmt.Errorf("invalid host port %q", hostPortRaw)
-	}
-	containerPort, err = strconv.Atoi(containerPortRaw)
-	if err != nil || containerPort <= 0 || containerPort > 65535 {
-		return 0, 0, fmt.Errorf("invalid container port %q", containerPortRaw)
-	}
-	return hostPort, containerPort, nil
-}
-
-func rewriteCustomPortMappingHostPort(mapping string, newHostPort int) string {
-	parts := strings.Split(strings.TrimSpace(mapping), ":")
-	if len(parts) < 2 {
-		return mapping
-	}
-	parts[len(parts)-2] = strconv.Itoa(newHostPort)
-	return strings.Join(parts, ":")
-}
-
-func rewriteGatewayIncomingForNodeSetBindings(
-	topology *cre.Topology,
-	configuredIndex int,
-	nodeSet *cre.NodeSet,
-	bindings []tunnel.TunnelBinding,
-) {
-	if topology == nil || topology.GatewayConnectors == nil || len(topology.GatewayConnectors.Configurations) == 0 || nodeSet == nil {
-		return
-	}
-	if configuredIndex < 0 || configuredIndex >= len(topology.DonsMetadata.List()) {
-		return
-	}
-	donMeta := topology.DonsMetadata.List()[configuredIndex]
-	gatewayNode, hasGateway := donMeta.Gateway()
-	if !hasGateway {
-		return
-	}
-	if gatewayNode.Index < 0 || gatewayNode.Index >= len(nodeSet.NodeSpecs) {
-		return
-	}
-	spec := nodeSet.NodeSpecs[gatewayNode.Index]
-	if spec == nil || spec.Input == nil || spec.Input.Node == nil || len(spec.Input.Node.CustomPorts) == 0 {
-		return
-	}
-
-	for _, cfg := range topology.GatewayConnectors.Configurations {
-		if cfg == nil || cfg.GatewayConfiguration == nil || cfg.NodeUUID != gatewayNode.UUID {
-			continue
-		}
-		// Test process reaches gateway via local port (direct for local runs, tunneled for remote runs).
-		cfg.Incoming.Host = "127.0.0.1"
-		// Resolve tunnel by gateway container port (e.g. 5002), not by possibly stale host-side custom port.
-		if localPort, ok := gatewayLocalPortFromBindings(gatewayNode.Index, cfg.Incoming.ExternalPort, bindings); ok {
-			cfg.Incoming.ExternalPort = localPort
-		}
-	}
-}
-
 func rewriteGatewayIncomingForDirectAccess(topology *cre.Topology, configuredIndex int, ec2HostIP string) {
 	if topology == nil || topology.GatewayConnectors == nil || len(topology.GatewayConnectors.Configurations) == 0 {
 		return
@@ -553,62 +435,6 @@ func rewriteGatewayIncomingForDirectAccess(topology *cre.Topology, configuredInd
 			continue
 		}
 		cfg.Incoming.Host = ec2HostIP
-	}
-}
-
-func gatewayLocalPortFromBindings(gatewayNodeIndex, gatewayContainerPort int, bindings []tunnel.TunnelBinding) (int, bool) {
-	for _, binding := range bindings {
-		if !strings.HasPrefix(binding.EndpointName, fmt.Sprintf("node-%d-custom-", gatewayNodeIndex)) {
-			continue
-		}
-		if strings.HasSuffix(binding.EndpointName, fmt.Sprintf("-%d", gatewayContainerPort)) {
-			return binding.LocalPort, true
-		}
-	}
-	return 0, false
-}
-
-func nodeSetEndpointFromURL(componentID, endpointName, rawURL string) (*tunnel.EndpointRef, error) {
-	if strings.TrimSpace(rawURL) == "" {
-		return nil, nil
-	}
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse endpoint url %q: %w", rawURL, err)
-	}
-	host := parsed.Hostname()
-	if host == "" {
-		return nil, fmt.Errorf("endpoint url %q has empty hostname", rawURL)
-	}
-	port, err := nodeSetResolveURLPort(parsed)
-	if err != nil {
-		return nil, err
-	}
-	return &tunnel.EndpointRef{
-		ComponentID:  componentID,
-		EndpointName: endpointName,
-		Scheme:       parsed.Scheme,
-		Host:         host,
-		Port:         port,
-		OriginalURL:  rawURL,
-	}, nil
-}
-
-func nodeSetResolveURLPort(parsed *url.URL) (int, error) {
-	if parsed.Port() != "" {
-		port, err := strconv.Atoi(parsed.Port())
-		if err != nil || port <= 0 || port > 65535 {
-			return 0, fmt.Errorf("url %q has invalid port %q", parsed.String(), parsed.Port())
-		}
-		return port, nil
-	}
-	switch parsed.Scheme {
-	case "http", "ws":
-		return 80, nil
-	case "https", "wss":
-		return 443, nil
-	default:
-		return 0, fmt.Errorf("url %q has unsupported scheme %q without explicit port", parsed.String(), parsed.Scheme)
 	}
 }
 

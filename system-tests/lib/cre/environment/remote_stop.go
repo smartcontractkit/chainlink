@@ -44,10 +44,6 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 	if err != nil {
 		return summary, pkgerrors.Wrap(err, "failed to resolve remote runtime settings for stop")
 	}
-	startClient, err := newRemoteComponentClient(remoteRuntime)
-	if err != nil {
-		return summary, pkgerrors.Wrap(err, "failed to initialize remote component client for stop")
-	}
 
 	var joined error
 	for _, configuredBlockchain := range cfg.Blockchains {
@@ -59,7 +55,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 			Blockchain:    configuredBlockchain.InputRef(),
 			ReusePolicy:   string(configuredBlockchain.RemoteStartPolicy),
 		}
-		result, err := stopRemoteComponent(ctx, lggr, startClient, payload, componentTypeBlockchain)
+		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, componentTypeBlockchain)
 		if err != nil {
 			summary.Failed++
 			joined = errors.Join(joined, err)
@@ -81,7 +77,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 			NodeSet:       &simple_node_set.Input{Name: nodeSet.Name},
 			ReusePolicy:   nodeSet.RemoteStartPolicy,
 		}
-		result, err := stopRemoteComponent(ctx, lggr, startClient, payload, componentTypeNodeSet)
+		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, componentTypeNodeSet)
 		if err != nil {
 			summary.Failed++
 			joined = errors.Join(joined, err)
@@ -100,7 +96,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 			JD:            cfg.JD.InputRef(),
 			ReusePolicy:   string(cfg.JD.RemoteStartPolicy),
 		}
-		result, err := stopRemoteComponent(ctx, lggr, startClient, payload, componentTypeJD)
+		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, componentTypeJD)
 		if err != nil {
 			summary.Failed++
 			joined = errors.Join(joined, err)

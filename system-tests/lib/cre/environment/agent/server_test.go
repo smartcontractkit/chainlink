@@ -55,11 +55,7 @@ type fakeOutputDeployer struct {
 	calls int
 }
 
-func (f *fakeOutputDeployer) Deploy(context.Context, *blockchain.Input) (blockchains.Blockchain, error) {
-	return nil, nil
-}
-
-func (f *fakeOutputDeployer) DeployOutput(context.Context, *blockchain.Input) (*blockchain.Output, error) {
+func (f *fakeOutputDeployer) Start(context.Context, *blockchain.Input) (*blockchain.Output, error) {
 	f.calls++
 	return &blockchain.Output{
 		Type:    blockchain.TypeAnvil,

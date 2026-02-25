@@ -143,7 +143,7 @@ func (t *Blockchain) lazyInitTronChain() error {
 	return nil
 }
 
-func (t *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
+func (t *Deployer) Start(ctx context.Context, input *blockchain.Input) (*blockchain.Output, error) {
 	var bcOut *blockchain.Output
 	var err error
 
@@ -167,28 +167,35 @@ func (t *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		}
 	}
 
-	chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+	return bcOut, nil
+}
+
+func From(testLogger zerolog.Logger, out *blockchain.Output) (*Blockchain, error) {
+	if out == nil {
+		return nil, pkgerrors.New("blockchain output is nil")
+	}
+	chainID, err := strconv.ParseUint(out.ChainID, 10, 64)
 	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
+		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", out.ChainID)
 	}
 	selector, err := chainselectors.SelectorFromChainId(chainID)
 	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %s", bcOut.ChainID)
+		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %s", out.ChainID)
 	}
 
 	// if jsonrpc is not present, add it
-	if !strings.HasSuffix(bcOut.Nodes[0].ExternalHTTPUrl, "/jsonrpc") {
-		bcOut.Nodes[0].ExternalHTTPUrl += "/jsonrpc"
+	if !strings.HasSuffix(out.Nodes[0].ExternalHTTPUrl, "/jsonrpc") {
+		out.Nodes[0].ExternalHTTPUrl += "/jsonrpc"
 	}
-	if !strings.HasSuffix(bcOut.Nodes[0].InternalHTTPUrl, "/jsonrpc") {
-		bcOut.Nodes[0].InternalHTTPUrl += "/jsonrpc"
+	if !strings.HasSuffix(out.Nodes[0].InternalHTTPUrl, "/jsonrpc") {
+		out.Nodes[0].InternalHTTPUrl += "/jsonrpc"
 	}
 
 	return &Blockchain{
-		testLogger:         t.testLogger,
+		testLogger:         testLogger,
 		chainSelector:      selector,
 		chainID:            chainID,
-		ctfOutput:          bcOut,
+		ctfOutput:          out,
 		DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
 	}, nil
 }

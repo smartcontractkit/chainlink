@@ -2,7 +2,6 @@ package environment
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -16,22 +15,26 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/tron"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-type startComponentEnvelope = agent.StartComponentEnvelope
-type startComponentRequest = agent.StartComponentPayload
-
-func blockchainFromOutput(testLogger zerolog.Logger, output *blockchain.Output) (blockchains.Blockchain, error) {
+func blockchainFromOutput(testLogger zerolog.Logger, input *blockchain.Input, output *blockchain.Output) (blockchains.Blockchain, error) {
 	if output == nil {
 		return nil, pkgerrors.New("blockchain output is nil")
 	}
 
-	if output.Type != blockchain.TypeAnvil {
-		return nil, fmt.Errorf("remote blockchain reconstruction supports only %s in phase 2A, got %s", blockchain.TypeAnvil, output.Type)
+	switch output.Type {
+	case blockchain.TypeAnvil:
+		return evm.From(testLogger, output)
+	case blockchain.TypeTron:
+		return tron.From(testLogger, output)
+	case blockchain.TypeSolana:
+		return solana.From(input, output)
+	default:
+		return nil, fmt.Errorf("unsupported blockchain type for reconstruction: %s", output.Type)
 	}
-
-	return evm.FromOutput(testLogger, output)
 }
 
 func validateRemoteBlockchainInput(input *blockchain.Input) error {
@@ -44,7 +47,7 @@ func validateRemoteBlockchainInput(input *blockchain.Input) error {
 	return nil
 }
 
-func startBlockchainsWithTargets(
+func startBlockchains(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	configuredBlockchains []*config.Blockchain,
@@ -57,93 +60,48 @@ func startBlockchainsWithTargets(
 		return nil, err
 	}
 
-	localIdx := make([]int, 0, len(configuredBlockchains))
-	localInputs := make([]*blockchain.Input, 0, len(configuredBlockchains))
-	remoteIdx := make([]int, 0, len(configuredBlockchains))
-	for idx, configuredBlockchain := range configuredBlockchains {
-		if configuredBlockchain.Placement == config.PlacementRemote {
-			remoteIdx = append(remoteIdx, idx)
-			continue
-		}
-		localIdx = append(localIdx, idx)
-		localInputs = append(localInputs, configuredBlockchain.InputRef())
-	}
-
 	outputs := make([]blockchains.Blockchain, len(configuredBlockchains))
+	for idx, configured := range configuredBlockchains {
+		input := blockchainInputs[idx]
+		var deployedOutput *blockchain.Output
 
-	if len(localInputs) > 0 {
-		for i, idx := range localIdx {
-			deployedOutput, err := agent.DeployBlockchainComponent(ctx, deployers, localInputs[i])
-			if err != nil {
-				return nil, err
-			}
-			reconstructedBlockchain, err := blockchainFromOutput(testLogger, deployedOutput)
-			if err != nil {
-				return nil, err
-			}
-			outputs[idx] = reconstructedBlockchain
-		}
-	}
-
-	if len(remoteIdx) > 0 {
-		if remoteRuntime == nil {
-			return nil, errors.New("remote runtime is required when starting remote blockchains")
-		}
-		startClient, err := newRemoteComponentClient(remoteRuntime)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, idx := range remoteIdx {
-			input := blockchainInputs[idx]
-			configured := configuredBlockchains[idx]
+		if configured.Placement == config.PlacementRemote {
 			if err := validateRemoteBlockchainInput(input); err != nil {
 				return nil, err
 			}
-
 			payload := agent.StartComponentPayload{
 				ComponentType: componentTypeBlockchain,
 				Blockchain:    input,
 				ReusePolicy:   string(configured.RemoteStartPolicy),
 			}
-			payloadBytes, err := json.Marshal(payload)
-			if err != nil {
-				return nil, pkgerrors.Wrap(err, "failed to encode blockchain payload")
-			}
-
-			response, err := startClient.StartComponent(ctx, agent.StartComponentEnvelope{
-				SchemaVersion: agent.SchemaVersionV1,
-				Operation:     agent.OperationStartComponent,
-				Payload:       payloadBytes,
-			})
+			deployedOutput, err = startRemoteComponent[blockchain.Output](
+				ctx,
+				testLogger,
+				remoteRuntime.Client,
+				payload,
+				componentTypeBlockchain,
+			)
 			if err != nil {
 				return nil, err
 			}
-			if response.ComponentType != componentTypeBlockchain {
-				return nil, fmt.Errorf("unexpected component type in start response: %s", response.ComponentType)
+			if rewriteInternalForLocalNodes {
+				// direct mode keeps internal URLs unchanged
 			}
-			for _, logLine := range response.AgentLogs {
-				pretty := prettifyAgentLogLine(logLine)
-				if pretty == "" {
-					continue
-				}
-				testLogger.Info().Msgf("[agent] %s", pretty)
-			}
-			blockchainOutput, err := agent.DecodeFromTransport[blockchain.Output](response.Output)
-			if err != nil {
-				return nil, pkgerrors.Wrap(err, "failed to decode blockchain transport payload")
-			}
-
-			if err := rewriteRemoteBlockchainOutputForLocalAccess(blockchainOutput, remoteRuntime.EC2HostIP, rewriteInternalForLocalNodes); err != nil {
+			if err := rewriteRemoteBlockchainOutputForDirectAccess(deployedOutput, remoteRuntime.EC2HostIP); err != nil {
 				return nil, err
 			}
-
-			reconstructedBlockchain, err := blockchainFromOutput(testLogger, blockchainOutput)
+		} else {
+			deployedOutput, err = blockchains.StartChain(ctx, deployers, input)
 			if err != nil {
 				return nil, err
 			}
-			outputs[idx] = reconstructedBlockchain
 		}
+
+		reconstructedBlockchain, err := blockchainFromOutput(testLogger, input, deployedOutput)
+		if err != nil {
+			return nil, err
+		}
+		outputs[idx] = reconstructedBlockchain
 	}
 
 	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(outputs))
@@ -162,18 +120,6 @@ func startBlockchainsWithTargets(
 		Outputs:         outputs,
 		CldfBlockChains: cldf_chain.NewBlockChainsFromSlice(cldfBlockchains),
 	}, nil
-}
-
-func rewriteRemoteBlockchainOutputForLocalAccess(
-	output *blockchain.Output,
-	ec2HostIP string,
-	rewriteInternalForLocalNodes bool,
-) error {
-	_ = rewriteInternalForLocalNodes // direct mode keeps internal URLs unchanged
-	if output == nil {
-		return nil
-	}
-	return rewriteRemoteBlockchainOutputForDirectAccess(output, ec2HostIP)
 }
 
 func rewriteRemoteBlockchainOutputForDirectAccess(output *blockchain.Output, ec2HostIP string) error {
@@ -213,8 +159,4 @@ func rewriteURLHost(rawURL, host string) (string, error) {
 	}
 	parsed.Host = host
 	return parsed.String(), nil
-}
-
-func remoteAgentError(code, message string) error {
-	return fmt.Errorf("remote agent error (%s): %s", code, message)
 }

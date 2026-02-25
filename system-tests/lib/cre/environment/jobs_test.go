@@ -3,13 +3,13 @@ package environment
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	"github.com/stretchr/testify/require"
 )
 
-func TestRewriteRemoteJDOutputForLocalAccess_LocalOnlyNoop(t *testing.T) {
+func TestRewriteJDForDirectAccess_NilOutputNoop(t *testing.T) {
 	var output *jd.Output
-	err := rewriteRemoteJDOutputForLocalAccess(output, "10.20.30.40")
+	err := rewriteJDForDirectAccess(output, "10.20.30.40")
 	require.NoError(t, err, "expected nil output rewrite to be a no-op")
 }
 
@@ -27,26 +27,26 @@ func TestRewriteJDForDirectAccessRewritesExternalEndpoints(t *testing.T) {
 	require.Equal(t, "job-distributor:8080", output.InternalWSRPCUrl, "internal wsrpc url should remain unchanged")
 }
 
-func TestRewriteRemoteJDOutputForLocalAccess_MixedFallsBackToInternalWSRPCSource(t *testing.T) {
+func TestRewriteJDForDirectAccess_MixedFallsBackToInternalWSRPCSource(t *testing.T) {
 	output := &jd.Output{
 		ExternalGRPCUrl:  "127.0.0.1:14231",
 		ExternalWSRPCUrl: "",
 		InternalWSRPCUrl: "job-distributor:8080",
 	}
 
-	err := rewriteRemoteJDOutputForLocalAccess(output, "10.20.30.40")
-	require.NoError(t, err, "rewriteRemoteJDOutputForLocalAccess should succeed")
+	err := rewriteJDForDirectAccess(output, "10.20.30.40")
+	require.NoError(t, err, "rewriteJDForDirectAccess should succeed")
 	require.Equal(t, "10.20.30.40:8080", output.ExternalWSRPCUrl, "external wsrpc url should be derived from internal source")
 	require.Equal(t, "job-distributor:8080", output.InternalWSRPCUrl, "internal wsrpc url should remain unchanged")
 }
 
-func TestRewriteRemoteJDOutputForLocalAccess_InvalidAddressFails(t *testing.T) {
+func TestRewriteJDForDirectAccess_InvalidAddressFails(t *testing.T) {
 	output := &jd.Output{
 		ExternalGRPCUrl:  "127.0.0.1",
 		ExternalWSRPCUrl: "127.0.0.1:9080",
 	}
 
-	err := rewriteRemoteJDOutputForLocalAccess(output, "10.20.30.40")
+	err := rewriteJDForDirectAccess(output, "10.20.30.40")
 	require.Error(t, err, "expected invalid host:port to fail rewrite")
 	require.Contains(t, err.Error(), "failed to parse host:port", "expected parse failure context")
 }

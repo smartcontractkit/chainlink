@@ -10,12 +10,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 const (
 	remoteStateDirname  = "core/scripts/cre/environment/state_remote"
 	remoteStateFilename = "remote_components.toml"
 	remoteAgentFilename = "remote_agent.toml"
+	envEC2AgentURL      = "CRE_EC2_AGENT_URL"
+	envEC2AgentPort     = "CRE_EC2_AGENT_PORT"
 )
 
 type remoteAgentState struct {
@@ -70,6 +73,23 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 	if cfg == nil {
 		return fmt.Errorf("cannot store nil remote stop config")
 	}
+	stopCfg := filteredRemoteStopConfig(cfg)
+	if err := stopCfg.Store(remoteStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		return err
+	}
+	agentEnvelope := &remoteAgentStateEnvelope{Agent: captureRemoteAgentState()}
+	data, err := toml.Marshal(agentEnvelope)
+	if err != nil {
+		return err
+	}
+	path := remoteAgentFileAbsPath(relativePathToRepoRoot)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
+}
+
+func filteredRemoteStopConfig(cfg *envconfig.Config) *envconfig.Config {
 	stopCfg := &envconfig.Config{
 		Blockchains: []*envconfig.Blockchain{},
 		NodeSets:    []*cre.NodeSet{},
@@ -87,26 +107,16 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 	if cfg.JD != nil && cfg.JD.Placement == envconfig.PlacementRemote {
 		stopCfg.JD = cfg.JD
 	}
-	if err := stopCfg.Store(remoteStateFileAbsPath(relativePathToRepoRoot)); err != nil {
-		return err
+	return stopCfg
+}
+
+func captureRemoteAgentState() remoteAgentState {
+	return remoteAgentState{
+		EC2URL:        os.Getenv(envEC2AgentURL),
+		EC2InstanceID: os.Getenv(runtimecfg.EnvEC2InstanceID),
+		EC2AgentPort:  os.Getenv(envEC2AgentPort),
+		AWSProfile:    firstNonEmpty(os.Getenv(runtimecfg.EnvAWSProfile), os.Getenv("AWS_PROFILE")),
 	}
-	agentEnvelope := &remoteAgentStateEnvelope{
-		Agent: remoteAgentState{
-			EC2URL:        os.Getenv("CRE_EC2_AGENT_URL"),
-			EC2InstanceID: os.Getenv("CRE_EC2_INSTANCE_ID"),
-			EC2AgentPort:  os.Getenv("CRE_EC2_AGENT_PORT"),
-			AWSProfile:    firstNonEmpty(os.Getenv("CRE_AWS_PROFILE"), os.Getenv("AWS_PROFILE")),
-		},
-	}
-	data, err := toml.Marshal(agentEnvelope)
-	if err != nil {
-		return err
-	}
-	path := remoteAgentFileAbsPath(relativePathToRepoRoot)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o600)
 }
 
 func firstNonEmpty(values ...string) string {

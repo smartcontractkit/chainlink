@@ -5,11 +5,7 @@ import (
 	"fmt"
 
 	pkgerrors "github.com/pkg/errors"
-	"github.com/rs/zerolog"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
@@ -27,7 +23,32 @@ type Blockchain interface {
 }
 
 type Deployer interface {
-	Deploy(ctx context.Context, input *blockchain.Input) (Blockchain, error)
+	Start(ctx context.Context, input *blockchain.Input) (*blockchain.Output, error)
+}
+
+func StartChain(
+	ctx context.Context,
+	deployers map[blockchain.ChainFamily]Deployer,
+	input *blockchain.Input,
+) (*blockchain.Output, error) {
+	if input == nil {
+		return nil, pkgerrors.New("blockchain input is nil")
+	}
+
+	chainFamily, err := blockchain.TypeToFamily(input.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	deployer, ok := deployers[chainFamily]
+	if !ok {
+		return nil, fmt.Errorf("no deployer found for blockchain type %s", input.Type)
+	}
+	deployed, err := deployer.Start(ctx, input)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain of type %s", input.Type)
+	}
+	return deployed, nil
 }
 
 type DeployedBlockchains struct {
@@ -46,48 +67,4 @@ func ValidateKubernetesBlockchainOutput(input *blockchain.Input) error {
 		return fmt.Errorf("kubernetes provider requires blockchain URLs to be configured in config file for blockchain type %s chainID: %s", input.Type, input.ChainID)
 	}
 	return nil
-}
-
-func Start(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	commonLogger logger.Logger,
-	inputs []*blockchain.Input,
-	deployers map[blockchain.ChainFamily]Deployer,
-) (*DeployedBlockchains, error) {
-	outputs := make([]Blockchain, 0, len(inputs))
-
-	for _, input := range inputs {
-		chainFamily, chErr := blockchain.TypeToFamily(input.Type)
-		if chErr != nil {
-			return nil, chErr
-		}
-
-		deployer, ok := deployers[chainFamily]
-		if !ok {
-			infra.PrintFailedContainerLogs(testLogger, 30)
-			return nil, fmt.Errorf("no deployer found for blockchain type %s", input.Type)
-		}
-
-		deployedBlockchain, deployErr := deployer.Deploy(ctx, input)
-		if deployErr != nil {
-			return nil, pkgerrors.Wrapf(deployErr, "failed to deploy blockchain of type %s", input.Type)
-		}
-
-		outputs = append(outputs, deployedBlockchain)
-	}
-
-	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(outputs))
-	for _, db := range outputs {
-		chain, chainErr := db.ToCldfChain()
-		if chainErr != nil {
-			return nil, pkgerrors.Wrap(chainErr, "failed to create cldf chain from blockchain")
-		}
-		cldfBlockchains = append(cldfBlockchains, chain)
-	}
-
-	return &DeployedBlockchains{
-		Outputs:         outputs,
-		CldfBlockChains: cldf_chain.NewBlockChainsFromSlice(cldfBlockchains),
-	}, nil
 }

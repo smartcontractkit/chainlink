@@ -124,7 +124,7 @@ func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	}, nil
 }
 
-func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
+func (s *Deployer) Start(ctx context.Context, input *blockchain.Input) (*blockchain.Output, error) {
 	var bcOut *blockchain.Output
 	var err error
 
@@ -149,9 +149,17 @@ func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		}
 	}
 
-	sel, ok := chainselectors.SolanaChainIdToChainSelector()[input.ChainID]
+	return bcOut, nil
+}
+
+func From(input *blockchain.Input, out *blockchain.Output) (*Blockchain, error) {
+	if out == nil {
+		return nil, pkgerrors.New("blockchain output is nil")
+	}
+	chainID := out.ChainID
+	sel, ok := chainselectors.SolanaChainIdToChainSelector()[chainID]
 	if !ok {
-		return nil, fmt.Errorf("selector not found for solana chainID '%s'", input.ChainID)
+		return nil, fmt.Errorf("selector not found for solana chainID '%s'", chainID)
 	}
 
 	envp := os.Getenv("SOLANA_PRIVATE_KEY")
@@ -160,19 +168,25 @@ func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		return nil, errors.New("failed to decode private key for solana")
 	}
 
-	if err := cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(input.ContractsDir, "deploy-keypair.json"), pk); err != nil {
+	contractsDir := ""
+	if input != nil {
+		contractsDir = input.ContractsDir
+	}
+	if strings.TrimSpace(contractsDir) == "" {
+		return nil, errors.New("solana contracts dir is required for reconstruction")
+	}
+	if err := cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(contractsDir, "deploy-keypair.json"), pk); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to save private key for solana")
 	}
 
-	solClient := solrpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
-
+	solClient := solrpc.New(out.Nodes[0].ExternalHTTPUrl)
 	return &Blockchain{
 		SolClient:     solClient,
-		SolanaChainID: input.ChainID,
+		SolanaChainID: chainID,
 		chainSelector: sel,
 		PrivateKey:    pk,
-		ArtifactsDir:  input.ContractsDir,
-		ctfOutput:     bcOut,
+		ArtifactsDir:  contractsDir,
+		ctfOutput:     out,
 	}, nil
 }
 

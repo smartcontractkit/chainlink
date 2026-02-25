@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateRemoteBlockchainInput(t *testing.T) {
@@ -76,45 +76,33 @@ func TestResolveRemoteRuntimeRequiresEC2Resolution(t *testing.T) {
 	require.Error(t, err, "expected runtime resolution without EC2 inputs to fail")
 }
 
-func TestRewriteRemoteBlockchainOutputForLocalAccess_DirectMode(t *testing.T) {
+func TestRewriteRemoteBlockchainOutputForDirectAccess(t *testing.T) {
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
-	tests := []struct {
-		name                         string
-		rewriteInternalForLocalNodes bool
-	}{
-		{name: "remote only path keeps internal URLs", rewriteInternalForLocalNodes: false},
-		{name: "mixed path still keeps internal URLs in direct mode", rewriteInternalForLocalNodes: true},
+	out := &blockchain.Output{
+		Nodes: []*blockchain.Node{
+			{
+				ExternalHTTPUrl: "http://anvil-1337:8545",
+				ExternalWSUrl:   "ws://anvil-1337:8546",
+				InternalHTTPUrl: "http://anvil-1337:8545",
+				InternalWSUrl:   "ws://anvil-1337:8546",
+			},
+		},
 	}
+	err := rewriteRemoteBlockchainOutputForDirectAccess(out, "203.0.113.10")
+	require.NoError(t, err, "expected rewrite helper to succeed")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			out := &blockchain.Output{
-				Nodes: []*blockchain.Node{
-					{
-						ExternalHTTPUrl: "http://anvil-1337:8545",
-						ExternalWSUrl:   "ws://anvil-1337:8546",
-						InternalHTTPUrl: "http://anvil-1337:8545",
-						InternalWSUrl:   "ws://anvil-1337:8546",
-					},
-				},
-			}
-			err := rewriteRemoteBlockchainOutputForLocalAccess(out, "203.0.113.10", tt.rewriteInternalForLocalNodes)
-			require.NoError(t, err, "expected rewrite helper to succeed")
-
-			require.Equal(t, "http://203.0.113.10:8545", out.Nodes[0].ExternalHTTPUrl, "unexpected rewritten http url")
-			require.Equal(t, "ws://203.0.113.10:8546", out.Nodes[0].ExternalWSUrl, "unexpected rewritten ws url")
-			require.Equal(t, "http://anvil-1337:8545", out.Nodes[0].InternalHTTPUrl, "internal http url should remain unchanged in direct mode")
-			require.Equal(t, "ws://anvil-1337:8546", out.Nodes[0].InternalWSUrl, "internal ws url should remain unchanged in direct mode")
-		})
-	}
+	require.Equal(t, "http://203.0.113.10:8545", out.Nodes[0].ExternalHTTPUrl, "unexpected rewritten http url")
+	require.Equal(t, "ws://203.0.113.10:8546", out.Nodes[0].ExternalWSUrl, "unexpected rewritten ws url")
+	require.Equal(t, "http://anvil-1337:8545", out.Nodes[0].InternalHTTPUrl, "internal http url should remain unchanged in direct mode")
+	require.Equal(t, "ws://anvil-1337:8546", out.Nodes[0].InternalWSUrl, "internal ws url should remain unchanged in direct mode")
 }
 
-func TestRewriteRemoteBlockchainOutputForLocalAccess_LocalOnlyNoop(t *testing.T) {
-	err := rewriteRemoteBlockchainOutputForLocalAccess(nil, "203.0.113.10", false)
+func TestRewriteRemoteBlockchainOutputForDirectAccess_NilOutputNoop(t *testing.T) {
+	err := rewriteRemoteBlockchainOutputForDirectAccess(nil, "203.0.113.10")
 	require.NoError(t, err, "expected nil output rewrite to be a no-op")
 }
 
-func TestRewriteRemoteBlockchainOutputForLocalAccess_InvalidExternalURL(t *testing.T) {
+func TestRewriteRemoteBlockchainOutputForDirectAccess_InvalidExternalURL(t *testing.T) {
 	out := &blockchain.Output{
 		Nodes: []*blockchain.Node{
 			{
@@ -124,7 +112,7 @@ func TestRewriteRemoteBlockchainOutputForLocalAccess_InvalidExternalURL(t *testi
 		},
 	}
 
-	err := rewriteRemoteBlockchainOutputForLocalAccess(out, "203.0.113.10", false)
+	err := rewriteRemoteBlockchainOutputForDirectAccess(out, "203.0.113.10")
 	require.Error(t, err, "expected invalid external URL to fail rewrite")
 	require.Contains(t, err.Error(), "failed to parse url", "expected parse failure context")
 }

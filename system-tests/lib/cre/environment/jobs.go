@@ -2,7 +2,6 @@ package environment
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -75,59 +74,37 @@ func StartJD(
 	var jdOutput *jd.Output
 	var jdErr error
 
-	if jdConfig.Placement == config.PlacementRemote {
+	switch {
+	case jdConfig.Placement == config.PlacementRemote:
 		if remoteRuntime == nil {
 			return nil, errors.New("remote runtime is required when starting remote jd")
-		}
-		startClient, err := newRemoteComponentClient(remoteRuntime)
-		if err != nil {
-			return nil, err
 		}
 		payload := agent.StartComponentPayload{
 			ComponentType: componentTypeJD,
 			JD:            jdConfig.InputRef(),
 			ReusePolicy:   string(jdConfig.RemoteStartPolicy),
 		}
-		payloadBytes, err := json.Marshal(payload)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to encode jd payload")
+		jdOutput, jdErr = startRemoteComponent[jd.Output](
+			ctx,
+			lggr,
+			remoteRuntime.Client,
+			payload,
+			componentTypeJD,
+		)
+		if jdErr != nil {
+			return nil, jdErr
 		}
-		response, err := startClient.StartComponent(ctx, agent.StartComponentEnvelope{
-			SchemaVersion: agent.SchemaVersionV1,
-			Operation:     agent.OperationStartComponent,
-			Payload:       payloadBytes,
-		})
-		if err != nil {
+		if err := rewriteJDForDirectAccess(jdOutput, remoteRuntime.EC2HostIP); err != nil {
 			return nil, err
 		}
-		if response.ComponentType != componentTypeJD {
-			return nil, fmt.Errorf("unexpected component type in start response: %s", response.ComponentType)
-		}
-		for _, logLine := range response.AgentLogs {
-			pretty := prettifyAgentLogLine(logLine)
-			if pretty == "" {
-				continue
-			}
-			lggr.Info().Msgf("[agent] %s", pretty)
-		}
-		jdOutput, err = agent.DecodeFromTransport[jd.Output](response.Output)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to decode jd transport payload")
-		}
-		if err := rewriteRemoteJDOutputForLocalAccess(jdOutput, remoteRuntime.EC2HostIP); err != nil {
-			return nil, err
-		}
-	} else if infraInput.IsKubernetes() {
+	case infraInput.IsKubernetes():
 		// For Kubernetes, JD is already running in the cluster, generate service URLs
 		lggr.Info().Msg("Generating Kubernetes service URLs for Job Distributor (already running in cluster)")
 		jdOutput, jdErr = infra.GenerateKubernetesJDOutput(&infraInput, lggr)
 		if jdErr != nil {
 			return nil, pkgerrors.Wrap(jdErr, "failed to generate Kubernetes JD output")
 		}
-	}
-
-	// Only start JD container for Docker provider
-	if jdOutput == nil {
+	default:
 		jdOutput, jdErr = jd.NewWithContext(ctx, jdConfig.InputRef())
 		if jdErr != nil {
 			jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdConfig.Image, jdErr)
@@ -171,14 +148,10 @@ func StartJD(
 	}, nil
 }
 
-func rewriteRemoteJDOutputForLocalAccess(output *jd.Output, ec2HostIP string) error {
+func rewriteJDForDirectAccess(output *jd.Output, ec2HostIP string) error {
 	if output == nil {
 		return nil
 	}
-	return rewriteJDForDirectAccess(output, ec2HostIP)
-}
-
-func rewriteJDForDirectAccess(output *jd.Output, ec2HostIP string) error {
 	if output.ExternalGRPCUrl != "" {
 		rewritten, err := rewriteAddressHost(output.ExternalGRPCUrl, ec2HostIP)
 		if err != nil {

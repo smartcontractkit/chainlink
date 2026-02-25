@@ -3,6 +3,7 @@ package environment
 import (
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -63,4 +64,15 @@ func TestHasRemoteComponents(t *testing.T) {
 			require.Equalf(t, tt.want, got, "expected hasRemoteComponents() to return %v", tt.want)
 		})
 	}
+}
+
+func TestResolveRemoteRuntimeForSetupSkipsResolutionWhenNoRemoteComponents(t *testing.T) {
+	runtime, err := resolveRemoteRuntimeForSetup(
+		zerolog.Nop(),
+		[]*config.Blockchain{{Placement: config.PlacementLocal}},
+		&config.JobDistributor{Placement: config.PlacementLocal},
+		[]*cre.NodeSet{{Placement: "local"}},
+	)
+	require.NoError(t, err)
+	require.Nil(t, runtime, "expected nil runtime when no remote components are configured")
 }

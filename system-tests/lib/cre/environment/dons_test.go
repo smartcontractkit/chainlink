@@ -1,16 +1,13 @@
 package environment
 
 import (
-	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/stretchr/testify/require"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildRemoteNodeSetInputRequiresImageOrBuildFields(t *testing.T) {
@@ -94,116 +91,6 @@ func TestRewriteRemoteNodeSetOutputForLocalAccess_InvalidNodeExternalURLFails(t 
 	err := rewriteRemoteNodeSetOutputForLocalAccess(topology, 0, nodeSet, output, "203.0.113.10")
 	require.Error(t, err, "expected invalid node external URL to fail rewrite")
 	require.Contains(t, err.Error(), "failed to parse url", "expected parse failure context")
-}
-
-func TestParseCustomPortMapping(t *testing.T) {
-	t.Run("valid mapping", func(t *testing.T) {
-		hostPort, containerPort, err := parseCustomPortMapping("127.0.0.1:18080:8080")
-		require.NoError(t, err, "expected valid mapping to parse")
-		require.Equal(t, 18080, hostPort)
-		require.Equal(t, 8080, containerPort)
-	})
-
-	t.Run("missing separator", func(t *testing.T) {
-		_, _, err := parseCustomPortMapping("8080")
-		require.Error(t, err, "expected malformed mapping to fail")
-		require.Contains(t, err.Error(), "expected hostPort:containerPort")
-	})
-
-	t.Run("invalid host port", func(t *testing.T) {
-		_, _, err := parseCustomPortMapping("bad:8080")
-		require.Error(t, err, "expected invalid host port to fail")
-		require.Contains(t, err.Error(), "invalid host port")
-	})
-
-	t.Run("invalid container port", func(t *testing.T) {
-		_, _, err := parseCustomPortMapping("18080:bad")
-		require.Error(t, err, "expected invalid container port to fail")
-		require.Contains(t, err.Error(), "invalid container port")
-	})
-}
-
-func TestNodeSetResolveURLPort(t *testing.T) {
-	tests := []struct {
-		name      string
-		rawURL    string
-		wantPort  int
-		wantError string
-	}{
-		{name: "explicit port", rawURL: "http://node:1234", wantPort: 1234},
-		{name: "http default", rawURL: "http://node", wantPort: 80},
-		{name: "https default", rawURL: "https://node", wantPort: 443},
-		{name: "unsupported scheme without port", rawURL: "tcp://node", wantError: "unsupported scheme"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parsed, err := url.Parse(tt.rawURL)
-			require.NoError(t, err, "test setup should parse URL")
-			port, err := nodeSetResolveURLPort(parsed)
-			if tt.wantError != "" {
-				require.Error(t, err, "expected port resolution failure")
-				require.Contains(t, err.Error(), tt.wantError)
-				return
-			}
-			require.NoError(t, err, "expected port resolution success")
-			require.Equal(t, tt.wantPort, port)
-		})
-	}
-}
-
-func TestNodeSetEndpointFromURL(t *testing.T) {
-	ref, err := nodeSetEndpointFromURL("nodeset:workflow", "node-0-api", "http://node-0:8081")
-	require.NoError(t, err, "expected endpoint ref to parse")
-	require.Equal(t, "nodeset:workflow", ref.ComponentID)
-	require.Equal(t, "node-0-api", ref.EndpointName)
-	require.Equal(t, "http", ref.Scheme)
-	require.Equal(t, "node-0", ref.Host)
-	require.Equal(t, 8081, ref.Port)
-
-	ref, err = nodeSetEndpointFromURL("nodeset:workflow", "node-0-api", "   ")
-	require.NoError(t, err, "expected blank URL to be ignored")
-	require.Nil(t, ref, "expected nil endpoint for blank URL")
-
-	_, err = nodeSetEndpointFromURL("nodeset:workflow", "node-0-api", "http://")
-	require.Error(t, err, "expected empty hostname to fail")
-	require.Contains(t, err.Error(), "empty hostname")
-}
-
-func TestGatewayLocalPortFromBindings(t *testing.T) {
-	bindings := []tunnel.TunnelBinding{
-		{EndpointRef: tunnel.EndpointRef{EndpointName: "node-0-custom-0-5002"}, LocalPort: 22002},
-		{EndpointRef: tunnel.EndpointRef{EndpointName: "node-1-custom-0-5002"}, LocalPort: 22012},
-	}
-
-	port, ok := gatewayLocalPortFromBindings(0, 5002, bindings)
-	require.True(t, ok, "expected matching binding")
-	require.Equal(t, 22002, port)
-
-	_, ok = gatewayLocalPortFromBindings(0, 6000, bindings)
-	require.False(t, ok, "expected non-matching container port to return false")
-}
-
-func TestRewriteGatewayIncomingForNodeSetBindings(t *testing.T) {
-	topology, nodeSet := mustBuildRemoteGatewayTopology(t)
-	nodeSet.NodeSpecs[0].Input.Node.CustomPorts = []string{"18080:5002"}
-
-	bindings := []tunnel.TunnelBinding{
-		{EndpointRef: tunnel.EndpointRef{EndpointName: "node-0-custom-0-5002"}, LocalPort: 22002},
-	}
-
-	rewriteGatewayIncomingForNodeSetBindings(topology, 0, nodeSet, bindings)
-	cfg := topology.GatewayConnectors.Configurations[0].GatewayConfiguration
-	require.Equal(t, "127.0.0.1", cfg.Incoming.Host, "incoming host should be local during binding mode")
-	require.Equal(t, 22002, cfg.Incoming.ExternalPort, "incoming external port should be rewritten from binding")
-}
-
-func TestRewriteCustomPortMappingHostPort(t *testing.T) {
-	rewritten := rewriteCustomPortMappingHostPort("127.0.0.1:18080:8080", 22080)
-	require.Equal(t, "127.0.0.1:22080:8080", rewritten)
-
-	unchanged := rewriteCustomPortMappingHostPort("bad", 22080)
-	require.True(t, strings.EqualFold("bad", unchanged), "malformed mapping should remain unchanged")
 }
 
 func mustBuildRemoteGatewayTopology(t *testing.T) (*cre.Topology, *cre.NodeSet) {
