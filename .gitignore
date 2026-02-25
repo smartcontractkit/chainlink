@@ -129,4 +129,4 @@ core/scripts/cre/environment/binaries/*
 *.br.b64
 
 # TODO remove later
-system-tests/lib/cre/environment/agent/cre_agent
+system-tests/lib/cre/environment/remoteexec/agent/cre_agent

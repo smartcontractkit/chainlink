@@ -277,10 +277,45 @@ For more details on the URL resolution process and how workflow artifacts are ha
 # while in core/scripts/cre/environment
 go run . env stop
 
+# stop remote components only
+go run . env stop-remote
+
+# stop remote first, then local resources and local services
+go run . env stop-all
+
 # or... if you have the CTF binary
 ctf d rm
 ```
 ---
+
+## Hybrid Remote Execution Quick Reference
+
+Remote execution uses a single direct mode with an EC2-hosted (or equivalent) CRE agent API.
+
+Environment variable precedence for agent resolution:
+
+1. `CRE_EC2_AGENT_URL` (explicit override, if set)
+2. `CRE_EC2_INSTANCE_ID` + `CRE_EC2_AGENT_PORT` + AWS profile/credentials resolution
+3. `CRE_EC2_AGENT_PORT` defaults to `8080` when omitted
+
+Stop command semantics:
+
+- `env stop`: local resources only; does not stop remote components.
+- `env stop-remote`: remote resources only through the remote agent.
+- `env stop-all`: remote stop followed by local stop.
+
+If `env stop` warns about remote components still running, run `env stop-remote`.
+
+Architecture ownership and boundaries are documented in:
+- [`docs/ARCHITECTURE_REMOTEEXEC.md`](./docs/ARCHITECTURE_REMOTEEXEC.md)
+
+Mixed-mode verification checklist:
+
+1. Start with a mixed config (`local` + `remote` placements).
+2. Confirm startup output includes `Runtime Placement Matrix`.
+3. Deploy a workflow/artifact and verify remote delivery path succeeds.
+4. Run `env stop-remote` and verify remote stop summary reports requested/stopped counts.
+5. Run `env stop-all` and verify no local containers/state remain.
 
 ## Restarting the environment
 
@@ -734,7 +769,8 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
      # regenerate topology docs
      go run . topology generate
      ```
-   - `env start` now prints a compact topology summary with a capability matrix.
+  - `env start` prints a compact topology summary with a capability matrix.
+  - A runtime placement matrix (what runs local vs remote) is shown only when at least one component is configured with `placement = "remote"`.
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
    - If your use case requires them, you should build them manually by:

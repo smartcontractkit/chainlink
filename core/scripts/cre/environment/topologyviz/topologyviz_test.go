@@ -7,7 +7,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 func TestClassifyTopology_UsesDONTypesAndShardIndex(t *testing.T) {
@@ -116,6 +120,41 @@ func TestRenderASCII_IncludesDONHeadersAndNoHint(t *testing.T) {
 	require.Contains(t, rendered, "workflow DON")
 	require.Contains(t, rendered, "capabilities DON")
 	require.Contains(t, rendered, "Attributes")
+}
+
+func TestBuildSummary_PlacementMatrixShownOnlyForRemoteComponents(t *testing.T) {
+	t.Parallel()
+
+	localCfg := &envconfig.Config{
+		Blockchains: []*envconfig.Blockchain{
+			{Input: blockchain.Input{Type: blockchain.TypeAnvil, ChainID: "1337"}, Placement: envconfig.PlacementLocal},
+		},
+		JD:       &envconfig.JobDistributor{Input: jd.Input{}, Placement: envconfig.PlacementLocal},
+		NodeSets: []*cre.NodeSet{{Input: &ns.Input{Name: "workflow"}, Placement: "local"}},
+	}
+	localSummary, err := BuildSummary(localCfg, "configs/local.toml")
+	require.NoError(t, err)
+	require.NotNil(t, localSummary.Placement)
+	require.False(t, localSummary.Placement.HasRemote)
+	require.NotContains(t, RenderASCIIStartSummary(localSummary), "Runtime Placement Matrix")
+
+	mixedCfg := &envconfig.Config{
+		Blockchains: []*envconfig.Blockchain{
+			{Input: blockchain.Input{Type: blockchain.TypeAnvil, ChainID: "1337"}, Placement: envconfig.PlacementRemote},
+			{Input: blockchain.Input{Type: blockchain.TypeAnvil, ChainID: "2337"}, Placement: envconfig.PlacementLocal},
+		},
+		JD:       &envconfig.JobDistributor{Input: jd.Input{}, Placement: envconfig.PlacementRemote},
+		NodeSets: []*cre.NodeSet{{Input: &ns.Input{Name: "workflow"}, Placement: "local"}, {Input: &ns.Input{Name: "capabilities"}, Placement: "remote"}},
+	}
+	mixedSummary, err := BuildSummary(mixedCfg, "configs/mixed.toml")
+	require.NoError(t, err)
+	require.NotNil(t, mixedSummary.Placement)
+	require.True(t, mixedSummary.Placement.HasRemote)
+
+	rendered := RenderASCIIStartSummary(mixedSummary)
+	require.Contains(t, rendered, "Runtime Placement Matrix")
+	require.Contains(t, rendered, "nodeset:capabilities")
+	require.Contains(t, rendered, "jd")
 }
 
 func TestRenderMarkdown_DropsInferredUsageSections(t *testing.T) {

@@ -40,10 +40,22 @@ type DONSummary struct {
 }
 
 type TopologySummary struct {
-	ConfigRef string       `json:"config_ref"`
-	Topology  string       `json:"topology"`
-	InfraType string       `json:"infra_type"`
-	DONs      []DONSummary `json:"dons"`
+	ConfigRef string            `json:"config_ref"`
+	Topology  string            `json:"topology"`
+	InfraType string            `json:"infra_type"`
+	DONs      []DONSummary      `json:"dons"`
+	Placement *PlacementSummary `json:"placement,omitempty"`
+}
+
+type PlacementSummary struct {
+	HasRemote bool           `json:"has_remote"`
+	Rows      []PlacementRow `json:"rows,omitempty"`
+}
+
+type PlacementRow struct {
+	Component string `json:"component"`
+	Local     bool   `json:"local"`
+	Remote    bool   `json:"remote"`
 }
 
 type Artifacts struct {
@@ -81,6 +93,7 @@ func BuildSummary(cfg *envconfig.Config, configRef string) (*TopologySummary, er
 		Topology:  topologyClass,
 		InfraType: infraType,
 		DONs:      dons,
+		Placement: buildPlacementSummary(cfg),
 	}, nil
 }
 
@@ -119,6 +132,10 @@ func RenderASCII(summary *TopologySummary) string {
 	b.WriteString(RenderASCIIDONTable(summary))
 	b.WriteString("\n")
 	b.WriteString(RenderASCIICapabilityMatrix(summary))
+	if summary.Placement != nil && summary.Placement.HasRemote {
+		b.WriteString("\n")
+		b.WriteString(RenderASCIIPlacementMatrix(summary.Placement))
+	}
 
 	return b.String()
 }
@@ -127,6 +144,42 @@ func RenderASCIIStartSummary(summary *TopologySummary) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Topology: %s (%s)\n", summary.ConfigRef, summary.Topology))
 	b.WriteString(RenderASCIICapabilityMatrix(summary))
+	if summary.Placement != nil && summary.Placement.HasRemote {
+		b.WriteString("\n")
+		b.WriteString(RenderASCIIPlacementMatrix(summary.Placement))
+	}
+	return b.String()
+}
+
+func RenderASCIIPlacementMatrix(summary *PlacementSummary) string {
+	if summary == nil || !summary.HasRemote || len(summary.Rows) == 0 {
+		return ""
+	}
+
+	headers := []string{"Component", "local", "remote"}
+	widths := []int{len(headers[0]), len(headers[1]), len(headers[2])}
+	for _, row := range summary.Rows {
+		if len(row.Component) > widths[0] {
+			widths[0] = len(row.Component)
+		}
+	}
+
+	var b strings.Builder
+	b.WriteString("Runtime Placement Matrix\n")
+	b.WriteString(buildBorder(widths))
+	b.WriteString(buildRow(headers, widths))
+	b.WriteString(buildBorder(widths))
+	for _, row := range summary.Rows {
+		values := []string{row.Component, "-", "-"}
+		if row.Local {
+			values[1] = "x"
+		}
+		if row.Remote {
+			values[2] = "x"
+		}
+		b.WriteString(buildRow(values, widths))
+	}
+	b.WriteString(buildBorder(widths))
 	return b.String()
 }
 
@@ -253,6 +306,25 @@ func RenderMarkdown(summary *TopologySummary) string {
 	}
 	b.WriteString("\n")
 
+	if summary.Placement != nil && summary.Placement.HasRemote {
+		b.WriteString("## Runtime Placement Matrix\n\n")
+		b.WriteString("Only shown when at least one component is configured as `remote`.\n\n")
+		b.WriteString("| Component | local | remote |\n")
+		b.WriteString("|---|---:|---:|\n")
+		for _, row := range summary.Placement.Rows {
+			local := "-"
+			remote := "-"
+			if row.Local {
+				local = "x"
+			}
+			if row.Remote {
+				remote = "x"
+			}
+			b.WriteString(fmt.Sprintf("| `%s` | `%s` | `%s` |\n", row.Component, local, remote))
+		}
+		b.WriteString("\n")
+	}
+
 	b.WriteString("## DONs\n\n")
 	for _, don := range summary.DONs {
 		b.WriteString(fmt.Sprintf("### `%s`\n\n", don.Name))
@@ -376,6 +448,63 @@ func buildCapabilityMatrix(dons []DONSummary) []capabilityMatrixRow {
 	}
 
 	return rows
+}
+
+func buildPlacementSummary(cfg *envconfig.Config) *PlacementSummary {
+	if cfg == nil {
+		return &PlacementSummary{}
+	}
+	rows := make([]PlacementRow, 0)
+	hasRemote := false
+
+	for _, bc := range cfg.Blockchains {
+		if bc == nil {
+			continue
+		}
+		component := fmt.Sprintf("blockchain:%s:%s", bc.Type, bc.ChainID)
+		row := PlacementRow{Component: component, Local: bc.Placement == envconfig.PlacementLocal, Remote: bc.Placement == envconfig.PlacementRemote}
+		if row.Remote {
+			hasRemote = true
+		}
+		rows = append(rows, row)
+	}
+
+	if cfg.JD != nil {
+		row := PlacementRow{
+			Component: "jd",
+			Local:     cfg.JD.Placement == envconfig.PlacementLocal,
+			Remote:    cfg.JD.Placement == envconfig.PlacementRemote,
+		}
+		if row.Remote {
+			hasRemote = true
+		}
+		rows = append(rows, row)
+	}
+
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet == nil {
+			continue
+		}
+		isRemote := strings.EqualFold(strings.TrimSpace(nodeSet.Placement), string(envconfig.PlacementRemote))
+		row := PlacementRow{
+			Component: "nodeset:" + nodeSet.Name,
+			Local:     !isRemote,
+			Remote:    isRemote,
+		}
+		if row.Remote {
+			hasRemote = true
+		}
+		rows = append(rows, row)
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].Component < rows[j].Component
+	})
+
+	return &PlacementSummary{
+		HasRemote: hasRemote,
+		Rows:      rows,
+	}
 }
 
 func buildBorder(widths []int) string {
