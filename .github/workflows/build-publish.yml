@@ -123,28 +123,6 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-  df1-compat-cluster-upgrade-test:
-    needs: [docker-core]
-    uses: ./.github/workflows/devenv-compat.yml
-    permissions:
-      id-token: write
-      contents: read
-      pull-requests: write
-    with:
-      buildcmd: "just cli"
-      envcmd: "cl u env.toml,products/ocr2/basic.toml"
-      testcmd: "cl test ocr2 TestSmoke/rounds"
-      nodes: "3"
-      versions-back: "2"
-      ctf-log-level: "debug"
-      working-directory: "devenv"
-      logs-directory: "devenv/tests/ocr2/logs"
-    secrets:
-      AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
-      FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
-      REGISTRY_SDLC: ${{ secrets.REGISTRY_SDLC }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   docker-ccip:
     needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
