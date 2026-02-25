@@ -66,6 +66,77 @@ func TestResolveGatewayConnectorURL_RemoteHostOverride(t *testing.T) {
 	require.Equal(t, "ws://203.0.113.22:5003/node", gotURL, "unexpected gateway connector URL")
 }
 
+func TestResolveNodeFacingBootstrapAddress_PlacementMatrix(t *testing.T) {
+	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+
+	tests := []struct {
+		name               string
+		callerPlacement    string
+		bootstrapPlacement string
+		bootstrapHost      string
+		internalPort       int
+		externalPort       int
+		remoteHostIP       string
+		want               string
+	}{
+		{
+			name:               "local caller local bootstrap uses internal host",
+			callerPlacement:    "local",
+			bootstrapPlacement: "local",
+			bootstrapHost:      "bootstrap-node",
+			internalPort:       5001,
+			externalPort:       15001,
+			remoteHostIP:       "203.0.113.10",
+			want:               "bootstrap-node:5001",
+		},
+		{
+			name:               "local caller remote bootstrap uses external host override",
+			callerPlacement:    "local",
+			bootstrapPlacement: "remote",
+			bootstrapHost:      "bootstrap-node",
+			internalPort:       5001,
+			externalPort:       15001,
+			remoteHostIP:       "203.0.113.10",
+			want:               "203.0.113.10:15001",
+		},
+		{
+			name:               "remote caller local bootstrap uses docker host external",
+			callerPlacement:    "remote",
+			bootstrapPlacement: "local",
+			bootstrapHost:      "bootstrap-node",
+			internalPort:       5001,
+			externalPort:       15001,
+			remoteHostIP:       "203.0.113.10",
+			want:               strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":5001",
+		},
+		{
+			name:               "remote caller remote bootstrap uses internal host",
+			callerPlacement:    "remote",
+			bootstrapPlacement: "remote",
+			bootstrapHost:      "bootstrap-node",
+			internalPort:       5001,
+			externalPort:       15001,
+			remoteHostIP:       "203.0.113.10",
+			want:               "bootstrap-node:5001",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveNodeFacingBootstrapAddress(
+				tt.callerPlacement,
+				tt.bootstrapPlacement,
+				tt.bootstrapHost,
+				tt.internalPort,
+				tt.externalPort,
+				tt.remoteHostIP,
+			)
+			require.NoError(t, err, "resolveNodeFacingBootstrapAddress should not fail")
+			require.Equal(t, tt.want, got, "unexpected resolved bootstrap address")
+		})
+	}
+}
+
 func mustBuildGatewayTopology(t *testing.T, targetPlacement string) (*cre.Topology, *cre.DonGatewayConfiguration) {
 	t.Helper()
 

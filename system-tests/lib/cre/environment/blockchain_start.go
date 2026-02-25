@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/url"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -67,28 +65,31 @@ func startBlockchains(
 		var deployedOutput *blockchain.Output
 
 		if configured.Placement == config.PlacementRemote {
-			if err := validateRemoteBlockchainInput(input); err != nil {
-				return nil, err
-			}
-			payload := agent.StartComponentPayload{
-				ComponentType: remoteclient.ComponentTypeBlockchain,
-				Blockchain:    input,
-				ReusePolicy:   string(configured.RemoteStartPolicy),
-			}
-			deployedOutput, err = remoteclient.StartRemoteComponent[blockchain.Output](
+			deployedOutput, err = remoteclient.StartWithRuntimeDescriptor(
 				ctx,
 				testLogger,
-				remoteRuntime.Client,
-				payload,
-				remoteclient.ComponentTypeBlockchain,
+				remoteRuntime,
+				remoteclient.StartDescriptor[blockchain.Output]{
+					ComponentType: remoteclient.ComponentTypeBlockchain,
+					BuildPayload: func() (agent.StartComponentPayload, error) {
+						if err := validateRemoteBlockchainInput(input); err != nil {
+							return agent.StartComponentPayload{}, err
+						}
+						return agent.StartComponentPayload{
+							ComponentType: remoteclient.ComponentTypeBlockchain,
+							Blockchain:    input,
+							ReusePolicy:   string(configured.RemoteStartPolicy),
+						}, nil
+					},
+					Rewrite: func(output *blockchain.Output, ec2HostIP string) error {
+						if rewriteInternalForLocalNodes {
+							// direct mode keeps internal URLs unchanged
+						}
+						return rewriteRemoteBlockchainOutputForDirectAccess(output, ec2HostIP)
+					},
+				},
 			)
 			if err != nil {
-				return nil, err
-			}
-			if rewriteInternalForLocalNodes {
-				// direct mode keeps internal URLs unchanged
-			}
-			if err := rewriteRemoteBlockchainOutputForDirectAccess(deployedOutput, remoteRuntime.EC2HostIP); err != nil {
 				return nil, err
 			}
 		} else {
@@ -147,17 +148,4 @@ func rewriteRemoteBlockchainOutputForDirectAccess(output *blockchain.Output, ec2
 		}
 	}
 	return nil
-}
-
-func rewriteURLHost(rawURL, host string) (string, error) {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse url %q: %w", rawURL, err)
-	}
-	if parsed.Port() != "" {
-		parsed.Host = net.JoinHostPort(host, parsed.Port())
-		return parsed.String(), nil
-	}
-	parsed.Host = host
-	return parsed.String(), nil
 }

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/url"
 	"strings"
 	"time"
 
@@ -77,26 +75,24 @@ func StartJD(
 
 	switch {
 	case jdConfig.Placement == config.PlacementRemote:
-		if remoteRuntime == nil {
-			return nil, errors.New("remote runtime is required when starting remote jd")
-		}
-		payload := agent.StartComponentPayload{
-			ComponentType: remoteclient.ComponentTypeJD,
-			JD:            jdConfig.InputRef(),
-			ReusePolicy:   string(jdConfig.RemoteStartPolicy),
-		}
-		jdOutput, jdErr = remoteclient.StartRemoteComponent[jd.Output](
+		jdOutput, jdErr = remoteclient.StartWithRuntimeDescriptor(
 			ctx,
 			lggr,
-			remoteRuntime.Client,
-			payload,
-			remoteclient.ComponentTypeJD,
+			remoteRuntime,
+			remoteclient.StartDescriptor[jd.Output]{
+				ComponentType: remoteclient.ComponentTypeJD,
+				BuildPayload: func() (agent.StartComponentPayload, error) {
+					return agent.StartComponentPayload{
+						ComponentType: remoteclient.ComponentTypeJD,
+						JD:            jdConfig.InputRef(),
+						ReusePolicy:   string(jdConfig.RemoteStartPolicy),
+					}, nil
+				},
+				Rewrite: rewriteJDForDirectAccess,
+			},
 		)
 		if jdErr != nil {
 			return nil, jdErr
-		}
-		if err := rewriteJDForDirectAccess(jdOutput, remoteRuntime.EC2HostIP); err != nil {
-			return nil, err
 		}
 	case infraInput.IsKubernetes():
 		// For Kubernetes, JD is already running in the cluster, generate service URLs
@@ -173,28 +169,4 @@ func rewriteJDForDirectAccess(output *jd.Output, ec2HostIP string) error {
 		output.ExternalWSRPCUrl = rewritten
 	}
 	return nil
-}
-
-func rewriteAddressHost(rawAddress, host string) (string, error) {
-	trimmed := strings.TrimSpace(rawAddress)
-	if trimmed == "" {
-		return "", nil
-	}
-	if strings.Contains(trimmed, "://") {
-		parsed, err := url.Parse(trimmed)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse address %q: %w", rawAddress, err)
-		}
-		port := parsed.Port()
-		if port == "" {
-			return "", fmt.Errorf("address %q must include a port", rawAddress)
-		}
-		parsed.Host = net.JoinHostPort(host, port)
-		return parsed.String(), nil
-	}
-	_, port, err := net.SplitHostPort(trimmed)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse host:port %q: %w", rawAddress, err)
-	}
-	return net.JoinHostPort(host, port), nil
 }

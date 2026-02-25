@@ -123,7 +123,7 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		ExecuteDonTimeTest(t, testEnv)
 	})
 	t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
-		t.Skip()
+		// t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteConsensusTest(t, testEnv)

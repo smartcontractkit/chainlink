@@ -45,3 +45,24 @@ func TestRewriteReconstructedGatewayIncomingHosts_LocalGatewayNoop(t *testing.T)
 		"expected local gateway incoming host to remain unchanged",
 	)
 }
+
+func TestRewriteReconstructedGatewayIncomingHosts_RewritesOnlyRemoteNodeSets(t *testing.T) {
+	remoteTopology, remoteNodeSet := mustBuildRemoteGatewayTopology(t)
+	localTopology, localNodeSet := mustBuildRemoteGatewayTopology(t)
+	localNodeSet.Placement = string(config.PlacementLocal)
+	// Preserve the remote topology gateway config and append a local-only gateway config.
+	remoteTopology.GatewayConnectors.Configurations = append(
+		remoteTopology.GatewayConnectors.Configurations,
+		localTopology.GatewayConnectors.Configurations[0],
+	)
+
+	cfg := &config.Config{
+		NodeSets: []*cre.NodeSet{remoteNodeSet, localNodeSet},
+	}
+	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.77")
+
+	err := rewriteReconstructedGatewayIncomingHosts(cfg, remoteTopology)
+	require.NoError(t, err, "expected mixed reconstruction rewrite to succeed")
+	require.Equal(t, "203.0.113.77", remoteTopology.GatewayConnectors.Configurations[0].Incoming.Host, "expected remote gateway incoming host rewrite")
+	require.Equal(t, "bootstrap-gateway-node0", remoteTopology.GatewayConnectors.Configurations[1].Incoming.Host, "expected local gateway incoming host to remain unchanged")
+}

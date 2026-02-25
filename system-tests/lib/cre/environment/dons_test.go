@@ -102,7 +102,7 @@ func TestRewriteRemoteNodeSetOutputForLocalAccess_InvalidNodeExternalURLFails(t 
 
 	err := rewriteRemoteNodeSetOutputForLocalAccess(output, "203.0.113.10")
 	require.Error(t, err, "expected invalid node external URL to fail rewrite")
-	require.Contains(t, err.Error(), "failed to parse url", "expected parse failure context")
+	require.Contains(t, err.Error(), "failed to parse address", "expected parse failure context")
 }
 
 func mustBuildRemoteGatewayTopology(t *testing.T) (*cre.Topology, *cre.NodeSet) {

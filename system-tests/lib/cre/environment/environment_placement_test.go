@@ -67,12 +67,31 @@ func TestHasRemoteComponents(t *testing.T) {
 }
 
 func TestResolveRemoteRuntimeForSetupSkipsResolutionWhenNoRemoteComponents(t *testing.T) {
-	runtime, err := resolveRemoteRuntimeForSetup(
-		zerolog.Nop(),
+	execPlan, planErr := buildExecutionPlan(
 		[]*config.Blockchain{{Placement: config.PlacementLocal}},
 		&config.JobDistributor{Placement: config.PlacementLocal},
 		[]*cre.NodeSet{{Placement: "local"}},
 	)
+	require.NoError(t, planErr)
+
+	runtime, err := resolveRemoteRuntimeForSetup(
+		zerolog.Nop(),
+		execPlan,
+	)
 	require.NoError(t, err)
 	require.Nil(t, runtime, "expected nil runtime when no remote components are configured")
+}
+
+func TestBuildExecutionPlanIncludesPlacementAndRemoteFlags(t *testing.T) {
+	execPlan, err := buildExecutionPlan(
+		[]*config.Blockchain{{Placement: config.PlacementRemote}},
+		&config.JobDistributor{Placement: config.PlacementLocal},
+		[]*cre.NodeSet{{Placement: "local"}, {Placement: "remote"}},
+	)
+	require.NoError(t, err, "expected execution plan build to succeed")
+	require.NotNil(t, execPlan, "expected non-nil execution plan")
+	require.NotNil(t, execPlan.NodeSetPlacement, "expected nodeset placement summary")
+	require.True(t, execPlan.NodeSetPlacement.HasLocalTargets, "expected local nodeset placement")
+	require.True(t, execPlan.NodeSetPlacement.HasRemoteTargets, "expected remote nodeset placement")
+	require.True(t, execPlan.HasRemoteComponents, "expected remote components flag")
 }

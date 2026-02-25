@@ -306,34 +306,32 @@ func startNodeSet(
 	}
 
 	if strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
-		if remoteRuntime == nil {
-			return nil, errors.New("remote runtime is required for remote nodeset placement")
-		}
-		registryChainPayload, err := agent.EncodeForTransport(registryChainBlockchainOutput)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to encode registry blockchain payload for remote nodeset start")
-		}
-		remoteInput, err := buildRemoteNodeSetInput(nodeSet)
-		if err != nil {
-			return nil, err
-		}
-		payload := agent.StartComponentPayload{
-			ComponentType:      remoteclient.ComponentTypeNodeSet,
-			NodeSet:            remoteInput,
-			RegistryBlockchain: registryChainPayload,
-			ReusePolicy:        nodeSetRemoteStartPolicy(nodeSet),
-		}
-		nodeset, err := remoteclient.StartRemoteComponent[ns.Output](
+		nodeset, err := remoteclient.StartWithRuntimeDescriptor(
 			ctx,
 			lggr,
-			remoteRuntime.Client,
-			payload,
-			remoteclient.ComponentTypeNodeSet,
+			remoteRuntime,
+			remoteclient.StartDescriptor[ns.Output]{
+				ComponentType: remoteclient.ComponentTypeNodeSet,
+				BuildPayload: func() (agent.StartComponentPayload, error) {
+					registryChainPayload, err := agent.EncodeForTransport(registryChainBlockchainOutput)
+					if err != nil {
+						return agent.StartComponentPayload{}, pkgerrors.Wrap(err, "failed to encode registry blockchain payload for remote nodeset start")
+					}
+					remoteInput, err := buildRemoteNodeSetInput(nodeSet)
+					if err != nil {
+						return agent.StartComponentPayload{}, err
+					}
+					return agent.StartComponentPayload{
+						ComponentType:      remoteclient.ComponentTypeNodeSet,
+						NodeSet:            remoteInput,
+						RegistryBlockchain: registryChainPayload,
+						ReusePolicy:        nodeSetRemoteStartPolicy(nodeSet),
+					}, nil
+				},
+				Rewrite: rewriteRemoteNodeSetOutputForLocalAccess,
+			},
 		)
 		if err != nil {
-			return nil, err
-		}
-		if err := rewriteRemoteNodeSetOutputForLocalAccess(nodeset, remoteRuntime.EC2HostIP); err != nil {
 			return nil, err
 		}
 		return nodeset, nil

@@ -133,11 +133,8 @@ func SetupTestEnvironment(
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
-	nodeSetPlacement, err := summarizeNodeSetPlacement(input.NodeSets)
+	execPlan, err := buildExecutionPlan(input.Blockchains, input.JdInput, input.NodeSets)
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "nodeset placement validation failed")
-	}
-	if err := validateUnsupportedPlacements(input.Blockchains, nodeSetPlacement); err != nil {
 		return nil, pkgerrors.Wrap(err, "invalid component placement")
 	}
 
@@ -146,7 +143,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
 	}
 
-	remoteRuntime, err := resolveRemoteRuntimeForSetup(testLogger, input.Blockchains, input.JdInput, input.NodeSets)
+	remoteRuntime, err := resolveRemoteRuntimeForSetup(testLogger, execPlan)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to resolve remote runtime settings")
 	}
@@ -161,7 +158,7 @@ func SetupTestEnvironment(
 		input.Blockchains,
 		input.BlockchainDeployers,
 		remoteRuntime,
-		nodeSetPlacement.HasLocalTargets,
+		execPlan.NodeSetPlacement.HasLocalTargets,
 	)
 	if startErr != nil {
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
@@ -200,6 +197,10 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
+	remoteHostIP := ""
+	if remoteRuntime != nil {
+		remoteHostIP = remoteRuntime.EC2HostIP
+	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
@@ -207,7 +208,7 @@ func SetupTestEnvironment(
 		creEnvironment,
 		input.NodeSets,
 		input.Blockchains,
-		remoteHostIP(remoteRuntime),
+		remoteHostIP,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -455,13 +456,6 @@ func SetupTestEnvironment(
 	}, nil
 }
 
-func remoteHostIP(runtime *remoteclient.Runtime) string {
-	if runtime == nil {
-		return ""
-	}
-	return runtime.EC2HostIP
-}
-
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
@@ -478,30 +472,11 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput,
 	input.JdInput.Out = jdOutput
 }
 
-func hasRemoteComponents(blockchains []*config.Blockchain, jdInput *config.JobDistributor, nodeSets []*cre.NodeSet) bool {
-	for _, configuredBlockchain := range blockchains {
-		if configuredBlockchain != nil && configuredBlockchain.Placement == config.PlacementRemote {
-			return true
-		}
-	}
-	if jdInput != nil && jdInput.Placement == config.PlacementRemote {
-		return true
-	}
-	for _, nodeSet := range nodeSets {
-		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
-			return true
-		}
-	}
-	return false
-}
-
 func resolveRemoteRuntimeForSetup(
 	testLogger zerolog.Logger,
-	blockchains []*config.Blockchain,
-	jdInput *config.JobDistributor,
-	nodeSets []*cre.NodeSet,
+	execPlan *executionPlan,
 ) (*remoteclient.Runtime, error) {
-	if !hasRemoteComponents(blockchains, jdInput, nodeSets) {
+	if execPlan == nil || !execPlan.HasRemoteComponents {
 		return nil, nil
 	}
 	runtimeInput, err := resolveRemoteRuntimeInput()
@@ -528,53 +503,6 @@ func resolveRemoteRuntimeInput() (remoteclient.RuntimeInput, error) {
 	}
 	input.EC2HostIP = ec2HostIP
 	return input, nil
-}
-
-type nodeSetPlacementSummary struct {
-	HasLocalTargets  bool
-	HasRemoteTargets bool
-}
-
-func summarizeNodeSetPlacement(nodeSets []*cre.NodeSet) (*nodeSetPlacementSummary, error) {
-	summary := &nodeSetPlacementSummary{}
-	for _, nodeSet := range nodeSets {
-		if nodeSet == nil {
-			continue
-		}
-		configPlacement := strings.TrimSpace(nodeSet.Placement)
-		if configPlacement == "" || configPlacement == string(config.PlacementLocal) {
-			summary.HasLocalTargets = true
-			continue
-		}
-		if configPlacement == string(config.PlacementRemote) {
-			summary.HasRemoteTargets = true
-			continue
-		}
-		return nil, fmt.Errorf("invalid nodeset placement: %s", nodeSet.Placement)
-	}
-
-	return summary, nil
-}
-
-func validateUnsupportedPlacements(
-	configuredBlockchains []*config.Blockchain,
-	nodeSetPlacement *nodeSetPlacementSummary,
-) error {
-	if nodeSetPlacement == nil || !nodeSetPlacement.HasRemoteTargets {
-		return nil
-	}
-	for _, bc := range configuredBlockchains {
-		if bc == nil {
-			continue
-		}
-		if bc.Placement == config.PlacementLocal {
-			return errors.New(
-				"remote nodesets with local blockchains are not supported in this PoC. " +
-					"Set all blockchains to placement=remote, or run nodesets with placement=local so nodes stay colocated with local blockchains",
-			)
-		}
-	}
-	return nil
 }
 
 func verifyRemoteToLocalBootstrapReachability(ctx context.Context, lggr zerolog.Logger, topology *cre.Topology) error {
