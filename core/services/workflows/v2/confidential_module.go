@@ -46,12 +46,14 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 }
 
 // IsConfidential returns true if the Attributes JSON has "confidential": true.
-func IsConfidential(data []byte) bool {
+// Returns an error if the attributes contain malformed JSON, so callers can
+// fail loudly rather than silently falling through to non-confidential execution.
+func IsConfidential(data []byte) (bool, error) {
 	attrs, err := ParseWorkflowAttributes(data)
 	if err != nil {
-		return false
+		return false, err
 	}
-	return attrs.Confidential
+	return attrs.Confidential, nil
 }
 
 // ConfidentialModule implements host.ModuleV2 for confidential workflows.
