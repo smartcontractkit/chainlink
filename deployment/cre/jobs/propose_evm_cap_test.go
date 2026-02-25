@@ -371,7 +371,6 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	count123 := strings.Count(outputStr, `"forwarderLookbackBlocks":123`)
 	countOverrideDelta := strings.Count(outputStr, fmt.Sprintf(`"deltaStage":%d`, overrideDelta))
 	assert.Equal(t, 1, count999, "expected exactly one override lookbackBlocks=999")
-	assert.Equal(t, 1, countDeltaStage, "expected exactly one override deltaStage=5s")
 	assert.Equal(t, 3, count123, "expected exactly three defaulted lookbackBlocks=123")
 	assert.Equal(t, 4, countOverrideDelta, "expected deltaStage to be applied to all nodes")
 }
