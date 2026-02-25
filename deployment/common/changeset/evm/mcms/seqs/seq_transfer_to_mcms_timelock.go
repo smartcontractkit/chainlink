@@ -24,6 +24,8 @@ type SeqTransferToMCMSWithTimelockV2Input struct {
 	ChainSelector uint64           `json:"chainSelector"`
 	Timelock      common.Address   `json:"timelock"`
 	Contracts     []common.Address `json:"contracts"`
+
+	OnlyAcceptOwnership bool `json:"onlyacceptownership"`
 }
 
 type SeqTransferToMCMSWithTimelockV2Output struct {
@@ -54,23 +56,26 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 				continue
 			}
 
-			// Transfer Ownership
-			_, err = operations.ExecuteOperation(b, ops.OpEVMTransferOwnership,
-				ops.OpEVMOwnershipDeps{
-					Chain:    deps.Chain,
-					OwnableC: c,
-				},
-				ops.OpEVMTransferOwnershipInput{
-					ChainSelector:   in.ChainSelector,
-					TimelockAddress: in.Timelock,
-					Address:         contract,
-				},
-			)
-			if err != nil {
-				return SeqTransferToMCMSWithTimelockV2Output{}, err
+			if !in.OnlyAcceptOwnership {
+				// Transfer Ownership
+				_, err = operations.ExecuteOperation(b, ops.OpEVMTransferOwnership,
+					ops.OpEVMOwnershipDeps{
+						Chain:    deps.Chain,
+						OwnableC: c,
+					},
+					ops.OpEVMTransferOwnershipInput{
+						ChainSelector:   in.ChainSelector,
+						TimelockAddress: in.Timelock,
+						Address:         contract,
+					},
+				)
+
+				if err != nil {
+					return SeqTransferToMCMSWithTimelockV2Output{}, err
+				}
 			}
 
-			// Accept Ownership (tx data for proposal)
+			// Accept Ownership
 			opReport, err := operations.ExecuteOperation(b, ops.OpEVMAcceptOwnership,
 				ops.OpEVMOwnershipDeps{
 					Chain:    deps.Chain,
