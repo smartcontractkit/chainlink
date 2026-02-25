@@ -14,6 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
+var (
+	newJDWithContext              = jd.NewWithContext
+	newSharedDBNodeSetWithContext = ns.NewSharedDBNodeSetWithContext
+	ensureJDImagePresentFn        = ensureJDImagePresent
+)
+
 type OutputDeployer interface {
 	DeployOutput(ctx context.Context, input *blockchain.Input) (*blockchain.Output, error)
 }
@@ -57,7 +63,7 @@ func DeployJDComponent(ctx context.Context, input *jd.Input) (*jd.Output, error)
 	if input == nil {
 		return nil, pkgerrors.New("jd input is nil")
 	}
-	if err := ensureJDImagePresent(ctx, input.Image); err != nil {
+	if err := ensureJDImagePresentFn(ctx, input.Image); err != nil {
 		return nil, err
 	}
 
@@ -65,7 +71,7 @@ func DeployJDComponent(ctx context.Context, input *jd.Input) (*jd.Output, error)
 	if err != nil {
 		return nil, err
 	}
-	output, err := jd.NewWithContext(ctx, effectiveInput)
+	output, err := newJDWithContext(ctx, effectiveInput)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to deploy jd component")
 	}
@@ -80,7 +86,7 @@ func DeployNodeSetComponent(ctx context.Context, input *ns.Input, registryChain 
 		return nil, pkgerrors.New("registry blockchain output is nil")
 	}
 	inputCopy := *input
-	output, err := ns.NewSharedDBNodeSetWithContext(ctx, &inputCopy, registryChain)
+	output, err := newSharedDBNodeSetWithContext(ctx, &inputCopy, registryChain)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "failed to deploy nodeset %s", inputCopy.Name)
 	}

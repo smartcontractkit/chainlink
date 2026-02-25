@@ -3,8 +3,15 @@ package environment
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 )
+
+func TestRewriteRemoteJDOutputForLocalAccess_LocalOnlyNoop(t *testing.T) {
+	var output *jd.Output
+	err := rewriteRemoteJDOutputForLocalAccess(output, "10.20.30.40")
+	require.NoError(t, err, "expected nil output rewrite to be a no-op")
+}
 
 func TestRewriteJDForDirectAccessRewritesExternalEndpoints(t *testing.T) {
 	output := &jd.Output{
@@ -13,34 +20,45 @@ func TestRewriteJDForDirectAccessRewritesExternalEndpoints(t *testing.T) {
 		InternalWSRPCUrl: "job-distributor:8080",
 	}
 
-	if err := rewriteJDForDirectAccess(output, "10.20.30.40"); err != nil {
-		t.Fatalf("rewriteJDForDirectAccess returned error: %v", err)
-	}
-	if output.ExternalGRPCUrl != "10.20.30.40:14231" {
-		t.Fatalf("expected external grpc url to be rewritten, got %s", output.ExternalGRPCUrl)
-	}
-	if output.ExternalWSRPCUrl != "10.20.30.40:9080" {
-		t.Fatalf("expected external wsrpc url to be rewritten, got %s", output.ExternalWSRPCUrl)
-	}
-	if output.InternalWSRPCUrl != "job-distributor:8080" {
-		t.Fatalf("expected internal wsrpc url to remain unchanged, got %s", output.InternalWSRPCUrl)
-	}
+	err := rewriteJDForDirectAccess(output, "10.20.30.40")
+	require.NoError(t, err, "rewriteJDForDirectAccess should succeed")
+	require.Equal(t, "10.20.30.40:14231", output.ExternalGRPCUrl, "external grpc url should be rewritten")
+	require.Equal(t, "10.20.30.40:9080", output.ExternalWSRPCUrl, "external wsrpc url should be rewritten")
+	require.Equal(t, "job-distributor:8080", output.InternalWSRPCUrl, "internal wsrpc url should remain unchanged")
 }
 
-func TestRewriteJDForDirectAccessFallsBackToInternalWSRPCSource(t *testing.T) {
+func TestRewriteRemoteJDOutputForLocalAccess_MixedFallsBackToInternalWSRPCSource(t *testing.T) {
 	output := &jd.Output{
 		ExternalGRPCUrl:  "127.0.0.1:14231",
 		ExternalWSRPCUrl: "",
 		InternalWSRPCUrl: "job-distributor:8080",
 	}
 
-	if err := rewriteJDForDirectAccess(output, "10.20.30.40"); err != nil {
-		t.Fatalf("rewriteJDForDirectAccess returned error: %v", err)
+	err := rewriteRemoteJDOutputForLocalAccess(output, "10.20.30.40")
+	require.NoError(t, err, "rewriteRemoteJDOutputForLocalAccess should succeed")
+	require.Equal(t, "10.20.30.40:8080", output.ExternalWSRPCUrl, "external wsrpc url should be derived from internal source")
+	require.Equal(t, "job-distributor:8080", output.InternalWSRPCUrl, "internal wsrpc url should remain unchanged")
+}
+
+func TestRewriteRemoteJDOutputForLocalAccess_InvalidAddressFails(t *testing.T) {
+	output := &jd.Output{
+		ExternalGRPCUrl:  "127.0.0.1",
+		ExternalWSRPCUrl: "127.0.0.1:9080",
 	}
-	if output.ExternalWSRPCUrl != "10.20.30.40:8080" {
-		t.Fatalf("expected external wsrpc url to be derived from internal source, got %s", output.ExternalWSRPCUrl)
-	}
-	if output.InternalWSRPCUrl != "job-distributor:8080" {
-		t.Fatalf("expected internal wsrpc url to remain unchanged, got %s", output.InternalWSRPCUrl)
-	}
+
+	err := rewriteRemoteJDOutputForLocalAccess(output, "10.20.30.40")
+	require.Error(t, err, "expected invalid host:port to fail rewrite")
+	require.Contains(t, err.Error(), "failed to parse host:port", "expected parse failure context")
+}
+
+func TestRewriteAddressHost_UnsupportedURLWithoutPortFails(t *testing.T) {
+	_, err := rewriteAddressHost("http://job-distributor", "10.20.30.40")
+	require.Error(t, err, "expected address without port to fail")
+	require.Contains(t, err.Error(), "must include a port", "expected missing-port context")
+}
+
+func TestRewriteAddressHost_EmptyInputNoop(t *testing.T) {
+	rewritten, err := rewriteAddressHost("   ", "10.20.30.40")
+	require.NoError(t, err, "expected empty input to be a no-op")
+	require.Equal(t, "", rewritten, "expected empty output for empty input")
 }
