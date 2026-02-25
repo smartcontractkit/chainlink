@@ -178,6 +178,50 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 	})
 }
 
+func Test_DeleteWorkflowSpecs(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	specs := []struct {
+		id   string
+		name string
+	}{
+		{"wf-1", "Workflow 1"},
+		{"wf-2", "Workflow 2"},
+		{"wf-3", "Workflow 3"},
+	}
+	for _, s := range specs {
+		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+			Workflow:      "binary",
+			Config:        "config",
+			WorkflowID:    s.id,
+			WorkflowOwner: "owner",
+			WorkflowName:  s.name,
+			Status:        job.WorkflowSpecStatusActive,
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		})
+		require.NoError(t, err)
+	}
+
+	err := orm.DeleteWorkflowSpecs(ctx, []string{"wf-1", "wf-2"})
+	require.NoError(t, err)
+
+	_, err = orm.GetWorkflowSpec(ctx, "wf-1")
+	require.ErrorIs(t, err, sql.ErrNoRows)
+	_, err = orm.GetWorkflowSpec(ctx, "wf-2")
+	require.ErrorIs(t, err, sql.ErrNoRows)
+
+	got, err := orm.GetWorkflowSpec(ctx, "wf-3")
+	require.NoError(t, err)
+	require.Equal(t, "Workflow 3", got.WorkflowName)
+
+	// empty slice is a no-op
+	require.NoError(t, orm.DeleteWorkflowSpecs(ctx, []string{}))
+}
+
 func Test_GetWorkflowSpec(t *testing.T) {
 	t.Run("gets a workflow spec by ID", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)

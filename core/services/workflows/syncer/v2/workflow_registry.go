@@ -34,6 +34,7 @@ var (
 	defaultTickInterval          = 12 * time.Second
 	defaultRetryInterval         = 12 * time.Second
 	defaultMaxRetryInterval      = 5 * time.Minute
+	defaultMaxConcurrency        = 50
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
@@ -102,6 +103,7 @@ type workflowRegistry struct {
 
 	retryInterval    time.Duration
 	maxRetryInterval time.Duration
+	maxConcurrency   int
 	clock            clockwork.Clock
 
 	hooks Hooks
@@ -139,6 +141,14 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.retryInterval = retryInterval
+	}
+}
+
+func WithMaxConcurrency(maxConcurrency int) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		if maxConcurrency > 0 {
+			wr.maxConcurrency = maxConcurrency
+		}
 	}
 }
 
@@ -288,6 +298,7 @@ func NewWorkflowRegistry(
 		engineRegistry:                   engineRegistry,
 		retryInterval:                    defaultRetryInterval,
 		maxRetryInterval:                 defaultMaxRetryInterval,
+		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
@@ -750,35 +761,58 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				// Clear pending events after successful reconciliation
 				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
 
-				// Handle events (shared handler)
+				// Handle events concurrently — each event targets a distinct workflow ID
+				var wg sync.WaitGroup
+				var mu sync.Mutex
+				sem := make(chan struct{}, w.maxConcurrency)
 				for _, event := range events {
 					select {
 					case <-ctx.Done():
 						w.lggr.Debug("readRegistryStateLoop stopped during processing")
 						return
 					default:
-						w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
-						reconcileReport.NumEventsByType[string(event.Name)]++
-
-						if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-							handleErr := w.handleWithMetrics(ctx, event.Event)
-							if handleErr != nil {
-								event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
-
-								pendingEventsBySource[sourceIdentifier][event.id] = event
-
-								reconcileReport.Backoffs[event.id] = event.nextRetryAt
-								w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
-							}
-						} else {
-							// It's not ready to execute yet, let's put it back on the pending queue.
-							pendingEventsBySource[sourceIdentifier][event.id] = event
-
-							reconcileReport.Backoffs[event.id] = event.nextRetryAt
-							w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
-						}
 					}
+
+					w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
+
+					mu.Lock()
+					reconcileReport.NumEventsByType[string(event.Name)]++
+					mu.Unlock()
+
+					if event.retryCount > 0 && !w.clock.Now().After(event.nextRetryAt) {
+						mu.Lock()
+						pendingEventsBySource[sourceIdentifier][event.id] = event
+						reconcileReport.Backoffs[event.id] = event.nextRetryAt
+						mu.Unlock()
+						w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
+						continue
+					}
+
+					select {
+					case sem <- struct{}{}:
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped waiting for semaphore")
+						return
+					}
+
+					wg.Add(1)
+					go func(evt *reconciliationEvent) {
+						defer func() {
+							<-sem
+							wg.Done()
+						}()
+						handleErr := w.handleWithMetrics(ctx, evt.Event)
+						if handleErr != nil {
+							evt.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+							mu.Lock()
+							pendingEventsBySource[sourceIdentifier][evt.id] = evt
+							reconcileReport.Backoffs[evt.id] = evt.nextRetryAt
+							mu.Unlock()
+							w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", evt.Name, "nextRetryAt", evt.nextRetryAt, "retryCount", evt.retryCount, "workflowInfo", evt.Info)
+						}
+					}(event)
 				}
+				wg.Wait()
 			}
 
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)

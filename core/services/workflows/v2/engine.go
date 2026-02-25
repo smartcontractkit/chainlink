@@ -820,6 +820,10 @@ func (e *Engine) close() error {
 	e.triggersRegMu.Unlock()
 	e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 
+	if err := e.cfg.ExecutionsStore.DeleteByWorkflowID(ctx, e.cfg.WorkflowID); err != nil {
+		e.logger().Errorw("Failed to purge executions on close", "err", err)
+	}
+
 	e.cfg.Module.Close()
 
 	// reset metering mode metric so that a positive value does not persist

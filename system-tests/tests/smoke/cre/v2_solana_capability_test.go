@@ -343,6 +343,9 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	err := t_helpers.AssertBeholderMessage(listenerCtx, t, workflowInitMessage, testLogger, messageChan, kafkaErrChan, 2*time.Minute)
 	require.NoError(t, err, "Workflow should have initialized")
 
+	// sleep to prevent race condition between workflow initialization and log emission
+	time.Sleep(15 * time.Second)
+
 	err = triggerLogReadTestEvent(t.Context(), solChain, logReadTestProgramID, expectedU64Value)
 	require.NoError(t, err, "failed to trigger log_read_test event")
 

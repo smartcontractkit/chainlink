@@ -85,6 +85,28 @@ func TestInMemoryStore_FinishedExecution(t *testing.T) {
 	}, 10*time.Second, 10*time.Millisecond)
 }
 
+func TestInMemoryStore_DeleteByWorkflowID(t *testing.T) {
+	s := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
+
+	_, err := s.Add(t.Context(), nil, "exec-1", "wf-A", StatusStarted)
+	require.NoError(t, err)
+	_, err = s.Add(t.Context(), nil, "exec-2", "wf-A", StatusStarted)
+	require.NoError(t, err)
+	_, err = s.Add(t.Context(), nil, "exec-3", "wf-B", StatusStarted)
+	require.NoError(t, err)
+
+	require.NoError(t, s.DeleteByWorkflowID(t.Context(), "wf-A"))
+
+	_, err = s.Get(t.Context(), "exec-1")
+	require.Error(t, err)
+	_, err = s.Get(t.Context(), "exec-2")
+	require.Error(t, err)
+
+	got, err := s.Get(t.Context(), "exec-3")
+	require.NoError(t, err)
+	assert.Equal(t, "wf-B", got.WorkflowID)
+}
+
 func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 	expirationDuration := 50 * time.Millisecond
 
