@@ -113,6 +113,7 @@ func (m *ConfidentialModule) Execute(
 
 	protoSecrets := make([]*confworkflowtypes.SecretIdentifier, len(m.vaultDonSecrets))
 	for i, s := range m.vaultDonSecrets {
+		// VaultDON treats "main" as the default namespace for secrets.
 		ns := s.Namespace
 		if ns == "" {
 			ns = "main"
