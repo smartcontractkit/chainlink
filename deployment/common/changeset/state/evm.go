@@ -323,20 +323,9 @@ func MaybeLoadMCMSWithTimelockChainStateFromRefs(chain cldf_evm.Chain, refs []da
 		proposer  = cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
 		canceller = cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
 		bypasser  = cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
-
-		// the same contract can have different roles
-		multichain    = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		proposerMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		bypasserMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		cancellerMCMS = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 	)
 
-	proposerMCMS.Labels.Add(types.ProposerRole.String())
-	bypasserMCMS.Labels.Add(types.BypasserRole.String())
-	cancellerMCMS.Labels.Add(types.CancellerRole.String())
-	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
-		proposerMCMS, bypasserMCMS, cancellerMCMS,
-	}
+	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
 
 	dedupMap := make(map[string]cldf.TypeAndVersion, len(refs))
 	for _, ref := range refs {
@@ -361,9 +350,6 @@ func MaybeLoadMCMSWithTimelockChainStateFromRefs(chain cldf_evm.Chain, refs []da
 		tv := cldf.TypeAndVersion{
 			Type:    cldf.ContractType(ref.Type),
 			Version: *ref.Version,
-		}
-		if !ref.Labels.IsEmpty() {
-			tv.Labels = cldf.NewLabelSet(ref.Labels.List()...)
 		}
 
 		switch {
@@ -397,23 +383,6 @@ func MaybeLoadMCMSWithTimelockChainStateFromRefs(chain cldf_evm.Chain, refs []da
 				return nil, err
 			}
 			state.CancellerMcm = mcms
-		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
-			// Contract of type ManyChainMultiSig must be labeled to assign to the proper state
-			// field.  If a specifically typed contract already occupies the field, then this
-			// contract will be ignored.
-			mcms, err := bindings.NewManyChainMultiSig(addr, chain.Client)
-			if err != nil {
-				return nil, err
-			}
-			if tv.Labels.Contains(types.ProposerRole.String()) && state.ProposerMcm == nil {
-				state.ProposerMcm = mcms
-			}
-			if tv.Labels.Contains(types.BypasserRole.String()) && state.BypasserMcm == nil {
-				state.BypasserMcm = mcms
-			}
-			if tv.Labels.Contains(types.CancellerRole.String()) && state.CancellerMcm == nil {
-				state.CancellerMcm = mcms
-			}
 		}
 	}
 	return &state, nil
