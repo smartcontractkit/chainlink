@@ -120,7 +120,7 @@ func (m *ConfidentialModule) Execute(
 		}
 		protoSecrets[i] = &confworkflowtypes.SecretIdentifier{
 			Key:       s.Key,
-			Namespace: proto.String(ns),
+			Namespace: ns,
 		}
 	}
 
