@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 )
 
 func DeployArtifactsToRemoteNodeSet(
@@ -28,7 +28,7 @@ func DeployArtifactsToRemoteNodeSet(
 		return fmt.Errorf("container target dir is required")
 	}
 
-	remoteRuntime, err := resolveRemoteRuntime(lggr)
+	remoteRuntime, err := ResolveRuntime(lggr)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to resolve remote runtime settings for artifact deploy")
 	}

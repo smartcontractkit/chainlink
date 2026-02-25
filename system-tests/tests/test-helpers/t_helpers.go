@@ -59,10 +59,10 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -350,7 +350,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 				ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
 				Files:                []string{compressedWorkflowWasmPath, workflowConfigFilePath},
 				RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
-					return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, nodeSetName, containerTargetDir, files)
+					return remoteclient.DeployArtifactsToRemoteNodeSet(ctx, testLogger, nodeSetName, containerTargetDir, files)
 				},
 			},
 		)

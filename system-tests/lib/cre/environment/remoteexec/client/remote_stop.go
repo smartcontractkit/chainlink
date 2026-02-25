@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 )
 
 type RemoteStopSummary struct {
@@ -40,7 +40,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		return summary, nil
 	}
 
-	remoteRuntime, err := resolveRemoteRuntime(lggr)
+	remoteRuntime, err := ResolveRuntime(lggr)
 	if err != nil {
 		return summary, pkgerrors.Wrap(err, "failed to resolve remote runtime settings for stop")
 	}
@@ -51,11 +51,11 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 			continue
 		}
 		payload := agent.StartComponentPayload{
-			ComponentType: componentTypeBlockchain,
+			ComponentType: ComponentTypeBlockchain,
 			Blockchain:    configuredBlockchain.InputRef(),
 			ReusePolicy:   string(configuredBlockchain.RemoteStartPolicy),
 		}
-		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, componentTypeBlockchain)
+		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, ComponentTypeBlockchain)
 		if err != nil {
 			summary.Failed++
 			joined = errors.Join(joined, err)
@@ -73,11 +73,11 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 			continue
 		}
 		payload := agent.StartComponentPayload{
-			ComponentType: componentTypeNodeSet,
+			ComponentType: ComponentTypeNodeSet,
 			NodeSet:       &simple_node_set.Input{Name: nodeSet.Name},
 			ReusePolicy:   nodeSet.RemoteStartPolicy,
 		}
-		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, componentTypeNodeSet)
+		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, ComponentTypeNodeSet)
 		if err != nil {
 			summary.Failed++
 			joined = errors.Join(joined, err)
@@ -92,11 +92,11 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 
 	if cfg.JD != nil && cfg.JD.Placement == config.PlacementRemote {
 		payload := agent.StartComponentPayload{
-			ComponentType: componentTypeJD,
+			ComponentType: ComponentTypeJD,
 			JD:            cfg.JD.InputRef(),
 			ReusePolicy:   string(cfg.JD.RemoteStartPolicy),
 		}
-		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, componentTypeJD)
+		result, err := stopRemoteComponent(ctx, lggr, remoteRuntime.Client, payload, ComponentTypeJD)
 		if err != nil {
 			summary.Failed++
 			joined = errors.Join(joined, err)
@@ -144,7 +144,7 @@ func countRemoteStopTargets(cfg *config.Config) int {
 func stopRemoteComponent(
 	ctx context.Context,
 	lggr zerolog.Logger,
-	client componentClient,
+	client ComponentClient,
 	payload agent.StartComponentPayload,
 	expectedType string,
 ) (*agent.StartComponentResponse, error) {

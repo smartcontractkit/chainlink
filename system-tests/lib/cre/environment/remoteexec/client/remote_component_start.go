@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 )
 
-func startRemoteComponent[T any](
+func StartRemoteComponent[T any](
 	ctx context.Context,
 	lggr zerolog.Logger,
-	client componentClient,
+	client ComponentClient,
 	payload agent.StartComponentPayload,
 	expectedComponentType string,
 ) (*T, error) {

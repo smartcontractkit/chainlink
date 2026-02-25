@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/privateregistry"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	grpcsourcemock "github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -611,7 +611,7 @@ func compileAndCopyWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workf
 			ContainerTargetDir:   containerTargetDir,
 			Files:                []string{compressedWasmPath, configFilePath},
 			RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
-				return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, nodeSetName, containerTargetDir, files)
+				return remoteclient.DeployArtifactsToRemoteNodeSet(ctx, testLogger, nodeSetName, containerTargetDir, files)
 			},
 		},
 	)

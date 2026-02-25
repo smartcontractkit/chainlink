@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"context"
@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/stretchr/testify/require"
-	"github.com/rs/zerolog"
 )
 
 func TestDeployArtifactsToRemoteNodeSetValidation(t *testing.T) {
@@ -36,7 +36,7 @@ func TestDeployArtifactsToRemoteNodeSetNoFilesFails(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv(envEC2AgentURL, server.URL)
+	t.Setenv(EnvEC2AgentURL, server.URL)
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
 
 	err := DeployArtifactsToRemoteNodeSet(context.Background(), zerolog.Nop(), "workflow", "/home/chainlink/workflows", []string{"", ""})
@@ -69,7 +69,7 @@ func TestDeployArtifactsToRemoteNodeSetSuccess(t *testing.T) {
 			require.Equal(t, "artifact-content", string(raw))
 
 			_ = json.NewEncoder(w).Encode(agent.StartComponentResponse{
-				ComponentType: componentTypeNodeSet,
+				ComponentType: ComponentTypeNodeSet,
 				AgentLogs:     []string{"artifact deployed"},
 			})
 		default:
@@ -78,7 +78,7 @@ func TestDeployArtifactsToRemoteNodeSetSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv(envEC2AgentURL, server.URL)
+	t.Setenv(EnvEC2AgentURL, server.URL)
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
 
 	err := DeployArtifactsToRemoteNodeSet(context.Background(), zerolog.Nop(), "workflow", "/home/chainlink/workflows", []string{artifactPath})

@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"bytes"
@@ -18,20 +18,20 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 const (
-	componentTypeBlockchain = "blockchain"
-	componentTypeJD         = "jd"
-	componentTypeNodeSet    = "nodeset"
-	envEC2AgentURL          = "CRE_EC2_AGENT_URL"
-	envEC2AgentPort         = "CRE_EC2_AGENT_PORT"
+	ComponentTypeBlockchain = "blockchain"
+	ComponentTypeJD         = "jd"
+	ComponentTypeNodeSet    = "nodeset"
+	EnvEC2AgentURL          = "CRE_EC2_AGENT_URL"
+	EnvEC2AgentPort         = "CRE_EC2_AGENT_PORT"
 	defaultEC2AgentPort     = 8080
 )
 
-type componentClient interface {
+type ComponentClient interface {
 	StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error)
 }
 
@@ -43,10 +43,10 @@ type httpComponentClient struct {
 	checkHealth bool
 }
 
-type resolvedRemoteRuntime struct {
+type Runtime struct {
 	AgentBaseURL string
 	EC2HostIP    string
-	Client       componentClient
+	Client       ComponentClient
 }
 
 func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
@@ -61,7 +61,7 @@ func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
 	}
 }
 
-func resolveRemoteRuntime(testLogger zerolog.Logger) (*resolvedRemoteRuntime, error) {
+func ResolveRuntime(testLogger zerolog.Logger) (*Runtime, error) {
 	baseURL, err := resolveEC2AgentBaseURL(testLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve EC2 agent base URL: %w", err)
@@ -71,14 +71,14 @@ func resolveRemoteRuntime(testLogger zerolog.Logger) (*resolvedRemoteRuntime, er
 		return nil, err
 	}
 	client := newEC2HTTPComponentClient(baseURL)
-	return &resolvedRemoteRuntime{
+	return &Runtime{
 		AgentBaseURL: baseURL,
 		EC2HostIP:    ec2HostIP,
 		Client:       client,
 	}, nil
 }
 
-func newRemoteComponentClient(runtime *resolvedRemoteRuntime) (componentClient, error) {
+func NewComponentClient(runtime *Runtime) (ComponentClient, error) {
 	if runtime == nil {
 		return nil, errors.New("resolved runtime is nil")
 	}
@@ -153,9 +153,9 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope a
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		if startResp.Error != "" {
 			if startResp.ErrorCode != "" {
-				err = remoteAgentError(startResp.ErrorCode, startResp.Error)
+				err = RemoteAgentError(startResp.ErrorCode, startResp.Error)
 			} else {
-				err = remoteAgentError("remote_agent_error", startResp.Error)
+				err = RemoteAgentError("remote_agent_error", startResp.Error)
 			}
 		} else {
 			err = fmt.Errorf("start component request failed with status %s: %s", resp.Status, string(respBody))
@@ -168,9 +168,9 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope a
 	}
 	if startResp.Error != "" {
 		if startResp.ErrorCode != "" {
-			return nil, retry.Unrecoverable(remoteAgentError(startResp.ErrorCode, startResp.Error))
+			return nil, retry.Unrecoverable(RemoteAgentError(startResp.ErrorCode, startResp.Error))
 		}
-		return nil, retry.Unrecoverable(remoteAgentError("remote_agent_error", startResp.Error))
+		return nil, retry.Unrecoverable(RemoteAgentError("remote_agent_error", startResp.Error))
 	}
 
 	return &startResp, nil
@@ -205,8 +205,8 @@ func describeEC2AgentHealthFailure(baseURL string) string {
 	return fmt.Sprintf(
 		"failed EC2 CRE agent health check (%s/v1/health); verify the agent process is running and %s matches its listen port (or set %s explicitly)",
 		baseURL,
-		envEC2AgentPort,
-		envEC2AgentURL,
+		EnvEC2AgentPort,
+		EnvEC2AgentURL,
 	)
 }
 
@@ -219,12 +219,12 @@ func isRetriableNetworkError(err error) bool {
 	return errors.As(err, &netErr)
 }
 
-func remoteAgentError(code, message string) error {
+func RemoteAgentError(code, message string) error {
 	return fmt.Errorf("remote agent error (%s): %s", code, message)
 }
 
 func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
-	if configured := strings.TrimSpace(os.Getenv(envEC2AgentURL)); configured != "" {
+	if configured := strings.TrimSpace(os.Getenv(EnvEC2AgentURL)); configured != "" {
 		return configured, nil
 	}
 	remotePort, err := resolveEC2AgentPort()
@@ -241,10 +241,10 @@ func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
 
 func resolveEC2AgentPort() (int, error) {
 	remotePort := defaultEC2AgentPort
-	if configuredPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); configuredPort != "" {
+	if configuredPort := strings.TrimSpace(os.Getenv(EnvEC2AgentPort)); configuredPort != "" {
 		parsedPort, err := strconv.Atoi(configuredPort)
 		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
-			return 0, fmt.Errorf("invalid %s: %q", envEC2AgentPort, configuredPort)
+			return 0, fmt.Errorf("invalid %s: %q", EnvEC2AgentPort, configuredPort)
 		}
 		remotePort = parsedPort
 	}

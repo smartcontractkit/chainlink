@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -763,7 +764,7 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 		applyRemoteAgentEnvFallback(framework.L, agentState)
 	}
 
-	summary, stopRemoteErr := creenv.StopRemoteComponents(ctx, framework.L, targets)
+	summary, stopRemoteErr := remoteclient.StopRemoteComponents(ctx, framework.L, targets)
 	framework.L.Info().
 		Int("requested", summary.Requested).
 		Int("stopped", summary.Stopped).

@@ -26,6 +26,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -406,7 +407,7 @@ func deployWorkflow(
 				ContainerTargetDir:   containerTargetDirFlag,
 				Files:                files,
 				RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
-					return environment.DeployArtifactsToRemoteNodeSet(ctx, framework.L, nodeSetName, containerTargetDir, files)
+					return remoteclient.DeployArtifactsToRemoteNodeSet(ctx, framework.L, nodeSetName, containerTargetDir, files)
 				},
 			},
 		)

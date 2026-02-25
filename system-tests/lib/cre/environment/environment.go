@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -40,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
@@ -55,19 +55,6 @@ type SetupOutput struct {
 	NodeOutput                          []*cre.NodeSetOutput
 	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
-	closeOnce                           sync.Once
-	closeErr                            error
-}
-
-func (s *SetupOutput) Close(ctx context.Context) error {
-	if s == nil {
-		return nil
-	}
-	s.closeOnce.Do(func() {
-		s.closeErr = nil
-	})
-
-	return s.closeErr
 }
 
 type SetupInput struct {
@@ -505,11 +492,11 @@ func resolveRemoteRuntimeForSetup(
 	blockchains []*config.Blockchain,
 	jdInput *config.JobDistributor,
 	nodeSets []*cre.NodeSet,
-) (*resolvedRemoteRuntime, error) {
+) (*remoteclient.Runtime, error) {
 	if !hasRemoteComponents(blockchains, jdInput, nodeSets) {
 		return nil, nil
 	}
-	return resolveRemoteRuntime(testLogger)
+	return remoteclient.ResolveRuntime(testLogger)
 }
 
 type nodeSetPlacementSummary struct {

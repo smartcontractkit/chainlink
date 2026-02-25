@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
@@ -77,7 +77,7 @@ func TestStopRemoteComponents_SummaryAndResiduals(t *testing.T) {
 	server := newRemoteStopTestServer(t)
 	defer server.Close()
 
-	t.Setenv(envEC2AgentURL, server.URL)
+	t.Setenv(EnvEC2AgentURL, server.URL)
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
 
 	cfg := &config.Config{
@@ -110,7 +110,7 @@ func TestStopRemoteComponents_ResidualQueryFailureIsReportedInSummary(t *testing
 			w.WriteHeader(http.StatusOK)
 		case "/v1/components/start":
 			resp := agent.StartComponentResponse{
-				ComponentType: componentTypeBlockchain,
+				ComponentType: ComponentTypeBlockchain,
 				Found:         true,
 				Stopped:       true,
 			}
@@ -124,7 +124,7 @@ func TestStopRemoteComponents_ResidualQueryFailureIsReportedInSummary(t *testing
 	}))
 	defer server.Close()
 
-	t.Setenv(envEC2AgentURL, server.URL)
+	t.Setenv(EnvEC2AgentURL, server.URL)
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
 
 	cfg := &config.Config{
@@ -143,7 +143,7 @@ func TestStopRemoteComponents_ResidualQueryFailureIsReportedInSummary(t *testing
 func TestStopRemoteComponent_UnexpectedComponentTypeFails(t *testing.T) {
 	client := &stubComponentClient{
 		resp: &agent.StartComponentResponse{
-			ComponentType: componentTypeJD,
+			ComponentType: ComponentTypeJD,
 		},
 	}
 
@@ -151,8 +151,8 @@ func TestStopRemoteComponent_UnexpectedComponentTypeFails(t *testing.T) {
 		context.Background(),
 		zerolog.Nop(),
 		client,
-		agent.StartComponentPayload{ComponentType: componentTypeBlockchain},
-		componentTypeBlockchain,
+		agent.StartComponentPayload{ComponentType: ComponentTypeBlockchain},
+		ComponentTypeBlockchain,
 	)
 	require.Error(t, err, "expected mismatched component type to fail")
 	require.Contains(t, err.Error(), "unexpected component type")
@@ -165,8 +165,8 @@ func TestStopRemoteComponent_ClientErrorIsWrapped(t *testing.T) {
 		context.Background(),
 		zerolog.Nop(),
 		client,
-		agent.StartComponentPayload{ComponentType: componentTypeBlockchain},
-		componentTypeBlockchain,
+		agent.StartComponentPayload{ComponentType: ComponentTypeBlockchain},
+		ComponentTypeBlockchain,
 	)
 	require.Error(t, err, "expected client failure to be returned")
 	require.Contains(t, err.Error(), "failed to stop remote component type")
@@ -193,13 +193,13 @@ func newRemoteStopTestServer(t *testing.T) *httptest.Server {
 
 			resp := agent.StartComponentResponse{ComponentType: payload.ComponentType}
 			switch payload.ComponentType {
-			case componentTypeBlockchain:
+			case ComponentTypeBlockchain:
 				resp.Found = true
 				resp.Stopped = true
-			case componentTypeNodeSet:
+			case ComponentTypeNodeSet:
 				resp.Found = false
 				resp.Stopped = false
-			case componentTypeJD:
+			case ComponentTypeJD:
 				resp.Found = true
 				resp.Stopped = true
 			default:

@@ -12,12 +12,13 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/tron"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 )
 
 func blockchainFromOutput(testLogger zerolog.Logger, input *blockchain.Input, output *blockchain.Output) (blockchains.Blockchain, error) {
@@ -52,7 +53,7 @@ func startBlockchains(
 	testLogger zerolog.Logger,
 	configuredBlockchains []*config.Blockchain,
 	deployers map[blockchain.ChainFamily]blockchains.Deployer,
-	remoteRuntime *resolvedRemoteRuntime,
+	remoteRuntime *remoteclient.Runtime,
 	rewriteInternalForLocalNodes bool,
 ) (*blockchains.DeployedBlockchains, error) {
 	blockchainInputs, err := config.ResolveBlockchainInputs(configuredBlockchains)
@@ -70,16 +71,16 @@ func startBlockchains(
 				return nil, err
 			}
 			payload := agent.StartComponentPayload{
-				ComponentType: componentTypeBlockchain,
+				ComponentType: remoteclient.ComponentTypeBlockchain,
 				Blockchain:    input,
 				ReusePolicy:   string(configured.RemoteStartPolicy),
 			}
-			deployedOutput, err = startRemoteComponent[blockchain.Output](
+			deployedOutput, err = remoteclient.StartRemoteComponent[blockchain.Output](
 				ctx,
 				testLogger,
 				remoteRuntime.Client,
 				payload,
-				componentTypeBlockchain,
+				remoteclient.ComponentTypeBlockchain,
 			)
 			if err != nil {
 				return nil, err

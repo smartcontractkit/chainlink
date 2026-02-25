@@ -5,6 +5,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/stretchr/testify/require"
 )
@@ -21,58 +22,54 @@ func TestValidateRemoteBlockchainInput(t *testing.T) {
 }
 
 func TestNewRemoteComponentClientPrefersEC2(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "")
+	t.Setenv(remoteclient.EnvEC2AgentURL, "")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
-	t.Setenv(envEC2AgentPort, "18080")
+	t.Setenv(remoteclient.EnvEC2AgentPort, "18080")
 
-	runtime, err := resolveRemoteRuntime(zerolog.Nop())
+	runtime, err := remoteclient.ResolveRuntime(zerolog.Nop())
 	require.NoError(t, err, "expected remote runtime to resolve")
-	client, err := newRemoteComponentClient(runtime)
+	client, err := remoteclient.NewComponentClient(runtime)
 	require.NoError(t, err, "expected ec2-first client to be created")
-
-	httpClient, ok := client.(*httpComponentClient)
-	require.True(t, ok, "expected httpComponentClient, got %T", client)
-	require.True(t, httpClient.checkHealth, "expected ec2 client to enable health checks")
-	require.Equal(t, 3, httpClient.maxAttempts, "expected ec2 client retries to be enabled")
-	require.Equal(t, "http://203.0.113.10:18080", httpClient.baseURL, "unexpected ec2 base url")
+	require.NotNil(t, client, "expected component client to be created")
+	require.Equal(t, "http://203.0.113.10:18080", runtime.AgentBaseURL, "unexpected ec2 base url")
 }
 
 func TestResolveEC2AgentBaseURLRequiresHostOrInstanceInfoWhenURLMissing(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "")
+	t.Setenv(remoteclient.EnvEC2AgentURL, "")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "")
 	t.Setenv(runtimecfg.EnvEC2InstanceID, "")
-	t.Setenv(envEC2AgentPort, "")
+	t.Setenv(remoteclient.EnvEC2AgentPort, "")
 
-	_, err := resolveEC2AgentBaseURL(zerolog.Nop())
-	require.Error(t, err, "expected missing direct host resolution inputs to fail when %s is not set", envEC2AgentURL)
+	_, err := remoteclient.ResolveRuntime(zerolog.Nop())
+	require.Error(t, err, "expected missing direct host resolution inputs to fail when %s is not set", remoteclient.EnvEC2AgentURL)
 }
 
 func TestResolveEC2AgentBaseURLRejectsInvalidPort(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "")
+	t.Setenv(remoteclient.EnvEC2AgentURL, "")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
-	t.Setenv(envEC2AgentPort, "not-a-port")
+	t.Setenv(remoteclient.EnvEC2AgentPort, "not-a-port")
 
-	_, err := resolveEC2AgentBaseURL(zerolog.Nop())
-	require.Error(t, err, "expected invalid %s to fail", envEC2AgentPort)
-	require.Contains(t, err.Error(), envEC2AgentPort, "expected error to mention %s", envEC2AgentPort)
+	_, err := remoteclient.ResolveRuntime(zerolog.Nop())
+	require.Error(t, err, "expected invalid %s to fail", remoteclient.EnvEC2AgentPort)
+	require.Contains(t, err.Error(), remoteclient.EnvEC2AgentPort, "expected error to mention %s", remoteclient.EnvEC2AgentPort)
 }
 
 func TestResolveEC2AgentBaseURLDirectMode(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "")
+	t.Setenv(remoteclient.EnvEC2AgentURL, "")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
-	t.Setenv(envEC2AgentPort, "18080")
+	t.Setenv(remoteclient.EnvEC2AgentPort, "18080")
 
-	baseURL, err := resolveEC2AgentBaseURL(zerolog.Nop())
+	runtime, err := remoteclient.ResolveRuntime(zerolog.Nop())
 	require.NoError(t, err, "expected direct mode url resolution to succeed")
-	require.Equal(t, "http://203.0.113.10:18080", baseURL, "unexpected direct mode base url")
+	require.Equal(t, "http://203.0.113.10:18080", runtime.AgentBaseURL, "unexpected direct mode base url")
 }
 
 func TestResolveRemoteRuntimeRequiresEC2Resolution(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "")
+	t.Setenv(remoteclient.EnvEC2AgentURL, "")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "")
 	t.Setenv(runtimecfg.EnvEC2InstanceID, "")
 
-	_, err := resolveRemoteRuntime(zerolog.Nop())
+	_, err := remoteclient.ResolveRuntime(zerolog.Nop())
 	require.Error(t, err, "expected runtime resolution without EC2 inputs to fail")
 }
 
@@ -118,7 +115,7 @@ func TestRewriteRemoteBlockchainOutputForDirectAccess_InvalidExternalURL(t *test
 }
 
 func TestRemoteAgentErrorFormatting(t *testing.T) {
-	err := remoteAgentError("deployment_failed", "failed to deploy blockchain output")
+	err := remoteclient.RemoteAgentError("deployment_failed", "failed to deploy blockchain output")
 	want := "remote agent error (deployment_failed): failed to deploy blockchain output"
 	require.EqualError(t, err, want, "unexpected remote agent error formatting")
 }

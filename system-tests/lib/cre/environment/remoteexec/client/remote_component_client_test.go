@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"context"
@@ -10,17 +10,17 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/stretchr/testify/require"
 )
 
 func TestResolveRemoteRuntimeWithExplicitEnv(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "http://198.51.100.20:19090")
+	t.Setenv(EnvEC2AgentURL, "http://198.51.100.20:19090")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "198.51.100.20")
-	t.Setenv(envEC2AgentPort, "19090")
+	t.Setenv(EnvEC2AgentPort, "19090")
 
-	runtime, err := resolveRemoteRuntime(zerolog.Nop())
+	runtime, err := ResolveRuntime(zerolog.Nop())
 	require.NoError(t, err, "expected runtime resolution to succeed")
 	require.Equal(t, "http://198.51.100.20:19090", runtime.AgentBaseURL, "unexpected agent base url")
 	require.Equal(t, "198.51.100.20", runtime.EC2HostIP, "unexpected ec2 host ip")
@@ -28,27 +28,27 @@ func TestResolveRemoteRuntimeWithExplicitEnv(t *testing.T) {
 }
 
 func TestResolveRemoteRuntimeRequiresHostResolution(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "http://198.51.100.20:19090")
+	t.Setenv(EnvEC2AgentURL, "http://198.51.100.20:19090")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "")
 	t.Setenv(runtimecfg.EnvEC2InstanceID, "")
 
-	_, err := resolveRemoteRuntime(zerolog.Nop())
+	_, err := ResolveRuntime(zerolog.Nop())
 	require.Error(t, err, "expected runtime resolution without EC2 host inputs to fail")
 }
 
 func TestNewRemoteComponentClientRequiresResolvedRuntime(t *testing.T) {
-	_, err := newRemoteComponentClient(nil)
+	_, err := NewComponentClient(nil)
 	require.Error(t, err, "expected nil runtime to fail")
 
-	_, err = newRemoteComponentClient(&resolvedRemoteRuntime{})
+	_, err = NewComponentClient(&Runtime{})
 	require.Error(t, err, "expected missing agent base URL to fail")
 }
 
 func TestDescribeEC2AgentHealthFailureMentionsResolutionHints(t *testing.T) {
 	msg := describeEC2AgentHealthFailure("http://203.0.113.10:8080")
 	require.Contains(t, msg, "/v1/health")
-	require.Contains(t, msg, envEC2AgentPort)
-	require.Contains(t, msg, envEC2AgentURL)
+	require.Contains(t, msg, EnvEC2AgentPort)
+	require.Contains(t, msg, EnvEC2AgentURL)
 }
 
 func TestIsRetriableStatus(t *testing.T) {
@@ -72,7 +72,7 @@ func (timeoutError) Temporary() bool { return true }
 
 func TestStartComponentOnce_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(agent.StartComponentResponse{ComponentType: componentTypeBlockchain})
+		_ = json.NewEncoder(w).Encode(agent.StartComponentResponse{ComponentType: ComponentTypeBlockchain})
 	}))
 	defer server.Close()
 
@@ -83,7 +83,7 @@ func TestStartComponentOnce_Success(t *testing.T) {
 		Payload:       json.RawMessage(`{"componentType":"blockchain"}`),
 	})
 	require.NoError(t, err)
-	require.Equal(t, componentTypeBlockchain, resp.ComponentType)
+	require.Equal(t, ComponentTypeBlockchain, resp.ComponentType)
 }
 
 func TestStartComponentOnce_Non2xxWithAgentErrorCode(t *testing.T) {

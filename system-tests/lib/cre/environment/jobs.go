@@ -19,8 +19,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -63,7 +64,7 @@ func StartJD(
 	lggr zerolog.Logger,
 	jdConfig *config.JobDistributor,
 	infraInput infra.Provider,
-	remoteRuntime *resolvedRemoteRuntime,
+	remoteRuntime *remoteclient.Runtime,
 ) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
@@ -80,16 +81,16 @@ func StartJD(
 			return nil, errors.New("remote runtime is required when starting remote jd")
 		}
 		payload := agent.StartComponentPayload{
-			ComponentType: componentTypeJD,
+			ComponentType: remoteclient.ComponentTypeJD,
 			JD:            jdConfig.InputRef(),
 			ReusePolicy:   string(jdConfig.RemoteStartPolicy),
 		}
-		jdOutput, jdErr = startRemoteComponent[jd.Output](
+		jdOutput, jdErr = remoteclient.StartRemoteComponent[jd.Output](
 			ctx,
 			lggr,
 			remoteRuntime.Client,
 			payload,
-			componentTypeJD,
+			remoteclient.ComponentTypeJD,
 		)
 		if jdErr != nil {
 			return nil, jdErr

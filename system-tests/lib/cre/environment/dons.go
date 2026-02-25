@@ -19,10 +19,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -59,7 +60,7 @@ func StartDONs(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
-	remoteRuntime *resolvedRemoteRuntime,
+	remoteRuntime *remoteclient.Runtime,
 ) (*StartedDONs, error) {
 	if err := verifyRemoteToLocalBootstrapReachability(ctx, lggr, topology); err != nil {
 		return nil, pkgerrors.Wrap(err, "bootstrap reachability sanity check failed")
@@ -122,7 +123,7 @@ func startDONsContainerized(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
-	remoteRuntime *resolvedRemoteRuntime,
+	remoteRuntime *remoteclient.Runtime,
 ) (*StartedDONs, error) {
 	// Skip binary operations for remote DONs.
 	if infraInput.IsDocker() {
@@ -231,7 +232,7 @@ func startDON(
 	configuredIndex int,
 	nodeSet *cre.NodeSet,
 	registryChainBlockchainOutput *blockchain.Output,
-	remoteRuntime *resolvedRemoteRuntime,
+	remoteRuntime *remoteclient.Runtime,
 ) (*StartedDON, error) {
 	if nodeSet == nil {
 		return nil, errors.New("nodeSet is nil")
@@ -292,7 +293,7 @@ func startNodeSet(
 	configuredIndex int,
 	nodeSet *cre.NodeSet,
 	registryChainBlockchainOutput *blockchain.Output,
-	remoteRuntime *resolvedRemoteRuntime,
+	remoteRuntime *remoteclient.Runtime,
 ) (*ns.Output, error) {
 	// If output is already set (Kubernetes or cached), use it.
 	if nodeSet.Out != nil {
@@ -313,17 +314,17 @@ func startNodeSet(
 			return nil, err
 		}
 		payload := agent.StartComponentPayload{
-			ComponentType:      componentTypeNodeSet,
+			ComponentType:      remoteclient.ComponentTypeNodeSet,
 			NodeSet:            remoteInput,
 			RegistryBlockchain: registryChainPayload,
 			ReusePolicy:        nodeSetRemoteStartPolicy(nodeSet),
 		}
-		nodeset, err := startRemoteComponent[ns.Output](
+		nodeset, err := remoteclient.StartRemoteComponent[ns.Output](
 			ctx,
 			lggr,
 			remoteRuntime.Client,
 			payload,
-			componentTypeNodeSet,
+			remoteclient.ComponentTypeNodeSet,
 		)
 		if err != nil {
 			return nil, err

@@ -1,4 +1,4 @@
-package environment
+package client
 
 import (
 	"encoding/json"
