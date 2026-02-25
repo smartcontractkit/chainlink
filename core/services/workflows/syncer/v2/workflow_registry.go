@@ -765,6 +765,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				var wg sync.WaitGroup
 				var mu sync.Mutex
 				sem := make(chan struct{}, w.maxConcurrency)
+				batchStart := time.Now()
+				var dispatched, backoffCount int
 				for _, event := range events {
 					select {
 					case <-ctx.Done():
@@ -780,6 +782,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					mu.Unlock()
 
 					if event.retryCount > 0 && !w.clock.Now().After(event.nextRetryAt) {
+						backoffCount++
 						mu.Lock()
 						pendingEventsBySource[sourceIdentifier][event.id] = event
 						reconcileReport.Backoffs[event.id] = event.nextRetryAt
@@ -795,6 +798,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						return
 					}
 
+					dispatched++
 					wg.Add(1)
 					go func(evt *reconciliationEvent) {
 						defer func() {
@@ -813,6 +817,21 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					}(event)
 				}
 				wg.Wait()
+
+				batchDuration := time.Since(batchStart)
+				w.metrics.recordReconcileBatch(ctx, sourceName, dispatched, batchDuration)
+				if backoffCount > 0 {
+					w.metrics.recordReconcileBackoff(ctx, sourceName, backoffCount)
+				}
+
+				w.lggr.Infow("reconciliation tick completed",
+					"source", sourceName,
+					"dispatched", dispatched,
+					"backoffs", backoffCount,
+					"failed", len(pendingEventsBySource[sourceIdentifier]),
+					"durationMs", batchDuration.Milliseconds(),
+					"eventsByType", reconcileReport.NumEventsByType,
+				)
 			}
 
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)
