@@ -723,7 +723,12 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("invalid workflow name: %w", err)
 	}
 
-	if v2.IsConfidential(spec.Attributes) {
+	confidential, err := v2.IsConfidential(spec.Attributes)
+	if err != nil {
+		return fmt.Errorf("failed to parse workflow attributes: %w", err)
+	}
+	if confidential {
+		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
 		return h.tryConfidentialEngineCreate(ctx, spec, wid, workflowName, decodedBinary, source)
 	}
 
