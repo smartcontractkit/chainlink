@@ -86,10 +86,6 @@ type TransferMCMSOwnershipToTimelockConfig struct {
 
 	// MCMSConfig contains timelock and MCMS configuration for building the accept-ownership proposal
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config"`
-
-	// OnlyAcceptOwnership if true skips the transfer step and only builds the MCMS proposal for acceptOwnership.
-	// Use false for migration and new deployments (KMS transfers then proposal for accept).
-	OnlyAcceptOwnership bool `json:"only_accept_ownership"`
 }
 
 // RenounceTimelockDeployerChainsConfig configures renouncing the deployer/KMS key's

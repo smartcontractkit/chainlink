@@ -29,9 +29,6 @@ type TransferToMCMSWithTimelockConfig struct {
 	ContractsByChain map[uint64][]common.Address
 	// MCMSConfig is for the accept ownership proposal
 	MCMSConfig proposalutils.TimelockConfig
-
-	// Optional flag: Only runs accept ownership (not transfer ownership) if enabled
-	OnlyAcceptOwnership bool
 }
 
 type Ownable interface {
@@ -90,7 +87,7 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 			if err != nil {
 				return fmt.Errorf("failed to load ownable: %w", err)
 			}
-			if !t.OnlyAcceptOwnership && owner != evmChains[chainSelector].DeployerKey.From {
+			if owner != evmChains[chainSelector].DeployerKey.From {
 				return fmt.Errorf("contract %s is not owned by the deployer key", contract)
 			}
 		}
@@ -144,10 +141,9 @@ func TransferToMCMSWithTimelockV2(
 				Chain: evmChains[chainSelector],
 			},
 			seqs.SeqTransferToMCMSWithTimelockV2Input{
-				ChainSelector:       chainSelector,
-				Timelock:            common.HexToAddress(timelockAddr),
-				Contracts:           contracts,
-				OnlyAcceptOwnership: cfg.OnlyAcceptOwnership,
+				ChainSelector: chainSelector,
+				Timelock:      common.HexToAddress(timelockAddr),
+				Contracts:     contracts,
 			},
 		)
 		execReports = append(execReports, seqReport.ExecutionReports...)

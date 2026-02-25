@@ -63,8 +63,7 @@ func (t transferMCMSOwnershipToTimelockChangeset) Apply(e cldf.Environment, cfg 
 	}
 
 	return commonchangeset.TransferToMCMSWithTimelockV2(e, commonchangeset.TransferToMCMSWithTimelockConfig{
-		ContractsByChain:     contractsByChain,
-		MCMSConfig:          mcmsConfig,
-		OnlyAcceptOwnership: cfg.OnlyAcceptOwnership,
+		ContractsByChain: contractsByChain,
+		MCMSConfig:       mcmsConfig,
 	})
 }

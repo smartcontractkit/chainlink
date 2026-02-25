@@ -14,87 +14,127 @@ Vault provides [changesets](https://github.com/smartcontractkit/chainlink/tree/d
 
 Contracts are deployed by KMS via CI/CD. After deployment and config, ownership of the ManyChainMultiSig contracts (Bypasser, Canceller, Proposer; **CallProxy is left as-is**) must be transferred to the RBAC Timelock, and the deployer must renounce its ADMIN role on the Timelock so that only the Timelock owns the MCMS contracts and is the sole admin of itself.
 
-### Correct flow for **new** chain selectors
+### Flow 1: New chain (CCIP-style, one pipeline run)
 
-1. **deploy_timelock** – Deploy RBAC Timelock and MCMS contracts (Bypasser, Canceller, Proposer, CallProxy) for the new chain(s).
-2. **set_mcms_config** – Set MCMS config (signers, thresholds, etc.) for the new chain(s). Leave CallProxy config as-is.
-3. **transfer_mcms_ownership_to_timelock** – KMS transfers ownership of Bypasser/Canceller/Proposer MCMS to the RBAC Timelock and produces an MCMS proposal for `acceptOwnership`.
-4. **Execute the MCMS proposal** – Execute the accept-ownership proposal through the normal MCMS flow (e.g. sign and execute).
-5. **renounce_timelock_deployer** – KMS renounces its ADMIN role on the RBAC Timelock. After this, only the Timelock owns the MCMS contracts and is the sole admin of itself.
+Use when adding a **new** chain selector. One YAML, one pipeline run.
 
-### Migration for **existing** chain selectors (already deployed, no redeploy)
+| Step | Changeset | What happens |
+|------|-----------|--------------|
+| 1 | **deploy_timelock** | KMS deploys RBAC Timelock and MCMS (Bypasser, Canceller, Proposer, CallProxy). Signers and config come from the deploy payload. |
+| 2 | **transfer_mcms_ownership_to_timelock** | KMS transfers ownership of Bypasser/Canceller/Proposer to the Timelock and the changeset **builds the accept-ownership MCMS proposal** (output artifact). |
+| 3 | **renounce_timelock_deployer** | KMS renounces its ADMIN role on the RBAC Timelock (same run). |
 
-For chain selectors already in the datastore (contracts already deployed, config already set), do **not** redeploy. Run only the ownership handover:
+After the run: CI opens a **proposal PR**. Sign the proposal (e.g. Ledger) and execute it (e.g. `execute-proposal` label). **No further pipeline run** — renounce already ran in step 3.
 
-1. **transfer_mcms_ownership_to_timelock** – With payload listing the existing `chainSelectors`. This performs the transfer and produces the accept-ownership proposal.
-2. **Execute the MCMS proposal** – As above.
-3. **renounce_timelock_deployer** – With the same `chainSelectors`. KMS renounces ADMIN on the Timelock for those chains.
+→ Use template: [New chain (deploy + transfer + renounce)](#1-new-chain-deploy--transfer--renounce).
 
-Pipeline payloads are resolved via the vault resolvers in `chainlink-deployments` (e.g. `environment`, `chainSelectors`, and for transfer optionally `timelockIdentifier`, `onlyAcceptOwnership`). In prod_mainnet, **set_mcms_config** is configured to produce an MCMS proposal (rather than sending directly), so it works both before and after ownership migration; run the pipeline, then sign and execute the proposal as with other MCMS proposals.
+### Flow 2: Migration (existing chains, two pipeline runs)
 
-### YAML templates (payload only)
+Use when chain selectors are **already in the datastore** (timelock + MCMS deployed and configured; ownership not yet handed over). Do **not** redeploy.
 
-Use these under `payload:` for the corresponding changeset in your pipeline input file (see [How to run](#how-to-run) below).
+| Run | What you run | What happens |
+|-----|--------------|--------------|
+| 1 | **transfer_mcms_ownership_to_timelock** | KMS transfers Bypasser/Canceller/Proposer to the Timelock and the changeset builds the accept-ownership proposal. |
+| (human) | Sign and execute the proposal (proposal PR from CI) | Timelock accepts ownership on-chain. |
+| 2 | **renounce_timelock_deployer** (same `chainSelectors`) | KMS renounces its ADMIN role on the Timelock for those chains. |
 
-**transfer_mcms_ownership_to_timelock**
+→ Use templates: [Migration – transfer](#2-migration--transfer-only), then [Migration – renounce](#3-migration--renounce-only).
+
+Pipeline payloads are resolved via the vault resolvers in **chainlink-deployments** (`environment`, `chainSelectors`, and optionally `timelockIdentifier` for transfer). Input files live under `domains/vault/<environment>/durable_pipelines/inputs/<name>.yaml`.
+
+---
+
+### YAML templates
+
+Copy one of the following into `domains/vault/prod_mainnet/durable_pipelines/inputs/<filename>.yaml`. Replace chain selectors and signer addresses with your values.
+
+#### 1. New chain (deploy + transfer + renounce)
+
+**When:** New chain selector. One pipeline run; then sign and execute the proposal.
+
+**Suggested filename:** `new_chain_deploy_transfer_renounce.yaml` (or similar).
 
 ```yaml
 environment: prod_mainnet
-chainSelectors:
-  - 5009297550715157269   # e.g. Ethereum mainnet; add all target chain selectors
-# Optional:
-# timelockIdentifier: ""   # Omit or use "default" for default timelock qualifier
-# onlyAcceptOwnership: false   # Set true to only build accept-ownership proposal (skip transfer)
+domain: vault
+changesets:
+  - deploy_timelock:
+      payload:
+        # One entry per chain selector. Replace with your chain selectors and signers.
+        5009297550715157269:   # e.g. Ethereum mainnet
+          proposer:
+            quorum: 1
+            signers: ["0x..."]   # replace with proposer signer address(es)
+          bypasser:
+            quorum: 1
+            signers: ["0x..."]   # replace with bypasser signer address(es)
+          canceller:
+            quorum: 1
+            signers: ["0x..."]   # replace with canceller signer address(es)
+          timelockmindelay: 0   # e.g. 86400 for 24h
+  - transfer_mcms_ownership_to_timelock:
+      payload:
+        environment: prod_mainnet
+        chainSelectors: [5009297550715157269]   # same as in deploy_timelock
+  - renounce_timelock_deployer:
+      payload:
+        environment: prod_mainnet
+        chainSelectors: [5009297550715157269]   # same as above
 ```
 
-**renounce_timelock_deployer**
+#### 2. Migration – transfer only
+
+**When:** Existing chains; first step of migration. Run this pipeline; then sign and execute the proposal; then run the [renounce](#3-migration--renounce-only) pipeline.
+
+**Suggested filename:** `transfer_mcms_ownership.yaml`.
 
 ```yaml
 environment: prod_mainnet
-chainSelectors:
-  - 5009297550715157269   # Same list as used for transfer_mcms_ownership_to_timelock
+domain: vault
+changesets:
+  - transfer_mcms_ownership_to_timelock:
+      payload:
+        environment: prod_mainnet
+        chainSelectors:
+          - 5009297550715157269   # add all existing chain selectors to migrate
+          # - 12345678901234567890
+# Optional under payload:
+# timelockIdentifier: "default"   # omit or use "default" for default timelock qualifier
 ```
+
+#### 3. Migration – renounce only
+
+**When:** Run **after** the accept-ownership proposal from [transfer](#2-migration--transfer-only) has been executed. Use the same `chainSelectors` as in the transfer run.
+
+**Suggested filename:** `renounce_timelock_deployer.yaml`.
+
+```yaml
+environment: prod_mainnet
+domain: vault
+changesets:
+  - renounce_timelock_deployer:
+      payload:
+        environment: prod_mainnet
+        chainSelectors:
+          - 5009297550715157269   # same list as in transfer_mcms_ownership_to_timelock
+          # - 12345678901234567890
+```
+
+---
 
 ### How to run
 
-Input files live in **chainlink-deployments**: `domains/vault/<environment>/durable_pipelines/inputs/<name>.yaml`.
-
-1. **Create the input YAML** in `domains/vault/prod_mainnet/durable_pipelines/inputs/`. Example for migration (transfer then renounce):
-
-   **Example: `transfer_mcms_ownership.yaml`**
-   ```yaml
-   environment: prod_mainnet
-   domain: vault
-   changesets:
-     - transfer_mcms_ownership_to_timelock:
-         payload:
-           environment: prod_mainnet
-           chainSelectors:
-             - 5009297550715157269
-             # add other chain selectors as needed
-   ```
-
-   **Example: `renounce_timelock_deployer.yaml`** (run after executing the accept-ownership proposal)
-   ```yaml
-   environment: prod_mainnet
-   domain: vault
-   changesets:
-     - renounce_timelock_deployer:
-         payload:
-           environment: prod_mainnet
-           chainSelectors:
-             - 5009297550715157269
-             # same chain selectors as transfer
-   ```
+1. **Create the input YAML** in `domains/vault/prod_mainnet/durable_pipelines/inputs/` using one of the [YAML templates](#yaml-templates) above.
 
 2. **Open a PR** against `main` in chainlink-deployments with the new/updated YAML.
 
-3. **Trigger execution**: Comment **`/run-pipelines`** on the PR. CI will run the pipeline and persist artifacts.
+3. **Trigger execution:** Comment **`/run-pipelines`** on the PR. CI runs the pipeline and persists artifacts.
 
-4. **If you ran `transfer_mcms_ownership_to_timelock`**: CI will open a **proposal PR** with the accept-ownership MCMS proposal. Then:
+4. **Proposal PR:** CI opens a **proposal PR** with the accept-ownership MCMS proposal. Then:
    - Check out the proposal PR branch, sign the proposal with Ledger (see [Signing proposals](https://docs.cld.cldev.sh/guides/mcms/signing-proposals/)), push your signature.
    - Add the **`execute-proposal`** label on that PR to execute on-chain.
-   - After the proposal is executed, run the **`renounce_timelock_deployer`** pipeline (new input file or new PR) with the same `chainSelectors`.
+   - **New chain (three-step YAML):** Renounce already ran; no further pipeline run.
+   - **Migration:** After the proposal is executed, run the **renounce** pipeline ([template 3](#3-migration--renounce-only)) with the same `chainSelectors`.
 
 5. **Local run (optional)** from chainlink-deployments repo root:
    ```bash
