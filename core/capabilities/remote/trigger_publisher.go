@@ -165,7 +165,7 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 	}
 
 	p.wg.Add(1)
-	go p.registrationCleanupLoop()
+	go p.cacheCleanupLoop()
 	p.wg.Add(1)
 	go p.batchingLoop()
 	p.lggr.Info("TriggerPublisher started")
@@ -287,7 +287,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
+		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
 		if !ready {
 			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return
@@ -307,7 +307,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 	}
 }
 
-func (p *triggerPublisher) registrationCleanupLoop() {
+func (p *triggerPublisher) cacheCleanupLoop() {
 	defer p.wg.Done()
 
 	// Get initial config for ticker setup
@@ -348,7 +348,13 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					p.messageCache.Delete(key)
 				}
 			}
+
+			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
 			p.mu.Unlock()
+
+			if deleted > 0 {
+				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
+			}
 		}
 	}
 }
@@ -434,23 +440,53 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			resp.workflowIDs = nil
 			resp.triggerIDs = nil
 		}
-		msg := &types.MessageBody{
-			CapabilityId:    p.capabilityID,
-			CapabilityDonId: cfg.capDonInfo.ID,
-			CallerDonId:     resp.callerDonID,
-			Method:          types.MethodTriggerEvent,
-			Payload:         resp.rawResponse,
-			Metadata: &types.MessageBody_TriggerEventMetadata{
-				TriggerEventMetadata: &types.TriggerEventMetadata{
-					WorkflowIds:    workflowBatch,
-					TriggerIds:     triggerBatch,
-					TriggerEventId: resp.triggerEventID,
-				},
-			},
-			CapabilityMethod: p.capMethodName,
+
+		ackSnapshot := make(map[string]map[p2ptypes.PeerID]bool)
+		p.mu.RLock()
+		for _, triggerID := range triggerBatch {
+			key := ackKey{
+				callerDonID:    resp.callerDonID,
+				triggerEventID: resp.triggerEventID,
+				triggerID:      triggerID,
+			}
+			ackSnapshot[triggerID] = p.ackCache.Peers(key)
 		}
+		p.mu.RUnlock()
+
 		// NOTE: send to all nodes by default, introduce different strategies later (KS-76)
 		for _, peerID := range cfg.workflowDONs[resp.callerDonID].Members {
+			var missingTriggerIDs []string
+			var missingWorkflowIDs []string
+
+			// determine which triggerIDs / workflowIDs have not yet ACKd this trigger event
+			for i, triggerID := range triggerBatch {
+				peers := ackSnapshot[triggerID]
+				if peers == nil || !peers[peerID] {
+					missingTriggerIDs = append(missingTriggerIDs, triggerID)
+					missingWorkflowIDs = append(missingWorkflowIDs, workflowBatch[i])
+				}
+			}
+
+			if len(missingTriggerIDs) == 0 {
+				continue
+			}
+
+			msg := &types.MessageBody{
+				CapabilityId:     p.capabilityID,
+				CapabilityDonId:  cfg.capDonInfo.ID,
+				CallerDonId:      resp.callerDonID,
+				Method:           types.MethodTriggerEvent,
+				Payload:          resp.rawResponse,
+				CapabilityMethod: p.capMethodName,
+				Metadata: &types.MessageBody_TriggerEventMetadata{
+					TriggerEventMetadata: &types.TriggerEventMetadata{
+						WorkflowIds:    missingWorkflowIDs,
+						TriggerIds:     missingTriggerIDs,
+						TriggerEventId: resp.triggerEventID,
+					},
+				},
+			}
+
 			err := p.dispatcher.Send(peerID, msg)
 			if err != nil {
 				p.lggr.Errorw("failed to send trigger event", "peerID", peerID, "err", err)

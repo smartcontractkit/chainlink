@@ -410,6 +410,101 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
+func TestTriggerPublisher_ResendOnlyToNonAckedPeers(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+
+	capabilityDONID := uint32(1)
+	workflowDONID := uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+
+	peers := make([]p2ptypes.PeerID, 2)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+	capDonInfo := commoncap.DON{
+		ID:      capabilityDONID,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+
+	workflowDonInfo := commoncap.DON{
+		ID:      workflowDONID,
+		Members: []p2ptypes.PeerID{peers[0], peers[1]},
+		F:       0,
+	}
+
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	underlying := newMultiTrigger(capInfo)
+	dispatcher := mocks.NewDispatcher(t)
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            1,
+		BatchCollectionPeriod:   50 * time.Millisecond,
+	}
+
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+	require.NoError(t, publisher.Start(ctx))
+
+	// Register trigger
+	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
+	publisher.Receive(ctx, regEvent)
+	<-underlying.registrationsCh
+
+	sendCountPeer0 := 0
+	sendCountPeer1 := 0
+
+	dispatcher.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		peer := args.Get(0).(p2ptypes.PeerID)
+		if peer == peers[0] {
+			sendCountPeer0++
+		}
+		if peer == peers[1] {
+			sendCountPeer1++
+		}
+	}).Return(nil)
+
+	// Send event
+	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{ID: "event1"},
+	})
+
+	time.Sleep(100 * time.Millisecond)
+
+	require.Equal(t, 1, sendCountPeer0)
+	require.Equal(t, 1, sendCountPeer1)
+
+	// Simulate ACK from peer0 only
+	ackMsg := newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0])
+	publisher.Receive(ctx, ackMsg)
+
+	// Trigger resend (send event again)
+	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{ID: "event1"},
+	})
+
+	time.Sleep(100 * time.Millisecond)
+
+	// peer0 should NOT receive resend
+	require.Equal(t, 1, sendCountPeer0)
+	// peer1 should receive resend
+	require.Equal(t, 2, sendCountPeer1)
+	require.NoError(t, publisher.Close())
+}
+
 func newRegisterTriggerMessageWithTriggerID(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID, triggerID string) *remotetypes.MessageBody {
 	triggerRequest := commoncap.TriggerRegistrationRequest{
 		TriggerID: triggerID,
