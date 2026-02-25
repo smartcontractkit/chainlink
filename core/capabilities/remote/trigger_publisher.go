@@ -63,6 +63,7 @@ type registrationKey struct {
 type ackKey struct {
 	callerDonID    uint32
 	triggerEventID string
+	triggerID      string // triggerID contains the workflowID
 }
 
 type pubRegState struct {
@@ -276,11 +277,17 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			return
 		}
 
-		key := ackKey{msg.CallerDonId, triggerEventID}
+		if len(triggerMetadata.TriggerIds) != 1 {
+			p.lggr.Errorw("did not receive single triggerID in ACK request", "callerDonId", msg.CallerDonId, "sender", sender, "triggerIDs", triggerMetadata.TriggerIds)
+			return
+		}
+		triggerID := triggerMetadata.TriggerIds[0]
+
+		key := ackKey{msg.CallerDonId, triggerEventID, triggerID}
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.EventTimeout.Milliseconds(), false)
+		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
 			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return

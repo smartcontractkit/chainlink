@@ -21,6 +21,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmllo "github.com/smartcontractkit/chainlink-evm/pkg/llo"
@@ -30,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
@@ -121,15 +121,15 @@ func NewLLOProvider(
 		lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
 		transmitter = bm.NewTransmitter(lggr, csaPub)
 	} else {
-		clients := make(map[string]grpc.Client)
+		clients := make(map[string]rpc.Client)
 
 		mercuryServers := lloCfg.GetServers()
 
 		for _, server := range mercuryServers {
-			var client grpc.Client
+			var client rpc.Client
 			switch mercuryCfg.Transmitter().Protocol() {
 			case config.MercuryTransmitterProtocolGRPC:
-				client = grpc.NewClient(grpc.ClientOpts{
+				client = rpc.NewClient(rpc.ClientOpts{
 					Logger: logger.Sugared(lggr).
 						Named(fmt.Sprintf("%q", server.URL)).
 						With("serverURL", server.URL),

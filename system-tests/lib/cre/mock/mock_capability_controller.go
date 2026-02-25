@@ -66,7 +66,7 @@ func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool)
 	return controller, nil
 }
 
-// ConnectAll connects to all addresses, for CTFv2 test useInsecure should be true, for CRIB useInsecure should be false
+// ConnectAll connects to all addresses; for Docker-based CTFv2 tests useInsecure should be true, for Kubernetes false.
 func (c *Controller) ConnectAll(addresses []string, useInsecure bool, cacheClients bool) error {
 	if cacheClients {
 		cacheDir := "cache"

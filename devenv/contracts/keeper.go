@@ -2,19 +2,24 @@ package contracts
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	goabi "github.com/umbracle/ethgo/abi"
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	registrar21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_registrar_wrapper2_1"
-	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_consumer_performance_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/perform_data_checker_wrapper"
+	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 )
 
 // AbigenLog is an interface for abigen generated log topics
@@ -95,6 +100,7 @@ type KeeperRegistry interface {
 	ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error)
 	ParseUpkeepIDFromRegisteredLog(log *types.Log) (*big.Int, error)
 	Pause() error
+	Unpause() error
 	Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error
 	SetMigrationPermissions(peerAddress common.Address, permission uint8) error
 	PauseUpkeep(id *big.Int) error
@@ -130,6 +136,17 @@ type UpkeepPerformedLog struct {
 
 type StaleUpkeepReportLog struct {
 	ID *big.Int
+}
+
+// KeeperConsumerPerformance is a keeper consumer contract that is more complicated than the typical consumer,
+// it's intended to only be used for performance tests.
+type KeeperConsumerPerformance interface {
+	Address() string
+	Fund(ethAmount *big.Float) error
+	CheckEligible(ctx context.Context) (bool, error)
+	GetUpkeepCount(ctx context.Context) (*big.Int, error)
+	SetCheckGasToBurn(ctx context.Context, gas *big.Int) error
+	SetPerformGasToBurn(ctx context.Context, gas *big.Int) error
 }
 
 // KeeperRegistryOpts opts to deploy keeper registry version
@@ -277,4 +294,127 @@ type UpkeepInfo struct {
 	AmountSpent            *big.Int
 	Paused                 bool
 	OffchainConfig         []byte
+}
+
+// EthereumKeeperConsumerPerformance represents a more complicated keeper consumer contract, one intended only for
+// performance tests.
+type EthereumKeeperConsumerPerformance struct {
+	client   *seth.Client
+	consumer *keeper_consumer_performance_wrapper.KeeperConsumerPerformance
+	address  *common.Address
+}
+
+func (v *EthereumKeeperConsumerPerformance) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumKeeperConsumerPerformance) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions.SendFunds instead")
+}
+
+func (v *EthereumKeeperConsumerPerformance) CheckEligible(ctx context.Context) (bool, error) {
+	return v.consumer.CheckEligible(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumKeeperConsumerPerformance) GetUpkeepCount(ctx context.Context) (*big.Int, error) {
+	return v.consumer.GetCountPerforms(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumKeeperConsumerPerformance) SetCheckGasToBurn(_ context.Context, gas *big.Int) error {
+	_, err := v.client.Decode(v.consumer.SetCheckGasToBurn(v.client.NewTXOpts(), gas))
+	return err
+}
+
+func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(_ context.Context, gas *big.Int) error {
+	_, err := v.client.Decode(v.consumer.SetPerformGasToBurn(v.client.NewTXOpts(), gas))
+	return err
+}
+
+func DeployKeeperConsumerPerformance(
+	client *seth.Client,
+	testBlockRange,
+	averageCadence,
+	checkGasToBurn,
+	performGasToBurn *big.Int,
+) (KeeperConsumerPerformance, error) {
+	abi, err := keeper_consumer_performance_wrapper.KeeperConsumerPerformanceMetaData.GetAbi()
+	if err != nil {
+		return &EthereumKeeperConsumerPerformance{}, fmt.Errorf("failed to get KeeperConsumerPerformance ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "KeeperConsumerPerformance", *abi, common.FromHex(keeper_consumer_performance_wrapper.KeeperConsumerPerformanceMetaData.Bin),
+		testBlockRange,
+		averageCadence,
+		checkGasToBurn,
+		performGasToBurn)
+	if err != nil {
+		return &EthereumKeeperConsumerPerformance{}, fmt.Errorf("KeeperConsumerPerformance instance deployment have failed: %w", err)
+	}
+
+	instance, err := keeper_consumer_performance_wrapper.NewKeeperConsumerPerformance(data.Address, MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumKeeperConsumerPerformance{}, fmt.Errorf("failed to instantiate KeeperConsumerPerformance instance: %w", err)
+	}
+
+	return &EthereumKeeperConsumerPerformance{
+		client:   client,
+		consumer: instance,
+		address:  &data.Address,
+	}, nil
+}
+
+type KeeperPerformDataChecker interface {
+	Address() string
+	Counter(ctx context.Context) (*big.Int, error)
+	SetExpectedData(ctx context.Context, expectedData []byte) error
+}
+
+// EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
+type EthereumKeeperPerformDataCheckerConsumer struct {
+	client             *seth.Client
+	performDataChecker *perform_data_checker_wrapper.PerformDataChecker
+	address            *common.Address
+}
+
+func (v *EthereumKeeperPerformDataCheckerConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumKeeperPerformDataCheckerConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	return v.performDataChecker.Counter(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumKeeperPerformDataCheckerConsumer) SetExpectedData(_ context.Context, expectedData []byte) error {
+	_, err := v.client.Decode(v.performDataChecker.SetExpectedData(v.client.NewTXOpts(), expectedData))
+	return err
+}
+
+func DeployKeeperPerformDataChecker(client *seth.Client, expectedData []byte) (KeeperPerformDataChecker, error) {
+	abi, err := perform_data_checker_wrapper.PerformDataCheckerMetaData.GetAbi()
+	if err != nil {
+		return &EthereumKeeperPerformDataCheckerConsumer{}, fmt.Errorf("failed to get PerformDataChecker ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "PerformDataChecker", *abi, common.FromHex(perform_data_checker_wrapper.PerformDataCheckerMetaData.Bin), expectedData)
+	if err != nil {
+		return &EthereumKeeperPerformDataCheckerConsumer{}, fmt.Errorf("PerformDataChecker instance deployment have failed: %w", err)
+	}
+
+	instance, err := perform_data_checker_wrapper.NewPerformDataChecker(data.Address, MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumKeeperPerformDataCheckerConsumer{}, fmt.Errorf("failed to instantiate PerformDataChecker instance: %w", err)
+	}
+
+	return &EthereumKeeperPerformDataCheckerConsumer{
+		client:             client,
+		performDataChecker: instance,
+		address:            &data.Address,
+	}, nil
 }

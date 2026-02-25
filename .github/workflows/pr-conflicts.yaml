@@ -1,0 +1,29 @@
+name: Detect PR Conflicts
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  detect-conflicts:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: ./.github/actions/prconflicts
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          pr-number: ${{ github.event.pull_request.number }}
+          head-ref: ${{ github.head_ref }}
+          base-ref: ${{ github.base_ref }}

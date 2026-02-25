@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,14 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func Test_generateReconciliationEventsV2(t *testing.T) {
@@ -778,6 +784,19 @@ func Test_Start(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		mockReader := &mockContractReader{startErr: nil}
 		er := NewEngineRegistry()
+		lf := limits.Factory{Logger: lggr}
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		h := &eventHandler{
+			engineRegistry: &EngineRegistry{},
+			engineLimiters: limiters,
+		}
+		svc, eng := services.Config{
+			Name:  "EventHandler",
+			Close: h.close,
+		}.NewServiceEngine(lggr)
+		h.Service = svc
+		h.eng = eng
 		wr, err := NewWorkflowRegistry(
 			lggr,
 			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
@@ -789,9 +808,7 @@ func Test_Start(t *testing.T) {
 				QueryCount:   20,
 				SyncStrategy: SyncStrategyReconciliation,
 			},
-			&eventHandler{
-				engineRegistry: &EngineRegistry{},
-			},
+			h,
 			workflowDonNotifier,
 			er,
 		)
@@ -1340,4 +1357,229 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.Equal(t, WorkflowDeleted, grpcEvents[0].Name)
 		require.Equal(t, wfTypes.WorkflowID(wfIDGrpc2), grpcEvents[0].Data.(WorkflowDeletedEvent).WorkflowID)
 	})
+}
+
+func Test_isZeroOwner(t *testing.T) {
+	t.Run("returns true for nil slice", func(t *testing.T) {
+		require.True(t, isZeroOwner(nil))
+	})
+
+	t.Run("returns true for empty slice", func(t *testing.T) {
+		require.True(t, isZeroOwner([]byte{}))
+	})
+
+	t.Run("returns true for all zeros (20 bytes - Ethereum address)", func(t *testing.T) {
+		zeroAddress := make([]byte, 20)
+		require.True(t, isZeroOwner(zeroAddress))
+	})
+
+	t.Run("returns true for all zeros (arbitrary length)", func(t *testing.T) {
+		zeros := make([]byte, 32)
+		require.True(t, isZeroOwner(zeros))
+	})
+
+	t.Run("returns false for valid owner address", func(t *testing.T) {
+		validOwner, _ := hex.DecodeString("1234567890123456789012345678901234567890")
+		require.False(t, isZeroOwner(validOwner))
+	})
+
+	t.Run("returns false for address with single non-zero byte", func(t *testing.T) {
+		almostZero := make([]byte, 20)
+		almostZero[19] = 1 // last byte is 1
+		require.False(t, isZeroOwner(almostZero))
+	})
+
+	t.Run("returns false for address with non-zero first byte", func(t *testing.T) {
+		almostZero := make([]byte, 20)
+		almostZero[0] = 1 // first byte is 1
+		require.False(t, isZeroOwner(almostZero))
+	})
+}
+
+func Test_ParallelEventHandling(t *testing.T) {
+	t.Run("processes multiple delete events concurrently", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+
+		n := 10
+		wfIDs := make([]wfTypes.WorkflowID, n)
+		for i := range wfIDs {
+			wfIDs[i] = wfTypes.WorkflowID([32]byte{byte(i + 1)})
+			require.NoError(t, er.Add(wfIDs[i], "TestSource", &mockService{}))
+		}
+
+		handler := newTestEvtHandler(nil)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			handler,
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, []WorkflowMetadataView{}, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Len(t, events, n)
+
+		// Simulate the parallel event loop from syncUsingReconciliationStrategy
+		sourceIdentifier := "TestSource"
+		pendingEventsBySource := map[string]map[string]*reconciliationEvent{
+			sourceIdentifier: {},
+		}
+		reconcileReport := newReconcileReport()
+
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		for _, event := range events {
+			mu.Lock()
+			reconcileReport.NumEventsByType[string(event.Name)]++
+			mu.Unlock()
+
+			wg.Add(1)
+			go func(evt *reconciliationEvent) {
+				defer wg.Done()
+				handleErr := wr.handleWithMetrics(ctx, evt.Event)
+				if handleErr != nil {
+					mu.Lock()
+					pendingEventsBySource[sourceIdentifier][evt.id] = evt
+					mu.Unlock()
+				}
+			}(event)
+		}
+		wg.Wait()
+
+		handled := handler.GetEvents()
+		require.Len(t, handled, n)
+
+		handledIDs := make(map[wfTypes.WorkflowID]bool)
+		for _, evt := range handled {
+			d := evt.Data.(WorkflowDeletedEvent)
+			handledIDs[d.WorkflowID] = true
+		}
+		for _, id := range wfIDs {
+			require.True(t, handledIDs[id], "expected workflow %x to be handled", id)
+		}
+
+		require.Empty(t, pendingEventsBySource[sourceIdentifier])
+		require.Equal(t, n, reconcileReport.NumEventsByType[string(WorkflowDeleted)])
+	})
+
+	t.Run("processes mixed event types concurrently", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+
+		existingID := wfTypes.WorkflowID([32]byte{1})
+		require.NoError(t, er.Add(existingID, "TestSource", &mockService{}))
+
+		newID := wfTypes.WorkflowID([32]byte{2})
+
+		handler := newTestEvtHandler(nil)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			handler,
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   newID,
+				Owner:        []byte{0x01},
+				Status:       WorkflowStatusActive,
+				WorkflowName: "new-wf",
+				BinaryURL:    "b1",
+				ConfigURL:    "c1",
+				DonFamily:    "A",
+			},
+		}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Len(t, events, 2) // 1 delete + 1 activate
+
+		var wg sync.WaitGroup
+		for _, event := range events {
+			wg.Add(1)
+			go func(evt *reconciliationEvent) {
+				defer wg.Done()
+				_ = wr.handleWithMetrics(ctx, evt.Event)
+			}(event)
+		}
+		wg.Wait()
+
+		handled := handler.GetEvents()
+		require.Len(t, handled, 2)
+
+		nameSet := map[WorkflowRegistryEventName]bool{}
+		for _, evt := range handled {
+			nameSet[evt.Name] = true
+		}
+		require.True(t, nameSet[WorkflowDeleted])
+		require.True(t, nameSet[WorkflowActivated])
+	})
+}
+
+type mockShardMappingClient struct {
+	mappings map[string]uint32
+}
+
+func (m *mockShardMappingClient) GetWorkflowShardMapping(_ context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
+	out := make(map[string]uint32)
+	for _, id := range workflowIDs {
+		if shard, ok := m.mappings[id]; ok {
+			out[id] = shard
+		}
+	}
+	return &ringpb.GetWorkflowShardMappingResponse{Mappings: out, MappingVersion: 1}, nil
+}
+
+func (m *mockShardMappingClient) ReportWorkflowTriggerRegistration(context.Context, *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{Success: true}, nil
+}
+
+func (m *mockShardMappingClient) Close() error { return nil }
+
+var _ shardorchestrator.ClientInterface = (*mockShardMappingClient)(nil)
+
+func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
+	ctx := testutils.Context(t)
+	wf1 := wfTypes.WorkflowID([32]byte{1})
+	wf2 := wfTypes.WorkflowID([32]byte{2})
+	wf3 := wfTypes.WorkflowID([32]byte{3})
+	workflows := []WorkflowMetadataView{
+		{WorkflowID: wf1, WorkflowName: "wf1"},
+		{WorkflowID: wf2, WorkflowName: "wf2"},
+		{WorkflowID: wf3, WorkflowName: "wf3"},
+	}
+
+	client := &mockShardMappingClient{
+		mappings: map[string]uint32{
+			wf1.Hex(): 0,
+			wf2.Hex(): 1,
+		},
+	}
+	wr := &workflowRegistry{
+		shardOrchestratorClient: client,
+		myShardID:               1,
+		shardingEnabled:         true,
+	}
+
+	filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+	require.NoError(t, err)
+	require.Len(t, filtered, 1)
+	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
 }

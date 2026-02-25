@@ -12,46 +12,19 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
-	"time"
-
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
-
-type lastFetchedAtMap struct {
-	m map[string]time.Time
-	sync.RWMutex
-}
-
-func (l *lastFetchedAtMap) Set(url string, at time.Time) {
-	l.Lock()
-	defer l.Unlock()
-	l.m[url] = at
-}
-
-func (l *lastFetchedAtMap) Get(url string) (time.Time, bool) {
-	l.RLock()
-	defer l.RUnlock()
-	got, ok := l.m[url]
-	return got, ok
-}
-
-func newLastFetchedAtMap() *lastFetchedAtMap {
-	return &lastFetchedAtMap{
-		m: map[string]time.Time{},
-	}
-}
 
 func safeUint32(n uint64) uint32 {
 	if n > math.MaxUint32 {
@@ -101,8 +74,6 @@ func (cfg *ArtifactConfig) MakeLimiters(lf limits.Factory) (limiters *ArtifactLi
 	return
 }
 
-var defaultSecretsFreshnessDuration = 24 * time.Hour
-
 func WithMaxArtifactSize(cfg ArtifactConfig) func(*Store) {
 	return func(a *Store) {
 		a.limits = &cfg
@@ -141,9 +112,7 @@ type Store struct {
 	// fetchFn is a function that fetches the contents of a URL with a limit on the size of the response.
 	fetchFn types.FetcherFunc
 
-	lastFetchedAtMap         *lastFetchedAtMap // TODO unused
-	clock                    clockwork.Clock
-	secretsFreshnessDuration time.Duration // TODO unused
+	clock clockwork.Clock
 
 	encryptionKey workflowkey.Key
 
@@ -157,10 +126,8 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 		orm:                      orm,
 		retrieveFunc:             retrieveFunc,
 		fetchFn:                  fetchFn,
-		lastFetchedAtMap:         newLastFetchedAtMap(),
-		clock:                    clock,
-		config:                   &StoreConfig{},
-		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
+		clock:  clock,
+		config: &StoreConfig{},
 		encryptionKey:            encryptionKey,
 		emitter:                  emitter,
 	}
@@ -306,6 +273,10 @@ func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) 
 	}
 
 	return nil
+}
+
+func (h *Store) DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error {
+	return h.orm.DeleteWorkflowSpecs(ctx, workflowIDs)
 }
 
 func (h *Store) GetWasmBinary(ctx context.Context, workflowID string) ([]byte, error) {

@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -38,7 +38,7 @@ type gatewayConnector interface {
 
 func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpts ...func(*gateway.RoundRobinSelector)) *FetcherService {
 	return &FetcherService{
-		lggr:         lggr.Named("FetcherService"),
+		lggr:         logger.Named(lggr, "FetcherService"),
 		wrapper:      wrapper,
 		selectorOpts: selectorOpts,
 	}
@@ -52,7 +52,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		connector := s.wrapper.GetGatewayConnector()
 
-		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
+		outgoingConnectorLggr := logger.Named(s.lggr, "OutgoingConnectorHandler")
 
 		webAPIConfig := webapi.ServiceConfig{
 			OutgoingRateLimiter: ratelimit.RateLimiterConfig{

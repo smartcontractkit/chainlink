@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 )
 
 // OCR3SignerVerifierExtra is an extension of OCR3SignerVerifier that

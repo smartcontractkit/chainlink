@@ -21,7 +21,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 )
 
 type fakeConsensusNoDAG struct {

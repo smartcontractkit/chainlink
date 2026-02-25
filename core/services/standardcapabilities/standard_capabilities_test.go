@@ -51,7 +51,7 @@ func TestStandardCapabilityStart(t *testing.T) {
 			GatewayConnector:   &gatewayConnectorMock{},
 			P2PKeystore:        &keystoreMock{},
 		}
-		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, dependencies)
+		standardCapability := NewStandardCapabilities(lggr, spec.Command, spec.Config, pluginRegistrar, dependencies)
 		standardCapability.startTimeout = 1 * time.Second
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)

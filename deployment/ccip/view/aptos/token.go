@@ -19,7 +19,6 @@ type TokenView struct {
 	Decimals   uint8  `json:"decimals"`
 	IconURI    string `json:"iconURI,omitempty"`
 	ProjectURI string `json:"projectURI,omitempty"`
-	Supply     uint64 `json:"supply"`
 
 	Burners                   []aptos.AccountAddress `json:"burners"`
 	Minters                   []aptos.AccountAddress `json:"minters"`
@@ -48,11 +47,6 @@ func GenerateTokenView(chain cldf_aptos.Chain, managedTokenObjectAddress aptos.A
 		return TokenView{}, fmt.Errorf("failed to get fungible asset metadata of fungibleAsset %s: %w", faMetadataAddress.StringLong(), err)
 	}
 
-	supply, err := helpers.GetFungibleAssetSupply(chain.Client, faMetadataAddress)
-	if err != nil {
-		return TokenView{}, fmt.Errorf("failed to get fungible asset supply of fungibleAsset %s: %w", faMetadataAddress.StringLong(), err)
-	}
-
 	burners, err := boundToken.ManagedToken().GetAllowedBurners(nil)
 	if err != nil {
 		return TokenView{}, fmt.Errorf("failed to get burners of managedToken %s: %w", managedTokenObjectAddress.StringLong(), err)
@@ -73,7 +67,6 @@ func GenerateTokenView(chain cldf_aptos.Chain, managedTokenObjectAddress aptos.A
 		Decimals:                  metadata.Decimals,
 		IconURI:                   metadata.IconURI,
 		ProjectURI:                metadata.ProjectURI,
-		Supply:                    supply,
 		Burners:                   burners,
 		Minters:                   minters,
 		ManagedTokenObjectAddress: managedTokenObjectAddress.StringLong(),

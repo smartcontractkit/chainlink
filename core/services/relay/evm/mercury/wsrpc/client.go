@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -399,7 +398,7 @@ func (w *client) RawClient() pb.MercuryClient {
 	return w.rawClient
 }
 
-var _ grpc.Client = GRPCCompatibilityWrapper{}
+var _ rpc.Client = GRPCCompatibilityWrapper{}
 
 type GRPCCompatibilityWrapper struct {
 	Client

@@ -14,8 +14,8 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/curve25519"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 var numSignatures = 5

@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func NewHead() evmtypes.Head {
-	return evmtypes.Head{Number: 42, EVMChainID: ubig.New(testutils.FixtureChainID)}
+	return evmtypes.Head{Number: 42, EVMChainID: sqlutil.New(testutils.FixtureChainID)}
 }
 
 func Test_HeadReporterService(t *testing.T) {

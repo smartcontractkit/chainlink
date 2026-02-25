@@ -34,6 +34,29 @@ import (
 
 // smoke
 func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testCases := make([]evm_config.TestCase, 0, evm_config.TestCaseLen)
+	for tc := range evm_config.TestCaseLen {
+		testCases = append(testCases, tc)
+	}
+
+	ExecuteEVMReadTestForCases(t, testEnv, testCases)
+}
+
+func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, testCases []evm_config.TestCase) {
+	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry; assign each testcase exactly once")
+	require.NotEmpty(t, testCases, "no EVM read testcases selected")
+
+	seen := make(map[evm_config.TestCase]struct{}, len(testCases))
+	for _, tc := range testCases {
+		require.GreaterOrEqualf(t, tc, evm_config.TestCase(0), "invalid testcase %d", tc)
+		require.Lessf(t, tc, evm_config.TestCaseLen, "invalid testcase %d", tc)
+		if _, alreadySeen := seen[tc]; alreadySeen {
+			require.Failf(t, "duplicate testcase", "testcase %q selected more than once", tc.String())
+		}
+
+		seen[tc] = struct{}{}
+	}
+
 	lggr := framework.L
 	const workflowFileLocation = "./evm/evmread/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
@@ -56,7 +79,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			continue
 		}
 
-		for tc := range evm_config.TestCaseLen {
+		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("Read %s on chain %s", tc.String(), chainID), func(t *testing.T) {
 				workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
 				lggr.Info().

@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -47,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -67,7 +67,7 @@ func TestRunner(t *testing.T) {
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
-		kbid := models.MustSha256HashFromHex(kb.ID())
+		kbid := corekeys.MustSha256HashFromHex(kb.ID())
 		c.OCR.KeyBundleID = &kbid
 		taddress := types.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress

@@ -21,6 +21,9 @@ type MedianTask struct {
 	// Lax when disabled (default) will return an error if there are no values to medianize or if the input includes nil values.
 	// Lax when enabled will return nil with no error if there are no valid values to medianize. If the input includes nil values, they will be excluded from the median calculation and do not count as a fault.
 	Lax string
+	// CountNilsAsFaults when enabled treats nil values as faults (counted toward allowedFaults) but filters them out before median calculation.
+	// This is mutually exclusive with Lax.
+	CountNilsAsFaults string
 }
 
 var _ Task = (*MedianTask)(nil)
@@ -37,14 +40,20 @@ func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		allowedFaults      int
 		faults             int
 		lax                BoolParam
+		countNilsAsFaults  BoolParam
 	)
 	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 		errors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
+		errors.Wrap(ResolveParam(&countNilsAsFaults, From(NonemptyString(t.CountNilsAsFaults), false)), "countNilsAsFaults"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
+	}
+
+	if bool(lax) && bool(countNilsAsFaults) {
+		return Result{Error: errors.New("lax and countNilsAsFaults cannot both be enabled")}, runInfo
 	}
 
 	// if lax is enabled, filter out nil values
@@ -60,9 +69,18 @@ func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 	}
 
 	values, faults := valuesAndErrs.FilterErrors()
+
+	// If countNilsAsFaults is enabled, filter nils AFTER fault counting
+	// so that nils are counted toward allowedFaults
+	if bool(countNilsAsFaults) {
+		var nilCount int
+		values, nilCount = values.FilterNils()
+		faults += nilCount
+	}
+
 	if faults > allowedFaults {
 		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}, runInfo
-	} else if len(values) == 0 && bool(lax) {
+	} else if len(values) == 0 && (bool(lax) || bool(countNilsAsFaults)) {
 		return Result{}, runInfo // if lax is enabled, return nil result with no error
 	} else if len(values) == 0 {
 		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}, runInfo

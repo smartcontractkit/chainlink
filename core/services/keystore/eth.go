@@ -13,11 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -271,7 +271,7 @@ func (ks *eth) addKey(ctx context.Context, ds sqlutil.DataSource, address common
 		return errors.Wrap(err, "failed to insert key_state")
 	}
 	// consider: do we really need a cache of the keystates?
-	ks.keyStates.add(state)
+	ks.keyStates.Add(state)
 	return nil
 }
 
@@ -296,9 +296,9 @@ func (ks *eth) enable(ctx context.Context, address common.Address, chainID *big.
 	}
 
 	if state.CreatedAt.Equal(state.UpdatedAt) {
-		ks.keyStates.add(state)
+		ks.keyStates.Add(state)
 	} else {
-		ks.keyStates.enable(address, chainID, state.UpdatedAt)
+		ks.keyStates.Enable(address, chainID, state.UpdatedAt)
 	}
 	return nil
 }
@@ -323,9 +323,9 @@ func (ks *eth) disable(ctx context.Context, address common.Address, chainID *big
 	}
 
 	if state.CreatedAt.Equal(state.UpdatedAt) {
-		ks.keyStates.add(state)
+		ks.keyStates.Add(state)
 	} else {
-		ks.keyStates.disable(address, chainID, state.UpdatedAt)
+		ks.keyStates.Disable(address, chainID, state.UpdatedAt)
 	}
 	return nil
 }
@@ -347,7 +347,7 @@ func (ks *eth) Delete(ctx context.Context, id string) (ethkey.KeyV2, error) {
 	if err != nil {
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to remove eth key")
 	}
-	ks.keyStates.delete(key.Address)
+	ks.keyStates.Delete(key.Address)
 	return key, nil
 }
 

@@ -14,6 +14,13 @@ type shardingConfig struct {
 	s toml.Sharding
 }
 
+func (s *shardingConfig) ShardingEnabled() bool {
+	if s.s.ShardingEnabled == nil {
+		return false
+	}
+	return *s.s.ShardingEnabled
+}
+
 func (s *shardingConfig) ArbiterPort() uint16 {
 	return *s.s.ArbiterPort
 }

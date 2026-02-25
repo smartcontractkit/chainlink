@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 

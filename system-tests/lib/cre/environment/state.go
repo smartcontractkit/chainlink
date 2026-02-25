@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 // BuildFromSavedState rebuilds the CLDF environment and per‑chain clients from
@@ -38,7 +37,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.New("cached input cannot be nil")
 	}
 
-	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra, infra.CribConfigsDir)
+	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra)
 	deployedBlockchains, startErr := blockchains.Start(
 		ctx,
 		framework.L,

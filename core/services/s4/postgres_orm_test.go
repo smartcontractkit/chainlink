@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -34,7 +34,7 @@ func generateTestRows(t *testing.T, n int) []*s4.Row {
 	rows := make([]*s4.Row, n)
 	for i := range n {
 		row := &s4.Row{
-			Address:    big.New(testutils.NewAddress().Big()),
+			Address:    sqlutil.New(testutils.NewAddress().Big()),
 			SlotId:     1,
 			Payload:    cltest.MustRandomBytes(t, 32),
 			Version:    1 + uint64(i),

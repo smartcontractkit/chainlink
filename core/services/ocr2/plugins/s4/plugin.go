@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
@@ -77,7 +77,7 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 	rows := make([]*SnapshotRow, len(snapshot))
 	for i, v := range snapshot {
 		rows[i] = &SnapshotRow{
-			Address: v.Address.Bytes(),
+			Address: v.Address.ToInt().Bytes(),
 			Slotid:  uint32(v.SlotId),
 			Version: v.Version,
 		}
@@ -142,7 +142,7 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 			c.logger.Error("ORM GetSnapshot error", commontypes.LogFields{"err": err})
 		} else {
 			type rkey struct {
-				address *big.Big
+				address *sqlutil.Big
 				slotID  uint
 			}
 
@@ -310,7 +310,7 @@ func (c *plugin) Close() error {
 
 func convertRow(from *s4.Row) *Row {
 	return &Row{
-		Address:    from.Address.Bytes(),
+		Address:    from.Address.ToInt().Bytes(),
 		Slotid:     uint32(from.SlotId),
 		Version:    from.Version,
 		Expiration: from.Expiration,

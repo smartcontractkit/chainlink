@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -47,7 +46,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -113,7 +112,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -185,7 +184,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"family-a", "family-b"},
@@ -230,7 +229,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -284,7 +283,7 @@ func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},
@@ -324,7 +323,7 @@ func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
 	source, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", tmpFile)
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	don := capabilities.DON{
 		ID:       1,
 		Families: []string{"workflow"},

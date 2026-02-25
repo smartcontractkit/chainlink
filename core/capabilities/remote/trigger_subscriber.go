@@ -137,8 +137,6 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 
 func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
 	s.lggr.Debugf("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerID, eventID)
-
-	s.mu.RLock()
 	cfg := s.cfg.Load()
 	for _, peerID := range cfg.capDonInfo.Members {
 		m := &types.MessageBody{
@@ -150,7 +148,7 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, even
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{
 					TriggerEventId: eventID,
-					TriggerIds:     []string{triggerID},
+					TriggerIds:     []string{triggerID}, // triggerID contains workflowID
 				},
 			},
 		}
@@ -159,7 +157,6 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, even
 			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
 		}
 	}
-	s.mu.RUnlock()
 	return nil
 }
 
