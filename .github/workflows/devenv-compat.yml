@@ -1,6 +1,7 @@
 name: Upgrade Compatibility Test
 
 on:
+  push:
   workflow_call:
     inputs:
       buildcmd:
