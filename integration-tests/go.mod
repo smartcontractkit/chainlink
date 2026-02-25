@@ -23,7 +23,6 @@ require (
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/block-vision/sui-go-sdk v1.1.4
-	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a
 	github.com/cli/go-gh/v2 v2.13.0
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.17.0
@@ -85,7 +84,6 @@ require (
 	golang.org/x/text v0.34.0
 	google.golang.org/grpc v1.78.0
 	gopkg.in/guregu/null.v4 v4.0.0
-	k8s.io/apimachinery v0.33.2
 )
 
 require (
@@ -180,6 +178,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
+	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cli/safeexec v1.0.0 // indirect
 	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.2 // indirect
@@ -639,6 +638,7 @@ require (
 	gotest.tools/v3 v3.5.2 // indirect
 	k8s.io/api v0.32.3 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
+	k8s.io/apimachinery v0.33.2 // indirect
 	k8s.io/cli-runtime v0.31.2 // indirect
 	k8s.io/client-go v0.32.3 // indirect
 	k8s.io/component-base v0.31.2 // indirect

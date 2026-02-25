@@ -45,7 +45,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/wiremock/go-wiremock v1.9.0
 	go.uber.org/atomic v1.11.0
-	go.uber.org/ratelimit v0.3.1
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96
 	golang.org/x/sync v0.19.0
 )
@@ -611,6 +610,7 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/goleak v1.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/ratelimit v0.3.1 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.11.0 // indirect
