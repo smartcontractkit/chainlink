@@ -1,20 +1,90 @@
-name: 'SigScanner Check'
+name: "SigScanner Check"
 
 on:
+  pull_request:
   merge_group:
   push:
+    branches:
+      - develop
+      - release/*
+
+permissions: {}
+
+# Public key for chainlink-release-pusher[bot]. Commits signed with the
+# corresponding private key are exempt from SigScanner. Stored here (not
+# in Secrets) so that any change requires code-review approval.
+env:
+  BOT_SIGN_KEY_PUB_RELEASE_PUSHER: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+    REPLACE_WITH_ACTUAL_PUBLIC_KEY
+    -----END PGP PUBLIC KEY BLOCK-----
 
 jobs:
   sigscanner-check:
+    # Skip merge_group events — github.actor there is whoever enqueued
+    # the merge, not the PR author, so we can't reliably attribute commits.
+    # Especially since it's expected that we squash merge for this repo.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # On pull_request, github.sha is a temporary merge commit; use the
+      # actual PR head commit so we verify the developer's signed commit.
+      # On push, github.sha is the real commit on develop.
+      COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: "SigScanner checking ${{ github.sha }} by ${{ github.actor }}"
+      - name: Checkout commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check if commit is signed by release-pusher bot
+        id: bot-sig-check
+        run: |
+          echo "🔑 Importing release-pusher bot public key …"
+          echo "${BOT_SIGN_KEY_PUB_RELEASE_PUSHER}" | gpg --import 2>/dev/null
+
+          # Grab the fingerprint we just imported so we can match it
+          BOT_FP=$(echo "${BOT_SIGN_KEY_PUB_RELEASE_PUSHER}" | gpg --with-colons --import-options show-only --import 2>/dev/null \
+            | awk -F: '/^fpr/{print $10; exit}')
+          echo "Bot key fingerprint: ${BOT_FP}"
+
+          # Try to verify the commit signature
+          if git verify-commit "${COMMIT_SHA}" 2>/dev/null; then
+            # Extract the fingerprint that signed this commit
+            SIGN_FP=$(git log --format='%GF' -1 "${COMMIT_SHA}")
+            if [[ "${SIGN_FP}" == "${BOT_FP}" ]]; then
+              echo "✅ Commit is signed by the release-pusher bot — skipping SigScanner"
+              echo "signed_by_bot=true" | tee -a "$GITHUB_OUTPUT"
+            else
+              echo "ℹ️  Commit is GPG-signed but NOT by the bot (signer: ${SIGN_FP})"
+              echo "signed_by_bot=false" | tee -a "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "ℹ️  Commit has no valid GPG signature"
+            echo "signed_by_bot=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+      - name: "SigScanner checking ${{ env.COMMIT_SHA }} by ${{ github.actor }}"
+        if: steps.bot-sig-check.outputs.signed_by_bot == 'false'
         env:
           API_TOKEN: ${{ secrets.SIGSCANNER_API_TOKEN }}
           API_URL: ${{ secrets.SIGSCANNER_API_URL }}
         run: |
-          echo "🔎 Checking commit ${{ github.sha }} by ${{ github.actor }} in ${{ github.repository }} - ${{ github.event_name }}"
-          CODE=`curl --write-out '%{http_code}' -X POST -H "Content-Type: application/json" -H "Authorization: $API_TOKEN" --silent --output /dev/null --url "$API_URL" --data '{"commit":"${{ github.sha }}","repository":"${{ github.repository }}","author":"${{ github.actor }}"}'`
+          echo "🔎 Checking commit ${COMMIT_SHA} by ${GITHUB_ACTOR} in ${GITHUB_REPOSITORY} - ${GITHUB_EVENT_NAME}"
+          CODE=$(curl \
+            --write-out '%{http_code}' \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: $API_TOKEN" \
+            --silent \
+            --output /dev/null \
+            --url "$API_URL" \
+            --data "{\"commit\":\"${COMMIT_SHA}\",\"repository\":\"${GITHUB_REPOSITORY}\",\"author\":\"${GITHUB_ACTOR}\"}"
+          )
           echo "Received $CODE"
           if [[ "$CODE" == "200" ]]; then
             echo "✅ Commit is verified"
