@@ -130,14 +130,19 @@ jobs:
           CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
+          BUILD_CMD: ${{ inputs.buildcmd }}
+          ENV_CMD: ${{ inputs.envcmd }}
+          TEST_CMD: ${{ inputs.testcmd }}
+          NODES: ${{ inputs.nodes }}
+          VERSIONS_BACK: ${{ inputs.versions-back }}
         run: |
           ./bin/ctf compat backward \
-          --registry $REGISTRY \
-          --buildcmd "${{ inputs.buildcmd }}" \
-          --envcmd "${{ inputs.envcmd }}" \
-          --testcmd "${{ inputs.testcmd }}" \
-          --nodes ${{ inputs.nodes }} \
-          --versions-back ${{ inputs.versions-back }}
+            --registry "${REGISTRY}" \
+            --buildcmd "${BUILD_CMD}" \
+            --envcmd "${ENV_CMD}" \
+            --testcmd "${TEST_CMD}" \
+            --nodes "${NODES}" \
+            --versions-back "${VERSIONS_BACK}"
 
       - name: Upload Logs
         if: always()

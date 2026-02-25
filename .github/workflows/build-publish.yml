@@ -125,7 +125,11 @@ jobs:
 
   df1-compat-cluster-upgrade-test:
     needs: [docker-core]
-    uses: ./.github/workflows/devenv-compat.yaml
+    uses: ./.github/workflows/devenv-compat.yml
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     with:
       buildcmd: "just cli"
       envcmd: "cl u env.toml,products/ocr2/basic.toml"
