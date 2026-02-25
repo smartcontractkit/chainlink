@@ -621,7 +621,7 @@ func initializeTonDestinationManagers(
 
 			// Look for TonReceiver in address book
 			for addrStr, tv := range addresses {
-				if tv.Type == shared.TonReceiver {
+				if tv.Type == shared.Receiver {
 					addr, err := address.ParseAddr(addrStr)
 					if err != nil {
 						l.Warnw("Failed to parse TON receiver address", "address", addrStr, "error", err)
