@@ -125,6 +125,10 @@ func startDONsContainerized(
 	nodeSets []*cre.NodeSet,
 	remoteRuntime *remoteclient.Runtime,
 ) (*StartedDONs, error) {
+	if remoteRuntime != nil {
+		normalizeForExecution(topology, nodeSets, remoteRuntime.EC2HostIP)
+	}
+
 	// Skip binary operations for remote DONs.
 	if infraInput.IsDocker() {
 		for donIdx, donMetadata := range topology.DonsMetadata.List() {
@@ -329,7 +333,7 @@ func startNodeSet(
 		if err != nil {
 			return nil, err
 		}
-		if err := rewriteRemoteNodeSetOutputForLocalAccess(topology, configuredIndex, nodeSet, nodeset, remoteRuntime.EC2HostIP); err != nil {
+		if err := rewriteRemoteNodeSetOutputForLocalAccess(nodeset, remoteRuntime.EC2HostIP); err != nil {
 			return nil, err
 		}
 		return nodeset, nil
@@ -390,15 +394,11 @@ func validateRemoteNodeSetNodeSpecs(nodeSetName string, specs []*clnode.Input) e
 	return nil
 }
 
-func rewriteRemoteNodeSetOutputForLocalAccess(topology *cre.Topology, configuredIndex int, nodeSet *cre.NodeSet, output *ns.Output, ec2HostIP string) error {
-	if output == nil && (nodeSet == nil || nodeSet.DbInput == nil || nodeSet.DbInput.Port == 0) {
+func rewriteRemoteNodeSetOutputForLocalAccess(output *ns.Output, ec2HostIP string) error {
+	if output == nil {
 		return nil
 	}
-	if err := rewriteNodeSetForDirectAccess(output, ec2HostIP); err != nil {
-		return err
-	}
-	rewriteGatewayIncomingForDirectAccess(topology, configuredIndex, ec2HostIP)
-	return nil
+	return rewriteNodeSetForDirectAccess(output, ec2HostIP)
 }
 
 func rewriteNodeSetForDirectAccess(output *ns.Output, ec2HostIP string) error {
@@ -436,6 +436,18 @@ func rewriteGatewayIncomingForDirectAccess(topology *cre.Topology, configuredInd
 			continue
 		}
 		cfg.Incoming.Host = ec2HostIP
+	}
+}
+
+func normalizeForExecution(topology *cre.Topology, nodeSets []*cre.NodeSet, ec2HostIP string) {
+	if topology == nil || len(nodeSets) == 0 || strings.TrimSpace(ec2HostIP) == "" {
+		return
+	}
+	for idx, nodeSet := range nodeSets {
+		if nodeSet == nil || strings.TrimSpace(nodeSet.Placement) != string(config.PlacementRemote) {
+			continue
+		}
+		rewriteGatewayIncomingForDirectAccess(topology, idx, ec2HostIP)
 	}
 }
 

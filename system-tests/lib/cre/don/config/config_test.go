@@ -52,11 +52,18 @@ func TestResolveGatewayConnectorURL_PlacementMatrix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			topology, gateway := mustBuildGatewayTopology(t, tt.targetPlacement)
 
-			gotURL, err := resolveGatewayConnectorURL(tt.callerPlacement, topology, gateway)
+			gotURL, err := resolveGatewayConnectorURL(tt.callerPlacement, topology, gateway, "")
 			require.NoError(t, err, "resolveGatewayConnectorURL should not fail")
 			require.Equal(t, tt.wantURL, gotURL, "unexpected gateway connector URL")
 		})
 	}
+}
+
+func TestResolveGatewayConnectorURL_RemoteHostOverride(t *testing.T) {
+	topology, gateway := mustBuildGatewayTopology(t, "remote")
+	gotURL, err := resolveGatewayConnectorURL("local", topology, gateway, "203.0.113.22")
+	require.NoError(t, err, "resolveGatewayConnectorURL should use explicit remote host override")
+	require.Equal(t, "ws://203.0.113.22:5003/node", gotURL, "unexpected gateway connector URL")
 }
 
 func mustBuildGatewayTopology(t *testing.T, targetPlacement string) (*cre.Topology, *cre.DonGatewayConfiguration) {

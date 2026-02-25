@@ -27,6 +27,30 @@ func TestResolveRemoteRuntimeWithExplicitEnv(t *testing.T) {
 	require.NotNil(t, runtime.Client, "expected resolved runtime to include component client")
 }
 
+func TestResolveRemoteRuntimeWithInputOverridesEnv(t *testing.T) {
+	t.Setenv(EnvEC2AgentURL, "http://198.51.100.20:19090")
+	t.Setenv(runtimecfg.EnvEC2HostIP, "198.51.100.20")
+	t.Setenv(EnvEC2AgentPort, "19090")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/status", r.URL.Path)
+		_ = json.NewEncoder(w).Encode(agent.AgentStatusResponse{
+			ProtocolVersion: "1.0",
+			Capabilities:    []string{"component_logs", "locks", "deploy_artifacts", "start_component", "relay", "list_ctf_resources"},
+		})
+	}))
+	defer server.Close()
+
+	runtime, err := ResolveRuntimeWithInput(zerolog.Nop(), RuntimeInput{
+		AgentBaseURL: server.URL,
+		EC2HostIP:    "203.0.113.22",
+		AgentPort:    18081,
+	})
+	require.NoError(t, err)
+	require.Equal(t, server.URL, runtime.AgentBaseURL)
+	require.Equal(t, "203.0.113.22", runtime.EC2HostIP)
+}
+
 func TestResolveRemoteRuntimeRequiresHostResolution(t *testing.T) {
 	t.Setenv(EnvEC2AgentURL, "http://198.51.100.20:19090")
 	t.Setenv(runtimecfg.EnvEC2HostIP, "")

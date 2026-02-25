@@ -52,6 +52,7 @@ func PrepareNodeTOMLs(
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
 	configuredBlockchains []*envconfig.Blockchain,
+	remoteHostIP string,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 ) ([]*cre.NodeSet, error) {
@@ -124,6 +125,7 @@ func PrepareNodeTOMLs(
 					DonMetadata:                   donMetadata,
 					Blockchains:                   chainPerSelector,
 					BlockchainPlacementBySelector: blockchainPlacementBySelector,
+					RemoteHostIP:                  remoteHostIP,
 					OCRBootstrapPlacement:         ocrBootstrapPlacement,
 					OCRBootstrapAnnouncePort:      ocrBootstrapAnnouncePort,
 					Flags:                         donMetadata.Flags,
@@ -428,6 +430,7 @@ func addWorkerNodeConfig(
 		ocrPeeringData.OCRBootstraperHost,
 		ocrPeeringData.Port,
 		ocrBootstrapAnnouncePort,
+		commonInputs.remoteHostIP,
 	)
 	if bootstrapAddressErr != nil {
 		return existingConfig, errors.Wrap(bootstrapAddressErr, "failed to resolve OCR bootstrapper address")
@@ -557,7 +560,7 @@ func addWorkerNodeConfig(
 		gateways := []coretoml.ConnectorGateway{}
 		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
 			for _, gateway := range topology.GatewayConnectors.Configurations {
-				connectorURL, urlErr := resolveGatewayConnectorURL(donMetadata.MustNodeSet().Placement, topology, gateway)
+				connectorURL, urlErr := resolveGatewayConnectorURL(donMetadata.MustNodeSet().Placement, topology, gateway, commonInputs.remoteHostIP)
 				if urlErr != nil {
 					return existingConfig, errors.Wrap(urlErr, "failed to resolve gateway connector url")
 				}
@@ -663,6 +666,7 @@ type versionedAddress struct {
 type commonInputs struct {
 	registryChainID       uint64
 	registryChainSelector uint64
+	remoteHostIP          string
 
 	workflowRegistry   versionedAddress
 	capabilityRegistry versionedAddress
@@ -704,6 +708,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},
+		remoteHostIP: input.RemoteHostIP,
 		provider: input.Provider,
 	}, nil
 }
@@ -983,7 +988,7 @@ func resolveBootstrapAnnouncePort(topology *cre.Topology, bootstrapNodeUUID stri
 	return 0, fmt.Errorf("failed to resolve bootstrap announce port for node UUID %s", bootstrapNodeUUID)
 }
 
-func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, bootstrapHost string, internalPort, externalPort int) (string, error) {
+func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, bootstrapHost string, internalPort, externalPort int, remoteHostIP string) (string, error) {
 	caller, err := connectivity.PlacementFromTarget(callerPlacement)
 	if err != nil {
 		return "", err
@@ -997,16 +1002,20 @@ func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, boot
 		if !runtimecfg.IsDirectMode() {
 			return "", fmt.Errorf("mixed DON bootstrap resolution requires direct mode")
 		}
-		hostIP, err := runtimecfg.DirectHostIP()
-		if err != nil {
-			return "", err
+		hostIP := strings.TrimSpace(remoteHostIP)
+		if hostIP == "" {
+			var err error
+			hostIP, err = runtimecfg.DirectHostIP()
+			if err != nil {
+				return "", err
+			}
 		}
 		return net.JoinHostPort(hostIP, strconv.Itoa(externalPort)), nil
 	}
 	return cre.ResolveBootstrapAddress(callerPlacement, bootstrapPlacement, bootstrapHost, internalPort)
 }
 
-func resolveGatewayConnectorURL(callerPlacementRaw string, topology *cre.Topology, gateway *cre.DonGatewayConfiguration) (string, error) {
+func resolveGatewayConnectorURL(callerPlacementRaw string, topology *cre.Topology, gateway *cre.DonGatewayConfiguration, remoteHostIP string) (string, error) {
 	if gateway == nil || gateway.GatewayConfiguration == nil {
 		return "", fmt.Errorf("gateway configuration is nil")
 	}
@@ -1021,7 +1030,7 @@ func resolveGatewayConnectorURL(callerPlacementRaw string, topology *cre.Topolog
 
 	internalURL := fmt.Sprintf("ws://%s:%d%s", gateway.Outgoing.Host, gateway.Outgoing.Port, gateway.Outgoing.Path)
 
-	externalHost, err := gatewayExternalHost(targetPlacement)
+	externalHost, err := gatewayExternalHost(targetPlacement, remoteHostIP)
 	if err != nil {
 		return "", err
 	}
@@ -1078,11 +1087,14 @@ func resolveNodePlacement(topology *cre.Topology, nodeUUID string) (connectivity
 	return "", fmt.Errorf("failed to resolve placement for node uuid %s", trimmedUUID)
 }
 
-func gatewayExternalHost(targetPlacement connectivity.Placement) (string, error) {
+func gatewayExternalHost(targetPlacement connectivity.Placement, remoteHostIP string) (string, error) {
 	switch targetPlacement {
 	case connectivity.PlacementRemote:
 		if !runtimecfg.IsDirectMode() {
 			return "", fmt.Errorf("gateway connector resolution for remote targets requires direct mode")
+		}
+		if hostIP := strings.TrimSpace(remoteHostIP); hostIP != "" {
+			return hostIP, nil
 		}
 		return runtimecfg.DirectHostIP()
 	case connectivity.PlacementLocal:

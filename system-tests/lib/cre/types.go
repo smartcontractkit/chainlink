@@ -457,6 +457,7 @@ type GenerateConfigsInput struct {
 	DonMetadata                   *DonMetadata
 	Blockchains                   map[uint64]blockchains.Blockchain
 	BlockchainPlacementBySelector map[uint64]string
+	RemoteHostIP                  string
 	OCRBootstrapPlacement         string
 	OCRBootstrapAnnouncePort      int
 	RegistryChainSelector         uint64

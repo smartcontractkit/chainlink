@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 // BuildFromSavedState rebuilds the CLDF environment and per‑chain clients from
@@ -84,6 +86,9 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	if tErr != nil {
 		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
 	}
+	if rewriteErr := rewriteReconstructedGatewayIncomingHosts(cachedInput, topology); rewriteErr != nil {
+		return nil, nil, rewriteErr
+	}
 
 	for idx, don := range cachedInput.NodeSets {
 		startedDON, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], cachedInput.NodeSets[idx].Out.CLNodes)
@@ -140,6 +145,39 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		Provider:              *cachedInput.Infra,
 		ContractVersions:      contractVersions.ContractVersions(),
 	}, dons, nil
+}
+
+func rewriteReconstructedGatewayIncomingHosts(cachedInput *envconfig.Config, topology *cre.Topology) error {
+	if cachedInput == nil || topology == nil || topology.GatewayConnectors == nil || len(topology.GatewayConnectors.Configurations) == 0 {
+		return nil
+	}
+
+	donsMetadata := topology.DonsMetadata.List()
+	hasRemoteGatewayNodeSet := false
+	for idx, nodeSet := range cachedInput.NodeSets {
+		if nodeSet == nil || !strings.EqualFold(strings.TrimSpace(nodeSet.Placement), string(envconfig.PlacementRemote)) {
+			continue
+		}
+		if idx >= len(donsMetadata) || donsMetadata[idx] == nil {
+			continue
+		}
+		if _, hasGateway := donsMetadata[idx].Gateway(); !hasGateway {
+			continue
+		}
+		hasRemoteGatewayNodeSet = true
+		break
+	}
+	if !hasRemoteGatewayNodeSet {
+		return nil
+	}
+
+	ec2HostIP, err := runtimecfg.DirectHostIP()
+	if err != nil {
+		return errors.Wrap(err, "failed to resolve EC2 host IP for reconstructed gateway incoming host rewrite")
+	}
+	normalizeForExecution(topology, cachedInput.NodeSets, ec2HostIP)
+
+	return nil
 }
 
 func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {

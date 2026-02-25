@@ -55,16 +55,13 @@ func TestBuildRemoteNodeSetInputRejectsImageAndBuildFieldsTogether(t *testing.T)
 }
 
 func TestRewriteRemoteNodeSetOutputForLocalAccess_LocalOnlyNoop(t *testing.T) {
-	err := rewriteRemoteNodeSetOutputForLocalAccess(nil, 0, nil, nil, "203.0.113.10")
+	err := rewriteRemoteNodeSetOutputForLocalAccess(nil, "203.0.113.10")
 	require.NoError(t, err, "expected local-only no-op rewrite to succeed")
 }
 
-func TestRewriteRemoteNodeSetOutputForLocalAccess_RemoteRewritesGatewayIncomingHost(t *testing.T) {
+func TestNormalizeForExecution_RemoteRewritesGatewayIncomingHost(t *testing.T) {
 	topology, nodeSet := mustBuildRemoteGatewayTopology(t)
-	output := &simple_node_set.Output{}
-
-	err := rewriteRemoteNodeSetOutputForLocalAccess(topology, 0, nodeSet, output, "203.0.113.10")
-	require.NoError(t, err, "expected remote rewrite to succeed")
+	normalizeForExecution(topology, []*cre.NodeSet{nodeSet}, "203.0.113.10")
 
 	require.NotNil(t, topology.GatewayConnectors)
 	require.Len(t, topology.GatewayConnectors.Configurations, 1)
@@ -76,8 +73,23 @@ func TestRewriteRemoteNodeSetOutputForLocalAccess_RemoteRewritesGatewayIncomingH
 	)
 }
 
+func TestRewriteRemoteNodeSetOutputForLocalAccess_RemoteRewritesNodeExternalURL(t *testing.T) {
+	output := &simple_node_set.Output{
+		CLNodes: []*clnode.Output{
+			{
+				Node: &clnode.NodeOut{
+					ExternalURL: "http://127.0.0.1:6688",
+				},
+			},
+		},
+	}
+
+	err := rewriteRemoteNodeSetOutputForLocalAccess(output, "203.0.113.10")
+	require.NoError(t, err, "expected remote rewrite to succeed")
+	require.Equal(t, "http://203.0.113.10:6688", output.CLNodes[0].Node.ExternalURL)
+}
+
 func TestRewriteRemoteNodeSetOutputForLocalAccess_InvalidNodeExternalURLFails(t *testing.T) {
-	topology, nodeSet := mustBuildRemoteGatewayTopology(t)
 	output := &simple_node_set.Output{
 		CLNodes: []*clnode.Output{
 			{
@@ -88,7 +100,7 @@ func TestRewriteRemoteNodeSetOutputForLocalAccess_InvalidNodeExternalURLFails(t 
 		},
 	}
 
-	err := rewriteRemoteNodeSetOutputForLocalAccess(topology, 0, nodeSet, output, "203.0.113.10")
+	err := rewriteRemoteNodeSetOutputForLocalAccess(output, "203.0.113.10")
 	require.Error(t, err, "expected invalid node external URL to fail rewrite")
 	require.Contains(t, err.Error(), "failed to parse url", "expected parse failure context")
 }

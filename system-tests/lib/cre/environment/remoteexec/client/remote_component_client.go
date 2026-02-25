@@ -49,6 +49,12 @@ type Runtime struct {
 	Client       ComponentClient
 }
 
+type RuntimeInput struct {
+	AgentBaseURL string
+	EC2HostIP    string
+	AgentPort    int
+}
+
 func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
 	return &httpComponentClient{
 		baseURL: baseURL,
@@ -62,11 +68,15 @@ func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
 }
 
 func ResolveRuntime(testLogger zerolog.Logger) (*Runtime, error) {
-	baseURL, err := resolveEC2AgentBaseURL(testLogger)
+	return ResolveRuntimeWithInput(testLogger, RuntimeInput{})
+}
+
+func ResolveRuntimeWithInput(testLogger zerolog.Logger, input RuntimeInput) (*Runtime, error) {
+	baseURL, err := resolveEC2AgentBaseURL(testLogger, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve EC2 agent base URL: %w", err)
 	}
-	ec2HostIP, err := resolveEC2HostIP()
+	ec2HostIP, err := resolveEC2HostIP(input)
 	if err != nil {
 		return nil, err
 	}
@@ -238,15 +248,18 @@ func RemoteAgentError(code, message string) error {
 	return fmt.Errorf("remote agent error (%s): %s", code, message)
 }
 
-func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
+func resolveEC2AgentBaseURL(testLogger zerolog.Logger, input RuntimeInput) (string, error) {
+	if configured := strings.TrimSpace(input.AgentBaseURL); configured != "" {
+		return configured, nil
+	}
 	if configured := strings.TrimSpace(os.Getenv(EnvEC2AgentURL)); configured != "" {
 		return configured, nil
 	}
-	remotePort, err := resolveEC2AgentPort()
+	remotePort, err := resolveEC2AgentPort(input)
 	if err != nil {
 		return "", err
 	}
-	ec2HostIP, err := resolveEC2HostIP()
+	ec2HostIP, err := resolveEC2HostIP(input)
 	if err != nil {
 		return "", err
 	}
@@ -254,7 +267,10 @@ func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
 	return fmt.Sprintf("http://%s:%d", ec2HostIP, remotePort), nil
 }
 
-func resolveEC2AgentPort() (int, error) {
+func resolveEC2AgentPort(input RuntimeInput) (int, error) {
+	if input.AgentPort > 0 {
+		return input.AgentPort, nil
+	}
 	remotePort := defaultEC2AgentPort
 	if configuredPort := strings.TrimSpace(os.Getenv(EnvEC2AgentPort)); configuredPort != "" {
 		parsedPort, err := strconv.Atoi(configuredPort)
@@ -266,6 +282,9 @@ func resolveEC2AgentPort() (int, error) {
 	return remotePort, nil
 }
 
-func resolveEC2HostIP() (string, error) {
+func resolveEC2HostIP(input RuntimeInput) (string, error) {
+	if configured := strings.TrimSpace(input.EC2HostIP); configured != "" {
+		return configured, nil
+	}
 	return runtimecfg.DirectHostIP()
 }

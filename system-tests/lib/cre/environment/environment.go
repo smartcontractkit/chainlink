@@ -207,6 +207,7 @@ func SetupTestEnvironment(
 		creEnvironment,
 		input.NodeSets,
 		input.Blockchains,
+		remoteHostIP(remoteRuntime),
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -454,6 +455,13 @@ func SetupTestEnvironment(
 	}, nil
 }
 
+func remoteHostIP(runtime *remoteclient.Runtime) string {
+	if runtime == nil {
+		return ""
+	}
+	return runtime.EC2HostIP
+}
+
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
@@ -496,7 +504,30 @@ func resolveRemoteRuntimeForSetup(
 	if !hasRemoteComponents(blockchains, jdInput, nodeSets) {
 		return nil, nil
 	}
-	return remoteclient.ResolveRuntime(testLogger)
+	runtimeInput, err := resolveRemoteRuntimeInput()
+	if err != nil {
+		return nil, err
+	}
+	return remoteclient.ResolveRuntimeWithInput(testLogger, runtimeInput)
+}
+
+func resolveRemoteRuntimeInput() (remoteclient.RuntimeInput, error) {
+	input := remoteclient.RuntimeInput{
+		AgentBaseURL: strings.TrimSpace(os.Getenv(remoteclient.EnvEC2AgentURL)),
+	}
+	if configuredPort := strings.TrimSpace(os.Getenv(remoteclient.EnvEC2AgentPort)); configuredPort != "" {
+		parsedPort, err := strconv.Atoi(configuredPort)
+		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
+			return remoteclient.RuntimeInput{}, fmt.Errorf("invalid %s: %q", remoteclient.EnvEC2AgentPort, configuredPort)
+		}
+		input.AgentPort = parsedPort
+	}
+	ec2HostIP, err := runtimecfg.DirectHostIP()
+	if err != nil {
+		return remoteclient.RuntimeInput{}, err
+	}
+	input.EC2HostIP = ec2HostIP
+	return input, nil
 }
 
 type nodeSetPlacementSummary struct {
