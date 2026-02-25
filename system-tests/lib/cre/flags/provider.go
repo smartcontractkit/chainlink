@@ -22,7 +22,6 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.HTTPActionCapability,
 			cre.SolanaCapability,
 			cre.EVMCapability,
-			cre.SolanaCapability,
 			cre.WriteEVMCapability,
 			cre.ReadContractCapability,
 			cre.LogEventTriggerCapability,
