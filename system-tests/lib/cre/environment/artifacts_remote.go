@@ -12,13 +12,11 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 )
 
 func DeployArtifactsToRemoteNodeSet(
 	ctx context.Context,
 	lggr zerolog.Logger,
-	tunnelManager tunnel.Manager,
 	nodeSetName string,
 	containerTargetDir string,
 	files []string,
@@ -30,11 +28,11 @@ func DeployArtifactsToRemoteNodeSet(
 		return fmt.Errorf("container target dir is required")
 	}
 
-	if tunnelManager == nil {
-		return fmt.Errorf("tunnel manager is required for remote artifact deploy")
+	remoteRuntime, err := resolveRemoteRuntime(lggr)
+	if err != nil {
+		return pkgerrors.Wrap(err, "failed to resolve remote runtime settings for artifact deploy")
 	}
-
-	startClient, err := newStartComponentClient(lggr, tunnelManager)
+	startClient, err := newRemoteComponentClient(remoteRuntime)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to initialize remote component client for artifact deploy")
 	}

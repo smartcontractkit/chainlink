@@ -3,6 +3,7 @@ package environment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -63,7 +64,7 @@ func StartDONs(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
-	tunnelManager tunnel.Manager,
+	remoteRuntime *resolvedRemoteRuntime,
 ) (*StartedDONs, error) {
 	if infraInput.IsKubernetes() {
 		// For Kubernetes, DONs are already running in the cluster, generate service URLs
@@ -135,7 +136,10 @@ func StartDONs(
 	var resultMap sync.Map
 	var startClient componentClient
 	if hasRemoteNodeSets(nodeSets) {
-		client, clientErr := newStartComponentClient(lggr, tunnelManager)
+		if remoteRuntime == nil {
+			return nil, errors.New("remote runtime is required when starting remote nodesets")
+		}
+		client, clientErr := newRemoteComponentClient(remoteRuntime)
 		if clientErr != nil {
 			return nil, clientErr
 		}
@@ -195,7 +199,7 @@ func StartDONs(
 				if err != nil {
 					return pkgerrors.Wrap(err, "failed to decode nodeset transport payload")
 				}
-				if err := rewriteRemoteNodeSetOutputForLocalAccess(ctx, lggr, tunnelManager, topology, idx, nodeSet, nodeset); err != nil {
+				if err := rewriteRemoteNodeSetOutputForLocalAccess(topology, idx, nodeSet, nodeset, remoteRuntime.EC2HostIP); err != nil {
 					return err
 				}
 			} else {
@@ -300,51 +304,18 @@ func validateRemoteNodeSetNodeSpecs(nodeSetName string, specs []*clnode.Input) e
 	return nil
 }
 
-func rewriteRemoteNodeSetOutputForLocalAccess(
-	ctx context.Context,
-	lggr zerolog.Logger,
-	tunnelManager tunnel.Manager,
-	topology *cre.Topology,
-	configuredIndex int,
-	nodeSet *cre.NodeSet,
-	output *ns.Output,
-) error {
+func rewriteRemoteNodeSetOutputForLocalAccess(topology *cre.Topology, configuredIndex int, nodeSet *cre.NodeSet, output *ns.Output, ec2HostIP string) error {
 	if output == nil && (nodeSet == nil || nodeSet.DbInput == nil || nodeSet.DbInput.Port == 0) {
 		return nil
 	}
-	if isRemoteAccessDirectMode() {
-		hostIP, err := resolveDirectAccessHostIP()
-		if err != nil {
-			return err
-		}
-		if err := rewriteNodeSetForDirectAccess(output, hostIP); err != nil {
-			return err
-		}
-		rewriteGatewayIncomingForDirectAccess(topology, configuredIndex, hostIP)
-		return nil
+	if err := rewriteNodeSetForDirectAccess(output, ec2HostIP); err != nil {
+		return err
 	}
-	componentID := tunnel.CanonicalComponentID(tunnel.KindNodeSet, configuredIndex, nodeSet.Name)
-	refs, err := describeNodeSetEndpoints(componentID, nodeSet, output)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to describe nodeset tunnel endpoints")
-	}
-	bindings, err := tunnelManager.Start(ctx, refs)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to start tunnels for nodeset output")
-	}
-	for _, binding := range bindings {
-		lggr.Info().
-			Str("componentID", binding.ComponentID).
-			Str("endpointName", binding.EndpointName).
-			Str("originalURL", binding.OriginalURL).
-			Str("localURL", binding.LocalURL).
-			Msg("Established endpoint tunnel")
-	}
-	rewriteGatewayIncomingForNodeSetBindings(topology, configuredIndex, nodeSet, bindings)
-	return rewriteNodeSetWithBindings(output, nodeSet, bindings)
+	rewriteGatewayIncomingForDirectAccess(topology, configuredIndex, ec2HostIP)
+	return nil
 }
 
-func rewriteNodeSetForDirectAccess(output *ns.Output, hostIP string) error {
+func rewriteNodeSetForDirectAccess(output *ns.Output, ec2HostIP string) error {
 	if output == nil {
 		return nil
 	}
@@ -353,7 +324,7 @@ func rewriteNodeSetForDirectAccess(output *ns.Output, hostIP string) error {
 		if strings.TrimSpace(rawURL) == "" {
 			continue
 		}
-		rewritten, err := rewriteURLHost(rawURL, hostIP)
+		rewritten, err := rewriteURLHost(rawURL, ec2HostIP)
 		if err != nil {
 			return err
 		}
@@ -565,7 +536,7 @@ func rewriteGatewayIncomingForNodeSetBindings(
 	}
 }
 
-func rewriteGatewayIncomingForDirectAccess(topology *cre.Topology, configuredIndex int, hostIP string) {
+func rewriteGatewayIncomingForDirectAccess(topology *cre.Topology, configuredIndex int, ec2HostIP string) {
 	if topology == nil || topology.GatewayConnectors == nil || len(topology.GatewayConnectors.Configurations) == 0 {
 		return
 	}
@@ -581,7 +552,7 @@ func rewriteGatewayIncomingForDirectAccess(topology *cre.Topology, configuredInd
 		if cfg == nil || cfg.GatewayConfiguration == nil || cfg.NodeUUID != gatewayNode.UUID {
 			continue
 		}
-		cfg.Incoming.Host = hostIP
+		cfg.Incoming.Host = ec2HostIP
 	}
 }
 

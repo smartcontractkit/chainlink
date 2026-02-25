@@ -1,250 +1,26 @@
 package environment
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
 	"net/url"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 
-	retry "github.com/avast/retry-go/v4"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/adapters"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
-)
-
-const (
-	componentTypeBlockchain = "blockchain"
-	componentTypeJD         = "jd"
-	componentTypeNodeSet    = "nodeset"
-	envEC2AgentURL          = "CRE_EC2_AGENT_URL"
-	envEC2AgentPort         = "CRE_EC2_AGENT_PORT"
-	defaultEC2AgentPort     = 8080
 )
 
 type startComponentEnvelope = agent.StartComponentEnvelope
 type startComponentRequest = agent.StartComponentPayload
-type startComponentResult = agent.StartComponentResponse
-
-type componentClient interface {
-	StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error)
-}
-
-type httpComponentClient struct {
-	baseURL     string
-	client      *http.Client
-	maxAttempts int
-	retryDelay  time.Duration
-	checkHealth bool
-}
-
-func newHTTPComponentClient(baseURL string) *httpComponentClient {
-	return &httpComponentClient{
-		baseURL: baseURL,
-		client: &http.Client{
-			Timeout: 4 * time.Minute,
-		},
-		maxAttempts: 1,
-		retryDelay:  0,
-		checkHealth: false,
-	}
-}
-
-func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
-	return &httpComponentClient{
-		baseURL: baseURL,
-		client: &http.Client{
-			Timeout: 4 * time.Minute,
-		},
-		maxAttempts: 3,
-		retryDelay:  2 * time.Second,
-		checkHealth: true,
-	}
-}
-
-func (c *httpComponentClient) StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error) {
-	if c.checkHealth {
-		if err := c.waitForHealth(ctx); err != nil {
-			return nil, err
-		}
-	}
-
-	var result *agent.StartComponentResponse
-	err := retry.Do(
-		func() error {
-			var err error
-			result, err = c.startComponentOnce(ctx, envelope)
-			return err
-		},
-		retry.Attempts(uint(c.maxAttempts)),
-		retry.Delay(c.retryDelay),
-		retry.Context(ctx),
-		retry.LastErrorOnly(true),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error) {
-	body, err := json.Marshal(envelope)
-	if err != nil {
-		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to encode start component envelope"))
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/components/start", bytes.NewReader(body))
-	if err != nil {
-		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to create start component request"))
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		if isRetriableNetworkError(err) {
-			return nil, pkgerrors.Wrap(err, "failed to execute start component request")
-		}
-		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to execute start component request"))
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to read start component response"))
-	}
-
-	var startResp agent.StartComponentResponse
-	if len(respBody) > 0 {
-		if err := json.Unmarshal(respBody, &startResp); err != nil {
-			return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to decode start component response"))
-		}
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		if startResp.Error != "" {
-			if startResp.ErrorCode != "" {
-				err = remoteAgentError(startResp.ErrorCode, startResp.Error)
-			} else {
-				err = remoteAgentError("remote_agent_error", startResp.Error)
-			}
-		} else {
-			err = fmt.Errorf("start component request failed with status %s: %s", resp.Status, string(respBody))
-		}
-
-		if isRetriableStatus(resp.StatusCode) {
-			return nil, err
-		}
-		return nil, retry.Unrecoverable(err)
-	}
-	if startResp.Error != "" {
-		if startResp.ErrorCode != "" {
-			return nil, retry.Unrecoverable(remoteAgentError(startResp.ErrorCode, startResp.Error))
-		}
-		return nil, retry.Unrecoverable(remoteAgentError("remote_agent_error", startResp.Error))
-	}
-
-	return &startResp, nil
-}
-
-func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
-	return retry.Do(
-		func() error {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/health", nil)
-			if err != nil {
-				return retry.Unrecoverable(pkgerrors.Wrap(err, "failed to create EC2 agent health request"))
-			}
-
-			resp, err := c.client.Do(req)
-			if err != nil {
-				return pkgerrors.Wrap(err, describeEC2AgentHealthFailure(c.baseURL))
-			}
-			_ = resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-			return fmt.Errorf("%s: status %s", describeEC2AgentHealthFailure(c.baseURL), resp.Status)
-		},
-		retry.Attempts(uint(c.maxAttempts)),
-		retry.Delay(c.retryDelay),
-		retry.Context(ctx),
-		retry.LastErrorOnly(true),
-	)
-}
-
-func describeEC2AgentHealthFailure(baseURL string) string {
-	return fmt.Sprintf(
-		"failed EC2 CRE agent health check (%s/v1/health); verify the agent process is running and %s matches its listen port (or set %s explicitly)",
-		baseURL,
-		envEC2AgentPort,
-		envEC2AgentURL,
-	)
-}
-
-func isRetriableStatus(statusCode int) bool {
-	return statusCode == http.StatusBadGateway || statusCode == http.StatusServiceUnavailable || statusCode == http.StatusGatewayTimeout
-}
-
-func isRetriableNetworkError(err error) bool {
-	var netErr net.Error
-	return errors.As(err, &netErr)
-}
-
-func newStartComponentClient(testLogger zerolog.Logger, tunnelManager tunnel.Manager) (componentClient, error) {
-	_ = tunnelManager // legacy parameter retained for call-site compatibility
-
-	baseURL, err := resolveEC2AgentBaseURL(testLogger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve EC2 agent base URL: %w", err)
-	}
-	return newEC2HTTPComponentClient(baseURL), nil
-}
-
-func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
-	if configured := strings.TrimSpace(os.Getenv(envEC2AgentURL)); configured != "" {
-		return configured, nil
-	}
-	remotePort, err := resolveEC2AgentPort()
-	if err != nil {
-		return "", err
-	}
-	hostIP, err := resolveDirectAccessHostIP()
-	if err != nil {
-		return "", err
-	}
-	testLogger.Debug().Str("hostIP", hostIP).Int("port", remotePort).Msg("resolved EC2 CRE agent base URL from direct mode host")
-	return fmt.Sprintf("http://%s:%d", hostIP, remotePort), nil
-}
-
-func resolveEC2AgentPort() (int, error) {
-	remotePort := defaultEC2AgentPort
-	if configuredPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); configuredPort != "" {
-		parsedPort, err := strconv.Atoi(configuredPort)
-		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
-			return 0, fmt.Errorf("invalid %s: %q", envEC2AgentPort, configuredPort)
-		}
-		remotePort = parsedPort
-	}
-	return remotePort, nil
-}
 
 func blockchainFromOutput(testLogger zerolog.Logger, output *blockchain.Output) (blockchains.Blockchain, error) {
 	if output == nil {
@@ -258,41 +34,12 @@ func blockchainFromOutput(testLogger zerolog.Logger, output *blockchain.Output) 
 	return evm.FromOutput(testLogger, output)
 }
 
-func prettifyAgentLogLine(line string) string {
-	trimmed := strings.TrimSpace(line)
-	if trimmed == "" {
-		return ""
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
-		return trimmed
-	}
-
-	message, _ := payload["message"].(string)
-	if message == "" {
-		return trimmed
-	}
-
-	level, _ := payload["level"].(string)
-	if level == "" {
-		level = "info"
-	}
-
-	cmd, _ := payload["Cmd"].(string)
-	if cmd != "" {
-		return fmt.Sprintf("[%s] %s (cmd=%s)", level, message, cmd)
-	}
-
-	return fmt.Sprintf("[%s] %s", level, message)
-}
-
-func validatePhase2ARemoteBlockchainInput(input *blockchain.Input) error {
+func validateRemoteBlockchainInput(input *blockchain.Input) error {
 	if input == nil {
 		return errors.New("blockchain input is nil")
 	}
 	if input.Type != blockchain.TypeAnvil {
-		return fmt.Errorf("remote target in phase 2A supports only %s, got %s", blockchain.TypeAnvil, input.Type)
+		return fmt.Errorf("remote target supports only %s, got %s", blockchain.TypeAnvil, input.Type)
 	}
 	return nil
 }
@@ -302,7 +49,7 @@ func startBlockchainsWithTargets(
 	testLogger zerolog.Logger,
 	configuredBlockchains []*config.Blockchain,
 	deployers map[blockchain.ChainFamily]blockchains.Deployer,
-	tunnelManager tunnel.Manager,
+	remoteRuntime *resolvedRemoteRuntime,
 	rewriteInternalForLocalNodes bool,
 ) (*blockchains.DeployedBlockchains, error) {
 	blockchainInputs, err := config.ResolveBlockchainInputs(configuredBlockchains)
@@ -339,7 +86,10 @@ func startBlockchainsWithTargets(
 	}
 
 	if len(remoteIdx) > 0 {
-		startClient, err := newStartComponentClient(testLogger, tunnelManager)
+		if remoteRuntime == nil {
+			return nil, errors.New("remote runtime is required when starting remote blockchains")
+		}
+		startClient, err := newRemoteComponentClient(remoteRuntime)
 		if err != nil {
 			return nil, err
 		}
@@ -347,7 +97,7 @@ func startBlockchainsWithTargets(
 		for _, idx := range remoteIdx {
 			input := blockchainInputs[idx]
 			configured := configuredBlockchains[idx]
-			if err := validatePhase2ARemoteBlockchainInput(input); err != nil {
+			if err := validateRemoteBlockchainInput(input); err != nil {
 				return nil, err
 			}
 
@@ -384,7 +134,7 @@ func startBlockchainsWithTargets(
 				return nil, pkgerrors.Wrap(err, "failed to decode blockchain transport payload")
 			}
 
-			if err := rewriteRemoteBlockchainOutputForLocalAccess(ctx, testLogger, tunnelManager, idx, input, blockchainOutput, rewriteInternalForLocalNodes); err != nil {
+			if err := rewriteRemoteBlockchainOutputForLocalAccess(blockchainOutput, remoteRuntime.EC2HostIP, rewriteInternalForLocalNodes); err != nil {
 				return nil, err
 			}
 
@@ -414,69 +164,19 @@ func startBlockchainsWithTargets(
 	}, nil
 }
 
-func newEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {
-	_ = testLogger
-	return tunnel.NewNoopManager(), nil
-}
-
-func NewEC2TunnelManager(testLogger zerolog.Logger) (tunnel.Manager, error) {
-	return newEC2TunnelManager(testLogger)
-}
-
 func rewriteRemoteBlockchainOutputForLocalAccess(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	tunnelManager tunnel.Manager,
-	configuredIndex int,
-	input *blockchain.Input,
 	output *blockchain.Output,
+	ec2HostIP string,
 	rewriteInternalForLocalNodes bool,
 ) error {
+	_ = rewriteInternalForLocalNodes // direct mode keeps internal URLs unchanged
 	if output == nil {
 		return nil
 	}
-	if isRemoteAccessDirectMode() {
-		hostIP, err := resolveDirectAccessHostIP()
-		if err != nil {
-			return err
-		}
-		return rewriteRemoteBlockchainOutputForDirectAccess(output, hostIP)
-	}
-
-	componentID := tunnel.CanonicalComponentID(tunnel.KindBlockchain, configuredIndex, input.Type)
-	adapter := adapters.NewBlockchainAdapter()
-
-	refs, err := adapter.DescribeEndpoints(componentID, output)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to describe blockchain tunnel endpoints")
-	}
-
-	bindings, err := tunnelManager.Start(ctx, refs)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to start tunnels for blockchain output")
-	}
-	for _, binding := range bindings {
-		testLogger.Info().
-			Str("componentID", binding.ComponentID).
-			Str("endpointName", binding.EndpointName).
-			Str("originalURL", binding.OriginalURL).
-			Str("localURL", binding.LocalURL).
-			Msg("Established endpoint tunnel")
-	}
-
-	if err := adapter.RewriteWithBindings(output, bindings); err != nil {
-		return pkgerrors.Wrap(err, "failed to rewrite blockchain output with local tunnel bindings")
-	}
-	if rewriteInternalForLocalNodes {
-		if err := rewriteBlockchainInternalURLsForLocalNodes(output); err != nil {
-			return pkgerrors.Wrap(err, "failed to rewrite blockchain internal urls for local node containers")
-		}
-	}
-
-	return nil
+	return rewriteRemoteBlockchainOutputForDirectAccess(output, ec2HostIP)
 }
 
-func rewriteRemoteBlockchainOutputForDirectAccess(output *blockchain.Output, hostIP string) error {
+func rewriteRemoteBlockchainOutputForDirectAccess(output *blockchain.Output, ec2HostIP string) error {
 	if output == nil {
 		return nil
 	}
@@ -485,51 +185,20 @@ func rewriteRemoteBlockchainOutputForDirectAccess(output *blockchain.Output, hos
 			continue
 		}
 		if node.ExternalHTTPUrl != "" {
-			rewritten, err := rewriteURLHost(node.ExternalHTTPUrl, hostIP)
+			rewritten, err := rewriteURLHost(node.ExternalHTTPUrl, ec2HostIP)
 			if err != nil {
 				return err
 			}
 			node.ExternalHTTPUrl = rewritten
 		}
 		if node.ExternalWSUrl != "" {
-			rewritten, err := rewriteURLHost(node.ExternalWSUrl, hostIP)
+			rewritten, err := rewriteURLHost(node.ExternalWSUrl, ec2HostIP)
 			if err != nil {
 				return err
 			}
 			node.ExternalWSUrl = rewritten
 		}
 	}
-	return nil
-}
-
-func rewriteBlockchainInternalURLsForLocalNodes(output *blockchain.Output) error {
-	if output == nil {
-		return nil
-	}
-
-	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-	for _, node := range output.Nodes {
-		if node == nil {
-			continue
-		}
-
-		if node.ExternalHTTPUrl != "" {
-			internal, err := rewriteURLHost(node.ExternalHTTPUrl, dockerHost)
-			if err != nil {
-				return err
-			}
-			node.InternalHTTPUrl = internal
-		}
-
-		if node.ExternalWSUrl != "" {
-			internal, err := rewriteURLHost(node.ExternalWSUrl, dockerHost)
-			if err != nil {
-				return err
-			}
-			node.InternalWSUrl = internal
-		}
-	}
-
 	return nil
 }
 
@@ -544,14 +213,6 @@ func rewriteURLHost(rawURL, host string) (string, error) {
 	}
 	parsed.Host = host
 	return parsed.String(), nil
-}
-
-func isRemoteAccessDirectMode() bool {
-	return runtimecfg.IsDirectMode()
-}
-
-func resolveDirectAccessHostIP() (string, error) {
-	return runtimecfg.DirectHostIP()
 }
 
 func remoteAgentError(code, message string) error {

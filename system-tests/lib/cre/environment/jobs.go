@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -66,7 +64,7 @@ func StartJD(
 	lggr zerolog.Logger,
 	jdConfig *config.JobDistributor,
 	infraInput infra.Provider,
-	tunnelManager tunnel.Manager,
+	remoteRuntime *resolvedRemoteRuntime,
 ) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
@@ -78,7 +76,10 @@ func StartJD(
 	var jdErr error
 
 	if jdConfig.Placement == config.PlacementRemote {
-		startClient, err := newStartComponentClient(lggr, tunnelManager)
+		if remoteRuntime == nil {
+			return nil, errors.New("remote runtime is required when starting remote jd")
+		}
+		startClient, err := newRemoteComponentClient(remoteRuntime)
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +114,7 @@ func StartJD(
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to decode jd transport payload")
 		}
-		if err := rewriteRemoteJDOutputForLocalAccess(ctx, lggr, tunnelManager, jdOutput); err != nil {
+		if err := rewriteRemoteJDOutputForLocalAccess(jdOutput, remoteRuntime.EC2HostIP); err != nil {
 			return nil, err
 		}
 	} else if infraInput.IsKubernetes() {
@@ -170,52 +171,16 @@ func StartJD(
 	}, nil
 }
 
-func rewriteRemoteJDOutputForLocalAccess(
-	ctx context.Context,
-	lggr zerolog.Logger,
-	tunnelManager tunnel.Manager,
-	output *jd.Output,
-) error {
+func rewriteRemoteJDOutputForLocalAccess(output *jd.Output, ec2HostIP string) error {
 	if output == nil {
 		return nil
 	}
-	if isRemoteAccessDirectMode() {
-		hostIP, err := resolveDirectAccessHostIP()
-		if err != nil {
-			return err
-		}
-		return rewriteJDForDirectAccess(output, hostIP)
-	}
-	if tunnelManager == nil {
-		return errors.New("tunnel manager is required for remote jd target")
-	}
-
-	refs, err := describeJDEndpoints(output)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to describe jd tunnel endpoints")
-	}
-	bindings, err := tunnelManager.Start(ctx, refs)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to start tunnels for jd output")
-	}
-	for _, binding := range bindings {
-		lggr.Info().
-			Str("componentID", binding.ComponentID).
-			Str("endpointName", binding.EndpointName).
-			Str("originalURL", binding.OriginalURL).
-			Str("localURL", binding.LocalURL).
-			Msg("Established endpoint tunnel")
-	}
-	return rewriteJDWithBindings(output, bindings)
+	return rewriteJDForDirectAccess(output, ec2HostIP)
 }
 
-func rewriteJDForDirectAccess(output *jd.Output, hostIP string) error {
-	if output == nil {
-		return nil
-	}
-
+func rewriteJDForDirectAccess(output *jd.Output, ec2HostIP string) error {
 	if output.ExternalGRPCUrl != "" {
-		rewritten, err := rewriteAddressHost(output.ExternalGRPCUrl, hostIP)
+		rewritten, err := rewriteAddressHost(output.ExternalGRPCUrl, ec2HostIP)
 		if err != nil {
 			return err
 		}
@@ -227,105 +192,13 @@ func rewriteJDForDirectAccess(output *jd.Output, hostIP string) error {
 		if source == "" {
 			source = output.InternalWSRPCUrl
 		}
-		rewritten, err := rewriteAddressHost(source, hostIP)
+		rewritten, err := rewriteAddressHost(source, ec2HostIP)
 		if err != nil {
 			return err
 		}
 		output.ExternalWSRPCUrl = rewritten
 	}
 	return nil
-}
-
-func describeJDEndpoints(output *jd.Output) ([]tunnel.EndpointRef, error) {
-	refs := make([]tunnel.EndpointRef, 0, 2)
-	componentID := tunnel.CanonicalComponentID(tunnel.KindJD, 0, "job-distributor")
-
-	grpcRef, err := jdEndpointFromAddress(componentID, "grpc", output.ExternalGRPCUrl)
-	if err != nil {
-		return nil, err
-	}
-	if grpcRef != nil {
-		refs = append(refs, *grpcRef)
-	}
-
-	wsrpcRef, err := jdEndpointFromAddress(componentID, "wsrpc", output.ExternalWSRPCUrl)
-	if err != nil {
-		return nil, err
-	}
-	if wsrpcRef != nil {
-		refs = append(refs, *wsrpcRef)
-	}
-
-	return refs, nil
-}
-
-func rewriteJDWithBindings(output *jd.Output, bindings []tunnel.TunnelBinding) error {
-	byName := make(map[string]tunnel.TunnelBinding, len(bindings))
-	for _, binding := range bindings {
-		byName[binding.EndpointName] = binding
-	}
-
-	if output.ExternalGRPCUrl != "" {
-		binding, ok := byName["grpc"]
-		if !ok {
-			return fmt.Errorf("missing tunnel binding for jd grpc endpoint")
-		}
-		output.ExternalGRPCUrl = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", binding.LocalPort))
-	}
-
-	if output.ExternalWSRPCUrl != "" || output.InternalWSRPCUrl != "" {
-		binding, ok := byName["wsrpc"]
-		if !ok {
-			return fmt.Errorf("missing tunnel binding for jd wsrpc endpoint")
-		}
-		output.ExternalWSRPCUrl = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", binding.LocalPort))
-	}
-
-	return nil
-}
-
-func jdEndpointFromAddress(componentID, endpointName, rawAddress string) (*tunnel.EndpointRef, error) {
-	trimmed := strings.TrimSpace(rawAddress)
-	if trimmed == "" {
-		return nil, nil
-	}
-
-	host := ""
-	port := ""
-
-	if strings.Contains(trimmed, "://") {
-		parsedURL, err := url.Parse(trimmed)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse jd endpoint %q: %w", rawAddress, err)
-		}
-		host = parsedURL.Hostname()
-		port = parsedURL.Port()
-	} else {
-		parsedHost, parsedPort, err := net.SplitHostPort(trimmed)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse jd host:port endpoint %q: %w", rawAddress, err)
-		}
-		host = parsedHost
-		port = parsedPort
-	}
-
-	if host == "" || port == "" {
-		return nil, fmt.Errorf("jd endpoint %q must contain host and port", rawAddress)
-	}
-
-	portNumber, err := strconv.Atoi(port)
-	if err != nil || portNumber <= 0 || portNumber > 65535 {
-		return nil, fmt.Errorf("jd endpoint %q has invalid port %q", rawAddress, port)
-	}
-
-	return &tunnel.EndpointRef{
-		ComponentID:  componentID,
-		EndpointName: endpointName,
-		Scheme:       "tcp",
-		Host:         host,
-		Port:         portNumber,
-		OriginalURL:  trimmed,
-	}, nil
 }
 
 func rewriteAddressHost(rawAddress, host string) (string, error) {

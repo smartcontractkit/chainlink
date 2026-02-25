@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 )
 
 type RemoteStopSummary struct {
@@ -41,13 +40,11 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		return summary, nil
 	}
 
-	tunnelManager, err := newEC2TunnelManager(lggr)
+	remoteRuntime, err := resolveRemoteRuntime(lggr)
 	if err != nil {
-		return summary, pkgerrors.Wrap(err, "failed to initialize tunnel manager for remote stop")
+		return summary, pkgerrors.Wrap(err, "failed to resolve remote runtime settings for stop")
 	}
-	defer func() { _ = tunnelManager.Stop(ctx) }()
-
-	startClient, err := newStartComponentClient(lggr, tunnelManager)
+	startClient, err := newRemoteComponentClient(remoteRuntime)
 	if err != nil {
 		return summary, pkgerrors.Wrap(err, "failed to initialize remote component client for stop")
 	}
@@ -116,7 +113,7 @@ func StopRemoteComponents(ctx context.Context, lggr zerolog.Logger, cfg *config.
 		}
 	}
 
-	containers, volumes, listErr := listRemoteCTFResources(ctx, lggr, tunnelManager)
+	containers, volumes, listErr := listRemoteCTFResources(ctx, remoteRuntime.AgentBaseURL)
 	if listErr != nil {
 		summary.ResidualQueryError = listErr.Error()
 	} else {
@@ -191,14 +188,8 @@ func stopRemoteComponent(
 
 func listRemoteCTFResources(
 	ctx context.Context,
-	lggr zerolog.Logger,
-	tunnelManager tunnel.Manager,
+	baseURL string,
 ) ([]string, []string, error) {
-	_ = tunnelManager
-	baseURL, err := resolveEC2AgentBaseURL(lggr)
-	if err != nil {
-		return nil, nil, pkgerrors.Wrap(err, "resolve agent base url for ctf resource query")
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/v1/resources/ctf", nil)
 	if err != nil {
 		return nil, nil, err

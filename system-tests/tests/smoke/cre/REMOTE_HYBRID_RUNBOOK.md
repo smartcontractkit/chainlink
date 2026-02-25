@@ -7,6 +7,7 @@ This runbook covers the EC2-based remote mode for CRE where components can run e
 - Remote backend is EC2 + Docker (no Kubernetes path).
 - Remote control plane is the CRE agent.
 - Access mode is direct-only.
+- Runtime no longer uses tunnel-manager orchestration for component endpoint access.
 
 ## Core Environment Variables
 
@@ -46,7 +47,7 @@ For direct-mode auto IP lookup, AWS CLI auth selection follows:
 - Use `placement = "local" | "remote"` in CRE component config (NodeSets, JD, Blockchains).
 - Same placement (`local->local`, `remote->remote`) uses **internal** URLs.
 - Cross placement (`local->remote`, `remote->local`) uses **external** URLs.
-- Remote NodeSets targeting local gateway are allowed when bridge/tunnel plumbing for gateway ingress is present.
+- Remote NodeSets targeting local gateway are allowed when relay plumbing for gateway ingress is present.
 
 ## P2P Peering Rules (SharedPeering)
 
@@ -80,7 +81,7 @@ For direct-mode auto IP lookup, AWS CLI auth selection follows:
 
 ## Fast Triage Checklist
 
-- Agent unreachable: verify bind address/port vs chosen access mode.
+- Agent unreachable: verify `CRE_EC2_AGENT_URL` (if set), or `CRE_EC2_INSTANCE_ID`/AWS credentials + `CRE_EC2_AGENT_PORT`.
 - Direct mode cannot resolve EC2 IP: ensure `CRE_EC2_INSTANCE_ID` is set and AWS CLI credentials are valid, or set `CRE_EC2_HOST_IP` explicitly.
 - `invalid jd placement`: use `placement=local` or `placement=remote` (only supported values).
 - Remote nodes hitting local-only fixtures: ensure fixture relay helper is active.

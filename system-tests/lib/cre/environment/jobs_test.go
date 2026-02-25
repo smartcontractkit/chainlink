@@ -4,62 +4,41 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 )
 
-func TestDescribeJDEndpointsUsesExternalWSRPC(t *testing.T) {
+func TestRewriteJDForDirectAccessRewritesExternalEndpoints(t *testing.T) {
 	output := &jd.Output{
 		ExternalGRPCUrl:  "127.0.0.1:14231",
-		ExternalWSRPCUrl: "127.0.0.1:8080",
+		ExternalWSRPCUrl: "127.0.0.1:9080",
 		InternalWSRPCUrl: "job-distributor:8080",
 	}
 
-	refs, err := describeJDEndpoints(output)
-	if err != nil {
-		t.Fatalf("describeJDEndpoints returned error: %v", err)
+	if err := rewriteJDForDirectAccess(output, "10.20.30.40"); err != nil {
+		t.Fatalf("rewriteJDForDirectAccess returned error: %v", err)
 	}
-	if len(refs) != 2 {
-		t.Fatalf("expected 2 endpoint refs, got %d", len(refs))
+	if output.ExternalGRPCUrl != "10.20.30.40:14231" {
+		t.Fatalf("expected external grpc url to be rewritten, got %s", output.ExternalGRPCUrl)
 	}
-
-	var wsrpcRef *tunnel.EndpointRef
-	for i := range refs {
-		if refs[i].EndpointName == "wsrpc" {
-			wsrpcRef = &refs[i]
-			break
-		}
+	if output.ExternalWSRPCUrl != "10.20.30.40:9080" {
+		t.Fatalf("expected external wsrpc url to be rewritten, got %s", output.ExternalWSRPCUrl)
 	}
-	if wsrpcRef == nil {
-		t.Fatal("missing wsrpc endpoint ref")
-	}
-	if wsrpcRef.Host != "127.0.0.1" || wsrpcRef.Port != 8080 {
-		t.Fatalf("expected wsrpc endpoint to use external address 127.0.0.1:8080, got %s:%d", wsrpcRef.Host, wsrpcRef.Port)
+	if output.InternalWSRPCUrl != "job-distributor:8080" {
+		t.Fatalf("expected internal wsrpc url to remain unchanged, got %s", output.InternalWSRPCUrl)
 	}
 }
 
-func TestRewriteJDWithBindingsRewritesNodeFacingWSRPC(t *testing.T) {
+func TestRewriteJDForDirectAccessFallsBackToInternalWSRPCSource(t *testing.T) {
 	output := &jd.Output{
 		ExternalGRPCUrl:  "127.0.0.1:14231",
-		ExternalWSRPCUrl: "127.0.0.1:8080",
+		ExternalWSRPCUrl: "",
 		InternalWSRPCUrl: "job-distributor:8080",
 	}
-	bindings := []tunnel.TunnelBinding{
-		{
-			EndpointRef: tunnel.EndpointRef{EndpointName: "grpc"},
-			LocalPort:   61001,
-		},
-		{
-			EndpointRef: tunnel.EndpointRef{EndpointName: "wsrpc"},
-			LocalPort:   61002,
-		},
-	}
 
-	if err := rewriteJDWithBindings(output, bindings); err != nil {
-		t.Fatalf("rewriteJDWithBindings returned error: %v", err)
+	if err := rewriteJDForDirectAccess(output, "10.20.30.40"); err != nil {
+		t.Fatalf("rewriteJDForDirectAccess returned error: %v", err)
 	}
-
-	if output.ExternalWSRPCUrl != "127.0.0.1:61002" {
-		t.Fatalf("expected external wsrpc url to be rewritten to 127.0.0.1:61002, got %s", output.ExternalWSRPCUrl)
+	if output.ExternalWSRPCUrl != "10.20.30.40:8080" {
+		t.Fatalf("expected external wsrpc url to be derived from internal source, got %s", output.ExternalWSRPCUrl)
 	}
 	if output.InternalWSRPCUrl != "job-distributor:8080" {
 		t.Fatalf("expected internal wsrpc url to remain unchanged, got %s", output.InternalWSRPCUrl)

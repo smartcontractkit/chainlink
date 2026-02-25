@@ -26,7 +26,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -397,15 +396,6 @@ func deployWorkflow(
 	if modeErr != nil {
 		return modeErr
 	}
-	var remoteTunnelManager tunnel.Manager
-	if mode == creworkflow.ArtifactDeployModeRemote {
-		manager, err := environment.NewEC2TunnelManager(framework.L)
-		if err != nil {
-			return errors.Wrap(err, "failed to initialize tunnel manager for remote workflow artifact deploy")
-		}
-		remoteTunnelManager = manager
-		defer func() { _ = remoteTunnelManager.Stop(ctx) }()
-	}
 	deployArtifacts := func(files ...string) error {
 		return creworkflow.DeployArtifacts(
 			ctx,
@@ -416,7 +406,7 @@ func deployWorkflow(
 				ContainerTargetDir:   containerTargetDirFlag,
 				Files:                files,
 				RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
-					return environment.DeployArtifactsToRemoteNodeSet(ctx, framework.L, remoteTunnelManager, nodeSetName, containerTargetDir, files)
+					return environment.DeployArtifactsToRemoteNodeSet(ctx, framework.L, nodeSetName, containerTargetDir, files)
 				},
 			},
 		)

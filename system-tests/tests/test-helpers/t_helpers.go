@@ -63,7 +63,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -340,19 +339,8 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
-	var remoteTunnelManager tunnel.Manager
-	defer func() {
-		if remoteTunnelManager != nil {
-			_ = remoteTunnelManager.Stop(t.Context())
-		}
-	}()
 	for _, don := range workflowDONs {
 		mode, nodeSetName := resolveWorkflowDONArtifactMode(testEnv.Config, don.Name)
-		if mode == creworkflow.ArtifactDeployModeRemote && remoteTunnelManager == nil {
-			manager, managerErr := creenv.NewEC2TunnelManager(testLogger)
-			require.NoError(t, managerErr, "failed to initialize tunnel manager for remote artifact deploy")
-			remoteTunnelManager = manager
-		}
 		copyErr := creworkflow.DeployArtifacts(
 			t.Context(),
 			creworkflow.DeployArtifactsOptions{
@@ -362,7 +350,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 				ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
 				Files:                []string{compressedWorkflowWasmPath, workflowConfigFilePath},
 				RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
-					return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, remoteTunnelManager, nodeSetName, containerTargetDir, files)
+					return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, nodeSetName, containerTargetDir, files)
 				},
 			},
 		)

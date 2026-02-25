@@ -1,0 +1,243 @@
+package environment
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	retry "github.com/avast/retry-go/v4"
+	pkgerrors "github.com/pkg/errors"
+	"github.com/rs/zerolog"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/agent"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
+)
+
+const (
+	componentTypeBlockchain = "blockchain"
+	componentTypeJD         = "jd"
+	componentTypeNodeSet    = "nodeset"
+	envEC2AgentURL          = "CRE_EC2_AGENT_URL"
+	envEC2AgentPort         = "CRE_EC2_AGENT_PORT"
+	defaultEC2AgentPort     = 8080
+)
+
+type componentClient interface {
+	StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error)
+}
+
+type httpComponentClient struct {
+	baseURL     string
+	client      *http.Client
+	maxAttempts int
+	retryDelay  time.Duration
+	checkHealth bool
+}
+
+type resolvedRemoteRuntime struct {
+	AgentBaseURL string
+	EC2HostIP    string
+}
+
+func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
+	return &httpComponentClient{
+		baseURL: baseURL,
+		client: &http.Client{
+			Timeout: 4 * time.Minute,
+		},
+		maxAttempts: 3,
+		retryDelay:  2 * time.Second,
+		checkHealth: true,
+	}
+}
+
+func resolveRemoteRuntime(testLogger zerolog.Logger) (*resolvedRemoteRuntime, error) {
+	baseURL, err := resolveEC2AgentBaseURL(testLogger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve EC2 agent base URL: %w", err)
+	}
+	ec2HostIP, err := resolveEC2HostIP()
+	if err != nil {
+		return nil, err
+	}
+	return &resolvedRemoteRuntime{
+		AgentBaseURL: baseURL,
+		EC2HostIP:    ec2HostIP,
+	}, nil
+}
+
+func newRemoteComponentClient(runtime *resolvedRemoteRuntime) (componentClient, error) {
+	if runtime == nil || strings.TrimSpace(runtime.AgentBaseURL) == "" {
+		return nil, errors.New("resolved runtime is nil or missing agent base url")
+	}
+	return newEC2HTTPComponentClient(runtime.AgentBaseURL), nil
+}
+
+func (c *httpComponentClient) StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error) {
+	if c.checkHealth {
+		if err := c.waitForHealth(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	var result *agent.StartComponentResponse
+	err := retry.Do(
+		func() error {
+			var err error
+			result, err = c.startComponentOnce(ctx, envelope)
+			return err
+		},
+		retry.Attempts(uint(c.maxAttempts)),
+		retry.Delay(c.retryDelay),
+		retry.Context(ctx),
+		retry.LastErrorOnly(true),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error) {
+	body, err := json.Marshal(envelope)
+	if err != nil {
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to encode start component envelope"))
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/components/start", bytes.NewReader(body))
+	if err != nil {
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to create start component request"))
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		if isRetriableNetworkError(err) {
+			return nil, pkgerrors.Wrap(err, "failed to execute start component request")
+		}
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to execute start component request"))
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to read start component response"))
+	}
+
+	var startResp agent.StartComponentResponse
+	if len(respBody) > 0 {
+		if err := json.Unmarshal(respBody, &startResp); err != nil {
+			return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to decode start component response"))
+		}
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if startResp.Error != "" {
+			if startResp.ErrorCode != "" {
+				err = remoteAgentError(startResp.ErrorCode, startResp.Error)
+			} else {
+				err = remoteAgentError("remote_agent_error", startResp.Error)
+			}
+		} else {
+			err = fmt.Errorf("start component request failed with status %s: %s", resp.Status, string(respBody))
+		}
+
+		if isRetriableStatus(resp.StatusCode) {
+			return nil, err
+		}
+		return nil, retry.Unrecoverable(err)
+	}
+	if startResp.Error != "" {
+		if startResp.ErrorCode != "" {
+			return nil, retry.Unrecoverable(remoteAgentError(startResp.ErrorCode, startResp.Error))
+		}
+		return nil, retry.Unrecoverable(remoteAgentError("remote_agent_error", startResp.Error))
+	}
+
+	return &startResp, nil
+}
+
+func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
+	healthURL := c.baseURL + "/v1/health"
+	return retry.Do(
+		func() error {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
+			if err != nil {
+				return retry.Unrecoverable(err)
+			}
+			resp, err := c.client.Do(req)
+			if err != nil {
+				return err
+			}
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			return fmt.Errorf("%s: status %s", describeEC2AgentHealthFailure(c.baseURL), resp.Status)
+		},
+		retry.Attempts(uint(c.maxAttempts)),
+		retry.Delay(c.retryDelay),
+		retry.Context(ctx),
+		retry.LastErrorOnly(true),
+	)
+}
+
+func describeEC2AgentHealthFailure(baseURL string) string {
+	return fmt.Sprintf(
+		"failed EC2 CRE agent health check (%s/v1/health); verify the agent process is running and %s matches its listen port (or set %s explicitly)",
+		baseURL,
+		envEC2AgentPort,
+		envEC2AgentURL,
+	)
+}
+
+func isRetriableStatus(statusCode int) bool {
+	return statusCode == http.StatusBadGateway || statusCode == http.StatusServiceUnavailable || statusCode == http.StatusGatewayTimeout
+}
+
+func isRetriableNetworkError(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr)
+}
+
+func resolveEC2AgentBaseURL(testLogger zerolog.Logger) (string, error) {
+	if configured := strings.TrimSpace(os.Getenv(envEC2AgentURL)); configured != "" {
+		return configured, nil
+	}
+	remotePort, err := resolveEC2AgentPort()
+	if err != nil {
+		return "", err
+	}
+	ec2HostIP, err := resolveEC2HostIP()
+	if err != nil {
+		return "", err
+	}
+	testLogger.Debug().Str("ec2HostIP", ec2HostIP).Int("port", remotePort).Msg("resolved EC2 CRE agent base URL")
+	return fmt.Sprintf("http://%s:%d", ec2HostIP, remotePort), nil
+}
+
+func resolveEC2AgentPort() (int, error) {
+	remotePort := defaultEC2AgentPort
+	if configuredPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); configuredPort != "" {
+		parsedPort, err := strconv.Atoi(configuredPort)
+		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
+			return 0, fmt.Errorf("invalid %s: %q", envEC2AgentPort, configuredPort)
+		}
+		remotePort = parsedPort
+	}
+	return remotePort, nil
+}
+
+func resolveEC2HostIP() (string, error) {
+	return runtimecfg.DirectHostIP()
+}

@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
@@ -56,33 +55,19 @@ type SetupOutput struct {
 	NodeOutput                          []*cre.NodeSetOutput
 	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
-
-	tunnelManager tunnel.Manager
-	closeOnce     sync.Once
-	closeErr      error
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func (s *SetupOutput) Close(ctx context.Context) error {
 	if s == nil {
 		return nil
 	}
-	manager := s.tunnelManager
-	if manager == nil {
-		manager = tunnel.NewNoopManager()
-	}
-
 	s.closeOnce.Do(func() {
-		s.closeErr = manager.Stop(ctx)
+		s.closeErr = nil
 	})
 
 	return s.closeErr
-}
-
-func (s *SetupOutput) TunnelBindings() []tunnel.TunnelBinding {
-	if s == nil || s.tunnelManager == nil {
-		return []tunnel.TunnelBinding{}
-	}
-	return s.tunnelManager.Snapshot()
 }
 
 type SetupInput struct {
@@ -173,11 +158,14 @@ func SetupTestEnvironment(
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
 	}
-
-	tunnelManager, tmErr := newEC2TunnelManager(testLogger)
-	if tmErr != nil {
-		return nil, pkgerrors.Wrap(tmErr, "failed to initialize tunnel manager")
+	var remoteRuntime *resolvedRemoteRuntime
+	if hasRemoteComponents(input.Blockchains, input.JdInput, input.NodeSets) {
+		remoteRuntime, err = resolveRemoteRuntime(testLogger)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to resolve remote runtime settings")
+		}
 	}
+
 	testLogger.Info().Msg("using persistent relay supervisor for mixed component relays")
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.Blockchains))))
@@ -187,18 +175,12 @@ func SetupTestEnvironment(
 		testLogger,
 		input.Blockchains,
 		input.BlockchainDeployers,
-		tunnelManager,
+		remoteRuntime,
 		nodeSetPlacement.HasLocalTargets,
 	)
 	if startErr != nil {
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
 	}
-	cleanupTunnelsOnError := true
-	defer func() {
-		if cleanupTunnelsOnError {
-			_ = tunnelManager.Stop(ctx)
-		}
-	}()
 
 	creEnvironment := &cre.Environment{
 		Blockchains:           deployedBlockchains.Outputs,
@@ -278,7 +260,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	startedJD, jdStartErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, tunnelManager)
+	startedJD, jdStartErr := StartJD(ctx, testLogger, input.JdInput, input.Provider, remoteRuntime)
 	if jdStartErr != nil {
 		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
 	}
@@ -291,7 +273,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "bootstrap reachability sanity check failed")
 	}
 
-	startedDONs, donStartErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, tunnelManager)
+	startedDONs, donStartErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, remoteRuntime)
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
@@ -481,7 +463,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed to store workflow registry configuration output")
 	}
 
-	cleanupTunnelsOnError = false
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
 		Dons:                                dons,
@@ -489,7 +470,6 @@ func SetupTestEnvironment(
 		CreEnvironment:                      creEnvironment,
 		S3ProviderOutput:                    s3Output,
 		GatewayConnectors:                   topology.GatewayConnectors,
-		tunnelManager:                       tunnelManager,
 	}, nil
 }
 
@@ -522,6 +502,23 @@ func blockchainPlacementsBySelector(configured []*config.Blockchain, deployed []
 		bySelector[selector] = string(blockchainCfg.Placement)
 	}
 	return bySelector
+}
+
+func hasRemoteComponents(blockchains []*config.Blockchain, jdInput *config.JobDistributor, nodeSets []*cre.NodeSet) bool {
+	for _, configuredBlockchain := range blockchains {
+		if configuredBlockchain != nil && configuredBlockchain.Placement == config.PlacementRemote {
+			return true
+		}
+	}
+	if jdInput != nil && jdInput.Placement == config.PlacementRemote {
+		return true
+	}
+	for _, nodeSet := range nodeSets {
+		if nodeSet != nil && strings.TrimSpace(nodeSet.Placement) == string(config.PlacementRemote) {
+			return true
+		}
+	}
+	return false
 }
 
 type nodeSetPlacementSummary struct {
@@ -601,11 +598,11 @@ func verifyRemoteToLocalBootstrapReachability(ctx context.Context, lggr zerolog.
 		return nil
 	}
 
-	hostIP, err := runtimecfg.DirectHostIP()
+	ec2HostIP, err := runtimecfg.DirectHostIP()
 	if err != nil {
 		return fmt.Errorf("resolve direct EC2 host ip: %w", err)
 	}
-	remoteRelayAddr := net.JoinHostPort(hostIP, strconv.Itoa(cre.OCRPeeringPort))
+	remoteRelayAddr := net.JoinHostPort(ec2HostIP, strconv.Itoa(cre.OCRPeeringPort))
 	if err := waitForTCPReachable(ctx, remoteRelayAddr, 6*time.Second); err != nil {
 		return fmt.Errorf("remote relay listener for bootstrap peering is not reachable at %s: %w", remoteRelayAddr, err)
 	}

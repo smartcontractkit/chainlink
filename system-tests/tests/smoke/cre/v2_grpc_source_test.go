@@ -26,7 +26,6 @@ import (
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/tunnel"
 	grpcsourcemock "github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -603,12 +602,6 @@ func compileAndCopyWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workf
 			break
 		}
 	}
-	var remoteTunnelManager tunnel.Manager
-	if mode == creworkflow.ArtifactDeployModeRemote {
-		remoteTunnelManager, err = creenv.NewEC2TunnelManager(testLogger)
-		require.NoError(t, err, "failed to initialize tunnel manager for remote artifact deploy")
-		defer func() { _ = remoteTunnelManager.Stop(ctx) }()
-	}
 	err = creworkflow.DeployArtifacts(
 		ctx,
 		creworkflow.DeployArtifactsOptions{
@@ -618,7 +611,7 @@ func compileAndCopyWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workf
 			ContainerTargetDir:   containerTargetDir,
 			Files:                []string{compressedWasmPath, configFilePath},
 			RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
-				return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, remoteTunnelManager, nodeSetName, containerTargetDir, files)
+				return creenv.DeployArtifactsToRemoteNodeSet(ctx, testLogger, nodeSetName, containerTargetDir, files)
 			},
 		},
 	)

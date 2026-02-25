@@ -649,7 +649,7 @@ func stopCmd() *cobra.Command {
 		Example:          "go run . env stop",
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := stopLocalResources(relativePathToRepoRoot, false); err != nil {
+			if err := stopLocalResources(relativePathToRepoRoot, false, false); err != nil {
 				return err
 			}
 			remoteConfiguredSummary, _ := loadRemoteStopTargets(relativePathToRepoRoot)
@@ -668,21 +668,21 @@ func stopCmd() *cobra.Command {
 func stopAllCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:              "stop-all",
-		Short:            "Stops all local resources",
-		Long:             `Stops local CRE resources and extra local services (beholder, billing, observability), then removes local state directory.`,
+		Short:            "Stops local and remote resources",
+		Long:             `Stops remote CRE components (when configured), then stops local CRE resources and extra local services (beholder, billing, observability), and removes local state directory.`,
 		Example:          "go run . env stop-all",
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := stopLocalResources(relativePathToRepoRoot, true); err != nil {
+			remoteConfiguredSummary, targets := loadRemoteStopTargets(relativePathToRepoRoot)
+			if remoteConfiguredSummary.Total > 0 {
+				if err := stopRemoteTargets(cmd.Context(), relativePathToRepoRoot, targets); err != nil {
+					return err
+				}
+			}
+			if err := stopLocalResources(relativePathToRepoRoot, true, false); err != nil {
 				return err
 			}
-			remoteConfiguredSummary, _ := loadRemoteStopTargets(relativePathToRepoRoot)
-			if remoteConfiguredSummary.Total > 0 {
-				framework.L.Warn().
-					Int("count", remoteConfiguredSummary.Total).
-					Msgf("Remote components are still running. Use `env stop-remote` to stop them. Remote stop state: %s", remoteStateFileAbsPath(relativePathToRepoRoot))
-			}
-			fmt.Println("All local resources stopped successfully")
+			fmt.Println("All resources stopped successfully")
 			return nil
 		},
 	}
@@ -808,9 +808,11 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 	return nil
 }
 
-func stopLocalResources(relativePathToRepoRoot string, removeAllState bool) error {
-	if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
-		framework.L.Warn().Err(err).Msg("failed to stop relay supervisor")
+func stopLocalResources(relativePathToRepoRoot string, removeAllState bool, stopRelay bool) error {
+	if stopRelay {
+		if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
+			framework.L.Warn().Err(err).Msg("failed to stop relay supervisor")
+		}
 	}
 
 	removeErr := framework.RemoveTestContainers()
