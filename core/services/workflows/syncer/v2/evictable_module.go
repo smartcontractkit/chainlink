@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -10,9 +11,9 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
@@ -109,7 +110,7 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	if m.closed.Load() {
-		return fmt.Errorf("module is permanently closed")
+		return errors.New("module is permanently closed")
 	}
 	if m.inner != nil {
 		return nil

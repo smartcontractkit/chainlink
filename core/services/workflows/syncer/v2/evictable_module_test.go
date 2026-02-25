@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
@@ -386,15 +386,23 @@ func TestLRU_ConcurrentRegisterDeregister(t *testing.T) {
 	store, err := artifacts.NewFileModuleStore(t.TempDir())
 	require.NoError(t, err)
 
-	var wg sync.WaitGroup
+	type entry struct {
+		wfID string
+		em   *EvictableModule
+	}
+	entries := make([]entry, 20)
 	for i := 0; i < 20; i++ {
+		wfID := string(rune('A' + i))
+		entries[i] = entry{wfID: wfID, em: newLRUModule(t, store, wfID)}
+	}
+
+	var wg sync.WaitGroup
+	for i := range entries {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			wfID := string(rune('A' + idx))
-			em := newLRUModule(t, store, wfID)
-			lru.Register(wfID, em)
-			lru.Deregister(wfID)
+			lru.Register(entries[idx].wfID, entries[idx].em)
+			lru.Deregister(entries[idx].wfID)
 		}(i)
 	}
 	wg.Wait()
