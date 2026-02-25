@@ -231,6 +231,14 @@ func getOffchainCfg(oracleCfg OracleConfig) (offchainConfig, error) {
 		result = oracleCfg.ChainCapOffchainConfig
 	}
 
+	if oracleCfg.DontimeOffchainConfig != nil {
+		if result != nil {
+			return nil, fmt.Errorf("multiple offchain configs specified: %+v. Only one allowed", oracleCfg)
+		}
+
+		result = oracleCfg.DontimeOffchainConfig
+	}
+
 	return result, nil
 }
 
