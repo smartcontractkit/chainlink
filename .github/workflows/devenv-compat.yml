@@ -1,7 +1,6 @@
 name: Upgrade Compatibility Test
 
 on:
-  push:
   workflow_call:
     inputs:
       buildcmd:
@@ -80,9 +79,6 @@ on:
         default: "info"
         type: string
 
-defaults:
-  run:
-    working-directory: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
@@ -95,8 +91,9 @@ jobs:
       contents: read
       pull-requests: write
     runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
-    
-    # Create environment variables directly without a separate step
+    defaults:
+      run:
+        working-directory: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
     env:
       BUILD_CMD: ${{ github.event_name == 'workflow_call' && inputs.buildcmd || github.event.inputs.buildcmd }}
       ENV_CMD: ${{ github.event_name == 'workflow_call' && inputs.envcmd || github.event.inputs.envcmd }}
@@ -112,7 +109,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          # If triggered via workflow_dispatch, optionally checkout a specific branch
           ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || '' }}
 
       - name: Set up Docker Buildx
