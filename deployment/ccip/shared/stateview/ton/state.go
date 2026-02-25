@@ -38,7 +38,7 @@ func SaveOnchainState(chainSelector uint64, state CCIPChainState, e cldf.Environ
 		}
 	}
 	if !state.ReceiverAddress.IsAddrNone() {
-		err := ab.Save(chainSelector, state.ReceiverAddress.String(), cldf.NewTypeAndVersion(shared.TonReceiver, deployment.Version1_6_0))
+		err := ab.Save(chainSelector, state.ReceiverAddress.String(), cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ func loadChainState(chain cldf_ton.Chain, addressTypes map[string]cldf.TypeAndVe
 		switch tvStr.Type {
 		case commontypes.LinkToken:
 			state.LinkTokenAddress = *address
-		case shared.TonReceiver:
+		case shared.Receiver:
 			state.ReceiverAddress = *address
 		case shared.OffRamp:
 			state.OffRamp = *address
