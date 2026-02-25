@@ -485,6 +485,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
+		Attributes:    payload.Attributes,
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -726,6 +727,10 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("invalid workflow name: %w", err)
 	}
 
+	if v2.IsConfidential(spec.Attributes) {
+		return h.tryConfidentialEngineCreate(ctx, spec, wid, workflowName, decodedBinary, source)
+	}
+
 	// Create a channel to receive the initialization result.
 	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
@@ -794,6 +799,111 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)
 	}
+	return nil
+}
+
+// tryConfidentialEngineCreate creates a V2 engine backed by a ConfidentialModule
+// instead of a local WASM module. The ConfidentialModule delegates execution to
+// the confidential-workflows capability which runs the WASM inside a TEE.
+func (h *eventHandler) tryConfidentialEngineCreate(
+	ctx context.Context,
+	spec *job.WorkflowSpec,
+	wid types.WorkflowID,
+	workflowName types.WorkflowName,
+	decodedBinary []byte,
+	source string,
+) error {
+	attrs, err := v2.ParseWorkflowAttributes(spec.Attributes)
+	if err != nil {
+		return fmt.Errorf("failed to parse workflow attributes: %w", err)
+	}
+
+	binaryHash := v2.ComputeBinaryHash(decodedBinary)
+
+	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
+	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
+
+	module := v2.NewConfidentialModule(
+		h.capRegistry,
+		spec.BinaryURL,
+		binaryHash,
+		spec.WorkflowID,
+		spec.WorkflowOwner,
+		workflowName.String(),
+		spec.WorkflowTag,
+		attrs.VaultDonSecrets,
+		lggr,
+	)
+
+	initDone := make(chan error, 1)
+
+	cfg := &v2.EngineConfig{
+		Lggr:                  h.lggr,
+		Module:                module,
+		WorkflowConfig:        []byte(spec.Config),
+		CapRegistry:           h.capRegistry,
+		DonSubscriber:         h.workflowDonSubscriber,
+		UseLocalTimeProvider:  h.useLocalTimeProvider,
+		DonTimeStore:          h.donTimeStore,
+		ExecutionsStore:       h.workflowStore,
+		WorkflowID:            spec.WorkflowID,
+		WorkflowOwner:         spec.WorkflowOwner,
+		WorkflowName:          workflowName,
+		WorkflowTag:           spec.WorkflowTag,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
+
+		LocalLimits:                       v2.EngineLimits{},
+		LocalLimiters:                     h.engineLimiters,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+
+		BeholderEmitter: h.emitter,
+		BillingClient:   h.billingClient,
+
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
+	}
+
+	existingHook := cfg.Hooks.OnInitialized
+	cfg.Hooks.OnInitialized = func(err error) {
+		initDone <- err
+		if existingHook != nil {
+			existingHook(err)
+		}
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create confidential workflow engine: %w", err)
+	}
+
+	if err = engine.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start confidential workflow engine: %w", err)
+	}
+
+	select {
+	case <-ctx.Done():
+		if closeErr := engine.Close(); closeErr != nil {
+			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", spec.WorkflowID)
+		}
+		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
+	case initErr := <-initDone:
+		if initErr != nil {
+			if closeErr := engine.Close(); closeErr != nil {
+				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
+			}
+			return fmt.Errorf("engine initialization failed: %w", initErr)
+		}
+	}
+
+	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
+		if closeErr := engine.Close(); closeErr != nil {
+			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
+		}
+		return fmt.Errorf("invariant violation: %w", err)
+	}
+
 	return nil
 }
 
