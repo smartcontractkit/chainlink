@@ -54,8 +54,10 @@ const (
 		"chainId":"{{.ChainID}}",
 		"network":"{{.Network}}"
 	}`
-	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
-	requestTimeout = 30 * time.Second
+	deltaStage          = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
+	requestTimeout      = 30 * time.Second
+	registrationRefresh = 20 * time.Second
+	registrationExpiry  = 60 * time.Second
 )
 
 type SolChain interface {
@@ -100,7 +102,10 @@ func (s *Solana) PreEnvStartup(
 		}
 	}
 	// 4. Register Solana capability & its methods with Keystone
-	capabilities := registerSolanaCapability(solChain.ChainSelector())
+	capabilities, capErr := registerSolanaCapability(solChain.ChainSelector(), don.MustNodeSet())
+	if capErr != nil {
+		return nil, errors.Wrap(capErr, "failed to register solana capability")
+	}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
@@ -284,9 +289,12 @@ func createJobs(
 }
 
 // pre env
-func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilityWithConfig {
+func registerSolanaCapability(selector uint64, nodeSet *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 	var caps []keystone_changeset.DONCapabilityWithConfig
-	methodConfigs := getMethodConfigs()
+	methodConfigs, err := getMethodConfigs(nodeSet)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get method configs")
+	}
 	caps = append(caps, keystone_changeset.DONCapabilityWithConfig{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName: "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
@@ -297,17 +305,41 @@ func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilit
 		},
 	})
 
-	return caps
+	return caps, nil
 }
 
-func getMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
+func getMethodConfigs(nodeSet *cre.NodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
 	methodConfigs := make(map[string]*capabilitiespb.CapabilityMethodConfig)
 
 	methodConfigs["WriteReport"] = writeReportActionConfig()
-	// PLEX-1828
-	// PLEX-1918 Add the rest of solana methods here
 
-	return methodConfigs
+	triggerConfig, err := logTriggerConfig(nodeSet)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get config for LogTrigger")
+	}
+	methodConfigs["LogTrigger"] = triggerConfig
+
+	return methodConfigs, nil
+}
+
+func logTriggerConfig(nodeSet *cre.NodeSet) (*capabilitiespb.CapabilityMethodConfig, error) {
+	faultyNodes, faultyErr := nodeSet.MaxFaultyNodes()
+	if faultyErr != nil {
+		return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
+	}
+
+	return &capabilitiespb.CapabilityMethodConfig{
+		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh:     durationpb.New(registrationRefresh),
+				RegistrationExpiry:      durationpb.New(registrationExpiry),
+				MinResponsesToAggregate: faultyNodes + 1,
+				MessageExpiry:           durationpb.New(2 * registrationExpiry),
+				MaxBatchSize:            25,
+				BatchCollectionPeriod:   durationpb.New(200 * time.Millisecond),
+			},
+		},
+	}, nil
 }
 
 func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {

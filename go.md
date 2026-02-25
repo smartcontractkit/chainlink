@@ -393,7 +393,6 @@ flowchart LR
 	click chainlink-solana/contracts href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
-	chainlink-sui --> chainlink-common/pkg/values
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-sui/deployment --> chainlink-deployments-framework
 	chainlink-sui/deployment --> chainlink/v2
@@ -482,6 +481,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evmread
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/httpaction
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/solana/solwrite
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/consensus --> cre-sdk-go/capabilities/scheduler/cron
@@ -511,6 +511,8 @@ flowchart LR
 	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/networking/http
 	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/httpaction href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger --> cre-sdk-go/capabilities/blockchain/solana
+	click chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/solana/solwrite --> cre-sdk-go/capabilities/blockchain/solana
 	chainlink/system-tests/tests/smoke/cre/solana/solwrite --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/solana/solwrite href "https://github.com/smartcontractkit/chainlink"
@@ -587,6 +589,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 		 chainlink/system-tests/tests/smoke/cre/evmread
 		 chainlink/system-tests/tests/smoke/cre/httpaction
+		 chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger
 		 chainlink/system-tests/tests/smoke/cre/solana/solwrite
 		 chainlink/v2
 	end
