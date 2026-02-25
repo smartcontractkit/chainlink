@@ -453,7 +453,6 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 		}
 		p.mu.RUnlock()
 
-		// NOTE: send to all nodes by default, introduce different strategies later (KS-76)
 		for _, peerID := range cfg.workflowDONs[resp.callerDonID].Members {
 			var missingTriggerIDs []string
 			var missingWorkflowIDs []string
