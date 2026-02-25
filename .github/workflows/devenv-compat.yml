@@ -1,4 +1,4 @@
-name: OCR2 Upgrade Compatibility Test (Reusable)
+name: Upgrade Compatibility Test
 
 on:
   workflow_call:
@@ -39,24 +39,49 @@ on:
         required: false
         default: "info"
         type: string
-    secrets:
-      AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN:
-        description: "AWS OIDC role ARN for ECR read access"
+
+  workflow_dispatch:
+    inputs:
+      buildcmd:
+        description: "Build command to run"
         required: true
-      FAKE_SERVER_IMAGE:
-        description: "Fake server image"
+        type: string
+      envcmd:
+        description: "Environment setup command to run"
         required: true
-      REGISTRY_SDLC:
-        description: "SDLC registry URL"
+        type: string
+      testcmd:
+        description: "Test command to run"
         required: true
-      GITHUB_TOKEN:
-        description: "GitHub token for downloading releases"
+        type: string
+      nodes:
+        description: "Number of nodes for the test"
         required: false
-        default: ${{ github.token }}
+        default: "3"
+        type: string
+      versions-back:
+        description: "Number of versions to go back for compatibility testing"
+        required: false
+        default: "2"
+        type: string
+      working-directory:
+        description: "Working directory for commands"
+        required: false
+        default: "devenv"
+        type: string
+      logs-directory:
+        description: "Logs directory"
+        required: true
+        type: string
+      ctf-log-level:
+        description: "CTF log level"
+        required: false
+        default: "info"
+        type: string
 
 defaults:
   run:
-    working-directory: ${{ inputs.working-directory }}
+    working-directory: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
@@ -69,17 +94,31 @@ jobs:
       contents: read
       pull-requests: write
     runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
+    
+    # Create environment variables directly without a separate step
+    env:
+      BUILD_CMD: ${{ github.event_name == 'workflow_call' && inputs.buildcmd || github.event.inputs.buildcmd }}
+      ENV_CMD: ${{ github.event_name == 'workflow_call' && inputs.envcmd || github.event.inputs.envcmd }}
+      TEST_CMD: ${{ github.event_name == 'workflow_call' && inputs.testcmd || github.event.inputs.testcmd }}
+      NODES: ${{ github.event_name == 'workflow_call' && inputs.nodes || github.event.inputs.nodes }}
+      VERSIONS_BACK: ${{ github.event_name == 'workflow_call' && inputs.versions-back || github.event.inputs.versions-back }}
+      WORKING_DIR: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
+      LOGS_DIR: ${{ github.event_name == 'workflow_call' && inputs.logs-directory || github.event.inputs.logs-directory }}
+      CTF_LOG_LEVEL: ${{ github.event_name == 'workflow_call' && inputs.ctf-log-level || github.event.inputs.ctf-log-level }}
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          # If triggered via workflow_dispatch, optionally checkout a specific branch
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || '' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Install Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb6851efde4669ff # v3
         with:
           just-version: "1.40.0"
 
@@ -97,23 +136,24 @@ jobs:
         uses: actions/setup-go@v6 # v6
         with:
           cache: true
-          go-version-file: ${{ inputs.working-directory }}/go.mod
-          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+          go-version-file: ${{ env.WORKING_DIR }}/go.mod
+          cache-dependency-path: ${{ env.WORKING_DIR }}/go.sum
 
       - name: Download Go dependencies
         run: |
           go mod download
+        working-directory: ${{ env.WORKING_DIR }}
 
       - name: Get CTF version from go.mod
         shell: bash
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
           echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
 
       - name: Install CTF binary
         shell: bash
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ env.WORKING_DIR }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -124,17 +164,17 @@ jobs:
           chmod +x bin/ctf
 
       - name: Run compat test
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ env.WORKING_DIR }}
         shell: bash
         env:
-          CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
+          CTF_LOG_LEVEL: ${{ env.CTF_LOG_LEVEL }}
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
-          BUILD_CMD: ${{ inputs.buildcmd }}
-          ENV_CMD: ${{ inputs.envcmd }}
-          TEST_CMD: ${{ inputs.testcmd }}
-          NODES: ${{ inputs.nodes }}
-          VERSIONS_BACK: ${{ inputs.versions-back }}
+          BUILD_CMD: ${{ env.BUILD_CMD }}
+          ENV_CMD: ${{ env.ENV_CMD }}
+          TEST_CMD: ${{ env.TEST_CMD }}
+          NODES: ${{ env.NODES }}
+          VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
         run: |
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
@@ -149,5 +189,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke
-          path: ${{ inputs.logs-directory }}
+          path: ${{ env.LOGS_DIR }}
           retention-days: 3
