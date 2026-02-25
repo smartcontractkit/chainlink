@@ -87,6 +87,7 @@ func init() {
 	EnvironmentCmd.AddCommand(stopCmd())
 	EnvironmentCmd.AddCommand(stopAllCmd())
 	EnvironmentCmd.AddCommand(stopRemoteCmd())
+	EnvironmentCmd.AddCommand(debugCmds())
 	EnvironmentCmd.AddCommand(relaySupervisorCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())

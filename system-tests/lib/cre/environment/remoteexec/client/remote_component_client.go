@@ -28,7 +28,7 @@ const (
 	ComponentTypeNodeSet    = "nodeset"
 	EnvEC2AgentURL          = "CRE_EC2_AGENT_URL"
 	EnvEC2AgentPort         = "CRE_EC2_AGENT_PORT"
-	defaultEC2AgentPort     = 8080
+	defaultEC2AgentPort     = 18080
 )
 
 type ComponentClient interface {
@@ -71,11 +71,26 @@ func ResolveRuntime(testLogger zerolog.Logger) (*Runtime, error) {
 		return nil, err
 	}
 	client := newEC2HTTPComponentClient(baseURL)
-	return &Runtime{
+	runtime := &Runtime{
 		AgentBaseURL: baseURL,
 		EC2HostIP:    ec2HostIP,
 		Client:       client,
-	}, nil
+	}
+
+	// Best-effort compatibility check: fail on definitive protocol incompatibility,
+	// but do not fail runtime resolution if status endpoint is temporarily unavailable.
+	compatCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	status, statusErr := GetAgentStatus(compatCtx, runtime)
+	if statusErr != nil {
+		testLogger.Warn().Err(statusErr).Msg("skipping remote agent compatibility check (status unavailable)")
+		return runtime, nil
+	}
+	if compatErr := checkCompatibilityStatus(status, nil); compatErr != nil {
+		return nil, compatErr
+	}
+
+	return runtime, nil
 }
 
 func NewComponentClient(runtime *Runtime) (ComponentClient, error) {

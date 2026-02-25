@@ -108,6 +108,8 @@ func TestStopRemoteComponents_ResidualQueryFailureIsReportedInSummary(t *testing
 		switch r.URL.Path {
 		case "/v1/health":
 			w.WriteHeader(http.StatusOK)
+		case "/v1/status":
+			require.NoError(t, json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"}))
 		case "/v1/components/start":
 			resp := agent.StartComponentResponse{
 				ComponentType: ComponentTypeBlockchain,
@@ -179,6 +181,9 @@ func newRemoteStopTestServer(t *testing.T) *httptest.Server {
 		switch r.URL.Path {
 		case "/v1/health":
 			w.WriteHeader(http.StatusOK)
+			return
+		case "/v1/status":
+			require.NoError(t, json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"}))
 			return
 		case "/v1/resources/ctf":
 			_, _ = w.Write([]byte(`{"containers":["leftover-container"],"volumes":["leftover-volume"]}`))

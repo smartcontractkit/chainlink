@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -113,4 +114,86 @@ func TestComponentCacheKeyVariants(t *testing.T) {
 	_, err = componentCacheKey(StartComponentPayload{ComponentType: "unknown"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported component type")
+}
+
+func TestStatusEndpointReturnsAgentState(t *testing.T) {
+	server := NewServer(zerolog.Nop(), nil)
+	server.cacheSuccessfulStart("blockchain:anvil:1337", "hash-a", map[string]any{"ok": true})
+	server.storeRuntime("nodeset:workflow", runtimeState{ComponentType: ComponentTypeNodeSet})
+	server.appendComponentLogs("nodeset:workflow", []string{"line-a"})
+	server.beginInFlight("start:nodeset:workflow", inFlightOperationScopeLifecycle)
+	defer server.endInFlight("start:nodeset:workflow")
+
+	openReq := httptest.NewRequest(http.MethodPost, "/v1/relay/open", bytes.NewReader([]byte(`{"name":"workflow-ocr-0","requestedPort":0}`)))
+	openReq.Header.Set("Content-Type", "application/json")
+	openRR := httptest.NewRecorder()
+	server.Handler().ServeHTTP(openRR, openReq)
+	require.Equal(t, http.StatusOK, openRR.Code)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/status", nil)
+	rr := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	var resp AgentStatusResponse
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	require.GreaterOrEqual(t, resp.UptimeSeconds, int64(0))
+	require.Contains(t, resp.CachedComponents, "blockchain:anvil:1337")
+	require.Contains(t, resp.RuntimeComponents, "nodeset:workflow")
+	require.Contains(t, resp.ComponentLogKeys, "nodeset:workflow")
+	require.Len(t, resp.Relays, 1)
+	require.Equal(t, "workflow-ocr-0", resp.Relays[0].Name)
+	require.Greater(t, resp.Relays[0].BoundPort, 0)
+	require.Len(t, resp.InFlight, 1)
+}
+
+func TestLocksEndpointShowsLifecycleBusy(t *testing.T) {
+	server := NewServer(zerolog.Nop(), nil)
+	server.cacheSuccessfulStart("blockchain:anvil:1337", "hash-a", map[string]any{"ok": true})
+	server.storeRuntime("nodeset:workflow", runtimeState{ComponentType: ComponentTypeNodeSet})
+	server.appendComponentLogs("nodeset:workflow", []string{"line-a"})
+	server.beginInFlight("start:nodeset:workflow", inFlightOperationScopeLifecycle)
+	defer server.endInFlight("start:nodeset:workflow")
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/locks", nil)
+	rr := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	var resp AgentLocksResponse
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	require.True(t, resp.LifecycleBusy)
+	require.Equal(t, 1, resp.CacheEntries)
+	require.Equal(t, 1, resp.RuntimeEntries)
+	require.Equal(t, 1, resp.ComponentLogKeys)
+	require.Len(t, resp.InFlight, 1)
+}
+
+func TestComponentLogsEndpointValidationAndLimit(t *testing.T) {
+	server := NewServer(zerolog.Nop(), nil)
+	server.appendComponentLogs("nodeset:workflow", []string{"line-a", "line-b", "line-c"})
+	time.Sleep(1 * time.Millisecond)
+
+	reqMissingKey := httptest.NewRequest(http.MethodGet, "/v1/components/logs", nil)
+	rrMissingKey := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rrMissingKey, reqMissingKey)
+	require.Equal(t, http.StatusBadRequest, rrMissingKey.Code)
+	require.Contains(t, rrMissingKey.Body.String(), "componentKey query parameter is required")
+
+	reqInvalidLimit := httptest.NewRequest(http.MethodGet, "/v1/components/logs?componentKey=nodeset:workflow&limit=abc", nil)
+	rrInvalidLimit := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rrInvalidLimit, reqInvalidLimit)
+	require.Equal(t, http.StatusBadRequest, rrInvalidLimit.Code)
+	require.Contains(t, rrInvalidLimit.Body.String(), "limit query parameter must be a positive integer")
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/components/logs?componentKey=nodeset:workflow&limit=2", nil)
+	rr := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	var resp ComponentLogsResponse
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	require.Equal(t, "nodeset:workflow", resp.ComponentKey)
+	require.Equal(t, 3, resp.TotalLines)
+	require.Equal(t, []string{"line-b", "line-c"}, resp.Lines)
 }

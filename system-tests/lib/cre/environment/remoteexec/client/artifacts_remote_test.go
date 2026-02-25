@@ -32,6 +32,10 @@ func TestDeployArtifactsToRemoteNodeSetNoFilesFails(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+		if r.URL.Path == "/v1/status" {
+			_ = json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"})
+			return
+		}
 		t.Fatalf("unexpected path %s", r.URL.Path)
 	}))
 	defer server.Close()
@@ -53,6 +57,8 @@ func TestDeployArtifactsToRemoteNodeSetSuccess(t *testing.T) {
 		switch r.URL.Path {
 		case "/v1/health":
 			w.WriteHeader(http.StatusOK)
+		case "/v1/status":
+			_ = json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"})
 		case "/v1/components/start":
 			var envelope agent.StartComponentEnvelope
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&envelope))

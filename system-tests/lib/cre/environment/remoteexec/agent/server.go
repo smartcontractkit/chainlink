@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,6 +60,20 @@ const (
 	RemoteStartPolicyReuseIdentical = "reuse_if_identical"
 
 	EnvKeepFailedContainers = "CRE_AGENT_KEEP_FAILED_CONTAINERS"
+
+	defaultComponentLogsLimit = 200
+	maxComponentLogsLimit     = 1000
+	componentLogsRingSize     = 2000
+	inFlightOperationScopeLifecycle = "lifecycle"
+	inFlightOperationScopeGeneral   = "general"
+	protocolVersion                = "1.0.0"
+	capabilityComponentLogs        = "componentLogs"
+	capabilityLocks                = "locks"
+	capabilityDeployArtifacts      = "deployArtifacts"
+	capabilityStartComponent       = "startComponent"
+	capabilityRelay                = "relay"
+	capabilityListCTFResources     = "listCTFResources"
+	agentVersion                   = "dev"
 )
 
 var frameworkLogCaptureMu sync.Mutex
@@ -104,15 +119,68 @@ type CTFResourcesResponse struct {
 	Volumes    []string `json:"volumes,omitempty"`
 }
 
+type AgentStatusResponse struct {
+	AgentVersion      string              `json:"agentVersion,omitempty"`
+	ProtocolVersion   string              `json:"protocolVersion,omitempty"`
+	SupportedSchemas  []string            `json:"supportedSchemas,omitempty"`
+	Capabilities      []string            `json:"capabilities,omitempty"`
+	UptimeSeconds     int64               `json:"uptimeSeconds"`
+	RuntimeComponents []string            `json:"runtimeComponents,omitempty"`
+	CachedComponents  []string            `json:"cachedComponents,omitempty"`
+	Relays            []RelayInfo         `json:"relays,omitempty"`
+	ComponentLogKeys  []string            `json:"componentLogKeys,omitempty"`
+	InFlight          []InFlightOperation `json:"inFlight,omitempty"`
+}
+
+type RelayInfo struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	RequestedPort int    `json:"requestedPort"`
+	BoundPort     int    `json:"boundPort"`
+}
+
+type AgentLocksResponse struct {
+	LifecycleBusy bool                `json:"lifecycleBusy"`
+	CacheEntries  int                 `json:"cacheEntries"`
+	RuntimeEntries int                `json:"runtimeEntries"`
+	RelayCount    int                 `json:"relayCount"`
+	ComponentLogKeys int              `json:"componentLogKeys"`
+	InFlight      []InFlightOperation `json:"inFlight,omitempty"`
+}
+
+type InFlightOperation struct {
+	ID         string `json:"id"`
+	Scope      string `json:"scope"`
+	StartedAt  string `json:"startedAt"`
+	DurationMs int64  `json:"durationMs"`
+}
+
+type ComponentLogsResponse struct {
+	ComponentKey string   `json:"componentKey"`
+	TotalLines   int      `json:"totalLines"`
+	Lines        []string `json:"lines,omitempty"`
+}
+
+type inFlightOperation struct {
+	ID        string
+	Scope     string
+	StartedAt time.Time
+}
+
 type Server struct {
 	lggr        zerolog.Logger
 	deployers   map[blockchain.ChainFamily]blockchains.Deployer
+	startedAt   time.Time
 	lifecycleMu sync.Mutex
 	cacheMu     sync.Mutex
 	cache       map[string]cachedStart
 	runtime     map[string]runtimeState
 	relayMu     sync.Mutex
 	relays      map[string]*relayRegistration
+	logsMu      sync.Mutex
+	componentLogs map[string][]string
+	opsMu       sync.Mutex
+	inFlight    map[string]inFlightOperation
 }
 
 type cachedStart struct {
@@ -127,11 +195,14 @@ type runtimeState struct {
 
 func NewServer(lggr zerolog.Logger, deployers map[blockchain.ChainFamily]blockchains.Deployer) *Server {
 	return &Server{
-		lggr:      lggr,
-		deployers: deployers,
-		cache:     make(map[string]cachedStart),
-		runtime:   make(map[string]runtimeState),
-		relays:    make(map[string]*relayRegistration),
+		lggr:         lggr,
+		deployers:    deployers,
+		startedAt:    time.Now(),
+		cache:        make(map[string]cachedStart),
+		runtime:      make(map[string]runtimeState),
+		relays:       make(map[string]*relayRegistration),
+		componentLogs: make(map[string][]string),
+		inFlight:     make(map[string]inFlightOperation),
 	}
 }
 
@@ -143,6 +214,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/v1/relay/close", s.closeRelay)
 	mux.HandleFunc("/v1/relay/connect", s.connectRelay)
 	mux.HandleFunc("/v1/resources/ctf", s.listCTFResources)
+	mux.HandleFunc("/v1/status", s.status)
+	mux.HandleFunc("/v1/locks", s.locks)
+	mux.HandleFunc("/v1/components/logs", s.componentLogsHandler)
 	return mux
 }
 
@@ -205,6 +279,81 @@ func (s *Server) listCTFResources(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) status(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.respondError(w, http.StatusMethodNotAllowed, ErrCodeMethodNotAllowed, "method not allowed", nil)
+		return
+	}
+
+	runtimeKeys := s.runtimeKeys()
+	cacheKeys := s.cacheKeys()
+	relayInfos := s.relayInfos()
+	componentLogKeys := s.componentLogKeys()
+	inFlight, _ := s.inFlightSnapshot()
+
+	s.respondJSONAny(w, http.StatusOK, AgentStatusResponse{
+		AgentVersion:      agentVersion,
+		ProtocolVersion:   protocolVersion,
+		SupportedSchemas:  []string{SchemaVersionV1},
+		Capabilities:      []string{capabilityStartComponent, capabilityDeployArtifacts, capabilityRelay, capabilityListCTFResources, capabilityLocks, capabilityComponentLogs},
+		UptimeSeconds:     int64(time.Since(s.startedAt).Seconds()),
+		RuntimeComponents: runtimeKeys,
+		CachedComponents:  cacheKeys,
+		Relays:            relayInfos,
+		ComponentLogKeys:  componentLogKeys,
+		InFlight:          inFlight,
+	})
+}
+
+func (s *Server) locks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.respondError(w, http.StatusMethodNotAllowed, ErrCodeMethodNotAllowed, "method not allowed", nil)
+		return
+	}
+
+	inFlight, lifecycleBusy := s.inFlightSnapshot()
+	s.respondJSONAny(w, http.StatusOK, AgentLocksResponse{
+		LifecycleBusy:   lifecycleBusy,
+		CacheEntries:    s.cacheSize(),
+		RuntimeEntries:  s.runtimeSize(),
+		RelayCount:      s.relayCount(),
+		ComponentLogKeys: len(s.componentLogKeys()),
+		InFlight:        inFlight,
+	})
+}
+
+func (s *Server) componentLogsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.respondError(w, http.StatusMethodNotAllowed, ErrCodeMethodNotAllowed, "method not allowed", nil)
+		return
+	}
+
+	componentKey := strings.TrimSpace(r.URL.Query().Get("componentKey"))
+	if componentKey == "" {
+		s.respondError(w, http.StatusBadRequest, ErrCodeMissingComponentInput, "componentKey query parameter is required", nil)
+		return
+	}
+	limit := defaultComponentLogsLimit
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed <= 0 {
+			s.respondError(w, http.StatusBadRequest, ErrCodeInvalidPayload, "limit query parameter must be a positive integer", nil)
+			return
+		}
+		if parsed > maxComponentLogsLimit {
+			parsed = maxComponentLogsLimit
+		}
+		limit = parsed
+	}
+
+	lines, total := s.getComponentLogs(componentKey, limit)
+	s.respondJSONAny(w, http.StatusOK, ComponentLogsResponse{
+		ComponentKey: componentKey,
+		TotalLines:   total,
+		Lines:        lines,
+	})
+}
+
 func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.respondError(w, http.StatusMethodNotAllowed, ErrCodeMethodNotAllowed, "method not allowed", nil)
@@ -253,6 +402,8 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 	// Keep this stderr write explicit so startup behavior is visible when agent runs as a subprocess.
 	requestLog := fmt.Sprintf("[cre-agent] starting component type=%s key=%s", payload.ComponentType, componentKey)
 	_, _ = fmt.Fprintln(os.Stderr, requestLog)
+	s.beginInFlight(fmt.Sprintf("start:%s", componentKey), inFlightOperationScopeLifecycle)
+	defer s.endInFlight(fmt.Sprintf("start:%s", componentKey))
 	preStartLogs := make([]string, 0, 2)
 	s.lifecycleMu.Lock()
 	defer s.lifecycleMu.Unlock()
@@ -277,6 +428,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 				Output:        cached.Output,
 				AgentLogs:     []string{requestLog, reuseLog},
 			})
+			s.appendComponentLogs(componentKey, []string{requestLog, reuseLog})
 			return
 		}
 	}
@@ -331,6 +483,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 			agentLogs = append(agentLogs, fmt.Sprintf("[cre-agent] preserving %d tracked container(s) after failed startup because %s is enabled", len(trackedContainers), EnvKeepFailedContainers))
 		}
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, startErr.Error(), agentLogs)
+		s.appendComponentLogs(componentKey, agentLogs)
 		return
 	}
 
@@ -345,6 +498,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 	}
 	if encErr != nil {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeTransportEncodeFailed, encErr.Error(), agentLogs)
+		s.appendComponentLogs(componentKey, agentLogs)
 		return
 	}
 	if shouldReuseRemoteStart(payload.ComponentType, payload.ReusePolicy) {
@@ -359,9 +513,13 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		Output:        output,
 		AgentLogs:     agentLogs,
 	})
+	s.appendComponentLogs(componentKey, agentLogs)
 }
 
 func (s *Server) deployArtifacts(w http.ResponseWriter, r *http.Request, rawPayload json.RawMessage) {
+	s.beginInFlight("deploy-artifacts", inFlightOperationScopeGeneral)
+	defer s.endInFlight("deploy-artifacts")
+
 	var payload DeployArtifactsPayload
 	if err := json.Unmarshal(rawPayload, &payload); err != nil {
 		s.respondError(w, http.StatusBadRequest, ErrCodeInvalidPayload, fmt.Sprintf("invalid payload: %v", err), nil)
@@ -427,9 +585,15 @@ func (s *Server) deployArtifacts(w http.ResponseWriter, r *http.Request, rawPayl
 			fmt.Sprintf("[cre-agent] copied %d artifact(s) to %d container(s) for nodeset %s", len(filePaths), len(containerNames), payload.NodeSetName),
 		},
 	})
+	s.appendComponentLogs(fmt.Sprintf("%s:%s", ComponentTypeNodeSet, payload.NodeSetName), []string{
+		fmt.Sprintf("[cre-agent] copied %d artifact(s) to %d container(s) for nodeset %s", len(filePaths), len(containerNames), payload.NodeSetName),
+	})
 }
 
 func (s *Server) stopComponentByKey(w http.ResponseWriter, r *http.Request, componentType, componentKey string) {
+	s.beginInFlight(fmt.Sprintf("stop:%s", componentKey), inFlightOperationScopeLifecycle)
+	defer s.endInFlight(fmt.Sprintf("stop:%s", componentKey))
+
 	s.lifecycleMu.Lock()
 	defer s.lifecycleMu.Unlock()
 
@@ -449,6 +613,7 @@ func (s *Server) stopComponentByKey(w http.ResponseWriter, r *http.Request, comp
 			Stopped:       false,
 			AgentLogs:     []string{requestLog, "[cre-agent] nothing to stop (component not found)"},
 		})
+		s.appendComponentLogs(componentKey, []string{requestLog, "[cre-agent] nothing to stop (component not found)"})
 		return
 	}
 	s.deleteCachedStart(componentKey)
@@ -458,6 +623,7 @@ func (s *Server) stopComponentByKey(w http.ResponseWriter, r *http.Request, comp
 		Stopped:       true,
 		AgentLogs:     []string{requestLog, "[cre-agent] stopped existing component"},
 	})
+	s.appendComponentLogs(componentKey, []string{requestLog, "[cre-agent] stopped existing component"})
 }
 
 func (s *Server) respondJSON(w http.ResponseWriter, code int, body StartComponentResponse) {
@@ -543,6 +709,158 @@ func (s *Server) takeRuntime(componentKey string) (runtimeState, bool) {
 		delete(s.runtime, componentKey)
 	}
 	return state, ok
+}
+
+func (s *Server) beginInFlight(id, scope string) {
+	s.opsMu.Lock()
+	defer s.opsMu.Unlock()
+	s.inFlight[id] = inFlightOperation{
+		ID:        id,
+		Scope:     scope,
+		StartedAt: time.Now(),
+	}
+}
+
+func (s *Server) endInFlight(id string) {
+	s.opsMu.Lock()
+	defer s.opsMu.Unlock()
+	delete(s.inFlight, id)
+}
+
+func (s *Server) inFlightSnapshot() ([]InFlightOperation, bool) {
+	s.opsMu.Lock()
+	defer s.opsMu.Unlock()
+
+	out := make([]InFlightOperation, 0, len(s.inFlight))
+	lifecycleBusy := false
+	for _, op := range s.inFlight {
+		if op.Scope == inFlightOperationScopeLifecycle {
+			lifecycleBusy = true
+		}
+		out = append(out, InFlightOperation{
+			ID:         op.ID,
+			Scope:      op.Scope,
+			StartedAt:  op.StartedAt.Format(time.RFC3339Nano),
+			DurationMs: int64(time.Since(op.StartedAt) / time.Millisecond),
+		})
+	}
+	slices.SortFunc(out, func(a, b InFlightOperation) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+	return out, lifecycleBusy
+}
+
+func (s *Server) appendComponentLogs(componentKey string, lines []string) {
+	if strings.TrimSpace(componentKey) == "" || len(lines) == 0 {
+		return
+	}
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		filtered = append(filtered, trimmed)
+	}
+	if len(filtered) == 0 {
+		return
+	}
+
+	s.logsMu.Lock()
+	defer s.logsMu.Unlock()
+	existing := append(s.componentLogs[componentKey], filtered...)
+	if len(existing) > componentLogsRingSize {
+		existing = existing[len(existing)-componentLogsRingSize:]
+	}
+	s.componentLogs[componentKey] = existing
+}
+
+func (s *Server) getComponentLogs(componentKey string, limit int) ([]string, int) {
+	s.logsMu.Lock()
+	defer s.logsMu.Unlock()
+	lines := s.componentLogs[componentKey]
+	total := len(lines)
+	if total == 0 {
+		return []string{}, 0
+	}
+	if limit <= 0 || limit > total {
+		limit = total
+	}
+	out := append([]string{}, lines[total-limit:]...)
+	return out, total
+}
+
+func (s *Server) componentLogKeys() []string {
+	s.logsMu.Lock()
+	defer s.logsMu.Unlock()
+	keys := make([]string, 0, len(s.componentLogs))
+	for k := range s.componentLogs {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func (s *Server) cacheKeys() []string {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	keys := make([]string, 0, len(s.cache))
+	for k := range s.cache {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func (s *Server) runtimeKeys() []string {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	keys := make([]string, 0, len(s.runtime))
+	for k := range s.runtime {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func (s *Server) cacheSize() int {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	return len(s.cache)
+}
+
+func (s *Server) runtimeSize() int {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	return len(s.runtime)
+}
+
+func (s *Server) relayInfos() []RelayInfo {
+	s.relayMu.Lock()
+	defer s.relayMu.Unlock()
+
+	out := make([]RelayInfo, 0, len(s.relays))
+	for _, relay := range s.relays {
+		if relay == nil {
+			continue
+		}
+		out = append(out, RelayInfo{
+			ID:            relay.ID,
+			Name:          relay.Name,
+			RequestedPort: relay.RequestedPort,
+			BoundPort:     listenerPort(relay.Listener),
+		})
+	}
+	slices.SortFunc(out, func(a, b RelayInfo) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+	return out
+}
+
+func (s *Server) relayCount() int {
+	s.relayMu.Lock()
+	defer s.relayMu.Unlock()
+	return len(s.relays)
 }
 
 func shouldReuseRemoteStart(componentType, policy string) bool {

@@ -12,7 +12,7 @@ This runbook covers the EC2-based remote mode for CRE where components can run e
 ## Core Environment Variables
 
 - `CRE_EC2_INSTANCE_ID=<instance-id>` (used by direct mode auto IP lookup)
-- `CRE_EC2_AGENT_PORT=<port>` (defaults to `8080`)
+- `CRE_EC2_AGENT_PORT=<port>` (defaults to `18080`)
 - `CRE_EC2_AGENT_URL=<url>` (optional explicit override)
 - `CRE_EC2_HOST_IP=<private-ip>` (optional in direct mode; if missing, resolved from AWS CLI using instance ID)
 - `CRE_AWS_PROFILE=<profile>` (optional AWS auth profile)
