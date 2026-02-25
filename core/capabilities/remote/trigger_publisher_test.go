@@ -410,18 +410,12 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
-func TestTriggerPublisher_ResendOnlyToNonAckedPeers(t *testing.T) {
+func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 
 	capabilityDONID := uint32(1)
 	workflowDONID := uint32(2)
-
-	capInfo := commoncap.CapabilityInfo{
-		ID:             capID,
-		CapabilityType: commoncap.CapabilityTypeTrigger,
-		Description:    "Remote Trigger",
-	}
 
 	peers := make([]p2ptypes.PeerID, 2)
 	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
@@ -443,7 +437,7 @@ func TestTriggerPublisher_ResendOnlyToNonAckedPeers(t *testing.T) {
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
-	underlying := newMultiTrigger(capInfo)
+	underlying := newMultiTrigger(commoncap.CapabilityInfo{ID: capID})
 	dispatcher := mocks.NewDispatcher(t)
 
 	config := &commoncap.RemoteTriggerConfig{
@@ -451,58 +445,135 @@ func TestTriggerPublisher_ResendOnlyToNonAckedPeers(t *testing.T) {
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
-		MaxBatchSize:            1,
-		BatchCollectionPeriod:   50 * time.Millisecond,
+		MaxBatchSize:            2,
+		BatchCollectionPeriod:   10 * time.Millisecond,
 	}
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	require.NoError(t, publisher.Start(ctx))
+	defer func() {
+		require.NoError(t, publisher.Close())
+	}()
 
-	// Register trigger
-	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
-	publisher.Receive(ctx, regEvent)
-	<-underlying.registrationsCh
+	// Register two triggers
+	for _, trig := range []string{"triggerA", "triggerB"} {
+		reg := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], trig)
+		publisher.Receive(ctx, reg)
+		<-underlying.registrationsCh
+	}
 
-	sendCountPeer0 := 0
-	sendCountPeer1 := 0
+	var mu sync.Mutex
+	sendRecords := make([]struct {
+		peer       p2ptypes.PeerID
+		triggerIDs []string
+	}, 0)
+
+	sendCh := make(chan struct{}, 10)
 
 	dispatcher.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		mu.Lock()
+		defer mu.Unlock()
+
 		peer := args.Get(0).(p2ptypes.PeerID)
-		if peer == peers[0] {
-			sendCountPeer0++
-		}
-		if peer == peers[1] {
-			sendCountPeer1++
-		}
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		meta := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
+
+		sendRecords = append(sendRecords, struct {
+			peer       p2ptypes.PeerID
+			triggerIDs []string
+		}{
+			peer:       peer,
+			triggerIDs: append([]string(nil), meta.TriggerEventMetadata.TriggerIds...),
+		})
+
+		sendCh <- struct{}{}
 	}).Return(nil)
 
-	// Send event
-	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{ID: "event1"},
+	t.Run("initial send to both peers with both triggerIDs", func(t *testing.T) {
+		mu.Lock()
+		sendRecords = nil
+		mu.Unlock()
+
+		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+		underlying.SendEvent("triggerB", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+
+		// Expect 2 sends
+		<-sendCh
+		<-sendCh
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		require.Len(t, sendRecords, 2)
+		for _, rec := range sendRecords {
+			require.ElementsMatch(t, []string{"triggerA", "triggerB"}, rec.triggerIDs)
+		}
 	})
 
-	time.Sleep(100 * time.Millisecond)
+	t.Run("partial ACK trims only missing triggerIDs per peer", func(t *testing.T) {
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0]))
 
-	require.Equal(t, 1, sendCountPeer0)
-	require.Equal(t, 1, sendCountPeer1)
+		mu.Lock()
+		sendRecords = nil
+		mu.Unlock()
 
-	// Simulate ACK from peer0 only
-	ackMsg := newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0])
-	publisher.Receive(ctx, ackMsg)
+		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+		underlying.SendEvent("triggerB", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
 
-	// Trigger resend (send event again)
-	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{ID: "event1"},
+		// Expect 2 sends
+		<-sendCh
+		<-sendCh
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		require.Len(t, sendRecords, 2)
+
+		for _, rec := range sendRecords {
+			if rec.peer == peers[0] {
+				require.ElementsMatch(t, []string{"triggerB"}, rec.triggerIDs)
+			}
+			if rec.peer == peers[1] {
+				require.ElementsMatch(t, []string{"triggerA", "triggerB"}, rec.triggerIDs)
+			}
+		}
 	})
 
-	time.Sleep(100 * time.Millisecond)
+	t.Run("full ACK suppresses resend", func(t *testing.T) {
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[1]))
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerB", workflowDONID, peers[0]))
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerB", workflowDONID, peers[1]))
 
-	// peer0 should NOT receive resend
-	require.Equal(t, 1, sendCountPeer0)
-	// peer1 should receive resend
-	require.Equal(t, 2, sendCountPeer1)
-	require.NoError(t, publisher.Close())
+		mu.Lock()
+		sendRecords = nil
+		mu.Unlock()
+
+		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+		underlying.SendEvent("triggerB", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+
+		select {
+		case <-sendCh:
+			t.Fatal("unexpected resend after full ACK")
+		case <-time.After(100 * time.Millisecond):
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Empty(t, sendRecords)
+	})
 }
 
 func newRegisterTriggerMessageWithTriggerID(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID, triggerID string) *remotetypes.MessageBody {
