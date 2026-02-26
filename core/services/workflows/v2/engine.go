@@ -96,7 +96,7 @@ func TriggerRegistrationID(workflowID string, triggerIndex int) string {
 // buildLabels creates the label slice for the beholder logger based on config and localNode state.
 // This is used both during engine creation and when updating labels after a DON configuration change.
 func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
-	return []any{
+	labels := []any{
 		platform.KeyWorkflowID, e.cfg.WorkflowID,
 		platform.KeyWorkflowOwner, e.cfg.WorkflowOwner,
 		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
@@ -114,6 +114,10 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
 	}
+	if e.cfg.SdkName != "" {
+		labels = append(labels, "sdk", e.cfg.SdkName)
+	}
+	return labels
 }
 
 // logger returns the current logger in a thread-safe manner.
@@ -169,6 +173,9 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
+	}
+	if cfg.SdkName != "" {
+		baseLabels = append(baseLabels, "sdk", cfg.SdkName)
 	}
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(baseLabels...)
 	labelsMap := make(map[string]string, len(labels)/2)

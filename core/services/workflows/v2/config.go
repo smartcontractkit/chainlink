@@ -64,6 +64,9 @@ type EngineConfig struct {
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
+
+	// SdkName is the name of the SDK used to build the workflow binary, discovered during module creation.
+	SdkName string
 }
 
 type EngineLimiters struct {

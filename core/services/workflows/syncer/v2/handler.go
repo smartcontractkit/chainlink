@@ -507,6 +507,7 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	var sdkName string
 	moduleConfig := &host.ModuleConfig{
 		Logger:                       lggr,
 		Labeler:                      h.emitter,
@@ -514,7 +515,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
 		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
-		SdkLabeler:                   func(sdkName string) { h.emitter = h.emitter.With("sdk", sdkName) },
+		SdkLabeler: func(name string) {
+			sdkName = name
+			h.emitter = h.emitter.With("sdk", name)
+		},
 	}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
@@ -582,6 +586,8 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
 		SecretsFetcher:                h.secretsFetcher,
+
+		SdkName: sdkName,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.
