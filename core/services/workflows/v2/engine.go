@@ -584,6 +584,44 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 
 // startExecution initiates a new workflow execution, blocking until completed
 func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
+	fullExecutionID, err := events.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
+	if err != nil {
+		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+		return
+	}
+
+	// Fetch organization ID for this execution
+	organizationID := contexts.CREValue(ctx).Org
+	if e.cfg.OrgResolver != nil {
+		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
+		if gerr != nil {
+			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
+		} else {
+			organizationID = orgID
+
+			creCtx := contexts.CREValue(ctx)
+			creCtx.Org = organizationID
+			ctx = contexts.WithCRE(ctx, creCtx)
+		}
+	}
+	loggerLabels := maps.Clone(*e.loggerLabels.Load())
+	loggerLabels[platform.KeyOrganizationID] = organizationID
+	e.loggerLabels.Store(&loggerLabels)
+	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
+
+	var executionTimestamp int64
+	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
+		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, e.logger())
+		donTime, dtErr := executionTimeProvider.GetDONTime()
+		if dtErr != nil {
+			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
+			e.logger().Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+		} else {
+			executionTimestamp = donTime.UnixMilli()
+			e.logger().Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+		}
+	}
+
 	triggerEvent := wrappedTriggerEvent.event.Event
 	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
 	if err != nil {
@@ -611,25 +649,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			e.logger().Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
 		}
 	}()
-
-	// Fetch organization ID for this execution
-	organizationID := contexts.CREValue(ctx).Org
-	if e.cfg.OrgResolver != nil {
-		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
-		if gerr != nil {
-			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
-		} else {
-			organizationID = orgID
-
-			creCtx := contexts.CREValue(ctx)
-			creCtx.Org = organizationID
-			ctx = contexts.WithCRE(ctx, creCtx)
-		}
-	}
-	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = organizationID
-	e.loggerLabels.Store(&loggerLabels)
-	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
@@ -718,8 +737,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	execHelper := &ExecutionHelper{
-		Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
+		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	var result *sdkpb.ExecutionResult

@@ -30,6 +30,7 @@ var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 type ExecutionHelper struct {
 	*Engine
 	WorkflowExecutionID string
+	ExecutionTimestamp  int64
 	UserLogChan         chan<- *protoevents.LogLine
 	TimeProvider
 	SecretsFetcher
@@ -186,6 +187,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
 			WorkflowTag:              c.cfg.WorkflowTag,
+			// TODO(CRE-2087): Propagate execution timestamp to capability calls (including remote)
 		},
 		Config: values.EmptyMap(),
 	}
