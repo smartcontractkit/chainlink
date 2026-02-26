@@ -115,7 +115,7 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
 	}
 	if e.cfg.SdkName != "" {
-		labels = append(labels, "sdk", e.cfg.SdkName)
+		labels = append(labels, platform.KeySDK, e.cfg.SdkName)
 	}
 	return labels
 }
@@ -175,7 +175,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
 	}
 	if cfg.SdkName != "" {
-		baseLabels = append(baseLabels, "sdk", cfg.SdkName)
+		baseLabels = append(baseLabels, platform.KeySDK, cfg.SdkName)
 	}
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(baseLabels...)
 	labelsMap := make(map[string]string, len(labels)/2)
