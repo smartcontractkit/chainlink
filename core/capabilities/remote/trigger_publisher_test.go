@@ -100,6 +100,19 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
+func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
+	ctx := testutils.Context(t)
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
+	eventID := "123"
+	triggerID := "trigA"
+	regEvent := newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1])
+	publisher.Receive(ctx, regEvent)
+
+	require.True(t, underlyingTriggerCap.eventAckd)
+	require.NoError(t, publisher.Close())
+}
+
 func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
@@ -267,10 +280,25 @@ func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes
 	}
 }
 
+func newAckEventMessage(t *testing.T, eventID string, triggerID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+	return &remotetypes.MessageBody{
+		Sender:      sender[:],
+		Method:      remotetypes.MethodTriggerEventAck,
+		CallerDonId: callerDonID,
+		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+				TriggerEventId: eventID,
+				TriggerIds:     []string{triggerID},
+			},
+		},
+	}
+}
+
 type testTrigger struct {
 	info            commoncap.CapabilityInfo
 	registrationsCh chan commoncap.TriggerRegistrationRequest
 	eventCh         chan commoncap.TriggerResponse
+	eventAckd       bool
 }
 
 func (tr *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
@@ -283,6 +311,11 @@ func (tr *testTrigger) RegisterTrigger(_ context.Context, request commoncap.Trig
 }
 
 func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+	tr.eventAckd = true
 	return nil
 }
 
@@ -413,6 +446,10 @@ func newMultiTrigger(info commoncap.CapabilityInfo) *multiTrigger {
 
 func (tr *multiTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
 	return tr.info, nil
+}
+
+func (tr *multiTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+	return nil
 }
 
 func (tr *multiTrigger) RegisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {

@@ -708,6 +708,10 @@ func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflo
 	return m.artifactStore.DeleteWorkflowArtifacts(ctx, workflowID)
 }
 
+func (m *mockArtifactStore) DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error {
+	return m.artifactStore.DeleteWorkflowArtifactsBatch(ctx, workflowIDs)
+}
+
 func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error) WorkflowArtifactsStore {
 	return &mockArtifactStore{
 		artifactStore:              as,

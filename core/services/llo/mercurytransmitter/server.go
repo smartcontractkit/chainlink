@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -77,7 +76,7 @@ type server struct {
 
 	transmitTimeout time.Duration
 
-	c  grpc.Client
+	c  rpc.Client
 	pm *persistenceManager
 	q  TransmitQueue
 
@@ -106,7 +105,7 @@ type QueueConfig interface {
 	TransmitTimeout() time.Duration
 }
 
-func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client grpc.Client, orm ORM, serverURL string) *server {
+func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client rpc.Client, orm ORM, serverURL string) *server {
 	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), FlushDeletesFrequency, PruneFrequency, cfg.ReaperMaxAge())
 	donIDStr := strconv.FormatUint(uint64(pm.DonID()), 10)
 	var codecLggr logger.Logger

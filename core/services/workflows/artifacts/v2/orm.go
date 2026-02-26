@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -19,6 +21,9 @@ type WorkflowSpecsDS interface {
 
 	// DeleteWorkflowSpec deletes the workflow spec for the given workflow ID.
 	DeleteWorkflowSpec(ctx context.Context, id string) error
+
+	// DeleteWorkflowSpecs deletes workflow specs for the given workflow IDs in a single query.
+	DeleteWorkflowSpecs(ctx context.Context, ids []string) error
 }
 
 type ORM interface {
@@ -138,4 +143,14 @@ func (orm *orm) DeleteWorkflowSpec(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+func (orm *orm) DeleteWorkflowSpecs(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	query := `DELETE FROM workflow_specs_v2 WHERE workflow_id = ANY($1)`
+	_, err := orm.ds.ExecContext(ctx, query, pq.Array(ids))
+	return err
 }

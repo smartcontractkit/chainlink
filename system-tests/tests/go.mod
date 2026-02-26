@@ -54,9 +54,9 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.91
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260217160002-b56cb5356cc7
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260223203940-c4713ecec7d4
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
-	github.com/smartcontractkit/chainlink-data-streams v0.1.11
+	github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260224150904-47eef37d9005
 	github.com/smartcontractkit/chainlink-deployments-framework v0.80.1-0.20260209182815-b296b7df28a6
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260217043601-5cc966896c4f
@@ -95,7 +95,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.4 // indirect
 	github.com/beevik/ntp v1.5.0 // indirect
 	github.com/buraksezer/consistent v0.10.0 // indirect
-	github.com/digital-asset/dazl-client/v8 v8.8.0 // indirect
 	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
 	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -107,7 +106,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260129103204-4c8453dd8139 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260224105024-807568ff394d // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260225114453-965dabf4bcb0 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/heartbeat v0.0.0-20260115142640-f6b99095c12e // indirect

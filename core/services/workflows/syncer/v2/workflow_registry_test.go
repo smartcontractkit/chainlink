@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -1392,6 +1393,143 @@ func Test_isZeroOwner(t *testing.T) {
 		almostZero := make([]byte, 20)
 		almostZero[0] = 1 // first byte is 1
 		require.False(t, isZeroOwner(almostZero))
+	})
+}
+
+func Test_ParallelEventHandling(t *testing.T) {
+	t.Run("processes multiple delete events concurrently", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+
+		n := 10
+		wfIDs := make([]wfTypes.WorkflowID, n)
+		for i := range wfIDs {
+			wfIDs[i] = wfTypes.WorkflowID([32]byte{byte(i + 1)})
+			require.NoError(t, er.Add(wfIDs[i], "TestSource", &mockService{}))
+		}
+
+		handler := newTestEvtHandler(nil)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			handler,
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, []WorkflowMetadataView{}, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Len(t, events, n)
+
+		// Simulate the parallel event loop from syncUsingReconciliationStrategy
+		sourceIdentifier := "TestSource"
+		pendingEventsBySource := map[string]map[string]*reconciliationEvent{
+			sourceIdentifier: {},
+		}
+		reconcileReport := newReconcileReport()
+
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		for _, event := range events {
+			mu.Lock()
+			reconcileReport.NumEventsByType[string(event.Name)]++
+			mu.Unlock()
+
+			wg.Add(1)
+			go func(evt *reconciliationEvent) {
+				defer wg.Done()
+				handleErr := wr.handleWithMetrics(ctx, evt.Event)
+				if handleErr != nil {
+					mu.Lock()
+					pendingEventsBySource[sourceIdentifier][evt.id] = evt
+					mu.Unlock()
+				}
+			}(event)
+		}
+		wg.Wait()
+
+		handled := handler.GetEvents()
+		require.Len(t, handled, n)
+
+		handledIDs := make(map[wfTypes.WorkflowID]bool)
+		for _, evt := range handled {
+			d := evt.Data.(WorkflowDeletedEvent)
+			handledIDs[d.WorkflowID] = true
+		}
+		for _, id := range wfIDs {
+			require.True(t, handledIDs[id], "expected workflow %x to be handled", id)
+		}
+
+		require.Empty(t, pendingEventsBySource[sourceIdentifier])
+		require.Equal(t, n, reconcileReport.NumEventsByType[string(WorkflowDeleted)])
+	})
+
+	t.Run("processes mixed event types concurrently", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+
+		existingID := wfTypes.WorkflowID([32]byte{1})
+		require.NoError(t, er.Add(existingID, "TestSource", &mockService{}))
+
+		newID := wfTypes.WorkflowID([32]byte{2})
+
+		handler := newTestEvtHandler(nil)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			handler,
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   newID,
+				Owner:        []byte{0x01},
+				Status:       WorkflowStatusActive,
+				WorkflowName: "new-wf",
+				BinaryURL:    "b1",
+				ConfigURL:    "c1",
+				DonFamily:    "A",
+			},
+		}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Len(t, events, 2) // 1 delete + 1 activate
+
+		var wg sync.WaitGroup
+		for _, event := range events {
+			wg.Add(1)
+			go func(evt *reconciliationEvent) {
+				defer wg.Done()
+				_ = wr.handleWithMetrics(ctx, evt.Event)
+			}(event)
+		}
+		wg.Wait()
+
+		handled := handler.GetEvents()
+		require.Len(t, handled, 2)
+
+		nameSet := map[WorkflowRegistryEventName]bool{}
+		for _, evt := range handled {
+			nameSet[evt.Name] = true
+		}
+		require.True(t, nameSet[WorkflowDeleted])
+		require.True(t, nameSet[WorkflowActivated])
 	})
 }
 

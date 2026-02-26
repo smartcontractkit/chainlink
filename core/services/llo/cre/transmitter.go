@@ -217,6 +217,10 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	return nil
 }
 
+func (t *transmitter) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	return nil
+}
+
 func (t *transmitter) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
