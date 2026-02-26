@@ -9,6 +9,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -47,6 +48,7 @@ type EngineConfig struct {
 
 	LocalLimits                       EngineLimits
 	LocalLimiters                     *EngineLimiters
+	FeatureFlags                      *EngineFeatureFlags
 	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
 
 	BeholderEmitter custmsg.MessageEmitter
@@ -237,6 +239,20 @@ func (l *EngineLimiters) Close() error {
 	)
 }
 
+type EngineFeatureFlags struct {
+	MultiTriggerExecutionIDs settings.FeatureFlag
+}
+
+func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) *EngineFeatureFlags {
+	cfg := cresettings.Default.PerWorkflow
+	if cfgFn != nil {
+		cfgFn(&cfg)
+	}
+	return &EngineFeatureFlags{
+		MultiTriggerExecutionIDs: settings.NewFeatureFlag(cfg.FeatureFlagMultiTriggerExecutionIDs, lf.Settings),
+	}
+}
+
 const (
 	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
 	defaultShutdownTimeoutMs    = 5000
@@ -300,6 +316,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.FeatureFlags == nil {
+		c.FeatureFlags = &EngineFeatureFlags{}
 	}
 
 	c.Hooks.setDefaultHooks()

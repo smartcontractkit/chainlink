@@ -594,10 +594,16 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	triggerEvent := wrappedTriggerEvent.event.Event
-	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
-	if err != nil {
-		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
-		return
+
+	var executionID string
+	if e.cfg.FeatureFlags.MultiTriggerExecutionIDs.IsActive(ctx, executionTimestamp) {
+		executionID = newExecutionID
+	} else {
+		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+		if err != nil {
+			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+			return
+		}
 	}
 
 	// disallow duplicate executions
