@@ -29,7 +29,10 @@ import (
 	chiptestsink "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/chip-testsink"
 )
 
-const testSinkStartupTimeout = 10 * time.Second
+const (
+	testSinkStartupTimeout          = 10 * time.Second
+	envChipTestSinkUpstreamEndpoint = "CRE_CHIP_TESTSINK_UPSTREAM_ENDPOINT"
+)
 
 // WaitForUserLog monitors workflow user logs until one contains needle or the context ends.
 func WaitForUserLog(
@@ -281,13 +284,14 @@ and make sure that the sink is pointing to correct upstream endpoint ('localhost
 	grpcPort, convErr := strconv.Atoi(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 	require.NoError(t, convErr, "invalid default chip ingress grpc port")
 	EnsureFixtureRelayForPort(t, nil, "chip-testsink", grpcPort)
+	upstreamEndpoint := strings.TrimSpace(os.Getenv(envChipTestSinkUpstreamEndpoint))
 
 	startCh := make(chan struct{}, 1)
 	server, err := chiptestsink.NewServer(chiptestsink.Config{
-		PublishFunc: publishFn,
-		GRPCListen:  grpcListenAddr,
-		Started:     startCh, // signals that server is indeed listening on the GRPC port
-		// UpstreamEndpoint: "localhost:50052", // uncomment to forward events to ChIP, remember to start ChIP on a different port config.DefaultChipIngressPort (=50051)
+		PublishFunc:      publishFn,
+		GRPCListen:       grpcListenAddr,
+		Started:          startCh, // signals that server is indeed listening on the GRPC port
+		UpstreamEndpoint: upstreamEndpoint,
 	})
 	require.NoError(t, err, "failed to create new test sink server")
 

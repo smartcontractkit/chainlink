@@ -18,18 +18,20 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	relayInfos := s.relayInfos()
 	componentLogKeys := s.componentLogKeys()
 	inFlight, _ := s.inFlightSnapshot()
+	chipSinkStatus := s.currentChipSinkStatus()
 
 	s.respondJSONAny(w, http.StatusOK, AgentStatusResponse{
 		AgentVersion:      agentVersion,
 		ProtocolVersion:   protocolVersion,
 		SupportedSchemas:  []string{SchemaVersionV1},
-		Capabilities:      []string{capabilityStartComponent, capabilityDeployArtifacts, capabilityRelay, capabilityListCTFResources, capabilityLocks, capabilityComponentLogs},
+		Capabilities:      []string{capabilityStartComponent, capabilityDeployArtifacts, capabilityRelay, capabilityListCTFResources, capabilityLocks, capabilityComponentLogs, "chipSinkLifecycle"},
 		UptimeSeconds:     int64(time.Since(s.startedAt).Seconds()),
 		RuntimeComponents: runtimeKeys,
 		CachedComponents:  cacheKeys,
 		Relays:            relayInfos,
 		ComponentLogKeys:  componentLogKeys,
 		InFlight:          inFlight,
+		ChipSink:          chipSinkStatus,
 	})
 }
 

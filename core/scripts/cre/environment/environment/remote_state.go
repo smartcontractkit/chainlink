@@ -78,15 +78,11 @@ func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) 
 		return err
 	}
 	agentEnvelope := &remoteAgentStateEnvelope{Agent: captureRemoteAgentState()}
-	data, err := toml.Marshal(agentEnvelope)
-	if err != nil {
-		return err
-	}
-	path := remoteAgentFileAbsPath(relativePathToRepoRoot)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o600)
+	return storeRemoteAgentState(relativePathToRepoRoot, agentEnvelope)
+}
+
+func storeRemoteAgentStateSnapshot(relativePathToRepoRoot string) error {
+	return storeRemoteAgentState(relativePathToRepoRoot, &remoteAgentStateEnvelope{Agent: captureRemoteAgentState()})
 }
 
 func filteredRemoteStopConfig(cfg *envconfig.Config) *envconfig.Config {
@@ -117,6 +113,18 @@ func captureRemoteAgentState() remoteAgentState {
 		RemoteAgentPort:          os.Getenv(envRemoteAgentPort),
 		AWSProfile:               strings.TrimSpace(os.Getenv("AWS_PROFILE")),
 	}
+}
+
+func storeRemoteAgentState(relativePathToRepoRoot string, envelope *remoteAgentStateEnvelope) error {
+	data, err := toml.Marshal(envelope)
+	if err != nil {
+		return err
+	}
+	path := remoteAgentFileAbsPath(relativePathToRepoRoot)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
 }
 
 func firstNonEmpty(values ...string) string {

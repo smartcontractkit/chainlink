@@ -32,18 +32,20 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/chipsink"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/internal/dockerops"
 )
 
 const (
-	SchemaVersionV1          = "v1"
-	OperationStartComponent  = "StartComponent"
-	OperationStopComponent   = "StopComponent"
-	OperationDeployArtifacts = "DeployArtifacts"
-	OperationHealth          = "Health"
-	ComponentTypeBlockchain  = "blockchain"
-	ComponentTypeJD          = "jd"
-	ComponentTypeNodeSet     = "nodeset"
+	SchemaVersionV1           = "v1"
+	OperationStartComponent   = "StartComponent"
+	OperationStopComponent    = "StopComponent"
+	OperationDeployArtifacts  = "DeployArtifacts"
+	OperationHealth           = "Health"
+	ComponentTypeBlockchain   = "blockchain"
+	ComponentTypeJD           = "jd"
+	ComponentTypeNodeSet      = "nodeset"
+	ComponentTypeChipTestSink = "chip-testsink"
 
 	ErrCodeMethodNotAllowed      = "method_not_allowed"
 	ErrCodeInvalidRequestBody    = "invalid_request_body"
@@ -60,19 +62,19 @@ const (
 
 	EnvKeepFailedContainers = "CRE_AGENT_KEEP_FAILED_CONTAINERS"
 
-	defaultComponentLogsLimit = 200
-	maxComponentLogsLimit     = 1000
-	componentLogsRingSize     = 2000
+	defaultComponentLogsLimit       = 200
+	maxComponentLogsLimit           = 1000
+	componentLogsRingSize           = 2000
 	inFlightOperationScopeLifecycle = "lifecycle"
 	inFlightOperationScopeGeneral   = "general"
-	protocolVersion                = "1.0.0"
-	capabilityComponentLogs        = "componentLogs"
-	capabilityLocks                = "locks"
-	capabilityDeployArtifacts      = "deployArtifacts"
-	capabilityStartComponent       = "startComponent"
-	capabilityRelay                = "relay"
-	capabilityListCTFResources     = "listCTFResources"
-	agentVersion                   = "dev"
+	protocolVersion                 = "1.0.0"
+	capabilityComponentLogs         = "componentLogs"
+	capabilityLocks                 = "locks"
+	capabilityDeployArtifacts       = "deployArtifacts"
+	capabilityStartComponent        = "startComponent"
+	capabilityRelay                 = "relay"
+	capabilityListCTFResources      = "listCTFResources"
+	agentVersion                    = "dev"
 )
 
 var frameworkLogCaptureMu sync.Mutex
@@ -119,16 +121,17 @@ type CTFResourcesResponse struct {
 }
 
 type AgentStatusResponse struct {
-	AgentVersion      string              `json:"agentVersion,omitempty"`
-	ProtocolVersion   string              `json:"protocolVersion,omitempty"`
-	SupportedSchemas  []string            `json:"supportedSchemas,omitempty"`
-	Capabilities      []string            `json:"capabilities,omitempty"`
-	UptimeSeconds     int64               `json:"uptimeSeconds"`
-	RuntimeComponents []string            `json:"runtimeComponents,omitempty"`
-	CachedComponents  []string            `json:"cachedComponents,omitempty"`
-	Relays            []RelayInfo         `json:"relays,omitempty"`
-	ComponentLogKeys  []string            `json:"componentLogKeys,omitempty"`
-	InFlight          []InFlightOperation `json:"inFlight,omitempty"`
+	AgentVersion      string                      `json:"agentVersion,omitempty"`
+	ProtocolVersion   string                      `json:"protocolVersion,omitempty"`
+	SupportedSchemas  []string                    `json:"supportedSchemas,omitempty"`
+	Capabilities      []string                    `json:"capabilities,omitempty"`
+	UptimeSeconds     int64                       `json:"uptimeSeconds"`
+	RuntimeComponents []string                    `json:"runtimeComponents,omitempty"`
+	CachedComponents  []string                    `json:"cachedComponents,omitempty"`
+	Relays            []RelayInfo                 `json:"relays,omitempty"`
+	ComponentLogKeys  []string                    `json:"componentLogKeys,omitempty"`
+	InFlight          []InFlightOperation         `json:"inFlight,omitempty"`
+	ChipSink          *ChipTestSinkStatusResponse `json:"chipSink,omitempty"`
 }
 
 type RelayInfo struct {
@@ -139,12 +142,12 @@ type RelayInfo struct {
 }
 
 type AgentLocksResponse struct {
-	LifecycleBusy bool                `json:"lifecycleBusy"`
-	CacheEntries  int                 `json:"cacheEntries"`
-	RuntimeEntries int                `json:"runtimeEntries"`
-	RelayCount    int                 `json:"relayCount"`
-	ComponentLogKeys int              `json:"componentLogKeys"`
-	InFlight      []InFlightOperation `json:"inFlight,omitempty"`
+	LifecycleBusy    bool                `json:"lifecycleBusy"`
+	CacheEntries     int                 `json:"cacheEntries"`
+	RuntimeEntries   int                 `json:"runtimeEntries"`
+	RelayCount       int                 `json:"relayCount"`
+	ComponentLogKeys int                 `json:"componentLogKeys"`
+	InFlight         []InFlightOperation `json:"inFlight,omitempty"`
 }
 
 type InFlightOperation struct {
@@ -160,6 +163,46 @@ type ComponentLogsResponse struct {
 	Lines        []string `json:"lines,omitempty"`
 }
 
+type ChipTestSinkStartRequest struct {
+	Name             string `json:"name,omitempty"`
+	GRPCListen       string `json:"grpcListen,omitempty"`
+	UpstreamEndpoint string `json:"upstreamEndpoint,omitempty"`
+}
+
+type ChipTestSinkStartResponse struct {
+	Profile          string `json:"profile"`
+	Mode             string `json:"mode"`
+	Name             string `json:"name"`
+	GRPCListen       string `json:"grpcListen"`
+	UpstreamEndpoint string `json:"upstreamEndpoint,omitempty"`
+	EventLogPath     string `json:"eventLogPath,omitempty"`
+}
+
+type ChipTestSinkStatusResponse struct {
+	Profile          string `json:"profile"`
+	Mode             string `json:"mode"`
+	Running          bool   `json:"running"`
+	Name             string `json:"name,omitempty"`
+	GRPCListen       string `json:"grpcListen,omitempty"`
+	UpstreamEndpoint string `json:"upstreamEndpoint,omitempty"`
+	EventLogPath     string `json:"eventLogPath,omitempty"`
+}
+
+type ChipTestSinkStopResponse struct {
+	Found   bool `json:"found"`
+	Stopped bool `json:"stopped"`
+}
+
+type ChipTestSinkEventLogEntry struct {
+	Timestamp string         `json:"timestamp"`
+	Type      string         `json:"type,omitempty"`
+	Event     map[string]any `json:"event,omitempty"`
+}
+
+type ChipTestSinkEventsResponse struct {
+	Events []ChipTestSinkEventLogEntry `json:"events"`
+}
+
 type inFlightOperation struct {
 	ID        string
 	Scope     string
@@ -167,19 +210,21 @@ type inFlightOperation struct {
 }
 
 type Server struct {
-	lggr        zerolog.Logger
-	deployers   map[blockchain.ChainFamily]blockchains.Deployer
-	startedAt   time.Time
-	lifecycleMu sync.Mutex
-	cacheMu     sync.Mutex
-	cache       map[string]cachedStart
-	runtime     map[string]runtimeState
-	relayMu     sync.Mutex
-	relays      map[string]*relayRegistration
-	logsMu      sync.Mutex
+	lggr          zerolog.Logger
+	deployers     map[blockchain.ChainFamily]blockchains.Deployer
+	startedAt     time.Time
+	lifecycleMu   sync.Mutex
+	cacheMu       sync.Mutex
+	cache         map[string]cachedStart
+	runtime       map[string]runtimeState
+	relayMu       sync.Mutex
+	relays        map[string]*relayRegistration
+	logsMu        sync.Mutex
 	componentLogs map[string][]string
-	opsMu       sync.Mutex
-	inFlight    map[string]inFlightOperation
+	opsMu         sync.Mutex
+	inFlight      map[string]inFlightOperation
+	chipSinkMu    sync.Mutex
+	chipSink      *chipTestSinkRuntime
 }
 
 type cachedStart struct {
@@ -190,18 +235,29 @@ type cachedStart struct {
 type runtimeState struct {
 	ComponentType string
 	ContainerIDs  []string
+	StopFn        func(context.Context) error
+}
+
+type chipTestSinkRuntime struct {
+	name             string
+	grpcListen       string
+	upstreamEndpoint string
+	eventLogPath     string
+	server           *chipsink.Server
+	cancel           context.CancelFunc
+	runErrCh         chan error
 }
 
 func NewServer(lggr zerolog.Logger, deployers map[blockchain.ChainFamily]blockchains.Deployer) *Server {
 	return &Server{
-		lggr:         lggr,
-		deployers:    deployers,
-		startedAt:    time.Now(),
-		cache:        make(map[string]cachedStart),
-		runtime:      make(map[string]runtimeState),
-		relays:       make(map[string]*relayRegistration),
+		lggr:          lggr,
+		deployers:     deployers,
+		startedAt:     time.Now(),
+		cache:         make(map[string]cachedStart),
+		runtime:       make(map[string]runtimeState),
+		relays:        make(map[string]*relayRegistration),
 		componentLogs: make(map[string][]string),
-		inFlight:     make(map[string]inFlightOperation),
+		inFlight:      make(map[string]inFlightOperation),
 	}
 }
 
@@ -216,6 +272,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/v1/status", s.status)
 	mux.HandleFunc("/v1/locks", s.locks)
 	mux.HandleFunc("/v1/components/logs", s.componentLogsHandler)
+	mux.HandleFunc("/v1/chip/sink/start", s.startChipTestSink)
+	mux.HandleFunc("/v1/chip/sink/stop", s.stopChipTestSink)
+	mux.HandleFunc("/v1/chip/sink/status", s.chipTestSinkStatus)
+	mux.HandleFunc("/v1/chip/sink/events", s.chipTestSinkEvents)
 	return mux
 }
 
@@ -616,6 +676,12 @@ func (s *Server) stopTrackedComponentLocked(ctx context.Context, componentKey st
 	state, ok := s.takeRuntime(componentKey)
 	if !ok {
 		return false, nil
+	}
+	if state.StopFn != nil {
+		if err := state.StopFn(ctx); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	if err := stopContainers(ctx, state.ContainerIDs); err != nil {
 		return false, err

@@ -246,6 +246,7 @@ func beholderCmds() *cobra.Command {
 
 	cmd.AddCommand(startBeholderCmd())
 	cmd.AddCommand(stopBeholderCmd)
+	cmd.AddCommand(beholderSinkCmd())
 	cmd.AddCommand(createKafkaTopicsCmd())
 	cmd.AddCommand(fetchAndRegisterProtosCmd())
 

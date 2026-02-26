@@ -197,3 +197,41 @@ func TestComponentLogsEndpointValidationAndLimit(t *testing.T) {
 	require.Equal(t, 3, resp.TotalLines)
 	require.Equal(t, []string{"line-b", "line-c"}, resp.Lines)
 }
+
+func TestChipTestSinkLifecycleEndpoints(t *testing.T) {
+	server := NewServer(zerolog.Nop(), nil)
+
+	startReq := httptest.NewRequest(http.MethodPost, "/v1/chip/sink/start", bytes.NewReader([]byte(`{"name":"sink-a","grpcListen":"127.0.0.1:0"}`)))
+	startReq.Header.Set("Content-Type", "application/json")
+	startRR := httptest.NewRecorder()
+	server.Handler().ServeHTTP(startRR, startReq)
+	require.Equal(t, http.StatusOK, startRR.Code)
+
+	var startResp ChipTestSinkStartResponse
+	require.NoError(t, json.Unmarshal(startRR.Body.Bytes(), &startResp))
+	require.Equal(t, "sink", startResp.Profile)
+	require.Equal(t, "remote", startResp.Mode)
+	require.Equal(t, "sink-a", startResp.Name)
+	require.NotEmpty(t, startResp.GRPCListen)
+
+	statusReq := httptest.NewRequest(http.MethodGet, "/v1/chip/sink/status", nil)
+	statusRR := httptest.NewRecorder()
+	server.Handler().ServeHTTP(statusRR, statusReq)
+	require.Equal(t, http.StatusOK, statusRR.Code)
+
+	var statusResp ChipTestSinkStatusResponse
+	require.NoError(t, json.Unmarshal(statusRR.Body.Bytes(), &statusResp))
+	require.True(t, statusResp.Running)
+	require.Equal(t, "sink-a", statusResp.Name)
+
+	stopReq := httptest.NewRequest(http.MethodPost, "/v1/chip/sink/stop", bytes.NewReader([]byte(`{}`)))
+	stopReq.Header.Set("Content-Type", "application/json")
+	stopRR := httptest.NewRecorder()
+	server.Handler().ServeHTTP(stopRR, stopReq)
+	require.Equal(t, http.StatusOK, stopRR.Code)
+
+	var stopResp ChipTestSinkStopResponse
+	require.NoError(t, json.Unmarshal(stopRR.Body.Bytes(), &stopResp))
+	require.True(t, stopResp.Found)
+	require.True(t, stopResp.Stopped)
+}
