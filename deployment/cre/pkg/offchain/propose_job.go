@@ -95,7 +95,7 @@ func ProposeJob(ctx context.Context, req ProposeJobRequest) error {
 		return fmt.Errorf("no nodes found for domain %s environment %s with labels %v and public keys %v", req.Domain, req.Environment, req.NodeLabels, req.PublicKeys)
 	}
 
-	for _, node := range nodes.GetNodes() {
+	for _, node := range jdNodes {
 		_, err1 := req.OffchainClient.ProposeJob(ctx,
 			&jobv1.ProposeJobRequest{
 				NodeId: node.Id,
