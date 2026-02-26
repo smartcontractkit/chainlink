@@ -3,48 +3,28 @@
 package mocks
 
 import (
+	context "context"
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-
-	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
-
-	capabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-
-	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
-	context "context"
-
-	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-
-	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
-
-	jsonserializable "github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-
-	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
-	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
-	mock "github.com/stretchr/testify/mock"
-
-	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
-	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
-
-	services "github.com/smartcontractkit/chainlink/v2/core/services"
-
-	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-
-	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-
 	uuid "github.com/google/uuid"
-
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	jsonserializable "github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
+	capabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	services "github.com/smartcontractkit/chainlink/v2/core/services"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
+	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-
+	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
+	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
+	mock "github.com/stretchr/testify/mock"
 	zapcore "go.uber.org/zap/zapcore"
 )
 

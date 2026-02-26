@@ -7,13 +7,9 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-
 	ethkey "github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
-
 	keys "github.com/smartcontractkit/chainlink-evm/pkg/keys"
-
 	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
 	mock "github.com/stretchr/testify/mock"
 )
 

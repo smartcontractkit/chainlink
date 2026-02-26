@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestForwarderOCR2Basic(t *testing.T) {
+	quarantine.Flaky(t, "DX-2195")
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
