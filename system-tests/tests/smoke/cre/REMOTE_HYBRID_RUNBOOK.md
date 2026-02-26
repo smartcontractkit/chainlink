@@ -11,17 +11,16 @@ This runbook covers the EC2-based remote mode for CRE where components can run e
 
 ## Core Environment Variables
 
-- `CRE_EC2_INSTANCE_ID=<instance-id>` (used by direct mode auto IP lookup)
-- `CRE_EC2_AGENT_PORT=<port>` (defaults to `18080`)
-- `CRE_EC2_AGENT_URL=<url>` (optional explicit override)
-- `CRE_EC2_HOST_IP=<private-ip>` (optional in direct mode; if missing, resolved from AWS CLI using instance ID)
-- `CRE_AWS_PROFILE=<profile>` (optional AWS auth profile)
+- `CRE_REMOTE_AGENT_EC2_INSTANCE_ID=<instance-id>` (used by direct mode auto IP lookup)
+- `CRE_REMOTE_AGENT_PORT=<port>` (defaults to `18080`)
+- `CRE_REMOTE_AGENT_URL=<url>` (optional explicit override)
+- `CRE_REMOTE_HOST_IP=<private-ip>` (optional in direct mode; if missing, resolved from AWS CLI using instance ID)
 
 ## Direct Mode Defaults and IP Resolution
 
 - Host IP resolution is:
-  1. `CRE_EC2_HOST_IP` if set.
-  2. Otherwise, resolve from AWS CLI using `CRE_EC2_INSTANCE_ID`:
+  1. `CRE_REMOTE_HOST_IP` if set.
+  2. Otherwise, resolve from AWS CLI using `CRE_REMOTE_AGENT_EC2_INSTANCE_ID`:
      - `aws ec2 describe-instances --instance-ids <id> --query ...`
      - prefers private IP; falls back to public IP if needed.
 - Region defaults to `us-west-2` unless AWS env region overrides are present.
@@ -33,10 +32,9 @@ For direct-mode auto IP lookup, AWS CLI auth selection follows:
 
 1. Static env credentials (`AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`)
 2. Web identity (`AWS_WEB_IDENTITY_TOKEN_FILE` + `AWS_ROLE_ARN`)
-3. `CRE_AWS_PROFILE`
-4. `AWS_PROFILE`
-5. `AWS_DEFAULT_PROFILE`
-6. AWS CLI default credential chain/profile
+3. `AWS_PROFILE`
+4. `AWS_DEFAULT_PROFILE`
+5. AWS CLI default credential chain/profile
 
 ## Agent Startup
 
@@ -65,7 +63,7 @@ For direct-mode auto IP lookup, AWS CLI auth selection follows:
 - If startup fails on bootstrap reachability:
   - ensure relay supervisor was started,
   - ensure EC2 agent is reachable and has relay open for `5001`,
-  - verify direct mode host IP resolution (`CRE_EC2_HOST_IP` or `CRE_EC2_INSTANCE_ID` + AWS CLI auth).
+  - verify direct mode host IP resolution (`CRE_REMOTE_HOST_IP` or `CRE_REMOTE_AGENT_EC2_INSTANCE_ID` + AWS CLI auth).
 
 ## Bridge and Fixture Relay
 
@@ -81,8 +79,8 @@ For direct-mode auto IP lookup, AWS CLI auth selection follows:
 
 ## Fast Triage Checklist
 
-- Agent unreachable: verify `CRE_EC2_AGENT_URL` (if set), or `CRE_EC2_INSTANCE_ID`/AWS credentials + `CRE_EC2_AGENT_PORT`.
-- Direct mode cannot resolve EC2 IP: ensure `CRE_EC2_INSTANCE_ID` is set and AWS CLI credentials are valid, or set `CRE_EC2_HOST_IP` explicitly.
+- Agent unreachable: verify `CRE_REMOTE_AGENT_URL` (if set), or `CRE_REMOTE_AGENT_EC2_INSTANCE_ID`/AWS credentials + `CRE_REMOTE_AGENT_PORT`.
+- Direct mode cannot resolve EC2 IP: ensure `CRE_REMOTE_AGENT_EC2_INSTANCE_ID` is set and AWS CLI credentials are valid, or set `CRE_REMOTE_HOST_IP` explicitly.
 - `invalid jd placement`: use `placement=local` or `placement=remote` (only supported values).
 - Remote nodes hitting local-only fixtures: ensure fixture relay helper is active.
 - Mixed remote->local gateway from NodeSets is supported when bridge plumbing is present.

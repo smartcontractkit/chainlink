@@ -17,15 +17,15 @@ const (
 	remoteStateDirname  = "core/scripts/cre/environment/state_remote"
 	remoteStateFilename = "remote_components.toml"
 	remoteAgentFilename = "remote_agent.toml"
-	envEC2AgentURL      = "CRE_EC2_AGENT_URL"
-	envEC2AgentPort     = "CRE_EC2_AGENT_PORT"
+	envRemoteAgentURL   = "CRE_REMOTE_AGENT_URL"
+	envRemoteAgentPort  = "CRE_REMOTE_AGENT_PORT"
 )
 
 type remoteAgentState struct {
-	EC2URL        string `toml:"ec2_url,omitempty"`
-	EC2InstanceID string `toml:"ec2_instance_id,omitempty"`
-	EC2AgentPort  string `toml:"ec2_agent_port,omitempty"`
-	AWSProfile    string `toml:"aws_profile,omitempty"`
+	RemoteAgentURL           string `toml:"remote_agent_url,omitempty"`
+	RemoteAgentEC2InstanceID string `toml:"remote_agent_ec2_instance_id,omitempty"`
+	RemoteAgentPort          string `toml:"remote_agent_port,omitempty"`
+	AWSProfile               string `toml:"aws_profile,omitempty"`
 }
 
 type remoteAgentStateEnvelope struct {
@@ -112,10 +112,10 @@ func filteredRemoteStopConfig(cfg *envconfig.Config) *envconfig.Config {
 
 func captureRemoteAgentState() remoteAgentState {
 	return remoteAgentState{
-		EC2URL:        os.Getenv(envEC2AgentURL),
-		EC2InstanceID: os.Getenv(runtimecfg.EnvEC2InstanceID),
-		EC2AgentPort:  os.Getenv(envEC2AgentPort),
-		AWSProfile:    firstNonEmpty(os.Getenv(runtimecfg.EnvAWSProfile), os.Getenv("AWS_PROFILE")),
+		RemoteAgentURL:           os.Getenv(envRemoteAgentURL),
+		RemoteAgentEC2InstanceID: os.Getenv(runtimecfg.EnvRemoteAgentEC2InstanceID),
+		RemoteAgentPort:          os.Getenv(envRemoteAgentPort),
+		AWSProfile:               strings.TrimSpace(os.Getenv("AWS_PROFILE")),
 	}
 }
 

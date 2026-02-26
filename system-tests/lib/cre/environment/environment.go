@@ -199,7 +199,7 @@ func SetupTestEnvironment(
 	}
 	remoteHostIP := ""
 	if remoteRuntime != nil {
-		remoteHostIP = remoteRuntime.EC2HostIP
+		remoteHostIP = remoteRuntime.RemoteHostIP
 	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
@@ -488,20 +488,16 @@ func resolveRemoteRuntimeForSetup(
 
 func resolveRemoteRuntimeInput() (remoteclient.RuntimeInput, error) {
 	input := remoteclient.RuntimeInput{
-		AgentBaseURL: strings.TrimSpace(os.Getenv(remoteclient.EnvEC2AgentURL)),
+		AgentBaseURL: strings.TrimSpace(os.Getenv(remoteclient.EnvRemoteAgentURL)),
+		RemoteHostIP: strings.TrimSpace(os.Getenv(runtimecfg.EnvRemoteHostIP)),
 	}
-	if configuredPort := strings.TrimSpace(os.Getenv(remoteclient.EnvEC2AgentPort)); configuredPort != "" {
+	if configuredPort := strings.TrimSpace(os.Getenv(remoteclient.EnvRemoteAgentPort)); configuredPort != "" {
 		parsedPort, err := strconv.Atoi(configuredPort)
 		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
-			return remoteclient.RuntimeInput{}, fmt.Errorf("invalid %s: %q", remoteclient.EnvEC2AgentPort, configuredPort)
+			return remoteclient.RuntimeInput{}, fmt.Errorf("invalid %s: %q", remoteclient.EnvRemoteAgentPort, configuredPort)
 		}
 		input.AgentPort = parsedPort
 	}
-	ec2HostIP, err := runtimecfg.DirectHostIP()
-	if err != nil {
-		return remoteclient.RuntimeInput{}, err
-	}
-	input.EC2HostIP = ec2HostIP
 	return input, nil
 }
 

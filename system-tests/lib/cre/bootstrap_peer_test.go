@@ -15,13 +15,13 @@ func TestResolveP2PAnnounceAddresses_LocalOnly_UsesInternalHost(t *testing.T) {
 }
 
 func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
-	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvEC2HostIP)
+	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvRemoteHostIP)
 	prevLocalIP, hadLocalIP := os.LookupEnv(runtimecfg.EnvLocalHostIP)
 	t.Cleanup(func() {
 		if hadIP {
-			_ = os.Setenv(runtimecfg.EnvEC2HostIP, prevIP)
+			_ = os.Setenv(runtimecfg.EnvRemoteHostIP, prevIP)
 		} else {
-			_ = os.Unsetenv(runtimecfg.EnvEC2HostIP)
+			_ = os.Unsetenv(runtimecfg.EnvRemoteHostIP)
 		}
 		if hadLocalIP {
 			_ = os.Setenv(runtimecfg.EnvLocalHostIP, prevLocalIP)
@@ -29,7 +29,7 @@ func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
 			_ = os.Unsetenv(runtimecfg.EnvLocalHostIP)
 		}
 	})
-	_ = os.Setenv(runtimecfg.EnvEC2HostIP, "10.1.2.3")
+	_ = os.Setenv(runtimecfg.EnvRemoteHostIP, "10.1.2.3")
 	_ = os.Setenv(runtimecfg.EnvLocalHostIP, "192.168.1.10")
 
 	addresses, err := ResolveP2PAnnounceAddresses("local", true, 15002)
@@ -40,15 +40,15 @@ func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {
 }
 
 func TestResolveP2PAnnounceAddresses_Remote_AddsDirectHostIP(t *testing.T) {
-	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvEC2HostIP)
+	prevIP, hadIP := os.LookupEnv(runtimecfg.EnvRemoteHostIP)
 	t.Cleanup(func() {
 		if hadIP {
-			_ = os.Setenv(runtimecfg.EnvEC2HostIP, prevIP)
+			_ = os.Setenv(runtimecfg.EnvRemoteHostIP, prevIP)
 		} else {
-			_ = os.Unsetenv(runtimecfg.EnvEC2HostIP)
+			_ = os.Unsetenv(runtimecfg.EnvRemoteHostIP)
 		}
 	})
-	_ = os.Setenv(runtimecfg.EnvEC2HostIP, "10.1.2.3")
+	_ = os.Setenv(runtimecfg.EnvRemoteHostIP, "10.1.2.3")
 
 	addresses, err := ResolveP2PAnnounceAddresses("remote", true, 16001)
 	require.NoError(t, err, "ResolveP2PAnnounceAddresses should not fail")
@@ -63,7 +63,7 @@ func TestResolveBootstrapPeerURL_RemoteCallerToLocalBootstrap_UsesBridgedHost(t 
 }
 
 func TestResolveBootstrapAddress_Matrix(t *testing.T) {
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	tests := []struct {
 		name            string

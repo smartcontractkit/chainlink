@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	envEC2AgentURL  = "CRE_EC2_AGENT_URL"
-	envEC2AgentPort = "CRE_EC2_AGENT_PORT"
+	envRemoteAgentURL  = "CRE_REMOTE_AGENT_URL"
+	envRemoteAgentPort = "CRE_REMOTE_AGENT_PORT"
 )
 
 type relayOpenResponse struct {
@@ -127,7 +127,7 @@ func hasRemoteNodeSets(cfg *envconfig.Config) bool {
 }
 
 func resolveAgentBaseURLForRelay() (string, error) {
-	if v := strings.TrimSpace(os.Getenv(envEC2AgentURL)); v != "" {
+	if v := strings.TrimSpace(os.Getenv(envRemoteAgentURL)); v != "" {
 		return v, nil
 	}
 	hostIP, err := runtimecfg.DirectHostIP()
@@ -135,10 +135,10 @@ func resolveAgentBaseURLForRelay() (string, error) {
 		return "", err
 	}
 	port := 8080
-	if rawPort := strings.TrimSpace(os.Getenv(envEC2AgentPort)); rawPort != "" {
+	if rawPort := strings.TrimSpace(os.Getenv(envRemoteAgentPort)); rawPort != "" {
 		parsed, err := strconv.Atoi(rawPort)
 		if err != nil || parsed <= 0 || parsed > 65535 {
-			return "", fmt.Errorf("invalid %s: %q", envEC2AgentPort, rawPort)
+			return "", fmt.Errorf("invalid %s: %q", envRemoteAgentPort, rawPort)
 		}
 		port = parsed
 	}

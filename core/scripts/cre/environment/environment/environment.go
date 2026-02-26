@@ -922,10 +922,10 @@ func applyRemoteAgentEnvFallback(logger zerolog.Logger, agentState *remoteAgentS
 		}
 	}
 
-	setIfEmpty("CRE_EC2_AGENT_URL", agentState.EC2URL)
-	setIfEmpty("CRE_EC2_INSTANCE_ID", agentState.EC2InstanceID)
-	setIfEmpty("CRE_EC2_AGENT_PORT", agentState.EC2AgentPort)
-	setIfEmpty("CRE_AWS_PROFILE", agentState.AWSProfile)
+	setIfEmpty("CRE_REMOTE_AGENT_URL", agentState.RemoteAgentURL)
+	setIfEmpty("CRE_REMOTE_AGENT_EC2_INSTANCE_ID", agentState.RemoteAgentEC2InstanceID)
+	setIfEmpty("CRE_REMOTE_AGENT_PORT", agentState.RemoteAgentPort)
+	setIfEmpty("AWS_PROFILE", agentState.AWSProfile)
 }
 
 func StartCLIEnvironment(

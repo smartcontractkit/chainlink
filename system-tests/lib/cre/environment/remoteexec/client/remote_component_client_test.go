@@ -16,21 +16,21 @@ import (
 )
 
 func TestResolveRemoteRuntimeWithExplicitEnv(t *testing.T) {
-	t.Setenv(EnvEC2AgentURL, "http://198.51.100.20:19090")
-	t.Setenv(runtimecfg.EnvEC2HostIP, "198.51.100.20")
-	t.Setenv(EnvEC2AgentPort, "19090")
+	t.Setenv(EnvRemoteAgentURL, "http://198.51.100.20:19090")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "198.51.100.20")
+	t.Setenv(EnvRemoteAgentPort, "19090")
 
 	runtime, err := ResolveRuntime(zerolog.Nop())
 	require.NoError(t, err, "expected runtime resolution to succeed")
 	require.Equal(t, "http://198.51.100.20:19090", runtime.AgentBaseURL, "unexpected agent base url")
-	require.Equal(t, "198.51.100.20", runtime.EC2HostIP, "unexpected ec2 host ip")
+	require.Equal(t, "198.51.100.20", runtime.RemoteHostIP, "unexpected remote host ip")
 	require.NotNil(t, runtime.Client, "expected resolved runtime to include component client")
 }
 
 func TestResolveRemoteRuntimeWithInputOverridesEnv(t *testing.T) {
-	t.Setenv(EnvEC2AgentURL, "http://198.51.100.20:19090")
-	t.Setenv(runtimecfg.EnvEC2HostIP, "198.51.100.20")
-	t.Setenv(EnvEC2AgentPort, "19090")
+	t.Setenv(EnvRemoteAgentURL, "http://198.51.100.20:19090")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "198.51.100.20")
+	t.Setenv(EnvRemoteAgentPort, "19090")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/status", r.URL.Path)
@@ -43,21 +43,22 @@ func TestResolveRemoteRuntimeWithInputOverridesEnv(t *testing.T) {
 
 	runtime, err := ResolveRuntimeWithInput(zerolog.Nop(), RuntimeInput{
 		AgentBaseURL: server.URL,
-		EC2HostIP:    "203.0.113.22",
+		RemoteHostIP: "203.0.113.22",
 		AgentPort:    18081,
 	})
 	require.NoError(t, err)
 	require.Equal(t, server.URL, runtime.AgentBaseURL)
-	require.Equal(t, "203.0.113.22", runtime.EC2HostIP)
+	require.Equal(t, "203.0.113.22", runtime.RemoteHostIP)
 }
 
-func TestResolveRemoteRuntimeRequiresHostResolution(t *testing.T) {
-	t.Setenv(EnvEC2AgentURL, "http://198.51.100.20:19090")
-	t.Setenv(runtimecfg.EnvEC2HostIP, "")
-	t.Setenv(runtimecfg.EnvEC2InstanceID, "")
+func TestResolveRemoteRuntimeDerivesHostFromAgentURLWithoutAWSInputs(t *testing.T) {
+	t.Setenv(EnvRemoteAgentURL, "http://198.51.100.20:19090")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "")
+	t.Setenv(runtimecfg.EnvRemoteAgentEC2InstanceID, "")
 
-	_, err := ResolveRuntime(zerolog.Nop())
-	require.Error(t, err, "expected runtime resolution without EC2 host inputs to fail")
+	runtime, err := ResolveRuntime(zerolog.Nop())
+	require.NoError(t, err, "expected runtime resolution to derive host from explicit remote agent url")
+	require.Equal(t, "198.51.100.20", runtime.RemoteHostIP, "expected host parsed from agent base URL")
 }
 
 func TestNewRemoteComponentClientRequiresResolvedRuntime(t *testing.T) {
@@ -68,11 +69,11 @@ func TestNewRemoteComponentClientRequiresResolvedRuntime(t *testing.T) {
 	require.Error(t, err, "expected missing agent base URL to fail")
 }
 
-func TestDescribeEC2AgentHealthFailureMentionsResolutionHints(t *testing.T) {
-	msg := describeEC2AgentHealthFailure("http://203.0.113.10:8080")
+func TestDescribeRemoteAgentHealthFailureMentionsResolutionHints(t *testing.T) {
+	msg := describeRemoteAgentHealthFailure("http://203.0.113.10:8080")
 	require.Contains(t, msg, "/v1/health")
-	require.Contains(t, msg, EnvEC2AgentPort)
-	require.Contains(t, msg, EnvEC2AgentURL)
+	require.Contains(t, msg, EnvRemoteAgentPort)
+	require.Contains(t, msg, EnvRemoteAgentURL)
 }
 
 func TestIsRetriableStatus(t *testing.T) {

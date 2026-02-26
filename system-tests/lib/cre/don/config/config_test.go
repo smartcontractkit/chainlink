@@ -14,7 +14,7 @@ import (
 )
 
 func TestResolveGatewayConnectorURL_PlacementMatrix(t *testing.T) {
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	tests := []struct {
 		name            string
@@ -67,7 +67,7 @@ func TestResolveGatewayConnectorURL_RemoteHostOverride(t *testing.T) {
 }
 
 func TestResolveNodeFacingBootstrapAddress_PlacementMatrix(t *testing.T) {
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	tests := []struct {
 		name               string

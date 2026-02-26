@@ -39,7 +39,7 @@ func StartWithRuntimeDescriptor[T any](
 		return nil, err
 	}
 	if descriptor.Rewrite != nil {
-		if err := descriptor.Rewrite(output, runtime.EC2HostIP); err != nil {
+		if err := descriptor.Rewrite(output, runtime.RemoteHostIP); err != nil {
 			return nil, err
 		}
 	}

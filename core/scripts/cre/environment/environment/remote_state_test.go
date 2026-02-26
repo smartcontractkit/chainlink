@@ -32,15 +32,14 @@ func TestFilteredRemoteStopConfigKeepsOnlyRemoteComponents(t *testing.T) {
 }
 
 func TestCaptureRemoteAgentStateReadsExpectedEnvVars(t *testing.T) {
-	t.Setenv(envEC2AgentURL, "http://203.0.113.10:8080")
-	t.Setenv(runtimecfg.EnvEC2InstanceID, "i-abc")
-	t.Setenv(envEC2AgentPort, "18080")
-	t.Setenv(runtimecfg.EnvAWSProfile, "cre-profile")
+	t.Setenv(envRemoteAgentURL, "http://203.0.113.10:8080")
+	t.Setenv(runtimecfg.EnvRemoteAgentEC2InstanceID, "i-abc")
+	t.Setenv(envRemoteAgentPort, "18080")
 	t.Setenv("AWS_PROFILE", "fallback-profile")
 
 	state := captureRemoteAgentState()
-	require.Equal(t, "http://203.0.113.10:8080", state.EC2URL)
-	require.Equal(t, "i-abc", state.EC2InstanceID)
-	require.Equal(t, "18080", state.EC2AgentPort)
-	require.Equal(t, "cre-profile", state.AWSProfile)
+	require.Equal(t, "http://203.0.113.10:8080", state.RemoteAgentURL)
+	require.Equal(t, "i-abc", state.RemoteAgentEC2InstanceID)
+	require.Equal(t, "18080", state.RemoteAgentPort)
+	require.Equal(t, "fallback-profile", state.AWSProfile)
 }

@@ -15,7 +15,7 @@ func TestRewriteReconstructedGatewayIncomingHosts_RemoteGatewayUsesEC2IP(t *test
 	cfg := &config.Config{
 		NodeSets: []*cre.NodeSet{nodeSet},
 	}
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	err := rewriteReconstructedGatewayIncomingHosts(cfg, topology)
 	require.NoError(t, err, "expected remote gateway incoming rewrite to succeed")
@@ -33,8 +33,8 @@ func TestRewriteReconstructedGatewayIncomingHosts_LocalGatewayNoop(t *testing.T)
 	cfg := &config.Config{
 		NodeSets: []*cre.NodeSet{nodeSet},
 	}
-	t.Setenv(runtimecfg.EnvEC2HostIP, "")
-	t.Setenv(runtimecfg.EnvEC2InstanceID, "")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "")
+	t.Setenv(runtimecfg.EnvRemoteAgentEC2InstanceID, "")
 
 	err := rewriteReconstructedGatewayIncomingHosts(cfg, topology)
 	require.NoError(t, err, "expected local gateway reconstruction rewrite to be a no-op")
@@ -59,7 +59,7 @@ func TestRewriteReconstructedGatewayIncomingHosts_RewritesOnlyRemoteNodeSets(t *
 	cfg := &config.Config{
 		NodeSets: []*cre.NodeSet{remoteNodeSet, localNodeSet},
 	}
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.77")
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.77")
 
 	err := rewriteReconstructedGatewayIncomingHosts(cfg, remoteTopology)
 	require.NoError(t, err, "expected mixed reconstruction rewrite to succeed")

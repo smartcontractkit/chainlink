@@ -77,8 +77,8 @@ func TestStopRemoteComponents_SummaryAndResiduals(t *testing.T) {
 	server := newRemoteStopTestServer(t)
 	defer server.Close()
 
-	t.Setenv(EnvEC2AgentURL, server.URL)
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(EnvRemoteAgentURL, server.URL)
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	cfg := &config.Config{
 		Blockchains: []*config.Blockchain{
@@ -126,8 +126,8 @@ func TestStopRemoteComponents_ResidualQueryFailureIsReportedInSummary(t *testing
 	}))
 	defer server.Close()
 
-	t.Setenv(EnvEC2AgentURL, server.URL)
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(EnvRemoteAgentURL, server.URL)
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	cfg := &config.Config{
 		Blockchains: []*config.Blockchain{

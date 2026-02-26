@@ -294,9 +294,10 @@ Remote execution uses a single direct mode with an EC2-hosted (or equivalent) CR
 
 Environment variable precedence for agent resolution:
 
-1. `CRE_EC2_AGENT_URL` (explicit override, if set)
-2. `CRE_EC2_INSTANCE_ID` + `CRE_EC2_AGENT_PORT` + AWS profile/credentials resolution
-3. `CRE_EC2_AGENT_PORT` defaults to `8080` when omitted
+1. `CRE_REMOTE_AGENT_URL` (explicit override, if set)
+2. `CRE_REMOTE_HOST_IP` + `CRE_REMOTE_AGENT_PORT`
+3. `CRE_REMOTE_AGENT_EC2_INSTANCE_ID` + `CRE_REMOTE_AGENT_PORT` + AWS profile/credentials resolution
+4. `CRE_REMOTE_AGENT_PORT` defaults to `18080` when omitted
 
 Stop command semantics:
 

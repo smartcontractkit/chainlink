@@ -14,10 +14,9 @@ import (
 )
 
 const (
-	EnvEC2HostIP     = "CRE_EC2_HOST_IP"
+	EnvRemoteHostIP  = "CRE_REMOTE_HOST_IP"
 	EnvLocalHostIP   = "CRE_LOCAL_HOST_IP"
-	EnvEC2InstanceID = "CRE_EC2_INSTANCE_ID"
-	EnvAWSProfile    = "CRE_AWS_PROFILE"
+	EnvRemoteAgentEC2InstanceID = "CRE_REMOTE_AGENT_EC2_INSTANCE_ID"
 
 	defaultEC2Region = "us-west-2"
 )
@@ -28,14 +27,14 @@ func IsDirectMode() bool {
 }
 
 func DirectHostIP() (string, error) {
-	hostIP := strings.TrimSpace(os.Getenv(EnvEC2HostIP))
+	hostIP := strings.TrimSpace(os.Getenv(EnvRemoteHostIP))
 	if hostIP != "" {
 		return hostIP, nil
 	}
 
-	instanceID := strings.TrimSpace(os.Getenv(EnvEC2InstanceID))
+	instanceID := strings.TrimSpace(os.Getenv(EnvRemoteAgentEC2InstanceID))
 	if instanceID == "" {
-		return "", fmt.Errorf("%s must be set (or set %s explicitly)", EnvEC2InstanceID, EnvEC2HostIP)
+		return "", fmt.Errorf("%s must be set (or set %s explicitly)", EnvRemoteAgentEC2InstanceID, EnvRemoteHostIP)
 	}
 	return discoverEC2HostIP(instanceID)
 }
@@ -101,9 +100,6 @@ func ResolveAWSCLIProfileSelection() (string, string) {
 	}
 	if hasWebIdentityCreds() {
 		return "", "web-identity"
-	}
-	if profile := strings.TrimSpace(os.Getenv(EnvAWSProfile)); profile != "" {
-		return profile, "profile:CRE_AWS_PROFILE"
 	}
 	if profile := strings.TrimSpace(os.Getenv("AWS_PROFILE")); profile != "" {
 		return profile, "profile:AWS_PROFILE"

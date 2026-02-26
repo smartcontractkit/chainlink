@@ -126,7 +126,7 @@ func startDONsContainerized(
 	remoteRuntime *remoteclient.Runtime,
 ) (*StartedDONs, error) {
 	if remoteRuntime != nil {
-		normalizeForExecution(topology, nodeSets, remoteRuntime.EC2HostIP)
+		normalizeForExecution(topology, nodeSets, remoteRuntime.RemoteHostIP)
 	}
 
 	// Skip binary operations for remote DONs.

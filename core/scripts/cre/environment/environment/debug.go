@@ -94,7 +94,7 @@ func withResolvedRemoteRuntime(ctx context.Context, fn func(context.Context, *re
 	}
 	runtime, err := remoteclient.ResolveRuntime(framework.L)
 	if err != nil {
-		return errors.Wrap(err, "failed to resolve remote runtime (set CRE_EC2_AGENT_URL or CRE_EC2_INSTANCE_ID/AWS profile)")
+		return errors.Wrap(err, "failed to resolve remote runtime (set CRE_REMOTE_AGENT_URL or CRE_REMOTE_AGENT_EC2_INSTANCE_ID/AWS profile)")
 	}
 	return fn(ctx, runtime)
 }

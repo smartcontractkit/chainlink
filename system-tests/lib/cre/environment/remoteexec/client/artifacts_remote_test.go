@@ -40,8 +40,8 @@ func TestDeployArtifactsToRemoteNodeSetNoFilesFails(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv(EnvEC2AgentURL, server.URL)
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(EnvRemoteAgentURL, server.URL)
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	err := DeployArtifactsToRemoteNodeSet(context.Background(), zerolog.Nop(), "workflow", "/home/chainlink/workflows", []string{"", ""})
 	require.Error(t, err)
@@ -84,8 +84,8 @@ func TestDeployArtifactsToRemoteNodeSetSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv(EnvEC2AgentURL, server.URL)
-	t.Setenv(runtimecfg.EnvEC2HostIP, "203.0.113.10")
+	t.Setenv(EnvRemoteAgentURL, server.URL)
+	t.Setenv(runtimecfg.EnvRemoteHostIP, "203.0.113.10")
 
 	err := DeployArtifactsToRemoteNodeSet(context.Background(), zerolog.Nop(), "workflow", "/home/chainlink/workflows", []string{artifactPath})
 	require.NoError(t, err)

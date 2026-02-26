@@ -7,8 +7,8 @@ import (
 )
 
 func TestDirectHostIPUsesExplicitEnv(t *testing.T) {
-	t.Setenv(EnvEC2HostIP, "203.0.113.10")
-	t.Setenv(EnvEC2InstanceID, "")
+	t.Setenv(EnvRemoteHostIP, "203.0.113.10")
+	t.Setenv(EnvRemoteAgentEC2InstanceID, "")
 
 	hostIP, err := DirectHostIP()
 	require.NoError(t, err)
@@ -16,12 +16,12 @@ func TestDirectHostIPUsesExplicitEnv(t *testing.T) {
 }
 
 func TestDirectHostIPRequiresInstanceWhenHostMissing(t *testing.T) {
-	t.Setenv(EnvEC2HostIP, "")
-	t.Setenv(EnvEC2InstanceID, "")
+	t.Setenv(EnvRemoteHostIP, "")
+	t.Setenv(EnvRemoteAgentEC2InstanceID, "")
 
 	_, err := DirectHostIP()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), EnvEC2InstanceID)
+	require.Contains(t, err.Error(), EnvRemoteAgentEC2InstanceID)
 }
 
 func TestLocalHostIPUsesExplicitEnv(t *testing.T) {
@@ -32,7 +32,6 @@ func TestLocalHostIPUsesExplicitEnv(t *testing.T) {
 func TestResolveAWSCLIProfileSelectionOrder(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
-	t.Setenv(EnvAWSProfile, "profile-a")
 	profile, mode := ResolveAWSCLIProfileSelection()
 	require.Equal(t, "", profile)
 	require.Equal(t, "env-creds", mode)
@@ -47,14 +46,8 @@ func TestResolveAWSCLIProfileSelectionOrder(t *testing.T) {
 
 	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
 	t.Setenv("AWS_ROLE_ARN", "")
-	t.Setenv(EnvAWSProfile, "profile-a")
 	t.Setenv("AWS_PROFILE", "profile-b")
 	t.Setenv("AWS_DEFAULT_PROFILE", "profile-c")
-	profile, mode = ResolveAWSCLIProfileSelection()
-	require.Equal(t, "profile-a", profile)
-	require.Equal(t, "profile:CRE_AWS_PROFILE", mode)
-
-	t.Setenv(EnvAWSProfile, "")
 	profile, mode = ResolveAWSCLIProfileSelection()
 	require.Equal(t, "profile-b", profile)
 	require.Equal(t, "profile:AWS_PROFILE", mode)

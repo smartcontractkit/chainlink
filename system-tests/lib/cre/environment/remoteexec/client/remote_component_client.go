@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -26,9 +27,9 @@ const (
 	ComponentTypeBlockchain = "blockchain"
 	ComponentTypeJD         = "jd"
 	ComponentTypeNodeSet    = "nodeset"
-	EnvEC2AgentURL          = "CRE_EC2_AGENT_URL"
-	EnvEC2AgentPort         = "CRE_EC2_AGENT_PORT"
-	defaultEC2AgentPort     = 18080
+	EnvRemoteAgentURL       = "CRE_REMOTE_AGENT_URL"
+	EnvRemoteAgentPort      = "CRE_REMOTE_AGENT_PORT"
+	defaultRemoteAgentPort  = 18080
 )
 
 type ComponentClient interface {
@@ -45,17 +46,17 @@ type httpComponentClient struct {
 
 type Runtime struct {
 	AgentBaseURL string
-	EC2HostIP    string
+	RemoteHostIP string
 	Client       ComponentClient
 }
 
 type RuntimeInput struct {
 	AgentBaseURL string
-	EC2HostIP    string
+	RemoteHostIP string
 	AgentPort    int
 }
 
-func newEC2HTTPComponentClient(baseURL string) *httpComponentClient {
+func newRemoteHTTPComponentClient(baseURL string) *httpComponentClient {
 	return &httpComponentClient{
 		baseURL: baseURL,
 		client: &http.Client{
@@ -72,18 +73,18 @@ func ResolveRuntime(testLogger zerolog.Logger) (*Runtime, error) {
 }
 
 func ResolveRuntimeWithInput(testLogger zerolog.Logger, input RuntimeInput) (*Runtime, error) {
-	baseURL, err := resolveEC2AgentBaseURL(testLogger, input)
+	baseURL, err := resolveRemoteAgentBaseURL(testLogger, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve EC2 agent base URL: %w", err)
+		return nil, fmt.Errorf("failed to resolve remote agent base URL: %w", err)
 	}
-	ec2HostIP, err := resolveEC2HostIP(input)
+	remoteHostIP, err := resolveRemoteHostIP(input, baseURL)
 	if err != nil {
 		return nil, err
 	}
-	client := newEC2HTTPComponentClient(baseURL)
+	client := newRemoteHTTPComponentClient(baseURL)
 	runtime := &Runtime{
 		AgentBaseURL: baseURL,
-		EC2HostIP:    ec2HostIP,
+		RemoteHostIP: remoteHostIP,
 		Client:       client,
 	}
 
@@ -113,7 +114,7 @@ func NewComponentClient(runtime *Runtime) (ComponentClient, error) {
 	if strings.TrimSpace(runtime.AgentBaseURL) == "" {
 		return nil, errors.New("resolved runtime is missing agent base url")
 	}
-	return newEC2HTTPComponentClient(runtime.AgentBaseURL), nil
+	return newRemoteHTTPComponentClient(runtime.AgentBaseURL), nil
 }
 
 func (c *httpComponentClient) StartComponent(ctx context.Context, envelope agent.StartComponentEnvelope) (*agent.StartComponentResponse, error) {
@@ -217,7 +218,7 @@ func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
-			return fmt.Errorf("%s: status %s", describeEC2AgentHealthFailure(c.baseURL), resp.Status)
+			return fmt.Errorf("%s: status %s", describeRemoteAgentHealthFailure(c.baseURL), resp.Status)
 		},
 		retry.Attempts(uint(c.maxAttempts)),
 		retry.Delay(c.retryDelay),
@@ -226,12 +227,12 @@ func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
 	)
 }
 
-func describeEC2AgentHealthFailure(baseURL string) string {
+func describeRemoteAgentHealthFailure(baseURL string) string {
 	return fmt.Sprintf(
-		"failed EC2 CRE agent health check (%s/v1/health); verify the agent process is running and %s matches its listen port (or set %s explicitly)",
+		"failed remote CRE agent health check (%s/v1/health); verify the agent process is running and %s matches its listen port (or set %s explicitly)",
 		baseURL,
-		EnvEC2AgentPort,
-		EnvEC2AgentURL,
+		EnvRemoteAgentPort,
+		EnvRemoteAgentURL,
 	)
 }
 
@@ -248,43 +249,62 @@ func RemoteAgentError(code, message string) error {
 	return fmt.Errorf("remote agent error (%s): %s", code, message)
 }
 
-func resolveEC2AgentBaseURL(testLogger zerolog.Logger, input RuntimeInput) (string, error) {
+func resolveRemoteAgentBaseURL(testLogger zerolog.Logger, input RuntimeInput) (string, error) {
 	if configured := strings.TrimSpace(input.AgentBaseURL); configured != "" {
 		return configured, nil
 	}
-	if configured := strings.TrimSpace(os.Getenv(EnvEC2AgentURL)); configured != "" {
+	if configured := strings.TrimSpace(os.Getenv(EnvRemoteAgentURL)); configured != "" {
 		return configured, nil
 	}
-	remotePort, err := resolveEC2AgentPort(input)
+	remotePort, err := resolveRemoteAgentPort(input)
 	if err != nil {
 		return "", err
 	}
-	ec2HostIP, err := resolveEC2HostIP(input)
+	remoteHostIP, err := resolveRemoteHostIP(input, "")
 	if err != nil {
 		return "", err
 	}
-	testLogger.Debug().Str("ec2HostIP", ec2HostIP).Int("port", remotePort).Msg("resolved EC2 CRE agent base URL")
-	return fmt.Sprintf("http://%s:%d", ec2HostIP, remotePort), nil
+	testLogger.Debug().Str("remoteHostIP", remoteHostIP).Int("port", remotePort).Msg("resolved remote CRE agent base URL")
+	return fmt.Sprintf("http://%s:%d", remoteHostIP, remotePort), nil
 }
 
-func resolveEC2AgentPort(input RuntimeInput) (int, error) {
+func resolveRemoteAgentPort(input RuntimeInput) (int, error) {
 	if input.AgentPort > 0 {
 		return input.AgentPort, nil
 	}
-	remotePort := defaultEC2AgentPort
-	if configuredPort := strings.TrimSpace(os.Getenv(EnvEC2AgentPort)); configuredPort != "" {
+	remotePort := defaultRemoteAgentPort
+	if configuredPort := strings.TrimSpace(os.Getenv(EnvRemoteAgentPort)); configuredPort != "" {
 		parsedPort, err := strconv.Atoi(configuredPort)
 		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
-			return 0, fmt.Errorf("invalid %s: %q", EnvEC2AgentPort, configuredPort)
+			return 0, fmt.Errorf("invalid %s: %q", EnvRemoteAgentPort, configuredPort)
 		}
 		remotePort = parsedPort
 	}
 	return remotePort, nil
 }
 
-func resolveEC2HostIP(input RuntimeInput) (string, error) {
-	if configured := strings.TrimSpace(input.EC2HostIP); configured != "" {
+func resolveRemoteHostIP(input RuntimeInput, baseURL string) (string, error) {
+	if configured := strings.TrimSpace(input.RemoteHostIP); configured != "" {
 		return configured, nil
 	}
+	if host, ok := hostFromBaseURL(baseURL); ok {
+		return host, nil
+	}
 	return runtimecfg.DirectHostIP()
+}
+
+func hostFromBaseURL(baseURL string) (string, bool) {
+	trimmed := strings.TrimSpace(baseURL)
+	if trimmed == "" {
+		return "", false
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", false
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return "", false
+	}
+	return host, true
 }

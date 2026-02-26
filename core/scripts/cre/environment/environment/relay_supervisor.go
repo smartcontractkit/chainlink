@@ -40,7 +40,7 @@ const (
 	relaySupervisorStateFilename = "relay_supervisor.toml"
 	relaySupervisorLogFilename   = "relay_supervisor.log"
 	relaySupervisorLockFilename  = "relay_supervisor.lock"
-	defaultEC2AgentPort          = 18080
+	defaultRemoteAgentPort       = 18080
 	defaultRelayWorkerPoolSize   = 16
 
 	envRelaySupervisorLockPath = "CRE_RELAY_SUPERVISOR_LOCK_PATH"
@@ -808,28 +808,28 @@ func (h *relayHandle) setRelayID(relayID string) {
 }
 
 func resolveAgentBaseURLForRelay() (string, error) {
-	if v := strings.TrimSpace(os.Getenv("CRE_EC2_AGENT_URL")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("CRE_REMOTE_AGENT_URL")); v != "" {
 		return v, nil
 	}
 	hostIP, err := runtimecfg.DirectHostIP()
 	if err == nil {
-		port, err := resolveEC2AgentPortForRelay()
+		port, err := resolveRemoteAgentPortForRelay()
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("http://%s:%d", hostIP, port), nil
 	}
-	return "", fmt.Errorf("cannot resolve agent base URL for relay; set CRE_EC2_AGENT_URL or provide EC2 discovery envs: %w", err)
+	return "", fmt.Errorf("cannot resolve agent base URL for relay; set CRE_REMOTE_AGENT_URL or provide EC2 discovery envs: %w", err)
 }
 
-func resolveEC2AgentPortForRelay() (int, error) {
-	raw := strings.TrimSpace(os.Getenv("CRE_EC2_AGENT_PORT"))
+func resolveRemoteAgentPortForRelay() (int, error) {
+	raw := strings.TrimSpace(os.Getenv("CRE_REMOTE_AGENT_PORT"))
 	if raw == "" {
-		return defaultEC2AgentPort, nil
+		return defaultRemoteAgentPort, nil
 	}
 	port, err := strconv.Atoi(raw)
 	if err != nil || port <= 0 || port > 65535 {
-		return 0, fmt.Errorf("invalid CRE_EC2_AGENT_PORT: %q", raw)
+		return 0, fmt.Errorf("invalid CRE_REMOTE_AGENT_PORT: %q", raw)
 	}
 	return port, nil
 }
