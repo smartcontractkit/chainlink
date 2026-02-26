@@ -9,8 +9,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-tests/lib
 
-replace github.com/smartcontractkit/chainlink-testing-framework/framework => /Users/bartektofel/Desktop/repos/chainlink-testing-framework/framework
-
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based => ./cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based => ./cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
@@ -57,7 +55,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260217043601-5cc966896c4f
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.1-0.20260212100725-fbd6b3bca4d1
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.8-0.20260225150758-2a5936b5130b
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.20
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.3

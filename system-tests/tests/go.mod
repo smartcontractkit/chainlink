@@ -39,8 +39,6 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite => ./smoke/cre/solana/solwrite
 
-replace github.com/smartcontractkit/chainlink-testing-framework/framework => /Users/bartektofel/Desktop/repos/chainlink-testing-framework/framework
-
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/avast/retry-go/v4 v4.6.1
@@ -65,7 +63,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.1-0.20260212100725-fbd6b3bca4d1
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.8-0.20260225150758-2a5936b5130b
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
