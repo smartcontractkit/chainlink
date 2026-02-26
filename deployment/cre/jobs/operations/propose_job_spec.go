@@ -45,6 +45,7 @@ var ProposeJobSpec = operations.NewOperation[ProposeJobSpecInput, ProposeJobSpec
 		b.Logger.Debugw("Proposing job", "DON", input.DONName, "domain", input.Domain, "environment", deps.Env.Name)
 		req := pkg.ProposeJobRequest{
 			Spec:      input.Spec,
+			Domain:    input.Domain,
 			DONName:   input.DONName,
 			Env:       deps.Env.Name,
 			JobLabels: input.JobLabels,
