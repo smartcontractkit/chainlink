@@ -93,6 +93,8 @@ type EngineLimiters struct {
 	HTTPActionCalls       limits.BoundLimiter[int]
 	ConfidentialHTTPCalls limits.BoundLimiter[int]
 	SecretsCalls          limits.BoundLimiter[int]
+
+	ExecutionTimestampsEnabled limits.GateLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -199,6 +201,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ExecutionTimestampsEnabled, err = limits.MakeGateLimiter(lf, cfg.ExecutionTimestampsEnabled)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -227,6 +233,7 @@ func (l *EngineLimiters) Close() error {
 		l.HTTPActionCalls,
 		l.ConfidentialHTTPCalls,
 		l.SecretsCalls,
+		l.ExecutionTimestampsEnabled,
 	)
 }
 

@@ -366,6 +366,26 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	return hex.EncodeToString(s.Sum(nil)), nil
 }
 
+func GenerateExecutionIDWithTriggerIndex(workflowID, triggerEventID string, triggerIndex int) (string, error) {
+	s := sha256.New()
+	_, err := s.Write([]byte(workflowID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(triggerEventID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(strconv.Itoa(triggerIndex)))
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(s.Sum(nil)), nil
+}
+
 // EmitProtoMessage marshals a proto.Message and emits it via beholder.
 func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)

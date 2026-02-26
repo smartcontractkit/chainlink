@@ -574,6 +574,25 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 
 // startExecution initiates a new workflow execution, blocking until completed
 func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
+	newExecutionID, err := events.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
+	if err != nil {
+		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+		return
+	}
+	executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, newExecutionID, e.logger())
+
+	var executionTimestamp int64
+	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
+		donTime, dtErr := executionTimeProvider.GetDONTime()
+		if dtErr != nil {
+			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
+			e.logger().Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+		} else {
+			executionTimestamp = donTime.UnixMilli()
+			e.logger().Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+		}
+	}
+
 	triggerEvent := wrappedTriggerEvent.event.Event
 	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
 	if err != nil {
@@ -707,8 +726,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	execHelper := &ExecutionHelper{
-		Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
+		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	var result *sdkpb.ExecutionResult
