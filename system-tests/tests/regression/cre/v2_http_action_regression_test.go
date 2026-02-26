@@ -138,11 +138,4 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	// Expect exact error message for this test case - no fallbacks
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, httpActionTest.expectedError, 60*time.Second)
 	testLogger.Info().Msg("HTTP Action failure test completed successfully")
-
-	// Note: Workflow cleanup happens via t.Cleanup() after this function returns
-	// The delay below ensures cleanup completes before the next test starts
-	// testLogger.Info().Msg("Waiting for workflow cleanup before next test...")
-	// This sleap doesn't do what the comment suggest. This sleep doesn't wait for the clean up, it just sleeps for 5 seconds.
-	// Clean up only starts after the test completes, so after that sleep!
-	// time.Sleep(5 * time.Second)
 }

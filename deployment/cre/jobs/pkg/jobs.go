@@ -13,6 +13,7 @@ import (
 
 type ProposeJobRequest struct {
 	DONName   string
+	Domain    string
 	Spec      string // toml
 	Env       string // staging, testnet, mainnet, etc...
 	JobLabels map[string]string
@@ -30,11 +31,15 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 	}
 
 	jobSpecs := map[string][]string{}
+	domain := offchain.ProductLabel
+	if req.Domain != "" {
+		domain = req.Domain
+	}
 	for _, node := range nodes {
 		e.Logger.Debugw("Proposing job", logLabels(req, node)...)
 		offchainReq := offchain.ProposeJobRequest{
 			Job:            req.Spec,
-			Domain:         offchain.ProductLabel,
+			Domain:         domain,
 			Environment:    req.Env,
 			PublicKeys:     []string{node.GetPublicKey()},
 			JobLabels:      req.JobLabels,

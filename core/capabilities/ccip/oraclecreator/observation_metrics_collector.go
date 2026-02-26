@@ -38,12 +38,10 @@ func NewObservationMetricsCollector(
 	constantLabels map[string]string,
 	beholderLabels map[string]string,
 ) *ObservationMetricsCollector {
-	_, cancel := context.WithCancel(context.Background())
-
 	collector := &ObservationMetricsCollector{
 		logger:         logger,
 		publisher:      publisher,
-		cancel:         cancel,
+		cancel:         func() {},
 		constantLabels: constantLabels,
 		beholderLabels: beholderLabels,
 	}

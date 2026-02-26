@@ -20,8 +20,8 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 // fakeOffchainClient implements offchain.Client; only ListNodes and
@@ -243,7 +243,7 @@ func TestGenerateAdminAddresses(t *testing.T) {
 			require.NotEqual(t, 0, addr.Cmp(common.HexToAddress("0x0000000000000000000000000000000000000000")), "Generated a zero address, which should be avoided")
 			addressMap[addr] = true
 		}
-		require.Len(t, addressMap, count, "Expected slice of length %d, but got %d", count, len(addressMap))
+		require.Len(t, addressMap, count, "Expected unique address count of %d, but got %d", count, len(addressMap))
 	})
 
 	// Test Case 2: Smallest Valid Input

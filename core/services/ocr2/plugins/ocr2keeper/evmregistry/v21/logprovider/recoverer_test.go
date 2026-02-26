@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1022,7 +1022,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
-							EVMChainID:     ubig.New(big.NewInt(1)),
+							EVMChainID:     sqlutil.New(big.NewInt(1)),
 							LogIndex:       3,
 							BlockHash:      [32]byte{1},
 							BlockNumber:    80,

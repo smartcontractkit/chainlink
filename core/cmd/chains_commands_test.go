@@ -9,8 +9,8 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	client2 "github.com/smartcontractkit/chainlink-evm/pkg/client"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func newRandChainID() *big.Big {
-	return big.New(testutils.NewRandomEVMChainID())
+func newRandChainID() *sqlutil.Big {
+	return sqlutil.New(testutils.NewRandomEVMChainID())
 }
 
 func TestShell_IndexEVMChains(t *testing.T) {

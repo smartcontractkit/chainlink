@@ -105,10 +105,11 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-evm
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
-	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
+	go install -ldflags="-s" \
+		./plugins/cmd/chainlink-evm \
+		./plugins/cmd/chainlink-medianpoc \
+		./plugins/cmd/chainlink-ocr3-capability \
+		./plugins/cmd/capabilities/log-event-trigger
 
 .PHONY: make install-plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
@@ -262,6 +263,10 @@ modgraph:
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
+
+.PHONY: gocs
+gocs: ## Run gocs to generate changeset markdown files.
+	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
 
 help:
 	@echo ""

@@ -3,6 +3,8 @@ package ccip
 import (
 	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -358,8 +360,41 @@ func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.Deploye
 }
 
 func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, dummyReceiver aptos.AccountAddress, sequenceNumber uint64) ([]*aptosapi.Event, error) {
+	t.Helper()
+
 	limit := uint64(1)
-	return rpcClient.EventsByHandle(dummyReceiver, dummyReceiver.String()+"::dummy_receiver::CCIPReceiverState", "received_message_events", &sequenceNumber, &limit)
+	receiverStateTypes := []string{
+		// v2 receiver path (active when ptt_dummy_receiver is registered)
+		dummyReceiver.String() + "::ptt_dummy_receiver::CCIPReceiverState",
+		// v1 receiver path
+		dummyReceiver.String() + "::dummy_receiver::CCIPReceiverState",
+	}
+
+	var (
+		errs         []error
+		firstSuccess []*aptosapi.Event
+	)
+
+	for _, stateType := range receiverStateTypes {
+		events, err := rpcClient.EventsByHandle(dummyReceiver, stateType, "received_message_events", &sequenceNumber, &limit)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("events lookup for %s failed: %w", stateType, err))
+			continue
+		}
+
+		if firstSuccess == nil {
+			firstSuccess = events
+		}
+
+		if len(events) > 0 {
+			return events, nil
+		}
+	}
+
+	if firstSuccess != nil {
+		return firstSuccess, nil
+	}
+	return nil, errors.Join(errs...)
 }
 
 func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {

@@ -11,17 +11,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	keystorekeys "github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	keystorekeys "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func Test_EthKeyStore(t *testing.T) {
@@ -786,7 +786,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 
 	_, addr1 := cltest.MustInsertRandomKey(t, ks)
 	_, addr2 := cltest.MustInsertRandomKey(t, ks)
-	cltest.MustInsertRandomKey(t, ks, *ubig.New(testutils.SimulatedChainID))
+	cltest.MustInsertRandomKey(t, ks, *sqlutil.New(testutils.SimulatedChainID))
 	require.NoError(t, ks.Add(ctx, addr1, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(ctx, addr1, testutils.SimulatedChainID))
 

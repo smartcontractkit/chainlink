@@ -320,6 +320,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 	eventCh := make(chan capabilities.TriggerResponse)
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
@@ -406,6 +407,7 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	eventCh := make(chan capabilities.TriggerResponse)
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
@@ -519,13 +521,14 @@ func TestEngine_Execution(t *testing.T) {
 			}).
 			Return(eventCh, nil).Once()
 		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+		trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		require.NoError(t, engine.Start(t.Context()))
 
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		require.Equal(t, fmt.Sprintf("trigger_reg_%s_%d", cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
@@ -629,6 +632,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	eventCh := make(chan capabilities.TriggerResponse)
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// Mock a long-running execution that will exceed the timeout
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
@@ -719,6 +723,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
@@ -1047,7 +1052,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		// Trigger the execution
 		mockTriggerEvent := capabilities.TriggerEvent{
 			TriggerType: "basic-trigger@1.0.0",
-			ID:          "metering_capability_test_2",
+			ID:          "metering_capability_test_4",
 			Payload:     nil,
 		}
 
@@ -1116,6 +1121,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	eventCh := make(chan capabilities.TriggerResponse)
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// Setup a slow capability that will timeout
 	slowCapability := capmocks.NewExecutableCapability(t)
@@ -1560,6 +1566,203 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+// TestEngine_DuplicateTriggerSameConfig verifies that the engine deduplicates executions
+// when a workflow subscribes to two instances of the same trigger with the same config
+// (e.g. two CRONs with an identical schedule). Both trigger registrations independently
+// fire events, so a single CRON tick produces two trigger events with the same event ID.
+// The engine must execute the workflow exactly once and silently drop the duplicate.
+func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	billingClient := setupMockBillingClient(t)
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string, 2)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, status string) {
+			executionFinishedCh <- executionID
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	// Two trigger subscriptions with the exact same trigger ID (same capability, same config)
+	sameTriggerID := "id_dup"
+	subs := newTriggerSubsSameID(2, sameTriggerID)
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(subs, nil).Once()
+
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, sameTriggerID).Return(trigger, nil)
+
+	eventCh0 := make(chan capabilities.TriggerResponse, 1)
+	eventCh1 := make(chan capabilities.TriggerResponse, 1)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh0, nil).Once()
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh1, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil)
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	// Only ONE execution should reach Module.Execute; the duplicate is dropped.
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Return(nil, nil).
+		Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{sameTriggerID, sameTriggerID}, <-subscribedToTriggersCh)
+
+	// Simulate the same CRON tick: both trigger registrations fire the same event.
+	sharedEventID := "cron_tick_12345"
+	sharedEvent := capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			TriggerType: sameTriggerID,
+			ID:          sharedEventID,
+		},
+	}
+	eventCh0 <- sharedEvent
+	eventCh1 <- sharedEvent
+
+	// Exactly one execution finishes.
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, sharedEventID)
+	require.NoError(t, err)
+
+	select {
+	case execID := <-executionFinishedCh:
+		require.Equal(t, wantExecID, execID)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for execution to finish")
+	}
+
+	// Give the engine a brief window to see if a second (duplicate) execution fires.
+	// It should not.
+	select {
+	case execID := <-executionFinishedCh:
+		t.Fatalf("unexpected duplicate execution: %s", execID)
+	case <-time.After(200 * time.Millisecond):
+		// expected: no second execution
+	}
+
+	require.NoError(t, engine.Close())
+}
+
+func TestEngine_DeduplicatesSameEventID(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	billingClient := setupMockBillingClient(t)
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string, 2)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, _ string) {
+			executionFinishedCh <- executionID
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	// Single trigger subscription.
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
+	eventCh := make(chan capabilities.TriggerResponse, 2)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil)
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	// Only ONE execution should reach Module.Execute.
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Return(nil, nil).
+		Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+	// Send two events with the same ID through a single trigger channel.
+	duplicateEvent := capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			TriggerType: "basic-trigger@1.0.0",
+			ID:          "same_event_id",
+		},
+	}
+	eventCh <- duplicateEvent
+	eventCh <- duplicateEvent
+
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "same_event_id")
+	require.NoError(t, err)
+
+	select {
+	case execID := <-executionFinishedCh:
+		require.Equal(t, wantExecID, execID)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first execution to finish")
+	}
+
+	// No second execution should appear.
+	select {
+	case execID := <-executionFinishedCh:
+		t.Fatalf("unexpected duplicate execution: %s", execID)
+	case <-time.After(200 * time.Millisecond):
+		// expected
+	}
+
+	require.NoError(t, engine.Close())
+}
+
+// newTriggerSubsSameID creates n trigger subscriptions all referencing the same trigger ID.
+func newTriggerSubsSameID(n int, triggerID string) *sdkpb.ExecutionResult {
+	subs := make([]*sdkpb.TriggerSubscription, 0, n)
+	for range n {
+		subs = append(subs, &sdkpb.TriggerSubscription{
+			Id:     triggerID,
+			Method: "method",
+		})
+	}
+	return &sdkpb.ExecutionResult{
+		Result: &sdkpb.ExecutionResult_TriggerSubscriptions{
+			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
+				Subscriptions: subs,
+			},
+		},
+	}
+}
+
 func TestEngine_HandleNewDON(t *testing.T) {
 	t.Parallel()
 
@@ -1773,7 +1976,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 
 	lggr := logger.Test(t)
@@ -2027,6 +2230,10 @@ type TriggerCapabilityWrapper struct {
 }
 
 var _ capabilities.TriggerCapability = &TriggerCapabilityWrapper{}
+
+func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	return nil
+}
 
 func (c *TriggerCapabilityWrapper) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	ch := make(chan capabilities.TriggerResponse, 1)

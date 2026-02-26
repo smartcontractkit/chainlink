@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -152,10 +153,15 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 job input: %w", err)
 		}
 
-		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.ContractQualifier)
+		var addrRefKey datastore.AddressRefKey
+		if jobInput.CapRegVersion != "" {
+			addrRefKey = pkg.GetCapRegAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.ContractQualifier, jobInput.CapRegVersion)
+		} else {
+			addrRefKey = pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.ContractQualifier)
+		}
 		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
 		}
 
 		dkgContractAddr := ""

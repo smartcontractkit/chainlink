@@ -39,7 +39,7 @@ func NewLegacyEVMTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEnd
 func (t *legacyEVMTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt().Uint64()]
 	if monitoringEndpoint == nil {
-		return fmt.Errorf("No monitoring endpoint provided chain_id=%d", head.EVMChainID.Int64())
+		return fmt.Errorf("No monitoring endpoint provided chain_id=%d", head.EVMChainID.ToInt().Int64())
 	}
 	var finalized *telem.Block
 	latestFinalizedHead := head.LatestFinalizedHead()
@@ -65,7 +65,7 @@ func (t *legacyEVMTelemetryReporter) ReportNewHead(ctx context.Context, head *ev
 	}
 	monitoringEndpoint.SendLog(bytes)
 	if finalized == nil {
-		t.lggr.Infow("No finalized block was found", "chainID", head.EVMChainID.Int64(),
+		t.lggr.Infow("No finalized block was found", "chainID", head.EVMChainID.ToInt().Int64(),
 			"head.number", head.Number, "chainLength", head.ChainLength())
 	}
 	return nil

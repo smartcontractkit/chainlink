@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
@@ -175,13 +174,13 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 		},
 	}
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted)
-	isAuthorized, gotOwner, err := auth.AuthorizeRequest(context.Background(), allowlistedRequest)
+	isAuthorized, gotOwner, err := auth.AuthorizeRequest(t.Context(), allowlistedRequest)
 	require.True(t, isAuthorized, err)
 	require.Equal(t, owner.Hex(), gotOwner)
 	require.NoError(t, err)
 
 	// Already authorized
-	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedRequest)
+	isAuthorized, _, err = auth.AuthorizeRequest(t.Context(), allowlistedRequest)
 	require.False(t, isAuthorized)
 	require.ErrorContains(t, err, "already authorized previously")
 
@@ -195,11 +194,11 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	allowlisted[0].RequestDigest = [32]byte(allowlistedReqCopyDigestBytes)
 	allowlisted[0].ExpiryTimestamp = uint32(time.Now().UTC().Unix() - 1) //nolint:gosec // it is a safe conversion
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted)
-	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedReqCopy)
+	isAuthorized, _, err = auth.AuthorizeRequest(t.Context(), allowlistedReqCopy)
 	require.False(t, isAuthorized)
 	require.ErrorContains(t, err, "authorization expired")
 
-	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), notAllowlistedRequest)
+	isAuthorized, _, err = auth.AuthorizeRequest(t.Context(), notAllowlistedRequest)
 	require.False(t, isAuthorized)
 	require.ErrorContains(t, err, "not allowlisted")
 }

@@ -6,9 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 // EthTxResource represents a Ethereum Transaction JSONAPI resource.
@@ -25,7 +25,7 @@ type EthTxResource struct {
 	SentAt     string          `json:"sentAt"`
 	To         *common.Address `json:"to"`
 	Value      string          `json:"value"`
-	EVMChainID big.Big         `json:"evmChainID"`
+	EVMChainID sqlutil.Big     `json:"evmChainID"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -50,7 +50,7 @@ func NewEthTxResource(tx txmgr.Tx) EthTxResource {
 	}
 
 	if tx.ChainID != nil {
-		r.EVMChainID = *big.New(tx.ChainID)
+		r.EVMChainID = *sqlutil.New(tx.ChainID)
 	}
 	return r
 }
@@ -65,7 +65,7 @@ func NewEthTxResourceFromAttempt(txa txmgr.TxAttempt) EthTxResource {
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
 
 	if txa.Tx.ChainID != nil {
-		r.EVMChainID = *big.New(txa.Tx.ChainID)
+		r.EVMChainID = *sqlutil.New(txa.Tx.ChainID)
 		r.JAID = NewPrefixedJAID(r.ID, txa.Tx.ChainID.String())
 	}
 

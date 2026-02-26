@@ -8,7 +8,7 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	ethkey "github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"
 )

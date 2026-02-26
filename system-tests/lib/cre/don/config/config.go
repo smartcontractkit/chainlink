@@ -20,9 +20,9 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
@@ -534,6 +534,7 @@ func addWorkerNodeConfig(
 	}
 
 	if donMetadata.IsShardDON() {
+		existingConfig.Sharding.ShardingEnabled = ptr.Ptr(true)
 		existingConfig.Sharding.ShardIndex = ptr.Ptr(uint16(donMetadata.ShardIndex)) //nolint:gosec // disable G115 overflow is unrealistic
 
 		// all shards apart from the leader need to connect to shard orchestrators running on shard leader DON (shard0)
@@ -833,7 +834,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
 	return evmconfigtoml.EVMConfig{
-		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
 		Chain: evmconfigtoml.Chain{
 			AutoCreateKey:         ptr.Ptr(false),
 			ChainType:             chaintype.NewConfig("tron"),
@@ -854,7 +855,7 @@ func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 
 func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	return evmconfigtoml.EVMConfig{
-		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
 		Chain: evmconfigtoml.Chain{
 			AutoCreateKey: ptr.Ptr(false),
 		},

@@ -17,8 +17,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 // CronParser is the global parser for crontabs.
@@ -202,7 +202,7 @@ type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
-	EVMChainID         *big.Big       `json:"evmChainID"`
+	EVMChainID         *sqlutil.Big   `json:"evmChainID"`
 	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
 	SkipWaitTxAttempt  bool           `json:"skipWaitTxAttempt"`
 	WaitAttemptTimeout *time.Duration `json:"waitAttemptTimeout"`

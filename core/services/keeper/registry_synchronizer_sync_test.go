@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -43,7 +43,7 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 		t.FailNow()
 	}
 
-	id := ubig.New(o)
+	id := sqlutil.New(o)
 	count := 0
 	doneFunc := func() {
 		count++

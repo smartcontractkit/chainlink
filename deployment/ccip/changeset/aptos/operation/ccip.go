@@ -28,7 +28,7 @@ var CCIPOperations = []*operations.Operation[any, any, any]{
 // OP: DeployCCIPOp deploys the CCIP package on Aptos chain
 type DeployCCIPInput struct {
 	MCMSAddress aptos.AccountAddress
-	IsUpdate    bool
+	IsUpgrade   bool
 }
 
 type DeployCCIPOutput struct {
@@ -46,8 +46,8 @@ var DeployCCIPOp = operations.NewOperation(
 func deployCCIP(b operations.Bundle, deps dependency.AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
 	onChainState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	// Validate there's no package deployed XOR is update
-	if (onChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
-		if in.IsUpdate {
+	if (onChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpgrade) {
+		if in.IsUpgrade {
 			b.Logger.Infow("Trying to update a non-deployed package", "addr", onChainState.CCIPAddress.StringLong())
 			return DeployCCIPOutput{}, fmt.Errorf("CCIP package not deployed on Aptos chain %d", deps.AptosChain.Selector)
 		}
@@ -61,7 +61,7 @@ func deployCCIP(b operations.Bundle, deps dependency.AptosDeps, in DeployCCIPInp
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to compile and create deploy operations: %w", err)
 	}
-	if in.IsUpdate {
+	if in.IsUpgrade {
 		return DeployCCIPOutput{
 			MCMSOperations: operations,
 		}, nil
@@ -201,15 +201,15 @@ var InitializeCCIPOp = operations.NewOperation(
 func initializeCCIP(b operations.Bundle, deps dependency.AptosDeps, in InitializeCCIPInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
-	// Config OnRamp with empty lane configs. We're only able to get router address after deploying the router module
+	// Config OnRamp with empty lane configs. We're only able to get router state signer address after deploying the router module
 	onrampBind := ccip_onramp.Bind(in.CCIPAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().Initialize(
 		deps.AptosChain.Selector,
 		in.CCIPConfig.OnRampParams.FeeAggregator,
 		in.CCIPConfig.OnRampParams.AllowlistAdmin,
-		[]uint64{},
-		[]aptos.AccountAddress{},
-		[]bool{},
+		[]uint64{},               // destChainSelectors
+		[]aptos.AccountAddress{}, // destChainRouters
+		[]bool{},                 // destChainAllowlistEnabled
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode onramp initialize: %w", err)

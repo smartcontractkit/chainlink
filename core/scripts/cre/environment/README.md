@@ -200,6 +200,9 @@ go run . env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_AC
 
 # to start environment with local Beholder
 go run . env start --with-beholder
+
+# to start environment with legacy v1 contracts (default is v2)
+go run . env start --with-contracts-version v1
 ```
 
 > Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
@@ -213,6 +216,7 @@ Optional parameters:
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
+- `--with-contracts-version`: Version of workflow/capability registries to use (`v2` by default, use `v1` explicitly for legacy coverage)
 
 ## Purging environment state
 To remove all state and cache files used by the environment execute:

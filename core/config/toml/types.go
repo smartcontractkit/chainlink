@@ -16,13 +16,13 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -1348,7 +1348,7 @@ type OCR2 struct {
 	ContractSubscribeInterval          *commonconfig.Duration
 	ContractTransmitterTransmitTimeout *commonconfig.Duration
 	DatabaseTimeout                    *commonconfig.Duration
-	KeyBundleID                        *keys.Sha256Hash
+	KeyBundleID                        *corekeys.Sha256Hash
 	CaptureEATelemetry                 *bool
 	CaptureAutomationCustomTelemetry   *bool
 	AllowNoBootstrappers               *bool
@@ -1418,7 +1418,7 @@ type OCR struct {
 	ContractSubscribeInterval    *commonconfig.Duration
 	DefaultTransactionQueueDepth *uint32
 	// Optional
-	KeyBundleID          *keys.Sha256Hash
+	KeyBundleID          *corekeys.Sha256Hash
 	SimulateTransactions *bool
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
@@ -2971,6 +2971,7 @@ func (jd *JobDistributor) setFrom(f *JobDistributor) {
 }
 
 type Sharding struct {
+	ShardingEnabled          *bool
 	ArbiterPort              *uint16
 	ArbiterPollInterval      *commonconfig.Duration
 	ArbiterRetryInterval     *commonconfig.Duration
@@ -2980,6 +2981,10 @@ type Sharding struct {
 }
 
 func (s *Sharding) setFrom(f *Sharding) {
+	if f.ShardingEnabled != nil {
+		s.ShardingEnabled = f.ShardingEnabled
+	}
+
 	if f.ArbiterPort != nil {
 		s.ArbiterPort = f.ArbiterPort
 	}
@@ -3006,14 +3011,16 @@ func (s *Sharding) setFrom(f *Sharding) {
 }
 
 func (s *Sharding) ValidateConfig() (err error) {
-	// If ShardIndex > 0, ShardOrchestratorAddress must be specified
-	if s.ShardIndex != nil && *s.ShardIndex > 0 {
-		if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
-			err = errors.Join(err, configutils.ErrInvalid{
-				Name:  "ShardOrchestratorAddress",
-				Value: s.ShardOrchestratorAddress,
-				Msg:   "must be specified when ShardIndex > 0",
-			})
+	// If sharding is enabled and ShardIndex > 0, ShardOrchestratorAddress must be specified
+	if s.ShardingEnabled != nil && *s.ShardingEnabled {
+		if s.ShardIndex != nil && *s.ShardIndex > 0 {
+			if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
+				err = errors.Join(err, configutils.ErrInvalid{
+					Name:  "ShardOrchestratorAddress",
+					Value: s.ShardOrchestratorAddress,
+					Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
+				})
+			}
 		}
 	}
 	return err

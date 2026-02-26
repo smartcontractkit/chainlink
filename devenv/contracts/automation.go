@@ -345,6 +345,32 @@ func (v *EthereumKeeperRegistry) Pause() error {
 	return err
 }
 
+func (v *EthereumKeeperRegistry) Unpause() error {
+	txOpts := v.client.NewTXOpts()
+	var err error
+
+	switch v.version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		_, err = v.client.Decode(v.registry1_1.Unpause(txOpts))
+	case RegistryVersion_1_2:
+		_, err = v.client.Decode(v.registry1_2.Unpause(txOpts))
+	case RegistryVersion_1_3:
+		_, err = v.client.Decode(v.registry1_3.Unpause(txOpts))
+	case RegistryVersion_2_0:
+		_, err = v.client.Decode(v.registry2_0.Unpause(txOpts))
+	case RegistryVersion_2_1:
+		_, err = v.client.Decode(v.registry2_1.Unpause(txOpts))
+	case RegistryVersion_2_2:
+		_, err = v.client.Decode(v.registry2_2.Unpause(txOpts))
+	case RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.Unpause(txOpts))
+	default:
+		return fmt.Errorf("keeper registry version %d is not supported", v.version)
+	}
+
+	return err
+}
+
 // Migrate performs a migration of the given upkeep ids to the specific destination passed as parameter.
 func (v *EthereumKeeperRegistry) Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error {
 	if v.version != RegistryVersion_1_2 {

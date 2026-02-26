@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
@@ -446,6 +446,21 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 		return nil, errors.Wrap(dErr, "failed to map input to dons")
 	}
 	if !input.WithV2Registries {
+		for _, don := range dons.donsOrderedByID() {
+			for i, cap := range don.Capabilities {
+				if !cap.UseCapRegOCRConfig || cap.Config == nil {
+					continue
+				}
+				ocrConfig := input.CapabilityToOCR3Config[cap.Capability.LabelledName]
+				if ocrConfig == nil {
+					return nil, fmt.Errorf("no OCR3 config found for capability %s", cap.Capability.LabelledName)
+				}
+				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig); err != nil {
+					return nil, fmt.Errorf("failed to embed OCR3 config for capability %s: %w", cap.Capability.LabelledName, err)
+				}
+			}
+		}
+
 		_, seqErr := operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureCapabilitiesRegistrySeq,

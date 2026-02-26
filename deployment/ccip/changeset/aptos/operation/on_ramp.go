@@ -16,6 +16,7 @@ import (
 
 var OnRampOperations = []*operations.Operation[any, any, any]{
 	UpdateOnRampDestsOp.AsUntypedRelaxed(),
+	MigrateOnRampDestChainConfigsToV2Op.AsUntypedRelaxed(),
 }
 
 // UpdateOnRampDestsInput contains configuration for updating OnRamp destinations
@@ -42,6 +43,7 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 	// Transform the updates into the format expected by the Aptos contract
 	var destChainSelectors []uint64
 	var destChainRouters []aptos.AccountAddress
+	var destChainRouterStateAddresses []aptos.AccountAddress
 	var destChainAllowlistEnabled []bool
 
 	// Get routers state addresses
@@ -55,7 +57,9 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 		}
 		testRouterStateAddress = stateAddress
 	}
+	// Router address is the router module address
 	router := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
+	// Router state address is the router state signer address
 	routerStateAddress, err := router.Router().GetStateAddress(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get router state address: %w", err)
@@ -63,15 +67,19 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 
 	// Process each destination chain config update
 	for destChainSelector, update := range in.Updates {
-		// destChainRouters
+		// destChainRouters and destChainRouterStateAddresses
 		if !update.IsEnabled {
 			destChainRouters = append(destChainRouters, aptos.AccountAddress{})
+			destChainRouterStateAddresses = append(destChainRouterStateAddresses, aptos.AccountAddress{})
 			continue
 		}
+
 		if update.TestRouter {
-			destChainRouters = append(destChainRouters, testRouterStateAddress)
+			destChainRouters = append(destChainRouters, aptosState.TestRouterAddress)
+			destChainRouterStateAddresses = append(destChainRouterStateAddresses, testRouterStateAddress)
 		} else {
-			destChainRouters = append(destChainRouters, routerStateAddress)
+			destChainRouters = append(destChainRouters, ccipAddress)
+			destChainRouterStateAddresses = append(destChainRouterStateAddresses, routerStateAddress)
 		}
 		// destChainSelectors
 		destChainSelectors = append(destChainSelectors, destChainSelector)
@@ -85,9 +93,10 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 	}
 
 	// Encode the update operation
-	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().ApplyDestChainConfigUpdates(
+	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().ApplyDestChainConfigUpdatesV2(
 		destChainSelectors,
 		destChainRouters,
+		destChainRouterStateAddresses,
 		destChainAllowlistEnabled,
 	)
 	if err != nil {
@@ -103,4 +112,40 @@ func updateOnRampDests(b operations.Bundle, deps dependency.AptosDeps, in Update
 		"chainCount", len(destChainSelectors))
 
 	return txs, nil
+}
+
+type MigrateOnRampDestChainConfigsToV2Input struct {
+	DestChainSelectors    []uint64
+	RouterModuleAddresses []aptos.AccountAddress
+}
+
+var MigrateOnRampDestChainConfigsToV2Op = operations.NewOperation(
+	"migrate-onramp-dest-chain-configs-to-v2-op",
+	Version1_0_0,
+	"Migrates OnRamp destination chain configs from V1 to V2",
+	migrateOnRampDestChainConfigsToV2,
+)
+
+func migrateOnRampDestChainConfigsToV2(b operations.Bundle, deps dependency.AptosDeps, in MigrateOnRampDestChainConfigsToV2Input) ([]mcmstypes.Transaction, error) {
+	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
+	ccipAddress := aptosState.CCIPAddress
+	onrampBind := ccip_onramp.Bind(ccipAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().MigrateDestChainConfigsToV2(
+		in.DestChainSelectors,
+		in.RouterModuleAddresses,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode MigrateDestChainConfigsToV2 for OnRamp: %w", err)
+	}
+
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	b.Logger.Infow("Adding OnRamp migrate dest chain configs to V2 operation",
+		"chainCount", len(in.DestChainSelectors))
+
+	return []mcmstypes.Transaction{tx}, nil
 }

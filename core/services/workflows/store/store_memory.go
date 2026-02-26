@@ -18,7 +18,7 @@ const (
 
 	// maximumExecutionAge is the default maximum age of an execution before it is considered expired and eligible for pruning
 	// regardless of its status
-	maximumExecutionAge = 1 * time.Hour
+	maximumExecutionAge = 24 * time.Hour
 )
 
 // InMemoryStore is an in-memory implementation of the Store interface used to store workflow execution states.
@@ -61,7 +61,7 @@ func (s *InMemoryStore) Add(ctx context.Context, steps map[string]*WorkflowExecu
 	defer s.mu.Unlock()
 	_, ok := s.idToExecution[executionID]
 	if ok {
-		return WorkflowExecution{}, fmt.Errorf("execution ID %s already exists in store", executionID)
+		return WorkflowExecution{}, fmt.Errorf("execution ID %s: %w", executionID, ErrDuplicateExecution)
 	}
 
 	now := s.clock.Now()
@@ -162,6 +162,17 @@ func (s *InMemoryStore) HealthReport() map[string]error {
 
 func (s *InMemoryStore) Name() string {
 	return "WorkflowStore"
+}
+
+func (s *InMemoryStore) DeleteByWorkflowID(_ context.Context, workflowID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, state := range s.idToExecution {
+		if state.WorkflowID == workflowID {
+			delete(s.idToExecution, id)
+		}
+	}
+	return nil
 }
 
 func (s *InMemoryStore) pruneExpiredExecutionEntries() {

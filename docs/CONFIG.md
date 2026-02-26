@@ -2675,6 +2675,7 @@ EnableDKGRecipient should be set to true if the DON runs a capability that uses 
 ## Sharding
 ```toml
 [Sharding]
+ShardingEnabled = false # Default
 ArbiterPort = 9876 # Default
 ArbiterPollInterval = '12s' # Default
 ArbiterRetryInterval = '12s' # Default
@@ -2683,6 +2684,14 @@ ShardOrchestratorPort = 50051 # Default
 ShardOrchestratorAddress = '' # Default
 ```
 Sharding holds settings for node sharding configuration.
+
+### ShardingEnabled
+```toml
+ShardingEnabled = false # Default
+```
+ShardingEnabled enables workflow sharding across multiple nodes.
+When false (default), all workflows are processed by this node (backwards compatible mode).
+When true, workflows are distributed across shards based on ShardIndex and shard orchestrator mappings.
 
 ### ArbiterPort
 ```toml
@@ -2721,6 +2730,7 @@ When a ring OCR job is created, the shard orchestrator server is spun up on this
 ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
+Required when ShardingEnabled=true and ShardIndex > 0.
 
 ## LOOPP
 ```toml
@@ -18476,6 +18486,7 @@ BlockHistoryBatchLoadSize = 20 # Default
 ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
+LogPollerCPIEventsEnabled = true # Default
 ```
 
 
@@ -18641,6 +18652,12 @@ EstimateComputeUnitLimit enables or disables compute unit limit estimations per 
 LogPollerStartingLookback = '24h0m0s' # Default
 ```
 LogPollerStartingLookback
+
+### LogPollerCPIEventsEnabled
+```toml
+LogPollerCPIEventsEnabled = true # Default
+```
+LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
 
 ## Solana.Workflow
 ```toml

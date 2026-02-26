@@ -119,7 +119,6 @@ func TestBatchProposeJob(t *testing.T) {
 
 func TestProposeJob(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 
 	// Create mock job approvers
 	mockGetter := &MockJobApproverGetter{
@@ -138,7 +137,7 @@ func TestProposeJob(t *testing.T) {
 			Spec:   jobSpec,
 		}
 
-		resp, err := client.ProposeJob(ctx, req)
+		resp, err := client.ProposeJob(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NotNil(t, resp.Proposal)
@@ -162,7 +161,7 @@ func TestProposeJob(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ProposeJob(ctx, req)
+		resp, err := client.ProposeJob(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NotNil(t, resp.Proposal)
@@ -181,7 +180,7 @@ func TestProposeJob(t *testing.T) {
 			Spec:   jobSpec,
 		}
 
-		resp, err := client.ProposeJob(ctx, req)
+		resp, err := client.ProposeJob(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 		require.Contains(t, err.Error(), "node not found")
@@ -193,7 +192,7 @@ func TestProposeJob(t *testing.T) {
 			Spec:   "invalid job spec",
 		}
 
-		resp, err := client.ProposeJob(ctx, req)
+		resp, err := client.ProposeJob(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 	})
@@ -209,7 +208,7 @@ name = "Test Job"
 			Spec:   jobSpec,
 		}
 
-		resp, err := client.ProposeJob(ctx, req)
+		resp, err := client.ProposeJob(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 	})
@@ -225,7 +224,7 @@ name = "Test Job"
 			Spec:   jobSpec,
 		}
 
-		resp, err := client.ProposeJob(ctx, req)
+		resp, err := client.ProposeJob(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 		require.Contains(t, err.Error(), "failed to auto approve job")
@@ -314,7 +313,6 @@ func TestRevokeJob(t *testing.T) {
 
 func TestGetJob(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 
 	// Create mock job approvers
 	mockGetter := &MockJobApproverGetter{
@@ -333,7 +331,7 @@ func TestGetJob(t *testing.T) {
 		Spec:   jobSpec,
 	}
 
-	_, err := client.ProposeJob(ctx, proposeReq)
+	_, err := client.ProposeJob(t.Context(), proposeReq)
 	require.NoError(t, err)
 
 	t.Run("get existing job", func(t *testing.T) {
@@ -343,7 +341,7 @@ func TestGetJob(t *testing.T) {
 			},
 		}
 
-		resp, err := client.GetJob(ctx, req)
+		resp, err := client.GetJob(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NotNil(t, resp.Job)
@@ -358,7 +356,7 @@ func TestGetJob(t *testing.T) {
 			},
 		}
 
-		resp, err := client.GetJob(ctx, req)
+		resp, err := client.GetJob(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 		require.Contains(t, err.Error(), "failed to get job")
@@ -367,7 +365,6 @@ func TestGetJob(t *testing.T) {
 
 func TestGetProposal(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 
 	// Create mock job approvers
 	mockGetter := &MockJobApproverGetter{
@@ -386,7 +383,7 @@ func TestGetProposal(t *testing.T) {
 		Spec:   jobSpec,
 	}
 
-	proposeResp, err := client.ProposeJob(ctx, proposeReq)
+	proposeResp, err := client.ProposeJob(t.Context(), proposeReq)
 	require.NoError(t, err)
 	require.NotNil(t, proposeResp)
 
@@ -397,7 +394,7 @@ func TestGetProposal(t *testing.T) {
 			Id: proposalID,
 		}
 
-		resp, err := client.GetProposal(ctx, req)
+		resp, err := client.GetProposal(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NotNil(t, resp.Proposal)
@@ -410,7 +407,7 @@ func TestGetProposal(t *testing.T) {
 			Id: "non-existent-proposal",
 		}
 
-		resp, err := client.GetProposal(ctx, req)
+		resp, err := client.GetProposal(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 		require.Contains(t, err.Error(), "failed to get proposal")
@@ -452,7 +449,7 @@ func TestListJobs(t *testing.T) {
 	t.Run("list all jobs", func(t *testing.T) {
 		req := &jobv1.ListJobsRequest{}
 
-		resp, err := client.ListJobs(ctx, req)
+		resp, err := client.ListJobs(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp.Jobs, 2)
@@ -465,7 +462,7 @@ func TestListJobs(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListJobs(ctx, req)
+		resp, err := client.ListJobs(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp.Jobs, 1)
@@ -479,7 +476,7 @@ func TestListJobs(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListJobs(ctx, req)
+		resp, err := client.ListJobs(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp.Jobs, 1)
@@ -493,7 +490,7 @@ func TestListJobs(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListJobs(ctx, req)
+		resp, err := client.ListJobs(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp.Jobs, 1)
@@ -507,7 +504,7 @@ func TestListJobs(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListJobs(ctx, req)
+		resp, err := client.ListJobs(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Empty(t, resp.Jobs)
@@ -522,7 +519,7 @@ func TestListJobs(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListJobs(ctx, req)
+		resp, err := client.ListJobs(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 		require.Contains(t, err.Error(), "only one of NodeIds, Uuids or Ids can be set")
@@ -565,7 +562,7 @@ func TestListProposals(t *testing.T) {
 	t.Run("list all proposals", func(t *testing.T) {
 		req := &jobv1.ListProposalsRequest{}
 
-		resp, err := client.ListProposals(ctx, req)
+		resp, err := client.ListProposals(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp.Proposals, 2)
@@ -578,7 +575,7 @@ func TestListProposals(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListProposals(ctx, req)
+		resp, err := client.ListProposals(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp.Proposals, 1)
@@ -592,7 +589,7 @@ func TestListProposals(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListProposals(ctx, req)
+		resp, err := client.ListProposals(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp.Proposals, 1)
@@ -606,7 +603,7 @@ func TestListProposals(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListProposals(ctx, req)
+		resp, err := client.ListProposals(t.Context(), req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Empty(t, resp.Proposals)
@@ -620,7 +617,7 @@ func TestListProposals(t *testing.T) {
 			},
 		}
 
-		resp, err := client.ListProposals(ctx, req)
+		resp, err := client.ListProposals(t.Context(), req)
 		require.Error(t, err)
 		require.Nil(t, resp)
 		require.Contains(t, err.Error(), "only one of Ids or JobIds can be set")

@@ -1,7 +1,6 @@
 package test_test
 
 import (
-	"context"
 	"encoding/hex"
 	"strconv"
 	"testing"
@@ -12,11 +11,11 @@ import (
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func TestJDNodeService_GetNode(t *testing.T) {
@@ -58,7 +57,7 @@ func TestJDNodeService_GetNode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &nodev1.GetNodeRequest{Id: tt.nodeID}
-			resp, err := service.GetNode(context.Background(), req)
+			resp, err := service.GetNode(t.Context(), req)
 			if tt.expectErr {
 				require.Error(t, err)
 			} else {
@@ -149,7 +148,7 @@ func TestJDNodeService_ListNodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &nodev1.ListNodesRequest{Filter: tt.filter}
-			resp, err := service.ListNodes(context.Background(), req)
+			resp, err := service.ListNodes(t.Context(), req)
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.ElementsMatch(t, tt.want, resp.Nodes)
@@ -319,7 +318,7 @@ func TestJDNodeService_ListNodeChainConfigs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := service.ListNodeChainConfigs(context.Background(), tt.req)
+			resp, err := service.ListNodeChainConfigs(t.Context(), tt.req)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -365,7 +364,7 @@ func TestNewJDServiceFromListNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	req := &nodev1.ListNodesRequest{}
-	got, err := service.ListNodes(context.Background(), req)
+	got, err := service.ListNodes(t.Context(), req)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.ElementsMatch(t, testData.Nodes, got.Nodes)

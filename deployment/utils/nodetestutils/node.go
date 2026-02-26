@@ -24,7 +24,12 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -32,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmlptesting "github.com/smartcontractkit/chainlink-evm/pkg/logpoller/testing"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -49,13 +53,10 @@ import (
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -353,9 +354,9 @@ type ConfigOpt func(c *chainlink.Config)
 func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 	return func(c *chainlink.Config) {
 		for chainID, depth := range finalityDepths {
-			chainIDBig := evmutils.New(new(big.Int).SetUint64(chainID))
+			chainIDBig := sqlutil.New(new(big.Int).SetUint64(chainID))
 			for _, evmChainConfig := range c.EVM {
-				if evmChainConfig.ChainID.Cmp(chainIDBig) == 0 {
+				if evmChainConfig.ChainID.ToInt().Cmp(chainIDBig.ToInt()) == 0 {
 					evmChainConfig.FinalityDepth = pointer.To(depth)
 				}
 			}
@@ -517,7 +518,7 @@ func NewNode(
 	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts: chainlink.CREOpts{
+		Opts: cre.Opts{
 			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 		},
 		Config:   cfg,
@@ -806,7 +807,7 @@ func CreateKeys(t *testing.T,
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
-	chainIDBig := evmutils.NewI(int64(chainID))
+	chainIDBig := sqlutil.NewI(int64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
 	chain.GasEstimator.LimitDefault = pointer.To(uint64(5e6))
 	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)

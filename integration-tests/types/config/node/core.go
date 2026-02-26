@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -111,7 +111,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 		}
 
 		evmConfig := &evmcfg.EVMConfig{
-			ChainID: ubig.New(big.NewInt(network.ChainID)),
+			ChainID: sqlutil.New(big.NewInt(network.ChainID)),
 			Nodes:   evmNodes,
 			Chain:   evmcfg.Chain{},
 		}

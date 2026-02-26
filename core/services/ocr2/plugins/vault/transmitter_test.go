@@ -87,7 +87,6 @@ func TestTransmitter(t *testing.T) {
 			100,
 			100,
 			100,
-			false,
 		),
 	}
 

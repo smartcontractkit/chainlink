@@ -2,7 +2,6 @@ package reorg
 
 //revive:disable:dot-imports
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -147,7 +146,7 @@ func TestAutomationReorg(t *testing.T) {
 			a.SetupAutomationDeployment(t)
 			a.SetDockerEnv(env)
 
-			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			t.Cleanup(func() {
