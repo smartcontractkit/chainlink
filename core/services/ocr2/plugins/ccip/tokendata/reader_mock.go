@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	mock "github.com/stretchr/testify/mock"
 )
 

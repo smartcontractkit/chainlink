@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	mock "github.com/stretchr/testify/mock"

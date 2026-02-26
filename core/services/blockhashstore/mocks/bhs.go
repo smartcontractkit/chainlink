@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	common "github.com/ethereum/go-ethereum/common"
+
 	mock "github.com/stretchr/testify/mock"
 )
 

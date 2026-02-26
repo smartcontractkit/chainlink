@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	config "github.com/smartcontractkit/chainlink-evm/pkg/config"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
