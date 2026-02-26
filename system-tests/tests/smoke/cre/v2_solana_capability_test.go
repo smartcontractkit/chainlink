@@ -343,11 +343,10 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	err := t_helpers.AssertBeholderMessage(listenerCtx, t, workflowInitMessage, testLogger, messageChan, kafkaErrChan, 2*time.Minute)
 	require.NoError(t, err, "Workflow should have initialized")
 
-	// sleep to prevent race condition between workflow initialization and log emission
-	time.Sleep(15 * time.Second)
-
-	err = triggerLogReadTestEvent(t.Context(), solChain, logReadTestProgramID, expectedU64Value)
+	slot, err := triggerLogReadTestEvent(t.Context(), solChain, logReadTestProgramID, expectedU64Value)
 	require.NoError(t, err, "failed to trigger log_read_test event")
+
+	t.Logf("Log read test event triggered at slot: %d", slot)
 
 	timeout := 5 * time.Minute
 	expectedLogTriggerMessage := "TestEvent received!"
@@ -356,7 +355,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	require.NoError(t, err, "Log trigger should have received TestEvent")
 }
 
-func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) error {
+func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
 	discriminator := getCreateLogDiscriminator()
 
 	var instructionData []byte
@@ -375,18 +374,21 @@ func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, p
 		instructionData,
 	)
 
-	_, err := solCommonUtil.SendAndConfirm(
+	result, err := solCommonUtil.SendAndConfirm(
 		ctx,
 		solChain.SolClient,
 		[]solgo.Instruction{instruction},
 		solChain.PrivateKey,
 		rpc.CommitmentConfirmed,
 	)
+	if result != nil {
+		slot = result.Slot
+	}
 	if err != nil {
-		return fmt.Errorf("failed to send create_log transaction: %w", err)
+		return slot, fmt.Errorf("failed to send create_log transaction: %w", err)
 	}
 
-	return nil
+	return slot, nil
 }
 
 func getCreateLogDiscriminator() [8]byte {
