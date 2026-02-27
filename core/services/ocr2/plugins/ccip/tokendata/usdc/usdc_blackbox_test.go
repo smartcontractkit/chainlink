@@ -1,7 +1,6 @@
 package usdc_test
 
 import (
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -98,7 +97,7 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 
 			addr := utils.RandomAddress()
 			usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI, 0, addr, usdc.APIIntervalRateLimitDisabled)
-			msgAndAttestation, err := usdcService.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+			msgAndAttestation, err := usdcService.ReadTokenData(t.Context(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					SequenceNumber: seqNum,
 					TokenAmounts:   []cciptypes.TokenAmount{{Token: ccipcalc.EvmAddrToGeneric(addr), Amount: nil}},

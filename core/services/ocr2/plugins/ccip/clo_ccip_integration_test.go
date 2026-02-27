@@ -1,7 +1,6 @@
 package ccip_test
 
 import (
-	"context"
 	"encoding/json"
 	"math/big"
 	"testing"
@@ -169,7 +168,7 @@ func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIn
 	ccipTH.Source.Chain.Commit()
 	blockHash := ccipTH.Dest.Chain.Commit()
 	// get the block number
-	block, err := ccipTH.Dest.Chain.Client().BlockByHash(context.Background(), blockHash)
+	block, err := ccipTH.Dest.Chain.Client().BlockByHash(t.Context(), blockHash)
 	require.NoError(t, err)
 	blockNumber := block.Number().Uint64() + 1 // +1 as a block will be mined for the request from EventuallyReportCommitted
 

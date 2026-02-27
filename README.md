@@ -339,7 +339,7 @@ To install `changesets`:
 1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
 2. Run `pnpm install`.
 
-Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
+Either after or before you create a commit, run the `make gocs` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 

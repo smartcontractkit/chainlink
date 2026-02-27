@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 
@@ -104,6 +106,53 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 		}
 	}
 
+	var ocr3Configs map[string]ocrtypes.ContractConfig
+	if cconf.Ocr3Configs != nil {
+		ocr3Configs = make(map[string]ocrtypes.ContractConfig, len(cconf.Ocr3Configs))
+		for name, pbCfg := range cconf.Ocr3Configs {
+			signers := make([]ocrtypes.OnchainPublicKey, len(pbCfg.Signers))
+			for i, s := range pbCfg.Signers {
+				signers[i] = s
+			}
+			transmitters := make([]ocrtypes.Account, len(pbCfg.Transmitters))
+			for i, t := range pbCfg.Transmitters {
+				transmitters[i] = ocrtypes.Account(t)
+			}
+			if pbCfg.F > math.MaxUint8 {
+				return capabilities.CapabilityConfiguration{}, fmt.Errorf("OCR3Config %q: F value %d exceeds uint8 max", name, pbCfg.F)
+			}
+			ocr3Configs[name] = ocrtypes.ContractConfig{
+				ConfigCount:           pbCfg.ConfigCount,
+				Signers:               signers,
+				Transmitters:          transmitters,
+				F:                     uint8(pbCfg.F), //#nosec G115 - bounds checked above
+				OnchainConfig:         pbCfg.OnchainConfig,
+				OffchainConfigVersion: pbCfg.OffchainConfigVersion,
+				OffchainConfig:        pbCfg.OffchainConfig,
+			}
+		}
+	}
+
+	var oracleFactoryConfigs map[string]values.Map
+	if cconf.OracleFactoryConfigs != nil {
+		oracleFactoryConfigs = make(map[string]values.Map, len(cconf.OracleFactoryConfigs))
+		for name, pbMap := range cconf.OracleFactoryConfigs {
+			var m *values.Map
+			m, err = values.FromMapValueProto(pbMap)
+			if err != nil {
+				return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal oracle factory config %q: %w", name, err)
+			}
+			if m != nil {
+				oracleFactoryConfigs[name] = *m
+			}
+		}
+	}
+
+	sc, err := values.FromMapValueProto(cconf.SpecConfig)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
+	}
+
 	return capabilities.CapabilityConfiguration{
 		DefaultConfig:          dc,
 		RestrictedKeys:         cconf.RestrictedKeys,
@@ -112,6 +161,9 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 		RemoteTargetConfig:     remoteTargetConfig,
 		CapabilityMethodConfig: methodConfigs,
 		LocalOnly:              cconf.LocalOnly,
+		Ocr3Configs:            ocr3Configs,
+		OracleFactoryConfigs:   oracleFactoryConfigs,
+		SpecConfig:             sc,
 	}, nil
 }
 

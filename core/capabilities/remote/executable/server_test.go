@@ -39,7 +39,7 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestSlowExecutionCapability{workflowIDToPause: workflowIDToPause}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
 
 	for _, caller := range callers {
-		_, err := caller.Execute(context.Background(),
+		_, err := caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID1,
@@ -50,7 +50,7 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 	}
 
 	for _, caller := range callers {
-		_, err := caller.Execute(context.Background(),
+		_, err := caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID2,
@@ -96,7 +96,7 @@ func Test_Server_DefaultExcludedAttributes(t *testing.T) {
 		inputs, err := values.NewMap(rawInputs)
 		require.NoError(t, err)
 
-		_, err = caller.Execute(context.Background(),
+		_, err = caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID1,
@@ -132,7 +132,7 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 		inputs, err := values.NewMap(rawInputs)
 		require.NoError(t, err)
 
-		_, err = caller.Execute(context.Background(),
+		_, err = caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID1,
@@ -160,7 +160,7 @@ func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
 
 	for _, caller := range callers {
-		_, err := caller.Execute(context.Background(),
+		_, err := caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID1,
@@ -187,7 +187,7 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond, nil)
 
 	for _, caller := range callers {
-		_, err := caller.Execute(context.Background(),
+		_, err := caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID1,
@@ -214,7 +214,7 @@ func Test_Server_CapabilityError(t *testing.T) {
 	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond, nil)
 
 	for _, caller := range callers {
-		_, err := caller.Execute(context.Background(),
+		_, err := caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID1,
@@ -261,7 +261,7 @@ func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T)
 		anyPayload, err := anypb.New(payload)
 		require.NoError(t, err)
 
-		_, err = caller.Execute(context.Background(),
+		_, err = caller.Execute(t.Context(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
 					WorkflowID:          workflowID1,
@@ -355,7 +355,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 
 	var srvcs []services.Service
 	broker := newTestAsyncMessageBroker(t, 1000)
-	err := broker.Start(context.Background())
+	err := broker.Start(t.Context())
 	require.NoError(t, err)
 	srvcs = append(srvcs, broker)
 
@@ -743,7 +743,7 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start a request
-	_, err = workflowNode.Execute(context.Background(), commoncap.CapabilityRequest{
+	_, err = workflowNode.Execute(t.Context(), commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID:          workflowID1,
 			WorkflowExecutionID: workflowExecutionID1,
@@ -874,7 +874,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	}
 
 	broker := newTestAsyncMessageBroker(t, 1000)
-	err := broker.Start(context.Background())
+	err := broker.Start(t.Context())
 	require.NoError(t, err)
 	defer broker.Close()
 
@@ -950,7 +950,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 				time.Sleep(delay)
 
 				workflowExecutionID := fmt.Sprintf("exec-%d", execID)
-				_, err := node.Execute(context.Background(),
+				_, err := node.Execute(t.Context(),
 					commoncap.CapabilityRequest{
 						Metadata: commoncap.RequestMetadata{
 							WorkflowID:          workflowID1,

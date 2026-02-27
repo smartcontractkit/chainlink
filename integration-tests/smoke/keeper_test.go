@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -96,7 +95,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -182,7 +181,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -327,7 +326,7 @@ func TestKeeperSimulation(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
@@ -407,7 +406,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
@@ -545,7 +544,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -642,7 +641,7 @@ func TestKeeperAddFunds(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -724,7 +723,7 @@ func TestKeeperRemove(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -810,7 +809,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -877,7 +876,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-	sb, err := chainClient.Client.BlockNumber(context.Background())
+	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -986,7 +985,7 @@ func TestKeeperNodeDown(t *testing.T) {
 
 			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-			sb, err := chainClient.Client.BlockNumber(context.Background())
+			sb, err := chainClient.Client.BlockNumber(t.Context())
 			require.NoError(t, err, "Failed to get start block")
 
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -1097,7 +1096,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-	sb, err := chainClient.Client.BlockNumber(context.Background())
+	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
@@ -1190,7 +1189,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
 
-	sb, err := chainClient.Client.BlockNumber(context.Background())
+	sb, err := chainClient.Client.BlockNumber(t.Context())
 	require.NoError(t, err, "Failed to get start block")
 
 	registry, _, performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerContracts(

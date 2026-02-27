@@ -51,6 +51,9 @@ type EngineMetrics struct {
 	workflowExecutionStartedCounter   metric.Int64Counter
 	workflowExecutionSucceededCounter metric.Int64Counter
 
+	subscriptions metric.Int64Counter
+	executions    metric.Int64Counter
+
 	getSecretsDuration metric.Int64Histogram
 }
 
@@ -237,6 +240,16 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
+	}
+
+	em.subscriptions, err = beholder.GetMeter().Int64Counter("platform_engine_subscriptions")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register subscriptions counter: %w", err)
+	}
+
+	em.executions, err = beholder.GetMeter().Int64Counter("platform_engine_executions")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register executions counter: %w", err)
 	}
 
 	return em, nil
@@ -454,4 +467,14 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionSucceededCounter(ctx c
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionStartedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowExecutionStartedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementSubscriptionsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.subscriptions.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementExecutionsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.executions.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

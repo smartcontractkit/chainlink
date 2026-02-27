@@ -36,6 +36,8 @@ type testEvtHandler struct {
 
 func (m *testEvtHandler) Close() error { return nil }
 
+func (m *testEvtHandler) Start(_ context.Context) error { return nil }
+
 func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()

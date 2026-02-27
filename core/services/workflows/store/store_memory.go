@@ -164,6 +164,17 @@ func (s *InMemoryStore) Name() string {
 	return "WorkflowStore"
 }
 
+func (s *InMemoryStore) DeleteByWorkflowID(_ context.Context, workflowID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, state := range s.idToExecution {
+		if state.WorkflowID == workflowID {
+			delete(s.idToExecution, id)
+		}
+	}
+	return nil
+}
+
 func (s *InMemoryStore) pruneExpiredExecutionEntries() {
 	defer s.shutdownWaitGroup.Done()
 	ticker := s.clock.NewTicker(s.pruneInterval)

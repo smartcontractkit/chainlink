@@ -53,6 +53,7 @@ import (
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -517,7 +518,7 @@ func NewNode(
 	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts: chainlink.CREOpts{
+		Opts: cre.Opts{
 			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 		},
 		Config:   cfg,

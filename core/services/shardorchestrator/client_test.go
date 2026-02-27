@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 )
 
 const bufSize = 1024 * 1024
@@ -88,7 +89,7 @@ func createTestClient(t *testing.T, lis *bufconn.Listener) *Client {
 }
 
 func TestClient_GetWorkflowShardMapping(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
 		mappings: map[string]uint32{
@@ -142,7 +143,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 }
 
 func TestClient_ReportWorkflowTriggerRegistration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
 		mappings: map[string]uint32{},
@@ -187,7 +188,7 @@ func TestClient_Close(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify connection is closed by attempting to use it
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	_, err = client.GetWorkflowShardMapping(ctx, []string{"test"})
@@ -195,12 +196,11 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	ctx := context.Background()
 	lggr := logger.Test(t)
 
 	t.Run("creates client successfully", func(t *testing.T) {
 		// Note: This creates a client but doesn't connect immediately with grpc.NewClient
-		client, err := NewClient(ctx, "localhost:50051", lggr)
+		client, err := NewClient("localhost:50051", lggr)
 		require.NoError(t, err)
 		require.NotNil(t, client)
 		defer client.Close()
@@ -209,4 +209,40 @@ func TestNewClient(t *testing.T) {
 		assert.NotNil(t, client.client)
 		assert.NotNil(t, client.logger)
 	})
+}
+
+func TestLocalClient_GetWorkflowShardMapping(t *testing.T) {
+	ctx := context.Background()
+	lggr := logger.Test(t)
+	ringStore := ring.NewStore()
+	ringStore.SetShardForWorkflow("wf-a", 1)
+	ringStore.SetShardForWorkflow("wf-b", 2)
+	server := NewServer(ringStore, lggr)
+	client := NewLocalClient(server, lggr)
+
+	resp, err := client.GetWorkflowShardMapping(ctx, []string{"wf-a", "wf-b"})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, uint32(1), resp.Mappings["wf-a"])
+	assert.Equal(t, uint32(2), resp.Mappings["wf-b"])
+	assert.NoError(t, client.Close())
+}
+
+func TestLocalClient_ReportWorkflowTriggerRegistration(t *testing.T) {
+	ctx := context.Background()
+	lggr := logger.Test(t)
+	ringStore := ring.NewStore()
+	server := NewServer(ringStore, lggr)
+	client := NewLocalClient(server, lggr)
+
+	req := &ringpb.ReportWorkflowTriggerRegistrationRequest{
+		SourceShardId:        1,
+		RegisteredWorkflows:  map[string]uint32{"wf-1": 0, "wf-2": 0},
+		TotalActiveWorkflows: 2,
+	}
+	resp, err := client.ReportWorkflowTriggerRegistration(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.True(t, resp.Success)
+	assert.NoError(t, client.Close())
 }

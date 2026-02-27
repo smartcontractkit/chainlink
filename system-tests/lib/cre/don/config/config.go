@@ -465,6 +465,7 @@ func addWorkerNodeConfig(
 	}
 
 	if donMetadata.IsShardDON() {
+		existingConfig.Sharding.ShardingEnabled = ptr.Ptr(true)
 		existingConfig.Sharding.ShardIndex = ptr.Ptr(uint16(donMetadata.ShardIndex)) //nolint:gosec // disable G115 overflow is unrealistic
 
 		// all shards apart from the leader need to connect to shard orchestrators running on shard leader DON (shard0)

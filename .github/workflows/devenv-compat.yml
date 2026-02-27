@@ -1,0 +1,190 @@
+name: Upgrade Compatibility Test
+
+on:
+  workflow_call:
+    inputs:
+      buildcmd:
+        description: "Build command to run"
+        required: true
+        type: string
+      envcmd:
+        description: "Environment setup command to run"
+        required: true
+        type: string
+      testcmd:
+        description: "Test command to run"
+        required: true
+        type: string
+      nodes:
+        description: "Number of nodes for the test"
+        required: false
+        default: "3"
+        type: string
+      versions-back:
+        description: "Number of versions to go back for compatibility testing"
+        required: false
+        default: "2"
+        type: string
+      working-directory:
+        description: "Working directory for commands"
+        required: false
+        default: "devenv"
+        type: string
+      logs-directory:
+        description: "Logs directory"
+        required: true
+        type: string
+      ctf-log-level:
+        description: "CTF log level"
+        required: false
+        default: "info"
+        type: string
+
+  workflow_dispatch:
+    inputs:
+      buildcmd:
+        description: "Build command to run"
+        required: true
+        type: string
+      envcmd:
+        description: "Environment setup command to run"
+        required: true
+        type: string
+      testcmd:
+        description: "Test command to run"
+        required: true
+        type: string
+      nodes:
+        description: "Number of nodes for the test"
+        required: false
+        default: "3"
+        type: string
+      versions-back:
+        description: "Number of versions to go back for compatibility testing"
+        required: false
+        default: "2"
+        type: string
+      working-directory:
+        description: "Working directory for commands"
+        required: false
+        default: "devenv"
+        type: string
+      logs-directory:
+        description: "Logs directory"
+        required: true
+        type: string
+      ctf-log-level:
+        description: "CTF log level"
+        required: false
+        default: "info"
+        type: string
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
+    defaults:
+      run:
+        working-directory: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
+    env:
+      BUILD_CMD: ${{ github.event_name == 'workflow_call' && inputs.buildcmd || github.event.inputs.buildcmd }}
+      ENV_CMD: ${{ github.event_name == 'workflow_call' && inputs.envcmd || github.event.inputs.envcmd }}
+      TEST_CMD: ${{ github.event_name == 'workflow_call' && inputs.testcmd || github.event.inputs.testcmd }}
+      NODES: ${{ github.event_name == 'workflow_call' && inputs.nodes || github.event.inputs.nodes }}
+      VERSIONS_BACK: ${{ github.event_name == 'workflow_call' && inputs.versions-back || github.event.inputs.versions-back }}
+      WORKING_DIR: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
+      LOGS_DIR: ${{ github.event_name == 'workflow_call' && inputs.logs-directory || github.event.inputs.logs-directory }}
+      CTF_LOG_LEVEL: ${{ github.event_name == 'workflow_call' && inputs.ctf-log-level || github.event.inputs.ctf-log-level }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        with:
+          just-version: "1.40.0"
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
+          aws-region: us-west-2
+
+      - name: Authenticate to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v6 # v6
+        with:
+          cache: true
+          go-version-file: ${{ env.WORKING_DIR }}/go.mod
+          cache-dependency-path: ${{ env.WORKING_DIR }}/go.sum
+
+      - name: Download Go dependencies
+        run: |
+          go mod download
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Get CTF version from go.mod
+        shell: bash
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
+          echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
+
+      - name: Install CTF binary
+        shell: bash
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p bin
+          gh release download "${{ env.CTF_TAG }}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          tar -xzf ctf.tar.gz
+          mv ctf bin/ctf
+          chmod +x bin/ctf
+
+      - name: Run compat test
+        working-directory: ${{ env.WORKING_DIR }}
+        shell: bash
+        env:
+          CTF_LOG_LEVEL: ${{ env.CTF_LOG_LEVEL }}
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+          REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
+          BUILD_CMD: ${{ env.BUILD_CMD }}
+          ENV_CMD: ${{ env.ENV_CMD }}
+          TEST_CMD: ${{ env.TEST_CMD }}
+          NODES: ${{ env.NODES }}
+          VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
+        run: |
+          ./bin/ctf compat backward \
+            --registry "${REGISTRY}" \
+            --buildcmd "${BUILD_CMD}" \
+            --envcmd "${ENV_CMD}" \
+            --testcmd "${TEST_CMD}" \
+            --nodes "${NODES}" \
+            --versions-back "${VERSIONS_BACK}"
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-smoke
+          path: ${{ env.LOGS_DIR }}
+          retention-days: 3

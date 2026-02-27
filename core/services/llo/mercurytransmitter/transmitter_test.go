@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 )
 
 type mockCfg struct{}
@@ -65,7 +64,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	donID := uint32(123456)
 	orm := NewORM(db, donID)
-	clients := map[string]grpc.Client{}
+	clients := map[string]rpc.Client{}
 
 	t.Run("errors if not started", func(t *testing.T) {
 		mt := newTransmitter(Opts{

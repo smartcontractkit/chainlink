@@ -22,9 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 )
 
 const (
@@ -132,7 +132,7 @@ type Opts struct {
 	Lggr                 logger.Logger
 	VerboseLogging       bool
 	Cfg                  Config
-	Clients              map[string]grpc.Client
+	Clients              map[string]rpc.Client
 	FromAccount          string
 	DonID                uint32
 	ORM                  ORM

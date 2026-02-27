@@ -379,6 +379,7 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
+MaxConcurrency = 12
 AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
@@ -447,6 +448,7 @@ IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
 [Sharding]
+ShardingEnabled = false
 ArbiterPort = 9876
 ArbiterPollInterval = '12s'
 ArbiterRetryInterval = '12s'

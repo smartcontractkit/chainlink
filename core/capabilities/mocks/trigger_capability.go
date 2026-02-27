@@ -23,6 +23,55 @@ func (_m *TriggerCapability) EXPECT() *TriggerCapability_Expecter {
 	return &TriggerCapability_Expecter{mock: &_m.Mock}
 }
 
+// AckEvent provides a mock function with given fields: ctx, triggerId, eventId, method
+func (_m *TriggerCapability) AckEvent(ctx context.Context, triggerId string, eventId string, method string) error {
+	ret := _m.Called(ctx, triggerId, eventId, method)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AckEvent")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, triggerId, eventId, method)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TriggerCapability_AckEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AckEvent'
+type TriggerCapability_AckEvent_Call struct {
+	*mock.Call
+}
+
+// AckEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - triggerId string
+//   - eventId string
+//   - method string
+func (_e *TriggerCapability_Expecter) AckEvent(ctx interface{}, triggerId interface{}, eventId interface{}, method interface{}) *TriggerCapability_AckEvent_Call {
+	return &TriggerCapability_AckEvent_Call{Call: _e.mock.On("AckEvent", ctx, triggerId, eventId, method)}
+}
+
+func (_c *TriggerCapability_AckEvent_Call) Run(run func(ctx context.Context, triggerId string, eventId string, method string)) *TriggerCapability_AckEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *TriggerCapability_AckEvent_Call) Return(_a0 error) *TriggerCapability_AckEvent_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TriggerCapability_AckEvent_Call) RunAndReturn(run func(context.Context, string, string, string) error) *TriggerCapability_AckEvent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Info provides a mock function with given fields: ctx
 func (_m *TriggerCapability) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	ret := _m.Called(ctx)

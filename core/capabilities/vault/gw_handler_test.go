@@ -1,7 +1,6 @@
 package vault_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -23,7 +22,7 @@ import (
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name          string
@@ -188,7 +187,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 
 func TestGatewayHandler_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	secretsService := vaulttypesmocks.NewSecretsService(t)
 	gwConnector := connector_mocks.NewGatewayConnector(t)

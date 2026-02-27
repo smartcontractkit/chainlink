@@ -21,10 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 type fakeStreamsTrigger struct {
@@ -63,6 +63,10 @@ func (st *fakeStreamsTrigger) Info(ctx context.Context) (commonCap.CapabilityInf
 		DON:            &commonCap.DON{},
 		IsLocal:        true,
 	}, nil
+}
+
+func (st *fakeStreamsTrigger) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	return nil
 }
 
 func (st *fakeStreamsTrigger) RegisterTrigger(ctx context.Context, request commonCap.TriggerRegistrationRequest) (<-chan commonCap.TriggerResponse, error) {

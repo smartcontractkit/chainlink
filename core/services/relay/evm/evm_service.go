@@ -282,24 +282,29 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		return &evm.TransactionResult{TxStatus: txStatus, TxIdempotencyKey: txID}, nil
 	}
 
-	receipt, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (*evmtxmgr.ChainReceipt, error) {
-		receipt, receiptErr := e.chain.TxManager().GetTransactionReceipt(ctx, txID)
+	receipt, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (evmtxmgr.ChainReceipt, error) {
+		r, receiptErr := e.chain.TxManager().GetTransactionReceipt(ctx, txID)
 		if receiptErr != nil {
 			return nil, fmt.Errorf("failed to get TX receipt for tx with ID %s: %w", txID, receiptErr)
 		}
-		if receipt == nil {
+		if r == nil {
 			return nil, fmt.Errorf("receipt was nil for TX with ID %s", txID)
 		}
-		return receipt, nil
+		return *r, nil
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed getting transaction receipt. %w", err)
 	}
 
+	txStatus = evm.TxSuccess
+	if receipt.GetStatus() == gethtypes.ReceiptStatusFailed {
+		txStatus = evm.TxReverted
+	}
+
 	return &evm.TransactionResult{
-		TxStatus:         evm.TxSuccess,
-		TxHash:           (*receipt).GetTxHash(),
+		TxStatus:         txStatus,
+		TxHash:           receipt.GetTxHash(),
 		TxIdempotencyKey: txID,
 	}, nil
 }

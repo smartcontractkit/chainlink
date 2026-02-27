@@ -17,6 +17,7 @@ const (
 	MethodUnRegisterTrigger = "UnregisterTrigger"
 	MethodTriggerEvent      = "TriggerEvent"
 	MethodExecute           = "Execute"
+	MethodTriggerEventAck   = "TriggerEventACK"
 )
 
 type Dispatcher interface {

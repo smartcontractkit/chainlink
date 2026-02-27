@@ -531,6 +531,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            ptr("event"),
+			MaxConcurrency:          ptr(12),
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: ptr(""),
 				URL:                 ptr(""),
@@ -673,6 +674,7 @@ func TestConfig_Marshal(t *testing.T) {
 		IgnoreJoblessBridges: ptr(false),
 	}
 	full.Sharding = toml.Sharding{
+		ShardingEnabled:          ptr(false),
 		ArbiterPort:              ptr[uint16](9876),
 		ArbiterPollInterval:      commoncfg.MustNewDuration(12 * time.Second),
 		ArbiterRetryInterval:     commoncfg.MustNewDuration(12 * time.Second),
@@ -898,6 +900,7 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitLimitDefault:   ptr[uint32](100_000),
 				EstimateComputeUnitLimit:  ptr(false),
 				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
+				LogPollerCPIEventsEnabled: ptr(true),
 			},
 			MultiNode: mnCfg.MultiNodeConfig{
 				MultiNode: mnCfg.MultiNode{
@@ -1416,6 +1419,7 @@ BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
+LogPollerCPIEventsEnabled = true
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'
