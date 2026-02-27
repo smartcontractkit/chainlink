@@ -72,7 +72,7 @@ func (m *connectionManager) Name() string { return m.lggr.Name() }
 type donConnectionManager struct {
 	donConfig  *config.DONConfig
 	nodes      map[string]*nodeState
-	handler    handlers.Handler
+	handlers   map[string]handlers.Handler // service name -> handler
 	closeWait  sync.WaitGroup
 	shutdownCh services.StopChan
 	gMetrics   *monitoring.GatewayMetrics
@@ -102,28 +102,41 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 		if ok {
 			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
 		}
-		nodes := make(map[string]*nodeState)
-		for _, nodeConfig := range donConfig.Members {
-			nodeAddress := strings.ToLower(nodeConfig.Address)
-			_, ok := nodes[nodeAddress]
-			if ok {
-				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donConfig.DonId)
-			}
-			connWrapper := network.NewWSConnectionWrapper(lggr)
-			if connWrapper == nil {
-				return nil, fmt.Errorf("error creating WSConnectionWrapper for node %s", nodeAddress)
-			}
-			nodes[nodeAddress] = &nodeState{
-				name: nodeConfig.Name,
-				conn: connWrapper,
-			}
+		nodes, err := buildNodeStates(donConfig.Members, donConfig.DonId, lggr)
+		if err != nil {
+			return nil, err
 		}
 		dons[donConfig.DonId] = &donConnectionManager{
 			donConfig:  &donConfig,
 			nodes:      nodes,
+			handlers:   make(map[string]handlers.Handler),
 			shutdownCh: make(chan struct{}),
 			gMetrics:   gMetrics,
 			lggr:       logger.Named(lggr, "DONConnectionManager."+donConfig.DonId),
+		}
+	}
+	for _, shardedDON := range gwConfig.ShardedDONs {
+		for shardIdx, shard := range shardedDON.Shards {
+			donID := config.ShardDONID(shardedDON.DonName, shardIdx)
+			if _, ok := dons[donID]; ok {
+				return nil, fmt.Errorf("duplicate DON ID %s", donID)
+			}
+			nodes, err := buildNodeStates(shard.Nodes, donID, lggr)
+			if err != nil {
+				return nil, err
+			}
+			dons[donID] = &donConnectionManager{
+				donConfig: &config.DONConfig{
+					DonId:   donID,
+					F:       shardedDON.F,
+					Members: shard.Nodes,
+				},
+				nodes:      nodes,
+				handlers:   make(map[string]handlers.Handler),
+				shutdownCh: make(chan struct{}),
+				gMetrics:   gMetrics,
+				lggr:       logger.Named(lggr, "DONConnectionManager."+donID),
+			}
 		}
 	}
 	connMgr := &connectionManager{
@@ -140,6 +153,25 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 	}
 	connMgr.wsServer = wsServer
 	return connMgr, nil
+}
+
+func buildNodeStates(members []config.NodeConfig, donID string, lggr logger.Logger) (map[string]*nodeState, error) {
+	nodes := make(map[string]*nodeState)
+	for _, nodeConfig := range members {
+		nodeAddress := strings.ToLower(nodeConfig.Address)
+		if _, ok := nodes[nodeAddress]; ok {
+			return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donID)
+		}
+		connWrapper := network.NewWSConnectionWrapper(lggr)
+		if connWrapper == nil {
+			return nil, fmt.Errorf("error creating WSConnectionWrapper for node %s", nodeAddress)
+		}
+		nodes[nodeAddress] = &nodeState{
+			name: nodeConfig.Name,
+			conn: connWrapper,
+		}
+	}
+	return nodes, nil
 }
 
 func (m *connectionManager) DONConnectionManager(donId string) *donConnectionManager {
@@ -263,8 +295,22 @@ func (m *connectionManager) GetPort() int {
 	return m.wsServer.GetPort()
 }
 
-func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
-	m.handler = handler
+func (m *donConnectionManager) SetHandler(serviceName string, handler handlers.Handler) {
+	m.handlers[serviceName] = handler
+}
+
+func (m *donConnectionManager) getHandler(method string) (handlers.Handler, error) {
+	if len(m.handlers) == 1 {
+		for _, h := range m.handlers {
+			return h, nil // supports legacy single-handler case
+		}
+	}
+	serviceName := strings.Split(method, ".")[0]
+	handler, ok := m.handlers[serviceName]
+	if !ok {
+		return nil, fmt.Errorf("no handler for service %q (method %q)", serviceName, method)
+	}
+	return handler, nil
 }
 
 func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc.Request[json.RawMessage]) error {
@@ -297,8 +343,13 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 				m.lggr.Errorw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)
 				break
 			}
+			handler, err := m.getHandler(resp.Method)
+			if err != nil {
+				m.lggr.Errorw("no handler for node message", "nodeAddress", nodeAddress, "method", resp.Method, "err", err)
+				break
+			}
 			startTime := time.Now()
-			err = m.handler.HandleNodeMessage(ctx, &resp, nodeAddress)
+			err = handler.HandleNodeMessage(ctx, &resp, nodeAddress)
 			m.gMetrics.RecordNodeMsgHandlerInvocation(ctx, nodeAddress, nodeState.name, err == nil)
 			m.gMetrics.RecordNodeMsgHandlerDuration(ctx, nodeAddress, nodeState.name, time.Since(startTime), err == nil)
 			if err != nil {

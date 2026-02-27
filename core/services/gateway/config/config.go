@@ -63,6 +63,12 @@ type ShardedDONConfig struct {
 	F       int
 	Shards  []Shard
 }
+
+// ShardDONID returns the connection-manager ID for a given shard index (e.g. "myDON_0").
+func ShardDONID(donName string, shardIdx int) string {
+	return fmt.Sprintf("%s_%d", donName, shardIdx)
+}
+
 type Shard struct {
 	Nodes []NodeConfig
 }

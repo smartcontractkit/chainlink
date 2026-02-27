@@ -120,7 +120,6 @@ func setupFromNewConfig(
 		donNameToConfig[don.DonName] = don
 	}
 
-	assignedDONs := make(map[string]struct{})
 	// For each service, create a MultiHandler with its handlers and attached DONs
 	for _, svc := range cfg.Services {
 		var shardedDONs []config.ShardedDONConfig
@@ -131,17 +130,11 @@ func setupFromNewConfig(
 			if !ok {
 				return nil, fmt.Errorf("service %q references unknown DON: %s", svc.ServiceName, donName)
 			}
-			if _, assigned := assignedDONs[donName]; assigned {
-				// NOTE: this check can be relaxed in the future once we clean up all "service.method" strings
-				// and split them correctly in Multihandler
-				return nil, fmt.Errorf("DON %q is assigned to multiple services", donName)
-			}
-			assignedDONs[donName] = struct{}{}
 			shardedDONs = append(shardedDONs, donCfg)
 
 			var shardConnMgrs []handlers.DON
 			for shardIdx := range donCfg.Shards {
-				donID := fmt.Sprintf("%s_%d", donName, shardIdx)
+				donID := config.ShardDONID(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
@@ -158,15 +151,15 @@ func setupFromNewConfig(
 
 		serviceToMultiHandler[svc.ServiceName] = handler
 
-		// Set (multi)handler on all associated DON connection managers
+		// Set (multi)handler on all associated DON connection managers, keyed by service name
 		for i, donName := range svc.DONs {
 			for shardIdx := range shardsConnMgrs[i] {
-				donID := fmt.Sprintf("%s_%d", donName, shardIdx)
+				donID := config.ShardDONID(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
 				}
-				donConnMgr.SetHandler(handler)
+				donConnMgr.SetHandler(svc.ServiceName, handler)
 			}
 		}
 
@@ -235,7 +228,7 @@ func setupFromLegacyConfig(
 			}
 		}
 
-		donConnMgr.SetHandler(handler)
+		donConnMgr.SetHandler("", handler)
 	}
 
 	return handlerMap, serviceNameToDonID, nil
