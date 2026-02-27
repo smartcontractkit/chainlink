@@ -34,7 +34,7 @@ import (
 
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
-	"github.com/smartcontractkit/chainlink/v2/mercury"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 

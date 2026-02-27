@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
-	"github.com/smartcontractkit/chainlink/v2/mercury/v3/reportcodec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"

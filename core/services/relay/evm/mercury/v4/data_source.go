@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	v4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4"
-	mercurytypes "github.com/smartcontractkit/chainlink/v2/mercury/types"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/mercury/utils"
-	"github.com/smartcontractkit/chainlink/v2/mercury/v4/reportcodec"
+	mercurytypes "github.com/smartcontractkit/chainlink-evm/pkg/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v4/reportcodec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"

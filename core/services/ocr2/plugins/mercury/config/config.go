@@ -12,9 +12,9 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
+	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/mercury/utils"
 )
 
 type PluginConfig struct {

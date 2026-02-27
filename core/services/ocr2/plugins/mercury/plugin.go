@@ -14,8 +14,8 @@ import (
 	relaymercuryv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	relaymercuryv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4"
-	"github.com/smartcontractkit/chainlink/v2/mercury/types"
-	"github.com/smartcontractkit/chainlink/v2/mercury/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"

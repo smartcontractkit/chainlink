@@ -27,7 +27,7 @@ import (
 	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmllo "github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/mercury"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
