@@ -119,7 +119,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 1800
           mask-aws-account-id: true
 
