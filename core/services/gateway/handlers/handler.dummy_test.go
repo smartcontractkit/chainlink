@@ -27,7 +27,7 @@ type testConnManager struct {
 	sendCounter int
 }
 
-func (m *testConnManager) SetHandler(handler handlers.Handler) {
+func (m *testConnManager) SetHandler(_ string, handler handlers.Handler) {
 	m.handler = handler
 }
 
@@ -49,7 +49,7 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	connMgr := testConnManager{}
 	handler, err := handlers.NewDummyHandler(&config, &connMgr, logger.Test(t))
 	require.NoError(t, err)
-	connMgr.SetHandler(handler)
+	connMgr.SetHandler("", handler)
 
 	ctx := testutils.Context(t)
 
