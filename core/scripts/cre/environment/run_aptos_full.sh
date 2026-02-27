@@ -68,13 +68,10 @@ go get "github.com/smartcontractkit/chainlink-common@${BRANCH_COMMON}"
 go get "github.com/smartcontractkit/chainlink-common/keystore@${BRANCH_COMMON}"
 go get "github.com/smartcontractkit/chainlink-aptos@${RESOLVED_APTOS_REF}"
 go get "github.com/smartcontractkit/chainlink-evm@${BRANCH_EVM}"
-go mod tidy
-# Re-apply branch pins after tidy.
-go get "github.com/smartcontractkit/chainlink-protos/cre/go@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-common@${BRANCH_COMMON}"
-go get "github.com/smartcontractkit/chainlink-common/keystore@${BRANCH_COMMON}"
-go get "github.com/smartcontractkit/chainlink-aptos@${RESOLVED_APTOS_REF}"
-go get "github.com/smartcontractkit/chainlink-evm@${BRANCH_EVM}"
+# Intentionally avoid root-level `go mod tidy` here.
+# `tidy` currently traverses optional imports that depend on an in-flight
+# chainlink-data-streams/wsrpc module-path transition and fails resolution.
+# We keep module refs pinned explicitly via go get and hydrate checksums below.
 # Hydrate all required module checksums so Docker's readonly module mode does not fail.
 go mod download all
 
