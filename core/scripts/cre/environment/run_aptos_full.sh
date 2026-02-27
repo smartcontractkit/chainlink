@@ -24,11 +24,13 @@ cd "$SCRIPT_DIR"
 
 # Chainlink repo root (core/scripts/cre/environment -> 4 levels up)
 CHAINLINK_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-BRANCH_COMMON="${CHAINLINK_COMMON_BRANCH:-aptos-service-common}"
-BRANCH_APTOS="${CHAINLINK_APTOS_BRANCH:-feature/aptos-cre-tmp}"
+BRANCH_COMMON="${CHAINLINK_COMMON_BRANCH:-feature/aptos-service-common-2}"
+BRANCH_APTOS="${CHAINLINK_APTOS_BRANCH:-feature/aptos-cre-tmp-2}"
 BRANCH_PROTOS="${CHAINLINK_PROTOS_BRANCH:-aptos-service-protos}"
 BRANCH_EVM="${CHAINLINK_EVM_BRANCH:-develop}"
-BRANCH_CAPABILITIES="${CAPABILITIES_BRANCH:-feature/aptos-service-tmp-2}"
+BRANCH_CAPABILITIES="${CAPABILITIES_BRANCH:-feature/aptos-service-tmp-3}"
+BRANCH_DATA_STREAMS="${CHAINLINK_DATA_STREAMS_BRANCH:-master}"
+BRANCH_SOLANA="${CHAINLINK_SOLANA_BRANCH:-develop}"
 IMAGE_TAG="${CHAINLINK_APTOS_IMAGE:-chainlink:aptos-remote}"
 
 resolve_module_ref() {
@@ -40,6 +42,8 @@ resolve_module_ref() {
 RESOLVED_APTOS_REF="$(resolve_module_ref github.com/smartcontractkit/chainlink-aptos "$BRANCH_APTOS")"
 RESOLVED_CAP_APTOS_REF="$(resolve_module_ref github.com/smartcontractkit/capabilities/chain_capabilities/aptos "$BRANCH_CAPABILITIES")"
 RESOLVED_CAP_CONSENSUS_REF="$(resolve_module_ref github.com/smartcontractkit/capabilities/consensus "$BRANCH_CAPABILITIES")"
+RESOLVED_DATA_STREAMS_REF="$(resolve_module_ref github.com/smartcontractkit/chainlink-data-streams "$BRANCH_DATA_STREAMS")"
+RESOLVED_SOLANA_REF="$(resolve_module_ref github.com/smartcontractkit/chainlink-solana "$BRANCH_SOLANA")"
 
 if [ -z "${CRE_APTOS_CONTRACTS_PATH:-}" ]; then
   DEFAULT_APTOS_CONTRACTS_PATH="$(cd "$CHAINLINK_ROOT/.." && pwd)/chainlink-aptos/contracts"
@@ -51,6 +55,8 @@ fi
 
 echo "Using remote branches: chainlink-common@${BRANCH_COMMON}, chainlink-aptos@${BRANCH_APTOS}, chainlink-protos@${BRANCH_PROTOS}"
 echo "Resolved chainlink-aptos module ref: ${RESOLVED_APTOS_REF}"
+echo "Resolved chainlink-data-streams module ref: ${RESOLVED_DATA_STREAMS_REF}"
+echo "Resolved chainlink-solana module ref: ${RESOLVED_SOLANA_REF}"
 echo "Resolved Aptos capabilities module ref: ${RESOLVED_CAP_APTOS_REF}"
 echo "Resolved consensus capabilities module ref: ${RESOLVED_CAP_CONSENSUS_REF}"
 
@@ -68,10 +74,11 @@ go get "github.com/smartcontractkit/chainlink-common@${BRANCH_COMMON}"
 go get "github.com/smartcontractkit/chainlink-common/keystore@${BRANCH_COMMON}"
 go get "github.com/smartcontractkit/chainlink-aptos@${RESOLVED_APTOS_REF}"
 go get "github.com/smartcontractkit/chainlink-evm@${BRANCH_EVM}"
-# Intentionally avoid root-level `go mod tidy` here.
-# `tidy` currently traverses optional imports that depend on an in-flight
-# chainlink-data-streams/wsrpc module-path transition and fails resolution.
-# We keep module refs pinned explicitly via go get and hydrate checksums below.
+# Keep wsrpc imports available for plugin builds; aptos-service-common currently downgrades this.
+go get "github.com/smartcontractkit/chainlink-data-streams@${RESOLVED_DATA_STREAMS_REF}"
+# Keep CCIP Solana codec API shape aligned with current chainlink branch.
+go get "github.com/smartcontractkit/chainlink-solana@${RESOLVED_SOLANA_REF}"
+go mod tidy
 # Hydrate all required module checksums so Docker's readonly module mode does not fail.
 go mod download all
 
@@ -124,8 +131,26 @@ mv "$TMP_PUBLIC_PLUGINS" "$PUBLIC_PLUGINS_FILE"
 echo "Using Aptos relayer plugin ref: chainlink-aptos@${RESOLVED_APTOS_REF}"
 echo "Using Aptos capabilities plugin ref: capabilities/chain_capabilities/aptos@${RESOLVED_CAP_APTOS_REF}"
 
+# Pre-pull DB images used by CRE/JD stacks. After aggressive local prune these may
+# be missing and cause env start to fail with "No such image".
+for image in postgres:16 postgres:12.0; do
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "Pulling required image: $image"
+    docker pull "$image"
+  fi
+done
+
 # Build node image with normal Dockerfile (context = chainlink repo only).
 # CL_INSTALL_PRIVATE_PLUGINS=true required for cron (cron-trigger). Capabilities repo is private, so GIT_AUTH_TOKEN is required.
+# Best-effort fallback so local runs work even when token is not exported.
+if [ -z "${GIT_AUTH_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
+  GIT_AUTH_TOKEN="$(gh auth token 2>/dev/null | tr -d '\n' || true)"
+  if [ -n "${GIT_AUTH_TOKEN:-}" ]; then
+    export GIT_AUTH_TOKEN
+    echo "Using GIT_AUTH_TOKEN from gh auth token"
+  fi
+fi
+
 if [ -z "${GIT_AUTH_TOKEN:-}" ]; then
   echo "ERROR: GIT_AUTH_TOKEN must be set to build with private plugins (capabilities/cron). Export a GitHub token with access to the capabilities repo."
   exit 1

@@ -105,17 +105,17 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:                 creEnv.CldfEnvironment.DataStore,
-					ContractVersions:          creEnv.ContractVersions,
-					DonMetadata:               donMetadata,
-					Blockchains:               chainPerSelector,
-					Flags:                     donMetadata.Flags,
-					CapabilitiesPeeringData:   capabilitiesPeeringData,
-					OCRPeeringData:            ocrPeeringData,
-					RegistryChainSelector:     creEnv.RegistryChainSelector,
-					Topology:                  topology,
-					Provider:                  creEnv.Provider,
-					AptosForwarderAddresses:  creEnv.AptosForwarderAddresses,
+					Datastore:               creEnv.CldfEnvironment.DataStore,
+					ContractVersions:        creEnv.ContractVersions,
+					DonMetadata:             donMetadata,
+					Blockchains:             chainPerSelector,
+					Flags:                   donMetadata.Flags,
+					CapabilitiesPeeringData: capabilitiesPeeringData,
+					OCRPeeringData:          ocrPeeringData,
+					RegistryChainSelector:   creEnv.RegistryChainSelector,
+					Topology:                topology,
+					Provider:                creEnv.Provider,
+					AptosForwarderAddresses: creEnv.AptosForwarderAddresses,
 				},
 				configFactoryFunctions,
 			)
@@ -428,8 +428,9 @@ func addWorkerNodeConfig(
 	}
 
 	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
-	// before resetting Capabilities struct
+	// and Local capabilities config before resetting Capabilities struct.
 	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
+	existingLocalCapabilities := existingConfig.Capabilities.Local
 
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
@@ -444,6 +445,14 @@ func addWorkerNodeConfig(
 			SendToSharedPeer: ptr.Ptr(true),
 		},
 		WorkflowRegistry: existingWorkflowRegistry,
+		Local:            existingLocalCapabilities,
+	}
+
+	// Default to legacy CRE behavior where capabilities are started from approved job specs.
+	// Without an explicit allowlist, LocalCapabilities treats all capability IDs as
+	// registry-launched and standardcapabilities job specs are rejected.
+	if existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist == nil {
+		existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist = []string{`^$`}
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
