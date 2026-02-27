@@ -78,15 +78,6 @@ func (m *multiHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Resp
 }
 
 func (m *multiHandler) getHandler(method string) (handlers.Handler, error) {
-	// If there's only one handler, return it directly.
-	// This preserves backwards compatibility for cases where the method
-	// isn't specified on responses (and for cases where only one handler is registered more generally).
-	if len(m.typeToHandler) == 1 {
-		for _, handler := range m.typeToHandler {
-			return handler, nil
-		}
-	}
-
 	handler, ok := m.methodToHandler[method]
 	if !ok {
 		return nil, errors.New("no handler found for method " + method)
