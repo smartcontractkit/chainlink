@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/mercury/utils"
+	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/mercury/v4/reportcodec"
 )
 
 var _ mercurytypes.ServerFetcher = &mockFetcher{}

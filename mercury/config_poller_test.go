@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestMercuryConfigPoller(t *testing.T) {
@@ -43,7 +42,6 @@ func TestMercuryConfigPoller(t *testing.T) {
 				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),
 				TransmitAccount:   ocrtypes2.Account(evmutils.RandomAddress().String()),
 				OffchainPublicKey: evmutils.RandomBytes32(),
-				PeerID:            utils.MustNewPeerID(),
 			},
 			ConfigEncryptionPublicKey: evmutils.RandomBytes32(),
 		})

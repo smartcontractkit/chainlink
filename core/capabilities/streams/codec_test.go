@@ -19,7 +19,7 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/mercury/v3/reportcodec"
 )
 
 func TestCodec_WrapUnwrap(t *testing.T) {

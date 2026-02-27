@@ -8,6 +8,8 @@ import (
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
+	"github.com/smartcontractkit/chainlink/v2/mercury/utils"
+	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/mercury/v3/reportcodec"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -21,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 var _ mercurytypes.ServerFetcher = &mockFetcher{}

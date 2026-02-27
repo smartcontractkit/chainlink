@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
+	mercury2 "github.com/smartcontractkit/chainlink/v2/mercury"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -61,7 +62,6 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
 var (
@@ -161,7 +161,7 @@ type Relayer struct {
 
 	// Mercury
 	mercuryCfg        MercuryConfig
-	mercuryORM        mercury.ORM
+	mercuryORM        mercury2.ORM
 	mercuryPool       wsrpc.Pool
 	triggerCapability *triggers.MercuryTriggerService
 
@@ -214,7 +214,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
 	sugared := logger.Sugared(lggr).Named("Relayer").With("evmChainID", chain.ID())
-	mercuryORM := mercury.NewORM(opts.DS)
+	mercuryORM := mercury2.NewORM(opts.DS)
 	cdcFactory := sync.OnceValues(func() (channeldefinitions.ChannelDefinitionCacheFactory, error) {
 		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
 		if err != nil {
@@ -819,7 +819,7 @@ func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string,
 	}
 
 	if relayConfig.FeedID != nil {
-		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
+		filterNames = []string{mercury2.FilterName(addr.Address(), *relayConfig.FeedID)}
 	} else {
 		filterNames = []string{configPollerFilterName(addr.Address()), transmitter.FilterName(addr.Address())}
 	}

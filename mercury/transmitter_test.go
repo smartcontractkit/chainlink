@@ -16,22 +16,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	mercurytypes "github.com/smartcontractkit/chainlink/v2/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 )
 
 type mockCfg struct{}
-
-func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
-	return config.MercuryTransmitterProtocolGRPC
-}
 
 func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 100_000

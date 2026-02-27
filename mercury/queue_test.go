@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
+	"github.com/smartcontractkit/chainlink/v2/mercury/mocks"
 )
 
 type TestTransmissionWithReport struct {

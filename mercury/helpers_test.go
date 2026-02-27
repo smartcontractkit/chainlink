@@ -20,6 +20,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/mercury/v2/reportcodec"
+	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/mercury/v3/reportcodec"
 
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -28,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
-	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 const sampleClientPubKey = "0x724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93"
