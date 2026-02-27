@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -215,7 +216,7 @@ func NewEventHandler(
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
-		tracer:                 trace.NewNoopTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
+		tracer:                 noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {

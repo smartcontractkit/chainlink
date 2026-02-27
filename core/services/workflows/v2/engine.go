@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -193,7 +194,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
 		engine.tracer = otel.Tracer("workflow_engine_v2")
 	} else {
-		engine.tracer = trace.NewNoopTracerProvider().Tracer("")
+		engine.tracer = noop.NewTracerProvider().Tracer("")
 	}
 
 	// Store logger and other fields
