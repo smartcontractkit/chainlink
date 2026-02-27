@@ -23,7 +23,7 @@ type WhitelistConfig struct {
 	ExtraAllowedIPsCIDR []string
 }
 
-func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayConfigs []cre.GatewayConfig, whitelistConfig WhitelistConfig) error {
+func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
 	specs := make(map[string][]string)
 
 	if !dons.RequiresGateway() {
@@ -46,7 +46,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 			},
 			Template: job_types.Gateway,
 			Inputs: job_types.JobSpecInput{
-				"dons":                    gatewayConfigs,
+				"services":                gatewayServiceConfigs,
 				"allowedPorts":            append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
 				"allowedSchemes":          []string{"http", "https"},
 				"allowedIPsCIDR":          whitelistConfig.ExtraAllowedIPsCIDR,

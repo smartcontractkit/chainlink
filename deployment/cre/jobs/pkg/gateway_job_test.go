@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +14,7 @@ func TestGateway_Validate(t *testing.T) {
 	require.ErrorContains(t, g.Validate(), "must provide job name")
 
 	g.JobName = "AGatewayJob"
-	require.ErrorContains(t, g.Validate(), "must provide at least one target DON")
+	require.ErrorContains(t, g.Validate(), "must provide at least one DON")
 }
 
 const (
@@ -32,69 +31,63 @@ AuthGatewayId = 'gateway-node-1'
 AuthTimestampToleranceSec = 5
 HeartbeatIntervalSec = 20
 
-[[gatewayConfig.Dons]]
-DonId = 'workflow_1'
+[[gatewayConfig.ShardedDONs]]
+DonName = 'workflow_1'
 F = 1
 
-[[gatewayConfig.Dons.Handlers]]
-Name = 'web-api-capabilities'
-
-[gatewayConfig.Dons.Handlers.Config]
-maxAllowedMessageAgeSec = 1000
-
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10
-
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xabc'
 Name = 'Node 1'
 
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xdef'
 Name = 'Node 2'
 
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xghi'
 Name = 'Node 3'
 
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xjkl'
 Name = 'Node 4'
 
-[[gatewayConfig.Dons]]
-DonId = 'workflow_2'
+[[gatewayConfig.ShardedDONs]]
+DonName = 'workflow_2'
 F = 0
 
-[[gatewayConfig.Dons.Handlers]]
+[[gatewayConfig.ShardedDONs.Shards]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2abc'
+Name = 'Node 1'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2def'
+Name = 'Node 2'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2ghi'
+Name = 'Node 3'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2jkl'
+Name = 'Node 4'
+
+[[gatewayConfig.Services]]
+ServiceName = 'workflows'
+DONs = ['workflow_1', 'workflow_2']
+
+[[gatewayConfig.Services.Handlers]]
 Name = 'web-api-capabilities'
 
-[gatewayConfig.Dons.Handlers.Config]
+[gatewayConfig.Services.Handlers.Config]
 maxAllowedMessageAgeSec = 1000
 
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
+[gatewayConfig.Services.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
 globalRPS = 50
 perSenderBurst = 10
 perSenderRPS = 10
-
-[[gatewayConfig.Dons.Members]]
-Address = '0x2abc'
-Name = 'Node 1'
-
-[[gatewayConfig.Dons.Members]]
-Address = '0x2def'
-Name = 'Node 2'
-
-[[gatewayConfig.Dons.Members]]
-Address = '0x2ghi'
-Name = 'Node 3'
-
-[[gatewayConfig.Dons.Members]]
-Address = '0x2jkl'
-Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
@@ -134,82 +127,80 @@ AuthGatewayId = 'gateway-node-1'
 AuthTimestampToleranceSec = 5
 HeartbeatIntervalSec = 20
 
-[[gatewayConfig.Dons]]
-DonId = 'workflow_1'
+[[gatewayConfig.ShardedDONs]]
+DonName = 'workflow_1'
 F = 1
 
-[[gatewayConfig.Dons.Handlers]]
-Name = 'web-api-capabilities'
-
-[gatewayConfig.Dons.Handlers.Config]
-maxAllowedMessageAgeSec = 1000
-
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10
-
-[[gatewayConfig.Dons.Handlers]]
-Name = 'vault'
-ServiceName = 'vault'
-
-[gatewayConfig.Dons.Handlers.Config]
-requestTimeoutSec = 14
-
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10
-
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xabc'
 Name = 'Node 1'
 
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xdef'
 Name = 'Node 2'
 
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xghi'
 Name = 'Node 3'
 
-[[gatewayConfig.Dons.Members]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
 Address = '0xjkl'
 Name = 'Node 4'
 
-[[gatewayConfig.Dons]]
-DonId = 'workflow_2'
+[[gatewayConfig.ShardedDONs]]
+DonName = 'workflow_2'
 F = 0
 
-[[gatewayConfig.Dons.Handlers]]
+[[gatewayConfig.ShardedDONs.Shards]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2abc'
+Name = 'Node 1'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2def'
+Name = 'Node 2'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2ghi'
+Name = 'Node 3'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0x2jkl'
+Name = 'Node 4'
+
+[[gatewayConfig.Services]]
+ServiceName = 'workflows'
+DONs = ['workflow_1', 'workflow_2']
+
+[[gatewayConfig.Services.Handlers]]
 Name = 'web-api-capabilities'
 
-[gatewayConfig.Dons.Handlers.Config]
+[gatewayConfig.Services.Handlers.Config]
 maxAllowedMessageAgeSec = 1000
 
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
+[gatewayConfig.Services.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
 globalRPS = 50
 perSenderBurst = 10
 perSenderRPS = 10
 
-[[gatewayConfig.Dons.Members]]
-Address = '0x2abc'
-Name = 'Node 1'
+[[gatewayConfig.Services]]
+ServiceName = 'vault'
+DONs = ['workflow_1']
 
-[[gatewayConfig.Dons.Members]]
-Address = '0x2def'
-Name = 'Node 2'
+[[gatewayConfig.Services.Handlers]]
+Name = 'vault'
+ServiceName = 'vault'
 
-[[gatewayConfig.Dons.Members]]
-Address = '0x2ghi'
-Name = 'Node 3'
+[gatewayConfig.Services.Handlers.Config]
+requestTimeoutSec = 14
 
-[[gatewayConfig.Dons.Members]]
-Address = '0x2jkl'
-Name = 'Node 4'
+[gatewayConfig.Services.Handlers.Config.NodeRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
@@ -249,55 +240,65 @@ AuthGatewayId = 'gateway-node-1'
 AuthTimestampToleranceSec = 5
 HeartbeatIntervalSec = 20
 
-[[gatewayConfig.Dons]]
-DonId = 'workflow_1'
+[[gatewayConfig.ShardedDONs]]
+DonName = 'workflow_1'
 F = 3
 
-[[gatewayConfig.Dons.Handlers]]
+[[gatewayConfig.ShardedDONs.Shards]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0xabc'
+Name = 'Node 1'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0xdef'
+Name = 'Node 2'
+
+[[gatewayConfig.ShardedDONs]]
+DonName = 'workflow_2'
+F = 0
+
+[[gatewayConfig.ShardedDONs.Shards]]
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0xghi'
+Name = 'Node 3'
+
+[[gatewayConfig.ShardedDONs.Shards.Nodes]]
+Address = '0xjkl'
+Name = 'Node 4'
+
+[[gatewayConfig.Services]]
+ServiceName = 'workflows'
+DONs = ['workflow_1']
+
+[[gatewayConfig.Services.Handlers]]
 Name = 'http-capabilities'
 ServiceName = 'workflows'
 
-[gatewayConfig.Dons.Handlers.Config]
+[gatewayConfig.Services.Handlers.Config]
 CleanUpPeriodMs = 600000
 
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
+[gatewayConfig.Services.Handlers.Config.NodeRateLimiter]
 globalBurst = 100
 globalRPS = 500
 perSenderBurst = 100
 perSenderRPS = 100
 
-[[gatewayConfig.Dons.Members]]
-Address = '0xabc'
-Name = 'Node 1'
+[[gatewayConfig.Services]]
+ServiceName = 'vault'
+DONs = ['workflow_2']
 
-[[gatewayConfig.Dons.Members]]
-Address = '0xdef'
-Name = 'Node 2'
-
-[[gatewayConfig.Dons]]
-DonId = 'workflow_2'
-F = 0
-
-[[gatewayConfig.Dons.Handlers]]
+[[gatewayConfig.Services.Handlers]]
 Name = 'vault'
 ServiceName = 'vault'
 
-[gatewayConfig.Dons.Handlers.Config]
+[gatewayConfig.Services.Handlers.Config]
 requestTimeoutSec = 14
 
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
+[gatewayConfig.Services.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
 globalRPS = 50
 perSenderBurst = 10
 perSenderRPS = 10
-
-[[gatewayConfig.Dons.Members]]
-Address = '0xghi'
-Name = 'Node 3'
-
-[[gatewayConfig.Dons.Members]]
-Address = '0xjkl'
-Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
@@ -331,51 +332,32 @@ func TestGateway_Resolve(t *testing.T) {
 	g := GatewayJob{
 		JobName:           "Gateway1",
 		RequestTimeoutSec: 15,
-		TargetDONs: []TargetDON{
+		DONs: []TargetDON{
 			{
-				ID:       "workflow_1",
-				F:        1,
-				Handlers: []string{GatewayHandlerTypeWebAPICapabilities},
+				ID: "workflow_1",
+				F:  1,
 				Members: []TargetDONMember{
-					{
-						Address: "0xabc",
-						Name:    "Node 1",
-					},
-					{
-						Address: "0xdef",
-						Name:    "Node 2",
-					},
-					{
-						Address: "0xghi",
-						Name:    "Node 3",
-					},
-					{
-						Address: "0xjkl",
-						Name:    "Node 4",
-					},
+					{Address: "0xabc", Name: "Node 1"},
+					{Address: "0xdef", Name: "Node 2"},
+					{Address: "0xghi", Name: "Node 3"},
+					{Address: "0xjkl", Name: "Node 4"},
 				},
 			},
 			{
-				ID:       "workflow_2",
-				Handlers: []string{GatewayHandlerTypeWebAPICapabilities},
+				ID: "workflow_2",
 				Members: []TargetDONMember{
-					{
-						Address: "0x2abc",
-						Name:    "Node 1",
-					},
-					{
-						Address: "0x2def",
-						Name:    "Node 2",
-					},
-					{
-						Address: "0x2ghi",
-						Name:    "Node 3",
-					},
-					{
-						Address: "0x2jkl",
-						Name:    "Node 4",
-					},
+					{Address: "0x2abc", Name: "Node 1"},
+					{Address: "0x2def", Name: "Node 2"},
+					{Address: "0x2ghi", Name: "Node 3"},
+					{Address: "0x2jkl", Name: "Node 4"},
 				},
+			},
+		},
+		Services: []GatewayServiceConfig{
+			{
+				ServiceName: ServiceNameWorkflows,
+				Handlers:    []string{GatewayHandlerTypeWebAPICapabilities},
+				DONs:        []string{"workflow_1", "workflow_2"},
 			},
 		},
 	}
@@ -391,58 +373,42 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 	g := GatewayJob{
 		JobName:           "Gateway1",
 		RequestTimeoutSec: 15,
-		TargetDONs: []TargetDON{
+		DONs: []TargetDON{
 			{
-				ID:       "workflow_1",
-				F:        1,
-				Handlers: []string{GatewayHandlerTypeWebAPICapabilities, GatewayHandlerTypeVault},
+				ID: "workflow_1",
+				F:  1,
 				Members: []TargetDONMember{
-					{
-						Address: "0xabc",
-						Name:    "Node 1",
-					},
-					{
-						Address: "0xdef",
-						Name:    "Node 2",
-					},
-					{
-						Address: "0xghi",
-						Name:    "Node 3",
-					},
-					{
-						Address: "0xjkl",
-						Name:    "Node 4",
-					},
+					{Address: "0xabc", Name: "Node 1"},
+					{Address: "0xdef", Name: "Node 2"},
+					{Address: "0xghi", Name: "Node 3"},
+					{Address: "0xjkl", Name: "Node 4"},
 				},
 			},
 			{
 				ID: "workflow_2",
-
-				Handlers: []string{GatewayHandlerTypeWebAPICapabilities},
 				Members: []TargetDONMember{
-					{
-						Address: "0x2abc",
-						Name:    "Node 1",
-					},
-					{
-						Address: "0x2def",
-						Name:    "Node 2",
-					},
-					{
-						Address: "0x2ghi",
-						Name:    "Node 3",
-					},
-					{
-						Address: "0x2jkl",
-						Name:    "Node 4",
-					},
+					{Address: "0x2abc", Name: "Node 1"},
+					{Address: "0x2def", Name: "Node 2"},
+					{Address: "0x2ghi", Name: "Node 3"},
+					{Address: "0x2jkl", Name: "Node 4"},
 				},
+			},
+		},
+		Services: []GatewayServiceConfig{
+			{
+				ServiceName: ServiceNameWorkflows,
+				Handlers:    []string{GatewayHandlerTypeWebAPICapabilities},
+				DONs:        []string{"workflow_1", "workflow_2"},
+			},
+			{
+				ServiceName: ServiceNameVault,
+				Handlers:    []string{GatewayHandlerTypeVault},
+				DONs:        []string{"workflow_1"},
 			},
 		},
 	}
 
 	spec, err := g.Resolve(1)
-	fmt.Println(spec)
 	require.NoError(t, err)
 	assert.Equal(t, expectedWithVault, spec)
 }
@@ -453,36 +419,33 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 	g := GatewayJob{
 		JobName:           "Gateway1",
 		RequestTimeoutSec: 15,
-		TargetDONs: []TargetDON{
+		DONs: []TargetDON{
 			{
-				ID:       "workflow_1",
-				F:        3,
-				Handlers: []string{GatewayHandlerTypeHTTPCapabilities},
+				ID: "workflow_1",
+				F:  3,
 				Members: []TargetDONMember{
-					{
-						Address: "0xabc",
-						Name:    "Node 1",
-					},
-					{
-						Address: "0xdef",
-						Name:    "Node 2",
-					},
+					{Address: "0xabc", Name: "Node 1"},
+					{Address: "0xdef", Name: "Node 2"},
 				},
 			},
 			{
-				ID:       "workflow_2",
-				F:        0,
-				Handlers: []string{GatewayHandlerTypeVault},
+				ID: "workflow_2",
 				Members: []TargetDONMember{
-					{
-						Address: "0xghi",
-						Name:    "Node 3",
-					},
-					{
-						Address: "0xjkl",
-						Name:    "Node 4",
-					},
+					{Address: "0xghi", Name: "Node 3"},
+					{Address: "0xjkl", Name: "Node 4"},
 				},
+			},
+		},
+		Services: []GatewayServiceConfig{
+			{
+				ServiceName: ServiceNameWorkflows,
+				Handlers:    []string{GatewayHandlerTypeHTTPCapabilities},
+				DONs:        []string{"workflow_1"},
+			},
+			{
+				ServiceName: ServiceNameVault,
+				Handlers:    []string{GatewayHandlerTypeVault},
+				DONs:        []string{"workflow_2"},
 			},
 		},
 	}
