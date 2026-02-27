@@ -266,6 +266,10 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 	return nil
 }
 
+func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID string, method string) error {
+	return nil
+}
+
 func (h *triggerConnectorHandler) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return h.CapabilityInfo, nil
 }

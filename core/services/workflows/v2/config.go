@@ -19,9 +19,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -64,6 +64,9 @@ type EngineConfig struct {
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
+
+	// SdkName is the name of the SDK used to build the workflow binary, discovered during module creation.
+	SdkName string
 }
 
 type EngineLimiters struct {

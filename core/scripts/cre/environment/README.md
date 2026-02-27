@@ -200,6 +200,9 @@ go run . env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_AC
 
 # to start environment with local Beholder
 go run . env start --with-beholder
+
+# to start environment with legacy v1 contracts (default is v2)
+go run . env start --with-contracts-version v1
 ```
 
 > Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
@@ -213,6 +216,7 @@ Optional parameters:
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
+- `--with-contracts-version`: Version of workflow/capability registries to use (`v2` by default, use `v1` explicitly for legacy coverage)
 
 ## Purging environment state
 To remove all state and cache files used by the environment execute:
@@ -723,6 +727,18 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 1. **Choose the Right Topology**
    - For a single DON with all capabilities, but with a separate gateway and bootstrap node: `configs/workflow-gateway-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-gateway-capabilities-don.toml`
+   - Use the topology CLI to inspect and compare configs before startup:
+     ```bash
+     # list available topology configs
+     go run . topology list
+
+     # show compact DON + capability matrix view for one config
+     go run . topology show --config configs/workflow-gateway-capabilities-don.toml
+
+     # regenerate topology docs
+     go run . topology generate
+     ```
+   - `env start` now prints a compact topology summary with a capability matrix.
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
    - If your use case requires them, you should build them manually by:

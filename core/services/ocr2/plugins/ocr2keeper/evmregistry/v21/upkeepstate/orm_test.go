@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
@@ -21,7 +21,7 @@ func TestInsertSelectDelete(t *testing.T) {
 
 	inserted := []persistedStateRecord{
 		{
-			UpkeepID:            ubig.New(big.NewInt(2)),
+			UpkeepID:            sqlutil.New(big.NewInt(2)),
 			WorkID:              "0x1",
 			CompletionState:     100,
 			BlockNumber:         2,

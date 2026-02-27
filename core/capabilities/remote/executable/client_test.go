@@ -305,7 +305,7 @@ func newTestServer(peerID p2ptypes.PeerID, dispatcher remotetypes.Dispatcher, wo
 	}
 }
 
-func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBody) {
+func (t *clientTestServer) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
 
@@ -333,7 +333,7 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 			if err != nil {
 				panic(err)
 			}
-			resp, responseErr := t.executableCapability.Execute(context.Background(), capabilityRequest)
+			resp, responseErr := t.executableCapability.Execute(ctx, capabilityRequest)
 			payload, marshalErr := pb.MarshalCapabilityResponse(resp)
 			t.sendResponse(messageID, responseErr, payload, marshalErr)
 		default:
@@ -407,7 +407,7 @@ func TestClient_SetConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify config was set
-		info, err := client.Info(context.Background())
+		info, err := client.Info(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, validCapInfo.ID, info.ID)
 	})
@@ -454,7 +454,7 @@ func TestClient_SetConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the config was completely replaced
-		info, err := client.Info(context.Background())
+		info, err := client.Info(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, validCapInfo.ID, info.ID)
 	})

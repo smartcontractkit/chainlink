@@ -6,7 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 type key struct {
@@ -32,12 +34,12 @@ func NewInMemoryORM() ORM {
 	}
 }
 
-func (o *inMemoryOrm) Get(ctx context.Context, address *big.Big, slotId uint) (*Row, error) {
+func (o *inMemoryOrm) Get(ctx context.Context, address *sqlutil.Big, slotId uint) (*Row, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
 	mkey := key{
-		address: address.Hex(),
+		address: hexutil.EncodeBig(address.ToInt()),
 		slot:    slotId,
 	}
 	mrow, ok := o.rows[mkey]
@@ -52,7 +54,7 @@ func (o *inMemoryOrm) Update(ctx context.Context, row *Row) error {
 	defer o.mu.Unlock()
 
 	mkey := key{
-		address: row.Address.Hex(),
+		address: hexutil.EncodeBig(row.Address.ToInt()),
 		slot:    row.SlotId,
 	}
 	existing, ok := o.rows[mkey]
@@ -103,7 +105,7 @@ func (o *inMemoryOrm) GetSnapshot(ctx context.Context, _ *AddressRange) ([]*Snap
 	for _, mrow := range o.rows {
 		if mrow.Row.Expiration > now {
 			rows = append(rows, &SnapshotRow{
-				Address:    big.New(mrow.Row.Address.ToInt()),
+				Address:    sqlutil.New(mrow.Row.Address.ToInt()),
 				SlotId:     mrow.Row.SlotId,
 				Version:    mrow.Row.Version,
 				Expiration: mrow.Row.Expiration,

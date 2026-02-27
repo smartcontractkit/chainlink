@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -49,6 +48,6 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	}
 
 	// Call and expect an error from the bound limiter (limit exceeded)
-	_, err = exec.CallCapability(context.Background(), req)
+	_, err = exec.CallCapability(t.Context(), req)
 	require.Error(t, err, "expected CallCapability to fail when per-workflow confidential-http call limit is exceeded")
 }

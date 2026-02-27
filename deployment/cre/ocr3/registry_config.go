@@ -2,13 +2,11 @@ package ocr3
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -113,44 +111,25 @@ func GetCurrentOCR3ConfigCount(
 	}
 
 	for _, capCfg := range don.CapabilityConfigurations {
-		if capCfg.CapabilityId != capabilityID {
-			continue
+		if capCfg.CapabilityId == capabilityID {
+			return extractOCR3ConfigCount(capCfg.Config, ocrConfigKey)
 		}
-
-		if len(capCfg.Config) == 0 {
-			return 0, nil
-		}
-
-		// Unmarshal proto bytes to CapabilityConfig, then to JSON, then extract
-		// the ocr3Configs field.
-		pbCfg := &capabilitiespb.CapabilityConfig{}
-		if err := proto.Unmarshal(capCfg.Config, pbCfg); err != nil {
-			return 0, fmt.Errorf("failed to unmarshal capability config: %w", err)
-		}
-
-		jsonBytes, err := protojson.Marshal(pbCfg)
-		if err != nil {
-			return 0, fmt.Errorf("failed to marshal capability config to JSON: %w", err)
-		}
-
-		var parsed ocr3ConfigsJSON
-		if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
-			return 0, fmt.Errorf("failed to parse capability config JSON: %w", err)
-		}
-
-		if parsed.Ocr3Configs == nil {
-			return 0, nil
-		}
-
-		ocr3Cfg, ok := parsed.Ocr3Configs[ocrConfigKey]
-		if !ok {
-			return 0, nil
-		}
-
-		return ocr3Cfg.ConfigCount, nil
 	}
-
 	return 0, nil
+}
+
+func extractOCR3ConfigCount(rawConfig []byte, ocrConfigKey string) (uint64, error) {
+	if len(rawConfig) == 0 {
+		return 0, nil
+	}
+	pbCfg := &capabilitiespb.CapabilityConfig{}
+	if err := proto.Unmarshal(rawConfig, pbCfg); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal capability config: %w", err)
+	}
+	if pbCfg.Ocr3Configs == nil || pbCfg.Ocr3Configs[ocrConfigKey] == nil {
+		return 0, nil
+	}
+	return pbCfg.Ocr3Configs[ocrConfigKey].ConfigCount, nil
 }
 
 // OCR2OracleConfigToMap converts an OCR2OracleConfig to a protojson-compatible

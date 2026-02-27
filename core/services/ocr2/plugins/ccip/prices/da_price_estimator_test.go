@@ -1,7 +1,6 @@
 package prices
 
 import (
-	"context"
 	"errors"
 	"math/big"
 	"testing"
@@ -21,8 +20,6 @@ func encodeGasPrice(daPrice, execPrice *big.Int) *big.Int {
 }
 
 func TestDAPriceEstimator_GetGasPrice(t *testing.T) {
-	ctx := context.Background()
-
 	testCases := []struct {
 		name            string
 		daGasPrice      *big.Int
@@ -96,6 +93,7 @@ func TestDAPriceEstimator_GetGasPrice(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := t.Context()
 			execEstimator := NewMockGasPriceEstimator(t)
 			execEstimator.On("GetGasPrice", ctx).Return(tc.execGasPrice, nil)
 
@@ -134,6 +132,7 @@ func TestDAPriceEstimator_GetGasPrice(t *testing.T) {
 	}
 
 	t.Run("nil L1 oracle", func(t *testing.T) {
+		ctx := t.Context()
 		expPrice := big.NewInt(1)
 
 		execEstimator := NewMockGasPriceEstimator(t)

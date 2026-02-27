@@ -1,6 +1,6 @@
 package presenters
 
-import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
+import "github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 
 // AptosKeyResource represents a Aptos key JSONAPI resource.
 type AptosKeyResource struct {

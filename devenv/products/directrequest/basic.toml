@@ -1,0 +1,21 @@
+[[products]]
+name = "direct_request"
+instances = 1
+
+[[nodesets]]
+  name = "don"
+  # can be tested with a single CL node
+  nodes = 1
+  override_mode = "each"
+
+  [nodesets.db]
+    image = "postgres:15.0"
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      image = "public.ecr.aws/chainlink/chainlink:2.30.0"
+
+[[direct_request]]
+    [direct_request.gas_settings]
+    fee_cap_multiplier = 2
+    tip_cap_multiplier = 2

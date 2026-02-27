@@ -24,12 +24,12 @@ func TestRelayerSet_List(t *testing.T) {
 
 	relayerSet, err := NewRelayerSet(testGetter, uuid.New(), 1, true)
 	assert.NoError(t, err)
-	relayers, err := relayerSet.List(context.Background())
+	relayers, err := relayerSet.List(t.Context())
 	assert.NoError(t, err)
 
 	assert.Len(t, relayers, 3)
 
-	relayers, err = relayerSet.List(context.Background(), types.RelayID{Network: "N1", ChainID: "C1"}, types.RelayID{Network: "N3", ChainID: "C3"})
+	relayers, err = relayerSet.List(t.Context(), types.RelayID{Network: "N1", ChainID: "C1"}, types.RelayID{Network: "N3", ChainID: "C3"})
 	assert.NoError(t, err)
 
 	assert.Len(t, relayers, 2)
@@ -52,10 +52,10 @@ func TestRelayerSet_Get(t *testing.T) {
 	relayerSet, err := NewRelayerSet(testGetter, uuid.New(), 1, true)
 	assert.NoError(t, err)
 
-	_, err = relayerSet.Get(context.Background(), types.RelayID{Network: "N1", ChainID: "C1"})
+	_, err = relayerSet.Get(t.Context(), types.RelayID{Network: "N1", ChainID: "C1"})
 	assert.NoError(t, err)
 
-	_, err = relayerSet.Get(context.Background(), types.RelayID{Network: "N4", ChainID: "C4"})
+	_, err = relayerSet.Get(t.Context(), types.RelayID{Network: "N4", ChainID: "C4"})
 	assert.Error(t, err)
 }
 
@@ -72,10 +72,10 @@ func TestRelayerSet_NewPluginProvider(t *testing.T) {
 	relayerSet, err := NewRelayerSet(testGetter, externalJobID, 1, true)
 	assert.NoError(t, err)
 
-	relayer, err := relayerSet.Get(context.Background(), types.RelayID{Network: "N1", ChainID: "C1"})
+	relayer, err := relayerSet.Get(t.Context(), types.RelayID{Network: "N1", ChainID: "C1"})
 	assert.NoError(t, err)
 
-	_, err = relayer.NewPluginProvider(context.Background(), core.RelayArgs{
+	_, err = relayer.NewPluginProvider(t.Context(), core.RelayArgs{
 		ContractID:   "c1",
 		RelayConfig:  []byte("relayconfig"),
 		ProviderType: "p1",

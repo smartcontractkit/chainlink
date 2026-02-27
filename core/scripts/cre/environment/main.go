@@ -13,6 +13,7 @@ import (
 
 func init() {
 	root.RootCmd.AddCommand(environment.EnvironmentCmd)
+	root.RootCmd.AddCommand(environment.TopologyCmd())
 	root.RootCmd.AddCommand(examples.ExamplesCmd)
 	root.RootCmd.AddCommand(minio.MinioCommand)
 	root.RootCmd.AddCommand(mock.MockCommand)

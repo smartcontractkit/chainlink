@@ -328,7 +328,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -346,7 +346,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		buffer := provider.buffer
 
@@ -368,7 +368,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		buffer := provider.buffer
 
@@ -393,7 +393,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		buffer := provider.buffer.(*logBuffer)
 
@@ -421,7 +421,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		buffer := provider.buffer.(*logBuffer)
 
@@ -472,7 +472,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		buffer := provider.buffer.(*logBuffer)
 
@@ -531,7 +531,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		buffer := provider.buffer.(*logBuffer)
 
@@ -585,7 +585,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		buffer := provider.buffer.(*logBuffer)
 

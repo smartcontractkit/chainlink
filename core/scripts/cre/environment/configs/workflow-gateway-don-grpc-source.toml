@@ -7,11 +7,13 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
+  container_name = "anvil-1337"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
   type = "anvil"
   chain_id = "2337"
+  container_name = "anvil-2337"
   port = "8546"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
@@ -43,12 +45,7 @@
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time"]
-
-   [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337", "2337"]
-    evm = ["1337", "2337"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "write-evm-2337", "read-contract-1337", "read-contract-2337", "evm-1337", "evm-2337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -97,4 +94,3 @@ Name = 'mock-private-registry'
       custom_ports = ["5002:5002","15002:15002"]
       # image = "chainlink-tmp:latest"
       user_config_overrides = ""
-

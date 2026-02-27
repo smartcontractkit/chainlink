@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	pb "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	pb "github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/pb"
 	mock "github.com/stretchr/testify/mock"
 )
 

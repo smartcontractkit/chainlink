@@ -49,6 +49,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
 )
 
 const (
@@ -323,6 +325,13 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
+			topologySummary, _, topErr := generateTopologyArtifactsForLoadedConfig(in)
+			if topErr != nil {
+				framework.L.Warn().Err(topErr).Msg("failed to generate topology visualization artifacts")
+			} else {
+				fmt.Print(libformat.PurpleText("\n%s\n", topologyviz.RenderASCIIStartSummary(topologySummary)))
+			}
+
 			features := feature_set.New()
 			gatewayWhitelistConfig := gateway.WhitelistConfig{
 				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
@@ -508,7 +517,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
-	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
+	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v2", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
@@ -687,18 +696,6 @@ func StartCLIEnvironment(
 				in.NodeSets[setIdx].NodeSpecs[nodeIdx].Node.DockerFilePath = ""
 			}
 		}
-	}
-
-	fmt.Print(libformat.PurpleText("DON topology:\n"))
-	for _, nodeSet := range in.NodeSets {
-		fmt.Print(libformat.PurpleText("%s\n", strings.ToUpper(nodeSet.Name)))
-		fmt.Print(libformat.PurpleText("\tNode count: %d\n", len(nodeSet.NodeSpecs)))
-		capabilitiesDesc := "none"
-		if len(nodeSet.Capabilities) > 0 {
-			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
-		}
-		fmt.Print(libformat.PurpleText("\tCapabilities: %s\n", capabilitiesDesc))
-		fmt.Print(libformat.PurpleText("\tDON Types: %s\n\n", strings.Join(nodeSet.DONTypes, ", ")))
 	}
 
 	if in.JD.CSAEncryptionKey == "" {

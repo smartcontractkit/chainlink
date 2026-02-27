@@ -467,6 +467,7 @@ IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
 [Sharding]
+ShardingEnabled = false
 ArbiterPort = 9876
 ArbiterPollInterval = '12s'
 ArbiterRetryInterval = '12s'

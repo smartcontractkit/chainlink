@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -22,11 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -50,6 +52,9 @@ type engineFactoryFn func(ctx context.Context, wfid string, owner string, name t
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
+	services.Service
+	eng *services.Engine
+
 	lggr logger.Logger
 
 	workflowStore          store.Store
@@ -58,6 +63,7 @@ type eventHandler struct {
 	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
+	emitterMu              sync.RWMutex
 	engineFactory          engineFactoryFn
 	engineLimiters         *v2.EngineLimiters
 	ratelimiter            *ratelimiter.RateLimiter
@@ -67,6 +73,7 @@ type eventHandler struct {
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
+	secretsFetcher         v2.SecretsFetcher
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -140,11 +147,28 @@ func WithDebugMode(debugMode bool) func(*eventHandler) {
 	}
 }
 
+func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.secretsFetcher = sf
+	}
+}
+
+func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		if len(secrets) == 0 {
+			return
+		}
+		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
+		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
+	}
+}
+
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
+	DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error
 }
 
 // NewEventHandler returns a new eventHandler instance.
@@ -198,12 +222,22 @@ func NewEventHandler(
 		o(eh)
 	}
 
+	eh.Service, eh.eng = services.Config{
+		Name:  "EventHandler",
+		Close: eh.close,
+	}.NewServiceEngine(lggr)
+
 	return eh, nil
 }
 
-func (h *eventHandler) Close() error {
+func (h *eventHandler) close() error {
 	es := h.engineRegistry.PopAll()
-	return services.MultiCloser(es).Close()
+	cs := []io.Closer{}
+	cs = append(cs, h.engineLimiters)
+	for _, e := range es {
+		cs = append(cs, e)
+	}
+	return services.CloseAll(cs...)
 }
 
 // toCommonHead converts our local Head struct back to chainlink-common Head
@@ -238,6 +272,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -248,6 +283,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
 		)
+		h.emitterMu.RUnlock()
 
 		var err error
 		defer func() {
@@ -278,6 +314,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -288,6 +325,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
 		)
+		h.emitterMu.RUnlock()
 
 		var err error
 		defer func() {
@@ -331,6 +369,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, wfName,
@@ -340,6 +379,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
 		)
+		h.emitterMu.RUnlock()
 
 		var herr error
 		defer func() {
@@ -520,14 +560,25 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 }
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
-	lggr := h.lggr.Named("WorkflowEngine.Module").With("workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
+	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	var sdkName string
+	h.emitterMu.RLock()
+	labeler := h.emitter
+	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                       lggr,
-		Labeler:                      h.emitter,
+		Labeler:                      labeler,
 		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
 		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
 		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+		SdkLabeler: func(name string) {
+			sdkName = name
+			h.emitterMu.Lock()
+			h.emitter = h.emitter.With(platform.KeySDK, name)
+			h.emitterMu.Unlock()
+		},
 	}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
@@ -588,14 +639,19 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		LocalLimiters:                     h.engineLimiters,
 		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
 
-		BeholderEmitter: h.emitter,
-		BillingClient:   h.billingClient,
+		BeholderEmitter: func() custmsg.MessageEmitter {
+			h.emitterMu.RLock()
+			defer h.emitterMu.RUnlock()
+			return h.emitter
+		}(),
+		BillingClient: h.billingClient,
 
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
-
-		DebugMode: h.debugMode,
+		DebugMode:                     h.debugMode,
+		SecretsFetcher:                h.secretsFetcher,
+		SdkName:                       sdkName,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.
@@ -796,7 +852,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log logger.Logger) {
 	err := cma.Emit(ctx, msg)
 	if err != nil {
-		log.Helper(1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+		logger.Helper(log, 1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
 }
 

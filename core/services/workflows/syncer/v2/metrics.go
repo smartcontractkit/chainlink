@@ -22,6 +22,11 @@ type metrics struct {
 	workflowsPerSource  metric.Int64Gauge     // workflows fetched per source
 	sourceFetchDuration metric.Int64Histogram // fetch latency per source
 	sourceFetchErrors   metric.Int64Counter   // error count per source
+
+	// Per-tick reconciliation metrics
+	reconcileEventsDispatched metric.Int64Histogram // events dispatched per source per tick
+	reconcileDuration         metric.Int64Histogram // wall-clock ms for parallel event processing
+	reconcileEventsBackoff    metric.Int64Counter   // events skipped due to backoff
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
@@ -60,6 +65,18 @@ func (m *metrics) recordSourceFetch(ctx context.Context, sourceName string, work
 	} else {
 		m.sourceHealth.Record(ctx, 1, attrs)
 	}
+}
+
+func (m *metrics) recordReconcileBatch(ctx context.Context, source string, dispatched int, duration time.Duration) {
+	attrs := metric.WithAttributes(attribute.String("source", source))
+	m.reconcileEventsDispatched.Record(ctx, int64(dispatched), attrs)
+	m.reconcileDuration.Record(ctx, duration.Milliseconds(), attrs)
+}
+
+func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, count int) {
+	m.reconcileEventsBackoff.Add(ctx, int64(count), metric.WithAttributes(
+		attribute.String("source", source),
+	))
 }
 
 func newMetrics() (*metrics, error) {
@@ -104,6 +121,21 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	reconcileEventsDispatched, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_reconcile_events_dispatched")
+	if err != nil {
+		return nil, err
+	}
+
+	reconcileDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_reconcile_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
+	reconcileEventsBackoff, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_reconcile_events_backoff_total")
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
 		handleDuration:      handleDuration,
 		fetchedWorkflows:    fetchedWorkflows,
@@ -111,7 +143,10 @@ func newMetrics() (*metrics, error) {
 		completedSyncs:      completedSyncs,
 		sourceHealth:        sourceHealth,
 		workflowsPerSource:  workflowsPerSource,
-		sourceFetchDuration: sourceFetchDuration,
-		sourceFetchErrors:   sourceFetchErrors,
+		sourceFetchDuration:       sourceFetchDuration,
+		sourceFetchErrors:         sourceFetchErrors,
+		reconcileEventsDispatched: reconcileEventsDispatched,
+		reconcileDuration:         reconcileDuration,
+		reconcileEventsBackoff:    reconcileEventsBackoff,
 	}, nil
 }

@@ -44,6 +44,7 @@ type OverrideDefaultCfg struct {
 	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
 	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
 	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
+	DeltaStage                    time.Duration `json:"deltaStage,omitempty" yaml:"deltaStage,omitempty"`
 }
 
 type EVMCapabilityInput struct {
