@@ -83,7 +83,9 @@ func Start(
 		if chainErr != nil {
 			return nil, pkgerrors.Wrap(chainErr, "failed to create cldf chain from blockchain")
 		}
-		cldfBlockchains = append(cldfBlockchains, chain)
+		if chain != nil {
+			cldfBlockchains = append(cldfBlockchains, chain)
+		}
 	}
 
 	return &DeployedBlockchains{

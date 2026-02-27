@@ -29,6 +29,8 @@ ARG COMMIT_SHA
 ARG VERSION_TAG
 # Flag to control whether this is a prod build (default: true)
 ARG CL_IS_PROD_BUILD=true
+# Cache-bust marker for private Aptos capability plugin install layer.
+ARG CL_CAPABILITIES_APTOS_REF=unknown
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
@@ -37,6 +39,7 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/root/.cache/go-build \
     set -e && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
+    echo "Aptos capability ref: ${CL_CAPABILITIES_APTOS_REF}" && \
     ./plugins/scripts/setup_git_auth.sh && \
     mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \

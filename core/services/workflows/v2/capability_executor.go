@@ -54,7 +54,8 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 		{"evm", "GetTransactionReceipt"}: limiters.ChainReadCalls,
 		{"evm", "HeaderByNumber"}:        limiters.ChainReadCalls,
 
-		{"evm", "WriteReport"}: limiters.ChainWriteTargets,
+		{"evm", "WriteReport"}:   limiters.ChainWriteTargets,
+		{"aptos", "WriteReport"}: limiters.ChainWriteTargets,
 
 		{"http-actions", "SendRequest"}:      limiters.HTTPActionCalls,
 		{"confidential-http", "SendRequest"}: limiters.ConfidentialHTTPCalls,

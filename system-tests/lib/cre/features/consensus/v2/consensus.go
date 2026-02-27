@@ -223,6 +223,10 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 
 	// Add Solana chain selector if present
 	for _, blockchain := range creEnv.Blockchains {
+		if blockchain.IsFamily(chainselectors.FamilyAptos) {
+			inputs["chainSelectorAptos"] = blockchain.ChainSelector()
+			continue
+		}
 		if blockchain.IsFamily(chainselectors.FamilySolana) {
 			inputs["chainSelectorSolana"] = blockchain.ChainSelector()
 			break
@@ -249,6 +253,12 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 
 	report, applyErr := proposer.Apply(*creEnv.CldfEnvironment, input)
 	if applyErr != nil {
+		if strings.Contains(applyErr.Error(), "no aptos ocr2 config for node") {
+			return nil, fmt.Errorf(
+				"failed to propose Consensus v2 node job spec: %w; Aptos workflows require Aptos OCR2 key bundles on all workflow DON nodes",
+				applyErr,
+			)
+		}
 		return nil, fmt.Errorf("failed to propose Consensus v2 node job spec: %w", applyErr)
 	}
 

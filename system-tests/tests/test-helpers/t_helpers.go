@@ -44,6 +44,8 @@ import (
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
 	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
+	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
+	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
@@ -290,7 +292,18 @@ type WorkflowConfig interface {
 		http_config.Config |
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config |
-		solwrite_config.Config
+		solwrite_config.Config |
+		aptoswrite_config.Config |
+		AptosReadWorkflowConfig |
+		aptoswriteroundtrip_config.Config
+}
+
+// AptosReadWorkflowConfig is the config for the Aptos read workflow (reads 0x1::coin::name() on devnet).
+// Must match aptos/aptosread/config.Config for YAML serialization.
+type AptosReadWorkflowConfig struct {
+	ChainSelector    uint64
+	WorkflowName     string
+	ExpectedCoinName string
 }
 
 // None represents an empty workflow configuration
@@ -440,6 +453,22 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solwrite workflow config file")
 			testLogger.Info().Msg("Solana write workflow config file created.")
+
+		case *AptosReadWorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create Aptos read workflow config file")
+			testLogger.Info().Msg("Aptos read workflow config file created.")
+		case *aptoswrite_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create Aptos write workflow config file")
+			testLogger.Info().Msg("Aptos write workflow config file created.")
+		case *aptoswriteroundtrip_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create Aptos write-read roundtrip workflow config file")
+			testLogger.Info().Msg("Aptos write-read roundtrip workflow config file created.")
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}

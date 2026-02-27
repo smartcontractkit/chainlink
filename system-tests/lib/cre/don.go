@@ -452,6 +452,8 @@ type JDChainConfigInput struct {
 }
 
 func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+	// Dedupe by (chain ID, chain type) so we never create the same config twice (avoids unique constraint violation).
+	seen := make(map[string]struct{})
 	for _, chain := range supportedChains {
 		var account string
 		chainIDStr := strconv.FormatUint(chain.ChainID(), 10)
@@ -507,12 +509,32 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		if chain.IsFamily(blockchain.FamilyTron) {
 			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
+		dedupeKey := chainIDStr + "\x00" + chainType
+		if _, exists := seen[dedupeKey]; exists {
+			continue
+		}
+		seen[dedupeKey] = struct{}{}
+
 		ocr2BundleID, createErr := n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
 		if createErr != nil {
 			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, createErr)
 		}
 		if ocr2BundleID == "" {
-			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
+			// Best-effort self-heal: create missing OCR2 key bundle for this chain type,
+			// then re-fetch the bundle ID from GraphQL.
+			if n.Clients.RestClient == nil {
+				return fmt.Errorf("no OCR2 key bundle id found for node %s and REST client is unavailable to create one", n.Name)
+			}
+			if _, _, keyErr := n.Clients.RestClient.CreateOCR2Key(strings.ToLower(chainType)); keyErr != nil {
+				return fmt.Errorf("failed to create OCR2 key bundle for node %s (chainType=%s): %w", n.Name, chainType, keyErr)
+			}
+			ocr2BundleID, createErr = n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
+			if createErr != nil {
+				return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s after creation (chainType=%s): %w", n.Name, chainType, createErr)
+			}
+			if ocr2BundleID == "" {
+				return fmt.Errorf("no OCR2 key bundle id found for node %s after creation attempt (chainType=%s)", n.Name, chainType)
+			}
 		}
 
 		if n.Keys.OCR2BundleIDs == nil {
@@ -554,8 +576,11 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				Ocr2KeyBundleID:  ocr2BundleID,
 				Ocr2Plugins:      `{}`,
 			})
-			// TODO: add a check if the chain config failed because of a duplicate in that case, should we update or return success?
 			if createErr != nil {
+				// Config may already exist (e.g. duplicate key from prior run or concurrent node registration); treat as success.
+				if strings.Contains(createErr.Error(), "duplicate key") || strings.Contains(createErr.Error(), "23505") {
+					return nil
+				}
 				return createErr
 			}
 
@@ -809,12 +834,16 @@ func HasFlag(values []string, capability string) bool {
 
 func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
 	chains := make([]blockchains.Blockchain, 0)
+	chainCapabilityIDs := donMetadata.MustNodeSet().ChainCapabilityChainIDs()
 
 	for _, bc := range bcs {
 		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
+		hasChainCapabilityEnabled := slices.Contains(chainCapabilityIDs, bc.ChainID())
 		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
 
-		if !hasEVMChainEnabled && (!chainIsSolana) {
+		// Include all Solana chains (legacy behavior), and include any chain that is
+		// explicitly referenced by chain-scoped capabilities (e.g. write-aptos-4).
+		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !chainIsSolana {
 			continue
 		}
 

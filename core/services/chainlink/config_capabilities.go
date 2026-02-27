@@ -380,6 +380,11 @@ func (l *localCapabilities) compileRegexes() {
 
 func (l *localCapabilities) IsAllowlisted(capabilityID string) bool {
 	l.regexOnce.Do(l.compileRegexes)
+	// When RegistryBasedLaunchAllowlist is empty, allow all capabilities from the on-chain registry
+	// (e.g. CRE with no [Capabilities.Local] in TOML). When non-empty, only IDs matching a pattern are allowed.
+	if len(l.compiledRegexes) == 0 {
+		return true
+	}
 	for _, re := range l.compiledRegexes {
 		if re.MatchString(capabilityID) {
 			return true

@@ -1,12 +1,16 @@
 package conversions
 
 import (
+	"strconv"
 	"testing"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_GetCapabilityIDFromCommand(t *testing.T) {
+	aptosSelector := chainselectors.AptosChainIdToChainSelector()[4]
+
 	tests := []struct {
 		name     string
 		command  string
@@ -42,6 +46,18 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 			command:  "/usr/local/bin/evm",
 			config:   `{"chainId": 1, "network": "mainnet", "otherField": "value"}`,
 			expected: "evm:ChainSelector:5009297550715157269@1.0.0",
+		},
+		{
+			name:     "aptos command with valid config",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"4","network":"aptos"}`,
+			expected: "aptos:ChainSelector:" + strconv.FormatUint(aptosSelector, 10) + "@1.0.0",
+		},
+		{
+			name:     "aptos command with invalid chainId",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"x","network":"aptos"}`,
+			expected: "",
 		},
 		{
 			name:     "evm command with invalid JSON",
@@ -174,6 +190,11 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 			expected:     "evm",
 		},
 		{
+			name:         "aptos capability",
+			capabilityID: "aptos:ChainSelector:4457093679053095497@1.0.0",
+			expected:     "aptos",
+		},
+		{
 			name:         "unknown capability",
 			capabilityID: "unknown@1.0.0",
 			expected:     "",
@@ -207,4 +228,7 @@ func Test_roundTrip(t *testing.T) {
 	// EVM round-trip: command base name is preserved
 	evmCapID := GetCapabilityIDFromCommand("/usr/local/bin/evm", `{"chainId": 1}`)
 	assert.Equal(t, "evm", GetCommandFromCapabilityID(evmCapID))
+
+	aptosCapID := GetCapabilityIDFromCommand("/usr/local/bin/aptos", `{"chainId":"4"}`)
+	assert.Equal(t, "aptos", GetCommandFromCapabilityID(aptosCapID))
 }
