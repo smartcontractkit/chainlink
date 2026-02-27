@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-type executionPlan struct {
+type placementPlan struct {
 	NodeSetPlacement    *nodeSetPlacementSummary
 	HasRemoteComponents bool
 }
@@ -18,11 +18,11 @@ type nodeSetPlacementSummary struct {
 	HasRemoteTargets bool
 }
 
-func buildExecutionPlan(
+func buildPlacementPlan(
 	configuredBlockchains []*config.Blockchain,
 	jdInput *config.JobDistributor,
 	nodeSets []*cre.NodeSet,
-) (*executionPlan, error) {
+) (*placementPlan, error) {
 	nodeSetPlacement, err := summarizeNodeSetPlacement(nodeSets)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func buildExecutionPlan(
 		return nil, err
 	}
 
-	return &executionPlan{
+	return &placementPlan{
 		NodeSetPlacement:    nodeSetPlacement,
 		HasRemoteComponents: hasRemoteComponents(configuredBlockchains, jdInput, nodeSets),
 	}, nil

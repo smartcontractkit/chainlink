@@ -1,4 +1,7 @@
 
+# This topology starts the workflow DON on the local machine and everything else on a remote
+# It requires that JD image (job-distributor:0.22.1) and CL node image (chainlink-amd:latest) is either present on the remote machine or can be pulled by it
+
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
@@ -56,11 +59,9 @@
 [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      image = "chainlink-tmp:latest"
-      user_config_overrides = ""
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
 
 [[nodesets]]
   nodes = 4
@@ -87,11 +88,7 @@
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       image = "chainlink-amd:latest"
-      user_config_overrides = ""
 
 [[nodesets]]
   nodes = 1
@@ -113,13 +110,8 @@
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
-      #ocker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       image = "chainlink-amd:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 5003 is the gateway port for outgoing connections
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","5003:5003","15002:15002"]
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = ""

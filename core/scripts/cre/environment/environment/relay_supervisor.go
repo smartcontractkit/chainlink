@@ -89,6 +89,9 @@ type localBridgeStats struct {
 	LocalDialFails uint64
 }
 
+// relaySupervisorCmd runs the detached local process that keeps mixed-mode relays alive.
+// It opens relays on the remote agent and maintains workers that bridge remote WebSockets
+// to local localhost targets.
 func relaySupervisorCmd() *cobra.Command {
 	var portsRaw string
 	var relaySpecsRaw string
@@ -152,6 +155,8 @@ func relaySupervisorCmd() *cobra.Command {
 	return cmd
 }
 
+// maybeStartRelaySupervisor starts (or stops stale) supervisor state based on current config.
+// It returns whether a supervisor should be considered active for this run.
 func maybeStartRelaySupervisor(relativePathToRepoRoot string, cfg *envconfig.Config) (bool, error) {
 	specs := relaySpecsFromConfig(cfg)
 	if len(specs) == 0 {
@@ -164,6 +169,8 @@ func maybeStartRelaySupervisor(relativePathToRepoRoot string, cfg *envconfig.Con
 	return true, startRelaySupervisor(relativePathToRepoRoot, specs)
 }
 
+// relaySpecsFromConfig derives local ports that must be reachable from remote components.
+// Each resulting spec maps to one remote listener and a local bridge target.
 func relaySpecsFromConfig(cfg *envconfig.Config) []relaySpec {
 	if cfg == nil {
 		return nil
@@ -257,6 +264,8 @@ func relaySpecsFromConfig(cfg *envconfig.Config) []relaySpec {
 	return specs
 }
 
+// inferLocalBlockchainPortsFromInput derives expected local blockchain ports when runtime
+// output is not yet available.
 func inferLocalBlockchainPortsFromInput(in blockchain.Input) []int {
 	portSet := map[int]struct{}{}
 	add := func(raw string) {
@@ -288,6 +297,7 @@ func inferLocalBlockchainPortsFromInput(in blockchain.Input) []int {
 	return out
 }
 
+// inferLocalJDPortsFromInput derives JD gRPC/WSRPC ports when runtime output is not available.
 func inferLocalJDPortsFromInput(in jd.Input) []int {
 	const (
 		defaultJDGRPC  = "14231"
@@ -323,6 +333,8 @@ func hasBootstrapRole(roles []string) bool {
 	return false
 }
 
+// inferLocalNodeSetOCR2Ports derives OCR2 P2P ports for local node sets that remote peers
+// must reach in mixed mode.
 func inferLocalNodeSetOCR2Ports(nodeSet *cre.NodeSet) []int {
 	if nodeSet == nil {
 		return nil
@@ -353,6 +365,7 @@ func inferLocalNodeSetOCR2Ports(nodeSet *cre.NodeSet) []int {
 	return out
 }
 
+// endpointPort extracts a valid TCP port from either URL or host:port endpoint strings.
 func endpointPort(raw string) (int, bool) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -380,6 +393,8 @@ func endpointPort(raw string) (int, bool) {
 	return port, true
 }
 
+// startRelaySupervisor starts the detached supervisor subprocess and stores PID/state.
+// Existing supervisor state is best-effort stopped first.
 func startRelaySupervisor(relativePathToRepoRoot string, specs []relaySpec) error {
 	if len(specs) == 0 {
 		return nil
@@ -436,6 +451,8 @@ func startRelaySupervisor(relativePathToRepoRoot string, specs []relaySpec) erro
 	return storeRelaySupervisorState(relativePathToRepoRoot, &state)
 }
 
+// stopRelaySupervisor terminates the tracked supervisor process (if present) and clears state.
+// It is intentionally idempotent for absent/already-dead processes.
 func stopRelaySupervisor(relativePathToRepoRoot string) error {
 	state, err := loadRelaySupervisorState(relativePathToRepoRoot)
 	if err != nil {
@@ -638,6 +655,7 @@ func parsePortsCSV(raw string) ([]int, error) {
 	return uniqueSortedPorts(out), nil
 }
 
+// parseRelaySpecsCSV parses "name:port" entries from CLI input and validates port range.
 func parseRelaySpecsCSV(raw string) ([]relaySpec, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -717,6 +735,8 @@ func uniqueSortedPorts(in []int) []int {
 	return out
 }
 
+// newLocalComponentRelayManager builds the local control-plane manager used by the
+// supervisor process to open, track, and close remote relays.
 func newLocalComponentRelayManager(lggr zerolog.Logger) (*localComponentRelayManager, error) {
 	baseURL, err := resolveAgentBaseURLForRelay()
 	if err != nil {
@@ -729,6 +749,8 @@ func newLocalComponentRelayManager(lggr zerolog.Logger) (*localComponentRelayMan
 	}, nil
 }
 
+// EnsurePort makes sure one persistent relay exists for a local port and starts the worker
+// pool that bridges traffic for that relay.
 func (m *localComponentRelayManager) EnsurePort(ctx context.Context, relayName string, localPort int) error {
 	if m == nil || localPort <= 0 {
 		return nil
@@ -767,6 +789,7 @@ func (m *localComponentRelayManager) EnsurePort(ctx context.Context, relayName s
 	return nil
 }
 
+// Close stops all workers and closes every relay tracked by this manager.
 func (m *localComponentRelayManager) Close(ctx context.Context) error {
 	if m == nil {
 		return nil
@@ -807,6 +830,8 @@ func (h *relayHandle) setRelayID(relayID string) {
 	h.mu.Unlock()
 }
 
+// resolveAgentBaseURLForRelay resolves the remote agent base URL from explicit URL or
+// host/port discovery envs used by direct remote mode.
 func resolveAgentBaseURLForRelay() (string, error) {
 	if v := strings.TrimSpace(os.Getenv("CRE_REMOTE_AGENT_URL")); v != "" {
 		return v, nil
@@ -834,6 +859,7 @@ func resolveRemoteAgentPortForRelay() (int, error) {
 	return port, nil
 }
 
+// openRelay requests a new relay listener from the remote agent and returns relay ID.
 func openRelay(ctx context.Context, baseURL, name string, requestedPort int) (string, error) {
 	body, _ := json.Marshal(map[string]any{"name": name, "requestedPort": requestedPort})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+"/v1/relay/open", bytes.NewReader(body))
@@ -862,6 +888,7 @@ func openRelay(ctx context.Context, baseURL, name string, requestedPort int) (st
 	return out.RelayID, nil
 }
 
+// closeRelay requests relay teardown for a previously opened relay ID.
 func closeRelay(ctx context.Context, baseURL, relayID string) error {
 	body, _ := json.Marshal(map[string]any{"relayId": relayID})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+"/v1/relay/close", bytes.NewReader(body))
@@ -882,6 +909,9 @@ func closeRelay(ctx context.Context, baseURL, relayID string) error {
 	return nil
 }
 
+// relayWorker continuously connects to the remote relay WebSocket and bridges traffic
+// to the local target address. It retries with backoff and refreshes relay ID on
+// handshake invalidation paths.
 func relayWorker(ctx context.Context, lggr zerolog.Logger, baseURL string, handle *relayHandle, localAddr string, workerIndex int) {
 	backoff := 250 * time.Millisecond
 	for {
@@ -1007,6 +1037,8 @@ func relayConnectWSURL(baseURL, relayID string) (string, error) {
 	return u.String(), nil
 }
 
+// bridgeRelayStream performs full-duplex bridging between one relay WebSocket stream
+// and one local TCP connection.
 func bridgeRelayStream(
 	ctx context.Context,
 	lggr zerolog.Logger,
@@ -1143,6 +1175,7 @@ func bridgeRelayStream(
 	}
 }
 
+// relayKeepAlive sends periodic WebSocket ping frames to keep idle relay streams active.
 func relayKeepAlive(ctx context.Context, ws *websocket.Conn, writeMu *sync.Mutex, errCh chan<- error) {
 	ticker := time.NewTicker(20 * time.Second)
 	defer ticker.Stop()

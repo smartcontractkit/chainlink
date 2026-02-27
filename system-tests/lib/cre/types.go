@@ -725,6 +725,29 @@ func (m *DonMetadata) RequiresOCR() bool {
 		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
 }
 
+// ResolveNodeOCR2AnnouncePort resolves a node's OCR2 P2P announce port based on DON
+// static range configuration and node index.
+func (m *DonMetadata) ResolveNodeOCR2AnnouncePort(nodeIndex int) int {
+	base := 0
+	if m != nil && m.ns != nil {
+		base = m.ns.OCR2P2PRangeStart
+		if base == 0 {
+			httpStart := m.ns.HTTPPortRangeStart
+			if httpStart == 0 {
+				httpStart = ns.DefaultHTTPPortStaticRangeStart
+			}
+			base = httpStart + (ns.DefaultOCR2P2PStaticRangeStart - ns.DefaultHTTPPortStaticRangeStart)
+		}
+	}
+	if base == 0 {
+		base = ns.DefaultOCR2P2PStaticRangeStart
+	}
+	if nodeIndex < 0 {
+		nodeIndex = 0
+	}
+	return base + nodeIndex
+}
+
 func (m *DonMetadata) RequiresGateway() bool {
 	return HasFlag(m.Flags, CustomComputeCapability) ||
 		HasFlag(m.Flags, WebAPITriggerCapability) ||

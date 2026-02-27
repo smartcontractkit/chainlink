@@ -282,7 +282,7 @@ For more details on the URL resolution process and how workflow artifacts are ha
 go run . env stop
 
 # stop remote components only
-go run . env stop-remote
+go run . env remote stop
 
 # stop remote first, then local resources and local services
 go run . env stop-all
@@ -306,10 +306,10 @@ Environment variable precedence for agent resolution:
 Stop command semantics:
 
 - `env stop`: local resources only; does not stop remote components.
-- `env stop-remote`: remote resources only through the remote agent.
+- `env remote stop`: remote resources only through the remote agent.
 - `env stop-all`: remote stop followed by local stop.
 
-If `env stop` warns about remote components still running, run `env stop-remote`.
+If `env stop` warns about remote components still running, run `env remote stop`.
 
 Architecture ownership and boundaries are documented in:
 - [`docs/ARCHITECTURE_REMOTEEXEC.md`](./docs/ARCHITECTURE_REMOTEEXEC.md)
@@ -319,7 +319,7 @@ Mixed-mode verification checklist:
 1. Start with a mixed config (`local` + `remote` placements).
 2. Confirm startup output includes `Runtime Placement Matrix`.
 3. Deploy a workflow/artifact and verify remote delivery path succeeds.
-4. Run `env stop-remote` and verify remote stop summary reports requested/stopped counts.
+4. Run `env remote stop` and verify remote stop summary reports requested/stopped counts.
 5. Run `env stop-all` and verify no local containers/state remain.
 
 ## Restarting the environment
