@@ -359,13 +359,8 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 
 	case vaulttypes.MethodSecretsGet:
-		// Secrets get is only allowed in non-production builds for testing purposes
-		// So no authorization is required
-		ar, err := h.newActiveRequest(req, callback)
-		if err != nil {
-			return err
-		}
-		return h.handleSecretsGet(ctx, ar)
+		h.lggr.Errorw("Get requests not allowed", "requestID", req.ID)
+		return errors.New("get request not allowed")
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
