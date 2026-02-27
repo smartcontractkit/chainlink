@@ -68,7 +68,7 @@ flowchart LR
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common/keystore
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
-	chainlink-evm --> chainlink-common/keystore
+	chainlink-evm --> chainlink-data-streams
 	chainlink-evm --> chainlink-evm/gethwrappers
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
@@ -137,7 +137,6 @@ flowchart LR
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-ccv
-	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/ring/go
@@ -327,8 +326,8 @@ flowchart LR
 	chainlink-deployments-framework --> chainlink-tron/relayer
 	chainlink-deployments-framework --> mcms
 	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
-	chainlink-evm --> chainlink-common/keystore
 	chainlink-evm --> chainlink-common/pkg/values
+	chainlink-evm --> chainlink-data-streams
 	chainlink-evm --> chainlink-evm/gethwrappers
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
@@ -515,7 +514,6 @@ flowchart LR
 	click chainlink/system-tests/tests/smoke/cre/solana/solwrite href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-ccv
-	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/ring/go
