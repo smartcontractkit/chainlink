@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -104,16 +105,17 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:               creEnv.CldfEnvironment.DataStore,
-					ContractVersions:        creEnv.ContractVersions,
-					DonMetadata:             donMetadata,
-					Blockchains:             chainPerSelector,
-					Flags:                   donMetadata.Flags,
-					CapabilitiesPeeringData: capabilitiesPeeringData,
-					OCRPeeringData:          ocrPeeringData,
-					RegistryChainSelector:   creEnv.RegistryChainSelector,
-					Topology:                topology,
-					Provider:                creEnv.Provider,
+					Datastore:                 creEnv.CldfEnvironment.DataStore,
+					ContractVersions:          creEnv.ContractVersions,
+					DonMetadata:               donMetadata,
+					Blockchains:               chainPerSelector,
+					Flags:                     donMetadata.Flags,
+					CapabilitiesPeeringData:   capabilitiesPeeringData,
+					OCRPeeringData:            ocrPeeringData,
+					RegistryChainSelector:     creEnv.RegistryChainSelector,
+					Topology:                  topology,
+					Provider:                  creEnv.Provider,
+					AptosForwarderAddresses:  creEnv.AptosForwarderAddresses,
 				},
 				configFactoryFunctions,
 			)
@@ -378,6 +380,18 @@ func addBootstrapNodeConfig(
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
+	for _, ac := range commonInputs.aptosChains {
+		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
+			"ChainID":  ac.ChainID,
+			"Enabled":  true,
+			"Workflow": map[string]any{"ForwarderAddress": ac.ForwarderAddress},
+			"Nodes":    []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
+		})
+	}
+
+	// Set external registry only (local EVM capability registry). We do not set [Capabilities.Local];
+	// capabilities (e.g. cron) are registered on the on-chain capability registry via Features (e.g. Cron
+	// feature PreEnvStartup), same as workflow-don-solana.toml, workflow-gateway-don.toml, workflow-don-tron.toml.
 	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
 		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
 			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
@@ -464,6 +478,15 @@ func addWorkerNodeConfig(
 
 	if commonInputs.solanaChain != nil {
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
+	}
+
+	for _, ac := range commonInputs.aptosChains {
+		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
+			"ChainID":  ac.ChainID,
+			"Enabled":  true,
+			"Workflow": map[string]any{"ForwarderAddress": ac.ForwarderAddress},
+			"Nodes":    []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
+		})
 	}
 
 	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
@@ -623,6 +646,12 @@ type versionedAddress struct {
 	version *semver.Version
 }
 
+type aptosChain struct {
+	ChainID          string
+	NodeURL          string
+	ForwarderAddress string
+}
+
 type commonInputs struct {
 	registryChainID       uint64
 	registryChainSelector uint64
@@ -632,6 +661,7 @@ type commonInputs struct {
 
 	evmChains   []*evmChain
 	solanaChain *solanaChain
+	aptosChains []*aptosChain
 
 	provider infra.Provider
 }
@@ -651,6 +681,8 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	capabilitiesRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
 	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
+	aptosChains := findAptosChains(input)
+
 	return &commonInputs{
 		registryChainID:       registryChainID,
 		registryChainSelector: input.RegistryChainSelector,
@@ -660,6 +692,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		},
 		evmChains:   evmChains,
 		solanaChain: solanaChain,
+		aptosChains: aptosChains,
 		capabilityRegistry: versionedAddress{
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
@@ -678,7 +711,7 @@ type evmChain struct {
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
 	for chainSelector, bcOut := range input.Blockchains {
-		if bcOut.IsFamily(chain_selectors.FamilySolana) {
+		if bcOut.IsFamily(chain_selectors.FamilySolana) || bcOut.IsFamily(chain_selectors.FamilyAptos) {
 			continue
 		}
 
@@ -735,6 +768,48 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	}
 
 	return solChain, nil
+}
+
+const aptosZeroForwarderHex = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+// aptosNodeURLWithV1 normalizes an Aptos node URL so the path is /v1 (Aptos REST API base).
+func aptosNodeURLWithV1(nodeURL string) string {
+	u, err := url.Parse(nodeURL)
+	if err != nil {
+		return nodeURL
+	}
+	path := strings.TrimRight(u.Path, "/")
+	if path == "" || path != "/v1" {
+		u.Path = "/v1"
+	}
+	return u.String()
+}
+
+func findAptosChains(input cre.GenerateConfigsInput) []*aptosChain {
+	capabilityChainIDs := input.DonMetadata.MustNodeSet().ChainCapabilityChainIDs()
+	out := make([]*aptosChain, 0)
+	for chainSelector, bcOut := range input.Blockchains {
+		if !bcOut.IsFamily(chain_selectors.FamilyAptos) {
+			continue
+		}
+		if len(capabilityChainIDs) > 0 && !slices.Contains(capabilityChainIDs, bcOut.ChainID()) {
+			continue
+		}
+		forwarderAddr := ""
+		if input.AptosForwarderAddresses != nil {
+			forwarderAddr = input.AptosForwarderAddresses[chainSelector]
+		}
+		if forwarderAddr == "" {
+			forwarderAddr = aptosZeroForwarderHex
+		}
+		nodeURL := aptosNodeURLWithV1(bcOut.CtfOutput().Nodes[0].InternalHTTPUrl)
+		out = append(out, &aptosChain{
+			ChainID:          strconv.FormatUint(bcOut.ChainID(), 10),
+			NodeURL:          nodeURL,
+			ForwarderAddress: forwarderAddr,
+		})
+	}
+	return out
 }
 
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {

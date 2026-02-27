@@ -28,6 +28,7 @@ const (
 	CustomCompute
 	LogEventTrigger
 	ReadContract
+	Aptos
 	CRESettings
 	Ring
 )
@@ -66,6 +67,8 @@ func (jt JobSpecTemplate) String() string {
 		return "log-event-trigger"
 	case ReadContract:
 		return "read-contract"
+	case Aptos:
+		return "aptos"
 	case CRESettings:
 		return "cre-settings"
 	case Ring:
@@ -110,6 +113,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return LogEventTrigger, nil
 	case "read-contract":
 		return ReadContract, nil
+	case "aptos":
+		return Aptos, nil
 	case "cre-settings":
 		return CRESettings, nil
 	case "ring":

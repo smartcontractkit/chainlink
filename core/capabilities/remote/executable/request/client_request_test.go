@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	aptoscap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/aptos"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -701,6 +703,177 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 }
 
+func Test_ClientRequest_AptosWriteReportFailedHashAggregation(t *testing.T) {
+	workflowPeers := []p2ptypes.PeerID{NewP2PPeerID(t), NewP2PPeerID(t)}
+	workflowDonInfo := commoncap.DON{Members: workflowPeers, ID: 2}
+	capabilityPeers, capDonInfo, _ := capabilityDon(t, 4, 1)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "aptos:ChainSelector:4457093679053095497@1.0.0",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Aptos Target",
+		DON:            &capDonInfo,
+	}
+
+	capabilityRequest := commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
+			ReferenceID:         stepRef1,
+		},
+	}
+
+	makeReq := func(t *testing.T) *request.ClientRequest {
+		t.Helper()
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		req, err := request.NewClientExecuteRequest(
+			t.Context(),
+			logger.Test(t),
+			capabilityRequest,
+			capInfo,
+			workflowDonInfo,
+			dispatcher,
+			10*time.Minute,
+			&transmission.TransmissionConfig{
+				Schedule:   transmission.Schedule_AllAtOnce,
+				DeltaStage: 500 * time.Millisecond,
+			},
+			"WriteReport",
+		)
+		require.NoError(t, err)
+		for i := 0; i < len(capabilityPeers); i++ {
+			<-dispatcher.msgs
+		}
+		return req
+	}
+
+	makeMessage := func(sender p2ptypes.PeerID, payload []byte) *types.MessageBody {
+		return &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         payload,
+			MessageId:       []byte("messageID"),
+			Sender:          sender[:],
+		}
+	}
+	makeErrorMessage := func(sender p2ptypes.PeerID, errMsg string) *types.MessageBody {
+		return &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			MessageId:       []byte("messageID"),
+			Sender:          sender[:],
+			Error:           types.Error_INTERNAL_ERROR,
+			ErrorMsg:        errMsg,
+		}
+	}
+
+	t.Run("falls back to sorted hash when no failed-hash quorum", func(t *testing.T) {
+		req := makeReq(t)
+		defer req.Cancel(errors.New("test end"))
+
+		hashHigh := "0x" + strings.Repeat("f", 64)
+		hashLow := "0x" + strings.Repeat("0", 64)
+		payloadHigh := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashHigh, "node high")
+		payloadLow := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashLow, "node low")
+
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[0], payloadHigh)))
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[1], payloadLow)))
+
+		select {
+		case <-req.ResponseChan():
+			t.Fatal("expected no immediate response without failed-hash quorum")
+		default:
+		}
+
+		req.Cancel(errors.New("request expired"))
+		response := <-req.ResponseChan()
+		require.NoError(t, response.Err)
+
+		reply := mustUnwrapAptosWriteReportReply(t, response.Result)
+		require.Equal(t, aptoscap.TxStatus_TX_STATUS_FAILED, reply.GetTxStatus())
+		require.Equal(t, "0x"+strings.Repeat("0", 64), string(reply.GetTxHash()))
+	})
+
+	t.Run("returns after 2f+1 failed replies using canonical hash selection", func(t *testing.T) {
+		req := makeReq(t)
+		defer req.Cancel(errors.New("test end"))
+
+		hashC := "0x" + strings.Repeat("c", 64)
+		hashB := "0x" + strings.Repeat("b", 64)
+		hashA := "0x" + strings.Repeat("a", 64)
+
+		// We need 2f+1 failed replies (3 for f=1). Hashes can differ.
+		// Canonical selection is deterministic: lexicographically smallest normalized hash.
+		payloadOne := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashC, "node c")
+		payloadTwo := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashB, "node b")
+		payloadThree := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, strings.ToUpper(hashA), "node a")
+
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[0], payloadOne)))
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[1], payloadTwo)))
+		select {
+		case <-req.ResponseChan():
+			t.Fatal("expected no immediate response with only two failed replies")
+		default:
+		}
+
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[2], payloadThree)))
+
+		response := <-req.ResponseChan()
+		require.NoError(t, response.Err)
+
+		reply := mustUnwrapAptosWriteReportReply(t, response.Result)
+		require.Equal(t, aptoscap.TxStatus_TX_STATUS_FAILED, reply.GetTxStatus())
+		require.Equal(t, "0x"+strings.Repeat("a", 64), string(reply.GetTxHash()))
+	})
+
+	t.Run("returns explicit error when all replies are failed without hashes", func(t *testing.T) {
+		req := makeReq(t)
+		defer req.Cancel(errors.New("test end"))
+
+		payload := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, "", "missing hash")
+
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[0], payload)))
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[1], payload)))
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[2], payload)))
+
+		select {
+		case <-req.ResponseChan():
+			t.Fatal("expected no response before all Aptos replies are received")
+		default:
+		}
+
+		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[3], payload)))
+		response := <-req.ResponseChan()
+		require.Error(t, response.Err)
+		require.Contains(t, response.Err.Error(), "without deterministic failed hash")
+	})
+
+	t.Run("does not short-circuit Aptos write on repeated peer errors before all responses", func(t *testing.T) {
+		req := makeReq(t)
+		defer req.Cancel(errors.New("test end"))
+
+		require.NoError(t, req.OnMessage(t.Context(), makeErrorMessage(capabilityPeers[0], "submit failed")))
+		require.NoError(t, req.OnMessage(t.Context(), makeErrorMessage(capabilityPeers[1], "submit failed")))
+
+		select {
+		case <-req.ResponseChan():
+			t.Fatal("expected Aptos write request to wait for all responses before returning an error")
+		default:
+		}
+
+		require.NoError(t, req.OnMessage(t.Context(), makeErrorMessage(capabilityPeers[2], "submit failed")))
+		require.NoError(t, req.OnMessage(t.Context(), makeErrorMessage(capabilityPeers[3], "submit failed")))
+
+		response := <-req.ResponseChan()
+		require.Error(t, response.Err)
+		require.Contains(t, response.Err.Error(), "without deterministic failed hash")
+	})
+}
+
 func capabilityDon(t *testing.T, numCapabilityPeers int, f uint8) ([]p2ptypes.PeerID, commoncap.DON, commoncap.CapabilityInfo) {
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := range numCapabilityPeers {
@@ -720,6 +893,38 @@ func capabilityDon(t *testing.T, numCapabilityPeers int, f uint8) ([]p2ptypes.Pe
 		DON:            &capDonInfo,
 	}
 	return capabilityPeers, capDonInfo, capInfo
+}
+
+func mustAptosWriteReportCapabilityResponse(t *testing.T, status aptoscap.TxStatus, txHash string, errorMsg string) []byte {
+	t.Helper()
+
+	reply := &aptoscap.WriteReportReply{
+		TxStatus: status,
+		TxHash:   []byte(txHash),
+	}
+	if errorMsg != "" {
+		reply.ErrorMessage = &errorMsg
+	}
+
+	response := commoncap.CapabilityResponse{}
+	require.NoError(t, commoncap.SetResponse(&response, false, reply))
+
+	payload, err := pb.MarshalCapabilityResponse(response)
+	require.NoError(t, err)
+	return payload
+}
+
+func mustUnwrapAptosWriteReportReply(t *testing.T, payload []byte) *aptoscap.WriteReportReply {
+	t.Helper()
+
+	response, err := pb.UnmarshalCapabilityResponse(payload)
+	require.NoError(t, err)
+
+	reply := &aptoscap.WriteReportReply{}
+	_, err = commoncap.UnwrapResponse(response, reply)
+	require.NoError(t, err)
+
+	return reply
 }
 
 type clientRequestTestDispatcher struct {

@@ -268,8 +268,20 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		}
 	}
 
-	// Build Docker image
-	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
+	// Build Docker image. Use absolute paths for Dockerfile and context so Docker/BuildKit do not resolve them
+	// relative to each other (which causes "lstat ../core: no such file or directory" when context is "..").
+	dockerfilePath := c.Dockerfile
+	if !filepath.IsAbs(dockerfilePath) {
+		dockerfilePath = filepath.Join(workingDir, c.Dockerfile)
+	}
+	ctxPath := c.DockerCtx
+	if !filepath.IsAbs(ctxPath) {
+		ctxPath = filepath.Join(workingDir, c.DockerCtx)
+		if ctxPath, err = filepath.Abs(ctxPath); err != nil {
+			return "", fmt.Errorf("failed to resolve docker context path: %w", err)
+		}
+	}
+	args := []string{"build", "-t", c.LocalImage, "-f", dockerfilePath, ctxPath}
 	if c.RequireGithubToken {
 		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
 	}

@@ -130,6 +130,16 @@
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
 
+# Aptos chain read (View) and write (WriteReport).
+# Uses the private capabilities chain_capabilities/aptos plugin binary, which registers
+# aptos:ChainSelector:<selector>@1.0.0 IDs expected by CRE SDK workflows.
+[capability_configs.write-aptos]
+  binary_path = "./binaries/aptos"
+
+# No static defaults: job config (chainId/network/creForwarderAddress) is built at runtime in read_contract.go.
+[capability_configs.write-aptos.values]
+  # ChainID and forwarder address are injected per chain when proposing the write-aptos JD job.
+
 [capability_configs.solana.values]
   TxAcceptanceState = 3
   TxRetentonTimeout = "120s"

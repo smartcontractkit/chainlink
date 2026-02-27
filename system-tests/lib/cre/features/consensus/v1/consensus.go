@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
@@ -172,6 +173,10 @@ func createJobs(
 	}
 
 	for _, blockchain := range creEnv.Blockchains {
+		if blockchain.IsFamily(chainselectors.FamilyAptos) {
+			workerInput.Inputs["chainSelectorAptos"] = blockchain.ChainSelector()
+			continue
+		}
 		if blockchain.IsFamily(chainselectors.FamilySolana) {
 			workerInput.Inputs["chainSelectorSolana"] = blockchain.ChainSelector()
 			break
@@ -185,6 +190,12 @@ func createJobs(
 
 	workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
 	if workerErr != nil {
+		if strings.Contains(workerErr.Error(), "no aptos ocr2 config for node") {
+			return fmt.Errorf(
+				"failed to propose Consensus v1 worker job spec: %w; Aptos workflows require Aptos OCR2 key bundles on all workflow DON nodes",
+				workerErr,
+			)
+		}
 		return fmt.Errorf("failed to propose Consensus v1 worker job spec: %w", workerErr)
 	}
 
