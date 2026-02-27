@@ -14,7 +14,7 @@ permissions: {}
 # with this key are exempt from SigScanner. Stored here (not in Secrets)
 # so that any change requires code-review approval.
 env:
-  BOT_SIGN_KEY_FP_RELEASE_PUSHER: "REPLACE_WITH_ACTUAL_FINGERPRINT"
+  BOT_SIGN_KEY_FP_RELEASE_PUSHER: "SHA256:ZbmANK1Txn2p21TXLqLn9OdfsgPNW9Nt1s9s1i0/1bc"
 
 jobs:
   sigscanner-check:
