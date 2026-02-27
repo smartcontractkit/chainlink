@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -49,11 +50,24 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 		},
 	}
 
+	shardRouter := testShardRouter(t, donConfig, mockDon)
 	cfg := WithDefaults(ServiceConfig{})
-	testMetrics, err := metrics.NewMetrics(donConfig)
+	testMetrics, err := metrics.NewMetrics(donConfig.Members)
 	require.NoError(t, err)
-	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
+	handler := NewWorkflowMetadataHandler(lggr, cfg, shardRouter, testMetrics)
 	return handler, mockDon, donConfig
+}
+
+func testShardRouter(t *testing.T, donConfig *config.DONConfig, don handlers.DON) *handlers.ShardRouter {
+	t.Helper()
+	shardedDONs := []config.ShardedDONConfig{{
+		DonName: "test",
+		F:       donConfig.F,
+		Shards:  []config.Shard{{Nodes: donConfig.Members}},
+	}}
+	router, err := handlers.NewShardRouter(shardedDONs, [][]handlers.DON{{don}})
+	require.NoError(t, err)
+	return router
 }
 
 func TestSyncMetadata(t *testing.T) {

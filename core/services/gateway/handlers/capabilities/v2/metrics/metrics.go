@@ -77,8 +77,9 @@ type Metrics struct {
 	nodeAddressToNodeName map[string]string
 }
 
-// NewMetrics creates a new instance of Metrics with all metrics initialized
-func NewMetrics(donConfig *config.DONConfig) (*Metrics, error) {
+// NewMetrics creates a new instance of Metrics with all metrics initialized.
+// allMembers contains all node configs across all shards for address-to-name resolution.
+func NewMetrics(allMembers []config.NodeConfig) (*Metrics, error) {
 	meter := beholder.GetMeter()
 
 	common, err := newCommonMetrics(meter)
@@ -97,10 +98,8 @@ func NewMetrics(donConfig *config.DONConfig) (*Metrics, error) {
 	}
 
 	nodeAddressToNodeName := make(map[string]string)
-	if donConfig != nil {
-		for _, member := range donConfig.Members {
-			nodeAddressToNodeName[member.Address] = member.Name
-		}
+	for _, member := range allMembers {
+		nodeAddressToNodeName[member.Address] = member.Name
 	}
 
 	return &Metrics{

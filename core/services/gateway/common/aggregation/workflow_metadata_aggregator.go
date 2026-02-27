@@ -140,40 +140,64 @@ func (agg *WorkflowMetadataAggregator) Collect(obs *gateway_common.WorkflowMetad
 	return nil
 }
 
+// AggregatedWorkflow pairs a workflow's metadata with the set of node addresses that reported it.
+type AggregatedWorkflow struct {
+	Metadata  gateway_common.WorkflowMetadata
+	Reporters StringSet
+}
+
 // Aggregate returns the aggregated workflow metadata for workflows that have reached the threshold.
 // Results are sorted chronologically by sequence number (newest first, oldest last).
 func (agg *WorkflowMetadataAggregator) Aggregate() ([]gateway_common.WorkflowMetadata, error) {
+	results, err := agg.AggregateWithReporters()
+	if err != nil {
+		return nil, err
+	}
+	aggregated := make([]gateway_common.WorkflowMetadata, len(results))
+	for i, r := range results {
+		aggregated[i] = r.Metadata
+	}
+	return aggregated, nil
+}
+
+// AggregateWithReporters returns aggregated workflow metadata together with the set of
+// node addresses that reported each workflow. This allows callers to determine which
+// shard owns a workflow based on the reporting nodes.
+func (agg *WorkflowMetadataAggregator) AggregateWithReporters() ([]AggregatedWorkflow, error) {
 	agg.mu.RLock()
 	defer agg.mu.RUnlock()
 
-	type aggregatedObs struct {
-		metadata gateway_common.WorkflowMetadata
+	type sortable struct {
+		result   AggregatedWorkflow
 		sequence uint64
 	}
 
-	var toSort []aggregatedObs
+	var toSort []sortable
 	for _, nodeObs := range agg.observations {
 		if len(nodeObs.nodes) >= agg.threshold {
-			toSort = append(toSort, aggregatedObs{
-				metadata: *nodeObs.observation,
+			reportersCopy := make(StringSet, len(nodeObs.nodes))
+			for addr := range nodeObs.nodes {
+				reportersCopy.Add(addr)
+			}
+			toSort = append(toSort, sortable{
+				result: AggregatedWorkflow{
+					Metadata:  *nodeObs.observation,
+					Reporters: reportersCopy,
+				},
 				sequence: nodeObs.sequence,
 			})
 		}
 	}
 
-	// Sort chronologically (newest first) so that workflows that were registered most recently
-	// takes precedence
 	sort.Slice(toSort, func(i, j int) bool {
 		return toSort[i].sequence > toSort[j].sequence
 	})
 
-	// Extract just the metadata
-	aggregated := make([]gateway_common.WorkflowMetadata, len(toSort))
-	for i, obs := range toSort {
-		aggregated[i] = obs.metadata
+	results := make([]AggregatedWorkflow, len(toSort))
+	for i, s := range toSort {
+		results[i] = s.result
 	}
-
-	return aggregated, nil
+	return results, nil
 }
 
 type NodeObservations struct {

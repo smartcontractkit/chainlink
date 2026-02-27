@@ -110,9 +110,14 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
+	shardRouter, err := handlers.NewShardRouter(shardedDONs, shardsConnMgrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shard router: %w", err)
+	}
+
 	var cfg ServiceConfig
-	err := json.Unmarshal(handlerConfig, &cfg)
+	err = json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -126,24 +131,24 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
 
-	metrics, err := metrics.NewMetrics(donConfig)
+	m, err := metrics.NewMetrics(shardRouter.AllMembers())
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
-	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
-	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shardRouter, m)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, shardRouter, metadataHandler, userRateLimiter, m)
 	return &gatewayHandler{
 		config:          cfg,
-		don:             don,
-		lggr:            logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		don:             shardRouter,
+		lggr:            logger.With(logger.Named(lggr, handlerName), "donId", shardRouter.DonID()),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
 		stopCh:          make(services.StopChan),
-		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, m),
 		triggerHandler:  triggerHandler,
 		metadataHandler: metadataHandler,
-		metrics:         metrics,
+		metrics:         m,
 	}, nil
 }
 

@@ -11,13 +11,11 @@ import (
 func TestNewMetrics(t *testing.T) {
 	t.Parallel()
 
-	donConfig := &config.DONConfig{
-		Members: []config.NodeConfig{
-			{Address: "0xnode1", Name: "node1"},
-			{Address: "0xnode2", Name: "node2"},
-		},
+	members := []config.NodeConfig{
+		{Address: "0xnode1", Name: "node1"},
+		{Address: "0xnode2", Name: "node2"},
 	}
-	metrics, err := NewMetrics(donConfig)
+	metrics, err := NewMetrics(members)
 	require.NoError(t, err)
 	require.NotNil(t, metrics)
 	require.NotNil(t, metrics.action)
