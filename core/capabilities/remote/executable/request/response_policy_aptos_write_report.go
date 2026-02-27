@@ -8,6 +8,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	aptoscap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/aptos"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
@@ -55,7 +56,7 @@ func (p *aptosWriteReportPolicy) ShouldDeferIdenticalResponse(payload []byte) bo
 	if !ok {
 		return false
 	}
-	return reply.GetTxStatus() == aptoscap.TxStatus_TX_STATUS_FAILED
+	return !isAptosWriteSuccess(reply)
 }
 
 func (p *aptosWriteReportPolicy) ObserveOKResponse(msg *types.MessageBody, metadata commoncap.ResponseMetadata) {
@@ -63,15 +64,17 @@ func (p *aptosWriteReportPolicy) ObserveOKResponse(msg *types.MessageBody, metad
 	if !ok {
 		return
 	}
-	if reply.GetTxStatus() == aptoscap.TxStatus_TX_STATUS_SUCCESS {
+	if isAptosWriteSuccess(reply) {
 		p.writeSuccessSeen = true
 		return
 	}
-	if reply.GetTxStatus() != aptoscap.TxStatus_TX_STATUS_FAILED || len(reply.GetTxHash()) == 0 {
+
+	rawHash, ok := getAptosWriteTxHashRaw(reply)
+	if !ok || len(rawHash) == 0 {
 		return
 	}
 
-	normalizedHash, ok := normalizeAptosTxHash(reply.GetTxHash())
+	normalizedHash, ok := normalizeAptosTxHash(rawHash)
 	if !ok {
 		return
 	}
@@ -180,8 +183,9 @@ func buildAptosFailedWriteReportPayload(payload []byte, normalizedHash string, m
 		return nil, err
 	}
 
-	reply.TxStatus = aptoscap.TxStatus_TX_STATUS_FAILED
-	reply.TxHash = []byte("0x" + normalizedHash)
+	if err := setAptosWriteFailureStatusAndHash(reply, normalizedHash); err != nil {
+		return nil, err
+	}
 
 	if err := commoncap.SetResponse(&resp, migrated, reply); err != nil {
 		return nil, err
@@ -189,6 +193,72 @@ func buildAptosFailedWriteReportPayload(payload []byte, normalizedHash string, m
 
 	resp.Metadata = metadata
 	return pb.MarshalCapabilityResponse(resp)
+}
+
+func isAptosWriteSuccess(reply *aptoscap.WriteReportReply) bool {
+	// SUCCESS is enum number 2 in both Aptos proto variants.
+	return int32(reply.GetTxStatus()) == 2
+}
+
+func getAptosWriteTxHashRaw(reply *aptoscap.WriteReportReply) ([]byte, bool) {
+	m := reply.ProtoReflect()
+	fd := m.Descriptor().Fields().ByName("tx_hash")
+	if fd == nil || !m.Has(fd) {
+		return nil, false
+	}
+
+	v := m.Get(fd)
+	switch fd.Kind() {
+	case protoreflect.BytesKind:
+		b := v.Bytes()
+		if len(b) == 0 {
+			return nil, false
+		}
+		return b, true
+	case protoreflect.StringKind:
+		s := strings.TrimSpace(v.String())
+		if s == "" {
+			return nil, false
+		}
+		return []byte(s), true
+	default:
+		return nil, false
+	}
+}
+
+func setAptosWriteFailureStatusAndHash(reply *aptoscap.WriteReportReply, normalizedHash string) error {
+	m := reply.ProtoReflect()
+
+	statusFD := m.Descriptor().Fields().ByName("tx_status")
+	if statusFD != nil && statusFD.Kind() == protoreflect.EnumKind {
+		enumValues := statusFD.Enum().Values()
+		var failNum protoreflect.EnumNumber
+		if v := enumValues.ByName("TX_STATUS_FAILED"); v != nil {
+			failNum = v.Number()
+		} else if v := enumValues.ByName("TX_STATUS_ABORTED"); v != nil {
+			failNum = v.Number()
+		} else if v := enumValues.ByName("TX_STATUS_FATAL"); v != nil {
+			failNum = v.Number()
+		} else {
+			failNum = 0
+		}
+		m.Set(statusFD, protoreflect.ValueOfEnum(failNum))
+	}
+
+	hashFD := m.Descriptor().Fields().ByName("tx_hash")
+	if hashFD == nil {
+		return nil
+	}
+
+	hashWithPrefix := "0x" + normalizedHash
+	switch hashFD.Kind() {
+	case protoreflect.BytesKind:
+		m.Set(hashFD, protoreflect.ValueOfBytes([]byte(hashWithPrefix)))
+	case protoreflect.StringKind:
+		m.Set(hashFD, protoreflect.ValueOfString(hashWithPrefix))
+	}
+
+	return nil
 }
 
 func normalizeAptosTxHash(raw []byte) (string, bool) {
