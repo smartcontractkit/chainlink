@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
@@ -777,8 +778,8 @@ func Test_ClientRequest_AptosWriteReportFailedHashAggregation(t *testing.T) {
 
 		hashHigh := "0x" + strings.Repeat("f", 64)
 		hashLow := "0x" + strings.Repeat("0", 64)
-		payloadHigh := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashHigh, "node high")
-		payloadLow := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashLow, "node low")
+		payloadHigh := mustAptosWriteReportCapabilityResponse(t, aptosWriteFailureStatus(), hashHigh, "node high")
+		payloadLow := mustAptosWriteReportCapabilityResponse(t, aptosWriteFailureStatus(), hashLow, "node low")
 
 		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[0], payloadHigh)))
 		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[1], payloadLow)))
@@ -794,8 +795,8 @@ func Test_ClientRequest_AptosWriteReportFailedHashAggregation(t *testing.T) {
 		require.NoError(t, response.Err)
 
 		reply := mustUnwrapAptosWriteReportReply(t, response.Result)
-		require.Equal(t, aptoscap.TxStatus_TX_STATUS_FAILED, reply.GetTxStatus())
-		require.Equal(t, "0x"+strings.Repeat("0", 64), string(reply.GetTxHash()))
+		require.NotEqual(t, aptoscap.TxStatus_TX_STATUS_SUCCESS, reply.GetTxStatus())
+		require.Equal(t, "0x"+strings.Repeat("0", 64), aptosWriteReplyTxHash(reply))
 	})
 
 	t.Run("returns after 2f+1 failed replies using canonical hash selection", func(t *testing.T) {
@@ -808,9 +809,9 @@ func Test_ClientRequest_AptosWriteReportFailedHashAggregation(t *testing.T) {
 
 		// We need 2f+1 failed replies (3 for f=1). Hashes can differ.
 		// Canonical selection is deterministic: lexicographically smallest normalized hash.
-		payloadOne := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashC, "node c")
-		payloadTwo := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, hashB, "node b")
-		payloadThree := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, strings.ToUpper(hashA), "node a")
+		payloadOne := mustAptosWriteReportCapabilityResponse(t, aptosWriteFailureStatus(), hashC, "node c")
+		payloadTwo := mustAptosWriteReportCapabilityResponse(t, aptosWriteFailureStatus(), hashB, "node b")
+		payloadThree := mustAptosWriteReportCapabilityResponse(t, aptosWriteFailureStatus(), strings.ToUpper(hashA), "node a")
 
 		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[0], payloadOne)))
 		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[1], payloadTwo)))
@@ -826,15 +827,15 @@ func Test_ClientRequest_AptosWriteReportFailedHashAggregation(t *testing.T) {
 		require.NoError(t, response.Err)
 
 		reply := mustUnwrapAptosWriteReportReply(t, response.Result)
-		require.Equal(t, aptoscap.TxStatus_TX_STATUS_FAILED, reply.GetTxStatus())
-		require.Equal(t, "0x"+strings.Repeat("a", 64), string(reply.GetTxHash()))
+		require.NotEqual(t, aptoscap.TxStatus_TX_STATUS_SUCCESS, reply.GetTxStatus())
+		require.Equal(t, "0x"+strings.Repeat("a", 64), aptosWriteReplyTxHash(reply))
 	})
 
 	t.Run("returns explicit error when all replies are failed without hashes", func(t *testing.T) {
 		req := makeReq(t)
 		defer req.Cancel(errors.New("test end"))
 
-		payload := mustAptosWriteReportCapabilityResponse(t, aptoscap.TxStatus_TX_STATUS_FAILED, "", "missing hash")
+		payload := mustAptosWriteReportCapabilityResponse(t, aptosWriteFailureStatus(), "", "missing hash")
 
 		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[0], payload)))
 		require.NoError(t, req.OnMessage(t.Context(), makeMessage(capabilityPeers[1], payload)))
@@ -900,8 +901,8 @@ func mustAptosWriteReportCapabilityResponse(t *testing.T, status aptoscap.TxStat
 
 	reply := &aptoscap.WriteReportReply{
 		TxStatus: status,
-		TxHash:   []byte(txHash),
 	}
+	setAptosWriteReplyTxHash(reply, txHash)
 	if errorMsg != "" {
 		reply.ErrorMessage = &errorMsg
 	}
@@ -925,6 +926,42 @@ func mustUnwrapAptosWriteReportReply(t *testing.T, payload []byte) *aptoscap.Wri
 	require.NoError(t, err)
 
 	return reply
+}
+
+func aptosWriteFailureStatus() aptoscap.TxStatus {
+	// Both aptos proto variants model non-success as enum number 0.
+	return aptoscap.TxStatus(0)
+}
+
+func setAptosWriteReplyTxHash(reply *aptoscap.WriteReportReply, txHash string) {
+	m := reply.ProtoReflect()
+	fd := m.Descriptor().Fields().ByName("tx_hash")
+	if fd == nil {
+		return
+	}
+	switch fd.Kind() {
+	case protoreflect.StringKind:
+		m.Set(fd, protoreflect.ValueOfString(txHash))
+	case protoreflect.BytesKind:
+		m.Set(fd, protoreflect.ValueOfBytes([]byte(txHash)))
+	}
+}
+
+func aptosWriteReplyTxHash(reply *aptoscap.WriteReportReply) string {
+	m := reply.ProtoReflect()
+	fd := m.Descriptor().Fields().ByName("tx_hash")
+	if fd == nil || !m.Has(fd) {
+		return ""
+	}
+	v := m.Get(fd)
+	switch fd.Kind() {
+	case protoreflect.StringKind:
+		return v.String()
+	case protoreflect.BytesKind:
+		return string(v.Bytes())
+	default:
+		return ""
+	}
 }
 
 type clientRequestTestDispatcher struct {
