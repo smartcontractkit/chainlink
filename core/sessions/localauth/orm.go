@@ -240,9 +240,11 @@ func constantTimeEmailCompare(left, right string) bool {
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
-// ClearNonCurrentSessions removes all sessions but the id passed in.
+// ClearNonCurrentSessions removes all sessions for the user owning the given
+// session, except the session itself. It uses a subquery so that only the
+// current user's sessions are affected rather than every session in the table.
 func (o *orm) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
-	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions where id != $1", sessionID)
+	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions WHERE id != $1 AND email = (SELECT email FROM sessions WHERE id = $1)", sessionID)
 	return err
 }
 

@@ -438,9 +438,11 @@ func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr clsessions.Se
 	return session.ID, nil
 }
 
-// ClearNonCurrentSessions removes all oicd_sessions but the id passed in.
+// ClearNonCurrentSessions removes all oidc_sessions for the user owning the
+// given session, except the session itself. It uses a subquery so that only
+// the current user's sessions are affected rather than every session in the table.
 func (oi *oidcAuthenticator) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
-	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions where id != $1", sessionID)
+	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE id != $1 AND user_email = (SELECT user_email FROM oidc_sessions WHERE id = $1)", sessionID)
 	return err
 }
 
