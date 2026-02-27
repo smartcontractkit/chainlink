@@ -357,15 +357,6 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		}
 		h.lggr.Debugw("returning cached public key response")
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
-
-	case vaulttypes.MethodSecretsGet:
-		// Secrets get is only allowed in non-production builds for testing purposes
-		// So no authorization is required
-		ar, err := h.newActiveRequest(req, callback)
-		if err != nil {
-			return err
-		}
-		return h.handleSecretsGet(ctx, ar)
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
