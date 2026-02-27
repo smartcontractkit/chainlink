@@ -10,14 +10,11 @@ on:
 
 permissions: {}
 
-# Public key for chainlink-release-pusher[bot]. Commits signed with the
-# corresponding private key are exempt from SigScanner. Stored here (not
-# in Secrets) so that any change requires code-review approval.
+# GPG key fingerprint for chainlink-release-pusher[bot]. Commits signed
+# with this key are exempt from SigScanner. Stored here (not in Secrets)
+# so that any change requires code-review approval.
 env:
-  BOT_SIGN_KEY_PUB_RELEASE_PUSHER: |
-    -----BEGIN PGP PUBLIC KEY BLOCK-----
-    REPLACE_WITH_ACTUAL_PUBLIC_KEY
-    -----END PGP PUBLIC KEY BLOCK-----
+  BOT_SIGN_KEY_FP_RELEASE_PUSHER: "REPLACE_WITH_ACTUAL_FINGERPRINT"
 
 jobs:
   sigscanner-check:
@@ -44,27 +41,21 @@ jobs:
       - name: Check if commit is signed by release-pusher bot
         id: bot-sig-check
         run: |
-          echo "🔑 Importing release-pusher bot public key …"
-          echo "${BOT_SIGN_KEY_PUB_RELEASE_PUSHER}" | gpg --import 2>/dev/null
+          echo "🔑 Checking commit signature against release-pusher bot fingerprint …"
+          echo "Bot key fingerprint: ${BOT_SIGN_KEY_FP_RELEASE_PUSHER}"
 
-          # Grab the fingerprint we just imported so we can match it
-          BOT_FP=$(echo "${BOT_SIGN_KEY_PUB_RELEASE_PUSHER}" | gpg --with-colons --import-options show-only --import 2>/dev/null \
-            | awk -F: '/^fpr/{print $10; exit}')
-          echo "Bot key fingerprint: ${BOT_FP}"
+          # Extract the fingerprint that signed this commit (empty if unsigned/unverified)
+          SIGN_FP=$(git log --format='%GF' -1 "${COMMIT_SHA}")
 
-          # Try to verify the commit signature
-          if git verify-commit "${COMMIT_SHA}" 2>/dev/null; then
-            # Extract the fingerprint that signed this commit
-            SIGN_FP=$(git log --format='%GF' -1 "${COMMIT_SHA}")
-            if [[ "${SIGN_FP}" == "${BOT_FP}" ]]; then
-              echo "✅ Commit is signed by the release-pusher bot — skipping SigScanner"
-              echo "signed_by_bot=true" | tee -a "$GITHUB_OUTPUT"
-            else
-              echo "ℹ️  Commit is GPG-signed but NOT by the bot (signer: ${SIGN_FP})"
-              echo "signed_by_bot=false" | tee -a "$GITHUB_OUTPUT"
-            fi
+          if [[ -n "${SIGN_FP}" && "${SIGN_FP}" == "${BOT_SIGN_KEY_FP_RELEASE_PUSHER}" ]]; then
+            echo "✅ Commit is signed by the release-pusher bot — skipping SigScanner"
+            echo "signed_by_bot=true" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "ℹ️  Commit has no valid GPG signature"
+            if [[ -n "${SIGN_FP}" ]]; then
+              echo "ℹ️  Commit is GPG-signed but NOT by the bot (signer: ${SIGN_FP})"
+            else
+              echo "ℹ️  Commit has no valid GPG signature"
+            fi
             echo "signed_by_bot=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
