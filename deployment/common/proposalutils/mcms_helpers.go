@@ -10,11 +10,16 @@ import (
 
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstonsdk "github.com/smartcontractkit/mcms/sdk/ton"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
@@ -63,6 +68,8 @@ func McmsTimelockConverterForChain(chain uint64) (mcmssdk.TimelockConverter, err
 		return &mcmsevmsdk.TimelockConverter{}, nil
 	case chain_selectors.FamilySolana:
 		return mcmssolanasdk.TimelockConverter{}, nil
+	case chain_selectors.FamilyTon:
+		return mcmstonsdk.NewTimelockConverter(mcmstonsdk.DefaultSendAmount), nil
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
@@ -103,6 +110,8 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspe
 		inspector := mcmsaptossdk.NewInspector(env.BlockChains.AptosChains()[chain].Client, options.AptosRole)
 
 		return inspector, nil
+	case chain_selectors.FamilyTon:
+		return mcmstonsdk.NewInspector(env.BlockChains.TonChains()[chain].Client), nil
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
@@ -161,6 +170,23 @@ func TransactionForChain(
 		tx, err = mcmssolanasdk.NewTransaction(toAddress, data, value, accounts, contractType, tags)
 		if err != nil {
 			return mcmstypes.Transaction{}, fmt.Errorf("failed to create solana transaction: %w", err)
+		}
+
+	case chain_selectors.FamilyTon:
+		tonAddr, err := address.ParseAddr(toAddress)
+		if err != nil {
+			return mcmstypes.Transaction{}, fmt.Errorf("failed to parse ton address %s: %w", toAddress, err)
+		}
+
+		// Parse the BOC (Bag of Cells)
+		c, err := cell.FromBOC(data)
+		if err != nil {
+			return mcmstypes.Transaction{}, fmt.Errorf("failed to parse BOC data for ton transaction: %w", err)
+		}
+
+		tx, err = mcmstonsdk.NewTransaction(tonAddr, c.BeginParse(), value, contractType, tags)
+		if err != nil {
+			return mcmstypes.Transaction{}, fmt.Errorf("failed to create ton transaction: %w", err)
 		}
 
 	default:

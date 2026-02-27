@@ -8,6 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/tlb"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -15,14 +19,14 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstonsdk "github.com/smartcontractkit/mcms/sdk/ton"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -93,6 +97,13 @@ func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcms
 		}
 		inspectorsMap[chainSel] = mcmsaptossdk.NewInspector(chain.Client, roleFromAction[proposal.Action])
 	}
+	for chainSelector, chain := range env.BlockChains.TonChains() {
+		_, exists := chainsel.ChainBySelector(chain.Selector)
+		require.True(t, exists)
+		chainSel := mcmstypes.ChainSelector(chainSelector)
+		converters[chainSel] = mcmstonsdk.NewTimelockConverter(mcmstonsdk.DefaultSendAmount)
+		inspectorsMap[chainSel] = mcmstonsdk.NewInspector(chain.Client)
+	}
 
 	p, _, err := proposal.Convert(env.GetContext(), converters)
 	require.NoError(t, err)
@@ -122,6 +133,8 @@ func SignMCMSProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.Prop
 	inspectorsMap := make(map[mcmstypes.ChainSelector]mcmssdk.Inspector)
 	evmChains := env.BlockChains.EVMChains()
 	solanaChains := env.BlockChains.SolanaChains()
+	tonChains := env.BlockChains.TonChains()
+
 	for _, chain := range evmChains {
 		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
 		require.True(t, exists)
@@ -136,6 +149,14 @@ func SignMCMSProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.Prop
 		chainSel := mcmstypes.ChainSelector(chain.Selector)
 		converters[chainSel] = &mcmssolanasdk.TimelockConverter{}
 		inspectorsMap[chainSel] = mcmssolanasdk.NewInspector(chain.Client)
+	}
+
+	for _, chain := range tonChains {
+		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
+		require.True(t, exists)
+		chainSel := mcmstypes.ChainSelector(chainselc.Selector)
+		converters[chainSel] = mcmstonsdk.NewTimelockConverter(mcmstonsdk.DefaultSendAmount)
+		inspectorsMap[chainSel] = mcmstonsdk.NewInspector(chain.Client)
 	}
 
 	proposal.UseSimulatedBackend(true)
@@ -169,6 +190,8 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 	aptosChains := env.BlockChains.AptosChains()
 	evmChains := env.BlockChains.EVMChains()
 	solChains := env.BlockChains.SolanaChains()
+	tonChains := env.BlockChains.TonChains()
+
 	for _, op := range proposal.Operations {
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
@@ -201,6 +224,21 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 				mcmsaptossdk.TimelockRoleProposer,
 			)
 			t.Logf("[ExecuteMCMSProposalV2] Using Aptos chain with chainSelector=%d", uint64(op.ChainSelector))
+		case chainsel.FamilyTon:
+			encoder := encoders[op.ChainSelector].(*mcmstonsdk.Encoder)
+			opts := mcmstonsdk.ExecutorOpts{
+				Encoder: encoder,
+				Client:  tonChains[uint64(op.ChainSelector)].Client,
+				Wallet:  tonChains[uint64(op.ChainSelector)].Wallet,
+				Amount:  mcmstonsdk.DefaultSendAmount,
+			}
+			executorsMap[op.ChainSelector], err = mcmstonsdk.NewExecutor(opts)
+			require.NoError(t, err, "[ExecuteMCMSProposalV2] failed to create Ton executor")
+			t.Logf("[ExecuteMCMSProposalV2] Using Ton chain with chainSelector=%d. RPC=%s. Wallet=%s",
+				uint64(op.ChainSelector),
+				tonChains[uint64(op.ChainSelector)].URL,
+				tonChains[uint64(op.ChainSelector)].Wallet.Address().String(),
+			)
 
 		default:
 			require.FailNow(t, "unsupported chain family")
@@ -239,6 +277,20 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
 			}
 		}
+		if family == chainsel.FamilyTon {
+			chain := tonChains[uint64(chainSelector)]
+			t.Logf("[ExecuteMCMSProposalV2] SetRoot Ton tx hash: %s", root.Hash)
+
+			tx, ok := root.RawData.(*tlb.Transaction)
+			if !ok {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] failed to cast root.RawData to *tlb.Transaction")
+			}
+
+			err = chain.Confirm(t.Context(), tx)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
+			}
+		}
 	}
 
 	// execute each operation sequentially
@@ -269,6 +321,20 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
 			}
 		}
+		if family == chainsel.FamilyTon {
+			chain := tonChains[uint64(op.ChainSelector)]
+			t.Logf("[ExecuteMCMSProposalV2] Operation %d Ton tx hash: %s", i, result.Hash)
+
+			tx, ok := result.RawData.(*tlb.Transaction)
+			if !ok {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] failed to cast result.RawData to *tlb.Transaction")
+			}
+
+			err = chain.Confirm(t.Context(), tx)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -285,6 +351,8 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 	aptosChains := env.BlockChains.AptosChains()
 	evmChains := env.BlockChains.EVMChains()
 	solChains := env.BlockChains.SolanaChains()
+	tonChains := env.BlockChains.TonChains()
+
 	for i, op := range timelockProposal.Operations {
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
@@ -310,6 +378,15 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			executorsMap[op.ChainSelector] = mcmsaptossdk.NewTimelockExecutor(
 				aptosChains[uint64(op.ChainSelector)].Client,
 				aptosChains[uint64(op.ChainSelector)].DeployerSigner)
+
+		case chainsel.FamilyTon:
+			opts := mcmstonsdk.TimelockExecutorOpts{
+				Client: tonChains[uint64(op.ChainSelector)].Client,
+				Wallet: tonChains[uint64(op.ChainSelector)].Wallet,
+				Amount: mcmstonsdk.DefaultSendAmount,
+			}
+			executorsMap[op.ChainSelector], err = mcmstonsdk.NewTimelockExecutor(opts)
+			require.NoError(t, err)
 
 		default:
 			require.FailNow(t, "unsupported chain family")
@@ -352,6 +429,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on EVM failed: %w", err)
 			}
 		}
+
 		if family == chainsel.FamilyAptos {
 			chain := aptosChains[uint64(op.ChainSelector)]
 			err = chain.Confirm(tx.Hash)
@@ -359,6 +437,20 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on Aptos failed: %w", err)
 			}
 		}
+		if family == chainsel.FamilyTon {
+			chain := tonChains[uint64(op.ChainSelector)]
+
+			txData, ok := tx.RawData.(*tlb.Transaction)
+			if !ok {
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] failed to cast tx.RawData to *tlb.Transaction")
+			}
+
+			err = chain.Confirm(t.Context(), txData)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on Ton failed: %w", err)
+			}
+		}
+
 	}
 
 	return nil
