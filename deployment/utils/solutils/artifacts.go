@@ -172,8 +172,23 @@ func downloadProgramArtifacts(ctx context.Context, url string, targetDir string,
 			return fmt.Errorf("archive total size exceeds limit (limit: %d bytes)", maxTotalSize)
 		}
 
-		// Copy the file to the target directory
-		outPath := filepath.Join(targetDir, filepath.Base(header.Name))
+		// Validate extraction path to prevent Zip Slip (path traversal)
+		// Strip directory components and use only the base filename to ensure files
+		// are written directly to the target directory
+		baseName := filepath.Base(header.Name)
+		if baseName == "" || baseName == "." || baseName == ".." {
+			return fmt.Errorf("invalid archive file name: %s", header.Name)
+		}
+		outPath := filepath.Join(targetDir, baseName)
+
+		// Additional safety check: verify the resolved path is within target directory
+		cleanTargetDir := filepath.Clean(targetDir)
+		cleanOutPath := filepath.Clean(outPath)
+		if !strings.HasPrefix(cleanOutPath, cleanTargetDir+string(filepath.Separator)) &&
+			cleanOutPath != cleanTargetDir {
+			return fmt.Errorf("invalid extraction path outside target directory: %s", header.Name)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
 			return err
 		}

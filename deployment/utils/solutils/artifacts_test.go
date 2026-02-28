@@ -231,3 +231,122 @@ func TestDownloadProgramArtifacts_NonExistentTargetDir(t *testing.T) {
 	// Cleanup
 	os.RemoveAll("/tmp/non_existent_parent_dir_12345")
 }
+
+func TestDownloadProgramArtifacts_PathTraversal_ZipSlip(t *testing.T) {
+	tests := []struct {
+		name        string
+		maliciousName string
+		wantErr     string
+	}{
+		{
+			name:        "path traversal with parent directory",
+			maliciousName: "../../etc/passwd",
+			wantErr:     "invalid extraction path outside target directory",
+		},
+		{
+			name:        "absolute path",
+			maliciousName: "/tmp/evil.bin",
+			wantErr:     "invalid extraction path outside target directory",
+		},
+		{
+			name:        "path traversal with directory separator",
+			maliciousName: "../malicious.so",
+			wantErr:     "invalid extraction path outside target directory",
+		},
+		{
+			name:        "empty filename",
+			maliciousName: "",
+			wantErr:     "invalid archive file name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup server with malicious archive
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/gzip")
+
+				gzWriter := gzip.NewWriter(w)
+				defer gzWriter.Close()
+
+				tarWriter := tar.NewWriter(gzWriter)
+				defer tarWriter.Close()
+
+				// Add malicious file
+				content := "malicious content"
+				header := &tar.Header{
+					Name:     tt.maliciousName,
+					Size:     int64(len(content)),
+					Typeflag: tar.TypeReg,
+				}
+
+				err := tarWriter.WriteHeader(header)
+				require.NoError(t, err)
+				_, err = tarWriter.Write([]byte(content))
+				require.NoError(t, err)
+			}))
+			defer server.Close()
+
+			// Execute
+			tempDir := t.TempDir()
+			err := downloadProgramArtifacts(t.Context(), server.URL, tempDir, logger.Test(t))
+
+			// Assert error occurred
+			require.Error(t, err)
+			require.ErrorContains(t, err, tt.wantErr)
+
+			// Verify no files were extracted outside target directory
+			entries, err := os.ReadDir(tempDir)
+			require.NoError(t, err)
+			assert.Len(t, entries, 0, "No files should have been extracted")
+		})
+	}
+}
+
+func TestDownloadProgramArtifacts_ValidExtraction(t *testing.T) {
+	// Server with valid nested paths
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/gzip")
+
+		gzWriter := gzip.NewWriter(w)
+		defer gzWriter.Close()
+
+		tarWriter := tar.NewWriter(gzWriter)
+		defer tarWriter.Close()
+
+		// Add file with nested path - should be safely flattened
+		content := "program content"
+		header := &tar.Header{
+			Name:     "subdir/program.so",
+			Size:     int64(len(content)),
+			Typeflag: tar.TypeReg,
+		}
+
+		err := tarWriter.WriteHeader(header)
+		if err != nil {
+			t.Errorf("Failed to write tar header: %v", err)
+			return
+		}
+		_, err = tarWriter.Write([]byte(content))
+		if err != nil {
+			t.Errorf("Failed to write tar content: %v", err)
+			return
+		}
+	}))
+	defer server.Close()
+
+	// Execute
+	tempDir := t.TempDir()
+	err := downloadProgramArtifacts(t.Context(), server.URL, tempDir, logger.Test(t))
+
+	// Assert success - file should be extracted with flattened name
+	require.NoError(t, err)
+
+	// File should exist with base name only (flattened)
+	assert.FileExists(t, filepath.Join(tempDir, "program.so"))
+
+	// Verify it was not extracted to a subdirectory
+	subdirPath := filepath.Join(tempDir, "subdir")
+	_, err = os.Stat(subdirPath)
+	assert.True(t, os.IsNotExist(err), "Subdirectory should not have been created")
+}
