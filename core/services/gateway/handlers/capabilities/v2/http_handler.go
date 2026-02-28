@@ -42,18 +42,27 @@ const (
 	defaultSendResponseTimeoutMs         = 1000 * 5            // 5 seconds
 )
 
+// ShardInfo represents a single shard within a sharded DON.
+type ShardInfo struct {
+	DonName   string
+	ShardIdx  int
+	DON       handlers.DON
+	DONConfig *config.DONConfig
+}
+
 type gatewayHandler struct {
 	services.StateMachine
 	config          ServiceConfig
-	don             handlers.DON
+	shards          []*ShardInfo
+	nodeAddrToShard map[string]*ShardInfo
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
-	nodeRateLimiter *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
+	nodeRateLimiter *ratelimit.RateLimiter
 	wg              sync.WaitGroup
 	stopCh          services.StopChan
-	responseCache   ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	responseCache   ResponseCache
 	triggerHandler  HTTPTriggerHandler
-	metadataHandler *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metadataHandler *WorkflowMetadataHandler
 	metrics         *metrics.Metrics
 }
 
@@ -110,7 +119,7 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -126,25 +135,52 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
 
-	metrics, err := metrics.NewMetrics(donConfig)
+	shards, nodeAddrToShard := buildShards(shardedDONs, shardsConnMgrs)
+
+	m, err := metrics.NewMetrics(shardedDONs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
-	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
-	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, m)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, metadataHandler, userRateLimiter, m)
 	return &gatewayHandler{
 		config:          cfg,
-		don:             don,
-		lggr:            logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		shards:          shards,
+		nodeAddrToShard: nodeAddrToShard,
+		lggr:            logger.Named(lggr, handlerName),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
 		stopCh:          make(services.StopChan),
-		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, m),
 		triggerHandler:  triggerHandler,
 		metadataHandler: metadataHandler,
-		metrics:         metrics,
+		metrics:         m,
 	}, nil
+}
+
+func buildShards(shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON) ([]*ShardInfo, map[string]*ShardInfo) {
+	var shards []*ShardInfo
+	nodeAddrToShard := make(map[string]*ShardInfo)
+	for donIdx, don := range shardedDONs {
+		for shardIdx, shard := range don.Shards {
+			si := &ShardInfo{
+				DonName:  don.DonName,
+				ShardIdx: shardIdx,
+				DON:      shardsConnMgrs[donIdx][shardIdx],
+				DONConfig: &config.DONConfig{
+					DonId:   config.ShardDONID(don.DonName, shardIdx),
+					F:       don.F,
+					Members: shard.Nodes,
+				},
+			}
+			shards = append(shards, si)
+			for _, node := range shard.Nodes {
+				nodeAddrToShard[strings.ToLower(node.Address)] = si
+			}
+		}
+	}
+	return shards, nodeAddrToShard
 }
 
 func WithDefaults(cfg ServiceConfig) ServiceConfig {
@@ -431,6 +467,11 @@ func (h *gatewayHandler) Close() error {
 }
 
 func (h *gatewayHandler) sendResponseToNode(ctx context.Context, requestID string, resp gateway_common.OutboundHTTPResponse, nodeAddr string) error {
+	shard, ok := h.nodeAddrToShard[strings.ToLower(nodeAddr)]
+	if !ok {
+		return fmt.Errorf("unknown node address %s: no shard mapping", nodeAddr)
+	}
+
 	params, err := json.Marshal(resp)
 	if err != nil {
 		return err
@@ -443,11 +484,11 @@ func (h *gatewayHandler) sendResponseToNode(ctx context.Context, requestID strin
 		Params:  &rawParams,
 	}
 
-	err = h.don.SendToNode(ctx, nodeAddr, req)
+	err = shard.DON.SendToNode(ctx, nodeAddr, req)
 	if err != nil {
 		return err
 	}
 
-	h.lggr.Debugw("sent response to node", "to", nodeAddr)
+	h.lggr.Debugw("sent response to node", "to", nodeAddr, "shard", shard.DONConfig.DonId)
 	return nil
 }

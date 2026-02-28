@@ -34,8 +34,8 @@ const (
 	requestID     = "test-request-id"
 )
 
-func createTestMetrics(t *testing.T, donConfig *config.DONConfig) *metrics.Metrics {
-	m, err := metrics.NewMetrics(donConfig)
+func createTestMetrics(t *testing.T, shardedDONs []config.ShardedDONConfig) *metrics.Metrics {
+	m, err := metrics.NewMetrics(shardedDONs)
 	require.NoError(t, err)
 	return m
 }
@@ -526,6 +526,10 @@ func registerWorkflow(_ *testing.T, handler *httpTriggerHandler, workflowID stri
 		workflowName:  "test-workflow",
 		workflowTag:   "v1.0",
 	}
+	// Set the shard mapping for the workflow - use the first shard
+	if len(handler.workflowMetadataHandler.shards) > 0 {
+		handler.workflowMetadataHandler.workflowIDToShard[workflowID] = handler.workflowMetadataHandler.shards[0]
+	}
 }
 
 func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
@@ -659,21 +663,18 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 		CleanUpPeriodMs:             10000,
 	}
 
-	donConfig := &config.DONConfig{
-		DonId: "test-don",
-		F:     1, // 1 faulty node, so (N+F)//2+1=(3+1)//2+1=3 for threshold
-		Members: []config.NodeConfig{
-			{Address: "node1"},
-			{Address: "node2"},
-			{Address: "node3"},
-		},
+	nodeMembers := []config.NodeConfig{
+		{Address: "node1"},
+		{Address: "node2"},
+		{Address: "node3"},
 	}
 
-	mockDon := handlermocks.NewDON(t)
 	metadataHandler := createTestMetadataHandler(t)
+	mockDon := metadataHandler.shards[0].DON.(*handlermocks.DON)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t, donConfig)
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	shardedDONs := []config.ShardedDONConfig{{DonName: "test-don", F: 1, Shards: []config.Shard{{Nodes: nodeMembers}}}}
+	testMetrics := createTestMetrics(t, shardedDONs)
+	handler := NewHTTPTriggerHandler(lggr, cfg, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 
@@ -718,9 +719,11 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	ctx := testutils.Context(t)
 
 	// Setup metadata handler with test data
-	err := handler.workflowMetadataHandler.agg.Start(ctx)
+	shard := handler.workflowMetadataHandler.shards[0]
+	agg := handler.workflowMetadataHandler.aggByShard[shard]
+	err := agg.Start(ctx)
 	require.NoError(t, err)
-	defer handler.workflowMetadataHandler.agg.Close()
+	defer agg.Close()
 
 	// Create test keys
 	privateKey := createTestPrivateKey(t)
@@ -737,6 +740,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		workflowName:  "test-workflow",
 		workflowTag:   "v1.0",
 	}
+	handler.workflowMetadataHandler.workflowIDToShard[workflowID] = handler.workflowMetadataHandler.shards[0]
 
 	t.Run("successful JWT authorization", func(t *testing.T) {
 		callback := hc.NewCallback()
@@ -862,9 +866,11 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := testutils.Context(t)
 
-	err := handler.workflowMetadataHandler.agg.Start(ctx)
+	shard := handler.workflowMetadataHandler.shards[0]
+	agg := handler.workflowMetadataHandler.aggByShard[shard]
+	err := agg.Start(ctx)
 	require.NoError(t, err)
-	defer handler.workflowMetadataHandler.agg.Close()
+	defer agg.Close()
 
 	privateKey := createTestPrivateKey(t)
 	signerAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -885,6 +891,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	}
 	handler.workflowMetadataHandler.workflowIDToRef[workflowID] = workflowRef
 	handler.workflowMetadataHandler.workflowRefToID[workflowRef] = workflowID
+	handler.workflowMetadataHandler.workflowIDToShard[workflowID] = handler.workflowMetadataHandler.shards[0]
 
 	t.Run("successful workflow lookup by name", func(t *testing.T) {
 		callback := hc.NewCallback()
@@ -1528,19 +1535,45 @@ func createTestJWTToken(t *testing.T, req *jsonrpc.Request[json.RawMessage], pri
 }
 
 func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
+	return createTestMetadataHandlerWithNodes(t, []config.NodeConfig{
+		{Address: "node1"},
+		{Address: "node2"},
+		{Address: "node3"},
+	})
+}
+
+func createTestMetadataHandlerWith4Nodes(t *testing.T) *WorkflowMetadataHandler {
+	return createTestMetadataHandlerWithNodes(t, []config.NodeConfig{
+		{Address: "node1"},
+		{Address: "node2"},
+		{Address: "node3"},
+		{Address: "node4"},
+	})
+}
+
+func createTestMetadataHandlerWithNodes(t *testing.T, nodeMembers []config.NodeConfig) *WorkflowMetadataHandler {
 	lggr := logger.Test(t)
 	mockDon := handlermocks.NewDON(t)
 	donConfig := &config.DONConfig{
-		F: 1,
-		Members: []config.NodeConfig{
-			{Address: "node1"},
-			{Address: "node2"},
-			{Address: "node3"},
-		},
+		DonId:   "test-don_0",
+		F:       1,
+		Members: nodeMembers,
+	}
+	shard := &ShardInfo{
+		DonName:   "test-don",
+		ShardIdx:  0,
+		DON:       mockDon,
+		DONConfig: donConfig,
+	}
+	shards := []*ShardInfo{shard}
+	nodeAddrToShard := make(map[string]*ShardInfo)
+	for _, node := range nodeMembers {
+		nodeAddrToShard[node.Address] = shard
 	}
 	cfg := WithDefaults(ServiceConfig{})
-	testMetrics := createTestMetrics(t, donConfig)
-	return NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
+	shardedDONs := []config.ShardedDONConfig{{DonName: "test-don", F: 1, Shards: []config.Shard{{Nodes: nodeMembers}}}}
+	testMetrics := createTestMetrics(t, shardedDONs)
+	return NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 }
 
 func createTestUserRateLimiter() limits.RateLimiter {
@@ -1556,22 +1589,19 @@ func createTestTriggerHandler(t *testing.T) (*httpTriggerHandler, *handlermocks.
 }
 
 func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpTriggerHandler, *handlermocks.DON) {
-	donConfig := &config.DONConfig{
-		DonId: "test-don",
-		F:     1, // This means we need (N+F)//2+1 = (3+1)//2+1 = 3 responses for consensus
-		Members: []config.NodeConfig{
-			{Address: "node1"},
-			{Address: "node2"},
-			{Address: "node3"},
-		},
+	nodeMembers := []config.NodeConfig{
+		{Address: "node1"},
+		{Address: "node2"},
+		{Address: "node3"},
 	}
-	mockDon := handlermocks.NewDON(t)
 	lggr := logger.Test(t)
 	metadataHandler := createTestMetadataHandler(t)
+	mockDon := metadataHandler.shards[0].DON.(*handlermocks.DON)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t, donConfig)
+	shardedDONs := []config.ShardedDONConfig{{DonName: "test-don", F: 1, Shards: []config.Shard{{Nodes: nodeMembers}}}}
+	testMetrics := createTestMetrics(t, shardedDONs)
 
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	handler := NewHTTPTriggerHandler(lggr, cfg, metadataHandler, userRateLimiter, testMetrics)
 	return handler, mockDon
 }
 
@@ -1581,24 +1611,21 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 		MaxTriggerRequestDurationMs: 300000,
 	}
 
-	donConfig := &config.DONConfig{
-		DonId: "test-don",
-		F:     1,
-		Members: []config.NodeConfig{
-			{Address: "node1"},
-			{Address: "node2"},
-			{Address: "node3"},
-		},
+	nodeMembers := []config.NodeConfig{
+		{Address: "node1"},
+		{Address: "node2"},
+		{Address: "node3"},
 	}
 
-	mockDon := handlermocks.NewDON(t)
 	lggr := logger.Test(t)
 	metadataHandler := createTestMetadataHandler(t)
-	testMetrics := createTestMetrics(t, donConfig)
+	mockDon := metadataHandler.shards[0].DON.(*handlermocks.DON)
+	shardedDONs := []config.ShardedDONConfig{{DonName: "test-don", F: 1, Shards: []config.Shard{{Nodes: nodeMembers}}}}
+	testMetrics := createTestMetrics(t, shardedDONs)
 
 	t.Run("successful rate limit check with CRE context", func(t *testing.T) {
 		userRateLimiter := createTestUserRateLimiter() // Unlimited
-		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+		handler := NewHTTPTriggerHandler(lggr, cfg, metadataHandler, userRateLimiter, testMetrics)
 
 		privateKey := createTestPrivateKey(t)
 		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
@@ -1644,7 +1671,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	t.Run("rate limit exceeded returns proper error", func(t *testing.T) {
 		// Create a rate limiter with very restrictive limits
 		restrictiveRateLimiter := limits.WorkflowRateLimiter(1, 0)
-		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, restrictiveRateLimiter, testMetrics)
+		handler := NewHTTPTriggerHandler(lggr, cfg, metadataHandler, restrictiveRateLimiter, testMetrics)
 
 		privateKey := createTestPrivateKey(t)
 		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
@@ -1693,22 +1720,19 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 
 	// 4 nodes, 1 faulty node, so (N+F)//2+1=(4+1)//2+1=3 for threshold
 	// Quorum is reached when 3 nodes respond.
-	donConfig := &config.DONConfig{
-		DonId: "test-don",
-		F:     1,
-		Members: []config.NodeConfig{
-			{Address: "node1"},
-			{Address: "node2"},
-			{Address: "node3"},
-			{Address: "node4"},
-		},
+	nodeMembers := []config.NodeConfig{
+		{Address: "node1"},
+		{Address: "node2"},
+		{Address: "node3"},
+		{Address: "node4"},
 	}
 
-	mockDon := handlermocks.NewDON(t)
-	metadataHandler := createTestMetadataHandler(t)
+	metadataHandler := createTestMetadataHandlerWith4Nodes(t)
+	mockDon := metadataHandler.shards[0].DON.(*handlermocks.DON)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t, donConfig)
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	shardedDONs := []config.ShardedDONConfig{{DonName: "test-don", F: 1, Shards: []config.Shard{{Nodes: nodeMembers}}}}
+	testMetrics := createTestMetrics(t, shardedDONs)
+	handler := NewHTTPTriggerHandler(lggr, cfg, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 

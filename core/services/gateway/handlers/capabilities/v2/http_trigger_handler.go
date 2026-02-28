@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -51,8 +50,6 @@ type savedCallback struct {
 type httpTriggerHandler struct {
 	services.StateMachine
 	config                  ServiceConfig
-	don                     handlers.DON
-	donConfig               *config.DONConfig
 	lggr                    logger.Logger
 	callbacksMu             sync.Mutex
 	callbacks               map[string]savedCallback // requestID -> savedCallback
@@ -69,13 +66,11 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
 	return &httpTriggerHandler{
 		lggr:                    logger.Named(lggr, "RequestCallbacks"),
 		callbacks:               make(map[string]savedCallback),
 		config:                  cfg,
-		don:                     don,
-		donConfig:               donConfig,
 		stopCh:                  make(services.StopChan),
 		workflowMetadataHandler: workflowMetadataHandler,
 		userRateLimiter:         userRateLimiter,
@@ -94,6 +89,12 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
+	shard, found := h.workflowMetadataHandler.GetWorkflowShard(workflowID)
+	if !found {
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "no shard found for workflow "+workflowID, callback)
+		return fmt.Errorf("no shard found for workflow %s", workflowID)
+	}
+
 	key, err := h.authorizeRequest(ctx, workflowID, req, callback)
 	if err != nil {
 		return err
@@ -108,7 +109,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
 		return errors.New("error generating execution ID: " + err.Error())
 	}
-	h.lggr.Debugw("processing request", "executionID", executionID, "requestID", req.ID, "workflowID", workflowID)
+	h.lggr.Debugw("processing request", "executionID", executionID, "requestID", req.ID, "workflowID", workflowID, "shard", shard.DONConfig.DonId)
 
 	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
 	if err != nil {
@@ -116,12 +117,12 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return errors.New("error marshaling trigger request: " + err.Error())
 	}
 
-	doneCh, err := h.setupCallback(ctx, req.ID, callback, requestStartTime)
+	doneCh, err := h.setupCallback(ctx, req.ID, callback, requestStartTime, shard)
 	if err != nil {
 		return err
 	}
 
-	return h.sendWithRetries(ctx, executionID, reqWithKey, doneCh)
+	return h.sendWithRetries(ctx, executionID, reqWithKey, doneCh, shard)
 }
 
 func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
@@ -378,7 +379,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	return nil
 }
 
-func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time) (<-chan struct{}, error) {
+func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time, shard *ShardInfo) (<-chan struct{}, error) {
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 
@@ -388,7 +389,7 @@ func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string
 	}
 
 	// (N+F)//2 + 1 threshold where N = number of nodes, F = number of faulty nodes
-	threshold := (len(h.donConfig.Members)+h.donConfig.F)/2 + 1
+	threshold := (len(shard.DONConfig.Members)+shard.DONConfig.F)/2 + 1
 	agg, err := aggregation.NewIdenticalNodeResponseAggregator(threshold)
 	if err != nil {
 		return nil, errors.New("failed to create response aggregator: " + err.Error())
@@ -543,19 +544,18 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 	}
 }
 
-// sendWithRetries attempts to send the request to all DON members,
+// sendWithRetries attempts to send the request to all members of the target shard,
 // retrying failed nodes until either all succeed or the max trigger request duration is reached.
-// doneCh is closed when the callback has been responded to (quorum reached), allowing immediate termination.
-func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
+func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}, shard *ShardInfo) error {
 	if doneCh == nil {
 		return errors.New("doneCh cannot be nil")
 	}
 
-	// Create a context that will be cancelled when the max request duration is reached
 	maxDuration := time.Duration(h.config.MaxTriggerRequestDurationMs) * time.Millisecond
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, maxDuration)
 	defer cancel()
 
+	members := shard.DONConfig.Members
 	successfulNodes := make(map[string]bool)
 	b := backoff.Backoff{
 		Min:    time.Duration(h.config.RetryConfig.InitialIntervalMs) * time.Millisecond,
@@ -565,16 +565,15 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 	}
 
 	for {
-		// Retry sending to nodes that haven't received the message
 		allNodesSucceeded := true
 		var combinedErr error
 
-		for _, member := range h.donConfig.Members {
+		for _, member := range members {
 			if successfulNodes[member.Address] {
 				continue
 			}
 			h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
-			err := h.don.SendToNode(ctxWithTimeout, member.Address, req)
+			err := shard.DON.SendToNode(ctxWithTimeout, member.Address, req)
 			if err != nil {
 				allNodesSucceeded = false
 				h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
@@ -582,24 +581,25 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 				h.lggr.Debugw("Failed to send trigger request to node, will retry",
 					"node", member.Address,
 					"executionID", executionID,
+					"shard", shard.DONConfig.DonId,
 					"error", err)
 			} else {
-				// Mark this node as successful
 				successfulNodes[member.Address] = true
 			}
 		}
 
 		if allNodesSucceeded {
-			h.lggr.Infow("Successfully sent trigger request to all nodes",
+			h.lggr.Infow("Successfully sent trigger request to all shard nodes",
 				"executionID", executionID,
-				"nodeCount", len(h.donConfig.Members))
+				"shard", shard.DONConfig.DonId,
+				"nodeCount", len(members))
 			return nil
 		}
 
-		// Not all nodes succeeded, wait and retry
 		h.lggr.Debugw("Retrying failed nodes for trigger request",
 			"executionID", executionID,
-			"failedCount", len(h.donConfig.Members)-len(successfulNodes),
+			"shard", shard.DONConfig.DonId,
+			"failedCount", len(members)-len(successfulNodes),
 			"errors", combinedErr)
 
 		select {
@@ -607,14 +607,15 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 			h.lggr.Infow("Callback already responded to, stopping retries",
 				"executionID", executionID,
 				"requestID", req.ID,
+				"shard", shard.DONConfig.DonId,
 				"successNodes", len(successfulNodes),
-				"totalNodes", len(h.donConfig.Members))
+				"totalNodes", len(members))
 			return nil
 		case <-time.After(b.Duration()):
 			continue
 		case <-ctxWithTimeout.Done():
-			return fmt.Errorf("request retry time exceeded, some nodes may not have received the request: executionID=%s, successNodes=%d, totalNodes=%d",
-				executionID, len(successfulNodes), len(h.donConfig.Members))
+			return fmt.Errorf("request retry time exceeded, some nodes may not have received the request: executionID=%s, shard=%s, successNodes=%d, totalNodes=%d",
+				executionID, shard.DONConfig.DonId, len(successfulNodes), len(members))
 		}
 	}
 }
