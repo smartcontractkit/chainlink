@@ -283,6 +283,16 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
 	}
 
+	// If a previous request with this ID already completed (success or error),
+	// remove it so the retry creates a fresh ServerRequest. This handles the
+	// case where an upstream timeout (e.g. OCR consensus) resolves the request
+	// before the server's own expiry ticker cleans it up.
+	if existing, ok := r.requestIDToRequest[requestID]; ok && existing.request.HasResponse() {
+		r.lggr.Infow("replacing completed request to allow retry",
+			"requestID", requestID, "messageID", messageID)
+		delete(r.requestIDToRequest, requestID)
+	}
+
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
 		callingDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {

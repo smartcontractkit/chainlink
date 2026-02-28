@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -999,4 +1000,71 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	}
 	expectedResponses := numWorkflowPeers * numExecuteCalls
 	require.Equal(t, expectedResponses, successCount)
+}
+
+func Test_Server_Execute_RetryAfterCapabilityError(t *testing.T) {
+	ctx := testutils.Context(t)
+	numCapabilityPeers := 4
+
+	capability := &TestFailThenSucceedCapability{failsRemaining: int64(numCapabilityPeers)}
+
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t,
+		&commoncap.RemoteExecutableConfig{}, capability,
+		10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
+
+	// First attempt — all callers send, capability returns error
+	for _, caller := range callers {
+		_, err := caller.Execute(t.Context(), commoncap.CapabilityRequest{
+			Metadata: commoncap.RequestMetadata{
+				WorkflowID:          workflowID1,
+				WorkflowExecutionID: workflowExecutionID1,
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	for _, caller := range callers {
+		for range numCapabilityPeers {
+			msg := <-caller.receivedMessages
+			assert.Equal(t, remotetypes.Error_INTERNAL_ERROR, msg.Error)
+		}
+	}
+
+	// Retry with the same execution ID — should succeed because the server
+	// replaces the completed (errored) request with a fresh one.
+	for _, caller := range callers {
+		_, err := caller.Execute(t.Context(), commoncap.CapabilityRequest{
+			Metadata: commoncap.RequestMetadata{
+				WorkflowID:          workflowID1,
+				WorkflowExecutionID: workflowExecutionID1,
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	for _, caller := range callers {
+		for range numCapabilityPeers {
+			msg := <-caller.receivedMessages
+			assert.Equal(t, remotetypes.Error_OK, msg.Error)
+		}
+	}
+
+	closeServices(t, srvcs)
+}
+
+type TestFailThenSucceedCapability struct {
+	abstractTestCapability
+	failsRemaining int64
+}
+
+func (c *TestFailThenSucceedCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	if atomic.AddInt64(&c.failsRemaining, -1) >= 0 {
+		return commoncap.CapabilityResponse{}, errors.New("transient error")
+	}
+
+	response, err := values.NewMap(map[string]any{"response": "ok"})
+	if err != nil {
+		return commoncap.CapabilityResponse{}, err
+	}
+	return commoncap.CapabilityResponse{Value: response}, nil
 }

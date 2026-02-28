@@ -277,6 +277,12 @@ func (e *ServerRequest) setError(err types.Error, errMsg string) {
 	}
 }
 
+func (e *ServerRequest) HasResponse() bool {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	return e.hasResponse()
+}
+
 func (e *ServerRequest) hasResponse() bool {
 	return e.response != nil
 }
