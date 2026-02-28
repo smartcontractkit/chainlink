@@ -902,6 +902,18 @@ func (h *eventHandler) tryConfidentialEngineCreate(
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
+
+		if errors.Is(err, ErrAlreadyExists) {
+			existingEntry, found := h.engineRegistry.Get(wid)
+			if found {
+				h.lggr.Warnw("WorkflowID collision detected: workflow already exists from different source",
+					"workflowID", wid.Hex(),
+					"attemptedSource", source,
+					"existingSource", existingEntry.Source,
+					"hint", "Each workflow ID should only be registered from a single source. Check your workflow configurations for duplicates.")
+			}
+		}
+
 		return fmt.Errorf("invariant violation: %w", err)
 	}
 
