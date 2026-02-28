@@ -43,6 +43,11 @@ type logEventTrigger struct {
 	ticker         *time.Ticker
 	stopChan       services.StopChan
 	done           chan bool
+
+	// Persistent cursor store for crash recovery
+	cursorStore    CursorStore
+	triggerID      string
+	initialCursor  string
 }
 
 // Construct for logEventTrigger struct
@@ -51,7 +56,9 @@ func newLogEventTrigger(ctx context.Context,
 	metadata capabilities.RequestMetadata,
 	reqConfig *logeventcap.Config,
 	logEventConfig Config,
-	relayer core.Relayer) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
+	relayer core.Relayer,
+	cursorStore CursorStore,
+	triggerID string) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
 	jsonBytes, err := json.Marshal(reqConfig.ContractReaderConfig)
 	if err != nil {
 		return nil, nil, err
@@ -91,6 +98,22 @@ func newLogEventTrigger(ctx context.Context,
 		startBlockNum = height - logEventConfig.LookbackBlocks
 	}
 
+	// Try to recover cursor from persistent store
+	var restoredCursor string
+	if cursorStore != nil {
+		record, csErr := cursorStore.Get(ctx, triggerID)
+		if csErr != nil {
+			lggr.Warnw("Failed to read persisted cursor, starting from LookbackBlocks", "err", csErr, "triggerID", triggerID)
+		} else if record != nil {
+			// Use the persisted position if it's ahead of the lookback-calculated position
+			if record.BlockNumber > startBlockNum {
+				startBlockNum = record.BlockNumber
+			}
+			restoredCursor = record.Cursor
+			lggr.Infow("Restored trigger cursor from persistent store", "triggerID", triggerID, "cursor", restoredCursor, "blockNumber", record.BlockNumber)
+		}
+	}
+
 	// Setup callback channel, logger and ticker to poll ContractReader
 	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 	ticker := time.NewTicker(time.Duration(logEventConfig.PollPeriod) * time.Millisecond)
@@ -114,6 +137,10 @@ func newLogEventTrigger(ctx context.Context,
 		ticker:         ticker,
 		stopChan:       make(services.StopChan),
 		done:           make(chan bool),
+
+		cursorStore:   cursorStore,
+		triggerID:     triggerID,
+		initialCursor: restoredCursor,
 	}
 	return l, callbackCh, nil
 }
@@ -133,7 +160,7 @@ func (l *logEventTrigger) listen() {
 	var logs []types.Sequence
 	var err error
 	var logData values.Value
-	cursor := ""
+	cursor := l.initialCursor
 	limitAndSort := query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 		Limit:  query.Limit{Count: l.logEventConfig.QueryCount},
@@ -216,6 +243,13 @@ func (l *logEventTrigger) listen() {
 
 				l.ch <- triggerResp
 				cursor = log.Cursor
+				// Persist cursor position for crash recovery
+				if l.cursorStore != nil {
+					blockNum, _ := strconv.ParseUint(log.Height, 10, 64)
+					if saveErr := l.cursorStore.Save(ctx, l.triggerID, l.logEventConfig.ChainID, cursor, blockNum); saveErr != nil {
+						l.lggr.Errorw("Failed to persist trigger cursor", "err", saveErr, "triggerID", l.triggerID)
+					}
+				}
 			}
 		}
 	}

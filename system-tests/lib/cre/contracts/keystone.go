@@ -408,8 +408,11 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 			if flags.HasFlag(donMetadata.Flags, cre.ConsensusCapability) || flags.HasFlag(donMetadata.Flags, cre.ConsensusCapabilityV2) {
 				return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
 			}
-			// for other capabilities, we can use 1 as F
-			forwarderF = 1
+			if len(workerNodes) > 1 {
+				// For non-consensus DONs with 2-3 workers, use F=1
+				forwarderF = 1
+			}
+			// For single-node non-consensus DONs (N=1), F=0 is valid
 		}
 
 		// we only need to assign P2P IDs to NOPs, since `ConfigureInitialContractsChangeset` method

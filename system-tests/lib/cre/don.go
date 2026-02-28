@@ -264,8 +264,11 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		if don.HasFlag(ConsensusCapability) || don.HasFlag(ConsensusCapabilityV2) {
 			return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", don.WorkersCount())
 		}
-		// for other capabilities, we can use 1 as F
-		forwarderF = 1
+		if don.WorkersCount() > 1 {
+			// For non-consensus DONs with 2-3 workers, use F=1
+			forwarderF = 1
+		}
+		// For single-node non-consensus DONs (N=1), F=0 is valid
 	}
 
 	don.F = uint8(forwarderF) //nolint:gosec //will never happen, we don't use more than 31 nodes

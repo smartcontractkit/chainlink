@@ -17,8 +17,9 @@ type DeployCapabilitiesRegistryDeps struct {
 }
 
 type DeployCapabilitiesRegistryInput struct {
-	ChainSelector uint64
-	Qualifier     string
+	ChainSelector    uint64
+	Qualifier        string
+	CanAddOneNodeDONs bool // when true, allows registering DONs with F=0 and N=1
 }
 
 type DeployCapabilitiesRegistryOutput struct {
@@ -49,7 +50,7 @@ var DeployCapabilitiesRegistry = operations.NewOperation(
 		capabilitiesRegistryAddr, tx, capabilitiesRegistry, err := capabilities_registry_v2.DeployCapabilitiesRegistry(
 			chain.DeployerKey,
 			chain.Client,
-			capabilities_registry_v2.CapabilitiesRegistryConstructorParams{},
+			capabilities_registry_v2.CapabilitiesRegistryConstructorParams{CanAddOneNodeDONs: input.CanAddOneNodeDONs},
 		)
 		if err != nil {
 			return DeployCapabilitiesRegistryOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry V2: %w", err)

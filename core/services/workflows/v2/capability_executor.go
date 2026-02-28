@@ -203,8 +203,13 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	defer execCancel()
 
+	retryCfg := DefaultStepRetryConfig()
 	executionStart := time.Now()
-	capResp, err := capability.Execute(execCtx, capReq)
+	capResp, err := ExecuteWithRetry(execCtx, execLogger, retryCfg, request.Id,
+		func(retryCtx context.Context) (capabilities.CapabilityResponse, error) {
+			return capability.Execute(retryCtx, capReq)
+		},
+	)
 	executionDuration := time.Since(executionStart)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {

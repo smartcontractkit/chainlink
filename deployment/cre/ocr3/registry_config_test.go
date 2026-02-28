@@ -111,11 +111,10 @@ func TestValidateOCR3Config(t *testing.T) {
 			wantErr:      "signers count (4) != transmitters count (3)",
 		},
 		{
-			name:         "f must be positive",
-			signers:      make([][]byte, 4),
-			transmitters: make([][]byte, 4),
+			name:         "valid config with 1 node and f=0 (single-node DON)",
+			signers:      make([][]byte, 1),
+			transmitters: make([][]byte, 1),
 			f:            0,
-			wantErr:      "f must be positive",
 		},
 		{
 			name:         "not enough nodes for f (3f+1 rule)",
@@ -147,7 +146,7 @@ func TestValidateOCR3Config(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.wantErr == "" || tt.wantErr == "signers count" || tt.wantErr == "f must be positive" {
+			if tt.wantErr == "" || tt.wantErr == "signers count" {
 				for i := range tt.transmitters {
 					if len(tt.transmitters[i]) == 0 {
 						tt.transmitters[i] = []byte{byte(i + 1)}

@@ -103,7 +103,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 
 	// Set relayer and trigger in LogEventTriggerGRPCService
 	cs.config = logEventConfig
-	triggerService, err := logevent.NewTriggerService(ctx, cs.s.Logger, relayer, logEventConfig)
+	triggerService, err := logevent.NewTriggerService(ctx, cs.s.Logger, relayer, logEventConfig, nil)
 	if err != nil {
 		return fmt.Errorf("error creating trigger service for chainID %s: %w", logEventConfig.ChainID, err)
 	}

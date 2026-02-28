@@ -2,7 +2,6 @@ package ocr3
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -69,10 +68,6 @@ func RegistryNodesToP2PIDs(nodes []capabilities_registry_v2.INodeInfoProviderNod
 func ValidateOCR3Config(signers [][]byte, transmitters [][]byte, f uint32) error {
 	if len(signers) != len(transmitters) {
 		return fmt.Errorf("signers count (%d) != transmitters count (%d)", len(signers), len(transmitters))
-	}
-
-	if f == 0 {
-		return errors.New("f must be positive")
 	}
 
 	n := uint32(len(signers)) //nolint:gosec // G115 - len(signers) is bounded by the number of DON nodes, never overflows uint32

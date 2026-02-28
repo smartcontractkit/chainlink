@@ -55,6 +55,14 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
+	// Build from addresses list for multi-key support
+	var fromAddresses []common.Address
+	if addrs := evmConfig.FromAddresses(); len(addrs) > 0 {
+		for _, a := range addrs {
+			fromAddresses = append(fromAddresses, a.Address())
+		}
+	}
+
 	chainWriterConfig := config.ChainWriterConfig{
 		Contracts: map[string]*config.ContractConfig{
 			"forwarder": {
@@ -63,6 +71,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 					"report": {
 						ChainSpecificName: "report",
 						FromAddress:       evmConfig.FromAddress().Address(),
+						FromAddresses:     fromAddresses,
 						GasLimit:          gasLimitDefault,
 					},
 				},

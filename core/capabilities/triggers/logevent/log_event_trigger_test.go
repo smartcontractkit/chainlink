@@ -51,7 +51,8 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	logEventTriggerService, err := NewTriggerService(ctx,
 		th.BackendTH.Lggr,
 		relayer,
-		logEventConfig)
+		logEventConfig,
+		nil)
 	require.NoError(t, err)
 
 	// Start the service
@@ -98,7 +99,8 @@ func TestLogEventTriggerCursorNewLogs(t *testing.T) {
 	logEventTriggerService, err := NewTriggerService(ctx,
 		th.BackendTH.Lggr,
 		relayer,
-		logEventConfig)
+		logEventConfig,
+		nil)
 	require.NoError(t, err)
 
 	// Start the service

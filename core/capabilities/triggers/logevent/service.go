@@ -31,6 +31,7 @@ type TriggerService struct {
 	triggers       CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
 	relayer        core.Relayer
 	logEventConfig Config
+	cursorStore    CursorStore
 	stopCh         services.StopChan
 }
 
@@ -55,7 +56,8 @@ var _ services.Service = &TriggerService{}
 func NewTriggerService(ctx context.Context,
 	lggr logger.Logger,
 	relayer core.Relayer,
-	logEventConfig Config) (*TriggerService, error) {
+	logEventConfig Config,
+	cursorStore CursorStore) (*TriggerService, error) {
 	l := logger.Named(lggr, "LogEventTriggerCapabilityService")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
@@ -65,6 +67,7 @@ func NewTriggerService(ctx context.Context,
 		triggers:       logEventStore,
 		relayer:        relayer,
 		logEventConfig: logEventConfig,
+		cursorStore:    cursorStore,
 		stopCh:         make(services.StopChan),
 	}
 	var err error
@@ -103,7 +106,7 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context,
 	var respCh chan capabilities.TriggerResponse
 	ok := s.IfNotStopped(func() {
 		respCh, err = s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
-			l, ch, tErr := newLogEventTrigger(ctx, s.lggr, req.Metadata, reqConfig, s.logEventConfig, s.relayer)
+			l, ch, tErr := newLogEventTrigger(ctx, s.lggr, req.Metadata, reqConfig, s.logEventConfig, s.relayer, s.cursorStore, req.TriggerID)
 			if tErr != nil {
 				return l, ch, tErr
 			}
