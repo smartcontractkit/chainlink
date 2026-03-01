@@ -40,10 +40,11 @@ import (
 )
 
 type DeployKeystoneContractsInput struct {
-	CldfEnvironment  *cldf.Environment
-	CtfBlockchains   []blockchains.Blockchain
-	ContractVersions map[cre.ContractType]*semver.Version
-	WithV2Registries bool
+	CldfEnvironment   *cldf.Environment
+	CtfBlockchains    []blockchains.Blockchain
+	ContractVersions  map[cre.ContractType]*semver.Version
+	WithV2Registries  bool
+	CanAddOneNodeDONs bool // when true, deploys capabilities registry with F=0 support for single-node DONs
 }
 
 type DeployKeystoneContractsOutput struct {
@@ -74,6 +75,7 @@ func DeployKeystoneContracts(
 		},
 		ks_contracts_op.DeployRegistryContractsSequenceInput{
 			RegistryChainSelector: registryChainSelector,
+			CanAddOneNodeDONs:     input.CanAddOneNodeDONs,
 		},
 	)
 	if seqErr != nil {
@@ -144,6 +146,11 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 	for _, nop := range don.Nops {
 		allNodeIDs = append(allNodeIDs, nop.Nodes...)
 	}
+
+	// Compute MaxFaultyOracles from the DON's actual node count rather than
+	// using the hardcoded default.  For a single-node DON (F=0) the value
+	// must be 0; for a 4-node DON it is 1, matching the standard BFT formula.
+	oracleConfig.MaxFaultyOracles = (len(allNodeIDs) - 1) / 3
 
 	nodes, err := deployment.NodeInfo(allNodeIDs, d.offChain)
 	if err != nil {

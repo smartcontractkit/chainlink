@@ -150,15 +150,25 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Deploying Workflow and Capability Registry contracts")))
 
+	// Auto-detect if any non-bootstrap/gateway nodeset has a single node (F=0)
+	canAddOneNodeDONs := false
+	for _, ns := range input.NodeSets {
+		if ns.Nodes == 1 {
+			canAddOneNodeDONs = true
+			break
+		}
+	}
+
 	deployKeystoneContractsOutput, deployErr := crecontracts.DeployKeystoneContracts(
 		ctx,
 		testLogger,
 		singleFileLogger,
 		crecontracts.DeployKeystoneContractsInput{
-			CldfEnvironment:  newCldfEnvironment(ctx, singleFileLogger, deployedBlockchains.CldfBlockChains),
-			CtfBlockchains:   deployedBlockchains.Outputs,
-			ContractVersions: input.ContractVersions,
-			WithV2Registries: input.WithV2Registries,
+			CldfEnvironment:   newCldfEnvironment(ctx, singleFileLogger, deployedBlockchains.CldfBlockChains),
+			CtfBlockchains:    deployedBlockchains.Outputs,
+			ContractVersions:  input.ContractVersions,
+			WithV2Registries:  input.WithV2Registries,
+			CanAddOneNodeDONs: canAddOneNodeDONs,
 		},
 	)
 	if deployErr != nil {

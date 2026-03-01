@@ -98,7 +98,7 @@ func DefaultOCR3_1Config(numWorkers int) *ocr3_1.V3_1OracleConfig {
 		WarnDurationStateTransition:           1000,
 		WarnDurationCommitted:                 1000,
 
-		MaxFaultyOracles: 1,
+		MaxFaultyOracles: (numWorkers - 1) / 3,
 
 		PrevConfigDigest:  "",
 		PrevSeqNr:         0,

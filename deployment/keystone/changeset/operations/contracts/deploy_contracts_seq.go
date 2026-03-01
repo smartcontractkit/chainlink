@@ -25,6 +25,7 @@ type DeployContractsSequenceDeps struct {
 
 type DeployRegistryContractsSequenceInput struct {
 	RegistryChainSelector uint64
+	CanAddOneNodeDONs     bool // when true, deploys capabilities registry with F=0 support
 }
 type DeployContractSequenceOutput struct {
 	// Not sure if we can serialize the address book without modifications, but whatever is returned needs to be serializable.
@@ -93,7 +94,7 @@ var DeployV2RegistryContractsSequence = operations.NewSequence(
 		as := datastore.NewMemoryDataStore()
 
 		// Capabilities Registry contract
-		capabilitiesRegistryDeployReport, err := operations.ExecuteOperation(b, cap_reg_v2.DeployCapabilitiesRegistry, cap_reg_v2.DeployCapabilitiesRegistryDeps(deps), cap_reg_v2.DeployCapabilitiesRegistryInput{ChainSelector: input.RegistryChainSelector})
+		capabilitiesRegistryDeployReport, err := operations.ExecuteOperation(b, cap_reg_v2.DeployCapabilitiesRegistry, cap_reg_v2.DeployCapabilitiesRegistryDeps(deps), cap_reg_v2.DeployCapabilitiesRegistryInput{ChainSelector: input.RegistryChainSelector, CanAddOneNodeDONs: input.CanAddOneNodeDONs})
 		if err != nil {
 			return DeployContractSequenceOutput{}, err
 		}
