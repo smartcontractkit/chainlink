@@ -68,7 +68,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 ##
 FROM ubuntu:24.04
 
-ARG CHAINLINK_USER=root
+ARG CHAINLINK_USER=chainlink
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl && rm -rf /var/lib/apt/lists/*
 
