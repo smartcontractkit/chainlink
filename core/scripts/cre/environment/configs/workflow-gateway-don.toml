@@ -16,6 +16,7 @@
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   # change to your version
   image = "job-distributor:0.22.1"
+  wsrpc_port = "7812"
 
 [fake]
   port = 8171
