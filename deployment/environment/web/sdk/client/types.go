@@ -37,6 +37,14 @@ type JobDistributorChainConfigInput struct {
 	Ocr2Plugins          string `json:"ocr2Plugins"`
 }
 
+type JobDistributorChainConfig struct {
+	ID                string `json:"id"`
+	ChainID           string `json:"chainID"`
+	ChainType         string `json:"chainType"`
+	AccountAddr       string `json:"accountAddr"`
+	AccountAddrPubKey string `json:"accountAddrPubKey"`
+}
+
 type JobProposalApprovalSuccessSpec struct {
 	Id              string `json:"id"`
 	Definition      string `json:"definition"`

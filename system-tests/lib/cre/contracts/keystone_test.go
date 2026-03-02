@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -21,7 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink/deployment"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 // fakeOffchainClient implements offchain.Client; only ListNodes and
@@ -225,6 +228,219 @@ func TestToV2ConfigureInput(t *testing.T) {
 	require.Equal(t, uint8(1), result.DONs[0].F)
 	require.Len(t, result.DONs[0].Nodes, 2)
 	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
+}
+
+func TestToV2ConfigureInput_DoesNotRequireAptosTransmittersInSpecConfig(t *testing.T) {
+	registryChainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+	registryChainID, err := chainselectors.GetChainIDFromSelector(registryChainSel)
+	require.NoError(t, err)
+
+	aptosDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily("2", chainselectors.FamilyAptos)
+	require.NoError(t, err)
+	aptosChainID, err := chainselectors.GetChainIDFromSelector(aptosDetails.ChainSelector)
+	require.NoError(t, err)
+
+	key1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(11))
+	key2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(12))
+	peerID1 := key1.PeerID().String()
+	peerID2 := key2.PeerID().String()
+
+	aptosTransmitterA := "0xbbb"
+	aptosTransmitterB := "0xaaa"
+
+	fakeNodes := []*fakeNodeInfo{
+		{
+			id:          "node_aptos_1",
+			name:        "aptos-node-1",
+			csaKey:      "403b72f0b1b3b5f5a91bcfedb7f28599767502a04b5b7e067fcf3782e23eeb9c",
+			workflowKey: "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+			p2pID:       peerID1,
+			chainConfigs: []*nodev1.ChainConfig{
+				{
+					Chain: &nodev1.Chain{
+						Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+						Id:   registryChainID,
+					},
+					Ocr2Config: &nodev1.OCR2Config{
+						OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+							OffchainPublicKey:     "03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+							OnchainSigningAddress: "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
+							ConfigPublicKey:       "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+							BundleId:              "665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea",
+						},
+						P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+							PeerId: peerID1,
+						},
+						IsBootstrap: false,
+					},
+					AccountAddress: "0x2877F08d9c5Cc9F401F730Fa418fAE563A9a2FF3",
+				},
+				{
+					Chain: &nodev1.Chain{
+						Type: nodev1.ChainType_CHAIN_TYPE_APTOS,
+						Id:   aptosChainID,
+					},
+					Ocr2Config: &nodev1.OCR2Config{
+						OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+							OffchainPublicKey:     "13dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+							OnchainSigningAddress: "1f",
+							ConfigPublicKey:       "6193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+							BundleId:              "765a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31feb",
+						},
+						P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+							PeerId: peerID1,
+						},
+						IsBootstrap: false,
+					},
+					AccountAddressPublicKey: &aptosTransmitterA,
+				},
+			},
+		},
+		{
+			id:          "node_aptos_2",
+			name:        "aptos-node-2",
+			csaKey:      "28b91143ec9111796a7d63e14c1cf6bb01b4ed59667ab54f5bc72ebe49c881be",
+			workflowKey: "2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+			p2pID:       peerID2,
+			chainConfigs: []*nodev1.ChainConfig{
+				{
+					Chain: &nodev1.Chain{
+						Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+						Id:   registryChainID,
+					},
+					Ocr2Config: &nodev1.OCR2Config{
+						OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+							OffchainPublicKey:     "255096a3b7ade10e29c648e0b407fc486180464f713446b1da04f013df6179c8",
+							OnchainSigningAddress: "8258f4c4761cc445333017608044a204fd0c006a",
+							ConfigPublicKey:       "2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+							BundleId:              "7a9b75510b8d09932b98142419bef52436ff725dd9395469473b487ef87fdfb0",
+						},
+						P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+							PeerId: peerID2,
+						},
+						IsBootstrap: false,
+					},
+					AccountAddress: "0x415aa1E9a1bcB3929ed92bFa1F9735Dc0D45AD31",
+				},
+				{
+					Chain: &nodev1.Chain{
+						Type: nodev1.ChainType_CHAIN_TYPE_APTOS,
+						Id:   aptosChainID,
+					},
+					Ocr2Config: &nodev1.OCR2Config{
+						OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+							OffchainPublicKey:     "355096a3b7ade10e29c648e0b407fc486180464f713446b1da04f013df6179c8",
+							OnchainSigningAddress: "2f",
+							ConfigPublicKey:       "3c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+							BundleId:              "8a9b75510b8d09932b98142419bef52436ff725dd9395469473b487ef87fdfb1",
+						},
+						P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+							PeerId: peerID2,
+						},
+						IsBootstrap: false,
+					},
+					AccountAddressPublicKey: &aptosTransmitterB,
+				},
+			},
+		},
+	}
+
+	offchainClient := newFakeOffchainClient(fakeNodes)
+
+	d := &dons{
+		c:        make(map[string]donConfig),
+		offChain: offchainClient,
+	}
+	d.c["aptos-don"] = donConfig{
+		id: 7,
+		DonCapabilities: keystone_changeset.DonCapabilities{
+			Name: "aptos-don",
+			F:    1,
+			Nops: []keystone_changeset.NOP{{
+				Name:  "aptos-nop",
+				Nodes: []string{peerID1, peerID2},
+			}},
+			Capabilities: []keystone_changeset.DONCapabilityWithConfig{{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   fmt.Sprintf("aptos:ChainSelector:%d", aptosDetails.ChainSelector),
+					Version:        "1.0.0",
+					CapabilityType: 1,
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			}},
+		},
+	}
+
+	result := d.mustToV2ConfigureInput(registryChainSel, "0x1234567890abcdef", nil)
+	require.Len(t, result.DONs, 1)
+	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
+
+	var cfg capabilitiespb.CapabilityConfig
+	err = proto.Unmarshal(result.DONs[0].CapabilityConfigurations[0].Config, &cfg)
+	require.NoError(t, err)
+	if cfg.SpecConfig != nil {
+		_, ok := cfg.SpecConfig.Fields[aptosSpecConfigTransmittersListKey]
+		require.False(t, ok)
+	}
+}
+
+func TestAptosTransmittersForChainSelector_ErrorsOnEmptyTransmitAccount(t *testing.T) {
+	chainSelector := uint64(4457093679053095497)
+	nodes := []deployment.Node{
+		{
+			Name: "node-1",
+			SelToOCRConfig: map[chainselectors.ChainDetails]deployment.OCRConfig{
+				{ChainSelector: chainSelector}: {TransmitAccount: types2.Account("0xbbb")},
+			},
+		},
+		{
+			Name: "node-2",
+			SelToOCRConfig: map[chainselectors.ChainDetails]deployment.OCRConfig{
+				{ChainSelector: chainSelector}: {TransmitAccount: types2.Account("")},
+			},
+		},
+		{
+			Name: "node-3",
+			SelToOCRConfig: map[chainselectors.ChainDetails]deployment.OCRConfig{
+				{ChainSelector: chainSelector}: {TransmitAccount: types2.Account("0xaaa")},
+			},
+		},
+	}
+
+	_, err := aptosTransmittersForChainSelector(nodes, chainSelector)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty Aptos transmitter for node node-2")
+}
+
+func TestValidateAptosTransmittersForCapabilities_ErrorsOnInvalidAptosTransmitterSet(t *testing.T) {
+	chainSelector := uint64(4457093679053095497)
+	nodes := []deployment.Node{
+		{
+			Name: "node-1",
+			SelToOCRConfig: map[chainselectors.ChainDetails]deployment.OCRConfig{
+				{ChainSelector: chainSelector}: {TransmitAccount: types2.Account("0xabc")},
+			},
+		},
+		{
+			Name: "node-2",
+			SelToOCRConfig: map[chainselectors.ChainDetails]deployment.OCRConfig{
+				{ChainSelector: chainSelector}: {TransmitAccount: types2.Account("")},
+			},
+		},
+	}
+
+	caps := []keystone_changeset.DONCapabilityWithConfig{
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName: fmt.Sprintf("aptos:ChainSelector:%d", chainSelector),
+				Version:      "1.0.0",
+			},
+		},
+	}
+
+	err := validateAptosTransmittersForCapabilities(nodes, caps)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty Aptos transmitter for node node-2")
 }
 
 // TestGenerateAdminAddresses contains all the test cases for the function.

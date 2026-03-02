@@ -16,6 +16,7 @@
 #   # Optional fallback if aptos-service head is temporarily broken:
 #   # CAPABILITIES_BRANCH=fcb512c64aa9
 #   CHAINLINK_APTOS_IMAGE=chainlink:aptos-remote
+#   SKIP_IMAGE_BUILD=1           # reuse existing CHAINLINK_APTOS_IMAGE without docker build
 
 set -e
 
@@ -32,6 +33,7 @@ BRANCH_CAPABILITIES="${CAPABILITIES_BRANCH:-feature/aptos-service-tmp-3}"
 BRANCH_DATA_STREAMS="${CHAINLINK_DATA_STREAMS_BRANCH:-master}"
 BRANCH_SOLANA="${CHAINLINK_SOLANA_BRANCH:-develop}"
 IMAGE_TAG="${CHAINLINK_APTOS_IMAGE:-chainlink:aptos-remote}"
+SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
 
 resolve_module_ref() {
   local module="$1"
@@ -151,17 +153,28 @@ if [ -z "${GIT_AUTH_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
   fi
 fi
 
-if [ -z "${GIT_AUTH_TOKEN:-}" ]; then
-  echo "ERROR: GIT_AUTH_TOKEN must be set to build with private plugins (capabilities/cron). Export a GitHub token with access to the capabilities repo."
-  exit 1
+if [ "$SKIP_IMAGE_BUILD" = "1" ]; then
+  if docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+    echo "Skipping docker build (SKIP_IMAGE_BUILD=1), reusing existing image: $IMAGE_TAG"
+  else
+    echo "SKIP_IMAGE_BUILD=1 but image $IMAGE_TAG does not exist locally. Falling back to build."
+    SKIP_IMAGE_BUILD=0
+  fi
 fi
-echo "Building Chainlink node image (core/chainlink.Dockerfile)..."
-docker build -t "$IMAGE_TAG" -f core/chainlink.Dockerfile \
-  --secret id=GIT_AUTH_TOKEN,env=GIT_AUTH_TOKEN \
-  --build-arg CL_IS_PROD_BUILD=false \
-  --build-arg CL_INSTALL_PRIVATE_PLUGINS=true \
-  --build-arg CL_CAPABILITIES_APTOS_REF="${RESOLVED_CAP_APTOS_REF}" \
-  .
+
+if [ "$SKIP_IMAGE_BUILD" != "1" ]; then
+  if [ -z "${GIT_AUTH_TOKEN:-}" ]; then
+    echo "ERROR: GIT_AUTH_TOKEN must be set to build with private plugins (capabilities/cron). Export a GitHub token with access to the capabilities repo."
+    exit 1
+  fi
+  echo "Building Chainlink node image (core/chainlink.Dockerfile)..."
+  docker build -t "$IMAGE_TAG" -f core/chainlink.Dockerfile \
+    --secret id=GIT_AUTH_TOKEN,env=GIT_AUTH_TOKEN \
+    --build-arg CL_IS_PROD_BUILD=false \
+    --build-arg CL_INSTALL_PRIVATE_PLUGINS=true \
+    --build-arg CL_CAPABILITIES_APTOS_REF="${RESOLVED_CAP_APTOS_REF}" \
+    .
+fi
 
 cd "$SCRIPT_DIR"
 

@@ -399,9 +399,13 @@ func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chain family for selector %d: %w", details.ChainSelector, err)
 		}
-		// For Aptos and Sui, the transmit account must be set to the public key, which is submitted to and retrieved from JD
+		// For Aptos and Sui, prefer AccountAddressPublicKey from JD when it is non-empty.
+		// Some legacy JD records can have an empty optional public-key field; in that case
+		// we keep AccountAddress as fallback to avoid producing an empty transmitter.
 		if chainConfig.AccountAddressPublicKey != nil && (chainFamily == chain_selectors.FamilyAptos || chainFamily == chain_selectors.FamilySui) {
-			transmitAccount = *chainConfig.AccountAddressPublicKey
+			if pubkey := strings.TrimSpace(chainConfig.GetAccountAddressPublicKey()); pubkey != "" {
+				transmitAccount = pubkey
+			}
 		}
 
 		selToOCRConfig[details] = OCRConfig{

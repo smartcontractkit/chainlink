@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +28,17 @@ type Deployer struct {
 	provider   infra.Provider
 	testLogger zerolog.Logger
 }
+
+const (
+	// By default we avoid copying the full aptos contracts tree into the testnet container,
+	// because run-local-testnet does not require it and the copy is expensive on local loops.
+	aptosStartupCopyContractsEnvVar = "CRE_APTOS_STARTUP_COPY_CONTRACTS_DIR"
+	aptosStartupPlaceholderDir      = "cre-aptos-startup-contracts-placeholder"
+	// By default we disable localnet txn stream during startup because CRE Aptos read/write tests
+	// do not consume it and it adds startup work.
+	aptosStartupEnableTxnStreamEnvVar = "CRE_APTOS_STARTUP_ENABLE_TXN_STREAM"
+	aptosNoTxnStreamFlag              = "--no-txn-stream"
+)
 
 func NewDeployer(testLogger zerolog.Logger, provider *infra.Provider) *Deployer {
 	return &Deployer{
@@ -166,6 +179,10 @@ func (a *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 	case input.Out != nil:
 		bcOut = input.Out
 	default:
+		if optimizeErr := optimizeAptosStartupInput(a.testLogger, input); optimizeErr != nil {
+			return nil, fmt.Errorf("failed to optimize aptos startup input: %w", optimizeErr)
+		}
+
 		bcOut, err = blockchain.NewWithContext(ctx, input)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
@@ -199,6 +216,69 @@ func (a *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 		chainID:       chainID,
 		ctfOutput:     bcOut,
 	}, nil
+}
+
+func optimizeAptosStartupInput(lggr zerolog.Logger, input *blockchain.Input) error {
+	if err := optimizeAptosStartupContractsDir(lggr, input); err != nil {
+		return err
+	}
+	optimizeAptosStartupDockerCmd(lggr, input)
+	return nil
+}
+
+func optimizeAptosStartupContractsDir(lggr zerolog.Logger, input *blockchain.Input) error {
+	if input == nil {
+		return fmt.Errorf("nil blockchain input")
+	}
+
+	rawOptIn := strings.TrimSpace(os.Getenv(aptosStartupCopyContractsEnvVar))
+	if strings.EqualFold(rawOptIn, "1") || strings.EqualFold(rawOptIn, "true") || strings.EqualFold(rawOptIn, "yes") {
+		return nil
+	}
+
+	placeholderDir := filepath.Join(os.TempDir(), aptosStartupPlaceholderDir)
+	if err := os.MkdirAll(placeholderDir, 0o755); err != nil {
+		return err
+	}
+	readmePath := filepath.Join(placeholderDir, "README.txt")
+	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
+		const note = "placeholder directory for Aptos local-testnet startup in CRE\n"
+		if writeErr := os.WriteFile(readmePath, []byte(note), 0o644); writeErr != nil {
+			return writeErr
+		}
+	}
+
+	if strings.TrimSpace(input.ContractsDir) != placeholderDir {
+		lggr.Info().
+			Str("contractsDir", placeholderDir).
+			Str("optInEnvVar", aptosStartupCopyContractsEnvVar).
+			Msg("Using lightweight Aptos startup contracts dir to reduce local env startup time")
+	}
+	input.ContractsDir = placeholderDir
+	return nil
+}
+
+func optimizeAptosStartupDockerCmd(lggr zerolog.Logger, input *blockchain.Input) {
+	if input == nil {
+		return
+	}
+
+	rawOptOut := strings.TrimSpace(os.Getenv(aptosStartupEnableTxnStreamEnvVar))
+	if strings.EqualFold(rawOptOut, "1") || strings.EqualFold(rawOptOut, "true") || strings.EqualFold(rawOptOut, "yes") {
+		return
+	}
+
+	for _, arg := range input.DockerCmdParamsOverrides {
+		if strings.TrimSpace(arg) == aptosNoTxnStreamFlag {
+			return
+		}
+	}
+
+	input.DockerCmdParamsOverrides = append(input.DockerCmdParamsOverrides, aptosNoTxnStreamFlag)
+	lggr.Info().
+		Str("addedFlag", aptosNoTxnStreamFlag).
+		Str("optOutEnvVar", aptosStartupEnableTxnStreamEnvVar).
+		Msg("Disabling Aptos txn stream during startup to reduce local env startup work")
 }
 
 // aptosChainSelector returns the chain selector for the given Aptos chain ID.

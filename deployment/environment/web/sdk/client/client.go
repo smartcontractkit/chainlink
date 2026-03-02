@@ -30,7 +30,9 @@ type Client interface {
 	ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error)
 	CreateJobDistributor(ctx context.Context, cmd JobDistributorInput) (string, error)
 	UpdateJobDistributor(ctx context.Context, id string, cmd JobDistributorInput) error
+	GetJobDistributorChainConfigs(ctx context.Context, id string) ([]JobDistributorChainConfig, error)
 	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) (string, error)
+	UpdateJobDistributorChainConfig(ctx context.Context, id string, in JobDistributorChainConfigInput) error
 	DeleteJobDistributorChainConfig(ctx context.Context, id string) error
 	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error)
 	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error)
@@ -193,13 +195,19 @@ func (c *client) FetchKeys(ctx context.Context, chainType string) ([]string, err
 	case generated.OCR2ChainTypeAptos:
 		var accounts []string
 		for _, key := range keys.AptosKeys.GetResults() {
-			accounts = append(accounts, key.Id)
+			account := strings.TrimSpace(key.Account)
+			if account != "" {
+				accounts = append(accounts, account)
+			}
 		}
 		return accounts, nil
 	case generated.OCR2ChainTypeSui:
 		var accounts []string
 		for _, key := range keys.SuiKeys.GetResults() {
-			accounts = append(accounts, key.Id)
+			account := strings.TrimSpace(key.Account)
+			if account != "" {
+				accounts = append(accounts, account)
+			}
 		}
 		return accounts, nil
 	case generated.OCR2ChainTypeSolana:
@@ -279,6 +287,59 @@ func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDist
 	return err
 }
 
+const getFeedsManagerChainConfigsQuery = `
+query GetFeedsManagerChainConfigs($id: ID!) {
+	feedsManager(id: $id) {
+		__typename
+		... on FeedsManager {
+			chainConfigs {
+				id
+				chainID
+				chainType
+				accountAddr
+				accountAddrPubKey
+			}
+		}
+		... on NotFoundError {
+			message
+			code
+		}
+	}
+}
+`
+
+func (c *client) GetJobDistributorChainConfigs(ctx context.Context, id string) ([]JobDistributorChainConfig, error) {
+	var data struct {
+		FeedsManager struct {
+			Typename     string                      `json:"__typename"`
+			ChainConfigs []JobDistributorChainConfig `json:"chainConfigs"`
+			Message      string                      `json:"message"`
+			Code         string                      `json:"code"`
+		} `json:"feedsManager"`
+	}
+
+	req := &graphql.Request{
+		OpName: "GetFeedsManagerChainConfigs",
+		Query:  getFeedsManagerChainConfigsQuery,
+		Variables: map[string]any{
+			"id": id,
+		},
+	}
+	resp := &graphql.Response{Data: &data}
+	if err := c.gqlClient.MakeRequest(ctx, req, resp); err != nil {
+		return nil, err
+	}
+
+	switch data.FeedsManager.Typename {
+	case "FeedsManager":
+		return data.FeedsManager.ChainConfigs, nil
+	case "NotFoundError":
+		return nil, fmt.Errorf("feeds manager not found (id=%s): %s", id, data.FeedsManager.Message)
+	default:
+		return nil, fmt.Errorf("unexpected GetFeedsManagerChainConfigs typename %q", data.FeedsManager.Typename)
+	}
+}
+
 func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) (string, error) {
 	var cmd generated.CreateFeedsManagerChainConfigInput
 	err := DecodeInput(in, &cmd)
@@ -296,6 +357,106 @@ func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDist
 		return success.ChainConfig.Id, nil
 	}
 	return "", errors.New("failed to create feeds manager chain config")
+}
+
+const updateFeedsManagerChainConfigQuery = `
+mutation UpdateFeedsManagerChainConfig($id: ID!, $input: UpdateFeedsManagerChainConfigInput!) {
+	updateFeedsManagerChainConfig(id: $id, input: $input) {
+		__typename
+		... on UpdateFeedsManagerChainConfigSuccess {
+			chainConfig {
+				id
+			}
+		}
+		... on NotFoundError {
+			message
+			code
+		}
+		... on InputErrors {
+			errors {
+				message
+				path
+			}
+		}
+	}
+}
+`
+
+func (c *client) UpdateJobDistributorChainConfig(ctx context.Context, id string, in JobDistributorChainConfigInput) error {
+	type updateFeedsManagerChainConfigInput struct {
+		AccountAddr          string `json:"accountAddr"`
+		AccountAddrPubKey    string `json:"accountAddrPubKey"`
+		AdminAddr            string `json:"adminAddr"`
+		FluxMonitorEnabled   bool   `json:"fluxMonitorEnabled"`
+		Ocr1Enabled          bool   `json:"ocr1Enabled"`
+		Ocr1IsBootstrap      bool   `json:"ocr1IsBootstrap"`
+		Ocr1Multiaddr        string `json:"ocr1Multiaddr"`
+		Ocr1P2PPeerID        string `json:"ocr1P2PPeerID"`
+		Ocr1KeyBundleID      string `json:"ocr1KeyBundleID"`
+		Ocr2Enabled          bool   `json:"ocr2Enabled"`
+		Ocr2IsBootstrap      bool   `json:"ocr2IsBootstrap"`
+		Ocr2Multiaddr        string `json:"ocr2Multiaddr"`
+		Ocr2ForwarderAddress string `json:"ocr2ForwarderAddress"`
+		Ocr2P2PPeerID        string `json:"ocr2P2PPeerID"`
+		Ocr2KeyBundleID      string `json:"ocr2KeyBundleID"`
+		Ocr2Plugins          string `json:"ocr2Plugins"`
+	}
+
+	var data struct {
+		UpdateFeedsManagerChainConfig struct {
+			Typename string `json:"__typename"`
+			Message  string `json:"message"`
+			Errors   []struct {
+				Message string `json:"message"`
+				Path    string `json:"path"`
+			} `json:"errors"`
+		} `json:"updateFeedsManagerChainConfig"`
+	}
+
+	req := &graphql.Request{
+		OpName: "UpdateFeedsManagerChainConfig",
+		Query:  updateFeedsManagerChainConfigQuery,
+		Variables: map[string]any{
+			"id": id,
+			"input": updateFeedsManagerChainConfigInput{
+				AccountAddr:          in.AccountAddr,
+				AccountAddrPubKey:    in.AccountAddrPubKey,
+				AdminAddr:            in.AdminAddr,
+				FluxMonitorEnabled:   in.FluxMonitorEnabled,
+				Ocr1Enabled:          in.Ocr1Enabled,
+				Ocr1IsBootstrap:      in.Ocr1IsBootstrap,
+				Ocr1Multiaddr:        in.Ocr1Multiaddr,
+				Ocr1P2PPeerID:        in.Ocr1P2PPeerID,
+				Ocr1KeyBundleID:      in.Ocr1KeyBundleID,
+				Ocr2Enabled:          in.Ocr2Enabled,
+				Ocr2IsBootstrap:      in.Ocr2IsBootstrap,
+				Ocr2Multiaddr:        in.Ocr2Multiaddr,
+				Ocr2ForwarderAddress: in.Ocr2ForwarderAddress,
+				Ocr2P2PPeerID:        in.Ocr2P2PPeerID,
+				Ocr2KeyBundleID:      in.Ocr2KeyBundleID,
+				Ocr2Plugins:          in.Ocr2Plugins,
+			},
+		},
+	}
+	resp := &graphql.Response{Data: &data}
+	if err := c.gqlClient.MakeRequest(ctx, req, resp); err != nil {
+		return err
+	}
+
+	switch data.UpdateFeedsManagerChainConfig.Typename {
+	case "UpdateFeedsManagerChainConfigSuccess":
+		return nil
+	case "NotFoundError":
+		return fmt.Errorf("failed to update feeds manager chain config %s: %s", id, data.UpdateFeedsManagerChainConfig.Message)
+	case "InputErrors":
+		if len(data.UpdateFeedsManagerChainConfig.Errors) == 0 {
+			return fmt.Errorf("failed to update feeds manager chain config %s: input validation error", id)
+		}
+		first := data.UpdateFeedsManagerChainConfig.Errors[0]
+		return fmt.Errorf("failed to update feeds manager chain config %s: %s (path=%s)", id, first.Message, first.Path)
+	default:
+		return fmt.Errorf("unexpected UpdateFeedsManagerChainConfig typename %q", data.UpdateFeedsManagerChainConfig.Typename)
+	}
 }
 
 func (c *client) DeleteJobDistributorChainConfig(ctx context.Context, id string) error {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
@@ -112,6 +114,11 @@ type dons struct {
 	env                   *cldf.Environment
 	registryChainSelector uint64
 }
+
+const (
+	aptosCapabilityLabelPrefix         = "aptos:ChainSelector:"
+	aptosSpecConfigTransmittersListKey = "aptosTransmitters"
+)
 
 func (d *dons) donsOrderedByID() []donConfig {
 	out := make([]donConfig, 0, len(d.c))
@@ -206,22 +213,27 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			}
 		}
 
-		// Extract NOPs and nodes
+		// Extract NOPs and nodes.
+		donNodesByPeerID := make(map[string]deployment.Node)
 		adminAddrs, err := generateAdminAddresses(len(don.Nops))
 		if err != nil {
 			panic(fmt.Sprintf("failed to generate admin addresses: %s", err))
 		}
 		for i, nop := range don.Nops {
 			nopName := nop.Name
+
+			ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
+			if err != nil {
+				panic(err)
+			}
+			for _, n := range ns {
+				donNodesByPeerID[n.PeerID.String()] = n
+			}
+
 			if _, exists := nopMap[nopName]; !exists {
 				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 					Admin: adminAddrs[i],
 					Name:  nopName,
-				}
-
-				ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
-				if err != nil {
-					panic(err)
 				}
 
 				// Add nodes for this NOP
@@ -258,17 +270,30 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		for _, cap := range don.Capabilities {
 			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
 			configBytes := []byte("{}")
-			if cap.Config != nil {
-				if cap.UseCapRegOCRConfig {
-					ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
-					if ocrConfig == nil {
-						panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
-					}
-					if err := d.embedOCR3Config(cap.Config, don, chainSelector, ocrConfig); err != nil {
-						panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
-					}
+
+			capConfig := cap.Config
+			shouldMarshalProtoConfig := capConfig != nil
+			if _, isAptosCapability, parseErr := aptosChainSelectorFromCapabilityLabel(cap.Capability.LabelledName); isAptosCapability && parseErr != nil {
+				panic(fmt.Sprintf("failed to parse capability label %s: %s", cap.Capability.LabelledName, parseErr))
+			}
+
+			if cap.UseCapRegOCRConfig {
+				if capConfig == nil {
+					capConfig = &capabilitiespb.CapabilityConfig{}
 				}
-				if protoBytes, err := proto.Marshal(cap.Config); err == nil {
+				shouldMarshalProtoConfig = true
+
+				ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
+				if ocrConfig == nil {
+					panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
+				}
+				if err := d.embedOCR3Config(capConfig, don, chainSelector, ocrConfig); err != nil {
+					panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
+				}
+			}
+
+			if shouldMarshalProtoConfig {
+				if protoBytes, err := proto.Marshal(capConfig); err == nil {
 					configBytes = protoBytes
 				}
 			}
@@ -326,6 +351,117 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		Capabilities:     capabilities,
 		DONs:             donParams,
 	}
+}
+
+func aptosChainSelectorFromCapabilityLabel(labelledName string) (uint64, bool, error) {
+	if !strings.HasPrefix(labelledName, aptosCapabilityLabelPrefix) {
+		return 0, false, nil
+	}
+
+	rawSelector := strings.TrimPrefix(labelledName, aptosCapabilityLabelPrefix)
+	if rawSelector == "" {
+		return 0, true, fmt.Errorf("missing chain selector")
+	}
+
+	selector, err := strconv.ParseUint(rawSelector, 10, 64)
+	if err != nil {
+		return 0, true, fmt.Errorf("invalid chain selector %q: %w", rawSelector, err)
+	}
+
+	return selector, true, nil
+}
+
+func validateAptosTransmittersForCapabilities(nodes []deployment.Node, caps []keystone_changeset.DONCapabilityWithConfig) error {
+	selectors := make(map[uint64]string)
+	for _, cap := range caps {
+		selector, isAptosCapability, err := aptosChainSelectorFromCapabilityLabel(cap.Capability.LabelledName)
+		if !isAptosCapability {
+			if err != nil {
+				return fmt.Errorf("failed to parse capability label %s: %w", cap.Capability.LabelledName, err)
+			}
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("failed to parse Aptos chain selector from capability %s: %w", cap.Capability.LabelledName, err)
+		}
+		selectors[selector] = cap.Capability.LabelledName
+	}
+
+	if len(selectors) == 0 {
+		return nil
+	}
+
+	orderedSelectors := make([]uint64, 0, len(selectors))
+	for selector := range selectors {
+		orderedSelectors = append(orderedSelectors, selector)
+	}
+	sort.Slice(orderedSelectors, func(i, j int) bool { return orderedSelectors[i] < orderedSelectors[j] })
+
+	errs := make([]string, 0)
+	for _, selector := range orderedSelectors {
+		if _, err := aptosTransmittersForChainSelector(nodes, selector); err != nil {
+			errs = append(errs, fmt.Sprintf("%s (%d): %v", selectors[selector], selector, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+func aptosTransmittersForChainSelector(nodes []deployment.Node, chainSelector uint64) ([]string, error) {
+	if len(nodes) == 0 {
+		return nil, fmt.Errorf("no DON worker nodes provided")
+	}
+
+	seen := make(map[string]struct{})
+	for _, node := range nodes {
+		ocrCfg, ok := node.OCRConfigForChainSelector(chainSelector)
+		if !ok {
+			continue
+		}
+
+		transmitter := strings.TrimSpace(string(ocrCfg.TransmitAccount))
+		if transmitter == "" {
+			return nil, fmt.Errorf("empty Aptos transmitter for node %s", node.Name)
+		}
+		seen[transmitter] = struct{}{}
+	}
+	if len(seen) == 0 {
+		return nil, fmt.Errorf("no Aptos transmitters found for chain selector %d", chainSelector)
+	}
+
+	ordered := make([]string, 0, len(seen))
+	for transmitter := range seen {
+		ordered = append(ordered, transmitter)
+	}
+	sort.Strings(ordered)
+	return ordered, nil
+}
+
+func setAptosTransmittersSpecConfig(capConfig *capabilitiespb.CapabilityConfig, aptosTransmitters []string) error {
+	if capConfig == nil {
+		return fmt.Errorf("capability config is nil")
+	}
+	if len(aptosTransmitters) == 0 {
+		return fmt.Errorf("aptos transmitters list is empty")
+	}
+
+	specConfig, err := values.FromMapValueProto(capConfig.SpecConfig)
+	if err != nil {
+		return fmt.Errorf("failed to decode existing spec config: %w", err)
+	}
+	if specConfig == nil {
+		specConfig = values.EmptyMap()
+	}
+
+	transmittersValue, err := values.Wrap(aptosTransmitters)
+	if err != nil {
+		return fmt.Errorf("failed to wrap aptos transmitters: %w", err)
+	}
+	specConfig.Underlying[aptosSpecConfigTransmittersListKey] = transmittersValue
+	capConfig.SpecConfig = values.ProtoMap(specConfig)
+	return nil
 }
 
 func generateAdminAddresses(count int) ([]common.Address, error) {

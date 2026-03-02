@@ -102,6 +102,42 @@ func TestNode_OCRConfigForChainSelector(t *testing.T) {
 	}
 }
 
+func TestChainConfigsToOCRConfig_AptosFallsBackToAccountAddressWhenPublicKeyEmpty(t *testing.T) {
+	aptosChainID, err := chain_selectors.GetChainIDFromSelector(chain_selectors.APTOS_TESTNET.Selector)
+	require.NoError(t, err)
+
+	emptyPubkey := ""
+	accountAddr := "0xaabbcc"
+	chainConfigs := []*nodev1.ChainConfig{
+		{
+			Chain: &nodev1.Chain{
+				Type: nodev1.ChainType_CHAIN_TYPE_APTOS,
+				Id:   aptosChainID,
+			},
+			AccountAddress:          accountAddr,
+			AccountAddressPublicKey: &emptyPubkey,
+			Ocr2Config: &nodev1.OCR2Config{
+				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+					OffchainPublicKey:     hex.EncodeToString(test32Byte(t, "offchain")),
+					ConfigPublicKey:       hex.EncodeToString(test32Byte(t, "config")),
+					OnchainSigningAddress: "aa",
+					BundleId:              "bundle-id",
+				},
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: testPeerID(t, "peer-id").String(),
+				},
+			},
+		},
+	}
+
+	got, err := ChainConfigsToOCRConfig(chainConfigs)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	for _, cfg := range got {
+		require.Equal(t, accountAddr, string(cfg.TransmitAccount))
+	}
+}
+
 func TestNode_ChainConfigs(t *testing.T) {
 	type fields struct {
 		NodeID         string
