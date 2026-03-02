@@ -1406,6 +1406,7 @@ MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
+MaxConcurrency = 12 # Default
 ```
 
 
@@ -1457,6 +1458,12 @@ SyncStrategy = 'event' # Default
 ```
 SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
 Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
+
+### MaxConcurrency
+```toml
+MaxConcurrency = 12 # Default
+```
+MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml

@@ -147,8 +147,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AWS_ECR: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.us-west-2.amazonaws.com
         run: |
-          # Remove chip_ingress config sections since CI role lacks ECR permissions for the Atlas repo
-          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
+          # Remove chip_ingress/chip_config sections since CI role lacks ECR permissions for the Atlas repo
+          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} /^\[chip_config\.build_config\]/,/^$/{next} /^\[chip_config\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
           go run . env setup --no-prompt
 
       - name: Start the environment
@@ -298,34 +298,51 @@ jobs:
         id: check-timeout
         env:
           GH_TOKEN: ${{ github.token }}
+          TEST_CLI_RESULT: ${{ needs.test-cli.result }}
         run: |
-          # Get job details from GitHub API
-          job_data=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs --jq '.jobs[] | select(.name == "test-cli")')
+          # Fast path: hard failures always notify; no API call needed.
+          # We only call GH API for cancellations to estimate timeout-like cancels
+          # (using duration) vs likely manual cancels (to avoid noisy alerts).
+          conclusion="${TEST_CLI_RESULT}"
+          duration_minutes=0
+          should_notify="false"
+          reason="failure"
 
-          started_at=$(echo "$job_data" | jq -r '.started_at')
-          completed_at=$(echo "$job_data" | jq -r '.completed_at')
-          conclusion=$(echo "$job_data" | jq -r '.conclusion')
+          if [[ "$TEST_CLI_RESULT" == "failure" ]]; then
+            should_notify="true"
+          elif [[ "$TEST_CLI_RESULT" == "cancelled" ]]; then
+            # Reusable workflows prefix job names, so match both "test-cli" and "... / test-cli".
+            job_data=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs --paginate \
+              --jq '[.jobs[] | select(.name == "test-cli" or (.name | endswith("/ test-cli")))] | first')
 
-          # Calculate duration in minutes
-          start_epoch=$(date -d "$started_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s)
-          end_epoch=$(date -d "$completed_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$completed_at" +%s)
-          duration_minutes=$(( (end_epoch - start_epoch) / 60 ))
+            api_conclusion=$(echo "$job_data" | jq -r '.conclusion // empty')
+            started_at=$(echo "$job_data" | jq -r '.started_at // empty')
+            completed_at=$(echo "$job_data" | jq -r '.completed_at // empty')
+
+            if [[ -n "$api_conclusion" ]]; then
+              conclusion="$api_conclusion"
+            fi
+
+            # Calculate duration in minutes when timestamps are available.
+            if [[ -n "$started_at" && -n "$completed_at" ]]; then
+              start_epoch=$(date -d "$started_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$started_at" +%s)
+              end_epoch=$(date -d "$completed_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$completed_at" +%s)
+              duration_minutes=$(( (end_epoch - start_epoch) / 60 ))
+            fi
+
+            # Notify for explicit failure-like conclusions.
+            if [[ "$conclusion" == "failure" || "$conclusion" == "timed_out" || "$conclusion" == "startup_failure" || "$conclusion" == "action_required" ]]; then
+              should_notify="true"
+              reason="failure"
+            elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 14 ]]; then
+              should_notify="true"
+              reason="timeout"
+            fi
+          fi
 
           echo "duration_minutes=$duration_minutes" >> $GITHUB_OUTPUT
           echo "conclusion=$conclusion" >> $GITHUB_OUTPUT
-
-          # Job timeout is 15 minutes - if cancelled and duration is >= 14 minutes, likely a timeout
-          # If failed, always notify
-          should_notify="false"
-          if [[ "$conclusion" == "failure" ]]; then
-            should_notify="true"
-            echo "reason=failure" >> $GITHUB_OUTPUT
-          # TODO: change duration in comparison back to 28 minutes
-          elif [[ "$conclusion" == "cancelled" && $duration_minutes -ge 14 ]]; then
-            should_notify="true"
-            echo "reason=timeout" >> $GITHUB_OUTPUT
-          fi
-
+          echo "reason=$reason" >> $GITHUB_OUTPUT
           echo "should_notify=$should_notify" >> $GITHUB_OUTPUT
 
       - name: Send slack notification

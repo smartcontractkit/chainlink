@@ -13,8 +13,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 )
 
 func newMercuryConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *config.RelayOpts) (commontypes.ConfigProvider, error) {

@@ -97,6 +97,7 @@ jobs:
       core-changes: ${{ steps.changes.outputs.core_changes }}
       cre-changes: ${{ steps.changes.outputs.cre_changes }}
       ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
+      devenv-changes: ${{ steps.changes.outputs.devenv_changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -134,6 +135,9 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
+            devenv_changes:
+              - '.github/workflows/devenv-logpoller.yml'
+              - 'devenv/**'
 
   labels:
     name: Get PR labels and set runner labels
@@ -200,6 +204,7 @@ jobs:
         labels,
         enforce-ctf-version,
         run-core-cre-e2e-tests-setup,
+        run-devenv-logpoller-tests-setup,
         run-core-e2e-tests-setup,
         run-ccip-e2e-tests-setup,
         solana-smoke-tests-setup,
@@ -220,7 +225,8 @@ jobs:
                 needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
-                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-devenv-logpoller-tests-setup.outputs.should-run == 'true'
               }}
 
           - name: (plugins)
@@ -233,7 +239,8 @@ jobs:
                 needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
-                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-devenv-logpoller-tests-setup.outputs.should-run == 'true'
               }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -375,6 +382,65 @@ jobs:
       contents: read
     if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
     uses: ./.github/workflows/cre-system-tests.yaml
+    with:
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+    secrets: inherit
+
+  run-devenv-logpoller-tests-setup:
+    name: Run Devenv Logpoller Tests Setup
+    runs-on: ubuntu-latest
+    needs: [changes, labels]
+    permissions:
+      contents: read
+    outputs:
+      should-run: ${{ steps.logpoller-tests.outputs.should-run }}
+    steps:
+      - name: Devenv Logpoller Tests
+        id: logpoller-tests
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.devenv-changes == 'true' || needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found }}
+        run: |
+          SHOULD_RUN="false"
+
+          # -- PULL REQUEST --
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            if [[ "$CONTAINS_CHANGES" == 'true' || "$RUN_E2E_TESTS_LABEL_FOUND" == 'true' ]]; then
+              SHOULD_RUN="true"
+            fi
+
+          # -- MERGE GROUP --
+          elif [[ "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
+            if [[ "$CONTAINS_CHANGES" == 'true' ]]; then
+              SHOULD_RUN="true"
+            fi
+
+          # -- PUSH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            if [[ "$CONTAINS_CHANGES" == 'true' || "$GITHUB_REF_TYPE" == 'tag' ]]; then
+              SHOULD_RUN="true"
+            fi
+
+          # -- WORKFLOW DISPATCH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            SHOULD_RUN="true"
+          fi
+
+          echo "should-run=${SHOULD_RUN}" | tee -a "$GITHUB_OUTPUT"
+
+  run-devenv-logpoller-tests:
+    name: Run Devenv Logpoller Tests
+    needs: [build-chainlink, run-devenv-logpoller-tests-setup]
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    if: needs.run-devenv-logpoller-tests-setup.outputs.should-run == 'true'
+    uses: ./.github/workflows/devenv-logpoller.yml
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
