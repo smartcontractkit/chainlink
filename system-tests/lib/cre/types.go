@@ -1135,8 +1135,17 @@ func (n *NodeMetadata) PeerID() string {
 	return strings.TrimPrefix(n.Keys.PeerID(), "p2p_")
 }
 
+const (
+	DefaultShardOrchestratorPort uint16 = 50051
+	DefaultArbiterPort           uint16 = 9876
+)
+
 func (n *NodeMetadata) ShardOrchestratorAddress() string {
-	return fmt.Sprintf("%s:%d", n.Host, 50051)
+	return n.ShardOrchestratorAddressWithPort(DefaultShardOrchestratorPort)
+}
+
+func (n *NodeMetadata) ShardOrchestratorAddressWithPort(port uint16) string {
+	return fmt.Sprintf("%s:%d", n.Host, port)
 }
 
 type NodeMetadataConfig struct {
