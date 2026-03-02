@@ -531,6 +531,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            ptr("event"),
+			MaxConcurrency:          ptr(12),
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: ptr(""),
 				URL:                 ptr(""),
