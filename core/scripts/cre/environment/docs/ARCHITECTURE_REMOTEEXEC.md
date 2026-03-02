@@ -27,7 +27,7 @@ Keep responsibilities co-located so contributors can reason about hybrid local/r
 4. Local components are started directly by `environment` + CTF components.
 5. Stop commands route:
    - `env stop`: local only.
-   - `env stop-remote`: remote only via `remoteexec/client`.
+   - `env remote stop`: remote only via `remoteexec/client`.
    - `env stop-all`: remote then local.
 
 ## Invariants

@@ -16,6 +16,7 @@
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   # change to your version
   image = "job-distributor:0.22.1"
+  wsrpc_port = "7812"
 
 [fake]
   port = 8171
@@ -49,10 +50,10 @@
 [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      #image = "chainlink-tmp:latest"
       user_config_overrides = ""
 
 [[nodesets]]
@@ -72,11 +73,11 @@
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      #docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
-      image = "chainlink-tmp:latest"
+      #image = "chainlink-tmp:latest"
       user_config_overrides = ""

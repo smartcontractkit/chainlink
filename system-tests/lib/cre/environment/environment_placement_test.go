@@ -67,7 +67,7 @@ func TestHasRemoteComponents(t *testing.T) {
 }
 
 func TestResolveRemoteRuntimeForSetupSkipsResolutionWhenNoRemoteComponents(t *testing.T) {
-	execPlan, planErr := buildExecutionPlan(
+	execPlan, planErr := buildPlacementPlan(
 		[]*config.Blockchain{{Placement: config.PlacementLocal}},
 		&config.JobDistributor{Placement: config.PlacementLocal},
 		[]*cre.NodeSet{{Placement: "local"}},
@@ -83,7 +83,7 @@ func TestResolveRemoteRuntimeForSetupSkipsResolutionWhenNoRemoteComponents(t *te
 }
 
 func TestBuildExecutionPlanIncludesPlacementAndRemoteFlags(t *testing.T) {
-	execPlan, err := buildExecutionPlan(
+	execPlan, err := buildPlacementPlan(
 		[]*config.Blockchain{{Placement: config.PlacementRemote}},
 		&config.JobDistributor{Placement: config.PlacementLocal},
 		[]*cre.NodeSet{{Placement: "local"}, {Placement: "remote"}},

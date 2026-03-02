@@ -133,7 +133,7 @@ func SetupTestEnvironment(
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
-	execPlan, err := buildExecutionPlan(input.Blockchains, input.JdInput, input.NodeSets)
+	execPlan, err := buildPlacementPlan(input.Blockchains, input.JdInput, input.NodeSets)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "invalid component placement")
 	}
@@ -208,7 +208,9 @@ func SetupTestEnvironment(
 		creEnvironment,
 		input.NodeSets,
 		input.Blockchains,
-		remoteHostIP,
+		donconfig.PrepareNodeTOMLsOptions{
+			RemoteHostIP: remoteHostIP,
+		},
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -474,7 +476,7 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.NodeSetOutput,
 
 func resolveRemoteRuntimeForSetup(
 	testLogger zerolog.Logger,
-	execPlan *executionPlan,
+	execPlan *placementPlan,
 ) (*remoteclient.Runtime, error) {
 	if execPlan == nil || !execPlan.HasRemoteComponents {
 		return nil, nil

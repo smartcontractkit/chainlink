@@ -14,37 +14,18 @@ import (
 	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 )
 
-func debugCmds() *cobra.Command {
+func remoteDebugCmds() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:              "debug",
-		Short:            "Debug helpers for remote execution",
-		Long:             "Debug helpers for querying remote agent state and logs.",
-		PersistentPreRun: globalPreRunFunc,
+		Use:   "debug",
+		Short: "Debug helpers for remote execution",
+		Long:  "Debug helpers for querying remote agent state and logs.",
 	}
-
-	cmd.AddCommand(debugStatusCmd())
-	cmd.AddCommand(debugLocksCmd())
-	cmd.AddCommand(debugLogsCmd())
+	cmd.AddCommand(remoteDebugLocksCmd())
+	cmd.AddCommand(remoteDebugLogsCmd())
 	return cmd
 }
 
-func debugStatusCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "status",
-		Short: "Get remote agent status snapshot",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return withResolvedRemoteRuntime(cmd.Context(), func(ctx context.Context, runtime *remoteclient.Runtime) error {
-				status, err := remoteclient.GetAgentStatus(ctx, runtime)
-				if err != nil {
-					return err
-				}
-				return printDebugJSON(status)
-			})
-		},
-	}
-}
-
-func debugLocksCmd() *cobra.Command {
+func remoteDebugLocksCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "locks",
 		Short: "Get remote agent lock/in-flight snapshot",
@@ -60,7 +41,7 @@ func debugLocksCmd() *cobra.Command {
 	}
 }
 
-func debugLogsCmd() *cobra.Command {
+func remoteDebugLogsCmd() *cobra.Command {
 	var (
 		componentKey string
 		limit        int

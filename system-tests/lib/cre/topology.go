@@ -119,6 +119,56 @@ func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
 	return t.DonsMetadata.Bootstrap()
 }
 
+// HasRemoteNodeSets reports whether any DON in the topology is placed remotely.
+func (t *Topology) HasRemoteNodeSets() bool {
+	if t == nil || t.DonsMetadata == nil {
+		return false
+	}
+	for _, don := range t.DonsMetadata.List() {
+		if don == nil || don.ns == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(don.ns.Placement), "remote") {
+			return true
+		}
+	}
+	return false
+}
+
+// BootstrapPlacement returns placement of the configured bootstrap DON.
+func (t *Topology) BootstrapPlacement() (string, error) {
+	if t == nil || t.DonsMetadata == nil {
+		return "", fmt.Errorf("topology is nil")
+	}
+	for _, don := range t.DonsMetadata.List() {
+		if don == nil || don.ns == nil {
+			continue
+		}
+		if _, ok := don.Bootstrap(); ok {
+			return strings.TrimSpace(don.ns.Placement), nil
+		}
+	}
+	return "", fmt.Errorf("failed to resolve bootstrap placement")
+}
+
+// BootstrapAnnouncePort returns OCR2 announce port for the bootstrap node.
+func (t *Topology) BootstrapAnnouncePort() (int, error) {
+	if t == nil || t.DonsMetadata == nil {
+		return 0, fmt.Errorf("topology is nil")
+	}
+	for _, don := range t.DonsMetadata.List() {
+		if don == nil {
+			continue
+		}
+		node, ok := don.Bootstrap()
+		if !ok || node == nil {
+			continue
+		}
+		return don.ResolveNodeOCR2AnnouncePort(node.Index), nil
+	}
+	return 0, fmt.Errorf("failed to resolve bootstrap announce port")
+}
+
 // AddGatewayHandlers adds the given handler names to the gateway config of the given DON. It only adds handlers, if they are not already present.
 // Actual configuration for each handler is generated later during deployment.
 func (t *Topology) AddGatewayHandlers(donMetadata DonMetadata, handlers []string) error {
