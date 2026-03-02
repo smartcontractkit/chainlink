@@ -165,17 +165,9 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
-
       - name: 🧼 Clean up Environment
         if: ${{ github.event_name == 'pull_request' }}
-        uses: ./.github/actions/delete-deployments
+        uses: smartcontractkit/.github/actions/delete-deployments@delete-deployments/v1
         with:
           environment: integration
           ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663

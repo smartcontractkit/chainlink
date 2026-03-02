@@ -936,6 +936,7 @@ func newWorkflowRegistrySyncerV2(
 	registryOpts := []syncerV2.Option{
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
+		syncerV2.WithMaxConcurrency(capCfg.WorkflowRegistry().MaxConcurrency()),
 	}
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,

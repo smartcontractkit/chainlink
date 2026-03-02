@@ -36,6 +36,8 @@ const (
 	CapabilitiesRegistryVersion   = "capabilitiesRegistryVersion"
 	DonVersion                    = "donVersion"
 
+	KeySDK = "sdk"
+
 	// WorkflowSource identifies where the workflow was deployed from.
 	// Format varies by source type:
 	//   - Onchain contract: "contract:{chain_selector}:{contract_address}"
