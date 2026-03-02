@@ -10,7 +10,6 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -33,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -624,7 +624,7 @@ func missingLogs(
 
 // printMissingLogsInfo prints various useful information about the missing logs
 func printMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
-	var findHumanName = func(topic common.Hash) string {
+	findHumanName := func(topic common.Hash) string {
 		for _, event := range cfg.General.EventsToEmit {
 			if event.ID == topic {
 				return event.Name
@@ -763,7 +763,6 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []contracts.LogEmit
 	}
 
 	_, err := p.Run(true)
-
 	if err != nil {
 		return 0, err
 	}
@@ -807,9 +806,9 @@ func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []contract
 		return 0, err
 	}
 
-	var atomicCounter = atomic.Int32{}
+	atomicCounter := atomic.Int32{}
 
-	var emitAllEventsFn = func(resultCh chan emittedLogsData, errorCh chan error, _ int, task logEmissionTask) {
+	emitAllEventsFn := func(resultCh chan emittedLogsData, errorCh chan error, _ int, task logEmissionTask) {
 		current := atomicCounter.Add(1)
 
 		address := task.emitter.Address().String()
@@ -848,7 +847,6 @@ func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []contract
 
 	executor := concurrency.NewConcurrentExecutor[emittedLogsData, emittedLogsData, logEmissionTask](l)
 	r, err := executor.Execute(len(client.Cfg.Network.PrivateKeys)-1, tasks, emitAllEventsFn)
-
 	if err != nil {
 		return 0, err
 	}
@@ -883,7 +881,7 @@ type PauseData struct {
 var ChaosPauses = []PauseData{}
 
 // chaosPauseSyncFn pauses ranom container of the provided type for a random amount of time between 5 and 20 seconds
-func chaosPauseSyncFn(ctx context.Context, l zerolog.Logger, client *seth.Client, nodes *nodeset.Input, targetComponent string) ChaosPauseData {
+func chaosPauseSyncFn(ctx context.Context, dtc *chaos.DockerChaos, l zerolog.Logger, client *seth.Client, nodes *nodeset.Input, targetComponent string) ChaosPauseData {
 	// var component ctf_test_env.EnvComponent
 	var containerName string
 
@@ -910,8 +908,13 @@ func chaosPauseSyncFn(ctx context.Context, l zerolog.Logger, client *seth.Client
 	l.Info().Str("Container", containerName).Int("Pause time", pauseTimeSec).Msg("Pausing component")
 	pauseTimeDur := time.Duration(pauseTimeSec) * time.Second
 
-	if err := pauseContainer(ctx, l, containerName, pauseTimeDur); err != nil {
-		return ChaosPauseData{Err: err}
+	err = dtc.Chaos(containerName, chaos.CmdPause, "")
+	if err != nil {
+		return ChaosPauseData{Err: fmt.Errorf("failed to pause docker container: %s, %w", containerName, err)}
+	}
+	time.Sleep(pauseTimeDur)
+	if err := dtc.RemoveAll(); err != nil {
+		return ChaosPauseData{Err: fmt.Errorf("failed to unpause docker container %s: %w", containerName, err)}
 	}
 	l.Info().Str("Container", containerName).Msg("Component unpaused")
 
@@ -928,39 +931,6 @@ func chaosPauseSyncFn(ctx context.Context, l zerolog.Logger, client *seth.Client
 		TargetComponent: targetComponent,
 		ContaineName:    containerName,
 	}}
-}
-
-func pauseContainer(ctx context.Context, l zerolog.Logger, containerName string, pauseTimeDur time.Duration) error {
-	command := fmt.Sprintf(`docker run -i --rm -v /var/run/docker.sock:/var/run/docker.sock --network %s gaiaadm/pumba --log-level=info pause --duration=%s %s`, framework.DefaultNetworkName, pauseTimeDur.String(), containerName)
-
-	fmt.Println("command: ", command)
-
-	c := strings.Split(command, " ")
-	l.Info().Interface("Command", c).Msg("Executing command")
-	cmd := exec.CommandContext(ctx, c[0], c[1:]...) // #nosec: G204
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	outputFunction := func(m string) {
-		l.Debug().Str("Text", m).Msg("Std Pipe")
-	}
-	go readStdPipe(stderr, outputFunction)
-	go readStdPipe(stdout, outputFunction)
-
-	err = cmd.Wait()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // readStdPipe continuously read a pipe from the command
@@ -987,6 +957,12 @@ func executeChaosExperiment(ctx context.Context, l zerolog.Logger, nodes *nodese
 		return
 	}
 
+	dtc, err := chaos.NewDockerChaos(ctx)
+	if err != nil {
+		errorCh <- fmt.Errorf("failed to created docker-tc container: %w", err)
+		return
+	}
+
 	chaosChan := make(chan ChaosPauseData, config.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
 
@@ -1005,7 +981,7 @@ func executeChaosExperiment(ctx context.Context, l zerolog.Logger, nodes *nodese
 					current := i + 1
 					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, config.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
-				chaosChan <- chaosPauseSyncFn(ctx, l, sethClient, nodes, config.ChaosConfig.TargetComponent)
+				chaosChan <- chaosPauseSyncFn(ctx, dtc, l, sethClient, nodes, config.ChaosConfig.TargetComponent)
 				time.Sleep(10 * time.Second)
 			}()
 		}
@@ -1049,22 +1025,20 @@ const (
 	defaultAmountOfUpkeeps = 2
 )
 
-var (
-	DefaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-	}
-)
+var DefaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
+	PaymentPremiumPPB:    uint32(200000000),
+	FlatFeeMicroLINK:     uint32(0),
+	BlockCountPerTurn:    big.NewInt(10),
+	CheckGasLimit:        uint32(2500000),
+	StalenessSeconds:     big.NewInt(90000),
+	GasCeilingMultiplier: uint16(1),
+	MinUpkeepSpend:       big.NewInt(0),
+	MaxPerformGas:        uint32(5000000),
+	FallbackGasPrice:     big.NewInt(2e11),
+	FallbackLinkPrice:    big.NewInt(2e18),
+	MaxCheckDataSize:     uint32(5000),
+	MaxPerformDataSize:   uint32(5000),
+}
 
 // uploadLogEmitterContracts uploads the configured number of log emitter contracts
 func uploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Client, config *Config) []contracts.LogEmitter {
