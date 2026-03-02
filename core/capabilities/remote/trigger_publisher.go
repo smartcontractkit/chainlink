@@ -298,8 +298,8 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		p.lggr.Debugw("ACKing trigger event", "triggerEventId", triggerEventID)
 		err = cfg.underlying.AckEvent(ctx, p.capabilityID, triggerEventID, p.capMethodName)
 		if err != nil {
-			p.lggr.Errorf("failed to AckEvent on underlying trigger capability (eventID = %s, capabilityID: %s): %v",
-				triggerEventID, p.capabilityID, err)
+			p.lggr.Errorw("failed to AckEvent on underlying trigger capability",
+				"eventID", triggerEventID, "capabilityID", p.capabilityID, "err", err)
 		}
 	default:
 		p.lggr.Errorw("received message with unknown method",
@@ -313,7 +313,7 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 	// Get initial config for ticker setup
 	firstCfg := p.cfg.Load()
 	if firstCfg == nil {
-		p.lggr.Errorw("registrationCleanupLoop started but config not set")
+		p.lggr.Errorw("cacheCleanupLoop started but config not set")
 		return
 	}
 	cleanupInterval := firstCfg.remoteConfig.MessageExpiry
@@ -467,8 +467,22 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			}
 
 			if len(missingTriggerIDs) == 0 {
+				p.lggr.Debugw("skipping trigger event send; all triggerIDs already ACKed by peer",
+					"peerID", peerID,
+					"callerDonID", resp.callerDonID,
+					"triggerEventID", resp.triggerEventID,
+					"triggerIDs", triggerBatch,
+				)
 				continue
 			}
+
+			p.lggr.Debugw("sending trigger event to peer",
+				"peerID", peerID,
+				"callerDonID", resp.callerDonID,
+				"triggerEventID", resp.triggerEventID,
+				"workflowIDs", missingWorkflowIDs,
+				"triggerIDs", missingTriggerIDs,
+			)
 
 			msg := &types.MessageBody{
 				CapabilityId:     p.capabilityID,
