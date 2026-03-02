@@ -33,6 +33,7 @@ debug.env
 operator_ui/install
 .devenv
 event_dump.ndjson
+.cursor/
 
 # neovim
 .nvim.lua
