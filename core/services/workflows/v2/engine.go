@@ -590,7 +590,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
 			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
 			if err != nil {
-				e.lggr.Errorf("failed to re-ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
+				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", err)
 			}
 			return
 		}
@@ -679,7 +679,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
 	err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
 	if err != nil {
-		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
+		e.lggr.Errorw("failed to ACK trigger event", "eventID", triggerEvent.ID, "err", err)
 	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 
