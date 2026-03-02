@@ -282,7 +282,7 @@ func ValidateShardTopology(dons *cre.Dons) error {
 	for _, don := range shardDONs {
 		if don.Metadata().IsShardLeader() {
 			if leaderFound {
-				return fmt.Errorf("multiple shard DONs with shard_index=0 found")
+				return errors.New("multiple shard DONs with shard_index=0 found")
 			}
 			leaderFound = true
 			leaderNodeCount = len(don.Nodes)
@@ -290,7 +290,7 @@ func ValidateShardTopology(dons *cre.Dons) error {
 	}
 
 	if !leaderFound {
-		return fmt.Errorf("no shard DON with shard_index=0 found")
+		return errors.New("no shard DON with shard_index=0 found")
 	}
 
 	for _, don := range shardDONs {
