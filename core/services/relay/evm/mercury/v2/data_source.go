@@ -14,14 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
+	mercurytypes "github.com/smartcontractkit/chainlink-evm/pkg/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v2/reportcodec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
-	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -41,7 +40,7 @@ type datasource struct {
 	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
 	saver          ocrcommon.Saver
-	orm            types.DataSourceORM
+	orm            mercurytypes.DataSourceORM
 	codec          reportcodec.ReportCodec
 
 	fetcher      LatestReportFetcher
@@ -55,7 +54,7 @@ type datasource struct {
 
 var _ v2.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
+func NewDataSource(orm mercurytypes.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, s, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
