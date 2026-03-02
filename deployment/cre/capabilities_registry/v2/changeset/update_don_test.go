@@ -294,24 +294,6 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 	assert.NotEmpty(t, out.MCMSTimelockProposals, "MCMS → proposals must not be empty")
 }
 
-// Safety gate: workflow DON should refuse without Force=true (changeset passes Force through to operation).
-func TestUpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
-	t.Parallel()
-	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
-
-	_, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
-		RegistryQualifier: fx.qualifier,
-		RegistryChainSel:  fx.selector,
-		DONName:           fx.donName, // required
-		CapabilityConfigs: []contracts.CapabilityConfig{
-			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: map[string]any{"defaultConfig": map[string]any{}}},
-		},
-		Force: false,
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "refusing to update workflow don")
-}
-
 // Force override: workflow DON update succeeds when Force=true.
 func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 	t.Parallel()

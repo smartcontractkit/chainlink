@@ -2264,6 +2264,7 @@ type WorkflowRegistry struct {
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
+	MaxConcurrency          *int
 	WorkflowStorage         WorkflowStorage
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
 }
@@ -2299,6 +2300,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.SyncStrategy != nil {
 		r.SyncStrategy = f.SyncStrategy
+	}
+
+	if f.MaxConcurrency != nil {
+		r.MaxConcurrency = f.MaxConcurrency
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
