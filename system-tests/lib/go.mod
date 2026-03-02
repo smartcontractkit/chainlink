@@ -32,12 +32,12 @@ require (
 	github.com/sethvargo/go-retry v0.3.0
 	github.com/smartcontractkit/chain-selectors v1.0.91
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260225184310-053d0fd4e19a
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260227202051-0f1cea05d443
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.80.1-0.20260209182815-b296b7df28a6
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260223142528-fe0bf6474c99
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260227175232-0de99d1959de
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260217043601-5cc966896c4f
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db0
@@ -447,7 +447,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260129103204-4c8453dd8139 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260225114453-965dabf4bcb0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260224150904-47eef37d9005 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260227110503-42b236799872 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250818175541-3389ac08a563 // indirect
