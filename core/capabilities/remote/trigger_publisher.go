@@ -343,8 +343,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 		p.lggr.Errorw("registrationCleanupLoop started but config not set")
 		return
 	}
-	refreshInterval := firstCfg.remoteConfig.MessageExpiry
-	ticker := time.NewTicker(refreshInterval)
+	ticker := time.NewTicker(firstCfg.remoteConfig.RegistrationRefresh)
 	defer ticker.Stop()
 	for {
 		select {
