@@ -1,7 +1,6 @@
 package remote_test
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
@@ -35,13 +35,6 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
-	awaitRegistrationMessageCh := make(chan struct{})
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		select {
-		case awaitRegistrationMessageCh <- struct{}{}:
-		default:
-		}
-	})
 
 	// register trigger
 	config := &commoncap.RemoteTriggerConfig{
@@ -68,7 +61,6 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req))
 		require.NoError(t, subscriber.Close())
 	})
-	<-awaitRegistrationMessageCh
 
 	// receive trigger event
 	triggerEventValue, err := values.NewMap(triggerEvent1)
@@ -83,14 +75,7 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
-	awaitRegistrationMessageCh := make(chan struct{})
 	dispatcher := remoteMocks.NewDispatcher(t)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		select {
-		case awaitRegistrationMessageCh <- struct{}{}:
-		default:
-		}
-	})
 
 	// register trigger
 	config := &commoncap.RemoteTriggerConfig{
@@ -115,7 +100,6 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), regReq))
 		require.NoError(t, subscriber.Close())
 	})
-	<-awaitRegistrationMessageCh
 
 	// receive trigger events:
 	// cleanup loop happens every 10 seconds, at 0:00, 0:10, 0:20, etc.
@@ -209,88 +193,11 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	})
 }
 
-func TestTriggerSubscriber_RegistrationLoopWithConfigUpdate(t *testing.T) {
-	t.Parallel()
-	lggr := logger.Test(t)
-	capInfo, capDon, _ := buildTwoTestDONs(t, 1, 1)
-	dispatcher := remoteMocks.NewDispatcher(t)
-
-	var capturedMessages []*remotetypes.MessageBody
-	var messagesMu sync.Mutex
-	registrationMessageCh := make(chan struct{})
-
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		messagesMu.Lock()
-		defer messagesMu.Unlock()
-		// append to capturedMessages and notify the channel without blockin
-		if msgBody, ok := args[1].(*remotetypes.MessageBody); ok {
-			capturedMessages = append(capturedMessages, msgBody)
-		}
-		select {
-		case registrationMessageCh <- struct{}{}:
-		default:
-		}
-	})
-
-	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     100 * time.Millisecond,
-		RegistrationExpiry:      100 * time.Second,
-		MinResponsesToAggregate: 1,
-		MessageExpiry:           100 * time.Second,
-	}
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
-	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
-
-	// Call SetConfig() with workflowDON ID = 1 and register trigger
-	require.NoError(t, subscriber.SetConfig(config, capInfo, 1, capDon, agg))
-	require.NoError(t, subscriber.Start(t.Context()))
-	req := commoncap.TriggerRegistrationRequest{
-		Metadata: commoncap.RequestMetadata{
-			WorkflowID: workflowID1,
-		},
-	}
-	_, err := subscriber.RegisterTrigger(t.Context(), req)
-	require.NoError(t, err)
-
-	// Wait for first registration message and validate CallerDonId = 1
-	<-registrationMessageCh
-	messagesMu.Lock()
-	require.NotEmpty(t, capturedMessages, "Expected at least one message to be sent")
-	lastMsg := capturedMessages[len(capturedMessages)-1]
-	require.Equal(t, uint32(1), lastMsg.CallerDonId, "First message should have CallerDonId = 1")
-	messagesMu.Unlock()
-
-	// Change config to workflow ID = 4
-	require.NoError(t, subscriber.SetConfig(config, capInfo, 4, capDon, agg))
-
-	// Wait until we receive a registration message with CallerDonId = 4
-	for {
-		<-registrationMessageCh
-		messagesMu.Lock()
-		if len(capturedMessages) > 0 && capturedMessages[len(capturedMessages)-1].CallerDonId == 4 {
-			messagesMu.Unlock()
-			break
-		}
-		messagesMu.Unlock()
-	}
-
-	// Gracefully shut down Trigger Subscriber
-	require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req))
-	require.NoError(t, subscriber.Close())
-}
-
 func TestTriggerSubscriber_MultipleTriggersSameWorkflow(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
-	awaitRegistrationMessageCh := make(chan struct{}, 10)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		select {
-		case awaitRegistrationMessageCh <- struct{}{}:
-		default:
-		}
-	})
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -327,7 +234,6 @@ func TestTriggerSubscriber_MultipleTriggersSameWorkflow(t *testing.T) {
 		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req2))
 		require.NoError(t, subscriber.Close())
 	})
-	<-awaitRegistrationMessageCh
 
 	// Send message for trigger1 - should only go to callbackCh1
 	triggerEvent1Msg := buildTriggerEventWithTriggerID(t, capDon.Members[0][:], workflowID1, "trigger1", "event1")
@@ -363,13 +269,6 @@ func TestTriggerSubscriber_LegacyMessageWithoutTriggerID(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
-	awaitRegistrationMessageCh := make(chan struct{}, 10)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		select {
-		case awaitRegistrationMessageCh <- struct{}{}:
-		default:
-		}
-	})
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -397,7 +296,6 @@ func TestTriggerSubscriber_LegacyMessageWithoutTriggerID(t *testing.T) {
 		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req))
 		require.NoError(t, subscriber.Close())
 	})
-	<-awaitRegistrationMessageCh
 
 	// Send legacy message without triggerID - should still route to the single registered trigger
 	legacyMsg := buildTriggerEvent(t, capDon.Members[0][:])
@@ -412,13 +310,6 @@ func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
-	awaitRegistrationMessageCh := make(chan struct{}, 10)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		select {
-		case awaitRegistrationMessageCh <- struct{}{}:
-		default:
-		}
-	})
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -454,7 +345,6 @@ func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
 		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req2))
 		require.NoError(t, subscriber.Close())
 	})
-	<-awaitRegistrationMessageCh
 
 	// Unregister trigger1
 	require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req1))
@@ -465,6 +355,97 @@ func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
 
 	resp := <-callbackCh2
 	require.NotNil(t, resp.Event.Outputs)
+}
+
+type subscriberSvc interface {
+	remote.TriggerSubscriber
+	services.Service
+}
+
+func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
+
+	newSubscriber := func(t *testing.T) (subscriberSvc, *remoteMocks.Dispatcher) {
+		dispatcher := remoteMocks.NewDispatcher(t)
+
+		// Set RegistrationRefresh very large so the background registrationLoop
+		// doesn't interfere with this test's expectations.
+		cfg := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     time.Hour,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           time.Minute,
+		}
+
+		sub := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+		agg := aggregation.NewDefaultModeAggregator(1)
+
+		require.NoError(t, sub.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
+		require.NoError(t, sub.Start(t.Context()))
+
+		t.Cleanup(func() {
+			require.NoError(t, sub.Close())
+		})
+
+		return sub, dispatcher
+	}
+
+	buildCheckMsg := func(triggerID string) *remotetypes.MessageBody {
+		return &remotetypes.MessageBody{
+			Sender:      capDon.Members[0][:],
+			Method:      remotetypes.MethodTriggerRegistrationCheck,
+			CallerDonId: workflowDon.ID,
+			Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+					WorkflowIds: []string{workflowID1},
+					TriggerIds:  []string{triggerID},
+				},
+			},
+		}
+	}
+
+	type tc struct {
+		name          string
+		registerLocal bool
+		expectMethod  string
+	}
+	cases := []tc{
+		{
+			name:          "re-registers when trigger exists",
+			registerLocal: true,
+			expectMethod:  remotetypes.MethodRegisterTrigger,
+		},
+		{
+			name:          "sends unregister when trigger missing",
+			registerLocal: false,
+			expectMethod:  remotetypes.MethodUnRegisterTrigger,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			sub, dispatcher := newSubscriber(t)
+
+			const trigID = "triggerA"
+			if c.registerLocal {
+				_, err := sub.RegisterTrigger(t.Context(), commoncap.TriggerRegistrationRequest{
+					TriggerID: trigID,
+					Metadata: commoncap.RequestMetadata{
+						WorkflowID: workflowID1,
+					},
+				})
+				require.NoError(t, err)
+			}
+
+			dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+				return m.Method == c.expectMethod
+			})).Return(nil).Once()
+			sub.Receive(t.Context(), buildCheckMsg(trigID))
+			dispatcher.AssertExpectations(t)
+		})
+	}
 }
 
 func buildTwoTestDONs(t *testing.T, capDonSize int, workflowDonSize int) (commoncap.CapabilityInfo, commoncap.DON, commoncap.DON) {

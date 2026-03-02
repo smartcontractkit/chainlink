@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	MethodRegisterTrigger   = "RegisterTrigger"
-	MethodUnRegisterTrigger = "UnregisterTrigger"
-	MethodTriggerEvent      = "TriggerEvent"
-	MethodExecute           = "Execute"
-	MethodTriggerEventAck   = "TriggerEventACK"
+	MethodRegisterTrigger          = "RegisterTrigger"
+	MethodUnRegisterTrigger        = "UnregisterTrigger"
+	MethodTriggerRegistrationCheck = "TriggerRegistrationCheck"
+	MethodTriggerEvent             = "TriggerEvent"
+	MethodExecute                  = "Execute"
+	MethodTriggerEventAck          = "TriggerEventACK"
 )
 
 type Dispatcher interface {

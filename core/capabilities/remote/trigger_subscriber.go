@@ -120,8 +120,7 @@ func (s *triggerSubscriber) Start(ctx context.Context) error {
 		return errors.New("dispatcher set to nil, cannot start triggerSubscriber")
 	}
 
-	s.wg.Add(2)
-	go s.registrationLoop()
+	s.wg.Add(1)
 	go s.eventCleanupLoop()
 	s.lggr.Info("TriggerSubscriber started")
 	return nil
@@ -197,52 +196,6 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	return regState.callback, nil
 }
 
-func (s *triggerSubscriber) registrationLoop() {
-	defer s.wg.Done()
-	cfg := s.cfg.Load()
-	tickerDuration := cfg.remoteConfig.RegistrationRefresh
-	ticker := time.NewTicker(tickerDuration)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-s.stopCh:
-			return
-		case <-ticker.C:
-			cfg := s.cfg.Load()
-			if cfg.remoteConfig.RegistrationRefresh != tickerDuration {
-				tickerDuration = cfg.remoteConfig.RegistrationRefresh
-				ticker.Reset(tickerDuration)
-			}
-
-			s.mu.RLock()
-			s.lggr.Infow("register trigger for remote capability", "donId", cfg.capDonInfo.ID, "nMembers", len(cfg.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
-			if len(s.registeredWorkflows) == 0 {
-				s.lggr.Infow("no workflows to register")
-			}
-
-			for _, regMap := range s.registeredWorkflows {
-				for _, registration := range regMap {
-					for _, peerID := range cfg.capDonInfo.Members {
-						m := &types.MessageBody{
-							CapabilityId:     cfg.capInfo.ID,
-							CapabilityDonId:  cfg.capDonInfo.ID,
-							CallerDonId:      cfg.localDonID,
-							Method:           types.MethodRegisterTrigger,
-							Payload:          registration.rawRequest, // triggerID is in the raw request
-							CapabilityMethod: s.capMethodName,
-						}
-						err := s.dispatcher.Send(peerID, m)
-						if err != nil {
-							s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
-						}
-					}
-				}
-			}
-			s.mu.RUnlock()
-		}
-	}
-}
-
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -280,7 +233,8 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	if msg.Method == types.MethodTriggerEvent {
+	switch msg.Method {
+	case types.MethodTriggerEvent:
 		meta := msg.GetTriggerEventMetadata()
 		if meta == nil {
 			s.lggr.Errorw("received message with invalid trigger metadata", "sender", sender)
@@ -339,8 +293,73 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				registration.callback <- aggregatedResponse
 			}
 		}
-	} else {
+	case types.MethodTriggerRegistrationCheck:
+		meta := msg.GetTriggerEventMetadata()
+		if meta == nil {
+			return
+		}
+
+		for i, workflowID := range meta.WorkflowIds {
+			triggerID := meta.TriggerIds[i]
+
+			s.mu.RLock()
+			triggerMap, ok := s.registeredWorkflows[workflowID]
+			reg := ok && triggerMap[triggerID] != nil
+			s.mu.RUnlock()
+
+			if reg {
+				s.resendRegistration(workflowID, triggerID)
+			} else {
+				s.sendUnregister(workflowID, triggerID)
+			}
+		}
+	default:
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
+	}
+}
+
+func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	reg := s.registeredWorkflows[workflowID][triggerID]
+	if reg == nil {
+		return
+	}
+
+	cfg := s.cfg.Load()
+
+	for _, peerID := range cfg.capDonInfo.Members {
+		m := &types.MessageBody{
+			CapabilityId:     cfg.capInfo.ID,
+			CapabilityDonId:  cfg.capDonInfo.ID,
+			CallerDonId:      cfg.localDonID,
+			Method:           types.MethodRegisterTrigger,
+			Payload:          reg.rawRequest,
+			CapabilityMethod: s.capMethodName,
+		}
+		_ = s.dispatcher.Send(peerID, m)
+	}
+}
+
+func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
+	cfg := s.cfg.Load()
+
+	for _, peerID := range cfg.capDonInfo.Members {
+		m := &types.MessageBody{
+			CapabilityId:     cfg.capInfo.ID,
+			CapabilityDonId:  cfg.capDonInfo.ID,
+			CallerDonId:      cfg.localDonID,
+			Method:           types.MethodUnRegisterTrigger,
+			CapabilityMethod: s.capMethodName,
+			Metadata: &types.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &types.TriggerEventMetadata{
+					WorkflowIds: []string{workflowID},
+					TriggerIds:  []string{triggerID},
+				},
+			},
+		}
+		_ = s.dispatcher.Send(peerID, m)
 	}
 }
 

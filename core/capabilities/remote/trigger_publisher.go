@@ -253,6 +253,33 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			cancel()
 			p.lggr.Errorw("failed to register trigger", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 		}
+	case types.MethodUnRegisterTrigger:
+		meta := msg.GetTriggerEventMetadata()
+		if meta == nil || len(meta.WorkflowIds) != 1 || len(meta.TriggerIds) != 1 {
+			p.lggr.Error("invalid unregister metadata")
+			return
+		}
+
+		key := registrationKey{
+			callerDonID: msg.CallerDonId,
+			workflowID:  meta.WorkflowIds[0],
+			triggerID:   meta.TriggerIds[0],
+		}
+
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		reg, exists := p.registrations[key]
+		if !exists {
+			return
+		}
+
+		ctx, cancel := p.stopCh.NewCtx()
+		_ = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		cancel()
+
+		reg.cancel()
+		delete(p.registrations, key)
+		p.lggr.Infow("unregistered trigger", "workflowID", key.workflowID, "triggerID", key.triggerID)
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
@@ -316,39 +343,45 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 		p.lggr.Errorw("registrationCleanupLoop started but config not set")
 		return
 	}
-	cleanupInterval := firstCfg.remoteConfig.MessageExpiry
-	ticker := time.NewTicker(cleanupInterval)
+	refreshInterval := firstCfg.remoteConfig.MessageExpiry
+	ticker := time.NewTicker(refreshInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-p.stopCh:
 			return
 		case <-ticker.C:
-			cfg := p.cfg.Load()
-			// Update cleanup interval if config has changed
-			if cfg.remoteConfig.MessageExpiry != cleanupInterval {
-				cleanupInterval = cfg.remoteConfig.MessageExpiry
-				ticker.Reset(cleanupInterval)
-			}
-			now := time.Now().UnixMilli()
+			p.sendRegistrationChecks()
+		}
+	}
+}
 
-			p.mu.Lock()
-			for key, req := range p.registrations {
-				callerDon := cfg.workflowDONs[key.callerDonID]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
-				if !ready {
-					p.lggr.Infow("trigger registration expired", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID)
-					ctx, cancel := p.stopCh.NewCtx()
-					err := cfg.underlying.UnregisterTrigger(ctx, req.request)
-					cancel()
-					p.registrations[key].cancel() // Cancel context on register trigger
-					p.lggr.Infow("unregistered trigger", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID, "err", err)
-					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
-					delete(p.registrations, key)
-					p.messageCache.Delete(key)
-				}
-			}
-			p.mu.Unlock()
+func (p *triggerPublisher) sendRegistrationChecks() {
+	cfg := p.cfg.Load()
+	if cfg == nil {
+		return
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for key := range p.registrations {
+		msg := &types.MessageBody{
+			CapabilityId:     p.capabilityID,
+			CapabilityDonId:  cfg.capDonInfo.ID,
+			CallerDonId:      key.callerDonID,
+			Method:           types.MethodTriggerRegistrationCheck,
+			CapabilityMethod: p.capMethodName,
+			Metadata: &types.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &types.TriggerEventMetadata{
+					WorkflowIds: []string{key.workflowID},
+					TriggerIds:  []string{key.triggerID},
+				},
+			},
+		}
+
+		for _, peerID := range cfg.workflowDONs[key.callerDonID].Members {
+			_ = p.dispatcher.Send(peerID, msg)
 		}
 	}
 }
