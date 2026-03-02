@@ -786,6 +786,7 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
 						Enabled: ptr(false),
+						Bundles: ptr(false),
 					},
 					ConfirmationTimeout: &minute,
 				},
@@ -1269,6 +1270,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+Bundles = false
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -1547,6 +1549,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.Bundles == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.Bundles = ptr(false)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
