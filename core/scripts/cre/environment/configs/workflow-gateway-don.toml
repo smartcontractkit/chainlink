@@ -38,6 +38,7 @@
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
+  skip_capability_binaries_copying = true
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "write-evm-2337", "evm-1337", "evm-2337", "read-contract-1337", "read-contract-2337"]
@@ -61,6 +62,7 @@
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
+  skip_capability_binaries_copying = true
 
   env_vars = { CL_EVM_CMD = "" }
   supported_evm_chains = [1337, 2337]
