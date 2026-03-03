@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 
 	"github.com/Masterminds/semver/v3"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -169,6 +171,16 @@ func (s *Services) newSubservices(
 		}
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
+
+		if trustedPCRs := os.Getenv("CL_CONFIDENTIAL_RELAY_TRUSTED_PCRS"); trustedPCRs != "" {
+			relayService := confidentialrelay.NewService(
+				gatewayConnectorWrapper,
+				opts.CapabilitiesRegistry,
+				[]byte(trustedPCRs),
+				lggr,
+			)
+			srvs = append(srvs, relayService)
+		}
 	}
 
 	if cfg.CRE().Linking().URL() != "" {
