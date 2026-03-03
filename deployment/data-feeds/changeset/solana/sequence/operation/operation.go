@@ -180,7 +180,7 @@ func initCache(b operations.Bundle, deps Deps, in InitCacheInput) (InitCacheOutp
 	var out InitCacheOutput
 
 	if df_cache.ProgramID.IsZero() {
-		df_cache.SetProgramID(in.ProgramID)
+		df_cache.ProgramID = in.ProgramID
 	}
 
 	stateKey, err := solana.NewRandomPrivateKey()
@@ -194,7 +194,7 @@ func initCache(b operations.Bundle, deps Deps, in InitCacheInput) (InitCacheOutp
 		stateKey.PublicKey(),
 		in.ForwarderProgramID,
 		solana.SystemProgramID,
-	).ValidateAndBuild()
+	)
 	if err != nil {
 		return out, fmt.Errorf("failed to build and validate initialize instruction %w", err)
 	}
@@ -248,22 +248,26 @@ func setUpgradeAuthority(b operations.Bundle, deps Deps, in SetUpgradeAuthorityI
 func initCacheDecimalReport(b operations.Bundle, deps Deps, in InitCacheDecimalReportInput) (ConfigureCacheOutput, error) {
 	var out ConfigureCacheOutput
 
-	instruction := df_cache.NewInitDecimalReportsInstruction(
+	ix, err := df_cache.NewInitDecimalReportsInstruction(
 		in.DataIDs,
 		in.FeedAdmin,
 		in.State,
 		solana.SystemProgramID,
 	)
-
-	for _, acc := range in.RemainingAccounts {
-		instruction.AccountMetaSlice = append(instruction.AccountMetaSlice, &acc)
-	}
-
-	tx, err := instruction.ValidateAndBuild()
-
 	if err != nil {
-		return out, fmt.Errorf("failed to build and validate initialize instruction %w", err)
+		return out, fmt.Errorf("failed to build InitDecimalReports instruction: %w", err)
 	}
+
+	remainingAccounts := make(solana.AccountMetaSlice, 0, len(in.RemainingAccounts))
+	for i := range in.RemainingAccounts {
+		remainingAccounts = append(remainingAccounts, &in.RemainingAccounts[i])
+	}
+	accounts := append(solana.AccountMetaSlice(ix.Accounts()), remainingAccounts...)
+	data, err := ix.Data()
+	if err != nil {
+		return out, fmt.Errorf("failed to get InitDecimalReports instruction data: %w", err)
+	}
+	tx := solana.NewInstruction(ix.ProgramID(), accounts, data)
 
 	proposals, err := confirmInstructionOrBuildProposal(
 		deps,
@@ -286,7 +290,7 @@ func initCacheDecimalReport(b operations.Bundle, deps Deps, in InitCacheDecimalR
 func configureCacheDecimalReport(b operations.Bundle, deps Deps, in ConfigureCacheDecimalReportInput) (ConfigureCacheOutput, error) {
 	var out ConfigureCacheOutput
 
-	instruction := df_cache.NewSetDecimalFeedConfigsInstruction(
+	ix, err := df_cache.NewSetDecimalFeedConfigsInstruction(
 		in.DataIDs,
 		in.Descriptions,
 		in.WorkflowMetadatas,
@@ -294,16 +298,20 @@ func configureCacheDecimalReport(b operations.Bundle, deps Deps, in ConfigureCac
 		in.State,
 		solana.SystemProgramID,
 	)
-
-	for _, acc := range in.RemainingAccounts {
-		instruction.AccountMetaSlice = append(instruction.AccountMetaSlice, &acc)
-	}
-
-	tx, err := instruction.ValidateAndBuild()
-
 	if err != nil {
-		return out, fmt.Errorf("failed to build and validate initialize instruction %w", err)
+		return out, fmt.Errorf("failed to build SetDecimalFeedConfigs instruction: %w", err)
 	}
+
+	remainingAccounts := make(solana.AccountMetaSlice, 0, len(in.RemainingAccounts))
+	for i := range in.RemainingAccounts {
+		remainingAccounts = append(remainingAccounts, &in.RemainingAccounts[i])
+	}
+	accounts := append(solana.AccountMetaSlice(ix.Accounts()), remainingAccounts...)
+	data, err := ix.Data()
+	if err != nil {
+		return out, fmt.Errorf("failed to get SetDecimalFeedConfigs instruction data: %w", err)
+	}
+	tx := solana.NewInstruction(ix.ProgramID(), accounts, data)
 
 	proposals, err := confirmInstructionOrBuildProposal(
 		deps,
