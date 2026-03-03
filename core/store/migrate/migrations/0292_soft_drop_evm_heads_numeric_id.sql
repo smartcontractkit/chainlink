@@ -1,7 +1,9 @@
 -- +goose Up
 
--- evm.heads.id is redundant since a head is uniquely identified by (evm_chain_id, hash) or (evm_chain_id, number)
--- This migration soft drops the id column by renaming it to deprecated_id and dropping the primary key constraint that includes it.
+-- evm.heads.id is redundant since a head is uniquely identified by (evm_chain_id, hash).
+-- Using an id column to resolve (evm_chain_id, number) tie breaks on initial load is an overkill.
+--
+-- The migration soft drops the id column by renaming it to deprecated_id and dropping the primary key constraint that includes it.
 -- This allows us to double-check that nothing is using the id column before we hard drop it in a future migration.
 ALTER TABLE evm.heads DROP CONSTRAINT heads_pkey1;
 ALTER TABLE evm.heads RENAME COLUMN id TO deprecated_id;
