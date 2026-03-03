@@ -377,6 +377,12 @@ func (h *handler) errorResponse(
 	case api.UserMessageParseError:
 		h.lggr.Errorw("user message parse error", "requestID", req.ID, "error", err.Error())
 		err = errors.New("user message parse error: " + err.Error())
+	case api.ConflictError:
+		h.lggr.Errorw("conflict error", "requestID", req.ID, "error", err.Error())
+		err = errors.New("conflict error: " + err.Error())
+	case api.LimitExceededError:
+		h.lggr.Errorw("limit exceeded error", "requestID", req.ID, "error", err.Error())
+		err = errors.New("limit exceeded error: " + err.Error())
 	case api.NoError:
 	case api.UnsupportedDONIdError:
 	case api.HandlerError:
@@ -410,6 +416,8 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	case api.UnsupportedMethodError:
 	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
+	case api.ConflictError:
+	case api.LimitExceededError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 		))
