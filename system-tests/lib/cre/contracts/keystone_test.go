@@ -18,7 +18,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	crevalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -231,80 +230,7 @@ func TestToV2ConfigureInput(t *testing.T) {
 	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
 }
 
-func TestToV2ConfigureInput_NonAptosNilConfigWithCapRegOCRPreservesEmptyConfig(t *testing.T) {
-	chainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
-	chainID, err := chainselectors.GetChainIDFromSelector(chainSel)
-	require.NoError(t, err)
-
-	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(101))
-	peerID := key.PeerID().String()
-
-	fakeNodes := []*fakeNodeInfo{
-		{
-			id:          "node_evm_01",
-			name:        "evm-node-1",
-			csaKey:      "403b72f0b1b3b5f5a91bcfedb7f28599767502a04b5b7e067fcf3782e23eeb9c",
-			workflowKey: "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
-			p2pID:       peerID,
-			chainConfigs: []*nodev1.ChainConfig{{
-				Chain: &nodev1.Chain{
-					Type: nodev1.ChainType_CHAIN_TYPE_EVM,
-					Id:   chainID,
-				},
-				Ocr2Config: &nodev1.OCR2Config{
-					OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
-						OffchainPublicKey:     "03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
-						OnchainSigningAddress: "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
-						ConfigPublicKey:       "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
-						BundleId:              "665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea",
-					},
-					P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
-						PeerId: peerID,
-					},
-					IsBootstrap: false,
-				},
-				AccountAddress: "0x2877F08d9c5Cc9F401F730Fa418fAE563A9a2FF3",
-			}},
-		},
-	}
-
-	offchainClient := newFakeOffchainClient(fakeNodes)
-	d := &dons{
-		c:        make(map[string]donConfig),
-		offChain: offchainClient,
-	}
-	d.c["test-don"] = donConfig{
-		id: 1,
-		DonCapabilities: keystone_changeset.DonCapabilities{
-			Name: "test-don",
-			F:    0,
-			Nops: []keystone_changeset.NOP{
-				{
-					Name:  "test-nop",
-					Nodes: []string{peerID},
-				},
-			},
-			Capabilities: []keystone_changeset.DONCapabilityWithConfig{
-				{
-					Capability: kcr.CapabilitiesRegistryCapability{
-						LabelledName:   "test-capability",
-						Version:        "1.0.0",
-						CapabilityType: 1,
-					},
-					UseCapRegOCRConfig: true,
-					Config:             nil,
-				},
-			},
-		},
-	}
-
-	result := d.mustToV2ConfigureInput(chainSel, "0x1234567890abcdef", nil)
-	require.Len(t, result.DONs, 1)
-	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
-	require.Equal(t, []byte("{}"), result.DONs[0].CapabilityConfigurations[0].Config)
-}
-
-func TestToV2ConfigureInput_EmbedsAptosTransmittersInSpecConfig(t *testing.T) {
+func TestToV2ConfigureInput_DoesNotRequireAptosTransmittersInSpecConfig(t *testing.T) {
 	registryChainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
 	registryChainID, err := chainselectors.GetChainIDFromSelector(registryChainSel)
 	require.NoError(t, err)
@@ -366,7 +292,6 @@ func TestToV2ConfigureInput_EmbedsAptosTransmittersInSpecConfig(t *testing.T) {
 						},
 						IsBootstrap: false,
 					},
-					AccountAddress:          aptosTransmitterA,
 					AccountAddressPublicKey: &aptosTransmitterA,
 				},
 			},
@@ -414,7 +339,6 @@ func TestToV2ConfigureInput_EmbedsAptosTransmittersInSpecConfig(t *testing.T) {
 						},
 						IsBootstrap: false,
 					},
-					AccountAddress:          aptosTransmitterB,
 					AccountAddressPublicKey: &aptosTransmitterB,
 				},
 			},
@@ -454,16 +378,10 @@ func TestToV2ConfigureInput_EmbedsAptosTransmittersInSpecConfig(t *testing.T) {
 	var cfg capabilitiespb.CapabilityConfig
 	err = proto.Unmarshal(result.DONs[0].CapabilityConfigurations[0].Config, &cfg)
 	require.NoError(t, err)
-	require.NotNil(t, cfg.SpecConfig)
-
-	specCfg, err := crevalues.FromMapValueProto(cfg.SpecConfig)
-	require.NoError(t, err)
-	transmittersValue, ok := specCfg.Underlying[aptosSpecConfigTransmittersListKey]
-	require.True(t, ok)
-
-	var gotTransmitters []string
-	require.NoError(t, transmittersValue.UnwrapTo(&gotTransmitters))
-	require.Equal(t, []string{"0xaaa", "0xbbb"}, gotTransmitters)
+	if cfg.SpecConfig != nil {
+		_, ok := cfg.SpecConfig.Fields[aptosSpecConfigTransmittersListKey]
+		require.False(t, ok)
+	}
 }
 
 func TestAptosTransmittersForChainSelector_ErrorsOnEmptyTransmitAccount(t *testing.T) {
@@ -491,7 +409,7 @@ func TestAptosTransmittersForChainSelector_ErrorsOnEmptyTransmitAccount(t *testi
 
 	_, err := aptosTransmittersForChainSelector(nodes, chainSelector)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid Aptos transmitter for node node-2")
+	require.Contains(t, err.Error(), "empty Aptos transmitter for node node-2")
 }
 
 func TestValidateAptosTransmittersForCapabilities_ErrorsOnInvalidAptosTransmitterSet(t *testing.T) {
@@ -522,7 +440,7 @@ func TestValidateAptosTransmittersForCapabilities_ErrorsOnInvalidAptosTransmitte
 
 	err := validateAptosTransmittersForCapabilities(nodes, caps)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid Aptos transmitter for node node-2")
+	require.Contains(t, err.Error(), "empty Aptos transmitter for node node-2")
 }
 
 // TestGenerateAdminAddresses contains all the test cases for the function.

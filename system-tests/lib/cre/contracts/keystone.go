@@ -265,12 +265,6 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			}
 		}
 
-		orderedDonNodes := orderedDONNodesFromNops(don.Nops, donNodesByPeerID)
-		aptosTransmittersBySelector, err := aptosTransmittersByChainSelectorForCapabilities(orderedDonNodes, don.Capabilities)
-		if err != nil {
-			panic(fmt.Sprintf("failed to collect Aptos transmitters for DON %s: %s", don.Name, err))
-		}
-
 		// Create DON parameters
 		var capConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
 		for _, cap := range don.Capabilities {
@@ -279,16 +273,14 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 			capConfig := cap.Config
 			shouldMarshalProtoConfig := capConfig != nil
-			aptosSelector, isAptosCapability, parseErr := aptosChainSelectorFromCapabilityLabel(cap.Capability.LabelledName)
-			if isAptosCapability && parseErr != nil {
+			if _, isAptosCapability, parseErr := aptosChainSelectorFromCapabilityLabel(cap.Capability.LabelledName); isAptosCapability && parseErr != nil {
 				panic(fmt.Sprintf("failed to parse capability label %s: %s", cap.Capability.LabelledName, parseErr))
 			}
-			if isAptosCapability && capConfig == nil {
-				capConfig = &capabilitiespb.CapabilityConfig{}
-				shouldMarshalProtoConfig = true
-			}
 
-			if cap.UseCapRegOCRConfig && capConfig != nil {
+			if cap.UseCapRegOCRConfig {
+				if capConfig == nil {
+					capConfig = &capabilitiespb.CapabilityConfig{}
+				}
 				shouldMarshalProtoConfig = true
 
 				ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
@@ -298,16 +290,6 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 				if err := d.embedOCR3Config(capConfig, don, chainSelector, ocrConfig); err != nil {
 					panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
 				}
-			}
-			if isAptosCapability {
-				aptosTransmitters, ok := aptosTransmittersBySelector[aptosSelector]
-				if !ok {
-					panic(fmt.Sprintf("missing Aptos transmitter set for capability %s (chain selector %d)", cap.Capability.LabelledName, aptosSelector))
-				}
-				if err := setAptosTransmittersSpecConfig(capConfig, aptosTransmitters); err != nil {
-					panic(fmt.Sprintf("failed to set Aptos transmitters config for capability %s: %s", cap.Capability.LabelledName, err))
-				}
-				shouldMarshalProtoConfig = true
 			}
 
 			if shouldMarshalProtoConfig {
@@ -369,53 +351,6 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		Capabilities:     capabilities,
 		DONs:             donParams,
 	}
-}
-
-func orderedDONNodesFromNops(nops []keystone_changeset.NOP, nodesByPeerID map[string]deployment.Node) []deployment.Node {
-	ordered := make([]deployment.Node, 0, len(nodesByPeerID))
-	seen := make(map[string]struct{})
-	for _, nop := range nops {
-		for _, peerID := range nop.Nodes {
-			if _, alreadyAdded := seen[peerID]; alreadyAdded {
-				continue
-			}
-			node, ok := nodesByPeerID[peerID]
-			if !ok {
-				continue
-			}
-			ordered = append(ordered, node)
-			seen[peerID] = struct{}{}
-		}
-	}
-	return ordered
-}
-
-func aptosTransmittersByChainSelectorForCapabilities(nodes []deployment.Node, caps []keystone_changeset.DONCapabilityWithConfig) (map[uint64][]string, error) {
-	transmittersBySelector := make(map[uint64][]string)
-
-	for _, cap := range caps {
-		selector, isAptosCapability, err := aptosChainSelectorFromCapabilityLabel(cap.Capability.LabelledName)
-		if !isAptosCapability {
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse capability label %s: %w", cap.Capability.LabelledName, err)
-			}
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse Aptos chain selector from capability %s: %w", cap.Capability.LabelledName, err)
-		}
-		if _, ok := transmittersBySelector[selector]; ok {
-			continue
-		}
-
-		aptosTransmitters, txErr := aptosTransmittersForChainSelector(nodes, selector)
-		if txErr != nil {
-			return nil, fmt.Errorf("failed to collect Aptos transmitters for capability %s: %w", cap.Capability.LabelledName, txErr)
-		}
-		transmittersBySelector[selector] = aptosTransmitters
-	}
-
-	return transmittersBySelector, nil
 }
 
 func aptosChainSelectorFromCapabilityLabel(labelledName string) (uint64, bool, error) {
@@ -486,9 +421,9 @@ func aptosTransmittersForChainSelector(nodes []deployment.Node, chainSelector ui
 			continue
 		}
 
-		transmitter, err := normalizeAptosTransmitter(string(ocrCfg.TransmitAccount))
-		if err != nil {
-			return nil, fmt.Errorf("invalid Aptos transmitter for node %s: %w", node.Name, err)
+		transmitter := strings.TrimSpace(string(ocrCfg.TransmitAccount))
+		if transmitter == "" {
+			return nil, fmt.Errorf("empty Aptos transmitter for node %s", node.Name)
 		}
 		seen[transmitter] = struct{}{}
 	}
@@ -502,26 +437,6 @@ func aptosTransmittersForChainSelector(nodes []deployment.Node, chainSelector ui
 	}
 	sort.Strings(ordered)
 	return ordered, nil
-}
-
-func normalizeAptosTransmitter(v string) (string, error) {
-	raw := strings.TrimSpace(v)
-	if raw == "" {
-		return "", fmt.Errorf("empty value")
-	}
-	raw = strings.TrimPrefix(strings.TrimPrefix(raw, "0x"), "0X")
-	if raw == "" {
-		return "", fmt.Errorf("empty hex")
-	}
-	for _, ch := range raw {
-		isDigit := ch >= '0' && ch <= '9'
-		isLowerHex := ch >= 'a' && ch <= 'f'
-		isUpperHex := ch >= 'A' && ch <= 'F'
-		if !isDigit && !isLowerHex && !isUpperHex {
-			return "", fmt.Errorf("invalid hex character %q", ch)
-		}
-	}
-	return "0x" + strings.ToLower(raw), nil
 }
 
 func setAptosTransmittersSpecConfig(capConfig *capabilitiespb.CapabilityConfig, aptosTransmitters []string) error {

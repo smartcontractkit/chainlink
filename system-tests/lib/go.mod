@@ -34,10 +34,10 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.91
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260227175257-4f9b6ec009df
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260303102311-3b169db4ed93
-	github.com/smartcontractkit/chainlink-common/keystore v1.0.3-0.20260303102311-3b169db4ed93
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260227152057-23e4a8b9f052
+	github.com/smartcontractkit/chainlink-common/keystore v1.0.3-0.20260227152057-23e4a8b9f052
 	github.com/smartcontractkit/chainlink-deployments-framework v0.80.1-0.20260209182815-b296b7df28a6
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260302180243-1e75633e454e
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260227175232-0de99d1959de
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
