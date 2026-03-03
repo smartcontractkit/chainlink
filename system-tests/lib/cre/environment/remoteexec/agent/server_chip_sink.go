@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
+
 	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/chipsink"
 )
@@ -73,13 +74,13 @@ func (s *Server) startChipTestSink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eventLogPath := defaultChipSinkEventLogPath()
-	if err := os.MkdirAll(filepath.Dir(eventLogPath), 0o755); err != nil {
-		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to prepare chip sink log directory: %v", err), nil)
+	if mkdirErr := os.MkdirAll(filepath.Dir(eventLogPath), 0o755); mkdirErr != nil {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to prepare chip sink log directory: %v", mkdirErr), nil)
 		return
 	}
 	// Start with a clean event stream per launch.
-	if err := os.Remove(eventLogPath); err != nil && !os.IsNotExist(err) {
-		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to reset chip sink event log: %v", err), nil)
+	if removeErr := os.Remove(eventLogPath); removeErr != nil && !os.IsNotExist(removeErr) {
+		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to reset chip sink event log: %v", removeErr), nil)
 		return
 	}
 	var eventLogMu sync.Mutex

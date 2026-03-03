@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )

@@ -11,9 +11,11 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDeployArtifactsToRemoteNodeSetValidation(t *testing.T) {
@@ -61,18 +63,18 @@ func TestDeployArtifactsToRemoteNodeSetSuccess(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"})
 		case "/v1/components/start":
 			var envelope agent.StartComponentEnvelope
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&envelope))
-			require.Equal(t, agent.OperationDeployArtifacts, envelope.Operation)
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&envelope))
+			assert.Equal(t, agent.OperationDeployArtifacts, envelope.Operation)
 
 			var payload agent.DeployArtifactsPayload
-			require.NoError(t, json.Unmarshal(envelope.Payload, &payload))
-			require.Equal(t, "workflow", payload.NodeSetName)
-			require.Equal(t, "/home/chainlink/workflows", payload.TargetDir)
-			require.Len(t, payload.Files, 1)
-			require.Equal(t, "artifact.wasm", payload.Files[0].Name)
+			assert.NoError(t, json.Unmarshal(envelope.Payload, &payload))
+			assert.Equal(t, "workflow", payload.NodeSetName)
+			assert.Equal(t, "/home/chainlink/workflows", payload.TargetDir)
+			assert.Len(t, payload.Files, 1)
+			assert.Equal(t, "artifact.wasm", payload.Files[0].Name)
 			raw, err := base64.StdEncoding.DecodeString(payload.Files[0].ContentBase64)
-			require.NoError(t, err)
-			require.Equal(t, "artifact-content", string(raw))
+			assert.NoError(t, err)
+			assert.Equal(t, "artifact-content", string(raw))
 
 			_ = json.NewEncoder(w).Encode(agent.StartComponentResponse{
 				ComponentType: ComponentTypeNodeSet,

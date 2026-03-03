@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,7 +48,7 @@ func GetComponentLogs(ctx context.Context, runtime *Runtime, componentKey string
 	}
 	componentKey = strings.TrimSpace(componentKey)
 	if componentKey == "" {
-		return nil, fmt.Errorf("componentKey is required")
+		return nil, errors.New("componentKey is required")
 	}
 
 	q := url.Values{}
@@ -66,11 +67,11 @@ func GetComponentLogs(ctx context.Context, runtime *Runtime, componentKey string
 
 func runtimeBaseURL(runtime *Runtime) (string, error) {
 	if runtime == nil {
-		return "", fmt.Errorf("runtime is nil")
+		return "", errors.New("runtime is nil")
 	}
 	baseURL := strings.TrimSpace(runtime.AgentBaseURL)
 	if baseURL == "" {
-		return "", fmt.Errorf("runtime is missing agent base url")
+		return "", errors.New("runtime is missing agent base url")
 	}
 	return baseURL, nil
 }

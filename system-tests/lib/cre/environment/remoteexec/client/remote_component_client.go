@@ -125,13 +125,17 @@ func (c *httpComponentClient) StartComponent(ctx context.Context, envelope agent
 	}
 
 	var result *agent.StartComponentResponse
+	attempts := c.maxAttempts
+	if attempts < 1 {
+		attempts = 1
+	}
 	err := retry.Do(
 		func() error {
 			var err error
 			result, err = c.startComponentOnce(ctx, envelope)
 			return err
 		},
-		retry.Attempts(uint(c.maxAttempts)),
+		retry.Attempts(uint(attempts)), //nolint:gosec // G115: attempts is validated to be >= 1
 		retry.Delay(c.retryDelay),
 		retry.Context(ctx),
 		retry.LastErrorOnly(true),
@@ -171,8 +175,8 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope a
 
 	var startResp agent.StartComponentResponse
 	if len(respBody) > 0 {
-		if err := json.Unmarshal(respBody, &startResp); err != nil {
-			return nil, retry.Unrecoverable(pkgerrors.Wrap(err, "failed to decode start component response"))
+		if unmarshalErr := json.Unmarshal(respBody, &startResp); unmarshalErr != nil {
+			return nil, retry.Unrecoverable(pkgerrors.Wrap(unmarshalErr, "failed to decode start component response"))
 		}
 	}
 
@@ -204,6 +208,10 @@ func (c *httpComponentClient) startComponentOnce(ctx context.Context, envelope a
 
 func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
 	healthURL := c.baseURL + "/v1/health"
+	attempts := c.maxAttempts
+	if attempts < 1 {
+		attempts = 1
+	}
 	return retry.Do(
 		func() error {
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
@@ -220,7 +228,7 @@ func (c *httpComponentClient) waitForHealth(ctx context.Context) error {
 			}
 			return fmt.Errorf("%s: status %s", describeRemoteAgentHealthFailure(c.baseURL), resp.Status)
 		},
-		retry.Attempts(uint(c.maxAttempts)),
+		retry.Attempts(uint(attempts)), //nolint:gosec // G115: attempts is validated to be >= 1
 		retry.Delay(c.retryDelay),
 		retry.Context(ctx),
 		retry.LastErrorOnly(true),

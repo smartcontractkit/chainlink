@@ -15,9 +15,10 @@ import (
 	"time"
 
 	"github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
-	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 )
 
 const listenerReadyTimeout = 5 * time.Second

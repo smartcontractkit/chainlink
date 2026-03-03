@@ -10,9 +10,11 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
-	"github.com/stretchr/testify/require"
 )
 
 func TestResolveRemoteRuntimeWithExplicitEnv(t *testing.T) {
@@ -33,7 +35,7 @@ func TestResolveRemoteRuntimeWithInputOverridesEnv(t *testing.T) {
 	t.Setenv(EnvRemoteAgentPort, "19090")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/status", r.URL.Path)
+		assert.Equal(t, "/v1/status", r.URL.Path)
 		_ = json.NewEncoder(w).Encode(agent.AgentStatusResponse{
 			ProtocolVersion: "1.0",
 			Capabilities:    []string{"component_logs", "locks", "deploy_artifacts", "start_component", "relay", "list_ctf_resources"},

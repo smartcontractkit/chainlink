@@ -2,6 +2,7 @@ package connectivity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -33,7 +34,7 @@ type BridgeEnsurer func(ctx context.Context, endpoint EndpointPair, port int) er
 
 func Resolve(caller, target Placement, endpoint EndpointPair) (*Resolution, error) {
 	if caller == "" || target == "" {
-		return nil, fmt.Errorf("caller and target placement must be set")
+		return nil, errors.New("caller and target placement must be set")
 	}
 
 	selectedKind := "internal"
@@ -94,7 +95,7 @@ func PlacementFromTarget(target string) (Placement, error) {
 func endpointPort(raw string) (int, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return 0, fmt.Errorf("endpoint is empty")
+		return 0, errors.New("endpoint is empty")
 	}
 	if strings.Contains(trimmed, "://") {
 		parsed, err := url.Parse(trimmed)
@@ -102,7 +103,7 @@ func endpointPort(raw string) (int, error) {
 			return 0, fmt.Errorf("parse url: %w", err)
 		}
 		if parsed.Port() == "" {
-			return 0, fmt.Errorf("url has no explicit port")
+			return 0, errors.New("url has no explicit port")
 		}
 		port, err := strconv.Atoi(parsed.Port())
 		if err != nil || port <= 0 || port > 65535 {

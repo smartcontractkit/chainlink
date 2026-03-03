@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -49,8 +50,8 @@ func TestCountRemoteStopTargets(t *testing.T) {
 
 func TestListRemoteCTFResources(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodGet, r.Method)
-		require.Equal(t, "/v1/resources/ctf", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v1/resources/ctf", r.URL.Path)
 		_, _ = w.Write([]byte(`{"containers":["c1","c2"],"volumes":["v1"]}`))
 	}))
 	defer server.Close()
@@ -109,14 +110,14 @@ func TestStopRemoteComponents_ResidualQueryFailureIsReportedInSummary(t *testing
 		case "/v1/health":
 			w.WriteHeader(http.StatusOK)
 		case "/v1/status":
-			require.NoError(t, json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"}))
+			assert.NoError(t, json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"}))
 		case "/v1/components/start":
 			resp := agent.StartComponentResponse{
 				ComponentType: ComponentTypeBlockchain,
 				Found:         true,
 				Stopped:       true,
 			}
-			require.NoError(t, json.NewEncoder(w).Encode(resp))
+			assert.NoError(t, json.NewEncoder(w).Encode(resp))
 		case "/v1/resources/ctf":
 			w.WriteHeader(http.StatusBadGateway)
 			_, _ = w.Write([]byte("ctf listing down"))
@@ -183,18 +184,18 @@ func newRemoteStopTestServer(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusOK)
 			return
 		case "/v1/status":
-			require.NoError(t, json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"}))
+			assert.NoError(t, json.NewEncoder(w).Encode(agent.AgentStatusResponse{ProtocolVersion: "1.0.0"}))
 			return
 		case "/v1/resources/ctf":
 			_, _ = w.Write([]byte(`{"containers":["leftover-container"],"volumes":["leftover-volume"]}`))
 			return
 		case "/v1/components/start":
 			var envelope agent.StartComponentEnvelope
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&envelope))
-			require.Equal(t, agent.OperationStopComponent, envelope.Operation)
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&envelope))
+			assert.Equal(t, agent.OperationStopComponent, envelope.Operation)
 
 			var payload agent.StartComponentPayload
-			require.NoError(t, json.Unmarshal(envelope.Payload, &payload))
+			assert.NoError(t, json.Unmarshal(envelope.Payload, &payload))
 
 			resp := agent.StartComponentResponse{ComponentType: payload.ComponentType}
 			switch payload.ComponentType {
@@ -210,7 +211,7 @@ func newRemoteStopTestServer(t *testing.T) *httptest.Server {
 			default:
 				t.Fatalf("unexpected component type %q", payload.ComponentType)
 			}
-			require.NoError(t, json.NewEncoder(w).Encode(resp))
+			assert.NoError(t, json.NewEncoder(w).Encode(resp))
 			return
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)

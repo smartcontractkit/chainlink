@@ -11,6 +11,7 @@ import (
 	ctypes "github.com/docker/docker/api/types/container"
 	dc "github.com/docker/docker/client"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 

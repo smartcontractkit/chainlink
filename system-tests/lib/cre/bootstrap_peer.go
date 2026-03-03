@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/connectivity"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
@@ -14,7 +16,7 @@ import (
 
 func ResolveBootstrapAddress(callerTarget, bootstrapTarget, internalHost string, port int) (string, error) {
 	if strings.TrimSpace(internalHost) == "" {
-		return "", fmt.Errorf("bootstrap internal host is empty")
+		return "", errors.New("bootstrap internal host is empty")
 	}
 	if port <= 0 || port > 65535 {
 		return "", fmt.Errorf("invalid bootstrap port: %d", port)
@@ -56,7 +58,7 @@ func ResolveBootstrapPeerURL(callerTarget, bootstrapTarget, peerID, internalHost
 	}
 	trimmedPeerID := strings.TrimSpace(strings.TrimPrefix(peerID, "p2p_"))
 	if trimmedPeerID == "" {
-		return "", fmt.Errorf("bootstrap peerID is empty")
+		return "", errors.New("bootstrap peerID is empty")
 	}
 	return trimmedPeerID + "@" + address, nil
 }
@@ -128,7 +130,7 @@ func resolveBootstrapExternalAddress(targetPlacement connectivity.Placement, por
 		return net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), nil
 	}
 	if !runtimecfg.IsDirectMode() {
-		return "", fmt.Errorf("mixed DON bootstrap resolution requires direct access mode for remote bootstrap targets")
+		return "", errors.New("mixed DON bootstrap resolution requires direct access mode for remote bootstrap targets")
 	}
 	hostIP, err := runtimecfg.DirectHostIP()
 	if err != nil {
@@ -141,7 +143,7 @@ func rewriteEndpointForRemoteCaller(raw string) (string, error) {
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return "", fmt.Errorf("endpoint is empty")
+		return "", errors.New("endpoint is empty")
 	}
 	if strings.Contains(trimmed, "://") {
 		parsed, err := url.Parse(trimmed)

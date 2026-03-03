@@ -120,6 +120,7 @@ type CTFResourcesResponse struct {
 	Volumes    []string `json:"volumes,omitempty"`
 }
 
+//nolint:revive // AgentStatusResponse is the API contract; renaming would break external callers
 type AgentStatusResponse struct {
 	AgentVersion      string                      `json:"agentVersion,omitempty"`
 	ProtocolVersion   string                      `json:"protocolVersion,omitempty"`
@@ -141,6 +142,7 @@ type RelayInfo struct {
 	BoundPort     int    `json:"boundPort"`
 }
 
+//nolint:revive // AgentLocksResponse is the API contract; renaming would break external callers
 type AgentLocksResponse struct {
 	LifecycleBusy    bool                `json:"lifecycleBusy"`
 	CacheEntries     int                 `json:"cacheEntries"`
@@ -351,7 +353,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if envelope.SchemaVersion != SchemaVersionV1 {
-		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedSchema, fmt.Sprintf("unsupported schema version: %s", envelope.SchemaVersion), nil)
+		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedSchema, "unsupported schema version: "+envelope.SchemaVersion, nil)
 		return
 	}
 	if envelope.Operation == OperationDeployArtifacts {
@@ -364,7 +366,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if payload.ComponentType != ComponentTypeBlockchain && payload.ComponentType != ComponentTypeJD && payload.ComponentType != ComponentTypeNodeSet {
-		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedComponent, fmt.Sprintf("unsupported component type: %s", payload.ComponentType), nil)
+		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedComponent, "unsupported component type: "+payload.ComponentType, nil)
 		return
 	}
 
@@ -378,7 +380,7 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if envelope.Operation != OperationStartComponent {
-		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedOperation, fmt.Sprintf("unsupported operation: %s", envelope.Operation), nil)
+		s.respondError(w, http.StatusBadRequest, ErrCodeUnsupportedOperation, "unsupported operation: "+envelope.Operation, nil)
 		return
 	}
 	payloadHash := hashPayload(envelope.Payload)
@@ -386,8 +388,8 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 	// Keep this stderr write explicit so startup behavior is visible when agent runs as a subprocess.
 	requestLog := fmt.Sprintf("[cre-agent] starting component type=%s key=%s", payload.ComponentType, componentKey)
 	_, _ = fmt.Fprintln(os.Stderr, requestLog)
-	s.beginInFlight(fmt.Sprintf("start:%s", componentKey), inFlightOperationScopeLifecycle)
-	defer s.endInFlight(fmt.Sprintf("start:%s", componentKey))
+	s.beginInFlight("start:"+componentKey, inFlightOperationScopeLifecycle)
+	defer s.endInFlight("start:" + componentKey)
 	preStartLogs := make([]string, 0, 2)
 	s.lifecycleMu.Lock()
 	defer s.lifecycleMu.Unlock()
@@ -473,11 +475,12 @@ func (s *Server) startComponent(w http.ResponseWriter, r *http.Request) {
 
 	var output map[string]any
 	var encErr error
-	if blockchainOutput != nil {
+	switch {
+	case blockchainOutput != nil:
 		output, encErr = EncodeForTransport(blockchainOutput)
-	} else if jdOutput != nil {
+	case jdOutput != nil:
 		output, encErr = EncodeForTransport(jdOutput)
-	} else if nodeSetOutput != nil {
+	case nodeSetOutput != nil:
 		output, encErr = EncodeForTransport(nodeSetOutput)
 	}
 	if encErr != nil {
@@ -529,7 +532,7 @@ func (s *Server) deployArtifacts(w http.ResponseWriter, r *http.Request, rawPayl
 		return
 	}
 	if len(containerNames) == 0 {
-		s.respondError(w, http.StatusNotFound, ErrCodeDeployFailed, fmt.Sprintf("no nodeset containers found for pattern %s", containerPrefix), nil)
+		s.respondError(w, http.StatusNotFound, ErrCodeDeployFailed, "no nodeset containers found for pattern "+containerPrefix, nil)
 		return
 	}
 
@@ -575,8 +578,8 @@ func (s *Server) deployArtifacts(w http.ResponseWriter, r *http.Request, rawPayl
 }
 
 func (s *Server) stopComponentByKey(w http.ResponseWriter, r *http.Request, componentType, componentKey string) {
-	s.beginInFlight(fmt.Sprintf("stop:%s", componentKey), inFlightOperationScopeLifecycle)
-	defer s.endInFlight(fmt.Sprintf("stop:%s", componentKey))
+	s.beginInFlight("stop:"+componentKey, inFlightOperationScopeLifecycle)
+	defer s.endInFlight("stop:" + componentKey)
 
 	s.lifecycleMu.Lock()
 	defer s.lifecycleMu.Unlock()
@@ -725,11 +728,11 @@ func (s *Server) discoverOwnedContainers(ctx context.Context, fn func() error) (
 				}
 				if msg.Action == "create" || msg.Action == "start" {
 					eventMu.Lock()
-					eventIDs = append(eventIDs, msg.ID)
+					eventIDs = append(eventIDs, msg.Actor.ID)
 					eventMu.Unlock()
 				}
-			case err, ok := <-errs:
-				if !ok || err == nil {
+			case evtErr, ok := <-errs:
+				if !ok || evtErr == nil {
 					return
 				}
 				return
@@ -873,17 +876,17 @@ func componentCacheKey(payload StartComponentPayload) (string, error) {
 	switch payload.ComponentType {
 	case ComponentTypeBlockchain:
 		if payload.Blockchain == nil {
-			return "", fmt.Errorf("blockchain payload is required")
+			return "", errors.New("blockchain payload is required")
 		}
 		return fmt.Sprintf("%s:%s:%s", payload.ComponentType, payload.Blockchain.Type, payload.Blockchain.ChainID), nil
 	case ComponentTypeJD:
 		if payload.JD == nil {
-			return "", fmt.Errorf("jd payload is required")
+			return "", errors.New("jd payload is required")
 		}
 		return fmt.Sprintf("%s:%s", payload.ComponentType, payload.JD.Image), nil
 	case ComponentTypeNodeSet:
 		if payload.NodeSet == nil {
-			return "", fmt.Errorf("nodeset payload is required")
+			return "", errors.New("nodeset payload is required")
 		}
 		return fmt.Sprintf("%s:%s", payload.ComponentType, payload.NodeSet.Name), nil
 	default:
@@ -893,8 +896,9 @@ func componentCacheKey(payload StartComponentPayload) (string, error) {
 
 func Run(ctx context.Context, addr string, srv *Server) error {
 	httpSrv := &http.Server{
-		Addr:    addr,
-		Handler: srv.Handler(),
+		Addr:              addr,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	errCh := make(chan error, 1)
@@ -906,7 +910,7 @@ func Run(ctx context.Context, addr string, srv *Server) error {
 	case <-ctx.Done():
 		return httpSrv.Shutdown(context.Background())
 	case err := <-errCh:
-		if err == http.ErrServerClosed {
+		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
 		return err

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -22,10 +22,10 @@ func DeployArtifactsToRemoteNodeSet(
 	files []string,
 ) error {
 	if nodeSetName == "" {
-		return fmt.Errorf("nodeset name is required")
+		return errors.New("nodeset name is required")
 	}
 	if containerTargetDir == "" {
-		return fmt.Errorf("container target dir is required")
+		return errors.New("container target dir is required")
 	}
 
 	remoteRuntime, err := ResolveRuntime(lggr)
@@ -48,7 +48,7 @@ func DeployArtifactsToRemoteNodeSet(
 		})
 	}
 	if len(payloadFiles) == 0 {
-		return fmt.Errorf("no artifact files to deploy")
+		return errors.New("no artifact files to deploy")
 	}
 
 	payloadBytes, err := json.Marshal(agent.DeployArtifactsPayload{

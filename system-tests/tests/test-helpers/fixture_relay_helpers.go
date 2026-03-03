@@ -52,7 +52,7 @@ var (
 // It is a no-op when no remote NodeSets are configured.
 func EnsureFixtureRelayForPort(t *testing.T, testEnv *ttypes.TestEnvironment, relayName string, localPort int) {
 	t.Helper()
-	require.Greater(t, localPort, 0, "fixture relay local port must be > 0")
+	require.Positive(t, localPort, "fixture relay local port must be > 0")
 
 	cfg := resolveEnvConfigForRelay(t, testEnv)
 	if !hasRemoteNodeSets(cfg) {
@@ -171,7 +171,7 @@ func openRelay(ctx context.Context, agentBaseURL, name string, requestedPort int
 		return "", err
 	}
 	if strings.TrimSpace(out.RelayID) == "" {
-		return "", fmt.Errorf("open relay returned empty relayId")
+		return "", errors.New("open relay returned empty relayId")
 	}
 	return out.RelayID, nil
 }
@@ -220,7 +220,8 @@ func relayWorker(ctx context.Context, agentBaseURL, relayID, localFixtureAddr st
 			continue
 		}
 
-		localConn, err := net.DialTimeout("tcp", localFixtureAddr, 2*time.Second)
+		dialer := net.Dialer{Timeout: 2 * time.Second}
+		localConn, err := dialer.DialContext(ctx, "tcp", localFixtureAddr)
 		if err != nil {
 			_ = ws.Close()
 			time.Sleep(backoff)

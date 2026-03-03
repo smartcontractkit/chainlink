@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/stretchr/testify/require"
 )
 
 func TestHealthEndpointReturnsOK(t *testing.T) {
@@ -143,7 +144,7 @@ func TestStatusEndpointReturnsAgentState(t *testing.T) {
 	require.Contains(t, resp.ComponentLogKeys, "nodeset:workflow")
 	require.Len(t, resp.Relays, 1)
 	require.Equal(t, "workflow-ocr-0", resp.Relays[0].Name)
-	require.Greater(t, resp.Relays[0].BoundPort, 0)
+	require.Positive(t, resp.Relays[0].BoundPort)
 	require.Len(t, resp.InFlight, 1)
 }
 

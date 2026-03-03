@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,12 +28,13 @@ func TestRelay_OpenConnectBridgeAndClose(t *testing.T) {
 		RequestedPort: 0,
 	})
 	require.NotEmpty(t, openResp.RelayID)
-	require.Greater(t, openResp.BoundPort, 0)
+	require.Positive(t, openResp.BoundPort)
 
 	wsConn := mustConnectRelayWS(t, httpServer.URL, openResp.RelayID)
 	defer wsConn.Close()
 
-	tcpConn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", openResp.BoundPort))
+	dialer := net.Dialer{}
+	tcpConn, err := dialer.DialContext(context.Background(), "tcp", fmt.Sprintf("127.0.0.1:%d", openResp.BoundPort))
 	require.NoError(t, err, "tcp client should connect to opened relay port")
 	defer tcpConn.Close()
 
@@ -100,7 +102,10 @@ func mustOpenRelay(t *testing.T, baseURL string, req openRelayRequest) openRelay
 	t.Helper()
 	body, err := json.Marshal(req)
 	require.NoError(t, err)
-	resp, err := http.Post(baseURL+"/v1/relay/open", "application/json", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+"/v1/relay/open", bytes.NewReader(body))
+	require.NoError(t, err)
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(httpReq)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -114,7 +119,10 @@ func mustCloseRelay(t *testing.T, baseURL, relayID string) map[string]any {
 	t.Helper()
 	body, err := json.Marshal(closeRelayRequest{RelayID: relayID})
 	require.NoError(t, err)
-	resp, err := http.Post(baseURL+"/v1/relay/close", "application/json", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+"/v1/relay/close", bytes.NewReader(body))
+	require.NoError(t, err)
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(httpReq)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -138,7 +146,8 @@ func mustConnectRelayWS(t *testing.T, baseURL, relayID string) *websocket.Conn {
 
 func reserveFreePort(t *testing.T) int {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	var lc net.ListenConfig
+	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer ln.Close()
 	addr, ok := ln.Addr().(*net.TCPAddr)

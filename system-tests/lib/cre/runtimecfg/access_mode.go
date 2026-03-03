@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	EnvRemoteHostIP  = "CRE_REMOTE_HOST_IP"
-	EnvLocalHostIP   = "CRE_LOCAL_HOST_IP"
+	EnvRemoteHostIP             = "CRE_REMOTE_HOST_IP"
+	EnvLocalHostIP              = "CRE_LOCAL_HOST_IP"
 	EnvRemoteAgentEC2InstanceID = "CRE_REMOTE_AGENT_EC2_INSTANCE_ID"
 
 	defaultEC2Region = "us-west-2"
@@ -50,12 +50,13 @@ func LocalHostIP() string {
 	if gatewayIP := discoverDockerNetworkGatewayIP(framework.DefaultNetworkName); gatewayIP != "" {
 		return gatewayIP
 	}
-	ips, err := net.LookupIP("host.docker.internal")
+	resolver := net.Resolver{}
+	addrs, err := resolver.LookupIPAddr(context.Background(), "host.docker.internal")
 	if err != nil {
 		return ""
 	}
-	for _, ip := range ips {
-		if ipv4 := ip.To4(); ipv4 != nil {
+	for _, addr := range addrs {
+		if ipv4 := addr.IP.To4(); ipv4 != nil {
 			return ipv4.String()
 		}
 	}

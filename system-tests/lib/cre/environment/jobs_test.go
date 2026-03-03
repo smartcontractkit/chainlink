@@ -3,8 +3,9 @@ package environment
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 )
 
 func TestRewriteJDForDirectAccess_NilOutputNoop(t *testing.T) {
@@ -60,5 +61,5 @@ func TestRewriteAddressHost_UnsupportedURLWithoutPortFails(t *testing.T) {
 func TestRewriteAddressHost_EmptyInputNoop(t *testing.T) {
 	rewritten, err := rewriteAddressHost("   ", "10.20.30.40")
 	require.NoError(t, err, "expected empty input to be a no-op")
-	require.Equal(t, "", rewritten, "expected empty output for empty input")
+	require.Empty(t, rewritten, "expected empty output for empty input")
 }

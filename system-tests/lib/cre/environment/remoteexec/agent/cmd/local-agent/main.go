@@ -10,13 +10,17 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	blockchainsets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	defaultAddr := "127.0.0.1:18080"
 	if runtimecfg.IsDirectMode() {
 		defaultAddr = "0.0.0.0:18080"
@@ -34,6 +38,7 @@ func main() {
 	lggr.Info().Msgf("starting local CRE agent on %s", *addr)
 	if err := agent.Run(ctx, *addr, server); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "agent failed: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

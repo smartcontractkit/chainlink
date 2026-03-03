@@ -3,8 +3,9 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
+
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/internal/dockerops"
 )

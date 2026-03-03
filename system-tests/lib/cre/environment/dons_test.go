@@ -3,11 +3,12 @@ package environment
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBuildRemoteNodeSetInputRequiresImageOrBuildFields(t *testing.T) {

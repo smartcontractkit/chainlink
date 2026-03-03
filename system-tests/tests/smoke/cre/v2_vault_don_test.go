@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 

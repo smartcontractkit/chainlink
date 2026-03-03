@@ -34,9 +34,9 @@ type openRelayRequest struct {
 }
 
 type openRelayResponse struct {
-	RelayID      string `json:"relayId"`
-	RequestedPort int   `json:"requestedPort"`
-	BoundPort    int    `json:"boundPort"`
+	RelayID       string `json:"relayId"`
+	RequestedPort int    `json:"requestedPort"`
+	BoundPort     int    `json:"boundPort"`
 }
 
 type closeRelayRequest struct {
@@ -112,7 +112,8 @@ func (s *Server) openRelay(w http.ResponseWriter, r *http.Request) {
 	s.relayMu.Unlock()
 
 	listenAddr := fmt.Sprintf("0.0.0.0:%d", req.RequestedPort)
-	ln, err := net.Listen("tcp", listenAddr)
+	var lc net.ListenConfig
+	ln, err := lc.Listen(r.Context(), "tcp", listenAddr)
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to open relay listener: %v", err), nil)
 		return
@@ -142,9 +143,9 @@ func (s *Server) openRelay(w http.ResponseWriter, r *http.Request) {
 		Msg("opened relay listener")
 
 	s.respondJSONAny(w, http.StatusOK, openRelayResponse{
-		RelayID:      relayID,
+		RelayID:       relayID,
 		RequestedPort: req.RequestedPort,
-		BoundPort:    listenerPort(ln),
+		BoundPort:     listenerPort(ln),
 	})
 }
 
@@ -204,7 +205,7 @@ func (s *Server) connectRelay(w http.ResponseWriter, r *http.Request) {
 	relay, ok := s.relays[relayID]
 	s.relayMu.Unlock()
 	if !ok {
-		s.respondError(w, http.StatusNotFound, ErrCodeDeployFailed, fmt.Sprintf("relay not found: %s", relayID), nil)
+		s.respondError(w, http.StatusNotFound, ErrCodeDeployFailed, "relay not found: "+relayID, nil)
 		return
 	}
 
@@ -291,7 +292,8 @@ func (s *Server) acceptRelayConnections(relay *relayRegistration) {
 				return
 			default:
 			}
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+			var ne net.Error
+			if errors.As(err, &ne) {
 				time.Sleep(50 * time.Millisecond)
 				continue
 			}

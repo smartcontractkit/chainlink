@@ -7,8 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 )
 
 func TestGetAgentStatusSuccess(t *testing.T) {
@@ -36,8 +38,8 @@ func TestGetAgentLocksSuccess(t *testing.T) {
 
 func TestGetComponentLogsSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "nodeset:workflow", r.URL.Query().Get("componentKey"))
-		require.Equal(t, "5", r.URL.Query().Get("limit"))
+		assert.Equal(t, "nodeset:workflow", r.URL.Query().Get("componentKey"))
+		assert.Equal(t, "5", r.URL.Query().Get("limit"))
 		_ = json.NewEncoder(w).Encode(agent.ComponentLogsResponse{
 			ComponentKey: "nodeset:workflow",
 			TotalLines:   8,

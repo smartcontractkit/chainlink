@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -87,9 +88,8 @@ func validateUnsupportedPlacements(
 			continue
 		}
 		if bc.Placement == config.PlacementLocal {
-			return fmt.Errorf(
-				"remote nodesets with local blockchains are not supported in this PoC. " +
-					"Set all blockchains to placement=remote, or run nodesets with placement=local so nodes stay colocated with local blockchains",
+			return errors.New("remote nodesets with local blockchains are not supported in this PoC. " +
+				"Set all blockchains to placement=remote, or run nodesets with placement=local so nodes stay colocated with local blockchains",
 			)
 		}
 	}

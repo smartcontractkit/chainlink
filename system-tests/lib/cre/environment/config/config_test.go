@@ -3,10 +3,11 @@ package config
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBlockchainNormalizeAndValidate(t *testing.T) {

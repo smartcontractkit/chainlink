@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 )
 
 func TestResolveP2PAnnounceAddresses_LocalOnly_UsesInternalHost(t *testing.T) {
 	addresses, err := ResolveP2PAnnounceAddresses("local", false, 15001)
 	require.NoError(t, err, "ResolveP2PAnnounceAddresses should not fail")
-	require.Len(t, addresses, 0, "expected local-only setup to leave announce addresses unset")
+	require.Empty(t, addresses, "expected local-only setup to leave announce addresses unset")
 }
 
 func TestResolveP2PAnnounceAddresses_LocalMixed_AddsBridgedHost(t *testing.T) {

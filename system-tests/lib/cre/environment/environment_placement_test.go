@@ -6,8 +6,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 func TestSummarizeNodeSetPlacement_AllowsMixedPlacements(t *testing.T) {
@@ -24,11 +24,11 @@ func TestSummarizeNodeSetPlacement_AllowsMixedPlacements(t *testing.T) {
 
 func TestHasRemoteComponents(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		blockchains []*config.Blockchain
-		jd         *config.JobDistributor
-		nodeSets   []*cre.NodeSet
-		want       bool
+		jd          *config.JobDistributor
+		nodeSets    []*cre.NodeSet
+		want        bool
 	}{
 		{
 			name: "none remote",

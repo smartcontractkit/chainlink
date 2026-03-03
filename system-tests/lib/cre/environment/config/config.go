@@ -90,7 +90,7 @@ const (
 type Blockchain struct {
 	blockchain.Input
 	Placement         ComponentPlacement `toml:"placement"`
-	RemoteStartPolicy RemoteStartPolicy `toml:"remote_start_policy"`
+	RemoteStartPolicy RemoteStartPolicy  `toml:"remote_start_policy"`
 }
 
 // JobDistributor wraps the existing CTF JD input and adds placement metadata.
@@ -98,7 +98,7 @@ type Blockchain struct {
 type JobDistributor struct {
 	jd.Input
 	Placement         ComponentPlacement `toml:"placement"`
-	RemoteStartPolicy RemoteStartPolicy `toml:"remote_start_policy"`
+	RemoteStartPolicy RemoteStartPolicy  `toml:"remote_start_policy"`
 }
 
 func (b *Blockchain) Normalize() {

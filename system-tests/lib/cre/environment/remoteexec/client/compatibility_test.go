@@ -7,8 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 )
 
 func TestCheckCompatibilityStatusAcceptsSameMajor(t *testing.T) {

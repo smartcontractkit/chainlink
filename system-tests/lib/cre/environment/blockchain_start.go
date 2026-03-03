@@ -72,8 +72,8 @@ func startBlockchains(
 				remoteclient.StartDescriptor[blockchain.Output]{
 					ComponentType: remoteclient.ComponentTypeBlockchain,
 					BuildPayload: func() (agent.StartComponentPayload, error) {
-						if err := validateRemoteBlockchainInput(input); err != nil {
-							return agent.StartComponentPayload{}, err
+						if valErr := validateRemoteBlockchainInput(input); valErr != nil {
+							return agent.StartComponentPayload{}, valErr
 						}
 						return agent.StartComponentPayload{
 							ComponentType: remoteclient.ComponentTypeBlockchain,
@@ -81,12 +81,7 @@ func startBlockchains(
 							ReusePolicy:   string(configured.RemoteStartPolicy),
 						}, nil
 					},
-					Rewrite: func(output *blockchain.Output, ec2HostIP string) error {
-						if rewriteInternalForLocalNodes {
-							// direct mode keeps internal URLs unchanged
-						}
-						return rewriteRemoteBlockchainOutputForDirectAccess(output, ec2HostIP)
-					},
+					Rewrite: rewriteRemoteBlockchainOutputForDirectAccess,
 				},
 			)
 			if err != nil {

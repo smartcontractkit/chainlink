@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 // EventData decodes known CHiP workflow event types to human-readable JSON maps.

@@ -33,7 +33,7 @@ func TestResolveAWSCLIProfileSelectionOrder(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
 	profile, mode := ResolveAWSCLIProfileSelection()
-	require.Equal(t, "", profile)
+	require.Empty(t, profile)
 	require.Equal(t, "env-creds", mode)
 
 	t.Setenv("AWS_ACCESS_KEY_ID", "")
@@ -41,7 +41,7 @@ func TestResolveAWSCLIProfileSelectionOrder(t *testing.T) {
 	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/tmp/token")
 	t.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/Role")
 	profile, mode = ResolveAWSCLIProfileSelection()
-	require.Equal(t, "", profile)
+	require.Empty(t, profile)
 	require.Equal(t, "web-identity", mode)
 
 	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")

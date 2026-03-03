@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
-	"github.com/stretchr/testify/require"
 )
 
 func TestValidateRemoteBlockchainInput(t *testing.T) {

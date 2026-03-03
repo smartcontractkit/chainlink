@@ -23,11 +23,10 @@ func (s *Server) appendComponentLogs(componentKey string, lines []string) {
 
 	s.logsMu.Lock()
 	defer s.logsMu.Unlock()
-	existing := append(s.componentLogs[componentKey], filtered...)
-	if len(existing) > componentLogsRingSize {
-		existing = existing[len(existing)-componentLogsRingSize:]
+	s.componentLogs[componentKey] = append(s.componentLogs[componentKey], filtered...)
+	if len(s.componentLogs[componentKey]) > componentLogsRingSize {
+		s.componentLogs[componentKey] = s.componentLogs[componentKey][len(s.componentLogs[componentKey])-componentLogsRingSize:]
 	}
-	s.componentLogs[componentKey] = existing
 }
 
 func (s *Server) getComponentLogs(componentKey string, limit int) ([]string, int) {

@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -22,7 +23,7 @@ func CheckCompatibility(ctx context.Context, runtime *Runtime, requiredCapabilit
 
 func checkCompatibilityStatus(status *agent.AgentStatusResponse, requiredCapabilities []string) error {
 	if status == nil {
-		return fmt.Errorf("agent status is nil")
+		return errors.New("agent status is nil")
 	}
 
 	if strings.TrimSpace(status.ProtocolVersion) != "" {

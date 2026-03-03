@@ -825,7 +825,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 
 func resolveNodeFacingJDUriForDON(donMetadata *DonMetadata, jdPlacement, internalWSRPC, externalWSRPC string) (string, error) {
 	if donMetadata == nil {
-		return "", fmt.Errorf("don metadata is nil")
+		return "", errors.New("don metadata is nil")
 	}
 	nodeSet := donMetadata.MustNodeSet()
 	callerPlacement, err := connectivity.PlacementFromTarget(nodeSet.Placement)
