@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -605,34 +604,24 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
 
 	var executionTimestamp int64
-	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
-		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
-		donTime, dtErr := executionTimeProvider.GetDONTime()
-		if dtErr != nil {
-			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
-			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
-			e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
-		} else {
-			executionTimestamp = donTime.UnixMilli()
-			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
-			e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
-		}
+
+	executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
+	donTime, dtErr := executionTimeProvider.GetDONTime()
+	if dtErr != nil {
+		executionTimestamp = e.cfg.Clock.Now().UnixMilli()
+		lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+		e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
+	} else {
+		executionTimestamp = donTime.UnixMilli()
+		lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+		e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
 	}
 
 	triggerEvent := wrappedTriggerEvent.event.Event
 
 	var executionID string
-	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.Timestamp(executionTimestamp)) == nil {
-		executionID = fullExecutionID
-		e.metrics.IncrementExecutionIDFullCounter(ctx)
-	} else {
-		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
-		if err != nil {
-			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
-			return
-		}
-		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
-	}
+	executionID = fullExecutionID
+	e.metrics.IncrementExecutionIDFullCounter(ctx)
 
 	// disallow duplicate executions
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
