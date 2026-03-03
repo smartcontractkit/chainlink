@@ -88,6 +88,10 @@ on:
         required: false
         default: "info"
         type: string
+      refs:
+        description: "Refs to test"
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
@@ -115,7 +119,7 @@ jobs:
       LOGS_DIR: ${{ github.event_name == 'workflow_call' && inputs.logs-directory || github.event.inputs.logs-directory }}
       CTF_LOG_LEVEL: ${{ github.event_name == 'workflow_call' && inputs.ctf-log-level || github.event.inputs.ctf-log-level }}
       CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-
+      REF: ${{ github.event_name == 'workflow_call' && inputs.refs || github.event.inputs.refs }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -199,6 +203,7 @@ jobs:
           TEST_CMD: ${{ env.TEST_CMD }}
           NODES: ${{ env.NODES }}
           VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
+          REF: ${{ env.REF }}
         run: |
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
@@ -207,7 +212,8 @@ jobs:
             --testcmd "${TEST_CMD}" \
             --nodes "${NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
-            --versions-back "${VERSIONS_BACK}"
+            --versions-back "${VERSIONS_BACK}" \
+            --refs "${REF}"
 
       - name: Upload Logs
         if: always()
