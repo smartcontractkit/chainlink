@@ -675,7 +675,75 @@ func TestLRU_EvictionMetric(t *testing.T) {
 	reapTicker <- clock.Now()
 	<-onReaped
 
-	// Eviction happened, and metrics.recordEviction + recordLoaded
+	// Eviction happened, and metrics.recordEviction + recordLoaded + recordMemorySaved
 	// should not panic with non-nil cacheMetrics.
 	assert.False(t, em.IsLoaded())
+}
+
+func TestEvictable_BinarySizeTracked(t *testing.T) {
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	reloaded := modulemocks.NewModuleV2(t)
+	reloaded.EXPECT().Start()
+	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+
+	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		return reloaded, nil
+	}
+
+	binaryData := make([]byte, 4096)
+	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, store.StoreModule("wf-test", "bin-1", binaryData))
+
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, nil)
+	em.started.Store(true)
+	assert.Equal(t, int64(0), em.BinarySize(), "binary size should be 0 before any reload")
+
+	em.Evict()
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(4096), em.BinarySize(), "binary size should match stored binary after reload")
+}
+
+func TestLRU_MemorySavedMetric(t *testing.T) {
+	cm, err := newCacheMetrics()
+	require.NoError(t, err)
+
+	clock := clockwork.NewFakeClock()
+	reapTicker := make(chan time.Time, 1)
+	onReaped := make(chan struct{}, 1)
+
+	store, storeErr := artifacts.NewFileModuleStore(t.TempDir())
+	require.NoError(t, storeErr)
+
+	m1 := newLRUModule(t, store, "wf-a")
+	m1.lastUsed.Store(clock.Now().UnixNano())
+	m1.binarySize.Store(1024)
+
+	m2 := newLRUModule(t, store, "wf-b")
+	m2.lastUsed.Store(clock.Now().UnixNano())
+	m2.binarySize.Store(2048)
+
+	lru := NewModuleLRU(clock,
+		WithIdleTimeout(5*time.Minute),
+		WithReapTicker(reapTicker),
+		WithOnReaped(onReaped),
+		WithCacheMetrics(cm),
+	)
+	lru.Register("wf-a", m1)
+	lru.Register("wf-b", m2)
+	lru.Start()
+	defer lru.Close()
+
+	clock.Advance(6 * time.Minute)
+	reapTicker <- clock.Now()
+	<-onReaped
+
+	// Both modules evicted; their combined binary size (3072 bytes) is
+	// the memory saved. recordMemorySaved should not panic.
+	assert.False(t, m1.IsLoaded())
+	assert.False(t, m2.IsLoaded())
 }

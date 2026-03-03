@@ -66,6 +66,7 @@ type cacheMetrics struct {
 	reloadSource  metric.Int64Counter // attribute "source": "weak_ref" | "disk"
 	evictionTotal metric.Int64Counter
 	loadedGauge   metric.Int64Gauge
+	memorySaved   metric.Int64Gauge // bytes saved by evicting idle modules
 }
 
 func (cm *cacheMetrics) recordReload(ctx context.Context, source string) {
@@ -89,6 +90,13 @@ func (cm *cacheMetrics) recordLoaded(ctx context.Context, count int) {
 	cm.loadedGauge.Record(ctx, int64(count))
 }
 
+func (cm *cacheMetrics) recordMemorySaved(ctx context.Context, bytes int64) {
+	if cm == nil {
+		return
+	}
+	cm.memorySaved.Record(ctx, bytes)
+}
+
 func newCacheMetrics() (*cacheMetrics, error) {
 	reloadSource, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_reload_total")
 	if err != nil {
@@ -102,10 +110,15 @@ func newCacheMetrics() (*cacheMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
+	memorySaved, err := beholder.GetMeter().Int64Gauge("platform_workflow_module_cache_memory_saved_bytes")
+	if err != nil {
+		return nil, err
+	}
 	return &cacheMetrics{
 		reloadSource:  reloadSource,
 		evictionTotal: evictionTotal,
 		loadedGauge:   loadedGauge,
+		memorySaved:   memorySaved,
 	}, nil
 }
 

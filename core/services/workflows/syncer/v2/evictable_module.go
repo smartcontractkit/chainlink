@@ -33,6 +33,7 @@ type EvictableModule struct {
 	inner      host.ModuleV2
 	mu         sync.RWMutex
 	lastUsed   atomic.Int64
+	binarySize atomic.Int64
 	closed     atomic.Bool
 	started    atomic.Bool
 	workflowID string
@@ -143,6 +144,8 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 		reloadSource = "disk"
 	}
 
+	m.binarySize.Store(int64(len(binary)))
+
 	mod, err := m.factory(ctx, m.moduleConfig, binary, m.moduleOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create module on reload: %w", err)
@@ -182,6 +185,11 @@ func (m *EvictableModule) IsLoaded() bool {
 // LastUsed returns the last time Execute was called (unix nanoseconds).
 func (m *EvictableModule) LastUsed() int64 {
 	return m.lastUsed.Load()
+}
+
+// BinarySize returns the size of the WASM binary in bytes (set after first load).
+func (m *EvictableModule) BinarySize() int64 {
+	return m.binarySize.Load()
 }
 
 // ModuleLRU tracks EvictableModule instances and periodically evicts idle ones.
@@ -322,12 +330,16 @@ func (lru *ModuleLRU) reap() {
 	}
 
 	loaded := 0
+	var savedBytes int64
 	for _, m := range lru.modules {
 		if m.IsLoaded() {
 			loaded++
+		} else {
+			savedBytes += m.binarySize.Load()
 		}
 	}
 	lru.metrics.recordLoaded(context.Background(), loaded)
+	lru.metrics.recordMemorySaved(context.Background(), savedBytes)
 }
 
 func (lru *ModuleLRU) enforceCapLocked() int {
