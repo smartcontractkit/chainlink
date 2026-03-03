@@ -62,6 +62,7 @@ type eventHandler struct {
 	emitterMu              sync.RWMutex
 	engineFactory          engineFactoryFn
 	engineLimiters         *v2.EngineLimiters
+	featureFlags           *v2.EngineFeatureFlags
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
@@ -156,6 +157,7 @@ func NewEventHandler(
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
+	featureFlags *v2.EngineFeatureFlags,
 	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
@@ -185,6 +187,7 @@ func NewEventHandler(
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
 		engineLimiters:         engineLimiters,
+		featureFlags:           featureFlags,
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
@@ -590,6 +593,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 		LocalLimits:                       v2.EngineLimits{}, // all defaults
 		LocalLimiters:                     h.engineLimiters,
+		FeatureFlags:                      h.featureFlags,
 		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
 
 		BeholderEmitter: func() custmsg.MessageEmitter {

@@ -47,6 +47,7 @@ type EngineConfig struct {
 
 	LocalLimits                       EngineLimits
 	LocalLimiters                     *EngineLimiters
+	FeatureFlags                      *EngineFeatureFlags
 	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
 
 	BeholderEmitter custmsg.MessageEmitter
@@ -112,7 +113,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	l.ExecutionResponse, err = limits.MakeBoundLimiter(lf, cfg.ExecutionResponseLimit)
+	l.ExecutionResponse, err = limits.MakeUpperBoundLimiter(lf, cfg.ExecutionResponseLimit)
 	if err != nil {
 		return
 	}
@@ -124,7 +125,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.TriggerSubscription, err = limits.MakeBoundLimiter(lf, cfg.TriggerSubscriptionLimit)
+	l.TriggerSubscription, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerSubscriptionLimit)
 	if err != nil {
 		return
 	}
@@ -140,15 +141,15 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.WASMBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMBinarySizeLimit)
+	l.WASMBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMBinarySizeLimit)
 	if err != nil {
 		return
 	}
-	l.WASMMemorySize, err = limits.MakeBoundLimiter(lf, cfg.WASMMemoryLimit)
+	l.WASMMemorySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMMemoryLimit)
 	if err != nil {
 		return
 	}
-	l.WASMCompressedBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMCompressedBinarySizeLimit)
+	l.WASMCompressedBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMCompressedBinarySizeLimit)
 	if err != nil {
 		return
 	}
@@ -168,11 +169,11 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.LogEvent, err = limits.MakeBoundLimiter(lf, cfg.LogEventLimit)
+	l.LogEvent, err = limits.MakeUpperBoundLimiter(lf, cfg.LogEventLimit)
 	if err != nil {
 		return
 	}
-	l.LogLine, err = limits.MakeBoundLimiter(lf, cfg.LogLineLimit)
+	l.LogLine, err = limits.MakeUpperBoundLimiter(lf, cfg.LogLineLimit)
 	if err != nil {
 		return
 	}
@@ -180,27 +181,27 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.ChainWriteTargets, err = limits.MakeBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
+	l.ChainWriteTargets, err = limits.MakeUpperBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
 	if err != nil {
 		return
 	}
-	l.ChainReadCalls, err = limits.MakeBoundLimiter(lf, cfg.ChainRead.CallLimit)
+	l.ChainReadCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.ChainRead.CallLimit)
 	if err != nil {
 		return
 	}
-	l.ConsensusCalls, err = limits.MakeBoundLimiter(lf, cfg.Consensus.CallLimit)
+	l.ConsensusCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.Consensus.CallLimit)
 	if err != nil {
 		return
 	}
-	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
+	l.HTTPActionCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.HTTPAction.CallLimit)
 	if err != nil {
 		return
 	}
-	l.ConfidentialHTTPCalls, err = limits.MakeBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
+	l.ConfidentialHTTPCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
 	if err != nil {
 		return
 	}
-	l.SecretsCalls, err = limits.MakeBoundLimiter(lf, cfg.Secrets.CallLimit)
+	l.SecretsCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.Secrets.CallLimit)
 	if err != nil {
 		return
 	}
@@ -238,6 +239,24 @@ func (l *EngineLimiters) Close() error {
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
 	)
+}
+
+type EngineFeatureFlags struct {
+	FeatureMultiTriggerExecutionIDs limits.BoundLimiter[config.Timestamp]
+}
+
+func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
+	cfg := cresettings.Default.PerWorkflow
+	if cfgFn != nil {
+		cfgFn(&cfg)
+	}
+	featureMultiTriggerExecutionIDs, err := limits.MakeLowerBoundLimiter(lf, cfg.FeatureMultiTriggerExecutionIDsActiveAt)
+	if err != nil {
+		return nil, err
+	}
+	return &EngineFeatureFlags{
+		FeatureMultiTriggerExecutionIDs: featureMultiTriggerExecutionIDs,
+	}, nil
 }
 
 const (
@@ -303,6 +322,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.FeatureFlags == nil {
+		return errors.New("engine feature flags not set")
 	}
 
 	c.Hooks.setDefaultHooks()
