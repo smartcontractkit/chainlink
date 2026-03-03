@@ -488,6 +488,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+Bundles = false
 
 [EVM.BalanceMonitor]
 Enabled = true

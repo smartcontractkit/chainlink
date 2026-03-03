@@ -17409,6 +17409,7 @@ Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
+Bundles = false # Example
 ```
 
 
@@ -17435,6 +17436,12 @@ CustomURL configures the base url of a custom endpoint used by the ChainDualBroa
 DualBroadcast = false # Example
 ```
 DualBroadcast enables DualBroadcast functionality.
+
+### Bundles
+```toml
+Bundles = false # Example
+```
+Bundles enables Bundles functionality for SVR.
 
 ## EVM.BalanceMonitor
 ```toml

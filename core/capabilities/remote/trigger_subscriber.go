@@ -136,7 +136,7 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 }
 
 func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
-	s.lggr.Debugf("AckEvent called on subscriber (triggerID=%s, eventID=%s)", triggerID, eventID)
+	s.lggr.Debugw("AckEvent called on subscriber", "triggerID", triggerID, "eventID", eventID)
 	cfg := s.cfg.Load()
 	for _, peerID := range cfg.capDonInfo.Members {
 		m := &types.MessageBody{

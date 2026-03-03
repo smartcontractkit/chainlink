@@ -41,7 +41,10 @@ type SetupShardingInput struct {
 }
 
 func SetupSharding(ctx context.Context, input SetupShardingInput) error {
-	// Get the shard leader DON
+	if err := ValidateShardTopology(input.Dons); err != nil {
+		return fmt.Errorf("shard topology validation failed: %w", err)
+	}
+
 	shardLeaderDON, err := getShardLeaderDON(input.Dons)
 	if err != nil {
 		return fmt.Errorf("failed to get shard leader DON: %w", err)
@@ -263,6 +266,38 @@ func configureRingOCR3(creEnv *cre.Environment, ringOCR3Addr common.Address, sha
 	}
 
 	logger.Info().Msgf("Configured Ring OCR3 contract at %s with DON '%s' (%d nodes)", ringOCR3Addr.Hex(), shardLeaderDON.Name, len(nodeIDs))
+
+	return nil
+}
+
+func ValidateShardTopology(dons *cre.Dons) error {
+	shardDONs := dons.DonsWithFlag(cre.ShardDON)
+	if len(shardDONs) < 2 {
+		return fmt.Errorf("sharding requires at least 2 shard DONs, got %d", len(shardDONs))
+	}
+
+	var leaderFound bool
+	leaderNodeCount := len(shardDONs[0].Nodes)
+
+	for _, don := range shardDONs {
+		if don.Metadata().IsShardLeader() {
+			if leaderFound {
+				return errors.New("multiple shard DONs with shard_index=0 found")
+			}
+			leaderFound = true
+			leaderNodeCount = len(don.Nodes)
+		}
+	}
+
+	if !leaderFound {
+		return errors.New("no shard DON with shard_index=0 found")
+	}
+
+	for _, don := range shardDONs {
+		if len(don.Nodes) != leaderNodeCount {
+			return fmt.Errorf("shard %q has %d nodes but shard leader has %d; all shards must have the same node count", don.Name, len(don.Nodes), leaderNodeCount)
+		}
+	}
 
 	return nil
 }
