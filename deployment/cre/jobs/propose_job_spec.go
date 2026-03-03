@@ -288,6 +288,16 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get Ring contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
 		}
 
+		shardConfigAddr := jobInput.ShardConfigAddr
+		if shardConfigAddr == "" {
+			scRefKey := pkg.GetShardConfigAddressRefKey(uint64(jobInput.ChainSelectorEVM), "")
+			scAddrRef, scErr := e.DataStore.Addresses().Get(scRefKey)
+			if scErr != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get ShardConfig address from datastore for chain selector %d: %w", jobInput.ChainSelectorEVM, scErr)
+			}
+			shardConfigAddr = scAddrRef.Address
+		}
+
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
 			job_ops.ProposeRingJob,
@@ -299,7 +309,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				JobName:          input.JobName,
 				ContractAddress:  contractAddrRef.Address,
 				ChainSelectorEVM: uint64(jobInput.ChainSelectorEVM),
-				ShardConfigAddr:  jobInput.ShardConfigAddr,
+				ShardConfigAddr:  shardConfigAddr,
 				BootstrapperUrls: jobInput.BootstrapperRingUrls,
 				DONFilters:       input.DONFilters,
 				ExtraLabels:      input.ExtraLabels,
