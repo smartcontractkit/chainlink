@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"weak"
 
 	"github.com/jonboulle/clockwork"
 
@@ -38,8 +39,11 @@ type EvictableModule struct {
 
 	moduleConfig *host.ModuleConfig
 	moduleOpts   []func(*host.ModuleConfig)
-	store        artifacts.SerialisedModuleStore
-	factory      ModuleFactoryFn
+	store   artifacts.SerialisedModuleStore
+	factory ModuleFactoryFn
+	metrics *cacheMetrics
+
+	weakBinary weak.Pointer[[]byte] // L2: raw WASM binary survives eviction until GC pressure
 }
 
 func NewEvictableModule(
@@ -48,6 +52,7 @@ func NewEvictableModule(
 	store artifacts.SerialisedModuleStore,
 	workflowID string,
 	factory ModuleFactoryFn,
+	cm *cacheMetrics,
 	opts ...func(*host.ModuleConfig),
 ) *EvictableModule {
 	if factory == nil {
@@ -60,6 +65,7 @@ func NewEvictableModule(
 		moduleOpts:   opts,
 		store:        store,
 		factory:      factory,
+		metrics:      cm,
 	}
 	m.lastUsed.Store(time.Now().UnixNano())
 	return m
@@ -116,23 +122,37 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 		return nil
 	}
 
-	p, ok, err := m.store.GetModulePath(m.workflowID)
-	if err != nil {
-		return fmt.Errorf("failed to get module path: %w", err)
-	}
-	if !ok {
-		return fmt.Errorf("no cached binary for workflow %s", m.workflowID)
-	}
+	var binary []byte
+	var reloadSource string
+	if bp := m.weakBinary.Value(); bp != nil {
+		binary = *bp
+		reloadSource = "weak_ref"
+	} else {
+		p, ok, err := m.store.GetModulePath(m.workflowID)
+		if err != nil {
+			return fmt.Errorf("failed to get module path: %w", err)
+		}
+		if !ok {
+			return fmt.Errorf("no cached binary for workflow %s", m.workflowID)
+		}
 
-	binary, err := os.ReadFile(p)
-	if err != nil {
-		return fmt.Errorf("failed to read cached binary: %w", err)
+		binary, err = os.ReadFile(p)
+		if err != nil {
+			return fmt.Errorf("failed to read cached binary: %w", err)
+		}
+		reloadSource = "disk"
 	}
 
 	mod, err := m.factory(ctx, m.moduleConfig, binary, m.moduleOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create module on reload: %w", err)
 	}
+
+	m.metrics.recordReload(ctx, reloadSource)
+
+	binaryHeap := new([]byte)
+	*binaryHeap = binary
+	m.weakBinary = weak.Make(binaryHeap)
 
 	if m.started.Load() {
 		mod.Start()
@@ -173,6 +193,7 @@ type ModuleLRU struct {
 	clock       clockwork.Clock
 	stopCh      chan struct{}
 	wg          sync.WaitGroup
+	metrics     *cacheMetrics
 
 	// reapTicker drives the eviction scan. Injectable for deterministic tests.
 	reapTicker <-chan time.Time
@@ -222,6 +243,12 @@ func WithReapTicker(ch <-chan time.Time) func(*ModuleLRU) {
 func WithOnReaped(ch chan struct{}) func(*ModuleLRU) {
 	return func(lru *ModuleLRU) {
 		lru.onReaped = ch
+	}
+}
+
+func WithCacheMetrics(cm *cacheMetrics) func(*ModuleLRU) {
+	return func(lru *ModuleLRU) {
+		lru.metrics = cm
 	}
 }
 
@@ -278,43 +305,59 @@ func (lru *ModuleLRU) reap() {
 	now := lru.clock.Now().UnixNano()
 	threshold := lru.idleTimeout.Nanoseconds()
 
+	evicted := 0
 	for _, m := range lru.modules {
 		if now-m.LastUsed() > threshold && m.IsLoaded() {
 			m.Evict()
+			evicted++
 		}
 	}
 
 	if lru.maxLoaded > 0 {
-		lru.enforceCapLocked()
+		evicted += lru.enforceCapLocked()
 	}
+
+	if evicted > 0 {
+		lru.metrics.recordEviction(context.Background(), evicted)
+	}
+
+	loaded := 0
+	for _, m := range lru.modules {
+		if m.IsLoaded() {
+			loaded++
+		}
+	}
+	lru.metrics.recordLoaded(context.Background(), loaded)
 }
 
-func (lru *ModuleLRU) enforceCapLocked() {
+func (lru *ModuleLRU) enforceCapLocked() int {
 	type entry struct {
 		id       string
 		lastUsed int64
-		loaded   bool
 	}
 
 	var loaded []entry
 	for id, m := range lru.modules {
 		if m.IsLoaded() {
-			loaded = append(loaded, entry{id: id, lastUsed: m.LastUsed(), loaded: true})
+			loaded = append(loaded, entry{id: id, lastUsed: m.LastUsed()})
 		}
 	}
 
 	excess := len(loaded) - lru.maxLoaded
 	if excess <= 0 {
-		return
+		return 0
 	}
 
 	sort.Slice(loaded, func(i, j int) bool {
 		return loaded[i].lastUsed < loaded[j].lastUsed
 	})
 
+	evicted := 0
 	for i := 0; i < excess; i++ {
 		if m, ok := lru.modules[loaded[i].id]; ok {
 			m.Evict()
+			evicted++
 		}
 	}
+	return evicted
 }

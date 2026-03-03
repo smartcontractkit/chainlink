@@ -2,10 +2,12 @@ package v2
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+	"weak"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
@@ -18,12 +20,24 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
+// countingStore wraps a SerialisedModuleStore and counts GetModulePath calls
+// to verify whether disk I/O occurred during module reload.
+type countingStore struct {
+	artifacts.SerialisedModuleStore
+	getModulePathCalls atomic.Int32
+}
+
+func (s *countingStore) GetModulePath(wfID string) (string, bool, error) {
+	s.getModulePathCalls.Add(1)
+	return s.SerialisedModuleStore.GetModulePath(wfID)
+}
+
 func newTestEvictableModule(t *testing.T, inner host.ModuleV2, factory ModuleFactoryFn) (*EvictableModule, artifacts.SerialisedModuleStore) {
 	t.Helper()
 	store, err := artifacts.NewFileModuleStore(t.TempDir())
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", "bin-1", []byte("fake-binary")))
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, nil)
 	return em, store
 }
 
@@ -261,7 +275,7 @@ func newLRUModule(t *testing.T, store artifacts.SerialisedModuleStore, wfID stri
 		m.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Maybe()
 		return m, nil
 	}
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, wfID, factory)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, wfID, factory, nil)
 	em.started.Store(true)
 	return em
 }
@@ -478,4 +492,190 @@ func TestLRU_EvictionOrder(t *testing.T) {
 			assert.True(t, m.IsLoaded(), "module %d should survive", i)
 		}
 	}
+}
+
+// --- Weak reference (L2 cache) tests ---
+
+func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	var receivedBinary []byte
+	reloaded := modulemocks.NewModuleV2(t)
+	reloaded.EXPECT().Start()
+	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+
+	factory := func(_ context.Context, _ *host.ModuleConfig, binary []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		receivedBinary = make([]byte, len(binary))
+		copy(receivedBinary, binary)
+		return reloaded, nil
+	}
+
+	realStore, err := artifacts.NewFileModuleStore(t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
+	cs := &countingStore{SerialisedModuleStore: realStore}
+
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil)
+	em.started.Store(true)
+
+	// Seed the weak reference with a known binary. Hold a strong reference
+	// to binaryHeap so the GC cannot collect it during the test.
+	binaryData := []byte("weak-ref-binary")
+	binaryHeap := new([]byte)
+	*binaryHeap = binaryData
+	em.weakBinary = weak.Make(binaryHeap)
+
+	em.Evict()
+
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(0), cs.getModulePathCalls.Load(), "disk should not be accessed when weak ref is alive")
+	assert.Equal(t, []byte("weak-ref-binary"), receivedBinary)
+	runtime.KeepAlive(binaryHeap)
+}
+
+func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	var receivedBinary []byte
+	reloaded := modulemocks.NewModuleV2(t)
+	reloaded.EXPECT().Start()
+	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+
+	factory := func(_ context.Context, _ *host.ModuleConfig, binary []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		receivedBinary = make([]byte, len(binary))
+		copy(receivedBinary, binary)
+		return reloaded, nil
+	}
+
+	realStore, err := artifacts.NewFileModuleStore(t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
+	cs := &countingStore{SerialisedModuleStore: realStore}
+
+	// weakBinary is zero-valued (never populated), so L2 is a guaranteed miss.
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil)
+	em.started.Store(true)
+	em.Evict()
+
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(1), cs.getModulePathCalls.Load(), "disk should be accessed when weak ref is nil")
+	assert.Equal(t, []byte("disk-binary"), receivedBinary)
+}
+
+func TestEvictable_WeakRefUpdatedOnReload(t *testing.T) {
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	reloaded := modulemocks.NewModuleV2(t)
+	reloaded.EXPECT().Start().Maybe()
+	reloaded.EXPECT().Close().Maybe()
+	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).
+		Return(&sdkpb.ExecutionResult{}, nil).Maybe()
+
+	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		m := modulemocks.NewModuleV2(t)
+		m.EXPECT().Start().Maybe()
+		m.EXPECT().Close().Maybe()
+		m.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).
+			Return(&sdkpb.ExecutionResult{}, nil).Maybe()
+		return m, nil
+	}
+
+	realStore, err := artifacts.NewFileModuleStore(t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
+	cs := &countingStore{SerialisedModuleStore: realStore}
+
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil)
+	em.started.Store(true)
+
+	// First cycle: evict + reload from disk (populates weakBinary)
+	em.Evict()
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), cs.getModulePathCalls.Load())
+
+	// Verify weakBinary was populated
+	assert.NotNil(t, em.weakBinary.Value(), "weak ref should be set after disk reload")
+
+	// Hold a strong reference to the binary via the weak pointer so GC
+	// cannot collect it between the evict and the second reload.
+	bp := em.weakBinary.Value()
+	require.NotNil(t, bp)
+
+	// Second cycle: evict + reload — should use weak ref (no new disk read)
+	em.Evict()
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), cs.getModulePathCalls.Load(), "second reload should use weak ref, not disk")
+	runtime.KeepAlive(bp)
+}
+
+// --- Metrics integration tests ---
+
+func TestEvictable_ReloadSourceMetric(t *testing.T) {
+	cm, err := newCacheMetrics()
+	require.NoError(t, err)
+
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	reloaded := modulemocks.NewModuleV2(t)
+	reloaded.EXPECT().Start()
+	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+
+	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		return reloaded, nil
+	}
+
+	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, store.StoreModule("wf-test", "bin-1", []byte("binary")))
+
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, cm)
+	em.started.Store(true)
+	em.Evict()
+
+	// Reload from disk — metrics.recordReload should not panic with non-nil cacheMetrics
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.NoError(t, err)
+}
+
+func TestLRU_EvictionMetric(t *testing.T) {
+	cm, err := newCacheMetrics()
+	require.NoError(t, err)
+
+	clock := clockwork.NewFakeClock()
+	reapTicker := make(chan time.Time, 1)
+	onReaped := make(chan struct{}, 1)
+
+	store, storeErr := artifacts.NewFileModuleStore(t.TempDir())
+	require.NoError(t, storeErr)
+
+	em := newLRUModule(t, store, "wf-metric")
+	em.lastUsed.Store(clock.Now().UnixNano())
+
+	lru := NewModuleLRU(clock,
+		WithIdleTimeout(5*time.Minute),
+		WithReapTicker(reapTicker),
+		WithOnReaped(onReaped),
+		WithCacheMetrics(cm),
+	)
+	lru.Register("wf-metric", em)
+	lru.Start()
+	defer lru.Close()
+
+	clock.Advance(6 * time.Minute)
+	reapTicker <- clock.Now()
+	<-onReaped
+
+	// Eviction happened, and metrics.recordEviction + recordLoaded
+	// should not panic with non-nil cacheMetrics.
+	assert.False(t, em.IsLoaded())
 }

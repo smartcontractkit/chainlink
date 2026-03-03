@@ -62,6 +62,53 @@ func (m *metrics) recordSourceFetch(ctx context.Context, sourceName string, work
 	}
 }
 
+type cacheMetrics struct {
+	reloadSource  metric.Int64Counter // attribute "source": "weak_ref" | "disk"
+	evictionTotal metric.Int64Counter
+	loadedGauge   metric.Int64Gauge
+}
+
+func (cm *cacheMetrics) recordReload(ctx context.Context, source string) {
+	if cm == nil {
+		return
+	}
+	cm.reloadSource.Add(ctx, 1, metric.WithAttributes(attribute.String("source", source)))
+}
+
+func (cm *cacheMetrics) recordEviction(ctx context.Context, count int) {
+	if cm == nil {
+		return
+	}
+	cm.evictionTotal.Add(ctx, int64(count))
+}
+
+func (cm *cacheMetrics) recordLoaded(ctx context.Context, count int) {
+	if cm == nil {
+		return
+	}
+	cm.loadedGauge.Record(ctx, int64(count))
+}
+
+func newCacheMetrics() (*cacheMetrics, error) {
+	reloadSource, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_reload_total")
+	if err != nil {
+		return nil, err
+	}
+	evictionTotal, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_eviction_total")
+	if err != nil {
+		return nil, err
+	}
+	loadedGauge, err := beholder.GetMeter().Int64Gauge("platform_workflow_module_cache_loaded")
+	if err != nil {
+		return nil, err
+	}
+	return &cacheMetrics{
+		reloadSource:  reloadSource,
+		evictionTotal: evictionTotal,
+		loadedGauge:   loadedGauge,
+	}, nil
+}
+
 func newMetrics() (*metrics, error) {
 	handleDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_handler_duration_ms")
 	if err != nil {

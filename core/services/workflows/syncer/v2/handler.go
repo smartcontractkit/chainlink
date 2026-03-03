@@ -69,8 +69,9 @@ type eventHandler struct {
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
 
-	moduleLRU   *ModuleLRU
-	moduleStore artifacts.SerialisedModuleStore
+	moduleLRU    *ModuleLRU
+	moduleStore  artifacts.SerialisedModuleStore
+	cacheMetrics *cacheMetrics
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -148,6 +149,12 @@ func WithModuleLRU(lru *ModuleLRU) func(*eventHandler) {
 func WithModuleStore(store artifacts.SerialisedModuleStore) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.moduleStore = store
+	}
+}
+
+func WithModuleCacheMetrics(cm *cacheMetrics) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.cacheMetrics = cm
 	}
 }
 
@@ -586,7 +593,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		if storeErr := h.moduleStore.StoreModule(workflowID, workflowID, binary); storeErr != nil {
 			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
 		} else {
-			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, nil, host.WithDeterminism())
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, nil, h.cacheMetrics, host.WithDeterminism())
 			h.moduleLRU.Register(workflowID, evictable)
 			engineModule = evictable
 		}
