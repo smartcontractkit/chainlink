@@ -20,6 +20,11 @@ on:
         required: false
         default: "3"
         type: string
+      node-name-template:
+        description: "Template for the node name"
+        required: false
+        default: "don-node%d"
+        type: string
       versions-back:
         description: "Number of versions to go back for compatibility testing"
         required: false
@@ -58,6 +63,11 @@ on:
         description: "Number of nodes for the test"
         required: false
         default: "3"
+        type: string
+      node-name-template:
+        description: "Template for the node name"
+        required: false
+        default: "don-node%d"
         type: string
       versions-back:
         description: "Number of versions to go back for compatibility testing"
@@ -99,6 +109,7 @@ jobs:
       ENV_CMD: ${{ github.event_name == 'workflow_call' && inputs.envcmd || github.event.inputs.envcmd }}
       TEST_CMD: ${{ github.event_name == 'workflow_call' && inputs.testcmd || github.event.inputs.testcmd }}
       NODES: ${{ github.event_name == 'workflow_call' && inputs.nodes || github.event.inputs.nodes }}
+      NODE_NAME_TEMPLATE: ${{ github.event_name == 'workflow_call' && inputs.node-name-template || github.event.inputs.node-name-template }}
       VERSIONS_BACK: ${{ github.event_name == 'workflow_call' && inputs.versions-back || github.event.inputs.versions-back }}
       WORKING_DIR: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
       LOGS_DIR: ${{ github.event_name == 'workflow_call' && inputs.logs-directory || github.event.inputs.logs-directory }}
@@ -145,16 +156,6 @@ jobs:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Setup GitHub token using GATI
-        id: github-token
-        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: us-west-2
-          aws-role-duration-seconds: "1800"
-          set-git-config: "true"
 
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
@@ -206,6 +207,7 @@ jobs:
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --nodes "${NODES}" \
+            --node-name-template "${NODE_NAME_TEMPLATE}" \
             --versions-back "${VERSIONS_BACK}"
 
       - name: Upload Logs
