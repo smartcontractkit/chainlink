@@ -679,7 +679,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(trackingFactory),
 		)
@@ -773,7 +773,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(trackingFactory),
 		)
@@ -850,7 +850,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 		)
