@@ -467,17 +467,20 @@ func addWorkerNodeConfig(
 	if donMetadata.IsShardDON() {
 		existingConfig.Sharding.ShardingEnabled = ptr.Ptr(true)
 		existingConfig.Sharding.ShardIndex = ptr.Ptr(uint16(donMetadata.ShardIndex)) //nolint:gosec // disable G115 overflow is unrealistic
+		existingConfig.Sharding.ArbiterPort = ptr.Ptr(cre.DefaultArbiterPort)
+		existingConfig.Sharding.ShardOrchestratorPort = ptr.Ptr(cre.DefaultShardOrchestratorPort)
 
-		// all shards apart from the leader need to connect to shard orchestrators running on shard leader DON (shard0)
 		if !donMetadata.IsShardLeader() {
 			shard0, sErr := topology.DonsMetadata.ShardLeaderDON()
 			if sErr != nil {
 				return existingConfig, fmt.Errorf("failed to fetch shard leader DON: %w", sErr)
 			}
 
-			// all shards have the same amount of nodes, we can use current node index to select
-			// shard0 node it should connect to. We connect corresponding nodes to spread the load.
-			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddress()))
+			if m.Index >= len(shard0.NodesMetadata) {
+				return existingConfig, fmt.Errorf("shard %d node index %d exceeds shard leader node count %d", donMetadata.ShardIndex, m.Index, len(shard0.NodesMetadata))
+			}
+
+			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddressWithPort(cre.DefaultShardOrchestratorPort)))
 		}
 	}
 

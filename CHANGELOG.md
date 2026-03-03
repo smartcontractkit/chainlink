@@ -1,5 +1,21 @@
 # Changelog Chainlink Core
 
+## 2.36.0
+
+### Minor Changes
+
+- [#21208](https://github.com/smartcontractkit/chainlink/pull/21208) [`140625e`](https://github.com/smartcontractkit/chainlink/commit/140625edee02df6a608178b166e72cf2bd8a14a1) - Minor bump to start next version
+
+### Patch Changes
+
+- [#21220](https://github.com/smartcontractkit/chainlink/pull/21220) [`d5f838f`](https://github.com/smartcontractkit/chainlink/commit/d5f838f2b46c5ac2b0c152e7b23f875a3d741816) - Fix EVMService.SubmitTransaction to return TxReverted when receipt status is 0 (reverted), instead of always returning TxSuccess. This resolves OCR consensus failures on Polygon WriteReport where DON nodes returned inconsistent results for reverted transactions.
+
+- [#18882](https://github.com/smartcontractkit/chainlink/pull/18882) [`de0dfd6`](https://github.com/smartcontractkit/chainlink/commit/de0dfd67feb23e5c8504fa32e23ad526ebcaa3a4) - #updated Update Aptos deployment ops to support new OnRamp bindings.
+
+- [#21275](https://github.com/smartcontractkit/chainlink/pull/21275) [`ce46b0b`](https://github.com/smartcontractkit/chainlink/commit/ce46b0b4081cf8408f12fdac90df86c68b63b842) - Bump dependency of chainlink-evm #internal
+
+- [#21237](https://github.com/smartcontractkit/chainlink/pull/21237) [`0ec7a41`](https://github.com/smartcontractkit/chainlink/commit/0ec7a41d4678a438a62886acbe87399339ab6bf9) - #updated In llo observation loop ensure that the Pipeline streams are extracted atomically
+
 ## 2.35.0
 
 ### Minor Changes

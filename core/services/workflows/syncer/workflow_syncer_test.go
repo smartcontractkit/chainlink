@@ -386,6 +386,8 @@ func Test_SecretsWorker(t *testing.T) {
 			require.Equal(t, string(beforeSecretsPayload), contents)
 			limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 			require.NoError(t, err)
+			featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
+			require.NoError(t, err)
 			rl, err := ratelimiter.NewRateLimiter(rlConfig)
 			require.NoError(t, err)
 
@@ -401,7 +403,7 @@ func Test_SecretsWorker(t *testing.T) {
 
 			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 			evtHandler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, engineRegistry,
-				emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
+				emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -575,6 +577,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
+	featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
@@ -587,7 +591,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
+	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -673,6 +677,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
+	featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -685,7 +691,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er,
-		emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{}, WithStaticEngine(&mockService{}))
+		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, &testDonNotifier{}, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(

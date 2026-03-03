@@ -1406,6 +1406,7 @@ MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
+MaxConcurrency = 12 # Default
 ```
 
 
@@ -1457,6 +1458,12 @@ SyncStrategy = 'event' # Default
 ```
 SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
 Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
+
+### MaxConcurrency
+```toml
+MaxConcurrency = 12 # Default
+```
+MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
@@ -17402,6 +17409,7 @@ Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
+Bundles = false # Example
 ```
 
 
@@ -17428,6 +17436,12 @@ CustomURL configures the base url of a custom endpoint used by the ChainDualBroa
 DualBroadcast = false # Example
 ```
 DualBroadcast enables DualBroadcast functionality.
+
+### Bundles
+```toml
+Bundles = false # Example
+```
+Bundles enables Bundles functionality for SVR.
 
 ## EVM.BalanceMonitor
 ```toml

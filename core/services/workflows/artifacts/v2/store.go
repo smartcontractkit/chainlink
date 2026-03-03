@@ -8,14 +8,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/jonboulle/clockwork"
 	"math"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
-	"time"
-
-	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -28,30 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
-
-type lastFetchedAtMap struct {
-	m map[string]time.Time
-	sync.RWMutex
-}
-
-func (l *lastFetchedAtMap) Set(url string, at time.Time) {
-	l.Lock()
-	defer l.Unlock()
-	l.m[url] = at
-}
-
-func (l *lastFetchedAtMap) Get(url string) (time.Time, bool) {
-	l.RLock()
-	defer l.RUnlock()
-	got, ok := l.m[url]
-	return got, ok
-}
-
-func newLastFetchedAtMap() *lastFetchedAtMap {
-	return &lastFetchedAtMap{
-		m: map[string]time.Time{},
-	}
-}
 
 func safeUint32(n uint64) uint32 {
 	if n > math.MaxUint32 {
@@ -101,8 +74,6 @@ func (cfg *ArtifactConfig) MakeLimiters(lf limits.Factory) (limiters *ArtifactLi
 	return
 }
 
-var defaultSecretsFreshnessDuration = 24 * time.Hour
-
 func WithMaxArtifactSize(cfg ArtifactConfig) func(*Store) {
 	return func(a *Store) {
 		a.limits = &cfg
@@ -141,9 +112,7 @@ type Store struct {
 	// fetchFn is a function that fetches the contents of a URL with a limit on the size of the response.
 	fetchFn types.FetcherFunc
 
-	lastFetchedAtMap         *lastFetchedAtMap // TODO unused
-	clock                    clockwork.Clock
-	secretsFreshnessDuration time.Duration // TODO unused
+	clock clockwork.Clock
 
 	encryptionKey workflowkey.Key
 
@@ -153,16 +122,14 @@ type Store struct {
 func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, retrieveFunc types.LocationRetrieverFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
 	emitter custmsg.MessageEmitter, limitsFactory limits.Factory, opts ...func(*Store)) (*Store, error) {
 	artifactsStore := &Store{
-		lggr:                     lggr,
-		orm:                      orm,
-		retrieveFunc:             retrieveFunc,
-		fetchFn:                  fetchFn,
-		lastFetchedAtMap:         newLastFetchedAtMap(),
-		clock:                    clock,
-		config:                   &StoreConfig{},
-		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
-		encryptionKey:            encryptionKey,
-		emitter:                  emitter,
+		lggr:          lggr,
+		orm:           orm,
+		retrieveFunc:  retrieveFunc,
+		fetchFn:       fetchFn,
+		clock:         clock,
+		config:        &StoreConfig{},
+		encryptionKey: encryptionKey,
+		emitter:       emitter,
 	}
 
 	for _, o := range opts {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -58,8 +59,10 @@ type eventHandler struct {
 	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
+	emitterMu              sync.RWMutex
 	engineFactory          engineFactoryFn
 	engineLimiters         *v2.EngineLimiters
+	featureFlags           *v2.EngineFeatureFlags
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
@@ -154,6 +157,7 @@ func NewEventHandler(
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
+	featureFlags *v2.EngineFeatureFlags,
 	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
@@ -183,6 +187,7 @@ func NewEventHandler(
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
 		engineLimiters:         engineLimiters,
+		featureFlags:           featureFlags,
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
@@ -237,6 +242,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -247,6 +253,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
 		)
+		h.emitterMu.RUnlock()
 
 		var err error
 		defer func() {
@@ -277,6 +284,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -287,6 +295,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
 		)
+		h.emitterMu.RUnlock()
 
 		var err error
 		defer func() {
@@ -330,6 +339,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, wfName,
@@ -339,6 +349,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
 		)
+		h.emitterMu.RUnlock()
 
 		var herr error
 		defer func() {
@@ -507,13 +518,23 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	var sdkName string
+	h.emitterMu.RLock()
+	labeler := h.emitter
+	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                       lggr,
-		Labeler:                      h.emitter,
+		Labeler:                      labeler,
 		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
 		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
 		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+		SdkLabeler: func(name string) {
+			sdkName = name
+			h.emitterMu.Lock()
+			h.emitter = h.emitter.With(platform.KeySDK, name)
+			h.emitterMu.Unlock()
+		},
 	}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
@@ -572,15 +593,22 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 		LocalLimits:                       v2.EngineLimits{}, // all defaults
 		LocalLimiters:                     h.engineLimiters,
+		FeatureFlags:                      h.featureFlags,
 		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
 
-		BeholderEmitter: h.emitter,
-		BillingClient:   h.billingClient,
+		BeholderEmitter: func() custmsg.MessageEmitter {
+			h.emitterMu.RLock()
+			defer h.emitterMu.RUnlock()
+			return h.emitter
+		}(),
+		BillingClient: h.billingClient,
 
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
 		SecretsFetcher:                h.secretsFetcher,
+
+		SdkName: sdkName,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.

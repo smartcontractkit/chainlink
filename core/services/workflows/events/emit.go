@@ -351,6 +351,7 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 
 // GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
 // hash of (workflowID, triggerEventID)
+// Deprecated: Use GenerateExecutionIDWithTriggerIndex instead.
 func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	s := sha256.New()
 	_, err := s.Write([]byte(workflowID))
@@ -359,6 +360,26 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	}
 
 	_, err = s.Write([]byte(triggerEventID))
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(s.Sum(nil)), nil
+}
+
+func GenerateExecutionIDWithTriggerIndex(workflowID, triggerEventID string, triggerIndex int) (string, error) {
+	s := sha256.New()
+	_, err := s.Write([]byte(workflowID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(triggerEventID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(strconv.Itoa(triggerIndex)))
 	if err != nil {
 		return "", err
 	}

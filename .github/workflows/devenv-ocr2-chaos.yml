@@ -1,8 +1,8 @@
-name: OCR2 Soak Test (Resource leaks)
+name: OCR2 Chaos Test
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Run daily at 6 AM
+    - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
 
 defaults:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  soak:
+  chaos:
     permissions:
       id-token: write
       contents: read
@@ -65,14 +65,14 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml && cl obs up -f
+          cl u env.toml,products/ocr2/basic.toml && cl obs up -f
 
-      - name: Run Soak tests
-        id: soak_test
+      - name: Run Chaos tests
+        id: chaos_test
         working-directory: devenv/tests/ocr2
         run: |
           echo "Running tests for: $CHAINLINK_IMAGE, product: OCR2"
-          go test -v -timeout 4h -run TestOCR2Load/clean
+          go test -v -timeout 4h -run TestOCR2Chaos
 
       - name: Upload Logs
         if: always()
@@ -80,12 +80,4 @@ jobs:
         with:
           name: container-logs-smoke
           path: devenv/tests/ocr2/logs
-          retention-days: 3
-
-      - name: Upload Pprof (Alloc)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: alloc.pprof
-          path: devenv/tests/ocr2/alloc.pprof
           retention-days: 3

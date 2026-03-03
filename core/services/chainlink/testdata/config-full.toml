@@ -336,6 +336,7 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
+MaxConcurrency = 12
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 ArtifactStorageHost = ''
@@ -487,6 +488,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+Bundles = false
 
 [EVM.BalanceMonitor]
 Enabled = true

@@ -10,12 +10,15 @@ import (
 )
 
 func Test_InitMonitoringResources(t *testing.T) {
-	_, err := monitoring.InitMonitoringResources()
+	em, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
+	require.NotNil(t, em)
 }
 
 func Test_WorkflowMetricsLabeler(t *testing.T) {
-	testWorkflowsMetricLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), &monitoring.EngineMetrics{})
+	em, err := monitoring.InitMonitoringResources()
+	require.NoError(t, err)
+	testWorkflowsMetricLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 	testWorkflowsMetricLabeler2 := testWorkflowsMetricLabeler.With("foo", "baz")
 	require.Equal(t, "baz", testWorkflowsMetricLabeler2.Labels["foo"])
 }

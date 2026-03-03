@@ -31,9 +31,9 @@ func getSubCommands(parent string) []prompt.Suggest {
 			{Text: "directrequest TestSmoke", Description: "Run Direct Request test"},
 			{Text: "flux TestSmoke", Description: "Run Flux test"},
 			{Text: "ocr2 TestSmoke/rounds", Description: "Run OCR2 smoke test"},
-			{Text: "ocr2 TestOCR2Load/clean", Description: "Run OCR2 soak test"},
-			{Text: "ocr2 TestOCR2Load/gas-spikes", Description: "Run OCR2 soak test + simulate gas spikes"},
-			{Text: "ocr2 TestOCR2Load/chaos", Description: "Run OCR2 soak test + introduce container kills and latency"},
+			{Text: "ocr2 TestOCR2Soak/clean", Description: "Run OCR2 soak test"},
+			{Text: "ocr2 TestOCR2Soak/gas-spikes", Description: "Run OCR2 soak test + simulate gas spikes"},
+			{Text: "ocr2 TestOCR2Chaos/rpc_latency", Description: "Run OCR2 chaos test + rpc latency"},
 		}
 	case "bs":
 		return []prompt.Suggest{

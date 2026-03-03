@@ -113,6 +113,7 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
+		platform.KeySDK, e.cfg.SdkName,
 	}
 }
 
@@ -165,10 +166,13 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	labels := engine.buildLabels(&localNode)
 
 	beholderLogger := logger.Sugared(custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...))
-	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
+	baseLabels := []string{
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
-		platform.KeyWorkflowName, cfg.WorkflowName.String())
+		platform.KeyWorkflowName, cfg.WorkflowName.String(),
+		platform.KeySDK, cfg.SdkName,
+	}
+	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(baseLabels...)
 	labelsMap := make(map[string]string, len(labels)/2)
 	for i := 0; i < len(labels); i += 2 {
 		labelsMap[labels[i].(string)] = labels[i+1].(string)
@@ -574,38 +578,11 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 
 // startExecution initiates a new workflow execution, blocking until completed
 func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
-	triggerEvent := wrappedTriggerEvent.event.Event
-	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+	fullExecutionID, err := events.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
 	if err != nil {
 		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		return
 	}
-
-	// disallow duplicate executions
-	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
-	if addErr != nil {
-		if errors.Is(addErr, store.ErrDuplicateExecution) {
-			e.logger().Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
-			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
-			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
-			if err != nil {
-				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", err)
-			}
-			return
-		}
-		e.logger().Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
-	}
-
-	var executionStatus string
-	defer func() {
-		if executionStatus == "" {
-			executionStatus = store.StatusErrored
-		}
-		if _, finishErr := e.cfg.ExecutionsStore.FinishExecution(ctx, executionID, executionStatus); finishErr != nil {
-			e.logger().Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
-		}
-	}()
 
 	// Fetch organization ID for this execution
 	organizationID := contexts.CREValue(ctx).Org
@@ -625,6 +602,53 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	loggerLabels[platform.KeyOrganizationID] = organizationID
 	e.loggerLabels.Store(&loggerLabels)
 	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
+
+	var executionTimestamp int64
+	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
+		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
+		donTime, dtErr := executionTimeProvider.GetDONTime()
+		if dtErr != nil {
+			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
+			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+		} else {
+			executionTimestamp = donTime.UnixMilli()
+			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+		}
+	}
+
+	triggerEvent := wrappedTriggerEvent.event.Event
+
+	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+	if err != nil {
+		lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+		return
+	}
+
+	// disallow duplicate executions
+	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
+	if addErr != nil {
+		if errors.Is(addErr, store.ErrDuplicateExecution) {
+			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
+			if err != nil {
+				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", err)
+			}
+			return
+		}
+		lggr.Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
+	}
+
+	var executionStatus string
+	defer func() {
+		if executionStatus == "" {
+			executionStatus = store.StatusErrored
+		}
+		if _, finishErr := e.cfg.ExecutionsStore.FinishExecution(ctx, executionID, executionStatus); finishErr != nil {
+			lggr.Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
+		}
+	}()
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
@@ -679,7 +703,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
 	err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
 	if err != nil {
-		e.lggr.Errorw("failed to ACK trigger event", "eventID", triggerEvent.ID, "err", err)
+		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
 	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 
@@ -712,8 +736,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	execHelper := &ExecutionHelper{
-		Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
+		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	var result *sdkpb.ExecutionResult
