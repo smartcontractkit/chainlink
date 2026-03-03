@@ -17,8 +17,8 @@ type triggerEventStore struct {
 
 var _ capabilities.EventStore = (*triggerEventStore)(nil)
 
-func NewTriggerEventStore(ds sqlutil.DataSource) triggerEventStore {
-	return triggerEventStore{ds: ds}
+func NewTriggerEventStore(ds sqlutil.DataSource) *triggerEventStore {
+	return &triggerEventStore{ds: ds}
 }
 
 const triggerPendingEventsTable = "trigger_pending_events"
