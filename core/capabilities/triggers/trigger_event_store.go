@@ -26,12 +26,11 @@ const triggerPendingEventsTable = "trigger_pending_events"
 func (s triggerEventStore) Insert(ctx context.Context, rec capabilities.PendingEvent) error {
 	const q = `
 INSERT INTO ` + triggerPendingEventsTable + ` (
-  trigger_id, event_id, any_type_url, payload, first_at, last_sent_at, attempts
+  trigger_id, event_id, payload, first_at, last_sent_at, attempts
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7
+  $1, $2, $3, $4, $5, $6
 )
 ON CONFLICT (trigger_id, event_id) DO UPDATE SET
-  any_type_url = EXCLUDED.any_type_url,
   payload      = EXCLUDED.payload
 `
 	var lastSent sql.NullTime
@@ -43,7 +42,6 @@ ON CONFLICT (trigger_id, event_id) DO UPDATE SET
 		ctx, q,
 		rec.TriggerId,
 		rec.EventId,
-		rec.AnyTypeURL,
 		rec.Payload,
 		rec.FirstAt,
 		lastSent,
@@ -85,7 +83,6 @@ func (s triggerEventStore) List(ctx context.Context) ([]capabilities.PendingEven
 SELECT
   trigger_id,
   event_id,
-  any_type_url,
   payload,
   first_at,
   last_sent_at,
@@ -97,7 +94,6 @@ ORDER BY first_at ASC
 	type row struct {
 		TriggerID  string       `db:"trigger_id"`
 		EventID    string       `db:"event_id"`
-		AnyTypeURL string       `db:"any_type_url"`
 		Payload    []byte       `db:"payload"`
 		FirstAt    time.Time    `db:"first_at"`
 		LastSentAt sql.NullTime `db:"last_sent_at"`
@@ -118,7 +114,6 @@ ORDER BY first_at ASC
 		out = append(out, capabilities.PendingEvent{
 			TriggerId:  r.TriggerID,
 			EventId:    r.EventID,
-			AnyTypeURL: r.AnyTypeURL,
 			Payload:    append([]byte(nil), r.Payload...),
 			FirstAt:    r.FirstAt,
 			LastSentAt: last,

@@ -18,7 +18,6 @@ func makePendingEvent(triggerID, eventID string, payload []byte, offset time.Dur
 	return capabilities.PendingEvent{
 		TriggerId:  triggerID,
 		EventId:    eventID,
-		AnyTypeURL: "type.googleapis.com/test.Msg",
 		Payload:    append([]byte(nil), payload...),
 		FirstAt:    now,
 		LastSentAt: time.Time{},

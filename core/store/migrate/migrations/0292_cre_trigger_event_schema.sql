@@ -3,7 +3,6 @@
 CREATE TABLE IF NOT EXISTS trigger_pending_events (
     trigger_id    TEXT        NOT NULL,
     event_id      TEXT        NOT NULL,
-    any_type_url  TEXT        NOT NULL,
     payload       BYTEA       NOT NULL,
     first_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_sent_at  TIMESTAMPTZ NULL,
