@@ -188,6 +188,16 @@ jobs:
           mv ctf bin/ctf
           chmod +x bin/ctf
 
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
       - name: Run compat test
         working-directory: ${{ env.WORKING_DIR }}
         shell: bash
