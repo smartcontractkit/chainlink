@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -27,11 +28,9 @@ import (
 const (
 	defaultCleanUpPeriod = 5 * time.Second
 
-	// Method names for confidential relay JSON-RPC requests.
-	// Duplicated from chainlink-common/pkg/capabilities/actions/confidentialrelay
-	// to avoid a dependency bump until the next chainlink-common version is pinned.
-	MethodSecretsGet     = "confidential.secrets.get"
-	MethodCapabilityExec = "confidential.capability.execute"
+	// Re-exported from chainlink-common for local use and test convenience.
+	MethodSecretsGet     = relaytypes.MethodSecretsGet
+	MethodCapabilityExec = relaytypes.MethodCapabilityExec
 )
 
 var _ gwhandlers.Handler = (*handler)(nil)
