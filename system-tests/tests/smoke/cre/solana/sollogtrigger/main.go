@@ -16,7 +16,106 @@ import (
 )
 
 func getTestEventIdlJson() []byte {
-	return []byte(`{"Event":{"name":"TestEvent","fields":[{"name":"strVal","type":"string","index":false},{"name":"u64Value","type":"u64","index":false}]},"Types":null}`)
+	return []byte(`{
+  "address": "J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4",
+  "metadata": {
+    "name": "log_read_test",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_log",
+      "discriminator": [
+        215,
+        95,
+        248,
+        114,
+        153,
+        204,
+        208,
+        48
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "value",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_truncated_log",
+      "discriminator": [
+        133,
+        74,
+        116,
+        132,
+        80,
+        11,
+        241,
+        64
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "value",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "TestEvent",
+      "discriminator": [
+        28,
+        52,
+        39,
+        105,
+        8,
+        210,
+        91,
+        9
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "TestEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "str_val",
+            "type": "string"
+          },
+          {
+            "name": "u64_value",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}`)
 }
 
 func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
@@ -31,7 +130,7 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 		Name:         "test-event-filter",
 		Address:      cfg.LogReadTestProgramID[:],
 		EventName:    "TestEvent",
-		EventIdlJson: eventIdlJson,
+		ContractIdlJson: eventIdlJson,
 		Subkeys: []*solana.SubkeyConfig{
 			{Path: []string{"U64Value"}, Comparers: []*solana.ValueComparator{
 				{
