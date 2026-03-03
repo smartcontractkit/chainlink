@@ -23,7 +23,7 @@ func NewTriggerEventStore(ds sqlutil.DataSource) *triggerEventStore {
 
 const triggerPendingEventsTable = "trigger_pending_events"
 
-func (s triggerEventStore) Insert(ctx context.Context, rec capabilities.PendingEvent) error {
+func (s *triggerEventStore) Insert(ctx context.Context, rec capabilities.PendingEvent) error {
 	const q = `
 INSERT INTO ` + triggerPendingEventsTable + ` (
   trigger_id, event_id, payload, first_at, last_sent_at, attempts
@@ -52,7 +52,7 @@ ON CONFLICT (trigger_id, event_id) DO UPDATE SET
 	return nil
 }
 
-func (s triggerEventStore) UpdateDelivery(ctx context.Context, triggerID string, eventID string, lastSentAt time.Time, attempts int) error {
+func (s *triggerEventStore) UpdateDelivery(ctx context.Context, triggerID string, eventID string, lastSentAt time.Time, attempts int) error {
 	const q = `
 UPDATE ` + triggerPendingEventsTable + `
 SET last_sent_at = $3, attempts = $4
@@ -78,7 +78,7 @@ WHERE trigger_id = $1 AND event_id = $2
 	return nil
 }
 
-func (s triggerEventStore) List(ctx context.Context) ([]capabilities.PendingEvent, error) {
+func (s *triggerEventStore) List(ctx context.Context) ([]capabilities.PendingEvent, error) {
 	const q = `
 SELECT
   trigger_id,
@@ -123,7 +123,7 @@ ORDER BY first_at ASC
 	return out, nil
 }
 
-func (s triggerEventStore) DeleteEvent(ctx context.Context, triggerID, eventID string) error {
+func (s *triggerEventStore) DeleteEvent(ctx context.Context, triggerID, eventID string) error {
 	const q = `
 DELETE FROM ` + triggerPendingEventsTable + `
 WHERE trigger_id = $1 AND event_id = $2
@@ -134,7 +134,7 @@ WHERE trigger_id = $1 AND event_id = $2
 	return nil
 }
 
-func (s triggerEventStore) DeleteEventsForTrigger(ctx context.Context, triggerID string) error {
+func (s *triggerEventStore) DeleteEventsForTrigger(ctx context.Context, triggerID string) error {
 	const q = `
 DELETE FROM ` + triggerPendingEventsTable + `
 WHERE trigger_id = $1
