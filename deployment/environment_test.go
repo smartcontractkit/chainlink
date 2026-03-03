@@ -118,13 +118,49 @@ func TestChainConfigsToOCRConfig_AptosFallsBackToAccountAddressWhenPublicKeyEmpt
 			AccountAddressPublicKey: &emptyPubkey,
 			Ocr2Config: &nodev1.OCR2Config{
 				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
-					OffchainPublicKey:     hex.EncodeToString(test32Byte(t, "offchain")),
-					ConfigPublicKey:       hex.EncodeToString(test32Byte(t, "config")),
+					OffchainPublicKey:     hexFrom32Byte(t, "offchain"),
+					ConfigPublicKey:       hexFrom32Byte(t, "config"),
 					OnchainSigningAddress: "aa",
 					BundleId:              "bundle-id",
 				},
 				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
 					PeerId: testPeerID(t, "peer-id").String(),
+				},
+			},
+		},
+	}
+
+	got, err := ChainConfigsToOCRConfig(chainConfigs)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	for _, cfg := range got {
+		require.Equal(t, accountAddr, string(cfg.TransmitAccount))
+	}
+}
+
+func TestChainConfigsToOCRConfig_AptosUsesAccountAddressWhenPublicKeySet(t *testing.T) {
+	aptosChainID, err := chain_selectors.GetChainIDFromSelector(chain_selectors.APTOS_TESTNET.Selector)
+	require.NoError(t, err)
+
+	pubkey := "0xdeadbeef"
+	accountAddr := "0xaabbcc"
+	chainConfigs := []*nodev1.ChainConfig{
+		{
+			Chain: &nodev1.Chain{
+				Type: nodev1.ChainType_CHAIN_TYPE_APTOS,
+				Id:   aptosChainID,
+			},
+			AccountAddress:          accountAddr,
+			AccountAddressPublicKey: &pubkey,
+			Ocr2Config: &nodev1.OCR2Config{
+				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+					OffchainPublicKey:     hexFrom32Byte(t, "offchain-set"),
+					ConfigPublicKey:       hexFrom32Byte(t, "config-set"),
+					OnchainSigningAddress: "aa",
+					BundleId:              "bundle-id-set",
+				},
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: testPeerID(t, "peer-id-set").String(),
 				},
 			},
 		},
