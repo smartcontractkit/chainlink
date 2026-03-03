@@ -26,6 +26,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -68,11 +69,11 @@ func PrepareNodeTOMLs(
 	if peeringErr != nil {
 		return nil, errors.Wrap(peeringErr, "failed to find peering data")
 	}
-	ocrBootstrapPlacement, placementErr := topology.BootstrapPlacement()
+	ocrBootstrapPlacement, placementErr := resolveBootstrapPlacement(topology, bt.UUID)
 	if placementErr != nil {
 		return nil, placementErr
 	}
-	ocrBootstrapAnnouncePort, announcePortErr := topology.BootstrapAnnouncePort()
+	ocrBootstrapAnnouncePort, announcePortErr := resolveBootstrapAnnouncePort(topology, bt.UUID)
 	if announcePortErr != nil {
 		return nil, announcePortErr
 	}
@@ -255,7 +256,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.GatewayNode:
 				var cErr error
-				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs)
+				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add gateway node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -354,10 +355,10 @@ func addBootstrapNodeConfig(
 		EnableExperimentalRageP2P: ptr.Ptr(true),
 	}
 	if donMetadata != nil && nodeMetadata != nil {
-		announcePort := donMetadata.ResolveNodeOCR2AnnouncePort(nodeMetadata.Index)
+		announcePort := resolveNodeOCR2AnnouncePort(donMetadata.MustNodeSet(), nodeMetadata.Index)
 		announceAddresses, announceErr := cre.ResolveP2PAnnounceAddresses(
 			donMetadata.MustNodeSet().Placement,
-			topology.HasRemoteNodeSets(),
+			hasRemoteNodeSets(topology),
 			announcePort,
 		)
 		if announceErr != nil {
@@ -457,10 +458,10 @@ func addWorkerNodeConfig(
 		},
 		EnableExperimentalRageP2P: ptr.Ptr(true),
 	}
-	announcePort := donMetadata.ResolveNodeOCR2AnnouncePort(m.Index)
+	announcePort := resolveNodeOCR2AnnouncePort(donMetadata.MustNodeSet(), m.Index)
 	announceAddresses, announceErr := cre.ResolveP2PAnnounceAddresses(
 		donMetadata.MustNodeSet().Placement,
-		topology.HasRemoteNodeSets(),
+		hasRemoteNodeSets(topology),
 		announcePort,
 	)
 	if announceErr != nil {
@@ -589,6 +590,7 @@ func addGatewayNodeConfig(
 	existingConfig corechainlink.Config,
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
+	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
 	// TODO: remove this in the future?
 	// Unless node has Peering enabled it won't create capabilities registry syncer and all requests to vault handler will fail,
@@ -712,7 +714,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},
 		remoteHostIP: input.RemoteHostIP,
-		provider:     input.Provider,
+		provider: input.Provider,
 	}, nil
 }
 
@@ -755,19 +757,24 @@ func findEVMChains(input cre.GenerateConfigsInput) ([]*evmChain, error) {
 		if err != nil {
 			return nil, err
 		}
-		resolvedWS, err := connectivity.Resolve(callerPlacement, targetPlacement, connectivity.EndpointPair{
-			Name:     fmt.Sprintf("evm-ws-%d", bcOut.ChainID()),
-			Internal: bcOut.CtfOutput().Nodes[0].InternalWSUrl,
-			External: bcOut.CtfOutput().Nodes[0].ExternalWSUrl,
-		})
-		if err != nil {
-			return nil, err
+		wsRPC := ""
+		// Tron node config only needs HTTP; WS can legitimately be absent in topology outputs.
+		if bcOut.ChainID() != TronEVMChainID {
+			resolvedWS, wsErr := connectivity.Resolve(callerPlacement, targetPlacement, connectivity.EndpointPair{
+				Name:     fmt.Sprintf("evm-ws-%d", bcOut.ChainID()),
+				Internal: bcOut.CtfOutput().Nodes[0].InternalWSUrl,
+				External: bcOut.CtfOutput().Nodes[0].ExternalWSUrl,
+			})
+			if wsErr != nil {
+				return nil, wsErr
+			}
+			wsRPC = resolvedWS.URL
 		}
 		evmChains = append(evmChains, &evmChain{
 			Name:    fmt.Sprintf("node-%d", chainSelector),
 			ChainID: bcOut.ChainID(),
 			HTTPRPC: resolvedHTTP.URL,
-			WSRPC:   resolvedWS.URL,
+			WSRPC:   wsRPC,
 		})
 	}
 	return evmChains, nil
@@ -908,6 +915,89 @@ func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain
 	})
 }
 
+func hasRemoteNodeSets(topology *cre.Topology) bool {
+	if topology == nil {
+		return false
+	}
+	for _, nodeSet := range topology.NodeSets() {
+		if nodeSet != nil && strings.EqualFold(strings.TrimSpace(nodeSet.Placement), "remote") {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveNodeOCR2AnnouncePort(nodeSet *cre.NodeSet, nodeIndex int) int {
+	base := 0
+	if nodeSet != nil {
+		base = nodeSet.OCR2P2PRangeStart
+		if base == 0 {
+			httpStart := nodeSet.HTTPPortRangeStart
+			if httpStart == 0 {
+				httpStart = ns.DefaultHTTPPortStaticRangeStart
+			}
+			base = httpStart + (ns.DefaultOCR2P2PStaticRangeStart - ns.DefaultHTTPPortStaticRangeStart)
+		}
+	}
+	if base == 0 {
+		base = ns.DefaultOCR2P2PStaticRangeStart
+	}
+	if nodeIndex < 0 {
+		nodeIndex = 0
+	}
+	return base + nodeIndex
+}
+
+func resolveBootstrapPlacement(topology *cre.Topology, bootstrapNodeUUID string) (string, error) {
+	if topology == nil {
+		return "", fmt.Errorf("topology is nil")
+	}
+	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
+	if bootstrapNodeUUID == "" {
+		return "", fmt.Errorf("bootstrap node UUID is empty")
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil {
+			continue
+		}
+		for _, node := range don.NodesMetadata {
+			if node == nil || strings.TrimSpace(node.UUID) == "" {
+				continue
+			}
+			if node.UUID != bootstrapNodeUUID {
+				continue
+			}
+			return strings.TrimSpace(don.MustNodeSet().Placement), nil
+		}
+	}
+	return "", fmt.Errorf("failed to resolve bootstrap placement for node UUID %s", bootstrapNodeUUID)
+}
+
+func resolveBootstrapAnnouncePort(topology *cre.Topology, bootstrapNodeUUID string) (int, error) {
+	if topology == nil {
+		return 0, fmt.Errorf("topology is nil")
+	}
+	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
+	if bootstrapNodeUUID == "" {
+		return 0, fmt.Errorf("bootstrap node UUID is empty")
+	}
+	for _, don := range topology.DonsMetadata.List() {
+		if don == nil {
+			continue
+		}
+		for _, node := range don.NodesMetadata {
+			if node == nil || strings.TrimSpace(node.UUID) == "" {
+				continue
+			}
+			if node.UUID != bootstrapNodeUUID {
+				continue
+			}
+			return resolveNodeOCR2AnnouncePort(don.MustNodeSet(), node.Index), nil
+		}
+	}
+	return 0, fmt.Errorf("failed to resolve bootstrap announce port for node UUID %s", bootstrapNodeUUID)
+}
+
 func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, bootstrapHost string, internalPort, externalPort int, remoteHostIP string) (string, error) {
 	caller, err := connectivity.PlacementFromTarget(callerPlacement)
 	if err != nil {
@@ -920,7 +1010,7 @@ func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, boot
 	// Local callers need EC2-host reachable port for remote bootstrap nodes.
 	if caller == connectivity.PlacementLocal && target == connectivity.PlacementRemote {
 		if !runtimecfg.IsDirectMode() {
-			return "", errors.New("mixed DON bootstrap resolution requires direct mode")
+			return "", fmt.Errorf("mixed DON bootstrap resolution requires direct mode")
 		}
 		hostIP := strings.TrimSpace(remoteHostIP)
 		if hostIP == "" {
@@ -937,7 +1027,7 @@ func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, boot
 
 func resolveGatewayConnectorURL(callerPlacementRaw string, topology *cre.Topology, gateway *cre.DonGatewayConfiguration, remoteHostIP string) (string, error) {
 	if gateway == nil || gateway.GatewayConfiguration == nil {
-		return "", errors.New("gateway configuration is nil")
+		return "", fmt.Errorf("gateway configuration is nil")
 	}
 	callerPlacement, err := connectivity.PlacementFromTarget(callerPlacementRaw)
 	if err != nil {
@@ -984,11 +1074,11 @@ func blockchainPlacementsBySelector(configured []*envconfig.Blockchain, deployed
 
 func resolveNodePlacement(topology *cre.Topology, nodeUUID string) (connectivity.Placement, error) {
 	if topology == nil {
-		return "", errors.New("topology is nil")
+		return "", fmt.Errorf("topology is nil")
 	}
 	trimmedUUID := strings.TrimSpace(nodeUUID)
 	if trimmedUUID == "" {
-		return "", errors.New("node uuid is empty")
+		return "", fmt.Errorf("node uuid is empty")
 	}
 	for _, don := range topology.DonsMetadata.List() {
 		if don == nil {
@@ -1011,7 +1101,7 @@ func gatewayExternalHost(targetPlacement connectivity.Placement, remoteHostIP st
 	switch targetPlacement {
 	case connectivity.PlacementRemote:
 		if !runtimecfg.IsDirectMode() {
-			return "", errors.New("gateway connector resolution for remote targets requires direct mode")
+			return "", fmt.Errorf("gateway connector resolution for remote targets requires direct mode")
 		}
 		if hostIP := strings.TrimSpace(remoteHostIP); hostIP != "" {
 			return hostIP, nil

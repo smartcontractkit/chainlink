@@ -1,15 +1,19 @@
 package config
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -136,6 +140,66 @@ func TestResolveNodeFacingBootstrapAddress_PlacementMatrix(t *testing.T) {
 			require.Equal(t, tt.want, got, "unexpected resolved bootstrap address")
 		})
 	}
+}
+
+type fakeBlockchain struct {
+	selector uint64
+	id       uint64
+	out      *blockchain.Output
+}
+
+func (f *fakeBlockchain) ChainSelector() uint64                         { return f.selector }
+func (f *fakeBlockchain) ChainID() uint64                               { return f.id }
+func (f *fakeBlockchain) ChainFamily() string                           { return f.out.Family }
+func (f *fakeBlockchain) IsFamily(chainFamily string) bool              { return strings.EqualFold(f.out.Family, chainFamily) }
+func (f *fakeBlockchain) Fund(_ context.Context, _ string, _ uint64) error { return nil }
+func (f *fakeBlockchain) CtfOutput() *blockchain.Output                 { return f.out }
+func (f *fakeBlockchain) ToCldfChain() (cldf_chain.BlockChain, error)   { return nil, nil }
+
+var _ creblockchains.Blockchain = (*fakeBlockchain)(nil)
+
+func TestFindEVMChains_AllowsMissingWSForTron(t *testing.T) {
+	nodeSet := &cre.NodeSet{
+		Input: &ns.Input{
+			Name: "workflow",
+		},
+		Placement:          "local",
+		SupportedEVMChains: []uint64{TronEVMChainID},
+	}
+	donMetadata, err := cre.NewDonMetadata(nodeSet, 1, infra.Provider{Type: infra.Docker}, nil)
+	require.NoError(t, err)
+
+	input := cre.GenerateConfigsInput{
+		DonMetadata: donMetadata,
+		Blockchains: map[uint64]creblockchains.Blockchain{
+			TronEVMChainID: &fakeBlockchain{
+				selector: TronEVMChainID,
+				id:       TronEVMChainID,
+				out: &blockchain.Output{
+					Type:   blockchain.TypeTron,
+					Family: blockchain.FamilyEVM,
+					Nodes: []*blockchain.Node{
+						{
+							InternalHTTPUrl: "http://tron:9090/jsonrpc",
+							ExternalHTTPUrl: "http://localhost:9090/jsonrpc",
+							InternalWSUrl:   "",
+							ExternalWSUrl:   "",
+						},
+					},
+				},
+			},
+		},
+		BlockchainPlacementBySelector: map[uint64]string{
+			TronEVMChainID: "local",
+		},
+	}
+
+	evmChains, err := findEVMChains(input)
+	require.NoError(t, err, "tron should not require WS endpoint resolution")
+	require.Len(t, evmChains, 1)
+	require.Equal(t, TronEVMChainID, evmChains[0].ChainID)
+	require.NotEmpty(t, evmChains[0].HTTPRPC)
+	require.Empty(t, evmChains[0].WSRPC, "tron WSRPC should remain empty when source has no ws endpoint")
 }
 
 func mustBuildGatewayTopology(t *testing.T, targetPlacement string) (*cre.Topology, *cre.DonGatewayConfiguration) {

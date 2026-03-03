@@ -149,6 +149,12 @@ func (s *Deployer) Start(ctx context.Context, input *blockchain.Input) (*blockch
 		}
 	}
 
+	// Some call paths reconstruct from output only and expect ChainID to be populated.
+	// Preserve configured chain ID when deployer output leaves it empty.
+	if bcOut != nil && strings.TrimSpace(bcOut.ChainID) == "" && input != nil {
+		bcOut.ChainID = strings.TrimSpace(input.ChainID)
+	}
+
 	return bcOut, nil
 }
 
@@ -156,7 +162,13 @@ func From(input *blockchain.Input, out *blockchain.Output) (*Blockchain, error) 
 	if out == nil {
 		return nil, pkgerrors.New("blockchain output is nil")
 	}
-	chainID := out.ChainID
+	chainID := strings.TrimSpace(out.ChainID)
+	if chainID == "" && input != nil {
+		chainID = strings.TrimSpace(input.ChainID)
+	}
+	if chainID == "" {
+		return nil, errors.New("solana chain id is required for reconstruction")
+	}
 	sel, ok := chainselectors.SolanaChainIdToChainSelector()[chainID]
 	if !ok {
 		return nil, fmt.Errorf("selector not found for solana chainID '%s'", chainID)
