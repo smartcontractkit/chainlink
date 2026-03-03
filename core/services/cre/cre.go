@@ -910,6 +910,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
