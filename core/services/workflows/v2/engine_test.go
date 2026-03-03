@@ -2348,6 +2348,9 @@ func createTestEngineForDonVersionTest(
 	wasmModule.On("Execute", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	wasmModule.On("Close").Return(nil)
 
+	featureFlags, err := v2.NewFeatureFlags(lf, nil)
+	require.NoError(t, err)
+
 	cfg := &v2.EngineConfig{
 		Lggr:                              lggr,
 		Module:                            wasmModule,
@@ -2362,6 +2365,7 @@ func createTestEngineForDonVersionTest(
 		WorkflowEncryptionKey:             defaultTestConfig(t, nil).WorkflowEncryptionKey,
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     defaultTestConfig(t, nil).LocalLimiters,
+		FeatureFlags:                      featureFlags,
 		GlobalExecutionConcurrencyLimiter: sLimiter,
 		BeholderEmitter:                   emitter,
 		WorkflowRegistryAddress:           "0xWorkflowRegistry",

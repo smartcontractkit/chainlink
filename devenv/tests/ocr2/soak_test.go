@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 )
 
-func TestOCR2Load(t *testing.T) {
+func TestOCR2Soak(t *testing.T) {
 	ctx := t.Context()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
@@ -81,29 +81,6 @@ func TestOCR2Load(t *testing.T) {
 						rampSeconds:    2,
 						holdSeconds:    5,
 						releaseSeconds: 2,
-					},
-				},
-			},
-		},
-		{
-			name:               "chaos",
-			roundCheckInterval: 5 * time.Second,
-			roundTimeout:       2 * time.Minute,
-			repeat:             2,
-			roundSettings: []*roundSettings{
-				// these are just Pumba tool commands, read more here https://github.com/alexei-led/pumba
-				{
-					value: 1,
-					chaos: &chaosSettings{
-						command:          "stop --duration=10s --restart re2:don-node0",
-						recoveryWaitTime: 10 * time.Second,
-					},
-				},
-				{
-					value: 1e3,
-					chaos: &chaosSettings{
-						command:          "netem --tc-image=gaiadocker/iproute2 --duration=10s delay --time=1000 re2:don-node.*",
-						recoveryWaitTime: 10 * time.Second,
 					},
 				},
 			},

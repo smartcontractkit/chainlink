@@ -44,16 +44,16 @@ require (
 	github.com/segmentio/ksuid v1.0.4
 	github.com/shopspring/decimal v1.4.0
 	github.com/slack-go/slack v0.15.0
-	github.com/smartcontractkit/chain-selectors v1.0.91
+	github.com/smartcontractkit/chain-selectors v1.0.97
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260217195306-9fec97c5dfbd
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260220192608-af6bd538e0ca
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260303102708-6caf8c4ea3b4
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260225184310-053d0fd4e19a
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260302172713-40eba758f144
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.80.1-0.20260209182815-b296b7df28a6
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260227175232-0de99d1959de
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260302180243-1e75633e454e
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260223231841-af91ea434e03
@@ -509,7 +509,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/heartbeat v0.0.0-20260115142640-f6b99095c12e // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260217043601-5cc966896c4f // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396 // indirect
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b // indirect
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260211172625-dff40e83b3c9 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0 // indirect

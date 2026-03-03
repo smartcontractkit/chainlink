@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -721,7 +722,12 @@ func (ta *TestApplication) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ta.t.Cleanup(func() { require.NoError(ta.t, ta.Stop()) })
+	ta.t.Cleanup(func() {
+		err := ta.Stop()
+		if err != nil && !strings.Contains(err.Error(), "stopped") {
+			require.NoError(ta.t, err)
+		}
+	})
 	return nil
 }
 

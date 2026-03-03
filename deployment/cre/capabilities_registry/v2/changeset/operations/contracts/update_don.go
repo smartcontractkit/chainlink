@@ -103,14 +103,6 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
 		}
 
-		if don.AcceptsWorkflows && !input.Force {
-			// TODO: CRE-277 ensure forwarders are support the next DON version
-			// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L812
-			// and
-			// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/KeystoneForwarder.sol#L274
-			return UpdateDONOutput{}, fmt.Errorf("refusing to update workflow don %d at config version %d because we cannot validate that all forwarder contracts are ready to accept the new configure version", don.Id, don.ConfigCount)
-		}
-
 		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain)
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)

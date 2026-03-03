@@ -731,6 +731,11 @@ func newWorkflowRegistrySyncerV1(
 		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
+	featureFlags, err := v2.NewFeatureFlags(lf, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
+	}
+
 	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
@@ -745,6 +750,7 @@ func newWorkflowRegistrySyncerV1(
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,
+		featureFlags,
 		workflowRateLimiter,
 		workflowLimits,
 		artifactsStore,
@@ -876,6 +882,11 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
+	featureFlags, err := v2.NewFeatureFlags(lf, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
+	}
+
 	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
@@ -890,6 +901,7 @@ func newWorkflowRegistrySyncerV2(
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,
+		featureFlags,
 		workflowRateLimiter,
 		workflowLimits,
 		artifactsStore,
@@ -898,6 +910,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
