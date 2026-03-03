@@ -1,5 +1,13 @@
 # Changelog Chainlink Core
 
+## 2.37.0
+
+### Minor Changes
+
+- [#21294](https://github.com/smartcontractkit/chainlink/pull/21294) [`0c3919a`](https://github.com/smartcontractkit/chainlink/commit/0c3919a85046f3a172cef8496ebb4513a3432505) - Minor bump to start next version
+
+- [#21354](https://github.com/smartcontractkit/chainlink/pull/21354) [`5f3b013`](https://github.com/smartcontractkit/chainlink/commit/5f3b0136b2a95a7b60e4ef1d964335a5a58bbb1e) - Introduces bundling for SVR (It's not enabled by default) #added
+
 ## 2.36.0
 
 ### Minor Changes
