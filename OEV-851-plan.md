@@ -7,10 +7,11 @@
 ## Status
 
 - [x] Exploration complete
-- [ ] Proto changes (`chainlink-protos`)
-- [ ] chainlink-evm changes (`chainlink-evm`)
-- [ ] chainlink (core) bump of chainlink-evm
-- [ ] Review / open questions resolved
+- [x] Proto changes (`chainlink-protos`) — field added, Go code regenerated, CHANGELOG + version bumped to 1.2.0
+- [x] chainlink-evm changes (`chainlink-evm`) — `EmitTxMessage` updated, tests added and passing; local `replace` directive pointing at local `chainlink-protos` for dev
+- [ ] chainlink-protos PR merged + tag cut
+- [ ] chainlink-evm `go.mod` updated to published tag (remove replace directive), chainlink-evm PR merged + tag cut
+- [ ] chainlink (core) bump of chainlink-evm dep
 
 ---
 
