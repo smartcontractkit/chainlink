@@ -173,10 +173,12 @@ func (s *Services) newSubservices(
 		srvs = append(srvs, gatewayConnectorWrapper)
 
 		if trustedPCRs := os.Getenv("CL_CONFIDENTIAL_RELAY_TRUSTED_PCRS"); trustedPCRs != "" {
+			caRootsPEM := os.Getenv("CL_CONFIDENTIAL_RELAY_CA_ROOTS_PEM")
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
 				[]byte(trustedPCRs),
+				caRootsPEM,
 				lggr,
 			)
 			srvs = append(srvs, relayService)
