@@ -14,6 +14,7 @@ const (
 	GatewayHandlerTypeWebAPICapabilities = "web-api-capabilities"
 	GatewayHandlerTypeHTTPCapabilities   = "http-capabilities"
 	GatewayHandlerTypeVault              = "vault"
+	GatewayHandlerTypeConfidentialRelay  = "confidential-compute-relay"
 
 	minimumRequestTimeoutSec = 5
 )
@@ -101,6 +102,8 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec))
 			case GatewayHandlerTypeHTTPCapabilities:
 				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
+			case GatewayHandlerTypeConfidentialRelay:
+				hs = append(hs, newDefaultConfidentialRelayHandler())
 			default:
 				return "", errors.New("unknown handler type: " + ht)
 			}
@@ -317,6 +320,24 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 				PerSenderRPS:   100,
 			},
 			CleanUpPeriodMs: 10 * 60 * 1000, // 10 minutes
+		},
+	}
+}
+
+type confidentialRelayHandlerConfig struct {
+	NodeRateLimiter nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+}
+
+func newDefaultConfidentialRelayHandler() handler {
+	return handler{
+		Name: GatewayHandlerTypeConfidentialRelay,
+		Config: confidentialRelayHandlerConfig{
+			NodeRateLimiter: nodeRateLimiterConfig{
+				GlobalBurst:    10,
+				GlobalRPS:      50,
+				PerSenderBurst: 10,
+				PerSenderRPS:   10,
+			},
 		},
 	}
 }
