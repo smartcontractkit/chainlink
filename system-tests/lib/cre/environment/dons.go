@@ -76,7 +76,7 @@ func StartDONs(
 	// Skip binary operations for Kubernetes (binaries are in the cluster images)
 	if infraInput.IsDocker() {
 		for donIdx, donMetadata := range topology.DonsMetadata.List() {
-			if !copyCapabilityBinaries || nodeSets[donIdx].SkipCapabilityBinariesCopying {
+			if !copyCapabilityBinaries {
 				continue
 			}
 

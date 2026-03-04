@@ -1211,9 +1211,8 @@ type NodeSet struct {
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
 
-	chainCapabilityIndex          map[CapabilityFlag][]uint64
-	chainCapabilityIndexBuilt     bool
-	SkipCapabilityBinariesCopying bool `toml:"skip_capability_binaries_copying"`
+	chainCapabilityIndex      map[CapabilityFlag][]uint64
+	chainCapabilityIndexBuilt bool
 }
 
 func (c *NodeSet) ensureChainCapabilityIndex() {
