@@ -224,7 +224,7 @@ type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 // in the user's config, the entire CapabilityConfig is used as-is without
 // merging individual fields with defaults.
 type CapabilityConfig struct {
-	BinaryPath string         `toml:"binary_path"`
+	BinaryName string         `toml:"binary_name"`
 	Values     map[string]any `toml:"values"`
 }
 
@@ -237,8 +237,8 @@ func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 		if dstValue, exists := dst[srcKey]; !exists {
 			dst[srcKey] = srcValue
 		} else {
-			if srcValue.BinaryPath != "" {
-				dstValue.BinaryPath = srcValue.BinaryPath
+			if srcValue.BinaryName != "" {
+				dstValue.BinaryName = srcValue.BinaryName
 			}
 			dst[srcKey] = dstValue
 		}

@@ -215,6 +215,14 @@ jobs:
           # Compile and deploy TS workflow
           go run . env workflow deploy --compile -n tsworkflow -w examples/workflows/ts/cron/index.ts -c examples/workflows/ts/cron/config.json
 
+      - name: Build capability binaries for swap
+        shell: bash
+        env:
+          GOPRIVATE: "github.com/smartcontractkit/*"
+        run: |
+          mkdir -p core/scripts/cre/environment/binaries
+          GOBIN=$(pwd)/core/scripts/cre/environment/binaries go tool loopinstall plugins/plugins.private.yaml
+
       - name: Swap cron capability
         shell: bash
         working-directory: core/scripts/cre/environment

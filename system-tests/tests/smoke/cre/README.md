@@ -105,13 +105,10 @@ Only if you want to run the tests on non-default topology you need to set follow
 
 This binary is needed for tests using the cron capability.
 
-**Option 1**: Use a CL node image that already includes the binary. Make sure it's available under `/usr/local/bin/cron` inside the image.
+**Option 1**: Use a CL node image that already includes the binary (e.g. via `CTF_CHAINLINK_IMAGE`). The image has it at `/usr/local/bin/cron`.
 
-**Option 2**: Build the capability locally and copy it to: `core/scripts/cre/environment/binaries/cron`.
-
-You can build it from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repository.
-
-**Note**: Binary must be compiled for **Linux** and **amd64**.
+**Option 2**: Build the capability locally and use `env swap capability` to deploy it to running containers:
+`go run . env swap capability -n cron -b /path/to/your/cron` from `core/scripts/cre/environment`.
 
 ---
 
