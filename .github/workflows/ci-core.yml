@@ -612,7 +612,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # include unique label (core/deployment/etc...) to ensure jobs are not competing for the same runner
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=8+16/ram=32+64/family=c6i+m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=16/ram=32/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
       SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
       SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
       SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
