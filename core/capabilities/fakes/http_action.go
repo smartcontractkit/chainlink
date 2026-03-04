@@ -90,9 +90,17 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 
-	// Add headers
-	for k, v := range input.GetHeaders() {
-		req.Header.Set(k, v)
+	// Add headers: prefer MultiHeaders, fall back to deprecated Headers
+	if len(input.GetMultiHeaders()) > 0 {
+		for k, v := range input.GetMultiHeaders() {
+			for _, val := range v.GetValues() {
+				req.Header.Add(k, val)
+			}
+		}
+	} else {
+		for k, v := range input.GetHeaders() {
+			req.Header.Set(k, v)
+		}
 	}
 
 	// Make the HTTP request
