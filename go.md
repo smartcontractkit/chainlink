@@ -127,15 +127,8 @@ flowchart LR
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-testing-framework/framework --> chainlink-testing-framework/lib/grafana
-	chainlink-testing-framework/framework --> chainlink-testing-framework/wasp
+	chainlink-testing-framework/framework
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink-testing-framework/lib/grafana
-	click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink-testing-framework/seth
-	click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink-testing-framework/wasp
-	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-ton --> chainlink-ccip
 	chainlink-ton --> chainlink-common/pkg/monitoring
 	chainlink-ton --> chainlink-framework/metrics
@@ -148,7 +141,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/ring/go
 	chainlink/v2 --> chainlink-sui
-	chainlink/v2 --> chainlink-testing-framework/seth
 	chainlink/v2 --> chainlink-ton
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
@@ -232,14 +224,6 @@ flowchart LR
 	end
 	click chainlink-protos-repo href "https://github.com/smartcontractkit/chainlink-protos"
 
-	subgraph chainlink-testing-framework-repo[chainlink-testing-framework]
-		 chainlink-testing-framework/framework
-		 chainlink-testing-framework/lib/grafana
-		 chainlink-testing-framework/seth
-		 chainlink-testing-framework/wasp
-	end
-	click chainlink-testing-framework-repo href "https://github.com/smartcontractkit/chainlink-testing-framework"
-
 	subgraph cre-sdk-go-repo[cre-sdk-go]
 		 cre-sdk-go
 		 cre-sdk-go/capabilities/networking/http
@@ -254,7 +238,7 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
 ## All modules
 ```mermaid
