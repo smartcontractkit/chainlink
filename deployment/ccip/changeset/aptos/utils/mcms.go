@@ -109,7 +109,7 @@ func (i CurseMCMSInspector) GetRoot(ctx context.Context, addr string) (common.Ha
 	if err != nil {
 		return common.Hash{}, 0, fmt.Errorf("get root: %w", err)
 	}
-	//nolint:gosec
+
 	return common.BytesToHash(root), uint32(validUntil), nil
 }
 
