@@ -82,10 +82,7 @@ func onEVMWriteTrigger(wfCfg config.Config, runtime cre.Runtime, payload *cron.P
 	case "WriteReport - invalid gas":
 		return runWriteReportWithInvalidGas(evmClient, runtime, wfCfg, report)
 	case "WriteReport - failing on receiver":
-		priceOutput.FeedID = [32]byte{}
-		priceOutput.Timestamp = 0
-		priceOutput.Price = big.NewInt(0)
-		report, err := generateReports(runtime, priceOutput)
+		report, err := generateInvalidReports(runtime)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate reports: %w", err)
 		}
@@ -163,12 +160,12 @@ func runWriteReportFailingOnReceiver(evmClient evm.Client, runtime cre.Runtime, 
 		return nil, fmt.Errorf("unexpected error for WriteReport  %w", err)
 	}
 
-	if wrOutput.TxStatus == evm.TxStatus_TX_STATUS_REVERTED {
+	if wrOutput.GetReceiverContractExecutionStatus() == evm.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED {
 		runtime.Logger().Info("WriteReport failed on the receiver and set the tx status to reverted")
 		return nil, fmt.Errorf("expected WriteReport to fail on the receiver")
 	}
 
-	runtime.Logger().Info("This is not expected, WriteReport should fail on the receiver and set the tx status to reverted, instead got", "tx_status", wrOutput.TxStatus)
+	runtime.Logger().Info("This is not expected, WriteReport should fail on the receiver and set the receiver contract execution status to reverted, instead got", "receiver contract execution status", wrOutput.ReceiverContractExecutionStatus)
 	return wrOutput, fmt.Errorf("writeReport should've returned tx status reverted, but instead returned %d", wrOutput.TxStatus)
 }
 
@@ -204,6 +201,25 @@ func generateReports(runtime cre.Runtime, output priceOutput) (*cre.Report, erro
 	runtime.Logger().Info("priceOutput encoded")
 
 	runtime.Logger().Info("Generating report")
+	encodedPrice = []byte{1, 2, 3}
+	report, err := runtime.GenerateReport(&cre.ReportRequest{
+		EncodedPayload: encodedPrice,
+		EncoderName:    "evm",
+		SigningAlgo:    "ecdsa",
+		HashingAlgo:    "keccak256",
+	}).Await()
+	if err != nil {
+		runtime.Logger().Error("failed to generate report", "error", err)
+		return nil, fmt.Errorf("failed to generate report: %w", err)
+	}
+	runtime.Logger().Info("Report generated successfully")
+
+	return report, nil
+}
+
+// generateReports  generates a report that suppose to fail on receiver
+func generateInvalidReports(runtime cre.Runtime) (*cre.Report, error) {
+	encodedPrice := []byte{1, 2, 3}
 	report, err := runtime.GenerateReport(&cre.ReportRequest{
 		EncodedPayload: encodedPrice,
 		EncoderName:    "evm",
