@@ -105,6 +105,15 @@ func TestE2ELegacy(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
+	zeroOnRampTxn, err := state.MustGetEVMChainState(src).Router.ApplyRampUpdates(e.Env.BlockChains.EVMChains()[src].DeployerKey, []router.RouterOnRamp{
+		{
+			DestChainSelector: dest,
+			OnRamp:            common.HexToAddress("0x0"),
+		},
+	}, []router.RouterOffRamp{}, []router.RouterOffRamp{})
+	require.NoError(t, err)
+	_, err = e.Env.BlockChains.EVMChains()[src].Confirm(zeroOnRampTxn)
+	require.NoError(t, err)
 	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 	require.NoError(t, err)
 	v1_5.WaitForCommit(t, srcChain, destChain, state.MustGetEVMChainState(dest).CommitStore[src], sentEvent.Message.SequenceNumber)
