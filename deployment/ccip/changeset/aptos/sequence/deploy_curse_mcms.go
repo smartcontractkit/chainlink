@@ -19,8 +19,8 @@ type DeployCurseMCMSSeqInput struct {
 }
 
 // DeployCurseMCMSSeqOutput holds the deployed address and a CurseMCMS
-// self-governance operation (SetMinDelay) that must be submitted as a proposal
-// targeting the CurseMCMS contract.
+// self-governance batch (AcceptOwnership + SetMinDelay) that must be submitted
+// as a proposal targeting the CurseMCMS contract.
 type DeployCurseMCMSSeqOutput struct {
 	CurseMCMSAddress   aptos.AccountAddress
 	CurseMCMSOperation mcmstypes.BatchOperation

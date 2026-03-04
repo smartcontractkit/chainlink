@@ -101,13 +101,13 @@ func (cs DeployCurseMCMS) Apply(env cldf.Environment, cfg config.DeployCurseMCMS
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save CurseMCMS address for Aptos chain %d: %w", chainSel, err)
 		}
 
-		// Generate a CurseMCMS proposal for self-governance operations (SetMinDelay).
+		// Generate a CurseMCMS proposal for self-governance operations (AcceptOwnership + SetMinDelay).
 		proposal, err := utils.GenerateProposal(
 			env,
 			curseMCMSSeqReport.Output.CurseMCMSAddress,
 			chainSel,
 			[]mcmstypes.BatchOperation{curseMCMSSeqReport.Output.CurseMCMSOperation},
-			"Configure CurseMCMS timelock min delay",
+			"CurseMCMS accept ownership and set timelock min delay",
 			cfg.MCMSTimelockConfigPerChain[chainSel],
 		)
 		if err != nil {
