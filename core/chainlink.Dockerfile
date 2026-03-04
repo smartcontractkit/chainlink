@@ -11,8 +11,17 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
+    --mount=type=cache,target=/go/pkg/mod \
+    set -e && \
+    export GIT_CONFIG_GLOBAL=/tmp/gitconfig-gomod-download && \
+    if [ -f /run/secrets/GIT_AUTH_TOKEN ] && [ -s /run/secrets/GIT_AUTH_TOKEN ]; then \
+        TOKEN=$(cat /run/secrets/GIT_AUTH_TOKEN) && \
+        git config --file "$GIT_CONFIG_GLOBAL" \
+            url."https://oauth2:${TOKEN}@github.com/".insteadOf "https://github.com/" ; \
+    fi && \
+    go mod download && \
+    rm -f "$GIT_CONFIG_GLOBAL"
 COPY . .
 
 # Install Delve for debugging with cache mounts
