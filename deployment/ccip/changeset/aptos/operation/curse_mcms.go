@@ -100,6 +100,73 @@ func configureCurseMCMS(b operations.Bundle, deps dependency.AptosDeps, in Confi
 	return nil, nil
 }
 
+// OP: TransferCurseMCMSOwnershipToSelfOp transfers CurseMCMS ownership to
+// the CurseMCMS resource account itself. The deployer is still the owner at
+// this point so the call is signed directly.
+var TransferCurseMCMSOwnershipToSelfOp = operations.NewOperation(
+	"transfer-curse-mcms-ownership-to-self-op",
+	Version1_0_0,
+	"Transfer CurseMCMS ownership to self",
+	transferCurseMCMSOwnershipToSelf,
+)
+
+func transferCurseMCMSOwnershipToSelf(b operations.Bundle, deps dependency.AptosDeps, curseMCMSAddress aptos.AccountAddress) (any, error) {
+	opts := &bind.TransactOpts{Signer: deps.AptosChain.DeployerSigner}
+	contractCurseMCMS := curse_mcms.Bind(curseMCMSAddress, deps.AptosChain.Client)
+	tx, err := contractCurseMCMS.CurseMCMSAccount().TransferOwnershipToSelf(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to TransferOwnershipToSelf in CurseMCMS contract: %w", err)
+	}
+	if err := deps.AptosChain.Confirm(tx.Hash); err != nil {
+		return nil, fmt.Errorf("CurseMCMS TransferOwnershipToSelf transaction failed: %w", err)
+	}
+	return nil, nil
+}
+
+// OP: AcceptCurseMCMSOwnershipOp encodes an AcceptOwnership transaction for
+// the CurseMCMS contract. This must be submitted as a CurseMCMS proposal so
+// the CurseMCMS resource account signer can call it.
+var AcceptCurseMCMSOwnershipOp = operations.NewOperation(
+	"accept-curse-mcms-ownership-op",
+	Version1_0_0,
+	"Generate Accept Ownership transaction for CurseMCMS",
+	acceptCurseMCMSOwnership,
+)
+
+func acceptCurseMCMSOwnership(b operations.Bundle, deps dependency.AptosDeps, curseMCMSAddress aptos.AccountAddress) (mcmstypes.Transaction, error) {
+	contractCurseMCMS := curse_mcms.Bind(curseMCMSAddress, deps.AptosChain.Client)
+	moduleInfo, function, _, args, err := contractCurseMCMS.CurseMCMSAccount().Encoder().AcceptOwnership()
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode CurseMCMS AcceptOwnership: %w", err)
+	}
+	return utils.GenerateMCMSTx(curseMCMSAddress, moduleInfo, function, args)
+}
+
+// OP: SetCurseMCMSMinDelayOp encodes a CurseMCMS timelock transaction for
+// timelock_update_min_delay. This must be submitted as a CurseMCMS proposal
+// because the function requires TIMELOCK_ROLE.
+type CurseMCMSMinDelayInput struct {
+	CurseMCMSAddress aptos.AccountAddress
+	TimelockMinDelay uint64
+}
+
+var SetCurseMCMSMinDelayOp = operations.NewOperation(
+	"set-curse-mcms-min-delay-op",
+	Version1_0_0,
+	"Generate set timelock min delay transaction for CurseMCMS",
+	setCurseMCMSMinDelay,
+)
+
+func setCurseMCMSMinDelay(b operations.Bundle, deps dependency.AptosDeps, in CurseMCMSMinDelayInput) (mcmstypes.Transaction, error) {
+	curseMcmsBinding := curse_mcms.Bind(in.CurseMCMSAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := curseMcmsBinding.CurseMCMS().Encoder().TimelockUpdateMinDelay(in.TimelockMinDelay)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode CurseMCMS TimelockUpdateMinDelay: %w", err)
+	}
+	return utils.GenerateMCMSTx(in.CurseMCMSAddress, moduleInfo, function, args)
+}
+
 // OP: InitializeAllowedCursersOp generates a main-MCMS transaction that
 // calls rmn_remote::initialize_allowed_cursers_v2 with the CurseMCMS address.
 type InitializeAllowedCursersInput struct {

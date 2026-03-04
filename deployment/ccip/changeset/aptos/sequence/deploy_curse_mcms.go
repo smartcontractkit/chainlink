@@ -18,18 +18,18 @@ type DeployCurseMCMSSeqInput struct {
 	CurseMCMS   types.MCMSWithTimelockConfigV2
 }
 
-// DeployCurseMCMSSeqOutput holds the deployed address and any main-MCMS
-// operations that the caller must execute (e.g. registering the CurseMCMS
-// signer as an allowed curser on RMN Remote).
+// DeployCurseMCMSSeqOutput holds the deployed address and a CurseMCMS
+// self-governance operation (SetMinDelay) that must be submitted as a proposal
+// targeting the CurseMCMS contract.
 type DeployCurseMCMSSeqOutput struct {
-	CurseMCMSAddress aptos.AccountAddress
-	MCMSOperation    mcmstypes.BatchOperation
+	CurseMCMSAddress   aptos.AccountAddress
+	CurseMCMSOperation mcmstypes.BatchOperation
 }
 
 var DeployCurseMCMSSequence = operations.NewSequence(
 	"deploy-aptos-curse-mcms-sequence",
 	operation.Version1_0_0,
-	"Deploy Aptos CurseMCMS contract, configure it, and register as allowed curser",
+	"Deploy and configure Aptos CurseMCMS contract",
 	deployCurseMCMSSequence,
 )
 
@@ -81,24 +81,34 @@ func deployCurseMCMSSequence(b operations.Bundle, deps dependency.AptosDeps, in 
 		return DeployCurseMCMSSeqOutput{}, err
 	}
 
-	// Generate main-MCMS transaction to register the CurseMCMS signer as an
-	// allowed curser on RMN Remote. The caller must include this in a proposal
-	// targeting the main MCMS contract.
-	initCursersReport, err := operations.ExecuteOperation(b, operation.InitializeAllowedCursersOp, deps, operation.InitializeAllowedCursersInput{
-		CCIPAddress:      in.CCIPAddress,
+	// Transfer ownership to self (deployer-signed)
+	_, err = operations.ExecuteOperation(b, operation.TransferCurseMCMSOwnershipToSelfOp, deps, curseMCMSAddr)
+	if err != nil {
+		return DeployCurseMCMSSeqOutput{}, err
+	}
+
+	// Encode AcceptOwnership as a CurseMCMS proposal transaction
+	aoReport, err := operations.ExecuteOperation(b, operation.AcceptCurseMCMSOwnershipOp, deps, curseMCMSAddr)
+	if err != nil {
+		return DeployCurseMCMSSeqOutput{}, err
+	}
+
+	// Encode SetMinDelay as a CurseMCMS proposal transaction
+	mdReport, err := operations.ExecuteOperation(b, operation.SetCurseMCMSMinDelayOp, deps, operation.CurseMCMSMinDelayInput{
 		CurseMCMSAddress: curseMCMSAddr,
+		TimelockMinDelay: (*in.CurseMCMS.TimelockMinDelay).Uint64(),
 	})
 	if err != nil {
 		return DeployCurseMCMSSeqOutput{}, err
 	}
 
-	mcmsOp := mcmstypes.BatchOperation{
+	curseMCMSOp := mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
-		Transactions:  []mcmstypes.Transaction{initCursersReport.Output},
+		Transactions:  []mcmstypes.Transaction{aoReport.Output, mdReport.Output},
 	}
 
 	return DeployCurseMCMSSeqOutput{
-		CurseMCMSAddress: curseMCMSAddr,
-		MCMSOperation:    mcmsOp,
+		CurseMCMSAddress:   curseMCMSAddr,
+		CurseMCMSOperation: curseMCMSOp,
 	}, nil
 }

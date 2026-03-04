@@ -22,8 +22,7 @@ import (
 
 var _ cldf.ChangeSetV2[config.DeployCurseMCMSConfig] = DeployCurseMCMS{}
 
-// DeployCurseMCMS deploys and configures the CurseMCMS contract on Aptos chains,
-// then registers it as an allowed curser on RMN Remote via a main-MCMS proposal.
+// DeployCurseMCMS deploys and configures the CurseMCMS contract on Aptos chains.
 type DeployCurseMCMS struct{}
 
 func (cs DeployCurseMCMS) VerifyPreconditions(env cldf.Environment, cfg config.DeployCurseMCMSConfig) error {
@@ -102,16 +101,17 @@ func (cs DeployCurseMCMS) Apply(env cldf.Environment, cfg config.DeployCurseMCMS
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save CurseMCMS address for Aptos chain %d: %w", chainSel, err)
 		}
 
+		// Generate a CurseMCMS proposal for self-governance operations (SetMinDelay).
 		proposal, err := utils.GenerateProposal(
 			env,
-			chainState.MCMSAddress,
+			curseMCMSSeqReport.Output.CurseMCMSAddress,
 			chainSel,
-			[]mcmstypes.BatchOperation{curseMCMSSeqReport.Output.MCMSOperation},
-			"Deploy and configure Aptos CurseMCMS",
+			[]mcmstypes.BatchOperation{curseMCMSSeqReport.Output.CurseMCMSOperation},
+			"Configure CurseMCMS timelock min delay",
 			cfg.MCMSTimelockConfigPerChain[chainSel],
 		)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate CurseMCMS proposal for Aptos chain %d: %w", chainSel, err)
 		}
 		proposals = append(proposals, *proposal)
 	}
