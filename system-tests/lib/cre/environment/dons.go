@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -51,7 +52,7 @@ func (s *StartedDONs) DONs() []*cre.Don {
 // ensureGithubTokenForPrivatePlugins checks if any nodeset has nodes with empty image (requiring
 // a Docker build). If so, ensures GITHUB_TOKEN is set so BuildImageOnce can install plugins from
 // private repos. If GITHUB_TOKEN is unset, tries to obtain it via `gh auth token`.
-func ensureGithubTokenForPrivatePlugins(nodeSets []*cre.NodeSet) error {
+func ensureGithubTokenForPrivatePlugins(ctx context.Context, nodeSets []*cre.NodeSet) error {
 	if os.Getenv("CTF_CHAINLINK_IMAGE") != "" {
 		return nil // image provided via env, no build needed
 	}
@@ -73,14 +74,14 @@ func ensureGithubTokenForPrivatePlugins(nodeSets []*cre.NodeSet) error {
 	if os.Getenv("GITHUB_TOKEN") != "" {
 		return nil
 	}
-	cmd := exec.Command("gh", "auth", "token")
+	cmd := exec.CommandContext(ctx, "gh", "auth", "token")
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("GITHUB_TOKEN is not set and `gh auth token` failed (is gh CLI installed and configured?): %w", err)
 	}
 	token := strings.TrimSpace(string(output))
 	if token == "" {
-		return fmt.Errorf("GITHUB_TOKEN is not set and `gh auth token` returned empty output")
+		return errors.New("GITHUB_TOKEN is not set and `gh auth token` returned empty output")
 	}
 	os.Setenv("GITHUB_TOKEN", token)
 	return nil
@@ -131,7 +132,7 @@ func StartDONs(
 	}
 
 	if !infraInput.IsKubernetes() {
-		if err := ensureGithubTokenForPrivatePlugins(nodeSets); err != nil {
+		if err := ensureGithubTokenForPrivatePlugins(ctx, nodeSets); err != nil {
 			return nil, err
 		}
 	}
