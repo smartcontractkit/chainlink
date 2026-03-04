@@ -471,7 +471,8 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	signerAddr, err := suiChain.Signer.GetAddress()
 	require.NoError(t, err)
 
 	// compile packages
@@ -485,7 +486,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		"original_onramp_pkg": state.SuiChains[sourceChain].OnRampAddress,
 		"upgrade_cap":         state.SuiChains[sourceChain].OnRampUpgradeCapId,
 		"signer":              signerAddr,
-	}, true, "")
+	}, true, suiChain.URL)
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
