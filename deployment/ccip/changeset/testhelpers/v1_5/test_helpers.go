@@ -252,20 +252,20 @@ func CreatePriceGetterConfig(t *testing.T, state stateview.CCIPOnChainState, sou
 }
 
 func DefaultOCRParams() confighelper.PublicConfig {
-    return confighelper.PublicConfig{
-       DeltaProgress:                           30 * time.Second, // Lower DeltaProgress can lead to timeouts when running tests locally
-       DeltaResend:                             10 * time.Second,
-       DeltaRound:                              2 * time.Second,
-       DeltaGrace:                              2 * time.Second,
-       DeltaStage:                              10 * time.Second,
-       RMax:                                    3,
-       MaxDurationInitialization:               nil,
-       MaxDurationQuery:                        10 * time.Second,
-       MaxDurationObservation:                  10 * time.Second,
-       MaxDurationShouldAcceptFinalizedReport:  10 * time.Second,
-       MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
-       MaxDurationReport:                       4 * time.Second,
-    }
+	return confighelper.PublicConfig{
+		DeltaProgress:                           30 * time.Second, // Lower DeltaProgress can lead to timeouts when running tests locally
+		DeltaResend:                             10 * time.Second,
+		DeltaRound:                              2 * time.Second,
+		DeltaGrace:                              2 * time.Second,
+		DeltaStage:                              10 * time.Second,
+		RMax:                                    3,
+		MaxDurationInitialization:               nil,
+		MaxDurationQuery:                        10 * time.Second,
+		MaxDurationObservation:                  10 * time.Second,
+		MaxDurationShouldAcceptFinalizedReport:  10 * time.Second,
+		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+		MaxDurationReport:                       4 * time.Second,
+	}
 }
 
 func SendRequest(
