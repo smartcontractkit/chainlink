@@ -92,7 +92,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
-	assert.Equal(t, 20, typedRP.cfg.BatchSize.DefaultValue)
+	assert.Equal(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.BatchSize.DefaultValue)
 	assert.NotNil(t, typedRP.cfg.PublicKey)
 	assert.NotNil(t, typedRP.cfg.PrivateKeyShare)
 	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
@@ -104,14 +104,18 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
 	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
-	assert.Equal(t, 100, infoObject.Limits.MaxQueryBytes)
-	assert.Equal(t, 512000, infoObject.Limits.MaxObservationBytes)
-	assert.Equal(t, 512000, infoObject.Limits.MaxReportsPlusPrecursorBytes)
-	assert.Equal(t, 512000, infoObject.Limits.MaxReportBytes)
-	assert.Equal(t, 20, infoObject.Limits.MaxReportCount)
-	assert.Equal(t, 1024*1024, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
-	assert.Equal(t, 25*1024, infoObject.Limits.MaxBlobPayloadBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxQueryLength.DefaultValue, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxObservationLength.DefaultValue, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxReportsPlusPrecursorLength.DefaultValue, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxReportLength.DefaultValue, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxReportCount.DefaultValue, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxKeyValueModifiedKeysPlusValuesLength.DefaultValue, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxKeyValueModifiedKeys.DefaultValue, infoObject.Limits.MaxKeyValueModifiedKeys)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxBlobPayloadLength.DefaultValue, infoObject.Limits.MaxBlobPayloadBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes.DefaultValue, infoObject.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCount.DefaultValue, infoObject.Limits.MaxPerOracleUnexpiredBlobCount)
 
+	// Verify that configProto overrides are ignored — values should remain at cresettings defaults.
 	cfg = vaultcommon.ReportingPluginConfig{
 		BatchSize:                                     2,
 		MaxSecretsPerOwner:                            2,
@@ -135,24 +139,23 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	require.NoError(t, err)
 
 	typedRP = rp.(*ReportingPlugin)
-	assert.Equal(t, 2, typedRP.cfg.BatchSize.DefaultValue)
-	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
-	assertLimit(t, 2, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+	assert.Equal(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.BatchSize.DefaultValue)
+	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
+	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
 
 	infoObject, ok = info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
 	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
-	assert.Equal(t, 2, infoObject.Limits.MaxQueryBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxObservationBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxReportsPlusPrecursorBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxReportBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxReportCount)
-	assert.Equal(t, 2, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxBlobPayloadBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxQueryLength.DefaultValue, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxObservationLength.DefaultValue, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxReportsPlusPrecursorLength.DefaultValue, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxReportLength.DefaultValue, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxReportCount.DefaultValue, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxKeyValueModifiedKeysPlusValuesLength.DefaultValue, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, cresettings.Default.VaultLimitsMaxBlobPayloadLength.DefaultValue, infoObject.Limits.MaxBlobPayloadBytes)
 }
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
@@ -186,7 +189,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
-	assert.Equal(t, 20, typedRP.cfg.BatchSize.DefaultValue)
+	assert.Equal(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.BatchSize.DefaultValue)
 
 	pkBytes, err := typedRP.cfg.PublicKey.Marshal()
 	require.NoError(t, err)

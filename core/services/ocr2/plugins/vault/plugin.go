@@ -42,28 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const (
-	// The query is empty in this plugin.
-	defaultLimitsMaxQueryLength = 100
-
-	// Back of the envelope calculation:
-	// - An item can contain 2KB of ciphertext, 192 bytes of metadata (key, owner, namespace),
-	// a UUID (16 bytes) plus some overhead = ~2.5KB per item
-	// There can be 10 such items in a request, and 20 per batch, so 2.5KB * 10 * 20 = 500KB
-	defaultLimitsMaxObservationLength                    = 500 * 1024 // 500KB
-	defaultLimitsMaxReportsPlusPrecursorLength           = 500 * 1024 // 500KB
-	defaultLimitsMaxReportLength                         = 500 * 1024 // 500KB
-	defaultLimitsMaxReportCount                          = 20
-	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024 * 1024 // 1MB
-	defaultLimitsMaxKeyValueModifiedKeys                 = 500         // BatchSize (20) * ItemsPerBatch (10) * 2 keys (secret + metadata) + buffer (100)
-
-	// Per above, a request is max 25KB, we add a bit of buffer to allow some room.
-	defaultLimitsMaxBlobPayloadLength = 25 * 1024 // 25KB
-	// Per docs, this should allow some additional buffer to allow for reaping time.
-	defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes = 30 * 1024 * 1024 // 30 MB
-	defaultLimitsMaxPerOracleUnexpiredBlobCount                  = 1000
-)
-
 var (
 	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 )
@@ -162,14 +140,6 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 	return publicKey, privateKeyShare, nil
 }
 
-func (r *ReportingPluginFactory) makeSizeLimiter(defaultSize settings.Setting[pkgconfig.Size], configSize int32) (limits.BoundLimiter[pkgconfig.Size], error) {
-	if configSize != 0 {
-		defaultSize.DefaultValue = pkgconfig.Size(configSize) * pkgconfig.Byte
-	}
-
-	return limits.MakeBoundLimiter[pkgconfig.Size](r.limitsFactory, defaultSize)
-}
-
 func logLimit[N limits.Number](ctx context.Context, lggr logger.Logger, limiter limits.BoundLimiter[N]) N {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: "DUMMY-OWNER-FOR-LOGGING"})
 	limit, err := limiter.Limit(ctx)
@@ -185,84 +155,36 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
 	}
 
-	maxSecretsPerOwnerLimit := cresettings.Default.PerOwner.VaultSecretsLimit
-	if configProto.MaxSecretsPerOwner != 0 {
-		maxSecretsPerOwnerLimit.DefaultValue = int(configProto.MaxSecretsPerOwner)
-	}
-
-	maxSecretsPerOwnerLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, maxSecretsPerOwnerLimit)
+	maxSecretsPerOwnerLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, cresettings.Default.PerOwner.VaultSecretsLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max secrets per owner limiter: %w", err)
 	}
 
 	batchSize := cresettings.Default.VaultPluginBatchSizeLimit
-	if configProto.BatchSize != 0 {
-		batchSize.DefaultValue = int(configProto.BatchSize)
-	}
 
 	maxBatchSizeLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, batchSize)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max batch size limiter: %w", err)
 	}
 
-	maxCiphertextLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultCiphertextSizeLimit, configProto.MaxCiphertextLengthBytes)
+	maxCiphertextLengthBytesLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, cresettings.Default.VaultCiphertextSizeLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max ciphertext length limiter: %w", err)
 	}
 
-	maxIdentifierKeyLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultIdentifierKeySizeLimit, configProto.MaxIdentifierKeyLengthBytes)
+	maxIdentifierKeyLengthBytesLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max identifier key length limiter: %w", err)
 	}
 
-	maxIdentifierOwnerLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultIdentifierOwnerSizeLimit, configProto.MaxIdentifierOwnerLengthBytes)
+	maxIdentifierOwnerLengthBytesLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max identifier owner length limiter: %w", err)
 	}
 
-	maxIdentifierNamespaceLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultIdentifierNamespaceSizeLimit, configProto.MaxIdentifierNamespaceLengthBytes)
+	maxIdentifierNamespaceLengthBytesLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max identifier namespace length limiter: %w", err)
-	}
-
-	if configProto.LimitsMaxQueryLength == 0 {
-		configProto.LimitsMaxQueryLength = defaultLimitsMaxQueryLength
-	}
-
-	if configProto.LimitsMaxObservationLength == 0 {
-		configProto.LimitsMaxObservationLength = defaultLimitsMaxObservationLength
-	}
-
-	if configProto.LimitsMaxReportsPlusPrecursorLength == 0 {
-		configProto.LimitsMaxReportsPlusPrecursorLength = defaultLimitsMaxReportsPlusPrecursorLength
-	}
-
-	if configProto.LimitsMaxReportLength == 0 {
-		configProto.LimitsMaxReportLength = defaultLimitsMaxReportLength
-	}
-
-	if configProto.LimitsMaxReportCount == 0 {
-		configProto.LimitsMaxReportCount = defaultLimitsMaxReportCount
-	}
-
-	if configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength == 0 {
-		configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength = defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength
-	}
-
-	if configProto.LimitsMaxKeyValueModifiedKeys == 0 {
-		configProto.LimitsMaxKeyValueModifiedKeys = defaultLimitsMaxKeyValueModifiedKeys
-	}
-
-	if configProto.LimitsMaxBlobPayloadLength == 0 {
-		configProto.LimitsMaxBlobPayloadLength = defaultLimitsMaxBlobPayloadLength
-	}
-
-	if configProto.LimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes == 0 {
-		configProto.LimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes = defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes
-	}
-
-	if configProto.LimitsMaxPerOracleUnexpiredBlobCount == 0 {
-		configProto.LimitsMaxPerOracleUnexpiredBlobCount = defaultLimitsMaxPerOracleUnexpiredBlobCount
 	}
 
 	if configProto.DKGInstanceID == nil {
@@ -320,16 +242,16 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		}, ocr3_1types.ReportingPluginInfo1{
 			Name: "VaultReportingPlugin",
 			Limits: ocr3_1types.ReportingPluginLimits{
-				MaxQueryBytes:                                   int(configProto.LimitsMaxQueryLength),
-				MaxObservationBytes:                             int(configProto.LimitsMaxObservationLength),
-				MaxReportsPlusPrecursorBytes:                    int(configProto.LimitsMaxReportsPlusPrecursorLength),
-				MaxReportBytes:                                  int(configProto.LimitsMaxReportLength),
-				MaxReportCount:                                  int(configProto.LimitsMaxReportCount),
-				MaxKeyValueModifiedKeysPlusValuesBytes:          int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
-				MaxKeyValueModifiedKeys:                         int(configProto.LimitsMaxKeyValueModifiedKeys),
-				MaxBlobPayloadBytes:                             int(configProto.LimitsMaxBlobPayloadLength),
-				MaxPerOracleUnexpiredBlobCumulativePayloadBytes: int(configProto.LimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes),
-				MaxPerOracleUnexpiredBlobCount:                  int(configProto.LimitsMaxPerOracleUnexpiredBlobCount),
+				MaxQueryBytes:                                   cresettings.Default.VaultLimitsMaxQueryLength.DefaultValue,
+				MaxObservationBytes:                             cresettings.Default.VaultLimitsMaxObservationLength.DefaultValue,
+				MaxReportsPlusPrecursorBytes:                    cresettings.Default.VaultLimitsMaxReportsPlusPrecursorLength.DefaultValue,
+				MaxReportBytes:                                  cresettings.Default.VaultLimitsMaxReportLength.DefaultValue,
+				MaxReportCount:                                  cresettings.Default.VaultLimitsMaxReportCount.DefaultValue,
+				MaxKeyValueModifiedKeysPlusValuesBytes:          cresettings.Default.VaultLimitsMaxKeyValueModifiedKeysPlusValuesLength.DefaultValue,
+				MaxKeyValueModifiedKeys:                         cresettings.Default.VaultLimitsMaxKeyValueModifiedKeys.DefaultValue,
+				MaxBlobPayloadBytes:                             cresettings.Default.VaultLimitsMaxBlobPayloadLength.DefaultValue,
+				MaxPerOracleUnexpiredBlobCumulativePayloadBytes: cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes.DefaultValue,
+				MaxPerOracleUnexpiredBlobCount:                  cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCount.DefaultValue,
 			},
 		}, nil
 }
