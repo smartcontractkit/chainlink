@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -30,7 +31,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 		// Otherwise use optimistic i+1; the ID may be overwritten later when resolving from the contract.
 		id := nodeSet[i].ContractDonID
 		if id == 0 {
-			id = uint64(i + 1)
+			id = libc.MustSafeUint64FromInt(i + 1)
 		}
 		d, err := NewDonMetadata(nodeSet[i], id, provider, capabilityConfigs)
 		if err != nil {

@@ -516,7 +516,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 }
 
 type DonInfo struct {
-	Id          uint32
+	ID          uint32
 	F           uint8
 	ConfigCount uint32
 	NodeP2PIds  [][32]byte
@@ -555,7 +555,7 @@ func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, e
 		}
 
 		return DonInfo{
-			Id:          d.Id,
+			ID:          d.Id,
 			F:           d.F,
 			ConfigCount: d.ConfigCount,
 			NodeP2PIds:  d.NodeP2PIds,
@@ -569,7 +569,7 @@ func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, e
 		}
 
 		return DonInfo{
-			Id:          d.Id,
+			ID:          d.Id,
 			F:           d.F,
 			ConfigCount: d.ConfigCount,
 			NodeP2PIds:  d.NodeP2PIds,
@@ -593,7 +593,7 @@ func (rw *registryWrapper) GetDONByName(opts *bind.CallOpts, donName string) (Do
 	}
 
 	return DonInfo{
-		Id:          d.Id,
+		ID:          d.Id,
 		F:           d.F,
 		ConfigCount: d.ConfigCount,
 		NodeP2PIds:  d.NodeP2PIds,
@@ -616,7 +616,7 @@ func (rw *registryWrapper) GetDONs(opts *bind.CallOpts) ([]DonInfo, error) {
 	result := make([]DonInfo, len(dons))
 	for i, d := range dons {
 		result[i] = DonInfo{
-			Id:          d.Id,
+			ID:          d.Id,
 			F:           d.F,
 			ConfigCount: d.ConfigCount,
 			NodeP2PIds:  d.NodeP2PIds,
@@ -642,7 +642,7 @@ func ResolveContractDonIDs(
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get DON by name %s", donName)
 			}
-			result[don.Name] = info.Id
+			result[don.Name] = info.ID
 		}
 		return result, nil
 	}
@@ -659,7 +659,7 @@ func ResolveContractDonIDs(
 			for _, ourP2P := range don.NodeP2PIds {
 				for _, contractP2P := range cd.NodeP2PIds {
 					if ourP2P == contractP2P {
-						result[don.Name] = cd.Id
+						result[don.Name] = cd.ID
 						found = true
 						break
 					}
