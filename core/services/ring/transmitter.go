@@ -52,10 +52,12 @@ func (t *Transmitter) Transmit(ctx context.Context, _ types.ConfigDigest, _ uint
 		}
 	}
 	if applyRoutes {
-		for workflowID, route := range outcome.Routes {
-			t.ringStore.SetShardForWorkflow(workflowID, route.Shard)
-			t.lggr.Debugw("Updated workflow shard mapping", "workflowID", workflowID, "shard", route.Shard)
+		flat := make(map[string]uint32, len(outcome.Routes))
+		for wfID, route := range outcome.Routes {
+			flat[wfID] = route.Shard
 		}
+		t.ringStore.SyncRoutes(flat)
+		t.lggr.Debugw("Synced workflow shard mappings", "count", len(flat))
 	} else {
 		t.lggr.Debugw("Skipping route updates while in transition", "state", outcome.State)
 	}
