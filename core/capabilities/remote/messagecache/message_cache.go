@@ -74,6 +74,20 @@ func (c *MessageCache[EventID, PeerID]) Delete(eventID EventID) {
 	delete(c.events, eventID)
 }
 
+// Peers returns a snapshot of peer IDs that have inserted a message for eventID.
+func (c *MessageCache[EventID, PeerID]) Peers(eventID EventID) map[PeerID]bool {
+	ev, ok := c.events[eventID]
+	if !ok {
+		return nil
+	}
+
+	peers := make(map[PeerID]bool, len(ev.peerMsgs))
+	for peerID := range ev.peerMsgs {
+		peers[peerID] = true
+	}
+	return peers
+}
+
 // Return the number of events deleted.
 // Scans all keys, which might be slow for large caches.
 func (c *MessageCache[EventID, PeerID]) DeleteOlderThan(cutoffTimestamp int64) int {
