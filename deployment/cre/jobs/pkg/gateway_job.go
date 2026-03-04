@@ -39,9 +39,10 @@ type TargetDONMember struct {
 }
 
 type TargetDON struct {
-	ID      string
-	F       int
-	Members []TargetDONMember
+	ID       string
+	F        int
+	Members  []TargetDONMember
+	Handlers []string // used only in legacy (don-centric) format
 }
 
 type GatewayServiceConfig struct {
@@ -51,8 +52,15 @@ type GatewayServiceConfig struct {
 }
 
 type GatewayJob struct {
-	DONs              []TargetDON
-	Services          []GatewayServiceConfig
+	UseServiceCentricFormat bool
+
+	// Don-centric format (UseServiceCentricFormat == false): handlers are per-DON.
+	TargetDONs []TargetDON
+
+	// Service-centric format (UseServiceCentricFormat == true): handlers are per-service, DONs referenced by name.
+	DONs     []TargetDON
+	Services []GatewayServiceConfig
+
 	JobName           string
 	RequestTimeoutSec int
 	AllowedPorts      []int
@@ -67,12 +75,15 @@ func (g GatewayJob) Validate() error {
 		return errors.New("must provide job name")
 	}
 
-	if len(g.DONs) == 0 {
-		return errors.New("must provide at least one DON")
-	}
-
-	if len(g.Services) == 0 {
-		return errors.New("must provide at least one service")
+	if g.UseServiceCentricFormat {
+		if len(g.DONs) == 0 {
+			return errors.New("must provide at least one DON")
+		}
+		if len(g.Services) == 0 {
+			return errors.New("must provide at least one service")
+		}
+	} else if len(g.TargetDONs) == 0 {
+		return errors.New("must provide at least one target DON")
 	}
 
 	// We impose a lower bound to account for other timeouts which are hardcoded,
@@ -110,60 +121,76 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 		externalJobID = uuid.NewSHA1(uuid.Nil, []byte(g.JobName)).String()
 	}
 
-	shardedDONs, services, err := g.buildServicesAndShardedDONs()
-	if err != nil {
-		return "", err
-	}
-
 	requestTimeout := time.Duration(g.RequestTimeoutSec) * time.Second
-	config := gatewayConfig{
-		ConnectionManagerConfig: connectionManagerConfig{
-			AuthChallengeLen:          10,
-			AuthGatewayID:             "gateway-node-" + strconv.Itoa(gatewayNodeIdx),
-			AuthTimestampToleranceSec: 5,
-			HeartbeatIntervalSec:      20,
-		},
-		NodeServerConfig: nodeServerConfig{
-			HandshakeTimeoutMillis: 1_000,
-			MaxRequestBytes:        100_000,
-			Path:                   "/",
-			Port:                   5_003,
-			ReadTimeoutMillis:      1_000,
-			RequestTimeoutMillis:   int(requestTimeout.Milliseconds()),
-			WriteTimeoutMillis:     1_000,
-		},
-		UserServerConfig: userServerConfig{
-			ContentTypeHeader:    "application/jsonrpc",
-			MaxRequestBytes:      100_000,
-			Path:                 "/",
-			Port:                 5_002,
-			ReadTimeoutMillis:    int(requestTimeout.Milliseconds()),
-			RequestTimeoutMillis: int(requestTimeout.Milliseconds()),
-			WriteTimeoutMillis:   int(requestTimeout.Milliseconds() + 1000),
-		},
-		HTTPClientConfig: httpClientConfig{
-			MaxResponseBytes: 50_000_000,
-			AllowedPorts:     []int{443},
-			AllowedSchemes:   []string{"https"},
-		},
-		ShardedDONs: shardedDONs,
-		Services:    services,
+	connCfg := connectionManagerConfig{
+		AuthChallengeLen:          10,
+		AuthGatewayID:             "gateway-node-" + strconv.Itoa(gatewayNodeIdx),
+		AuthTimestampToleranceSec: 5,
+		HeartbeatIntervalSec:      20,
+	}
+	nodeCfg := nodeServerConfig{
+		HandshakeTimeoutMillis: 1_000,
+		MaxRequestBytes:        100_000,
+		Path:                   "/",
+		Port:                   5_003,
+		ReadTimeoutMillis:      1_000,
+		RequestTimeoutMillis:   int(requestTimeout.Milliseconds()),
+		WriteTimeoutMillis:     1_000,
+	}
+	userCfg := userServerConfig{
+		ContentTypeHeader:    "application/jsonrpc",
+		MaxRequestBytes:      100_000,
+		Path:                 "/",
+		Port:                 5_002,
+		ReadTimeoutMillis:    int(requestTimeout.Milliseconds()),
+		RequestTimeoutMillis: int(requestTimeout.Milliseconds()),
+		WriteTimeoutMillis:   int(requestTimeout.Milliseconds() + 1000),
+	}
+	httpCfg := httpClientConfig{
+		MaxResponseBytes: 50_000_000,
+		AllowedPorts:     []int{443},
+		AllowedSchemes:   []string{"https"},
 	}
 
 	if len(g.AllowedPorts) > 0 {
-		config.HTTPClientConfig.AllowedPorts = g.AllowedPorts
+		httpCfg.AllowedPorts = g.AllowedPorts
 	}
-
 	if len(g.AllowedSchemes) > 0 {
-		config.HTTPClientConfig.AllowedSchemes = g.AllowedSchemes
+		httpCfg.AllowedSchemes = g.AllowedSchemes
 	}
-
 	if len(g.AllowedIPsCIDR) > 0 {
-		config.HTTPClientConfig.AllowedIPsCIDR = g.AllowedIPsCIDR
+		httpCfg.AllowedIPsCIDR = g.AllowedIPsCIDR
+	}
+	if g.AuthGatewayID != "" {
+		connCfg.AuthGatewayID = g.AuthGatewayID
 	}
 
-	if g.AuthGatewayID != "" {
-		config.ConnectionManagerConfig.AuthGatewayID = g.AuthGatewayID
+	var gwConfig any
+	if g.UseServiceCentricFormat {
+		shardedDONs, services, err := g.buildServicesAndShardedDONs()
+		if err != nil {
+			return "", err
+		}
+		gwConfig = gatewayConfigServiceCentric{
+			ConnectionManagerConfig: connCfg,
+			ShardedDONs:             shardedDONs,
+			Services:                services,
+			HTTPClientConfig:        httpCfg,
+			NodeServerConfig:        nodeCfg,
+			UserServerConfig:        userCfg,
+		}
+	} else {
+		dons, err := g.buildLegacyDons()
+		if err != nil {
+			return "", err
+		}
+		gwConfig = gatewayConfigLegacy{
+			ConnectionManagerConfig: connCfg,
+			Dons:                    dons,
+			HTTPClientConfig:        httpCfg,
+			NodeServerConfig:        nodeCfg,
+			UserServerConfig:        userCfg,
+		}
 	}
 
 	spec := &gatewaySpec{
@@ -172,7 +199,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 		Name:              g.JobName,
 		ExternalJobID:     externalJobID,
 		ForwardingAllowed: false,
-		GatewayConfig:     config,
+		GatewayConfig:     gwConfig,
 	}
 	b, marshalErr := toml.Marshal(spec)
 	if marshalErr != nil {
@@ -180,6 +207,38 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 	}
 
 	return string(b), nil
+}
+
+func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
+	dons := make([]legacyDON, 0, len(g.TargetDONs))
+	for _, targetDON := range g.TargetDONs {
+		ms := make([]member, 0, len(targetDON.Members))
+		for _, mem := range targetDON.Members {
+			ms = append(ms, member(mem))
+		}
+
+		hs := make([]handler, 0, len(targetDON.Handlers))
+		for _, ht := range targetDON.Handlers {
+			switch ht {
+			case GatewayHandlerTypeWebAPICapabilities:
+				hs = append(hs, newDefaultWebAPICapabilitiesHandler())
+			case GatewayHandlerTypeVault:
+				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec))
+			case GatewayHandlerTypeHTTPCapabilities:
+				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
+			default:
+				return nil, errors.New("unknown handler type: " + ht)
+			}
+		}
+
+		dons = append(dons, legacyDON{
+			DonID:    targetDON.ID,
+			F:        targetDON.F,
+			Handlers: hs,
+			Members:  ms,
+		})
+	}
+	return dons, nil
 }
 
 func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, error) {
@@ -265,21 +324,36 @@ func newDefaultVaultHandler(requestTimeoutSec int) handler {
 }
 
 type gatewaySpec struct {
-	Type              string        `toml:"type"`
-	SchemaVersion     int           `toml:"schemaVersion"`
-	Name              string        `toml:"name"`
-	ExternalJobID     string        `toml:"externalJobID"`
-	ForwardingAllowed bool          `toml:"forwardingAllowed"`
-	GatewayConfig     gatewayConfig `toml:"gatewayConfig"`
+	Type              string `toml:"type"`
+	SchemaVersion     int    `toml:"schemaVersion"`
+	Name              string `toml:"name"`
+	ExternalJobID     string `toml:"externalJobID"`
+	ForwardingAllowed bool   `toml:"forwardingAllowed"`
+	GatewayConfig     any    `toml:"gatewayConfig"`
 }
 
-type gatewayConfig struct {
+type gatewayConfigLegacy struct {
+	ConnectionManagerConfig connectionManagerConfig `toml:"ConnectionManagerConfig"`
+	Dons                    []legacyDON             `toml:"Dons"`
+	HTTPClientConfig        httpClientConfig        `toml:"HTTPClientConfig"`
+	NodeServerConfig        nodeServerConfig        `toml:"NodeServerConfig"`
+	UserServerConfig        userServerConfig        `toml:"UserServerConfig"`
+}
+
+type gatewayConfigServiceCentric struct {
 	ConnectionManagerConfig connectionManagerConfig `toml:"ConnectionManagerConfig"`
 	ShardedDONs             []shardedDON            `toml:"ShardedDONs"`
 	Services                []service               `toml:"Services"`
 	HTTPClientConfig        httpClientConfig        `toml:"HTTPClientConfig"`
 	NodeServerConfig        nodeServerConfig        `toml:"NodeServerConfig"`
 	UserServerConfig        userServerConfig        `toml:"UserServerConfig"`
+}
+
+type legacyDON struct {
+	DonID    string    `toml:"DonId"`
+	F        int       `toml:"F"`
+	Handlers []handler `toml:"Handlers"`
+	Members  []member  `toml:"Members"`
 }
 
 type service struct {

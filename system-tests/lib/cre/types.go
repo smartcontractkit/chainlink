@@ -416,7 +416,13 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	return nil
 }
 
-// GatewayServiceConfig represents a service in the new multi-DON gateway format.
+// GatewayConfig is the legacy, don-centric gateway config format.
+type GatewayConfig struct {
+	Name     string // DON name
+	Handlers []string
+}
+
+// GatewayServiceConfig represents a service in the new, service-centric gateway format.
 // Each service groups handlers and references the DON names it operates on.
 type GatewayServiceConfig struct {
 	ServiceName string   `yaml:"servicename"`

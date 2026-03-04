@@ -23,6 +23,8 @@ const defaultGatewayRequestTimeoutSec = 12
 type ProposeGatewayJobInput struct {
 	Domain                   string
 	DONFilters               []offchain.TargetDONFilter
+	UseServiceCentricFormat  bool              `yaml:"useServiceCentricFormat"`
+	DONs                     []DON             `yaml:"dons"`
 	Services                 []GatewayService  `yaml:"services"`
 	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
 	AllowedPorts             []int             `yaml:"allowedPorts"`
@@ -31,6 +33,12 @@ type ProposeGatewayJobInput struct {
 	AuthGatewayID            string            `yaml:"authGatewayID"`
 	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
 	JobLabels                map[string]string
+}
+
+type DON struct {
+	Name     string   `yaml:"name"`
+	F        int      `yaml:"f"`
+	Handlers []string `yaml:"handlers"`
 }
 
 type GatewayService struct {
@@ -55,52 +63,27 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 )
 
 // proposeGatewayJob builds a gateway job spec and then proposes it to the nodes of a DON.
-// It derives the set of unique DON names from input.Services, fetches node information and
-// chain configurations for each DON from JD, then builds the gateway job.
+// When UseServiceCentricFormat is true, it derives the set of unique DON names from
+// input.Services; otherwise it uses the don-centric input.DONs list.
 func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
-	donNameSet := make(map[string]struct{})
-	for _, svc := range input.Services {
-		for _, donName := range svc.DONs {
-			donNameSet[donName] = struct{}{}
-		}
-	}
-
-	dons := make([]pkg.TargetDON, 0, len(donNameSet))
-	for donName := range donNameSet {
-		members, f, err := resolveDONMembers(deps, input, donName)
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-		dons = append(dons, pkg.TargetDON{
-			ID:      donName,
-			F:       f,
-			Members: members,
-		})
-	}
-
-	services := make([]pkg.GatewayServiceConfig, len(input.Services))
-	for i, svc := range input.Services {
-		services[i] = pkg.GatewayServiceConfig{
-			ServiceName: svc.ServiceName,
-			Handlers:    svc.Handlers,
-			DONs:        svc.DONs,
-		}
-	}
-
 	requestTimeoutSec := input.GatewayRequestTimeoutSec
 	if requestTimeoutSec == 0 {
 		requestTimeoutSec = defaultGatewayRequestTimeoutSec
 	}
 
-	gj := pkg.GatewayJob{
-		JobName:           "CRE Gateway",
-		DONs:              dons,
-		Services:          services,
-		RequestTimeoutSec: requestTimeoutSec,
-		AllowedPorts:      input.AllowedPorts,
-		AllowedSchemes:    input.AllowedSchemes,
-		AllowedIPsCIDR:    input.AllowedIPsCIDR,
-		AuthGatewayID:     input.AuthGatewayID,
+	var gj pkg.GatewayJob
+	if input.UseServiceCentricFormat {
+		built, err := buildServiceCentricJob(deps, input, requestTimeoutSec)
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+		gj = built
+	} else {
+		built, err := buildLegacyFormatJob(deps, input, requestTimeoutSec)
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+		gj = built
 	}
 
 	if err := gj.Validate(); err != nil {
@@ -160,6 +143,75 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 	}
 
 	return output, nil
+}
+
+func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, requestTimeoutSec int) (pkg.GatewayJob, error) {
+	donNameSet := make(map[string]struct{})
+	for _, svc := range input.Services {
+		for _, donName := range svc.DONs {
+			donNameSet[donName] = struct{}{}
+		}
+	}
+
+	dons := make([]pkg.TargetDON, 0, len(donNameSet))
+	for donName := range donNameSet {
+		members, f, err := resolveDONMembers(deps, input, donName)
+		if err != nil {
+			return pkg.GatewayJob{}, err
+		}
+		dons = append(dons, pkg.TargetDON{
+			ID:      donName,
+			F:       f,
+			Members: members,
+		})
+	}
+
+	services := make([]pkg.GatewayServiceConfig, len(input.Services))
+	for i, svc := range input.Services {
+		services[i] = pkg.GatewayServiceConfig{
+			ServiceName: svc.ServiceName,
+			Handlers:    svc.Handlers,
+			DONs:        svc.DONs,
+		}
+	}
+
+	return pkg.GatewayJob{
+		UseServiceCentricFormat: true,
+		JobName:                 "CRE Gateway",
+		DONs:                    dons,
+		Services:                services,
+		RequestTimeoutSec:       requestTimeoutSec,
+		AllowedPorts:            input.AllowedPorts,
+		AllowedSchemes:          input.AllowedSchemes,
+		AllowedIPsCIDR:          input.AllowedIPsCIDR,
+		AuthGatewayID:           input.AuthGatewayID,
+	}, nil
+}
+
+func buildLegacyFormatJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, requestTimeoutSec int) (pkg.GatewayJob, error) {
+	targetDONs := make([]pkg.TargetDON, 0, len(input.DONs))
+	for _, ad := range input.DONs {
+		members, _, err := resolveDONMembers(deps, input, ad.Name)
+		if err != nil {
+			return pkg.GatewayJob{}, err
+		}
+		targetDONs = append(targetDONs, pkg.TargetDON{
+			ID:       ad.Name,
+			F:        ad.F,
+			Members:  members,
+			Handlers: ad.Handlers,
+		})
+	}
+
+	return pkg.GatewayJob{
+		JobName:           "CRE Gateway",
+		TargetDONs:        targetDONs,
+		RequestTimeoutSec: requestTimeoutSec,
+		AllowedPorts:      input.AllowedPorts,
+		AllowedSchemes:    input.AllowedSchemes,
+		AllowedIPsCIDR:    input.AllowedIPsCIDR,
+		AuthGatewayID:     input.AuthGatewayID,
+	}, nil
 }
 
 func resolveDONMembers(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, donName string) ([]pkg.TargetDONMember, int, error) {

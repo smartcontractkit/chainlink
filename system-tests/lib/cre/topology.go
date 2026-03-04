@@ -18,10 +18,12 @@ const (
 )
 
 type Topology struct {
-	WorkflowDONIDs        []uint64               `toml:"workflow_don_ids" json:"workflow_don_ids"`
-	DonsMetadata          *DonsMetadata          `toml:"dons_metadata" json:"dons_metadata"`
-	GatewayServiceConfigs []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
-	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
+	UseServiceCentricFormat bool                   `toml:"use_service_centric_format" json:"use_service_centric_format"`
+	WorkflowDONIDs          []uint64               `toml:"workflow_don_ids" json:"workflow_don_ids"`
+	DonsMetadata            *DonsMetadata          `toml:"dons_metadata" json:"dons_metadata"`
+	GatewayConfigs          []GatewayConfig        `toml:"gateway_configs" json:"gateway_configs"`
+	GatewayServiceConfigs   []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
+	GatewayConnectors       *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
@@ -47,14 +49,19 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 	}
 
 	topology := &Topology{
-		WorkflowDONIDs: []uint64{},
-		DonsMetadata:   donsMetadata,
+		UseServiceCentricFormat: true, // default to true in all tests and Local CRE
+		WorkflowDONIDs:          []uint64{},
+		DonsMetadata:            donsMetadata,
 	}
 
 	donNames := make([]string, 0, len(wfDONs))
 	for _, wfDON := range wfDONs {
 		donNames = append(donNames, wfDON.Name)
 		topology.WorkflowDONIDs = append(topology.WorkflowDONIDs, wfDON.ID)
+		topology.GatewayConfigs = append(topology.GatewayConfigs, GatewayConfig{
+			Name:     wfDON.Name,
+			Handlers: []string{pkg.GatewayHandlerTypeWebAPICapabilities},
+		})
 	}
 
 	topology.GatewayServiceConfigs = append(topology.GatewayServiceConfigs, GatewayServiceConfig{
@@ -123,10 +130,44 @@ func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
 	return t.DonsMetadata.Bootstrap()
 }
 
-// AddGatewayHandlers adds the given handler names to the appropriate service configs for the given DON.
-// Handlers are grouped by service name (derived from handler type). If a service doesn't exist yet, it is created.
-// The DON is added to each service's DON list if not already present.
+// AddGatewayHandlers adds the given handler names for the given DON.
+// It updates both the legacy, don-centric GatewayConfigs and the service-centric GatewayServiceConfigs
+// so that consumers can use whichever format is active.
 func (t *Topology) AddGatewayHandlers(donMetadata DonMetadata, handlers []string) error {
+	t.addGatewayHandlersLegacy(donMetadata, handlers)
+	t.addGatewayHandlersServiceFormat(donMetadata, handlers)
+	return nil
+}
+
+func (t *Topology) addGatewayHandlersLegacy(donMetadata DonMetadata, handlers []string) {
+	donFound := false
+	for idx, gc := range t.GatewayConfigs {
+		if gc.Name == donMetadata.Name {
+			donFound = true
+			for _, handlerName := range handlers {
+				alreadyPresent := false
+				for _, existingHandler := range gc.Handlers {
+					if strings.EqualFold(existingHandler, handlerName) {
+						alreadyPresent = true
+						break
+					}
+				}
+				if !alreadyPresent {
+					t.GatewayConfigs[idx].Handlers = append(t.GatewayConfigs[idx].Handlers, handlerName)
+				}
+			}
+			break
+		}
+	}
+	if !donFound {
+		t.GatewayConfigs = append(t.GatewayConfigs, GatewayConfig{
+			Name:     donMetadata.Name,
+			Handlers: handlers,
+		})
+	}
+}
+
+func (t *Topology) addGatewayHandlersServiceFormat(donMetadata DonMetadata, handlers []string) {
 	for _, handlerName := range handlers {
 		svcName := pkg.HandlerServiceName(handlerName)
 
@@ -157,8 +198,6 @@ func (t *Topology) AddGatewayHandlers(donMetadata DonMetadata, handlers []string
 			t.GatewayServiceConfigs[svcIdx].DONs = append(t.GatewayServiceConfigs[svcIdx].DONs, donMetadata.Name)
 		}
 	}
-
-	return nil
 }
 
 type PeeringNode interface {

@@ -23,7 +23,13 @@ type WhitelistConfig struct {
 	ExtraAllowedIPsCIDR []string
 }
 
-func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
+type JobConfig struct {
+	UseServiceCentricFormat bool
+	GatewayConfigs          []cre.GatewayConfig
+	GatewayServiceConfigs   []cre.GatewayServiceConfig
+}
+
+func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gwJobConfig JobConfig, whitelistConfig WhitelistConfig) error {
 	specs := make(map[string][]string)
 
 	if !dons.RequiresGateway() {
@@ -36,6 +42,20 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 			return fmt.Errorf("could not find gateway node with UUID %s in DON topology", config.NodeUUID)
 		}
 
+		inputs := job_types.JobSpecInput{
+			"useServiceCentricFormat": gwJobConfig.UseServiceCentricFormat,
+			"allowedPorts":            append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
+			"allowedSchemes":          []string{"http", "https"},
+			"allowedIPsCIDR":          whitelistConfig.ExtraAllowedIPsCIDR,
+			"gatewayKeyChainSelector": creEnv.RegistryChainSelector,
+			"authGatewayID":           config.AuthGatewayID,
+		}
+		if gwJobConfig.UseServiceCentricFormat {
+			inputs["services"] = gwJobConfig.GatewayServiceConfigs
+		} else {
+			inputs["dons"] = gwJobConfig.GatewayConfigs
+		}
+
 		workerInput := cre_jobs.ProposeJobSpecInput{
 			Domain:      offchain.ProductLabel,
 			Environment: cre.EnvironmentName,
@@ -45,14 +65,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 				{Key: offchain.FilterKeyDONName, Value: gatewayNode.DON.Name},
 			},
 			Template: job_types.Gateway,
-			Inputs: job_types.JobSpecInput{
-				"services":                gatewayServiceConfigs,
-				"allowedPorts":            append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
-				"allowedSchemes":          []string{"http", "https"},
-				"allowedIPsCIDR":          whitelistConfig.ExtraAllowedIPsCIDR,
-				"gatewayKeyChainSelector": creEnv.RegistryChainSelector,
-				"authGatewayID":           config.AuthGatewayID,
-			},
+			Inputs:   inputs,
 		}
 
 		workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
