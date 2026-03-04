@@ -40,9 +40,9 @@ type EvictableModule struct {
 
 	moduleConfig *host.ModuleConfig
 	moduleOpts   []func(*host.ModuleConfig)
-	store   artifacts.SerialisedModuleStore
-	factory ModuleFactoryFn
-	metrics *CacheMetrics
+	store        artifacts.SerialisedModuleStore
+	factory      ModuleFactoryFn
+	metrics      *CacheMetrics
 
 	weakBinary weak.Pointer[[]byte] // L2: raw WASM binary survives eviction until GC pressure
 }
@@ -96,12 +96,14 @@ func (m *EvictableModule) IsLegacyDAG() bool {
 }
 
 func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteRequest, handler host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
-	// ensureLoaded and RLock acquisition cannot be atomic because ensureLoaded
-	// may need the write lock internally to reload. This opens a narrow window
-	// where Evict (called by the reaper under the write lock) can nil-out
-	// m.inner between ensureLoaded returning and us grabbing the RLock. The
-	// loop re-checks m.inner under the RLock and retries if it was evicted in
-	// that gap, guaranteeing m.inner is non-nil for the duration of Execute.
+	// the fundamental issue is that Go's RWMutex can't upgrade RLock to WLock
+	// atomically. ensureLoaded and RLock acquisition cannot be atomic because
+	// ensureLoaded may need the write lock internally to reload. This opens a
+	// narrow window where Evict (called by the reaper under the write lock)
+	// can nil-out m.inner between ensureLoaded returning and us grabbing the
+	// RLock. The loop re-checks m.inner under the RLock and retries if it was
+	// evicted in that gap, guaranteeing m.inner is non-nil for the duration
+	// of Execute.
 	for {
 		if err := m.ensureLoaded(ctx); err != nil {
 			return nil, err
