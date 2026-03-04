@@ -96,11 +96,23 @@ func (m *EvictableModule) IsLegacyDAG() bool {
 }
 
 func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteRequest, handler host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
-	if err := m.ensureLoaded(ctx); err != nil {
-		return nil, err
+	// ensureLoaded and RLock acquisition cannot be atomic because ensureLoaded
+	// may need the write lock internally to reload. This opens a narrow window
+	// where Evict (called by the reaper under the write lock) can nil-out
+	// m.inner between ensureLoaded returning and us grabbing the RLock. The
+	// loop re-checks m.inner under the RLock and retries if it was evicted in
+	// that gap, guaranteeing m.inner is non-nil for the duration of Execute.
+	for {
+		if err := m.ensureLoaded(ctx); err != nil {
+			return nil, err
+		}
+		m.lastUsed.Store(time.Now().UnixNano())
+		m.mu.RLock()
+		if m.inner != nil {
+			break
+		}
+		m.mu.RUnlock()
 	}
-	m.lastUsed.Store(time.Now().UnixNano())
-	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.inner.Execute(ctx, request, handler)
 }
