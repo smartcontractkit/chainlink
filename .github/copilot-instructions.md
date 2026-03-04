@@ -1,6 +1,6 @@
 ## PR Review Instructions
 
-When performing a Pull Request review, strictly adhere to the following requirements:
+When performing a Pull Request review, do your typical PR analysis, and:
 
 ### 1. Risk Assessment
 Provide a **Risk Rating** at the top of the review summary:
