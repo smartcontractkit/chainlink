@@ -155,7 +155,7 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 		return errors.New("remoteConfig not set - call SetConfig() before Start()")
 	}
 	if cfg.underlying == nil {
-		return errors.New("underlying trigger capability not set - call SetConfig() before Start()")
+		return errors.New("underlying trigger capability not set isn't it - call SetConfig() before Start()")
 	}
 	if len(cfg.capDonInfo.Members) == 0 {
 		return errors.New("capability DON info not set - call SetConfig() before Start()")
