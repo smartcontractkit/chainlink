@@ -180,6 +180,12 @@ func (s *stubRMNRemote) GetReportDigestHeader(*bind.CallOpts) ([]byte, error) { 
 func (s *stubRMNRemote) GetCursedSubjects(*bind.CallOpts) ([][]byte, error)   { return nil, nil }
 func (s *stubRMNRemote) IsCursedGlobal(*bind.CallOpts) (bool, error)          { return false, nil }
 func (s *stubRMNRemote) IsCursedU128(*bind.CallOpts, *big.Int) (bool, error)  { return false, nil }
+func (s *stubRMNRemote) IsAllowedCurser(*bind.CallOpts, aptos.AccountAddress) (bool, error) {
+	return false, nil
+}
+func (s *stubRMNRemote) GetAllowedCursers(*bind.CallOpts) ([]aptos.AccountAddress, error) {
+	return nil, nil
+}
 func (s *stubRMNRemote) Initialize(*bind.TransactOpts, uint64) (*api.PendingTransaction, error) {
 	return nil, nil
 }
@@ -193,6 +199,15 @@ func (s *stubRMNRemote) CurseMultiple(*bind.TransactOpts, [][]byte) (*api.Pendin
 	return nil, nil
 }
 func (s *stubRMNRemote) Uncurse(*bind.TransactOpts, []byte) (*api.PendingTransaction, error) {
+	return nil, nil
+}
+func (s *stubRMNRemote) InitializeAllowedCursersV2(*bind.TransactOpts, []aptos.AccountAddress) (*api.PendingTransaction, error) {
+	return nil, nil
+}
+func (s *stubRMNRemote) AddAllowedCursers(*bind.TransactOpts, []aptos.AccountAddress) (*api.PendingTransaction, error) {
+	return nil, nil
+}
+func (s *stubRMNRemote) RemoveAllowedCursers(*bind.TransactOpts, []aptos.AccountAddress) (*api.PendingTransaction, error) {
 	return nil, nil
 }
 func (s *stubRMNRemote) UncurseMultiple(*bind.TransactOpts, [][]byte) (*api.PendingTransaction, error) {
@@ -265,5 +280,23 @@ func (s *stubEncoder) MCMSEntrypoint(aptos.AccountAddress) (bind.ModuleInformati
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }
 func (s *stubEncoder) RegisterMCMSEntrypoint() (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) IsAllowedCurser(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) GetAllowedCursers() (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) InitializeAllowedCursersV2([]aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) AddAllowedCursers([]aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) RemoveAllowedCursers([]aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) AssertOwnerOrAllowedCurser(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }
