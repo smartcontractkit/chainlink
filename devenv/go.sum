@@ -947,10 +947,10 @@ github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-e86785845942/go.mod h1:2JTBNp3FlRdO/nHc4dsc9bfxxMClMO1Qt8sLJgtreBY=
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0 h1:/bhoALRzNXZkdzxBkNM505pMofNy0K0eW1nCzXw+AUI=
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0/go.mod h1:/dVVLXrsp+V0AbcYGJo3XMzKg3CkELsweA/TTopCsKE=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.6 h1:5hy0m8Vj5TzSU1lW2AZHbbpEQ71BXjLCseLMDnaK+Zs=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.6/go.mod h1:43xdIQuqw/gzfazsqJkBrGdF25TIJDiY/Ak/YrWFTmU=
-github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.1-0.20250711120409-5078050f9db4 h1:6iIj+U1SA19xftdEJwubATHBoGm4yc8q+MwWz6rlBDc=
-github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.1-0.20250711120409-5078050f9db4/go.mod h1:YEQbZRHFojvlQKeuckG/70t0WkAqOBmArSbkacgHSbc=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.9 h1:a/e5gwPjpzQwqtmMCop2vKXi55mYk+bQBP/5t3y60CI=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.9/go.mod h1:43xdIQuqw/gzfazsqJkBrGdF25TIJDiY/Ak/YrWFTmU=
+github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.9 h1:MVDx/Zl7qhikAx5vQgpTiyCkXw6sXgerUAU3WyJgWVY=
+github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.9/go.mod h1:1ZKcfw6mNKvM5GNy8AjeviL0tJVZoqhLZbmskcSG68k=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 h1:VIxK8u0Jd0Q/VuhmsNm6Bls6Tb31H/sA3A/rbc5hnhg=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0/go.mod h1:lyAu+oMXdNUzEDScj2DXB2IueY+SDXPPfyl/kb63tMM=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5 h1:RwZXxdIAOyjp6cwc9Quxgr38k8r7ACz+Lxh9o/A6oH0=

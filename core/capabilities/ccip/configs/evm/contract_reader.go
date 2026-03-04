@@ -156,10 +156,6 @@ var DestReaderConfig = config.ChainReaderConfig{
 				},
 			},
 			Configs: map[string]*config.ChainReaderDefinition{
-				consts.MethodNameFeeQuoterGetStaticConfig: {
-					ChainSpecificName: mustGetMethodName("getStaticConfig", feeQuoterABI),
-					ReadType:          config.Method,
-				},
 				consts.MethodNameFeeQuoterGetTokenPrices: {
 					ChainSpecificName: mustGetMethodName("getTokenPrices", feeQuoterABI),
 					ReadType:          config.Method,

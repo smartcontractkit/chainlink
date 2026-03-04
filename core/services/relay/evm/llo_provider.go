@@ -27,6 +27,7 @@ import (
 	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmllo "github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)

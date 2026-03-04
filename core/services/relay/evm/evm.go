@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -61,7 +62,6 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
 var (

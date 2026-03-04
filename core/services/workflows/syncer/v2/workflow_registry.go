@@ -34,7 +34,7 @@ var (
 	defaultTickInterval          = 12 * time.Second
 	defaultRetryInterval         = 12 * time.Second
 	defaultMaxRetryInterval      = 5 * time.Minute
-	defaultMaxConcurrency        = 50
+	defaultMaxConcurrency        = 12
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"

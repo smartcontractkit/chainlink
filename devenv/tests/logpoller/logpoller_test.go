@@ -238,17 +238,8 @@ func XTestLogPollerHeavyLoad(t *testing.T) {
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 
-/*
-	Chaos runs require Pumba, but that container still speaks Docker API 1.42. Newer Docker daemons reject it unless you pin a
-	minimum API version. If this test never pauses anything, add the entry below to your Docker Engine config (e.g. ~/.docker/daemon.json)
-	and restart Docker:
-
-	"min-api-version": "1.42"
-*/
-
 // Execute both on environment with finalityTagEnabled and with finalityDepth
 func TestLogPollerChaosChainlinkNodes(t *testing.T) {
-	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	cfg := &Config{
 		General: General{
 			Generator:        "looped",
@@ -274,17 +265,8 @@ func TestLogPollerChaosChainlinkNodes(t *testing.T) {
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 
-/*
-	Chaos runs require Pumba, but that container still speaks Docker API 1.42. Newer Docker daemons reject it unless you pin a
-	minimum API version. If this test never pauses anything, add the entry below to your Docker Engine config (e.g. ~/.docker/daemon.json)
-	and restart Docker:
-
-	"min-api-version": "1.42"
-*/
-
 // Execute both on environment with finalityTagEnabled and with finalityDepth
 func TestLogPollerChaosPostgres(t *testing.T) {
-	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	cfg := &Config{
 		General: General{
 			Generator:        "looped",

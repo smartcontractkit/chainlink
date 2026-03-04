@@ -22,13 +22,13 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
+	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	reportcodecv2 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v2/reportcodec"
+	reportcodecv3 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
+	reportcodecv4 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v4/reportcodec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
-	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
-	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 )
 
 var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
