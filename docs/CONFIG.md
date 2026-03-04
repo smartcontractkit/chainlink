@@ -1513,6 +1513,47 @@ Name = 'my-workflow-source' # Example
 ```
 Name is a required unique identifier for this workflow source. Each additional source must have a distinct name to prevent workflow reconciliation conflicts. Names like 'ContractWorkflowSource' are reserved for internal use.
 
+## Capabilities.WorkflowRegistry.ModuleCache
+```toml
+[Capabilities.WorkflowRegistry.ModuleCache]
+Enabled = true # Default
+IdleEviction = true # Default
+IdleTimeout = '10m' # Default
+MaxLoaded = 200 # Default
+CacheDir = '' # Default
+```
+
+
+### Enabled
+```toml
+Enabled = true # Default
+```
+Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
+
+### IdleEviction
+```toml
+IdleEviction = true # Default
+```
+IdleEviction enables time-based eviction of modules that have been unused for longer than IdleTimeout.
+
+### IdleTimeout
+```toml
+IdleTimeout = '10m' # Default
+```
+IdleTimeout is how long a module can remain idle before being evicted from memory. Only applies when IdleEviction is true.
+
+### MaxLoaded
+```toml
+MaxLoaded = 200 # Default
+```
+MaxLoaded caps the number of simultaneously loaded modules. When exceeded the least-recently-used module is evicted immediately. 0 means no cap.
+
+### CacheDir
+```toml
+CacheDir = '' # Default
+```
+CacheDir is the directory for serialised module binaries. When empty, a temporary directory is used.
+
 ## Workflows
 ```toml
 [Workflows]

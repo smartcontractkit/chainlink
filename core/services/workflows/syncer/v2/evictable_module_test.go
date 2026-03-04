@@ -620,7 +620,7 @@ func TestEvictable_WeakRefUpdatedOnReload(t *testing.T) {
 // --- Metrics integration tests ---
 
 func TestEvictable_ReloadSourceMetric(t *testing.T) {
-	cm, err := newCacheMetrics()
+	cm, err := NewCacheMetrics()
 	require.NoError(t, err)
 
 	inner := modulemocks.NewModuleV2(t)
@@ -648,7 +648,7 @@ func TestEvictable_ReloadSourceMetric(t *testing.T) {
 }
 
 func TestLRU_EvictionMetric(t *testing.T) {
-	cm, err := newCacheMetrics()
+	cm, err := NewCacheMetrics()
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()
@@ -709,7 +709,7 @@ func TestEvictable_BinarySizeTracked(t *testing.T) {
 }
 
 func TestLRU_MemorySavedMetric(t *testing.T) {
-	cm, err := newCacheMetrics()
+	cm, err := NewCacheMetrics()
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()

@@ -71,13 +71,16 @@ type eventHandler struct {
 
 	moduleLRU    *ModuleLRU
 	moduleStore  artifacts.SerialisedModuleStore
-	cacheMetrics *cacheMetrics
+	cacheMetrics *CacheMetrics
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
 	workflowRegistryChainSelector string
 }
+
+// EventHandlerOption is a functional option for configuring an eventHandler.
+type EventHandlerOption = func(*eventHandler)
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
@@ -152,7 +155,7 @@ func WithModuleStore(store artifacts.SerialisedModuleStore) func(*eventHandler) 
 	}
 }
 
-func WithModuleCacheMetrics(cm *cacheMetrics) func(*eventHandler) {
+func WithModuleCacheMetrics(cm *CacheMetrics) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.cacheMetrics = cm
 	}

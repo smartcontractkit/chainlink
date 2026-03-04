@@ -42,7 +42,7 @@ type EvictableModule struct {
 	moduleOpts   []func(*host.ModuleConfig)
 	store   artifacts.SerialisedModuleStore
 	factory ModuleFactoryFn
-	metrics *cacheMetrics
+	metrics *CacheMetrics
 
 	weakBinary weak.Pointer[[]byte] // L2: raw WASM binary survives eviction until GC pressure
 }
@@ -53,7 +53,7 @@ func NewEvictableModule(
 	store artifacts.SerialisedModuleStore,
 	workflowID string,
 	factory ModuleFactoryFn,
-	cm *cacheMetrics,
+	cm *CacheMetrics,
 	opts ...func(*host.ModuleConfig),
 ) *EvictableModule {
 	if factory == nil {
@@ -201,7 +201,7 @@ type ModuleLRU struct {
 	clock       clockwork.Clock
 	stopCh      chan struct{}
 	wg          sync.WaitGroup
-	metrics     *cacheMetrics
+	metrics     *CacheMetrics
 
 	// reapTicker drives the eviction scan. Injectable for deterministic tests.
 	reapTicker <-chan time.Time
@@ -230,9 +230,7 @@ func NewModuleLRU(clock clockwork.Clock, opts ...func(*ModuleLRU)) *ModuleLRU {
 
 func WithIdleTimeout(d time.Duration) func(*ModuleLRU) {
 	return func(lru *ModuleLRU) {
-		if d > 0 {
-			lru.idleTimeout = d
-		}
+		lru.idleTimeout = d
 	}
 }
 
@@ -254,7 +252,7 @@ func WithOnReaped(ch chan struct{}) func(*ModuleLRU) {
 	}
 }
 
-func WithCacheMetrics(cm *cacheMetrics) func(*ModuleLRU) {
+func WithCacheMetrics(cm *CacheMetrics) func(*ModuleLRU) {
 	return func(lru *ModuleLRU) {
 		lru.metrics = cm
 	}
@@ -310,14 +308,16 @@ func (lru *ModuleLRU) reap() {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
 
-	now := lru.clock.Now().UnixNano()
-	threshold := lru.idleTimeout.Nanoseconds()
-
 	evicted := 0
-	for _, m := range lru.modules {
-		if now-m.LastUsed() > threshold && m.IsLoaded() {
-			m.Evict()
-			evicted++
+
+	if lru.idleTimeout > 0 {
+		now := lru.clock.Now().UnixNano()
+		threshold := lru.idleTimeout.Nanoseconds()
+		for _, m := range lru.modules {
+			if now-m.LastUsed() > threshold && m.IsLoaded() {
+				m.Evict()
+				evicted++
+			}
 		}
 	}
 
