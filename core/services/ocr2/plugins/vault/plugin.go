@@ -142,7 +142,7 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 
 func resolvePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
 	resolve := func(s settings.Setting[int]) (int, error) {
-		limiter, err := limits.MakeBoundLimiter(factory, s)
+		limiter, err := limits.MakeUpperBoundLimiter(factory, s)
 		if err != nil {
 			return 0, err
 		}
@@ -205,34 +205,34 @@ func resolvePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1typ
 }
 
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
-	maxSecretsPerOwnerLimiter, err := limits.MakeBoundLimiter(factory, cresettings.Default.PerOwner.VaultSecretsLimit)
+	maxSecretsPerOwnerLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.PerOwner.VaultSecretsLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultSecretsLimit: %w", err)
 	}
 
 	batchSize := cresettings.Default.VaultPluginBatchSizeLimit
 
-	maxBatchSizeLimiter, err := limits.MakeBoundLimiter(factory, batchSize)
+	maxBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(factory, batchSize)
 	if err != nil {
 		return nil, fmt.Errorf("VaultPluginBatchSizeLimit: %w", err)
 	}
 
-	maxCiphertextLengthBytesLimiter, err := limits.MakeBoundLimiter(factory, cresettings.Default.VaultCiphertextSizeLimit)
+	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultCiphertextSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultCiphertextSizeLimit: %w", err)
 	}
 
-	maxIdentifierKeyLengthBytesLimiter, err := limits.MakeBoundLimiter(factory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	maxIdentifierKeyLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierKeySizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultIdentifierKeySizeLimit: %w", err)
 	}
 
-	maxIdentifierOwnerLengthBytesLimiter, err := limits.MakeBoundLimiter(factory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	maxIdentifierOwnerLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultIdentifierOwnerSizeLimit: %w", err)
 	}
 
-	maxIdentifierNamespaceLengthBytesLimiter, err := limits.MakeBoundLimiter(factory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	maxIdentifierNamespaceLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultIdentifierNamespaceSizeLimit: %w", err)
 	}
