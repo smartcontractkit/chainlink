@@ -29,4 +29,3 @@ func TestFromFallsBackToInputChainIDWhenOutputMissing(t *testing.T) {
 	require.NoError(t, err, "expected reconstruction to use input chain id fallback")
 	require.Equal(t, input.ChainID, got.SolanaChainID, "expected fallback chain id to be retained")
 }
-

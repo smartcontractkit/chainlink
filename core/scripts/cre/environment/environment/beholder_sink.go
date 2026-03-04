@@ -19,8 +19,9 @@ import (
 	"github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 	"github.com/spf13/cobra"
+
+	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -179,8 +180,8 @@ func runLocalBeholderSinkCmd() *cobra.Command {
 				UpstreamEndpoint: strings.TrimSpace(upstream),
 				Started:          started,
 				PublishFn: func(_ context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
-					if err := appendLocalChipSinkEvent(eventsFile, &eventsMu, event); err != nil {
-						framework.L.Warn().Err(err).Str("eventsFile", eventsFile).Msg("failed to append local chip sink event")
+					if appendErr := appendLocalChipSinkEvent(eventsFile, &eventsMu, event); appendErr != nil {
+						framework.L.Warn().Err(appendErr).Str("eventsFile", eventsFile).Msg("failed to append local chip sink event")
 					}
 					return &chippb.PublishResponse{}, nil
 				},
@@ -239,8 +240,8 @@ func startLocalChipSink(grpcListen, upstream string) error {
 		return errors.Wrap(err, "resolve executable path for local chip sink")
 	}
 	statePath := chipSinkStatePath()
-	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
-		return errors.Wrap(err, "create chip sink state directory")
+	if mkdirErr := os.MkdirAll(filepath.Dir(statePath), 0o755); mkdirErr != nil {
+		return errors.Wrap(mkdirErr, "create chip sink state directory")
 	}
 	logPath := filepath.Join(filepath.Dir(statePath), chipSinkLogFilename)
 	eventsPath := chipSinkEventsPath()
@@ -257,7 +258,7 @@ func startLocalChipSink(grpcListen, upstream string) error {
 	if strings.TrimSpace(upstream) != "" {
 		args = append(args, "--upstream-endpoint", strings.TrimSpace(upstream))
 	}
-	cmd := exec.Command(executablePath, args...)
+	cmd := exec.CommandContext(context.Background(), executablePath, args...)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.Stdin = nil
@@ -548,11 +549,12 @@ func waitForLocalSinkReady(pid int, listenAddr string, timeout time.Duration, lo
 	}
 	deadline := time.Now().Add(timeout)
 	var lastDialErr error
+	dialer := &net.Dialer{Timeout: 200 * time.Millisecond}
 	for time.Now().Before(deadline) {
 		if !processExists(pid) {
 			return fmt.Errorf("local chip sink process exited before becoming ready (pid=%d); check log: %s", pid, logPath)
 		}
-		conn, dialErr := net.DialTimeout("tcp", probeAddr, 200*time.Millisecond)
+		conn, dialErr := dialer.DialContext(context.Background(), "tcp", probeAddr)
 		if dialErr == nil {
 			_ = conn.Close()
 			return nil
@@ -560,7 +562,7 @@ func waitForLocalSinkReady(pid int, listenAddr string, timeout time.Duration, lo
 		lastDialErr = dialErr
 		time.Sleep(100 * time.Millisecond)
 	}
-	return fmt.Errorf("local chip sink failed readiness probe on %s within %s (pid=%d, last error: %v); check log: %s", probeAddr, timeout, pid, lastDialErr, logPath)
+	return fmt.Errorf("local chip sink failed readiness probe on %s within %s (pid=%d, last error: %w); check log: %s", probeAddr, timeout, pid, lastDialErr, logPath)
 }
 
 func probeAddressForListen(listenAddr string) (string, error) {

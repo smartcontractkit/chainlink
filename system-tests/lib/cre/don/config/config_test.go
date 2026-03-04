@@ -148,13 +148,15 @@ type fakeBlockchain struct {
 	out      *blockchain.Output
 }
 
-func (f *fakeBlockchain) ChainSelector() uint64                         { return f.selector }
-func (f *fakeBlockchain) ChainID() uint64                               { return f.id }
-func (f *fakeBlockchain) ChainFamily() string                           { return f.out.Family }
-func (f *fakeBlockchain) IsFamily(chainFamily string) bool              { return strings.EqualFold(f.out.Family, chainFamily) }
+func (f *fakeBlockchain) ChainSelector() uint64 { return f.selector }
+func (f *fakeBlockchain) ChainID() uint64       { return f.id }
+func (f *fakeBlockchain) ChainFamily() string   { return f.out.Family }
+func (f *fakeBlockchain) IsFamily(chainFamily string) bool {
+	return strings.EqualFold(f.out.Family, chainFamily)
+}
 func (f *fakeBlockchain) Fund(_ context.Context, _ string, _ uint64) error { return nil }
-func (f *fakeBlockchain) CtfOutput() *blockchain.Output                 { return f.out }
-func (f *fakeBlockchain) ToCldfChain() (cldf_chain.BlockChain, error)   { return nil, nil }
+func (f *fakeBlockchain) CtfOutput() *blockchain.Output                    { return f.out }
+func (f *fakeBlockchain) ToCldfChain() (cldf_chain.BlockChain, error)      { return nil, nil }
 
 var _ creblockchains.Blockchain = (*fakeBlockchain)(nil)
 

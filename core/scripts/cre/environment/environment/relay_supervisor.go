@@ -104,8 +104,8 @@ func relaySupervisorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := acquireRelaySupervisorLock(lockPath); err != nil {
-				return err
+			if lockErr := acquireRelaySupervisorLock(lockPath); lockErr != nil {
+				return lockErr
 			}
 			defer releaseRelaySupervisorLock()
 
@@ -126,7 +126,7 @@ func relaySupervisorCmd() *cobra.Command {
 				}
 			}
 			if len(specs) == 0 {
-				return fmt.Errorf("no relay specs or ports were provided")
+				return errors.New("no relay specs or ports were provided")
 			}
 
 			manager, err := newLocalComponentRelayManager(framework.L)
@@ -324,15 +324,6 @@ func inferLocalJDPortsFromInput(in jd.Input) []int {
 	return out
 }
 
-func hasBootstrapRole(roles []string) bool {
-	for _, role := range roles {
-		if strings.EqualFold(strings.TrimSpace(role), "bootstrap") {
-			return true
-		}
-	}
-	return false
-}
-
 // inferLocalNodeSetOCR2Ports derives OCR2 P2P ports for local node sets that remote peers
 // must reach in mixed mode.
 func inferLocalNodeSetOCR2Ports(nodeSet *cre.NodeSet) []int {
@@ -414,8 +405,8 @@ func startRelaySupervisor(relativePathToRepoRoot string, specs []relaySpec) erro
 	}
 
 	statePath := relaySupervisorStatePath(relativePathToRepoRoot)
-	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
-		return errors.Wrap(err, "create relay supervisor state directory")
+	if mkdirErr := os.MkdirAll(filepath.Dir(statePath), 0o755); mkdirErr != nil {
+		return errors.Wrap(mkdirErr, "create relay supervisor state directory")
 	}
 	logPath := filepath.Join(filepath.Dir(statePath), relaySupervisorLogFilename)
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
@@ -424,7 +415,7 @@ func startRelaySupervisor(relativePathToRepoRoot string, specs []relaySpec) erro
 	}
 	defer logFile.Close()
 
-	cmd := exec.Command(executablePath, "env", "relay-supervisor", "--relay-specs", relaySpecsCSV(specs))
+	cmd := exec.CommandContext(context.Background(), executablePath, "env", "relay-supervisor", "--relay-specs", relaySpecsCSV(specs))
 	lockPath := filepath.Join(filepath.Dir(statePath), relaySupervisorLockFilename)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%s", envRelaySupervisorLockPath, lockPath))
 	cmd.Stdout = logFile
@@ -574,7 +565,7 @@ func acquireRelaySupervisorLock(lockPath string) error {
 		_ = f.Close()
 		return errors.Wrap(err, "seek relay supervisor lock file")
 	}
-	_, _ = f.WriteString(fmt.Sprintf("pid=%d\nstarted_at=%s\n", os.Getpid(), time.Now().UTC().Format(time.RFC3339Nano)))
+	_, _ = fmt.Fprintf(f, "pid=%d\nstarted_at=%s\n", os.Getpid(), time.Now().UTC().Format(time.RFC3339Nano))
 	_ = f.Sync()
 	relaySupervisorLockFile = f
 	return nil
@@ -590,7 +581,8 @@ func releaseRelaySupervisorLock() {
 }
 
 func isRelaySupervisorProcess(pid int) (bool, error) {
-	out, err := exec.Command("ps", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
+	//nolint:gosec // G204: pid is from process tracking, not user input
+	out, err := exec.CommandContext(context.Background(), "ps", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
 	if err != nil {
 		return false, err
 	}
@@ -622,17 +614,6 @@ func processExists(pid int) bool {
 	}
 	err = proc.Signal(syscall.Signal(0))
 	return err == nil
-}
-
-func portsCSV(ports []int) string {
-	if len(ports) == 0 {
-		return ""
-	}
-	parts := make([]string, 0, len(ports))
-	for _, port := range ports {
-		parts = append(parts, strconv.Itoa(port))
-	}
-	return strings.Join(parts, ",")
 }
 
 func parsePortsCSV(raw string) ([]int, error) {
@@ -838,9 +819,9 @@ func resolveAgentBaseURLForRelay() (string, error) {
 	}
 	hostIP, err := runtimecfg.DirectHostIP()
 	if err == nil {
-		port, err := resolveRemoteAgentPortForRelay()
-		if err != nil {
-			return "", err
+		port, portErr := resolveRemoteAgentPortForRelay()
+		if portErr != nil {
+			return "", portErr
 		}
 		return fmt.Sprintf("http://%s:%d", hostIP, port), nil
 	}
@@ -883,7 +864,7 @@ func openRelay(ctx context.Context, baseURL, name string, requestedPort int) (st
 		return "", err
 	}
 	if strings.TrimSpace(out.RelayID) == "" {
-		return "", fmt.Errorf("open relay returned empty relayId")
+		return "", errors.New("open relay returned empty relayId")
 	}
 	return out.RelayID, nil
 }
@@ -939,15 +920,7 @@ func relayWorker(ctx context.Context, lggr zerolog.Logger, baseURL string, handl
 				reopenCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				newRelayID, reopenErr := openRelay(reopenCtx, baseURL, handle.name, handle.port)
 				cancel()
-				if reopenErr != nil {
-					lggr.Warn().
-						Err(reopenErr).
-						Str("relayId", relayID).
-						Str("relayName", handle.name).
-						Int("requestedPort", handle.port).
-						Int("workerIndex", workerIndex).
-						Msg("relay worker failed to reopen relay after websocket bad handshake")
-				} else {
+				if reopenErr == nil {
 					handle.setRelayID(newRelayID)
 					lggr.Info().
 						Str("oldRelayId", relayID).
@@ -959,6 +932,13 @@ func relayWorker(ctx context.Context, lggr zerolog.Logger, baseURL string, handl
 					backoff = 250 * time.Millisecond
 					continue
 				}
+				lggr.Warn().
+					Err(reopenErr).
+					Str("relayId", relayID).
+					Str("relayName", handle.name).
+					Int("requestedPort", handle.port).
+					Int("workerIndex", workerIndex).
+					Msg("relay worker failed to reopen relay after websocket bad handshake")
 			}
 			lggr.Warn().
 				Err(err).
@@ -1070,7 +1050,8 @@ func bridgeRelayStream(
 		if existing := getLocalConn(); existing != nil {
 			return existing, nil
 		}
-		conn, err := net.DialTimeout("tcp", localAddr, 2*time.Second)
+		dialer := &net.Dialer{Timeout: 2 * time.Second}
+		conn, err := dialer.DialContext(ctx, "tcp", localAddr)
 		if err != nil {
 			atomic.AddUint64(&stats.LocalDialFails, 1)
 			lggr.Warn().
@@ -1111,7 +1092,7 @@ func bridgeRelayStream(
 			return
 		}
 		if conn == nil {
-			errCh <- fmt.Errorf("local relay connection was nil")
+			errCh <- errors.New("local relay connection was nil")
 			return
 		}
 		buf := make([]byte, 32*1024)

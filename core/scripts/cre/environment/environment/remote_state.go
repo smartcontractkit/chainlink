@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -71,7 +72,7 @@ func loadRemoteAgentState(relativePathToRepoRoot string) (*remoteAgentState, err
 
 func storeRemoteStopState(relativePathToRepoRoot string, cfg *envconfig.Config) error {
 	if cfg == nil {
-		return fmt.Errorf("cannot store nil remote stop config")
+		return errors.New("cannot store nil remote stop config")
 	}
 	stopCfg := filteredRemoteStopConfig(cfg)
 	if err := stopCfg.Store(remoteStateFileAbsPath(relativePathToRepoRoot)); err != nil {
@@ -141,10 +142,7 @@ func removeRemoteStopConfig(relativePathToRepoRoot string) error {
 	if err != nil {
 		return err
 	}
-	if removeErr := os.RemoveAll(stateDir); removeErr != nil {
-		return removeErr
-	}
-	return nil
+	return os.RemoveAll(stateDir)
 }
 
 func remoteAgentFileAbsPath(relativePathToRepoRoot string) string {

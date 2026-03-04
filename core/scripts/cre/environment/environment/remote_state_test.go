@@ -3,10 +3,11 @@ package environment
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
-	"github.com/stretchr/testify/require"
 )
 
 func TestFilteredRemoteStopConfigKeepsOnlyRemoteComponents(t *testing.T) {

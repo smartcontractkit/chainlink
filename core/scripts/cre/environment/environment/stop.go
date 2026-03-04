@@ -219,11 +219,12 @@ func stopLocalResources(relativePathToRepoRoot string, removeAllState bool, stop
 
 	creStateFile := envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)
 	cErr := os.Remove(creStateFile)
-	if cErr != nil && !os.IsNotExist(cErr) {
+	switch {
+	case cErr != nil && !os.IsNotExist(cErr):
 		framework.L.Warn().Msgf("failed to remove local CRE state file: %s", cErr)
-	} else if cErr != nil && os.IsNotExist(cErr) {
+	case cErr != nil && os.IsNotExist(cErr):
 		framework.L.Info().Msgf("local CRE state file already absent: %s", creStateFile)
-	} else {
+	default:
 		framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
 	}
 	return nil

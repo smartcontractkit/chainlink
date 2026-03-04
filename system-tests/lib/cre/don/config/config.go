@@ -714,7 +714,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},
 		remoteHostIP: input.RemoteHostIP,
-		provider: input.Provider,
+		provider:     input.Provider,
 	}, nil
 }
 
@@ -950,11 +950,11 @@ func resolveNodeOCR2AnnouncePort(nodeSet *cre.NodeSet, nodeIndex int) int {
 
 func resolveBootstrapPlacement(topology *cre.Topology, bootstrapNodeUUID string) (string, error) {
 	if topology == nil {
-		return "", fmt.Errorf("topology is nil")
+		return "", errors.New("topology is nil")
 	}
 	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
 	if bootstrapNodeUUID == "" {
-		return "", fmt.Errorf("bootstrap node UUID is empty")
+		return "", errors.New("bootstrap node UUID is empty")
 	}
 	for _, don := range topology.DonsMetadata.List() {
 		if don == nil {
@@ -975,11 +975,11 @@ func resolveBootstrapPlacement(topology *cre.Topology, bootstrapNodeUUID string)
 
 func resolveBootstrapAnnouncePort(topology *cre.Topology, bootstrapNodeUUID string) (int, error) {
 	if topology == nil {
-		return 0, fmt.Errorf("topology is nil")
+		return 0, errors.New("topology is nil")
 	}
 	bootstrapNodeUUID = strings.TrimSpace(bootstrapNodeUUID)
 	if bootstrapNodeUUID == "" {
-		return 0, fmt.Errorf("bootstrap node UUID is empty")
+		return 0, errors.New("bootstrap node UUID is empty")
 	}
 	for _, don := range topology.DonsMetadata.List() {
 		if don == nil {
@@ -1010,7 +1010,7 @@ func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, boot
 	// Local callers need EC2-host reachable port for remote bootstrap nodes.
 	if caller == connectivity.PlacementLocal && target == connectivity.PlacementRemote {
 		if !runtimecfg.IsDirectMode() {
-			return "", fmt.Errorf("mixed DON bootstrap resolution requires direct mode")
+			return "", errors.New("mixed DON bootstrap resolution requires direct mode")
 		}
 		hostIP := strings.TrimSpace(remoteHostIP)
 		if hostIP == "" {
@@ -1027,7 +1027,7 @@ func resolveNodeFacingBootstrapAddress(callerPlacement, bootstrapPlacement, boot
 
 func resolveGatewayConnectorURL(callerPlacementRaw string, topology *cre.Topology, gateway *cre.DonGatewayConfiguration, remoteHostIP string) (string, error) {
 	if gateway == nil || gateway.GatewayConfiguration == nil {
-		return "", fmt.Errorf("gateway configuration is nil")
+		return "", errors.New("gateway configuration is nil")
 	}
 	callerPlacement, err := connectivity.PlacementFromTarget(callerPlacementRaw)
 	if err != nil {
@@ -1074,11 +1074,11 @@ func blockchainPlacementsBySelector(configured []*envconfig.Blockchain, deployed
 
 func resolveNodePlacement(topology *cre.Topology, nodeUUID string) (connectivity.Placement, error) {
 	if topology == nil {
-		return "", fmt.Errorf("topology is nil")
+		return "", errors.New("topology is nil")
 	}
 	trimmedUUID := strings.TrimSpace(nodeUUID)
 	if trimmedUUID == "" {
-		return "", fmt.Errorf("node uuid is empty")
+		return "", errors.New("node uuid is empty")
 	}
 	for _, don := range topology.DonsMetadata.List() {
 		if don == nil {
@@ -1101,7 +1101,7 @@ func gatewayExternalHost(targetPlacement connectivity.Placement, remoteHostIP st
 	switch targetPlacement {
 	case connectivity.PlacementRemote:
 		if !runtimecfg.IsDirectMode() {
-			return "", fmt.Errorf("gateway connector resolution for remote targets requires direct mode")
+			return "", errors.New("gateway connector resolution for remote targets requires direct mode")
 		}
 		if hostIP := strings.TrimSpace(remoteHostIP); hostIP != "" {
 			return hostIP, nil
