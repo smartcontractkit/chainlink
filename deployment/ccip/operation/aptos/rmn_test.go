@@ -198,10 +198,19 @@ func (s *stubRMNRemote) Uncurse(*bind.TransactOpts, []byte) (*api.PendingTransac
 func (s *stubRMNRemote) UncurseMultiple(*bind.TransactOpts, [][]byte) (*api.PendingTransaction, error) {
 	return nil, nil
 }
-func (s *stubRMNRemote) MCMSEntrypoint(aptos.AccountAddress) (*api.PendingTransaction, error) {
+func (s *stubRMNRemote) IsAllowedCurser(*bind.CallOpts, aptos.AccountAddress) (bool, error) {
+	return false, nil
+}
+func (s *stubRMNRemote) GetAllowedCursers(*bind.CallOpts) ([]aptos.AccountAddress, error) {
 	return nil, nil
 }
-func (s *stubRMNRemote) RegisterMCMSEntrypoint() (*api.PendingTransaction, error) {
+func (s *stubRMNRemote) InitializeAllowedCursersV2(*bind.TransactOpts, []aptos.AccountAddress) (*api.PendingTransaction, error) {
+	return nil, nil
+}
+func (s *stubRMNRemote) AddAllowedCursers(*bind.TransactOpts, []aptos.AccountAddress) (*api.PendingTransaction, error) {
+	return nil, nil
+}
+func (s *stubRMNRemote) RemoveAllowedCursers(*bind.TransactOpts, []aptos.AccountAddress) (*api.PendingTransaction, error) {
 	return nil, nil
 }
 
@@ -259,6 +268,24 @@ func (s *stubEncoder) Curse([]byte) (bind.ModuleInformation, string, []aptos.Typ
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }
 func (s *stubEncoder) Uncurse([]byte) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) IsAllowedCurser(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) GetAllowedCursers() (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) InitializeAllowedCursersV2([]aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) AddAllowedCursers([]aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) RemoveAllowedCursers([]aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) AssertOwnerOrAllowedCurser(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }
 func (s *stubEncoder) MCMSEntrypoint(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
