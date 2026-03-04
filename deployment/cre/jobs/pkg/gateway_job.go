@@ -447,7 +447,8 @@ type confidentialRelayHandlerConfig struct {
 
 func newDefaultConfidentialRelayHandler() handler {
 	return handler{
-		Name: GatewayHandlerTypeConfidentialRelay,
+		Name:        GatewayHandlerTypeConfidentialRelay,
+		ServiceName: "confidential",
 		Config: confidentialRelayHandlerConfig{
 			NodeRateLimiter: nodeRateLimiterConfig{
 				GlobalBurst:    10,
