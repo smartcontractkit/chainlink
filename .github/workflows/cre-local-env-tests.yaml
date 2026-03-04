@@ -232,6 +232,8 @@ jobs:
       - name: Swap CL node image
         shell: bash
         working-directory: core/scripts/cre/environment
+        env:
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}"
         run: |
           go run . env swap nodes
 
