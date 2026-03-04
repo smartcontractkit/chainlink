@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -110,6 +111,9 @@ func (i CurseMCMSInspector) GetRoot(ctx context.Context, addr string) (common.Ha
 		return common.Hash{}, 0, fmt.Errorf("get root: %w", err)
 	}
 
+	if validUntil > math.MaxUint32 {
+		return common.Hash{}, 0, fmt.Errorf("validUntil %d overflows uint32", validUntil)
+	}
 	return common.BytesToHash(root), uint32(validUntil), nil
 }
 
