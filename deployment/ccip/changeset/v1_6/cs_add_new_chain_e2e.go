@@ -803,7 +803,6 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 			state.Chains[c.NewChainSelector].NonceManager,
 			state.Chains[c.NewChainSelector].TokenAdminRegistry,
 			state.Chains[c.NewChainSelector].Router,
-			state.Chains[c.NewChainSelector].RMNRemote,
 		}
 		addressesToTransfer := make([]common.Address, 0, len(allContracts))
 		for _, contract := range allContracts {

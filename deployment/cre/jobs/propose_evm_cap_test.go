@@ -91,6 +91,7 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 		OCRContractQualifier:    testOCRQualifier,
 		ForwardersQualifier:     testForwarderQualifier,
 		ForwarderLookbackBlocks: 123,
+		DeltaStage:              time.Second,
 		EVMCapabilityInputs:     evmCapInputs,
 	}
 
@@ -128,6 +129,7 @@ func freshBase(selector uint64) jobs.ProposeEVMCapJobSpecInput {
 		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
 		OCRContractQualifier: testOCRQualifier,
 		ForwardersQualifier:  testForwarderQualifier,
+		DeltaStage:           time.Second,
 		EVMCapabilityInputs:  []jobs.EVMCapabilityInput{minimalEVMCapInput("peer-1")},
 	}
 }
@@ -170,6 +172,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
 		OCRContractQualifier: testOCRQualifier,
 		ForwardersQualifier:  testForwarderQualifier,
+		DeltaStage:           time.Second,
 		EVMCapabilityInputs: []jobs.EVMCapabilityInput{
 			minimalEVMCapInput("peer-1"),
 			minimalEVMCapInput("peer-2"),
@@ -206,6 +209,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 		{"missing OCR qualifier", func(in *jobs.ProposeEVMCapJobSpecInput) { in.OCRContractQualifier = "" }, "ocr contract qualifier is required"},
 		{"missing forwarder qualifier", func(in *jobs.ProposeEVMCapJobSpecInput) { in.ForwardersQualifier = "" }, "cre forwarder qualifier is required"},
 		{"missing node id", func(in *jobs.ProposeEVMCapJobSpecInput) { in.EVMCapabilityInputs[0].NodeID = "" }, "nodeID is required for evm capability input"},
+		{"missing delta stage", func(in *jobs.ProposeEVMCapJobSpecInput) { in.DeltaStage = 0 }, "deltaStage"},
 	}
 
 	for _, tc := range cases {
@@ -297,12 +301,8 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 		assert.Contains(t, err.Error(), "CRE forwarder address in override config")
 	})
 
-	t.Run("below-minimum values are rejected, zeros allowed because of defaults", func(t *testing.T) {
-		// Zeros OK (treated as "use defaults"), so verify passes:
+	t.Run("below-minimum values are rejected", func(t *testing.T) {
 		in := deepCloneInput(base)
-		require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in))
-
-		in = deepCloneInput(base)
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerPollInterval = 1500000000 // ns
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.ReceiverGasMinimum = 500
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerSendChannelBufferSize = 3000
@@ -327,6 +327,12 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 		err = jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "logTriggerSendChannelBufferSize")
+
+		in = deepCloneInput(base)
+		in.DeltaStage = -1 * time.Second
+		err = jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "deltaStage")
 	})
 }
 
@@ -337,10 +343,12 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	const (
 		inputLookback  int64 = 123 // non-zero input-level default
 		overrideCustom int64 = 999 // per-node explicit override
+		overrideDelta  int64 = int64(2 * time.Second)
 	)
 
 	input := setup.baseInput
 	input.ForwarderLookbackBlocks = inputLookback
+	input.DeltaStage = time.Duration(overrideDelta)
 
 	// Use the nodes from setup but ensure we have at least 4 nodes for this test
 	require.GreaterOrEqual(t, len(setup.evmCapInputs), 4, "need at least 4 nodes for this test")
@@ -361,10 +369,10 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
 	count999 := strings.Count(outputStr, `"forwarderLookbackBlocks":999`)
 	count123 := strings.Count(outputStr, `"forwarderLookbackBlocks":123`)
-	countDeltaStage := strings.Count(outputStr, `"deltaStage":5000000000`)
+	countOverrideDelta := strings.Count(outputStr, fmt.Sprintf(`"deltaStage":%d`, overrideDelta))
 	assert.Equal(t, 1, count999, "expected exactly one override lookbackBlocks=999")
-	assert.Equal(t, 1, countDeltaStage, "expected exactly one override deltaStage=5s")
 	assert.Equal(t, 3, count123, "expected exactly three defaulted lookbackBlocks=123")
+	assert.Equal(t, 4, countOverrideDelta, "expected deltaStage to be applied to all nodes")
 }
 
 func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {

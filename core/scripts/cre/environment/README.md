@@ -15,6 +15,7 @@ Slack: #topic-local-dev-environments
    - [Start Environment](#start-environment)
       - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
       - [Beholder](#beholder)
+      - [Beholder vs. ChIP Test Sink](#beholder-vs-chip-test-sink-port-conflict-and-using-both-together)
       - [Storage](#storage)
    - [Purging environment state](#purging-environment-state)
    - [Stop Environment](#stop-environment)
@@ -262,6 +263,35 @@ go run . env setup
 # Or pull from ECR (requires AWS SSO access)
 AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup
 ```
+
+#### Beholder vs. ChIP Test Sink: Port Conflict and Using Both Together
+
+Both the **real Beholder** (Chip Ingress + Red Panda) and the **ChIP Test Sink** (used by CRE system tests for assertions) bind to the same gRPC port by default (50051). Chainlink nodes are configured to send workflow telemetry to `host.docker.internal:50051`, so only one service can receive on that port at a time.
+
+**Default behavior in tests:**
+- Most CRE smoke/regression tests use the **test sink** (`t_helpers.StartChipTestSink`). The sink listens on 50051, receives CloudEvents from nodes, and runs test assertions. No Kafka/Red Panda.
+- Beholder-specific tests (e.g. `Test_CRE_V2_Suite` with Cron Beholder scenario, `Test_CRE_V1_Billing_Cron_Beholder`) use **real Beholder** via `t_helpers.StartBeholder`. They start Beholder on 50051, consume from Kafka, and run assertions. The test cleanup stops Beholder so subsequent tests can use the test sink.
+
+**To use both together** (test assertions + Red Panda/Kafka observability):
+
+1. **Start Beholder on a different port** (e.g. 50052):
+   ```bash
+   go run . env beholder start --grpc-port 50052
+   ```
+   Or, when starting the full environment:
+   ```bash
+   go run . env start --with-beholder --grpc-port 50052
+   ```
+
+2. **Run the test sink on the default port (50051)** so it receives events from nodes. The test sink must listen on 50051 because node config is fixed to that port.
+
+3. **Configure the test sink to forward to Beholder** by setting `UpstreamEndpoint` in the sink config. The `chiptestsink` package supports this, but `t_helpers.StartChipTestSink` does not expose it. To use both:
+   - Use `chiptestsink.NewServer` directly with `Config{UpstreamEndpoint: "localhost:50052", ...}` instead of `StartChipTestSink`, or
+   - Extend the test helper to accept an optional upstream endpoint.
+
+4. **Resulting flow:** Nodes → test sink (50051) → assertions + forward → Beholder (50052) → Kafka/Red Panda.
+
+**Summary:** Use either Beholder or the test sink alone for simplicity. Use both only when you need test assertions and Red Panda observability in the same run; then run Beholder on a non-default port and configure the sink to forward to it.
 
 ### Storage
 

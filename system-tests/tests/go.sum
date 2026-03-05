@@ -1844,10 +1844,10 @@ github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db0/go.mod h1:UsRdX5DVRd2HTkx6amXG1RYJSsL+1/SDB/iPRQjfD+Q=
 github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075 h1:PcR7Zdh+Z+Dh/S4lQ1xDbnFrb6He70KW9O5+9DtgloE=
 github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075/go.mod h1:APCV5fIW/a+JGM+Cz9yb6XyGt8ht5hISEYfpG/k4Z+k=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260223231841-af91ea434e03 h1:41xWbUIsD4DvLh3HdX0A1E5X3QZOiYatFvplaxu6lxA=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260223231841-af91ea434e03/go.mod h1:U3XStbEnbx/+L22n1/8aOIdgcGVxtsZB7p59xJGngAs=
-github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260217210647-11c42009ec1f h1:UvTDQeTi19fQw/GUpDBC9uDz2UGQoi1h+YLfCcAUwl0=
-github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260217210647-11c42009ec1f/go.mod h1:IfeW6t5Yc5293H5ixuooAft+wYBMSFQWKjbBTwYiKr4=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260304150206-c64e48eb0cb0 h1:4mGJySR1GAJAAFRwEo6YiSKM2zSHzYT5b/FSmrpNUGI=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260304150206-c64e48eb0cb0/go.mod h1:U3XStbEnbx/+L22n1/8aOIdgcGVxtsZB7p59xJGngAs=
+github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260304150206-c64e48eb0cb0 h1:5NdsaclAfx+p8lZUZ3WIqMW3M9Cze1ZVPENOQhha1pk=
+github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260304150206-c64e48eb0cb0/go.mod h1:IfeW6t5Yc5293H5ixuooAft+wYBMSFQWKjbBTwYiKr4=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.1-0.20260212100725-fbd6b3bca4d1 h1:w1KRBigXgoBYQBi4IU0gKbA2mBF6vq5vW/zbtan+mPo=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.14.1-0.20260212100725-fbd6b3bca4d1/go.mod h1:43xdIQuqw/gzfazsqJkBrGdF25TIJDiY/Ak/YrWFTmU=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.18 h1:1ng+p/+85zcVLHB050PiWUAjOcxyd4KjwkUlJy34rgE=
