@@ -54,7 +54,7 @@ type SuiSendRequest struct {
 	FeeToken           string
 	FeeTokenStore      string
 	FeeTokenCoinType   string // optional: e.g. "0x2::sui::SUI"; defaults to LINK if empty
-	FeeTokenMetadataId string // optional: CoinMetadata object ID for the fee token; defaults to LINK if empty
+	FeeTokenMetadataID string // optional: CoinMetadata object ID for the fee token; defaults to LINK if empty
 	TokenAmounts       []SuiTokenAmount
 	TokenReceiverATA   []byte
 }
@@ -164,8 +164,8 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	if msg.FeeTokenCoinType != "" {
 		feeTokenCoinType = msg.FeeTokenCoinType
 	}
-	if msg.FeeTokenMetadataId != "" {
-		feeTokenMetadataID = msg.FeeTokenMetadataId
+	if msg.FeeTokenMetadataID != "" {
+		feeTokenMetadataID = msg.FeeTokenMetadataID
 	}
 
 	sourceTokens := []string{linkTokenObjectMetadataID}
@@ -443,8 +443,8 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			cfg.DestChain,
 			msg.Receiver, // receiver
 			msg.Data,
-			createTokenTransferParamsResult,              // tokenParams from the original create_token_transfer_params
-			suiBind.Object{Id: feeTokenMetadataID},       // feeTokenMetadata
+			createTokenTransferParamsResult,        // tokenParams from the original create_token_transfer_params
+			suiBind.Object{Id: feeTokenMetadataID}, // feeTokenMetadata
 			suiBind.Object{Id: msg.FeeToken},
 			msg.ExtraArgs, // extraArgs
 		}
@@ -587,8 +587,8 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		cfg.DestChain,
 		msg.Receiver,
 		msg.Data,
-		extractedAny2SuiMessageResult,            // tokenParams
-		suiBind.Object{Id: feeTokenMetadataID},   // feeTokenMetadata
+		extractedAny2SuiMessageResult,          // tokenParams
+		suiBind.Object{Id: feeTokenMetadataID}, // feeTokenMetadata
 		suiBind.Object{Id: msg.FeeToken},
 		msg.ExtraArgs, // extraArgs
 	}
@@ -1162,7 +1162,7 @@ func extractFields[T any](configs []TokenPoolRateLimiterConfig, selector func(To
 
 const SuiNativeCoinType = "0x2::sui::SUI"
 
-func GetSuiNativeCoinMetadataId(ctx context.Context, client sui.ISuiAPI) (string, error) {
+func GetSuiNativeCoinMetadataID(ctx context.Context, client sui.ISuiAPI) (string, error) {
 	rsp, err := client.SuiXGetCoinMetadata(ctx, models.SuiXGetCoinMetadataRequest{
 		CoinType: SuiNativeCoinType,
 	})
@@ -1173,8 +1173,8 @@ func GetSuiNativeCoinMetadataId(ctx context.Context, client sui.ISuiAPI) (string
 }
 
 func SplitSuiCoinForFee(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	suiChain cldf_sui.Chain,
 	amount uint64,
 ) string {
@@ -1222,7 +1222,7 @@ func RegisterSuiNativeFeeToken(
 	t *testing.T,
 	e cldf.Environment,
 	suiChainSel uint64,
-	suiCoinMetadataId string,
+	suiCoinMetadataID string,
 ) {
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
@@ -1257,7 +1257,7 @@ func RegisterSuiNativeFeeToken(
 			StateObjectId:     ccipObjectRefID,
 			OwnerCapObjectId:  ccipOwnerCapID,
 			FeeTokensToRemove: []string{},
-			FeeTokensToAdd:    []string{suiCoinMetadataId},
+			FeeTokensToAdd:    []string{suiCoinMetadataID},
 		})
 	require.NoError(t, err, "failed to register SUI as fee token")
 
@@ -1266,7 +1266,7 @@ func RegisterSuiNativeFeeToken(
 			CCIPPackageId:              ccipPackageID,
 			StateObjectId:              ccipObjectRefID,
 			OwnerCapObjectId:           ccipOwnerCapID,
-			Tokens:                     []string{suiCoinMetadataId},
+			Tokens:                     []string{suiCoinMetadataID},
 			PremiumMultiplierWeiPerEth: []uint64{900_000_000_000_000_000},
 		})
 	require.NoError(t, err, "failed to set premium multiplier for SUI fee token")

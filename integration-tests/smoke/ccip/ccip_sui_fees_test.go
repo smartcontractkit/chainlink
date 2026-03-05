@@ -45,7 +45,7 @@ func Test_CCIP_Fees_Sui2EVM(t *testing.T) {
 
 	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
 
-	suiCoinMetadataId, err := testhelpers.GetSuiNativeCoinMetadataId(ctx, suiChain.Client)
+	suiCoinMetadataId, err := testhelpers.GetSuiNativeCoinMetadataID(ctx, suiChain.Client)
 	require.NoError(t, err, "failed to get SUI CoinMetadata ID")
 	t.Log("SUI CoinMetadata ID:", suiCoinMetadataId)
 
@@ -96,14 +96,14 @@ func Test_CCIP_Fees_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Send message with native SUI fee token", func(t *testing.T) {
-		suiFeeCoinId := testhelpers.SplitSuiCoinForFee(t, ctx, suiChain, 10_000_000_000)
+		suiFeeCoinId := testhelpers.SplitSuiCoinForFee(ctx, t, suiChain, 10_000_000_000)
 
 		msg := testhelpers.SuiSendRequest{
 			Receiver:           common.LeftPadBytes(receiver.Bytes(), 32),
 			Data:               []byte("Hello EVM, from SUI with native SUI fee!"),
 			FeeToken:           suiFeeCoinId,
 			FeeTokenCoinType:   testhelpers.SuiNativeCoinType,
-			FeeTokenMetadataId: suiCoinMetadataId,
+			FeeTokenMetadataID: suiCoinMetadataId,
 			ExtraArgs:          testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
 		}
 
@@ -200,14 +200,14 @@ func Test_CCIP_Fees_Sui2EVM(t *testing.T) {
 		require.NoError(t, err)
 
 		tokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1_000_000_000)
-		suiFeeCoinId := testhelpers.SplitSuiCoinForFee(t, ctx, suiChain, 10_000_000_000)
+		suiFeeCoinId := testhelpers.SplitSuiCoinForFee(ctx, t, suiChain, 10_000_000_000)
 
 		msg := testhelpers.SuiSendRequest{
 			Receiver:           common.LeftPadBytes(e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), 32),
 			Data:               []byte{},
 			FeeToken:           suiFeeCoinId,
 			FeeTokenCoinType:   testhelpers.SuiNativeCoinType,
-			FeeTokenMetadataId: suiCoinMetadataId,
+			FeeTokenMetadataID: suiCoinMetadataId,
 			ExtraArgs:          testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
 			TokenAmounts: []testhelpers.SuiTokenAmount{
 				{
@@ -266,14 +266,14 @@ func Test_CCIP_Fees_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Send with insufficient SUI fee token balance should fail", func(t *testing.T) {
-		tinyCoinId := testhelpers.SplitSuiCoinForFee(t, ctx, suiChain, 1)
+		tinyCoinId := testhelpers.SplitSuiCoinForFee(ctx, t, suiChain, 1)
 
 		msg := testhelpers.SuiSendRequest{
 			Receiver:           common.LeftPadBytes(receiver.Bytes(), 32),
 			Data:               []byte("should fail - insufficient balance"),
 			FeeToken:           tinyCoinId,
 			FeeTokenCoinType:   testhelpers.SuiNativeCoinType,
-			FeeTokenMetadataId: suiCoinMetadataId,
+			FeeTokenMetadataID: suiCoinMetadataId,
 			ExtraArgs:          testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
 		}
 
