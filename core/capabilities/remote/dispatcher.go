@@ -160,6 +160,11 @@ var capReceiveChannelUsage = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "The usage of the receive channel for each capability, 0 indicates empty, 1 indicates full.",
 }, []string{"capabilityId", "donId"})
 
+var capReceiverDroppedMsgs = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "capability_receiver_dropped_messages_total",
+	Help: "Total number of messages dropped due to a full receiver channel.",
+}, []string{"capabilityId", "donId"})
+
 type receiver struct {
 	cancel context.CancelFunc
 	ch     chan *types.MessageBody
@@ -325,7 +330,8 @@ func (d *dispatcher) handleMessage(ctx context.Context, msg *p2ptypes.Message) {
 	select {
 	case receiver.ch <- body:
 	default:
-		d.lggr.Warnw("receiver channel full, dropping message", "capabilityId", k.capID, "donId", k.donID)
+		capReceiverDroppedMsgs.WithLabelValues(k.capID, strconv.FormatUint(uint64(k.donID), 10)).Inc()
+		d.lggr.Errorw("receiver channel full, dropping message", "capabilityId", k.capID, "donId", k.donID)
 	}
 }
 
