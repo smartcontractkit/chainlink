@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.36.1
+
+### Patch Changes
+
+- Hotfix release from v2.36.0
+
 ## 2.36.0
 
 ### Minor Changes
