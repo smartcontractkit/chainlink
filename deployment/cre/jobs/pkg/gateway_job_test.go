@@ -260,12 +260,6 @@ ServiceName = 'workflows'
 [gatewayConfig.Dons.Handlers.Config]
 CleanUpPeriodMs = 600000
 
-[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-globalBurst = 100
-globalRPS = 500
-perSenderBurst = 100
-perSenderRPS = 100
-
 [[gatewayConfig.Dons.Members]]
 Address = '0xabc'
 Name = 'Node 1'

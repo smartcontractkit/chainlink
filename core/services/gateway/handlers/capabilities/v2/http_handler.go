@@ -12,7 +12,6 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -44,17 +43,18 @@ const (
 
 type gatewayHandler struct {
 	services.StateMachine
-	config          ServiceConfig
-	don             handlers.DON
-	lggr            logger.Logger
-	httpClient      network.HTTPClient
-	nodeRateLimiter *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
-	wg              sync.WaitGroup
-	stopCh          services.StopChan
-	responseCache   ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
-	triggerHandler  HTTPTriggerHandler
-	metadataHandler *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
-	metrics         *metrics.Metrics
+	config                ServiceConfig
+	don                   handlers.DON
+	lggr                  logger.Logger
+	httpClient            network.HTTPClient
+	globalNodeRateLimiter limits.RateLimiter // Global rate limiter shared across all incoming node requests from workflow DON
+	perNodeRateLimiter    limits.RateLimiter // Per-node rate limiter (guards against incoming load from any single node in workflow DON)
+	wg                    sync.WaitGroup
+	stopCh                services.StopChan
+	responseCache         ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	triggerHandler        HTTPTriggerHandler
+	metadataHandler       *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metrics               *metrics.Metrics
 }
 
 type ResponseCache interface {
@@ -71,9 +71,6 @@ type ResponseCache interface {
 }
 
 type ServiceConfig struct {
-	// NodeRateLimiter configures rate limiting for traffic coming from workflow DON nodes
-	NodeRateLimiter ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-
 	// MaxTriggerRequestDurationMs is the maximum time allowed for each trigger broadcast request to a workflow node
 	MaxTriggerRequestDurationMs int `json:"maxTriggerRequestDurationMs"`
 
@@ -117,10 +114,16 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, err
 	}
 	cfg = WithDefaults(cfg)
-	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
+
+	globalNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPGlobalRate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
+		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
 	}
+	perNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create per-node rate limiter: %w", err)
+	}
+
 	userRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.PerWorkflow.HTTPTrigger.RateLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
@@ -134,16 +137,17 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
 	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
 	return &gatewayHandler{
-		config:          cfg,
-		don:             don,
-		lggr:            logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
-		httpClient:      httpClient,
-		nodeRateLimiter: nodeRateLimiter,
-		stopCh:          make(services.StopChan),
-		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
-		triggerHandler:  triggerHandler,
-		metadataHandler: metadataHandler,
-		metrics:         metrics,
+		config:                cfg,
+		don:                   don,
+		lggr:                  logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		httpClient:            httpClient,
+		globalNodeRateLimiter: globalNodeRateLimiter,
+		perNodeRateLimiter:    perNodeRateLimiter,
+		stopCh:                make(services.StopChan),
+		responseCache:         newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		triggerHandler:        triggerHandler,
+		metadataHandler:       metadataHandler,
+		metrics:               metrics,
 	}, nil
 }
 
@@ -195,11 +199,12 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)
 	}
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
-	nodeAllow, globalAllow := h.nodeRateLimiter.AllowVerbose(nodeAddr)
+	nodeAllow := h.perNodeRateLimiter.Allow(ctx)
 	if !nodeAllow {
 		h.metrics.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
+	globalAllow := h.globalNodeRateLimiter.Allow(ctx)
 	if !globalAllow {
 		h.metrics.IncrementGlobalThrottled(ctx, h.lggr)
 		return errors.New("global rate limit exceeded")
@@ -423,6 +428,12 @@ func (h *gatewayHandler) Close() error {
 		err = h.metadataHandler.Close()
 		if err != nil {
 			h.lggr.Errorw("failed to close HTTP auth handler", "err", err)
+		}
+		if err = h.globalNodeRateLimiter.Close(); err != nil {
+			h.lggr.Errorw("failed to close global node rate limiter", "err", err)
+		}
+		if err = h.perNodeRateLimiter.Close(); err != nil {
+			h.lggr.Errorw("failed to close per-node rate limiter", "err", err)
 		}
 		close(h.stopCh)
 		h.wg.Wait()
