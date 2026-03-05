@@ -59,8 +59,7 @@ func (a *SuiAdapter) BuildMessage(components MessageComponents) (any, error) {
 }
 
 func (a *SuiAdapter) NativeFeeToken() string {
-	// TODO:
-	return ""
+	return "native"
 }
 
 func (a *SuiAdapter) GetExtraArgs(receiver []byte, sourceFamily string, opts ...ExtraArgOpt) ([]byte, error) {

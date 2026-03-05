@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -47,13 +48,15 @@ import (
 const TokenSymbolLINK = "LINK"
 
 type SuiSendRequest struct {
-	Receiver         []byte
-	Data             []byte
-	ExtraArgs        []byte
-	FeeToken         string
-	FeeTokenStore    string
-	TokenAmounts     []SuiTokenAmount
-	TokenReceiverATA []byte
+	Receiver           []byte
+	Data               []byte
+	ExtraArgs          []byte
+	FeeToken           string
+	FeeTokenStore      string
+	FeeTokenCoinType   string // optional: e.g. "0x2::sui::SUI"; defaults to LINK if empty
+	FeeTokenMetadataId string // optional: CoinMetadata object ID for the fee token; defaults to LINK if empty
+	TokenAmounts       []SuiTokenAmount
+	TokenReceiverATA   []byte
 }
 
 type SuiTokenAmount struct {
@@ -155,14 +158,32 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// getValidatedFee
 	msg := cfg.Message.(SuiSendRequest)
 
+	// Resolve fee token coin type and metadata: use provided values or default to LINK
+	feeTokenCoinType := linkTokenPkgID + "::link::LINK"
+	feeTokenMetadataID := linkTokenObjectMetadataID
+	if msg.FeeTokenCoinType != "" {
+		feeTokenCoinType = msg.FeeTokenCoinType
+	}
+	if msg.FeeTokenMetadataId != "" {
+		feeTokenMetadataID = msg.FeeTokenMetadataId
+	}
+
+	sourceTokens := []string{linkTokenObjectMetadataID}
+	sourceUsdPerToken := []*big.Int{bigIntSourceUsdPerToken}
+	if feeTokenMetadataID != linkTokenObjectMetadataID {
+		sourceTokens = append(sourceTokens, feeTokenMetadataID)
+		suiUsdPerToken, _ := new(big.Int).SetString("3000000000000000000000000000", 10)
+		sourceUsdPerToken = append(sourceUsdPerToken, suiUsdPerToken)
+	}
+
 	// Update Prices on FeeQuoter with minted LinkToken
 	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
 		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
 			CCIPPackageId:         ccipPackageID,
 			CCIPObjectRef:         ccipObjectRefID,
 			OwnerCapObjectId:      ccipOwnerCapID,
-			SourceTokens:          []string{linkTokenObjectMetadataID},
-			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+			SourceTokens:          sourceTokens,
+			SourceUsdPerToken:     sourceUsdPerToken,
 			GasDestChainSelectors: []uint64{cfg.DestChain},
 			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
 		})
@@ -422,15 +443,17 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			cfg.DestChain,
 			msg.Receiver, // receiver
 			msg.Data,
-			createTokenTransferParamsResult,               // tokenParams from the original create_token_transfer_params
-			suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
+			createTokenTransferParamsResult,              // tokenParams from the original create_token_transfer_params
+			suiBind.Object{Id: feeTokenMetadataID},       // feeTokenMetadata
 			suiBind.Object{Id: msg.FeeToken},
 			msg.ExtraArgs, // extraArgs
 		}
 
+		ccipSendTypeArgs := []string{feeTokenCoinType}
+
 		encodedOnRampCCIPSendCall, err := onRampContract.EncodeCallArgsWithGenerics(
 			"ccip_send",
-			typeArgsListLinkTokenPkgID,
+			ccipSendTypeArgs,
 			[]string{},
 			paramTypesCCIPSend,
 			paramValuesCCIPSend,
@@ -555,17 +578,17 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		return nil, errors.New("failed to decode parameters for token pool function: " + err.Error())
 	}
 
-	typeArgsList = []string{linkTokenPkgID + "::link::LINK"}
+	typeArgsList = []string{feeTokenCoinType}
 	typeParamsList = []string{}
 	paramValues = []any{
 		suiBind.Object{Id: ccipObjectRefID},
 		suiBind.Object{Id: onRampStateObjectID},
 		suiBind.Object{Id: "0x6"},
 		cfg.DestChain,
-		msg.Receiver, // receiver (TODO: replace this with sender Address use environment.NormalizeTo32Bytes(ethereumAddress) from sui repo)
+		msg.Receiver,
 		msg.Data,
-		extractedAny2SuiMessageResult,                 // tokenParams
-		suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
+		extractedAny2SuiMessageResult,            // tokenParams
+		suiBind.Object{Id: feeTokenMetadataID},   // feeTokenMetadata
 		suiBind.Object{Id: msg.FeeToken},
 		msg.ExtraArgs, // extraArgs
 	}
@@ -1135,4 +1158,116 @@ func extractFields[T any](configs []TokenPoolRateLimiterConfig, selector func(To
 		result[i] = selector(config)
 	}
 	return result
+}
+
+const SuiNativeCoinType = "0x2::sui::SUI"
+
+func GetSuiNativeCoinMetadataId(ctx context.Context, client sui.ISuiAPI) (string, error) {
+	rsp, err := client.SuiXGetCoinMetadata(ctx, models.SuiXGetCoinMetadataRequest{
+		CoinType: SuiNativeCoinType,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get SUI native CoinMetadata: %w", err)
+	}
+	return rsp.Id, nil
+}
+
+func SplitSuiCoinForFee(
+	t *testing.T,
+	ctx context.Context,
+	suiChain cldf_sui.Chain,
+	amount uint64,
+) string {
+	signerAddr, err := suiChain.Signer.GetAddress()
+	require.NoError(t, err)
+
+	coins, err := suiChain.Client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+		Owner:    signerAddr,
+		CoinType: SuiNativeCoinType,
+		Limit:    50,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, coins.Data, "no SUI coins found for signer")
+
+	sourceCoin := coins.Data[0]
+
+	txnMeta, err := suiChain.Client.TransferSui(ctx, models.TransferSuiRequest{
+		Signer:      signerAddr,
+		SuiObjectId: sourceCoin.CoinObjectId,
+		GasBudget:   "100000000",
+		Recipient:   signerAddr,
+		Amount:      strconv.FormatUint(amount, 10),
+	})
+	require.NoError(t, err, "failed to create TransferSui transaction")
+
+	decodedTx, err := base64.StdEncoding.DecodeString(txnMeta.TxBytes)
+	require.NoError(t, err, "failed to decode tx bytes")
+
+	tx, err := suiBind.SignAndSendTx(ctx, suiChain.Signer, suiChain.Client, decodedTx, true)
+	require.NoError(t, err, "failed to execute TransferSui")
+	require.Equal(t, "success", tx.Effects.Status.Status, "TransferSui transaction failed")
+
+	for _, oc := range tx.ObjectChanges {
+		if oc.Type == "created" && strings.Contains(oc.ObjectType, "0x2::coin::Coin<0x2::sui::SUI>") {
+			t.Logf("Split SUI coin: new object %s with amount %d", oc.ObjectId, amount)
+			return oc.ObjectId
+		}
+	}
+
+	t.Fatal("failed to find newly created SUI coin object in TransferSui response")
+	return ""
+}
+
+func RegisterSuiNativeFeeToken(
+	t *testing.T,
+	e cldf.Environment,
+	suiChainSel uint64,
+	suiCoinMetadataId string,
+) {
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	suiChain := e.BlockChains.SuiChains()[suiChainSel]
+
+	deps := suideps.Deps{
+		SuiChain: sui_ops.OpTxDeps{
+			Client: suiChain.Client,
+			Signer: suiChain.Signer,
+			GetCallOpts: func() *suiBind.CallOpts {
+				b := uint64(400_000_000)
+				return &suiBind.CallOpts{
+					Signer:           suiChain.Signer,
+					WaitForExecution: true,
+					GasBudget:        &b,
+				}
+			},
+		},
+	}
+
+	ccipPackageID := state.SuiChains[suiChainSel].CCIPMockV2PackageId
+	if ccipPackageID == "" {
+		ccipPackageID = state.SuiChains[suiChainSel].CCIPAddress
+	}
+	ccipObjectRefID := state.SuiChains[suiChainSel].CCIPObjectRef
+	ccipOwnerCapID := state.SuiChains[suiChainSel].CCIPOwnerCapObjectId
+
+	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterApplyFeeTokenUpdatesOp, deps.SuiChain,
+		ccipops.FeeQuoterApplyFeeTokenUpdatesInput{
+			CCIPPackageId:     ccipPackageID,
+			StateObjectId:     ccipObjectRefID,
+			OwnerCapObjectId:  ccipOwnerCapID,
+			FeeTokensToRemove: []string{},
+			FeeTokensToAdd:    []string{suiCoinMetadataId},
+		})
+	require.NoError(t, err, "failed to register SUI as fee token")
+
+	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterApplyPremiumMultiplierWeiPerEthUpdatesOp, deps.SuiChain,
+		ccipops.FeeQuoterApplyPremiumMultiplierWeiPerEthUpdatesInput{
+			CCIPPackageId:              ccipPackageID,
+			StateObjectId:              ccipObjectRefID,
+			OwnerCapObjectId:           ccipOwnerCapID,
+			Tokens:                     []string{suiCoinMetadataId},
+			PremiumMultiplierWeiPerEth: []uint64{900_000_000_000_000_000},
+		})
+	require.NoError(t, err, "failed to set premium multiplier for SUI fee token")
 }
