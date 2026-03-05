@@ -1892,7 +1892,8 @@ type CreConfig struct {
 	Linking              *LinkingConfig         `toml:",omitempty"`
 	// DebugMode enables additional tracing and logging for workflow engines.
 	// When enabled, OTel traces are created for workflow execution and syncer events.
-	// Requires [Telemetry].Enabled = true for traces to be exported.
+	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
+	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
 	DebugMode *bool `toml:",omitempty"`
 }

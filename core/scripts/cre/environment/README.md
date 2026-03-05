@@ -1758,18 +1758,29 @@ To enable OpenTelemetry (OTel) tracing for workflow engines and see traces in Te
 
 | Toggle | Location | Required Value | Purpose |
 |--------|----------|----------------|---------|
-| `Telemetry.Enabled` | Node TOML | `true` | Enables the OTel exporter |
-| `Telemetry.TraceSampleRatio` | Node TOML | `> 0` (e.g., `1.0`) | Controls sampling rate (0 = no traces, 1 = 100%) |
+| `Tracing.Enabled` | Node TOML | `true` | **Required.** Gates trace export; without this, no traces are exported even when `Telemetry.Enabled` is true |
+| `Tracing.CollectorTarget` | Node TOML | e.g., `host.docker.internal:4318` | OTLP endpoint for trace export. Must differ from `Telemetry.Endpoint` when both [Tracing] and [Telemetry] are enabled |
+| `Tracing.SamplingRatio` | Node TOML | `> 0` (e.g., `1.0`) | Sampling rate for the span exporter (0 = no traces, 1 = 100%) |
+| `Telemetry.Enabled` | Node TOML | `true` | Enables the OTel/beholder exporter |
+| `Telemetry.TraceSampleRatio` | Node TOML | `> 0` (e.g., `1.0`) | Sampling rate used by the beholder client (0 = no traces, 1 = 100%) |
 | `CRE.DebugMode` | Node TOML | `true` | Enables detailed tracing in workflow engines and syncer |
 | `OTEL_SERVICE_NAME` | Environment variable | e.g., `chainlink-node` | Sets the service name for traces in Tempo |
 | `Pyroscope.LinkTracesToProfiles` | Node TOML | `true` | Enables traces-to-profiles linking in Grafana (requires Pyroscope) |
 
+**Sampling ratios:** When both [Tracing] and [Telemetry] are enabled, `Tracing.SamplingRatio` controls the span exporter and `Telemetry.TraceSampleRatio` is used by the beholder client. Set both to the same value (e.g., `1.0`) for consistent trace capture.
+
 **Example TOML configuration:**
 
 ```toml
+[Tracing]
+Enabled = true
+CollectorTarget = 'host.docker.internal:4318'  # Must differ from Telemetry.Endpoint when both enabled
+SamplingRatio = 1.0  # 100% sampling - adjust for production
+Mode = 'unencrypted'  # Use for local dev; use 'tls' in production
+
 [Telemetry]
 Enabled = true
-Endpoint = 'host.docker.internal:4317'
+Endpoint = 'host.docker.internal:4317'  # Must differ from Tracing.CollectorTarget
 InsecureConnection = true
 TraceSampleRatio = 1.0  # 100% sampling - adjust for production
 
@@ -1780,6 +1791,8 @@ DebugMode = true  # WARNING: Not suitable for production due to overhead
 ServerAddress = 'http://host.docker.internal:4040'
 LinkTracesToProfiles = true  # Enables traces-to-profiles in Grafana
 ```
+
+**Note:** When both [Tracing] and [Telemetry] are enabled, config validation requires `Tracing.CollectorTarget` and `Telemetry.Endpoint` to be different. For a single OTel collector, use different ports (e.g., gRPC on 4317, HTTP on 4318) if your collector exposes both.
 
 **Example environment variable (in nodeset config):**
 
@@ -1792,7 +1805,7 @@ LinkTracesToProfiles = true  # Enables traces-to-profiles in Grafana
 
 | Symptom | Likely Cause |
 |---------|--------------|
-| No traces at all | `Telemetry.Enabled = false` or `TraceSampleRatio = 0` |
+| No traces at all | `Tracing.Enabled = false`, `Telemetry.Enabled = false`, or sampling ratios set to `0` |
 | No workflow engine traces | `CRE.DebugMode = false` |
 | Traces show `unknown_service:chainlink` | Missing `OTEL_SERVICE_NAME` env var |
 | Traces not exported | Telemetry endpoint unreachable (check `go run . obs up -f `) |

@@ -233,7 +233,7 @@ func (e *Engine) start(ctx context.Context) error {
 }
 
 func (e *Engine) init(ctx context.Context) {
-	// Create a trace span for initialization using the global OTel tracer
+	// Tracer is no-op if DebugMode is false
 	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
 		trace.WithAttributes(
 			attribute.String("version", "v2"),
@@ -590,7 +590,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
-			// Create a trace span using the global OTel tracer
+			// Tracer is no-op if DebugMode is false
 			ctx, span := e.tracer.Start(ctx, "workflow_execution",
 				trace.WithAttributes(
 					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
