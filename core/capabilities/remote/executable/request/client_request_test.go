@@ -53,7 +53,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
+		"schedule":   transmission.Schedule_AllAtOnce,
 		"deltaStage": "1000ms",
 	})
 	require.NoError(t, err)
@@ -402,7 +402,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			}
 
 			if k.Key == "effectiveTimeout" {
-				assert.Greater(t, k.Integer, int64(10*time.Second))
+				assert.Equal(t, k.Integer, int64(10*time.Second))
 			}
 		}
 
@@ -419,7 +419,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the event fields
-		assert.Equal(t, transmission.Schedule_OneAtATime, event.ScheduleType)
+		assert.Equal(t, transmission.Schedule_AllAtOnce, event.ScheduleType)
 		assert.Equal(t, workflowExecutionID1, event.WorkflowExecutionID)
 		assert.Equal(t, "cap_id@1.0.0", event.CapabilityID)
 		assert.Equal(t, stepRef1, event.StepRef)
@@ -438,7 +438,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		// Verify delays are sorted and increment by 1000ms
 		for i := 1; i < len(delays); i++ {
-			assert.Equal(t, delays[i-1]+1000, delays[i], "delays should increment by 1000ms")
+			assert.Equal(t, delays[i-1], delays[i], "delays should be the same")
 		}
 
 		// Verify each peer ID exists in capability peers
@@ -677,7 +677,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the event fields
-		assert.Equal(t, transmission.Schedule_OneAtATime, event.ScheduleType)
+		assert.Equal(t, transmission.Schedule_AllAtOnce, event.ScheduleType)
 		assert.Equal(t, workflowExecutionID1, event.WorkflowExecutionID)
 		assert.Equal(t, "cap_id@1.0.0", event.CapabilityID)
 		assert.Equal(t, stepRef1, event.StepRef)
@@ -696,7 +696,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		// Verify delays are sorted and increment by 1000ms
 		for i := 1; i < len(delays); i++ {
-			assert.Equal(t, delays[i-1]+1000, delays[i], "delays should increment by 1000ms")
+			assert.Equal(t, delays[i-1], delays[i], "v2 capabilities should be all at once")
 		}
 	})
 }
