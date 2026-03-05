@@ -131,7 +131,7 @@ jobs:
         with:
           just-version: "1.40.0"
 
-      # We need to login to ECR to allow the test to pull the Job Distributor (main) and  and Chainlink (sdlc) images
+      # We need to login to ECR to allow the test to pull the Job Distributor (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
@@ -190,7 +190,6 @@ jobs:
           TEST_CMD: ${{ env.TEST_CMD }}
           NODES: ${{ env.NODES }}
           VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
-          REF: ${{ env.REF }}
         run: |
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
@@ -199,7 +198,7 @@ jobs:
             --testcmd "${TEST_CMD}" \
             --nodes "${NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
-            --versions-back "${VERSIONS_BACK}" \
+            --versions-back "${VERSIONS_BACK}"
 
       - name: Upload Logs
         if: always()

@@ -7,7 +7,7 @@ import (
 )
 
 /*
-Add tests below which will be run, when run upgrade tests during release process to ensure that the upgrade process is working as expected.
+	Add upgrade tests below. These tests are run during the release process to verify that the upgrade procedure works as expected.
 */
 
 func Test_Upgrade_Suite(t *testing.T) {
