@@ -87,7 +87,8 @@ jobs:
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
 
-          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+          # Exclude upgrade tests from the matrix
+          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$' | grep -v Test_Upgrade)
 
           tests=$(echo "$test_names" | jq -R -s \
             --argjson tops "$TOPOLOGIES_JSON" \
