@@ -1270,4 +1270,5 @@ func RegisterSuiNativeFeeToken(
 			PremiumMultiplierWeiPerEth: []uint64{900_000_000_000_000_000},
 		})
 	require.NoError(t, err, "failed to set premium multiplier for SUI fee token")
+
 }
