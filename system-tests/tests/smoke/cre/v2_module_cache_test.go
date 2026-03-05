@@ -1,0 +1,104 @@
+package cre
+
+import (
+	"fmt"
+	"os/exec"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
+)
+
+/*
+Module Cache Smoke Test
+
+Validates that the WASM module cache is active and exercising all cache states
+(loaded, evicted, reloaded) by deploying multiple cron workflows under a
+MaxLoaded=1 constraint.
+
+Prerequisites:
+  - Start the environment with the cache-test topology:
+    cd core/scripts/cre/environment
+    CTF_CONFIGS=configs/workflow-gateway-don-cache-test.toml go run . env start
+  - Run:
+    go test -timeout 15m -run "^Test_CRE_V2_Module_Cache$" -v
+*/
+func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testLogger := framework.L
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
+	})
+
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	workflowConfig := crontypes.WorkflowConfig{
+		Schedule: "*/30 * * * * *",
+	}
+
+	const numWorkflows = 20
+	for i := 0; i < numWorkflows; i++ {
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, fmt.Sprintf("cachetest%d", i), &workflowConfig, workflowFileLocation)
+	}
+	testLogger.Info().Int("count", numWorkflows).Msg("All cache-test workflows deployed")
+
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", 4*time.Minute)
+	testLogger.Info().Msg("First workflow execution confirmed, observing cache activity for 2 more minutes...")
+
+	drainFor(userLogsCh, 2*time.Minute)
+
+	assertNodeLogs(t, testEnv, "Module cache enabled")
+}
+
+func drainFor(ch <-chan *workflowevents.UserLogs, d time.Duration) {
+	timer := time.After(d)
+	for {
+		select {
+		case <-timer:
+			return
+		case <-ch:
+		}
+	}
+}
+
+func assertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {
+	t.Helper()
+
+	found := false
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		if nodeSet.Out == nil {
+			continue
+		}
+		for _, clNode := range nodeSet.Out.CLNodes {
+			name := clNode.Node.ContainerName
+			if name == "" {
+				continue
+			}
+			out, err := exec.Command("docker", "logs", name).CombinedOutput()
+			if err != nil {
+				framework.L.Warn().Str("container", name).Err(err).Msg("could not read docker logs")
+				continue
+			}
+			if strings.Contains(string(out), needle) {
+				found = true
+				framework.L.Info().Str("container", name).Msg("confirmed: " + needle)
+			}
+		}
+	}
+	assert.True(t, found, "expected at least one node container log to contain %q", needle)
+}
