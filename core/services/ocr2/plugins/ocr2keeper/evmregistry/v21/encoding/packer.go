@@ -45,10 +45,16 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 			fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %w", payload.UpkeepID.String(), raw, err)
 	}
 
+	gasAllocatedBig := *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	if !gasAllocatedBig.IsUint64() {
+		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
+			fmt.Errorf("upkeepId %s GasAllocated value %s overflows uint64", payload.UpkeepID.String(), gasAllocatedBig.String())
+	}
+
 	result := ocr2keepers.CheckResult{
 		Eligible:            *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:           false,
-		GasAllocated:        uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
+		GasAllocated:        gasAllocatedBig.Uint64(),
 		UpkeepID:            payload.UpkeepID,
 		Trigger:             payload.Trigger,
 		WorkID:              payload.WorkID,
