@@ -184,6 +184,19 @@ func TestPacker_UnpackCheckResults(t *testing.T) {
 			},
 			ExpectedError: fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result 0x123123: abi: cannot marshal in to go type: length insufficient 3 require 32", p2.UpkeepID.String()),
 		},
+		{
+			Name:    "gas allocated overflow",
+			Payload: p1,
+			// valid checkUpkeep encoding with GasAllocated set to math.MaxUint64+1 (2^64)
+			RawData: "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000421c0000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000c8caf37f3b3890000000000000000000000000000000000000000000000000000000000000000",
+			ExpectedResult: ocr2keepers.CheckResult{
+				UpkeepID:               upkeepId,
+				PipelineExecutionState: uint8(PackUnpackDecodeFailed),
+				Trigger:                p1.Trigger,
+				WorkID:                 p1.WorkID,
+			},
+			ExpectedError: fmt.Errorf("upkeepId %s GasAllocated value 18446744073709551616 overflows uint64", p1.UpkeepID.String()),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
