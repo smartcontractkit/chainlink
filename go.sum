@@ -1249,8 +1249,8 @@ github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.202602181
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b/go.mod h1:ea1LESxlSSOgc2zZBqf1RTkXTMthHaspdqUHd7W4lF0=
 github.com/smartcontractkit/confidential-compute/attestation v0.0.0-20260304160931-b4d8c0970bd0 h1:BNxJ2QKCxhrLUL75RgcDGioZ/+2lgJ30w9xNKKFbci4=
 github.com/smartcontractkit/confidential-compute/attestation v0.0.0-20260304160931-b4d8c0970bd0/go.mod h1:3jZZmW4WpVdrNF2D2awn7wCcAD4gEK0R29+VC4kIltU=
-github.com/smartcontractkit/confidential-compute/capabilities/relay v0.0.0-20260304161023-dbe21c520c62 h1:rIoDHf6el2LLBPuoqIG4616Qj5l3vRNkAB26F9m24tQ=
-github.com/smartcontractkit/confidential-compute/capabilities/relay v0.0.0-20260304161023-dbe21c520c62/go.mod h1:WJQx3X4bgb7Zhb/AOoeEpOA0HiZIQiRETg0aew0/YA4=
+github.com/smartcontractkit/confidential-compute/capabilities/relay v0.0.0-20260305111142-e3fbfeb455c0 h1:T1XYmmnxCV78RDbsouLXoJXkLYiC/GSYfYWB8TOGnVA=
+github.com/smartcontractkit/confidential-compute/capabilities/relay v0.0.0-20260305111142-e3fbfeb455c0/go.mod h1:WJQx3X4bgb7Zhb/AOoeEpOA0HiZIQiRETg0aew0/YA4=
 github.com/smartcontractkit/cre-sdk-go v1.3.0 h1:zzbNf8CDjadz4xLZPmv0UQIphxs8ChXs4ow+bmF+2OI=
 github.com/smartcontractkit/cre-sdk-go v1.3.0/go.mod h1:LpkUDTXm7DUL0JljsZN1or9mR4/QcGdBai+G1Ng5LPA=
 github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0 h1:4C0wM23L1aOLkBru8+iz4VEuryMjijt5RZeZK+EqhUs=
