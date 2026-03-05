@@ -277,11 +277,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, gateway.JobConfig{
-		UseServiceCentricFormat: topology.UseServiceCentricFormat,
-		GatewayConfigs:          topology.GatewayConfigs,
-		GatewayServiceConfigs:   topology.GatewayServiceConfigs,
-	}, input.GatewayWhitelistConfig)
+	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)
 	if gJobErr != nil {
 		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor")
 	}

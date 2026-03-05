@@ -18,12 +18,10 @@ const (
 )
 
 type Topology struct {
-	UseServiceCentricFormat bool                   `toml:"use_service_centric_format" json:"use_service_centric_format"`
-	WorkflowDONIDs          []uint64               `toml:"workflow_don_ids" json:"workflow_don_ids"`
-	DonsMetadata            *DonsMetadata          `toml:"dons_metadata" json:"dons_metadata"`
-	GatewayConfigs          []GatewayConfig        `toml:"gateway_configs" json:"gateway_configs"`
-	GatewayServiceConfigs   []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
-	GatewayConnectors       *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
+	WorkflowDONIDs        []uint64               `toml:"workflow_don_ids" json:"workflow_don_ids"`
+	DonsMetadata          *DonsMetadata          `toml:"dons_metadata" json:"dons_metadata"`
+	GatewayServiceConfigs []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
+	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
@@ -49,19 +47,14 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 	}
 
 	topology := &Topology{
-		UseServiceCentricFormat: true, // default to true in all tests and Local CRE
-		WorkflowDONIDs:          []uint64{},
-		DonsMetadata:            donsMetadata,
+		WorkflowDONIDs: []uint64{},
+		DonsMetadata:   donsMetadata,
 	}
 
 	donNames := make([]string, 0, len(wfDONs))
 	for _, wfDON := range wfDONs {
 		donNames = append(donNames, wfDON.Name)
 		topology.WorkflowDONIDs = append(topology.WorkflowDONIDs, wfDON.ID)
-		topology.GatewayConfigs = append(topology.GatewayConfigs, GatewayConfig{
-			Name:     wfDON.Name,
-			Handlers: []string{pkg.GatewayHandlerTypeWebAPICapabilities},
-		})
 	}
 
 	topology.GatewayServiceConfigs = append(topology.GatewayServiceConfigs, GatewayServiceConfig{
@@ -131,40 +124,10 @@ func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
 }
 
 // AddGatewayHandlers adds the given handler names for the given DON.
-// It updates both the legacy, don-centric GatewayConfigs and the service-centric GatewayServiceConfigs
-// so that consumers can use whichever format is active.
+// It updates service-centric GatewayServiceConfigs.
 func (t *Topology) AddGatewayHandlers(donMetadata DonMetadata, handlers []string) error {
-	t.addGatewayHandlersLegacy(donMetadata, handlers)
 	t.addGatewayHandlersServiceFormat(donMetadata, handlers)
 	return nil
-}
-
-func (t *Topology) addGatewayHandlersLegacy(donMetadata DonMetadata, handlers []string) {
-	donFound := false
-	for idx, gc := range t.GatewayConfigs {
-		if gc.Name == donMetadata.Name {
-			donFound = true
-			for _, handlerName := range handlers {
-				alreadyPresent := false
-				for _, existingHandler := range gc.Handlers {
-					if strings.EqualFold(existingHandler, handlerName) {
-						alreadyPresent = true
-						break
-					}
-				}
-				if !alreadyPresent {
-					t.GatewayConfigs[idx].Handlers = append(t.GatewayConfigs[idx].Handlers, handlerName)
-				}
-			}
-			break
-		}
-	}
-	if !donFound {
-		t.GatewayConfigs = append(t.GatewayConfigs, GatewayConfig{
-			Name:     donMetadata.Name,
-			Handlers: handlers,
-		})
-	}
 }
 
 func (t *Topology) addGatewayHandlersServiceFormat(donMetadata DonMetadata, handlers []string) {
