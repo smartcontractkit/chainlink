@@ -115,7 +115,7 @@ type Services struct {
 	OCRConfigService capregconfig.OCRConfigService
 
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
-	SetDelegatesDeps func(*standardcapabilities.Delegate) error
+	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
 }
 
 func (s *Services) close() error {
@@ -409,19 +409,16 @@ func (s *Services) newRegistrySyncer(
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
-		// will be called when the Delegate is ready
-		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) error {
-			// abstraction for the Delegate
+		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
 			newServicesFn := func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error) {
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{})
 			}
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
-				return fmt.Errorf("could not create local capability manager: %w", lcmErr)
+				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
 			wfLauncher.SetLocalCapabilityManager(localCapMgr)
-			srvcs = append(srvcs, localCapMgr) // srvcs is still valid when the callback is called
-			return nil
+			return localCapMgr, nil
 		}
 	}
 
