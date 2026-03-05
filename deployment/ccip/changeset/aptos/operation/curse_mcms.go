@@ -10,7 +10,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	curse_mcms "github.com/smartcontractkit/chainlink-aptos/bindings/curse_mcms"
 	"github.com/smartcontractkit/chainlink-aptos/contracts"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -165,35 +164,4 @@ func setCurseMCMSMinDelay(b operations.Bundle, deps dependency.AptosDeps, in Cur
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode CurseMCMS TimelockUpdateMinDelay: %w", err)
 	}
 	return utils.GenerateMCMSTx(in.CurseMCMSAddress, moduleInfo, function, args)
-}
-
-// OP: InitializeAllowedCursersOp generates a main-MCMS transaction that
-// calls rmn_remote::initialize_allowed_cursers_v2 with the CurseMCMS address.
-type InitializeAllowedCursersInput struct {
-	CCIPAddress      aptos.AccountAddress
-	CurseMCMSAddress aptos.AccountAddress
-}
-
-var InitializeAllowedCursersOp = operations.NewOperation(
-	"initialize-allowed-cursers-op",
-	Version1_0_0,
-	"Generates MCMS transaction to register CurseMCMS as an allowed curser on RMN Remote",
-	initializeAllowedCursers,
-)
-
-func initializeAllowedCursers(b operations.Bundle, deps dependency.AptosDeps, in InitializeAllowedCursersInput) (mcmstypes.Transaction, error) {
-	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
-
-	moduleInfo, function, _, args, err := ccipBind.RMNRemote().Encoder().InitializeAllowedCursersV2(
-		[]aptos.AccountAddress{in.CurseMCMSAddress},
-	)
-	if err != nil {
-		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode InitializeAllowedCursersV2: %w", err)
-	}
-
-	tx, err := utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
-	if err != nil {
-		return mcmstypes.Transaction{}, fmt.Errorf("failed to generate MCMS transaction: %w", err)
-	}
-	return tx, nil
 }
