@@ -466,6 +466,38 @@ fragment FeedsManagerParts on FeedsManager {
             updatedAt
         }
     }
+    chainConfigs {
+        id
+        chainID
+        chainType
+        accountAddr
+        adminAddr
+        fluxMonitorJobConfig {
+            enabled
+        }
+        ocr1JobConfig {
+            enabled
+            isBootstrap
+            multiaddr
+            p2pPeerID
+            keyBundleID
+        }
+        ocr2JobConfig {
+            enabled
+            isBootstrap
+            multiaddr
+            forwarderAddress
+            p2pPeerID
+            keyBundleID
+            plugins {
+                commit
+                execute
+                median
+                mercury
+                rebalancer
+            }
+        }
+    }
 }
 
 query GetFeedsManager($id: ID!) {

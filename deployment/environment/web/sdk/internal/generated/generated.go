@@ -1399,6 +1399,11 @@ func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManag
 	return v.FeedsManagerParts.JobProposals
 }
 
+// GetChainConfigs returns CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager.ChainConfigs, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager) GetChainConfigs() []FeedsManagerPartsChainConfigsFeedsManagerChainConfig {
+	return v.FeedsManagerParts.ChainConfigs
+}
+
 func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -1438,6 +1443,8 @@ type __premarshalCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFe
 	CreatedAt string `json:"createdAt"`
 
 	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
+
+	ChainConfigs []FeedsManagerPartsChainConfigsFeedsManagerChainConfig `json:"chainConfigs"`
 }
 
 func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager) MarshalJSON() ([]byte, error) {
@@ -1458,6 +1465,7 @@ func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManag
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
 	retval.JobProposals = v.FeedsManagerParts.JobProposals
+	retval.ChainConfigs = v.FeedsManagerParts.ChainConfigs
 	return &retval, nil
 }
 
@@ -2065,13 +2073,14 @@ const (
 
 // FeedsManagerParts includes the GraphQL fields of FeedsManager requested by the fragment FeedsManagerParts.
 type FeedsManagerParts struct {
-	Id                 string                                     `json:"id"`
-	Name               string                                     `json:"name"`
-	Uri                string                                     `json:"uri"`
-	PublicKey          string                                     `json:"publicKey"`
-	IsConnectionActive bool                                       `json:"isConnectionActive"`
-	CreatedAt          string                                     `json:"createdAt"`
-	JobProposals       []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
+	Id                 string                                                 `json:"id"`
+	Name               string                                                 `json:"name"`
+	Uri                string                                                 `json:"uri"`
+	PublicKey          string                                                 `json:"publicKey"`
+	IsConnectionActive bool                                                   `json:"isConnectionActive"`
+	CreatedAt          string                                                 `json:"createdAt"`
+	JobProposals       []FeedsManagerPartsJobProposalsJobProposal             `json:"jobProposals"`
+	ChainConfigs       []FeedsManagerPartsChainConfigsFeedsManagerChainConfig `json:"chainConfigs"`
 }
 
 // GetId returns FeedsManagerParts.Id, and is useful for accessing the field via an interface.
@@ -2095,6 +2104,183 @@ func (v *FeedsManagerParts) GetCreatedAt() string { return v.CreatedAt }
 // GetJobProposals returns FeedsManagerParts.JobProposals, and is useful for accessing the field via an interface.
 func (v *FeedsManagerParts) GetJobProposals() []FeedsManagerPartsJobProposalsJobProposal {
 	return v.JobProposals
+}
+
+// GetChainConfigs returns FeedsManagerParts.ChainConfigs, and is useful for accessing the field via an interface.
+func (v *FeedsManagerParts) GetChainConfigs() []FeedsManagerPartsChainConfigsFeedsManagerChainConfig {
+	return v.ChainConfigs
+}
+
+// FeedsManagerPartsChainConfigsFeedsManagerChainConfig includes the requested fields of the GraphQL type FeedsManagerChainConfig.
+type FeedsManagerPartsChainConfigsFeedsManagerChainConfig struct {
+	Id                   string                                                                         `json:"id"`
+	ChainID              string                                                                         `json:"chainID"`
+	ChainType            string                                                                         `json:"chainType"`
+	AccountAddr          string                                                                         `json:"accountAddr"`
+	AdminAddr            string                                                                         `json:"adminAddr"`
+	FluxMonitorJobConfig FeedsManagerPartsChainConfigsFeedsManagerChainConfigFluxMonitorJobConfig       `json:"fluxMonitorJobConfig"`
+	Ocr1JobConfig        FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig `json:"ocr1JobConfig"`
+	Ocr2JobConfig        FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig `json:"ocr2JobConfig"`
+}
+
+// GetId returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.Id, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetId() string { return v.Id }
+
+// GetChainID returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.ChainID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetChainID() string { return v.ChainID }
+
+// GetChainType returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.ChainType, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetChainType() string {
+	return v.ChainType
+}
+
+// GetAccountAddr returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.AccountAddr, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetAccountAddr() string {
+	return v.AccountAddr
+}
+
+// GetAdminAddr returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.AdminAddr, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetAdminAddr() string {
+	return v.AdminAddr
+}
+
+// GetFluxMonitorJobConfig returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.FluxMonitorJobConfig, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetFluxMonitorJobConfig() FeedsManagerPartsChainConfigsFeedsManagerChainConfigFluxMonitorJobConfig {
+	return v.FluxMonitorJobConfig
+}
+
+// GetOcr1JobConfig returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.Ocr1JobConfig, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetOcr1JobConfig() FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig {
+	return v.Ocr1JobConfig
+}
+
+// GetOcr2JobConfig returns FeedsManagerPartsChainConfigsFeedsManagerChainConfig.Ocr2JobConfig, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfig) GetOcr2JobConfig() FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig {
+	return v.Ocr2JobConfig
+}
+
+// FeedsManagerPartsChainConfigsFeedsManagerChainConfigFluxMonitorJobConfig includes the requested fields of the GraphQL type FluxMonitorJobConfig.
+type FeedsManagerPartsChainConfigsFeedsManagerChainConfigFluxMonitorJobConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
+// GetEnabled returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigFluxMonitorJobConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigFluxMonitorJobConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig includes the requested fields of the GraphQL type OCR1JobConfig.
+type FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig struct {
+	Enabled     bool   `json:"enabled"`
+	IsBootstrap bool   `json:"isBootstrap"`
+	Multiaddr   string `json:"multiaddr"`
+	P2pPeerID   string `json:"p2pPeerID"`
+	KeyBundleID string `json:"keyBundleID"`
+}
+
+// GetEnabled returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// GetIsBootstrap returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.IsBootstrap, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetIsBootstrap() bool {
+	return v.IsBootstrap
+}
+
+// GetMultiaddr returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.Multiaddr, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetMultiaddr() string {
+	return v.Multiaddr
+}
+
+// GetP2pPeerID returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.P2pPeerID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetP2pPeerID() string {
+	return v.P2pPeerID
+}
+
+// GetKeyBundleID returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.KeyBundleID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetKeyBundleID() string {
+	return v.KeyBundleID
+}
+
+// FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig includes the requested fields of the GraphQL type OCR2JobConfig.
+type FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig struct {
+	Enabled          bool                                                                                  `json:"enabled"`
+	IsBootstrap      bool                                                                                  `json:"isBootstrap"`
+	Multiaddr        string                                                                                `json:"multiaddr"`
+	ForwarderAddress string                                                                                `json:"forwarderAddress"`
+	P2pPeerID        string                                                                                `json:"p2pPeerID"`
+	KeyBundleID      string                                                                                `json:"keyBundleID"`
+	Plugins          FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins `json:"plugins"`
+}
+
+// GetEnabled returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// GetIsBootstrap returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.IsBootstrap, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetIsBootstrap() bool {
+	return v.IsBootstrap
+}
+
+// GetMultiaddr returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.Multiaddr, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetMultiaddr() string {
+	return v.Multiaddr
+}
+
+// GetForwarderAddress returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.ForwarderAddress, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetForwarderAddress() string {
+	return v.ForwarderAddress
+}
+
+// GetP2pPeerID returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.P2pPeerID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetP2pPeerID() string {
+	return v.P2pPeerID
+}
+
+// GetKeyBundleID returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.KeyBundleID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetKeyBundleID() string {
+	return v.KeyBundleID
+}
+
+// GetPlugins returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.Plugins, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetPlugins() FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins {
+	return v.Plugins
+}
+
+// FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins includes the requested fields of the GraphQL type Plugins.
+type FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins struct {
+	Commit     bool `json:"commit"`
+	Execute    bool `json:"execute"`
+	Median     bool `json:"median"`
+	Mercury    bool `json:"mercury"`
+	Rebalancer bool `json:"rebalancer"`
+}
+
+// GetCommit returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Commit, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetCommit() bool {
+	return v.Commit
+}
+
+// GetExecute returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Execute, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetExecute() bool {
+	return v.Execute
+}
+
+// GetMedian returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Median, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetMedian() bool {
+	return v.Median
+}
+
+// GetMercury returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Mercury, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetMercury() bool {
+	return v.Mercury
+}
+
+// GetRebalancer returns FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Rebalancer, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsChainConfigsFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetRebalancer() bool {
+	return v.Rebalancer
 }
 
 // FeedsManagerPartsJobProposalsJobProposal includes the requested fields of the GraphQL type JobProposal.
@@ -2846,6 +3032,11 @@ func (v *GetFeedsManagerFeedsManager) GetJobProposals() []FeedsManagerPartsJobPr
 	return v.FeedsManagerParts.JobProposals
 }
 
+// GetChainConfigs returns GetFeedsManagerFeedsManager.ChainConfigs, and is useful for accessing the field via an interface.
+func (v *GetFeedsManagerFeedsManager) GetChainConfigs() []FeedsManagerPartsChainConfigsFeedsManagerChainConfig {
+	return v.FeedsManagerParts.ChainConfigs
+}
+
 func (v *GetFeedsManagerFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2887,6 +3078,8 @@ type __premarshalGetFeedsManagerFeedsManager struct {
 	CreatedAt string `json:"createdAt"`
 
 	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
+
+	ChainConfigs []FeedsManagerPartsChainConfigsFeedsManagerChainConfig `json:"chainConfigs"`
 }
 
 func (v *GetFeedsManagerFeedsManager) MarshalJSON() ([]byte, error) {
@@ -2908,6 +3101,7 @@ func (v *GetFeedsManagerFeedsManager) __premarshalJSON() (*__premarshalGetFeedsM
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
 	retval.JobProposals = v.FeedsManagerParts.JobProposals
+	retval.ChainConfigs = v.FeedsManagerParts.ChainConfigs
 	return &retval, nil
 }
 
@@ -3390,6 +3584,11 @@ func (v *GetJobProposalJobProposalFeedsManager) GetJobProposals() []FeedsManager
 	return v.FeedsManagerParts.JobProposals
 }
 
+// GetChainConfigs returns GetJobProposalJobProposalFeedsManager.ChainConfigs, and is useful for accessing the field via an interface.
+func (v *GetJobProposalJobProposalFeedsManager) GetChainConfigs() []FeedsManagerPartsChainConfigsFeedsManagerChainConfig {
+	return v.FeedsManagerParts.ChainConfigs
+}
+
 func (v *GetJobProposalJobProposalFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -3429,6 +3628,8 @@ type __premarshalGetJobProposalJobProposalFeedsManager struct {
 	CreatedAt string `json:"createdAt"`
 
 	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
+
+	ChainConfigs []FeedsManagerPartsChainConfigsFeedsManagerChainConfig `json:"chainConfigs"`
 }
 
 func (v *GetJobProposalJobProposalFeedsManager) MarshalJSON() ([]byte, error) {
@@ -3449,6 +3650,7 @@ func (v *GetJobProposalJobProposalFeedsManager) __premarshalJSON() (*__premarsha
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
 	retval.JobProposals = v.FeedsManagerParts.JobProposals
+	retval.ChainConfigs = v.FeedsManagerParts.ChainConfigs
 	return &retval, nil
 }
 
@@ -4460,6 +4662,22 @@ func (v *JobPartsSpecCCIPSpec) __premarshalJSON() (*__premarshalJobPartsSpecCCIP
 	return &retval, nil
 }
 
+// JobPartsSpecCCVCommitteeVerifierSpec includes the requested fields of the GraphQL type CCVCommitteeVerifierSpec.
+type JobPartsSpecCCVCommitteeVerifierSpec struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns JobPartsSpecCCVCommitteeVerifierSpec.Typename, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCVCommitteeVerifierSpec) GetTypename() string { return v.Typename }
+
+// JobPartsSpecCCVExecutorSpec includes the requested fields of the GraphQL type CCVExecutorSpec.
+type JobPartsSpecCCVExecutorSpec struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns JobPartsSpecCCVExecutorSpec.Typename, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCVExecutorSpec) GetTypename() string { return v.Typename }
+
 // JobPartsSpecCronSpec includes the requested fields of the GraphQL type CronSpec.
 type JobPartsSpecCronSpec struct {
 	Typename string `json:"__typename"`
@@ -4857,6 +5075,8 @@ func (v *JobPartsSpecGatewaySpec) __premarshalJSON() (*__premarshalJobPartsSpecG
 // JobPartsSpecBlockhashStoreSpec
 // JobPartsSpecBootstrapSpec
 // JobPartsSpecCCIPSpec
+// JobPartsSpecCCVCommitteeVerifierSpec
+// JobPartsSpecCCVExecutorSpec
 // JobPartsSpecCronSpec
 // JobPartsSpecDirectRequestSpec
 // JobPartsSpecFluxMonitorSpec
@@ -4879,6 +5099,8 @@ func (v *JobPartsSpecBlockHeaderFeederSpec) implementsGraphQLInterfaceJobPartsSp
 func (v *JobPartsSpecBlockhashStoreSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()       {}
 func (v *JobPartsSpecBootstrapSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()            {}
 func (v *JobPartsSpecCCIPSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
+func (v *JobPartsSpecCCVCommitteeVerifierSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec() {}
+func (v *JobPartsSpecCCVExecutorSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()          {}
 func (v *JobPartsSpecCronSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
 func (v *JobPartsSpecDirectRequestSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()        {}
 func (v *JobPartsSpecFluxMonitorSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()          {}
@@ -4917,6 +5139,12 @@ func __unmarshalJobPartsSpecJobSpec(b []byte, v *JobPartsSpecJobSpec) error {
 		return json.Unmarshal(b, *v)
 	case "CCIPSpec":
 		*v = new(JobPartsSpecCCIPSpec)
+		return json.Unmarshal(b, *v)
+	case "CCVCommitteeVerifierSpec":
+		*v = new(JobPartsSpecCCVCommitteeVerifierSpec)
+		return json.Unmarshal(b, *v)
+	case "CCVExecutorSpec":
+		*v = new(JobPartsSpecCCVExecutorSpec)
 		return json.Unmarshal(b, *v)
 	case "CronSpec":
 		*v = new(JobPartsSpecCronSpec)
@@ -5014,6 +5242,22 @@ func __marshalJobPartsSpecJobSpec(v *JobPartsSpecJobSpec) ([]byte, error) {
 			TypeName string `json:"__typename"`
 			*__premarshalJobPartsSpecCCIPSpec
 		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *JobPartsSpecCCVCommitteeVerifierSpec:
+		typename = "CCVCommitteeVerifierSpec"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*JobPartsSpecCCVCommitteeVerifierSpec
+		}{typename, v}
+		return json.Marshal(result)
+	case *JobPartsSpecCCVExecutorSpec:
+		typename = "CCVExecutorSpec"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*JobPartsSpecCCVExecutorSpec
+		}{typename, v}
 		return json.Marshal(result)
 	case *JobPartsSpecCronSpec:
 		typename = "CronSpec"
@@ -6208,6 +6452,11 @@ func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) 
 	return v.FeedsManagerParts.JobProposals
 }
 
+// GetChainConfigs returns ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager.ChainConfigs, and is useful for accessing the field via an interface.
+func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) GetChainConfigs() []FeedsManagerPartsChainConfigsFeedsManagerChainConfig {
+	return v.FeedsManagerParts.ChainConfigs
+}
+
 func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -6247,6 +6496,8 @@ type __premarshalListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsM
 	CreatedAt string `json:"createdAt"`
 
 	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
+
+	ChainConfigs []FeedsManagerPartsChainConfigsFeedsManagerChainConfig `json:"chainConfigs"`
 }
 
 func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) MarshalJSON() ([]byte, error) {
@@ -6267,6 +6518,7 @@ func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) 
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
 	retval.JobProposals = v.FeedsManagerParts.JobProposals
+	retval.ChainConfigs = v.FeedsManagerParts.ChainConfigs
 	return &retval, nil
 }
 
@@ -7138,6 +7390,11 @@ func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManag
 	return v.FeedsManagerParts.JobProposals
 }
 
+// GetChainConfigs returns UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager.ChainConfigs, and is useful for accessing the field via an interface.
+func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager) GetChainConfigs() []FeedsManagerPartsChainConfigsFeedsManagerChainConfig {
+	return v.FeedsManagerParts.ChainConfigs
+}
+
 func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -7177,6 +7434,8 @@ type __premarshalUpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFe
 	CreatedAt string `json:"createdAt"`
 
 	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
+
+	ChainConfigs []FeedsManagerPartsChainConfigsFeedsManagerChainConfig `json:"chainConfigs"`
 }
 
 func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager) MarshalJSON() ([]byte, error) {
@@ -7197,6 +7456,7 @@ func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManag
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
 	retval.JobProposals = v.FeedsManagerParts.JobProposals
+	retval.ChainConfigs = v.FeedsManagerParts.ChainConfigs
 	return &retval, nil
 }
 
@@ -7858,6 +8118,38 @@ fragment FeedsManagerParts on FeedsManager {
 			updatedAt
 		}
 	}
+	chainConfigs {
+		id
+		chainID
+		chainType
+		accountAddr
+		adminAddr
+		fluxMonitorJobConfig {
+			enabled
+		}
+		ocr1JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			p2pPeerID
+			keyBundleID
+		}
+		ocr2JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			forwarderAddress
+			p2pPeerID
+			keyBundleID
+			plugins {
+				commit
+				execute
+				median
+				mercury
+				rebalancer
+			}
+		}
+	}
 }
 `
 
@@ -8341,6 +8633,38 @@ fragment FeedsManagerParts on FeedsManager {
 			updatedAt
 		}
 	}
+	chainConfigs {
+		id
+		chainID
+		chainType
+		accountAddr
+		adminAddr
+		fluxMonitorJobConfig {
+			enabled
+		}
+		ocr1JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			p2pPeerID
+			keyBundleID
+		}
+		ocr2JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			forwarderAddress
+			p2pPeerID
+			keyBundleID
+			plugins {
+				commit
+				execute
+				median
+				mercury
+				rebalancer
+			}
+		}
+	}
 }
 `
 
@@ -8716,6 +9040,38 @@ fragment FeedsManagerParts on FeedsManager {
 			updatedAt
 		}
 	}
+	chainConfigs {
+		id
+		chainID
+		chainType
+		accountAddr
+		adminAddr
+		fluxMonitorJobConfig {
+			enabled
+		}
+		ocr1JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			p2pPeerID
+			keyBundleID
+		}
+		ocr2JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			forwarderAddress
+			p2pPeerID
+			keyBundleID
+			plugins {
+				commit
+				execute
+				median
+				mercury
+				rebalancer
+			}
+		}
+	}
 }
 `
 
@@ -8835,6 +9191,38 @@ fragment FeedsManagerParts on FeedsManager {
 			statusUpdatedAt
 			createdAt
 			updatedAt
+		}
+	}
+	chainConfigs {
+		id
+		chainID
+		chainType
+		accountAddr
+		adminAddr
+		fluxMonitorJobConfig {
+			enabled
+		}
+		ocr1JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			p2pPeerID
+			keyBundleID
+		}
+		ocr2JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			forwarderAddress
+			p2pPeerID
+			keyBundleID
+			plugins {
+				commit
+				execute
+				median
+				mercury
+				rebalancer
+			}
 		}
 	}
 }
@@ -9239,6 +9627,38 @@ fragment FeedsManagerParts on FeedsManager {
 			statusUpdatedAt
 			createdAt
 			updatedAt
+		}
+	}
+	chainConfigs {
+		id
+		chainID
+		chainType
+		accountAddr
+		adminAddr
+		fluxMonitorJobConfig {
+			enabled
+		}
+		ocr1JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			p2pPeerID
+			keyBundleID
+		}
+		ocr2JobConfig {
+			enabled
+			isBootstrap
+			multiaddr
+			forwarderAddress
+			p2pPeerID
+			keyBundleID
+			plugins {
+				commit
+				execute
+				median
+				mercury
+				rebalancer
+			}
 		}
 	}
 }
