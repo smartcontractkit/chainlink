@@ -653,22 +653,28 @@ func ResolveContractDonIDs(
 		return nil, errors.Wrap(err, "failed to get DONs from capabilities registry")
 	}
 
+	// Build an index once so resolution is O(#ourP2P) per DON.
+	contractDonIDByP2P := make(map[[32]byte]uint32)
+	for _, cd := range contractDons {
+		for _, contractP2P := range cd.NodeP2PIds {
+			if existingDonID, exists := contractDonIDByP2P[contractP2P]; exists && existingDonID != cd.ID {
+				return nil, fmt.Errorf(
+					"duplicate contract P2P ID found across DONs: p2pID=%x, donIDs=%d and %d",
+					contractP2P,
+					existingDonID,
+					cd.ID,
+				)
+			}
+			contractDonIDByP2P[contractP2P] = cd.ID
+		}
+	}
+
 	for _, don := range dons {
 		found := false
-		for _, cd := range contractDons {
-			for _, ourP2P := range don.NodeP2PIds {
-				for _, contractP2P := range cd.NodeP2PIds {
-					if ourP2P == contractP2P {
-						result[don.Name] = cd.ID
-						found = true
-						break
-					}
-				}
-				if found {
-					break
-				}
-			}
-			if found {
+		for _, ourP2P := range don.NodeP2PIds {
+			if donID, ok := contractDonIDByP2P[ourP2P]; ok {
+				result[don.Name] = donID
+				found = true
 				break
 			}
 		}
@@ -695,8 +701,8 @@ func ResolveAndApplyContractDonIDs(
 	if len(resolvedDonIDs) == 0 {
 		return nil
 	}
-	applyResolvedContractDonIDs(resolvedDonIDs, nodeSets, dons, topology)
-	return nil
+
+	return applyResolvedContractDonIDs(resolvedDonIDs, nodeSets, dons, topology)
 }
 
 func resolveContractDonIDsFromDons(
@@ -750,8 +756,12 @@ func applyResolvedContractDonIDs(
 	nodeSets []*cre.NodeSet,
 	dons *cre.Dons,
 	topology *cre.Topology,
-) {
-	workflowDonsMetadata, _ := topology.DonsMetadata.WorkflowDONs()
+) error {
+	workflowDonsMetadata, wErr := topology.DonsMetadata.WorkflowDONs()
+	if wErr != nil {
+		return errors.Wrap(wErr, "failed to get workflow DONs metadata")
+	}
+
 	topology.WorkflowDONIDs = make([]uint64, 0, len(workflowDonsMetadata))
 	for _, donMeta := range workflowDonsMetadata {
 		if id, ok := resolvedDonIDs[donMeta.Name]; ok {
@@ -780,4 +790,6 @@ func applyResolvedContractDonIDs(
 			}
 		}
 	}
+
+	return nil
 }
