@@ -105,7 +105,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db0
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260223231841-af91ea434e03
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260223231247-735246035dab
-	github.com/smartcontractkit/confidential-compute/capabilities/relay v0.0.0-20260305135031-ecdeb898f08a
+	github.com/smartcontractkit/confidential-compute/capabilities/relay v0.0.0-20260305185511-1efd81acd994
 	github.com/smartcontractkit/cre-sdk-go v1.3.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
@@ -368,7 +368,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.1-0.20260203131522-bb8bc5c423b3 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260218133534-cbd44da2856b // indirect
-	github.com/smartcontractkit/confidential-compute/attestation v0.0.0-20260304160931-b4d8c0970bd0 // indirect
+	github.com/smartcontractkit/confidential-compute/attestation v0.0.0-20260305135030-5e2a02b9bfcb // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
