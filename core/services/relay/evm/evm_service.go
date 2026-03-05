@@ -234,7 +234,6 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	txID := id.String()
 	value := big.NewInt(0)
 
-	// PLEX-1524 - Define how we should properly get the workflow execution ID into the meta without making the API CRE specific.
 	var txMeta *txmgrtypes.TxMeta[common.Address, common.Hash]
 	txmReq := evmtxmgr.TxRequest{
 		FromAddress:    fromAddress,
@@ -243,9 +242,8 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 		FeeLimit:       gasLimit,
 		Meta:           txMeta,
 		IdempotencyKey: &txID,
-		// PLEX-1524 - Review strategy to be used.
-		Strategy: txmgr.NewSendEveryStrategy(),
-		Value:    *value,
+		Strategy:       txmgr.NewSendEveryStrategy(),
+		Value:          *value,
 	}
 
 	_, err = e.chain.TxManager().CreateTransaction(ctx, txmReq)
