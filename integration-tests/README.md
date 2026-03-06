@@ -120,12 +120,6 @@ Run CLI command (with `override.toml`):
 BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run <"TestNameToRun"> ./<directory_name_with_tests>
 ```
 
-Example:
-
-```bash
-BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run "TestOCRv2Basic" ./smoke
-```
-
 #### In Kubernetes
 
 Such tests as Soak, Performance, Benchmark, and Chaos Tests remain bound to a Kubernetes run environment.

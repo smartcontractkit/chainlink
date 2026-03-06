@@ -473,7 +473,7 @@ jobs:
                   "product": "runlog",
                   "eth_implementation": "erigon",
                   "docker_image": "thorax/erigon:v2.59.2",
-                  "run": "-run 'TestRunLogBasic' ./smoke/runlog_test.go"
+                  "run": "-run 'TestAutomationBasic/registry_2_1_logtrigger' ./smoke/automation_test.go"
                 }
               ]
           EOF
@@ -842,14 +842,9 @@ jobs:
           - automation
           - keeper
           - log_poller
-          - ocr
-          - ocr2
           - vrf
           - vrfv2
           - vrfv2plus
-          - cron
-          - flux
-          - runlog
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
