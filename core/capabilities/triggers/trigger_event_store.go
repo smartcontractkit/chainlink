@@ -21,7 +21,7 @@ func NewTriggerEventStore(ds sqlutil.DataSource) *triggerEventStore {
 	return &triggerEventStore{ds: ds}
 }
 
-const triggerPendingEventsTable = "trigger_pending_events"
+const triggerPendingEventsTable = "cre.trigger_pending_events"
 
 func (s *triggerEventStore) Insert(ctx context.Context, rec capabilities.PendingEvent) error {
 	const q = `
