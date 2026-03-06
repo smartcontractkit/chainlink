@@ -2,13 +2,13 @@ package cre
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -18,10 +18,10 @@ const (
 )
 
 type Topology struct {
-	WorkflowDONIDs    []uint64           `toml:"workflow_don_ids" json:"workflow_don_ids"`
-	DonsMetadata      *DonsMetadata      `toml:"dons_metadata" json:"dons_metadata"`
-	GatewayConfigs    []GatewayConfig    `toml:"gateway_configs" json:"gateway_configs"`
-	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
+	WorkflowDONIDs        []uint64               `toml:"workflow_don_ids" json:"workflow_don_ids"`
+	DonsMetadata          *DonsMetadata          `toml:"dons_metadata" json:"dons_metadata"`
+	GatewayServiceConfigs []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
+	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
@@ -51,13 +51,17 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 		DonsMetadata:   donsMetadata,
 	}
 
+	donNames := make([]string, 0, len(wfDONs))
 	for _, wfDON := range wfDONs {
-		topology.GatewayConfigs = append(topology.GatewayConfigs, GatewayConfig{
-			Name:     wfDON.Name,
-			Handlers: []string{pkg.GatewayHandlerTypeWebAPICapabilities},
-		})
+		donNames = append(donNames, wfDON.Name)
 		topology.WorkflowDONIDs = append(topology.WorkflowDONIDs, wfDON.ID)
 	}
+
+	topology.GatewayServiceConfigs = append(topology.GatewayServiceConfigs, GatewayServiceConfig{
+		ServiceName: pkg.ServiceNameWorkflows,
+		Handlers:    []string{pkg.GatewayHandlerTypeWebAPICapabilities},
+		DONs:        donNames,
+	})
 
 	if donsMetadata.RequiresGateway() {
 		topology.GatewayConnectors = NewGatewayConnectorOutput()
@@ -119,39 +123,38 @@ func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
 	return t.DonsMetadata.Bootstrap()
 }
 
-// AddGatewayHandlers adds the given handler names to the gateway config of the given DON. It only adds handlers, if they are not already present.
-// Actual configuration for each handler is generated later during deployment.
+// AddGatewayHandlers adds the given handler names for the given DON.
+// It updates service-centric GatewayServiceConfigs.
 func (t *Topology) AddGatewayHandlers(donMetadata DonMetadata, handlers []string) error {
-	donFound := false
+	for _, handlerName := range handlers {
+		svcName := pkg.HandlerServiceName(handlerName)
 
-	for idx, gc := range t.GatewayConfigs {
-		if gc.Name == donMetadata.Name {
-			donFound = true
-		}
-
-		if donFound {
-			for _, handlerName := range handlers {
-				alreadyPresent := false
-				for _, existingHandler := range gc.Handlers {
-					if strings.EqualFold(existingHandler, handlerName) {
-						alreadyPresent = true
-						break
-					}
-				}
-				if !alreadyPresent {
-					t.GatewayConfigs[idx].Handlers = append(t.GatewayConfigs[idx].Handlers, handlerName)
-				}
+		svcIdx := -1
+		for i, svc := range t.GatewayServiceConfigs {
+			if strings.EqualFold(svc.ServiceName, svcName) {
+				svcIdx = i
+				break
 			}
-			break
 		}
-	}
 
-	// if we did not find the DON in the gateway config, we need to add it
-	if !donFound {
-		t.GatewayConfigs = append(t.GatewayConfigs, GatewayConfig{
-			Name:     donMetadata.Name,
-			Handlers: handlers,
-		})
+		if svcIdx == -1 {
+			t.GatewayServiceConfigs = append(t.GatewayServiceConfigs, GatewayServiceConfig{
+				ServiceName: svcName,
+				Handlers:    []string{handlerName},
+				DONs:        []string{donMetadata.Name},
+			})
+			continue
+		}
+
+		if !slices.ContainsFunc(t.GatewayServiceConfigs[svcIdx].Handlers, func(h string) bool {
+			return strings.EqualFold(h, handlerName)
+		}) {
+			t.GatewayServiceConfigs[svcIdx].Handlers = append(t.GatewayServiceConfigs[svcIdx].Handlers, handlerName)
+		}
+
+		if !slices.Contains(t.GatewayServiceConfigs[svcIdx].DONs, donMetadata.Name) {
+			t.GatewayServiceConfigs[svcIdx].DONs = append(t.GatewayServiceConfigs[svcIdx].DONs, donMetadata.Name)
+		}
 	}
 
 	return nil

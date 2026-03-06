@@ -45,7 +45,7 @@
   supported_evm_chains = [1337]
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
-  env_vars = { CL_EVM_CMD = "" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -77,7 +77,7 @@
   supported_evm_chains = [1337]
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
-  env_vars = { CL_EVM_CMD = "" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   capabilities = ["web-api-target", "vault", "solana"]
 
   [nodesets.db]
@@ -100,7 +100,7 @@
   override_mode = "each"
   http_port_range_start = 10300
 
-  env_vars = { CL_EVM_CMD = "" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   supported_evm_chains = [1337]
 
   [nodesets.db]
