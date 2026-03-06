@@ -4961,7 +4961,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 
 	pq, err := NewReadStore(rdr).GetPendingQueue()
 	require.NoError(t, err)
-	assert.Len(t, pq, 0)
+	assert.Empty(t, pq, 0)
 
 	ids := []string{}
 	for _, item := range pq {
