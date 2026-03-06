@@ -6,6 +6,8 @@
 
 - Hotfix release from v2.36.0
 
+- [#21420](https://github.com/smartcontractkit/chainlink/pull/21420) [`fd6e29e`](https://github.com/smartcontractkit/chainlink/commit/fd6e29e2ba22fa8f3c15203372d4a7854b1d67ae) - #updated Bump libocr
+
 ## 2.36.0
 
 ### Minor Changes
