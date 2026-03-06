@@ -14,5 +14,5 @@ CREATE TABLE IF NOT EXISTS cre.trigger_pending_events (
 
 -- +goose Down
 
-DROP TABLE IF EXISTS trigger_pending_events;
+DROP TABLE IF EXISTS cre.trigger_pending_events;
 DROP SCHEMA cre;
