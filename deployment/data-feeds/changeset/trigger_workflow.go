@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -9,7 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-var TriggerWorkflowChangeset = cldf.CreateChangeSet(triggerWorkflowLogic, triggerWorkflowPrecondition)
+var TriggerCREWorkflowChangeset = cldf.CreateChangeSet(triggerCREWorkflowLogic, triggerCREWorkflowPrecondition)
 
-func triggerWorkflowLogic(env cldf.Environment, c types.TriggerCREWorkflowConfig) (cldf.ChangesetOutput, error) {
+func triggerCREWorkflowLogic(env cldf.Environment, c types.TriggerCREWorkflowConfig) (cldf.ChangesetOutput, error) {
 	// Arbitrary EVM chainSelector can be used here since the KMS is the same across all EVM chains.
 	// We just need the SignHash function and deployer key to sign the JWT.
 	chain := env.BlockChains.EVMChains()[c.ChainSelector]
@@ -52,7 +53,7 @@ func triggerWorkflowLogic(env cldf.Environment, c types.TriggerCREWorkflowConfig
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create JWT: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", c.GatewayURL, strings.NewReader(string(reqBody)))
+	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", c.GatewayURL, bytes.NewReader(reqBody))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -80,9 +81,16 @@ func triggerWorkflowLogic(env cldf.Environment, c types.TriggerCREWorkflowConfig
 	return cldf.ChangesetOutput{}, nil
 }
 
-func triggerWorkflowPrecondition(env cldf.Environment, c types.TriggerCREWorkflowConfig) error {
+func triggerCREWorkflowPrecondition(env cldf.Environment, c types.TriggerCREWorkflowConfig) error {
 	if c.GatewayURL == "" {
 		return errors.New("gatewayUrl is required")
+	}
+	u, err := url.ParseRequestURI(c.GatewayURL)
+	if err != nil {
+		return fmt.Errorf("invalid gatewayUrl %q: %w", c.GatewayURL, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("gatewayUrl must use http or https scheme, got %q", u.Scheme)
 	}
 
 	chain, ok := env.BlockChains.EVMChains()[c.ChainSelector]
@@ -142,8 +150,8 @@ func createSignedJWT(
 		return "", fmt.Errorf("failed to marshal JWT payload: %w", err)
 	}
 
-	encodedHeader := base64URLEncode(headerJSON)
-	encodedPayload := base64URLEncode(payloadJSON)
+	encodedHeader := base64.RawURLEncoding.EncodeToString(headerJSON)
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payloadJSON)
 	rawMessage := encodedHeader + "." + encodedPayload
 
 	prefixed := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(rawMessage), rawMessage)
@@ -154,7 +162,7 @@ func createSignedJWT(
 		return "", fmt.Errorf("signing failed: %w", err)
 	}
 
-	return rawMessage + "." + base64URLEncode(ethSig), nil
+	return rawMessage + "." + base64.RawURLEncoding.EncodeToString(ethSig), nil
 }
 
 type jwtHeader struct {
@@ -168,12 +176,4 @@ type jwtPayload struct {
 	IAT    int64  `json:"iat"`
 	Exp    int64  `json:"exp"`
 	JTI    string `json:"jti"`
-}
-
-func base64URLEncode(data []byte) string {
-	encoded := base64.StdEncoding.EncodeToString(data)
-	encoded = strings.ReplaceAll(encoded, "+", "-")
-	encoded = strings.ReplaceAll(encoded, "/", "_")
-	encoded = strings.TrimRight(encoded, "=")
-	return encoded
 }
