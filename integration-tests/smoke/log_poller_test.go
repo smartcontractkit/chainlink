@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/onsi/gomega"
@@ -41,11 +42,13 @@ var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithE
 // 6 filters are registered
 // Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPoller; this test is scheduled to be removed in the future
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
+	quarantine.Flaky(t, "DX-3228")
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
 // Deprecated: replaced by devenv/tests/logpoller/logpoller_test.go:TestLogPoller; this test is scheduled to be removed in the future
 func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
+	quarantine.Flaky(t, "DX-3228")
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
