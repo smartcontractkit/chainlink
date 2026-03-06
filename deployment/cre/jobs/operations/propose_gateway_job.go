@@ -21,18 +21,18 @@ import (
 const defaultGatewayRequestTimeoutSec = 12
 
 type ProposeGatewayJobInput struct {
-	Domain                   string
-	DONFilters               []offchain.TargetDONFilter
-	UseServiceCentricFormat  bool              `yaml:"useServiceCentricFormat"`
-	DONs                     []DON             `yaml:"dons"`
-	Services                 []GatewayService  `yaml:"services"`
-	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
-	AllowedPorts             []int             `yaml:"allowedPorts"`
-	AllowedSchemes           []string          `yaml:"allowedSchemes"`
-	AllowedIPsCIDR           []string          `yaml:"allowedIPsCIDR"`
-	AuthGatewayID            string            `yaml:"authGatewayID"`
-	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
-	JobLabels                map[string]string
+	Domain                      string
+	DONFilters                  []offchain.TargetDONFilter
+	ServiceCentricFormatEnabled bool              `yaml:"serviceCentricFormatEnabled"`
+	DONs                        []DON             `yaml:"dons"`
+	Services                    []GatewayService  `yaml:"services"`
+	GatewayRequestTimeoutSec    int               `yaml:"gatewayRequestTimeoutSec"`
+	AllowedPorts                []int             `yaml:"allowedPorts"`
+	AllowedSchemes              []string          `yaml:"allowedSchemes"`
+	AllowedIPsCIDR              []string          `yaml:"allowedIPsCIDR"`
+	AuthGatewayID               string            `yaml:"authGatewayID"`
+	GatewayKeyChainSelector     pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
+	JobLabels                   map[string]string
 }
 
 type DON struct {
@@ -63,7 +63,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 )
 
 // proposeGatewayJob builds a gateway job spec and then proposes it to the nodes of a DON.
-// When UseServiceCentricFormat is true, it derives the set of unique DON names from
+// When ServiceCentricFormatEnabled is true, it derives the set of unique DON names from
 // input.Services; otherwise it uses the don-centric input.DONs list.
 func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
 	requestTimeoutSec := input.GatewayRequestTimeoutSec
@@ -72,7 +72,7 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 	}
 
 	var gj pkg.GatewayJob
-	if input.UseServiceCentricFormat {
+	if input.ServiceCentricFormatEnabled {
 		built, err := buildServiceCentricJob(deps, input, requestTimeoutSec)
 		if err != nil {
 			return ProposeGatewayJobOutput{}, err
@@ -176,15 +176,15 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 	}
 
 	return pkg.GatewayJob{
-		UseServiceCentricFormat: true,
-		JobName:                 "CRE Gateway",
-		DONs:                    dons,
-		Services:                services,
-		RequestTimeoutSec:       requestTimeoutSec,
-		AllowedPorts:            input.AllowedPorts,
-		AllowedSchemes:          input.AllowedSchemes,
-		AllowedIPsCIDR:          input.AllowedIPsCIDR,
-		AuthGatewayID:           input.AuthGatewayID,
+		ServiceCentricFormatEnabled: true,
+		JobName:                     "CRE Gateway",
+		DONs:                        dons,
+		Services:                    services,
+		RequestTimeoutSec:           requestTimeoutSec,
+		AllowedPorts:                input.AllowedPorts,
+		AllowedSchemes:              input.AllowedSchemes,
+		AllowedIPsCIDR:              input.AllowedIPsCIDR,
+		AuthGatewayID:               input.AuthGatewayID,
 	}, nil
 }
 

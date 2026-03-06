@@ -52,12 +52,12 @@ type GatewayServiceConfig struct {
 }
 
 type GatewayJob struct {
-	UseServiceCentricFormat bool
+	ServiceCentricFormatEnabled bool
 
-	// Don-centric format (UseServiceCentricFormat == false): handlers are per-DON.
+	// Don-centric format (ServiceCentricFormatEnabled == false): handlers are per-DON.
 	TargetDONs []TargetDON
 
-	// Service-centric format (UseServiceCentricFormat == true): handlers are per-service, DONs referenced by name.
+	// Service-centric format (ServiceCentricFormatEnabled == true): handlers are per-service, DONs referenced by name.
 	DONs     []TargetDON
 	Services []GatewayServiceConfig
 
@@ -75,7 +75,7 @@ func (g GatewayJob) Validate() error {
 		return errors.New("must provide job name")
 	}
 
-	if g.UseServiceCentricFormat {
+	if g.ServiceCentricFormatEnabled {
 		if len(g.DONs) == 0 {
 			return errors.New("must provide at least one DON")
 		}
@@ -166,7 +166,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 	}
 
 	var gwConfig any
-	if g.UseServiceCentricFormat {
+	if g.ServiceCentricFormatEnabled {
 		shardedDONs, services, err := g.buildServicesAndShardedDONs()
 		if err != nil {
 			return "", err

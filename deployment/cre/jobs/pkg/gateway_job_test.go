@@ -20,7 +20,7 @@ func TestGateway_Validate_DONCentric(t *testing.T) {
 func TestGateway_Validate_ServiceCentric(t *testing.T) {
 	t.Parallel()
 
-	g := GatewayJob{UseServiceCentricFormat: true}
+	g := GatewayJob{ServiceCentricFormatEnabled: true}
 	require.ErrorContains(t, g.Validate(), "must provide job name")
 
 	g.JobName = "AGatewayJob"
@@ -343,9 +343,9 @@ func TestGateway_Resolve_ServiceCentric(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		UseServiceCentricFormat: true,
-		JobName:                 "Gateway1",
-		RequestTimeoutSec:       15,
+		ServiceCentricFormatEnabled: true,
+		JobName:                     "Gateway1",
+		RequestTimeoutSec:           15,
 		DONs: []TargetDON{
 			{
 				ID: "workflow_1",
@@ -385,9 +385,9 @@ func TestGateway_Resolve_WithVaultHandler_ServiceCentric(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		UseServiceCentricFormat: true,
-		JobName:                 "Gateway1",
-		RequestTimeoutSec:       15,
+		ServiceCentricFormatEnabled: true,
+		JobName:                     "Gateway1",
+		RequestTimeoutSec:           15,
 		DONs: []TargetDON{
 			{
 				ID: "workflow_1",
@@ -432,9 +432,9 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler_ServiceCentric(t *testing.T
 	t.Parallel()
 
 	g := GatewayJob{
-		UseServiceCentricFormat: true,
-		JobName:                 "Gateway1",
-		RequestTimeoutSec:       15,
+		ServiceCentricFormatEnabled: true,
+		JobName:                     "Gateway1",
+		RequestTimeoutSec:           15,
 		DONs: []TargetDON{
 			{
 				ID: "workflow_1",

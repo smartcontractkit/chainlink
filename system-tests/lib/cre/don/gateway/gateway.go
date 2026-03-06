@@ -46,13 +46,13 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 			},
 			Template: job_types.Gateway,
 			Inputs: job_types.JobSpecInput{
-				"allowedPorts":            append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
-				"allowedSchemes":          []string{"http", "https"},
-				"allowedIPsCIDR":          whitelistConfig.ExtraAllowedIPsCIDR,
-				"gatewayKeyChainSelector": creEnv.RegistryChainSelector,
-				"authGatewayID":           config.AuthGatewayID,
-				"useServiceCentricFormat": true,
-				"services":                gatewayServiceConfigs,
+				"allowedPorts":                append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
+				"allowedSchemes":              []string{"http", "https"},
+				"allowedIPsCIDR":              whitelistConfig.ExtraAllowedIPsCIDR,
+				"gatewayKeyChainSelector":     creEnv.RegistryChainSelector,
+				"authGatewayID":               config.AuthGatewayID,
+				"serviceCentricFormatEnabled": true,
+				"services":                    gatewayServiceConfigs,
 			},
 		}
 

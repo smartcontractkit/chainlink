@@ -112,7 +112,7 @@ var commonInputServiceCentric = ProposeGatewayJobInput{
 			Value: "zone-b",
 		},
 	},
-	UseServiceCentricFormat: true,
+	ServiceCentricFormatEnabled: true,
 	Services: []GatewayService{
 		{
 			ServiceName: "workflows",

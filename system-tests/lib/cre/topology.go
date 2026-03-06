@@ -126,11 +126,6 @@ func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
 // AddGatewayHandlers adds the given handler names for the given DON.
 // It updates service-centric GatewayServiceConfigs.
 func (t *Topology) AddGatewayHandlers(donMetadata DonMetadata, handlers []string) error {
-	t.addGatewayHandlersServiceFormat(donMetadata, handlers)
-	return nil
-}
-
-func (t *Topology) addGatewayHandlersServiceFormat(donMetadata DonMetadata, handlers []string) {
 	for _, handlerName := range handlers {
 		svcName := pkg.HandlerServiceName(handlerName)
 
@@ -161,6 +156,8 @@ func (t *Topology) addGatewayHandlersServiceFormat(donMetadata DonMetadata, hand
 			t.GatewayServiceConfigs[svcIdx].DONs = append(t.GatewayServiceConfigs[svcIdx].DONs, donMetadata.Name)
 		}
 	}
+
+	return nil
 }
 
 type PeeringNode interface {
