@@ -11,11 +11,16 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -74,6 +79,9 @@ type Engine struct {
 	meterReports *metering.Reports
 
 	metrics *monitoring.WorkflowsMetricLabeler
+
+	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
+	tracer trace.Tracer
 }
 
 type triggerCapability struct {
@@ -96,7 +104,7 @@ func TriggerRegistrationID(workflowID string, triggerIndex int) string {
 // buildLabels creates the label slice for the beholder logger based on config and localNode state.
 // This is used both during engine creation and when updating labels after a DON configuration change.
 func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
-	labels := []any{
+	return []any{
 		platform.KeyWorkflowID, e.cfg.WorkflowID,
 		platform.KeyWorkflowOwner, e.cfg.WorkflowOwner,
 		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
@@ -113,11 +121,8 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
+		platform.KeySDK, e.cfg.SdkName,
 	}
-	if e.cfg.SdkName != "" {
-		labels = append(labels, platform.KeySDK, e.cfg.SdkName)
-	}
-	return labels
 }
 
 // logger returns the current logger in a thread-safe manner.
@@ -173,9 +178,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
-	}
-	if cfg.SdkName != "" {
-		baseLabels = append(baseLabels, platform.KeySDK, cfg.SdkName)
+		platform.KeySDK, cfg.SdkName,
 	}
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(baseLabels...)
 	labelsMap := make(map[string]string, len(labels)/2)
@@ -185,6 +188,9 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 
 	if cfg.DebugMode {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
+		engine.tracer = otel.Tracer("workflow_engine_v2")
+	} else {
+		engine.tracer = noop.NewTracerProvider().Tracer("")
 	}
 
 	// Store logger and other fields
@@ -227,6 +233,14 @@ func (e *Engine) start(ctx context.Context) error {
 }
 
 func (e *Engine) init(ctx context.Context) {
+	// Tracer is no-op if DebugMode is false
+	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
+		trace.WithAttributes(
+			attribute.String("version", "v2"),
+			attribute.String("component", "workflow_engine"),
+		))
+	defer span.End()
+
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	err := e.cfg.GlobalExecutionConcurrencyLimiter.Use(ctx, 1)
@@ -461,7 +475,6 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
 				return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
 			}
-			e.metrics.IncrementSubscriptionsCounter(gCtx)
 			// Send successful result
 			resultsCh <- triggerRegResult{
 				index:          i,
@@ -577,6 +590,13 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			// Tracer is no-op if DebugMode is false
+			ctx, span := e.tracer.Start(ctx, "workflow_execution",
+				trace.WithAttributes(
+					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
+					attribute.String("version", "v2"),
+				))
+			defer span.End()
 			e.startExecution(ctx, queueHead)
 		})
 	}
@@ -611,33 +631,48 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	var executionTimestamp int64
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
-		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, e.logger())
+		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
 		donTime, dtErr := executionTimeProvider.GetDONTime()
 		if dtErr != nil {
 			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
-			e.logger().Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+			e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
 		} else {
 			executionTimestamp = donTime.UnixMilli()
-			e.logger().Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+			e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
 		}
 	}
 
 	triggerEvent := wrappedTriggerEvent.event.Event
-	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
-	if err != nil {
-		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
-		return
+
+	var executionID string
+	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.Timestamp(executionTimestamp)) == nil {
+		executionID = fullExecutionID
+		e.metrics.IncrementExecutionIDFullCounter(ctx)
+	} else {
+		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+		if err != nil {
+			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+			return
+		}
+		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
 	}
 
 	// disallow duplicate executions
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
 	if addErr != nil {
 		if errors.Is(addErr, store.ErrDuplicateExecution) {
-			e.logger().Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
+			if err != nil {
+				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", err)
+			}
 			return
 		}
-		e.logger().Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
+		lggr.Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
 	}
 
 	var executionStatus string
@@ -646,7 +681,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			executionStatus = store.StatusErrored
 		}
 		if _, finishErr := e.cfg.ExecutionsStore.FinishExecution(ctx, executionID, executionStatus); finishErr != nil {
-			e.logger().Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
+			lggr.Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
 		}
 	}()
 
@@ -706,7 +741,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
 	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
-	e.metrics.IncrementExecutionsCounter(ctx)
 
 	// Track execution error for deferred event emission
 	var execErr error

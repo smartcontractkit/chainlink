@@ -25,11 +25,7 @@ func verifyRingJobSpecInputs(inputs job_types.JobSpecInput) error {
 		return errors.New("chainSelectorEVM is required")
 	}
 
-	if strings.TrimSpace(ringInput.ShardConfigAddr) == "" {
-		return errors.New("shardConfigAddr is required")
-	}
-
-	if !common.IsHexAddress(ringInput.ShardConfigAddr) {
+	if ringInput.ShardConfigAddr != "" && !common.IsHexAddress(ringInput.ShardConfigAddr) {
 		return errors.New("shardConfigAddr is invalid: not a valid hex address")
 	}
 

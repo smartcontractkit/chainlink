@@ -471,7 +471,8 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	signerAddr, err := suiChain.Signer.GetAddress()
 	require.NoError(t, err)
 
 	// compile packages
@@ -485,7 +486,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		"original_onramp_pkg": state.SuiChains[sourceChain].OnRampAddress,
 		"upgrade_cap":         state.SuiChains[sourceChain].OnRampUpgradeCapId,
 		"signer":              signerAddr,
-	}, true, "")
+	}, true, suiChain.URL)
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
@@ -562,7 +563,8 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	signerAddr, err := suiChain.Signer.GetAddress()
 	require.NoError(t, err)
 
 	// compile packages
@@ -576,7 +578,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		"original_offramp_pkg": state.SuiChains[sourceChain].OffRampAddress,
 		"upgrade_cap":          state.SuiChains[sourceChain].OffRampUpgradeCapId,
 		"signer":               signerAddr,
-	}, true, "")
+	}, true, suiChain.URL)
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
@@ -653,7 +655,8 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	signerAddr, err := suiChain.Signer.GetAddress()
 	require.NoError(t, err)
 
 	t.Log("UPGRADECAP, SIGNER: ", state.SuiChains[sourceChain].CCIPUpgradeCapObjectId, signerAddr)
@@ -666,7 +669,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,
 		"upgrade_cap":       state.SuiChains[sourceChain].CCIPUpgradeCapObjectId,
 		"signer":            signerAddr,
-	}, true, "")
+	}, true, suiChain.URL)
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte

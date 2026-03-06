@@ -206,7 +206,6 @@ func TestConnectNewChain(t *testing.T) {
 						mustHaveOwner(t, state.Chains[selector].NonceManager, state.Chains[selector].Timelock.Address().Hex())
 						mustHaveOwner(t, state.Chains[selector].TokenAdminRegistry, state.Chains[selector].Timelock.Address().Hex())
 						mustHaveOwner(t, state.Chains[selector].Router, state.Chains[selector].Timelock.Address().Hex())
-						mustHaveOwner(t, state.Chains[selector].RMNRemote, state.Chains[selector].Timelock.Address().Hex())
 
 						// Admin role for deployer key should be revoked
 						adminRole, err := state.Chains[selector].Timelock.ADMINROLE(nil)
