@@ -1,0 +1,10 @@
+name: Medic - Workflow Retry
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  medic:
+    uses: smartcontractkit/.github/.github/workflows/medic-workflow-retry.yml@main
+    secrets: inherit

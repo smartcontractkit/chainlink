@@ -1,0 +1,15 @@
+name: Medic - Auto Workflow Retry
+
+# Triggered when an allowlisted workflow completes.
+# Update this list when adding workflows to medic.yml's retryable list.
+on:
+  workflow_run:
+    workflows:
+      - "CI Core"
+      - "Integration Tests"
+    types: [completed]
+
+jobs:
+  medic:
+    uses: smartcontractkit/.github/.github/workflows/medic-workflow-retry-auto.yml@main
+    secrets: inherit

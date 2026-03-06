@@ -1,0 +1,37 @@
+name: Medic - Merge Conflict Resolution
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Skip actual changes (push, comments, labels)'
+        type: boolean
+        default: false
+      mock-claude:
+        description: 'Skip Claude invocation (use mock response)'
+        type: boolean
+        default: false
+      pr-number:
+        description: 'Test specific PR number (bypasses conflict scan)'
+        type: string
+        required: false
+      generate-conflict:
+        description: 'Generate a test PR with merge conflict'
+        type: boolean
+        default: false
+
+  issue_comment:
+    types: [created]
+
+jobs:
+  medic:
+    uses: smartcontractkit/.github/.github/workflows/medic-merge-conflict.yml@main
+    with:
+      dry-run: ${{ inputs.dry-run || false }}
+      mock-claude: ${{ inputs.mock-claude || false }}
+      pr-number: ${{ inputs.pr-number || '' }}
+      generate-conflict: ${{ inputs.generate-conflict || false }}
+    secrets: inherit

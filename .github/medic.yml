@@ -1,0 +1,34 @@
+# Medic Configuration
+# https://github.com/smartcontractkit/chainlink
+
+merge_conflict:
+  # GitHub usernames whose PRs are eligible for automatic conflict resolution
+  allowed_authors:
+    - "patrickhuie19"
+    - "bolekk"
+    - "tofel"
+
+  # Maximum fix attempts before giving up on a PR
+  max_attempts: 3
+
+  # Only fix PRs with recent activity (pushed/committed within this window)
+  activity_threshold_hours: 48
+
+  # PRs with any of these labels are skipped
+  skip_labels:
+    - "medic-skip"
+    - "do not merge"
+    - "do-not-merge"
+    - "wip"
+
+workflow_retry:
+  # Maximum number of retry attempts per workflow run
+  max_attempts: 3
+
+  # Workflows eligible for retry (by filename).
+  # Used by both /medic retry (manual) and auto-retry (workflow_run trigger).
+  # IMPORTANT: When changing this list, also update the `workflows` field in
+  # .github/workflows/medic-workflow-retry-auto.yml (which uses workflow *names*).
+  retryable:
+    - "ci-core.yml"
+    - "integration-tests.yml"
