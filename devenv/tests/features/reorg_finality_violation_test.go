@@ -32,7 +32,6 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 
 	// wait until we've reached depth
 	waitForBlocks := 60
-	// see ../products/ocr2/basic.toml, default finality depth is 5 for local env
 	reorgForBlocks := 50
 
 	require.Eventually(t, func() bool {

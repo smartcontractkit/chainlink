@@ -24,9 +24,9 @@ jobs:
       matrix:
         include:
           - test_name: "TestMultipleJobDistributors"
-            env_configs: "env.toml,products/jd/multiple.toml"
+            env_configs: "env.toml,products/ocr2/basic.toml"
           - test_name: "TestReorgHeadTrackerFinalityViolation"
-            env_configs: "env.toml,products/reorg/finality.toml"
+            env_configs: "env.toml,env-geth.toml,products/ocr2/basic.toml"
       fail-fast: false
     steps:
       - name: Checkout code
@@ -73,10 +73,10 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          
+
           # Use workflow dispatch env_config if provided, otherwise use matrix env_configs
           ENV_CONFIG="${{ matrix.env_configs }}"
-          
+
           echo "Setting up environment with: cl $ENV_CONFIG"
           cl u $ENV_CONFIG
 
@@ -87,7 +87,7 @@ jobs:
         run: |
           # Use workflow dispatch test_name if provided, otherwise use matrix test_name
           TEST_TO_RUN="${{ github.event.inputs.test_name || matrix.test_name }}"
-          
+
           echo "Running tests for: $CHAINLINK_IMAGE, test: $TEST_TO_RUN"
           go test -v -run "$TEST_TO_RUN"
 
