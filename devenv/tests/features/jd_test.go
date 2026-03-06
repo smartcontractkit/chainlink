@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient/gql/client"
 	de "github.com/smartcontractkit/chainlink/devenv"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMultipleJobDistributors(t *testing.T) {
