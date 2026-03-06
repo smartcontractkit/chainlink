@@ -4817,6 +4817,90 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 	assert.ElementsMatch(t, []string{"request-id"}, ids)
 }
 
+func TestPlugin_ValidateObservation_RejectsIfMoreThan2xBatchSize(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		cfg: makeReportingPluginConfig(
+			t,
+			1,
+			pk,
+			shares[0],
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	req1 := &vaultcommon.ListSecretIdentifiersRequest{
+		Owner:     "owner",
+		Namespace: "main",
+		RequestId: "request-id",
+	}
+	areq1, err := anypb.New(req1)
+	require.NoError(t, err)
+
+	o1 := &vaultcommon.Observations{
+		PendingQueueItems: [][]byte{
+			{}, // maps to item 0 in the blobs
+			{}, // maps to item 1 in the blobs
+			{}, // maps to item 2 in the blobs
+			{}, // maps to item 3 in the blobs
+		},
+	}
+	o1b, err := proto.Marshal(o1)
+	require.NoError(t, err)
+
+	bf := &blobber{
+		blobs: [][]byte{
+			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+				Id:   "request-id",
+				Item: areq1,
+			}),
+			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+				Id:   "request-id",
+				Item: areq1,
+			}),
+			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+				Id:   "request-id",
+				Item: areq1,
+			}),
+			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+				Id:   "request-id",
+				Item: areq1,
+			}),
+		},
+	}
+
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{
+			Observer: 0, Observation: o1b,
+		},
+		rdr,
+		bf,
+	)
+	require.ErrorContains(t, err, "invalid observation: too many pending queue items provided, have 4, want max 2")
+}
+
 func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()

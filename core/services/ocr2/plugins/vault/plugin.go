@@ -1034,6 +1034,13 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		}
 	}
 
+	// The Observation method enforces a max pending queue batch size of 2x the batch size.
+	// We can therefore reject any observation with a higher number of observations as invalid.
+	maxBatchSize := 2 * r.cfg.BatchSize.DefaultValue
+	if len(obs.PendingQueueItems) > maxBatchSize {
+		return fmt.Errorf("invalid observation: too many pending queue items provided, have %d, want max %d", len(obs.PendingQueueItems), maxBatchSize)
+	}
+
 	for _, i := range obs.PendingQueueItems {
 		bh, err := r.unmarshalBlob(i)
 		if err != nil {
