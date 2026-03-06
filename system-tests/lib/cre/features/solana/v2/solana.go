@@ -158,7 +158,7 @@ func createJobs(
 		return errors.Wrap(resolveErr, "unable to find solana capability config")
 	}
 
-	command, cErr := standardcapability.GetCommand(config.BinaryPath, creEnv.Provider)
+	command, cErr := standardcapability.GetCommand(config.BinaryName)
 	if cErr != nil {
 		return errors.Wrap(cErr, "failed to get command for cron capability")
 	}

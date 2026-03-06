@@ -88,6 +88,37 @@ func uncurseMultiple(b operations.Bundle, deps dependency.AptosDeps, in UncurseM
 	return tx, nil
 }
 
+// InitializeAllowedCursersInput is the input for initializing allowed cursers on RMN Remote
+type InitializeAllowedCursersInput struct {
+	CCIPAddress      aptos.AccountAddress
+	CurseMCMSAddress aptos.AccountAddress
+}
+
+// OP: InitializeAllowedCursersOp generates MCMS transaction to register CurseMCMS as an allowed curser on RMN Remote
+var InitializeAllowedCursersOp = operations.NewOperation(
+	"initialize-allowed-cursers-op",
+	semver.MustParse("1.0.0"),
+	"Generates MCMS transaction to register CurseMCMS as an allowed curser on RMN Remote",
+	initializeAllowedCursers,
+)
+
+func initializeAllowedCursers(b operations.Bundle, deps dependency.AptosDeps, in InitializeAllowedCursersInput) (mcmstypes.Transaction, error) {
+	ccipBind := ccipBindFn(in.CCIPAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := ccipBind.RMNRemote().Encoder().InitializeAllowedCursersV2(
+		[]aptos.AccountAddress{in.CurseMCMSAddress},
+	)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode InitializeAllowedCursersV2: %w", err)
+	}
+
+	tx, err := generateMCMSTxFn(in.CCIPAddress, moduleInfo, function, args)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to generate MCMS transaction: %w", err)
+	}
+	return tx, nil
+}
+
 // IsSubjectCursed checks whether the given subject (or a global curse) exists on the RMN Remote.
 func IsSubjectCursed(deps dependency.AptosDeps, ccipAddress aptos.AccountAddress, subject []byte) (bool, error) {
 	ccipBind := ccipBindFn(ccipAddress, deps.AptosChain.Client)

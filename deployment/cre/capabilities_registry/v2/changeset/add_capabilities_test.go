@@ -74,31 +74,70 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	env := test.SetupEnvV2(t, false)
 	chainSelector := env.RegistrySelector
 
-	// Missing DON name
+	// Missing donName and donNames
 	err := cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonName:           "", // invalid
+		DonNames:          nil,
 		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}}},
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "DONName")
+	assert.Contains(t, err.Error(), "must specify donName or donNames")
+
+	// Both donName and donNames set
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonName:           "don-1",
+		DonNames:          []string{"don-2"},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}}},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot specify both donName and donNames")
+
+	// donNames with empty string
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonNames:          []string{"don-1", ""},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}}},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot contain an empty string")
 
 	// Missing capability configs
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonName:           "don-1",
+		DonNames:          []string{"don-1"},
 		CapabilityConfigs: nil,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "capabilityConfigs")
 
-	// Valid
+	// Valid (single DON via donNames)
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonNames:          []string{"don-1"},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
+	})
+	require.NoError(t, err)
+
+	// Valid (single DON via donName - backward compatibility)
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
 		DonName:           "don-1",
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
+	})
+	require.NoError(t, err)
+
+	// Valid (multiple DONs)
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonNames:          []string{"don-1", "don-2"},
 		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
 	})
 	require.NoError(t, err)
@@ -108,7 +147,7 @@ func addNewCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
-		DonName:           test.DONName,
+		DonNames:          []string{test.DONName},
 		CapabilityConfigs: []contracts.CapabilityConfig{{
 			Capability: contracts.Capability{
 				CapabilityID:          capID,
@@ -207,7 +246,7 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
-		DonName:           test.DONName,
+		DonNames:          []string{test.DONName},
 		CapabilityConfigs: []contracts.CapabilityConfig{{
 			Capability: contracts.Capability{
 				CapabilityID:          newCapID,
