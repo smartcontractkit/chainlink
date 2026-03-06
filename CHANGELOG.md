@@ -11,6 +11,7 @@
 ### Minor Changes
 
 - [#21208](https://github.com/smartcontractkit/chainlink/pull/21208) [`140625e`](https://github.com/smartcontractkit/chainlink/commit/140625edee02df6a608178b166e72cf2bd8a14a1) - Minor bump to start next version
+- [#21420](https://github.com/smartcontractkit/chainlink/pull/21420) [`fd6e29e`](https://github.com/smartcontractkit/chainlink/commit/fd6e29e2ba22fa8f3c15203372d4a7854b1d67ae) - #updated Bump libocr
 
 ### Patch Changes
 
