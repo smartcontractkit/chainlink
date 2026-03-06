@@ -261,7 +261,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	txStatus, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (evm.TransactionStatus, error) {
 		txStatus, txStatusErr := e.chain.TxManager().GetTransactionStatus(ctx, txID)
 		if txStatusErr != nil && !errors.Is(txStatusErr, context.DeadlineExceeded) {
-			lastStatusErr = fmt.Errorf("failed get transaction status for txID: %s err: %w", txID, txStatusErr)
+			lastStatusErr = fmt.Errorf("failed to get transaction status for txID: %s err: %w", txID, txStatusErr)
 			return evm.TxFatal, lastStatusErr
 		}
 
@@ -281,7 +281,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 
 	if err != nil {
 		e.logger.Warnw("Failed getting transaction status", "txID", txID, "lastErr", lastStatusErr, "retryErr", err)
-		return &evm.TransactionResult{TxStatus: evm.TxFatal, TxIdempotencyKey: txID}, lastStatusErr
+		return &evm.TransactionResult{TxStatus: evm.TxFatal, TxIdempotencyKey: txID}, fmt.Errorf("last err: %w retry err: %w", lastStatusErr, err)
 	}
 
 	if txStatus == evm.TxFatal {
