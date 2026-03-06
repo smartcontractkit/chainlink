@@ -102,7 +102,6 @@ func (cs DeployCurseMCMS) Apply(env cldf.Environment, cfg config.DeployCurseMCMS
 		}
 
 		// Generate a CurseMCMS proposal for self-governance operations (AcceptOwnership + SetMinDelay).
-		// Uses CurseMCMSInspector because CurseMCMS exposes view functions under "curse_mcms" not "mcms".
 		proposal, err := utils.GenerateCurseMCMSProposal(
 			env,
 			curseMCMSSeqReport.Output.CurseMCMSAddress,
