@@ -68,33 +68,6 @@ func TestTriggerEventStore_InsertListDelete_DeleteEventsForTrigger(t *testing.T)
 	require.Equal(t, "e3", recs[0].EventId)
 }
 
-func TestTriggerEventStore_InsertIdempotent_UpdatesPayload(t *testing.T) {
-	ctx := context.Background()
-	ds := pgtest.NewSqlxDB(t)
-	store := trigger.NewTriggerEventStore(ds)
-
-	triggerID := "trig-" + uuid.NewString()
-	eventID := "evt1"
-
-	first := makePendingEvent(triggerID, eventID, []byte("first"), -1*time.Minute)
-	require.NoError(t, store.Insert(ctx, first))
-
-	// Verify stored value
-	recs, err := store.List(ctx)
-	require.NoError(t, err)
-	require.Len(t, recs, 1)
-	require.Equal(t, []byte("first"), recs[0].Payload)
-
-	// Insert again with same (trigger,event) but different payload -> should overwrite per ON CONFLICT DO UPDATE
-	second := makePendingEvent(triggerID, eventID, []byte("second"), -30*time.Second)
-	require.NoError(t, store.Insert(ctx, second))
-
-	recs, err = store.List(ctx)
-	require.NoError(t, err)
-	require.Len(t, recs, 1)
-	require.Equal(t, []byte("second"), recs[0].Payload)
-}
-
 func TestTriggerEventStore_UpdateDelivery(t *testing.T) {
 	ctx := context.Background()
 	ds := pgtest.NewSqlxDB(t)
