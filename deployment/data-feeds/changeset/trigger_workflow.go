@@ -1,9 +1,11 @@
 package changeset
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-// TriggerWorkflowChangeset is a changeset that triggers a CRE workflow via the gateway API.
-// It constructs a JSON-RPC request, signs it with a JWT using the chain's signing function, and sends it to the specified gateway URL.
 var TriggerWorkflowChangeset = cldf.CreateChangeSet(triggerWorkflowLogic, triggerWorkflowPrecondition)
 
 func triggerWorkflowLogic(env cldf.Environment, c types.TriggerCREWorkflowConfig) (cldf.ChangesetOutput, error) {
@@ -52,7 +52,7 @@ func triggerWorkflowLogic(env cldf.Environment, c types.TriggerCREWorkflowConfig
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create JWT: %w", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", c.GatewayURL, strings.NewReader(string(reqBody)))
+	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", c.GatewayURL, strings.NewReader(string(reqBody)))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -82,7 +82,7 @@ func triggerWorkflowLogic(env cldf.Environment, c types.TriggerCREWorkflowConfig
 
 func triggerWorkflowPrecondition(env cldf.Environment, c types.TriggerCREWorkflowConfig) error {
 	if c.GatewayURL == "" {
-		return fmt.Errorf("gatewayUrl is required")
+		return errors.New("gatewayUrl is required")
 	}
 
 	chain, ok := env.BlockChains.EVMChains()[c.ChainSelector]
@@ -95,7 +95,7 @@ func triggerWorkflowPrecondition(env cldf.Environment, c types.TriggerCREWorkflo
 	}
 
 	if c.WorkflowID == "" {
-		return fmt.Errorf("workflowID is required")
+		return errors.New("workflowID is required")
 	}
 
 	return nil
