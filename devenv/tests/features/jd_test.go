@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient/gql/client"
 	de "github.com/smartcontractkit/chainlink/devenv"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMultipleJobDistributors(t *testing.T) {
