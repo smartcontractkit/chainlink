@@ -20,7 +20,7 @@ import (
 type SuiCurseUncurseInput struct {
 	CCIPAddress          string
 	CCIPObjectRef        string
-	CCIPOwnerCapObjectId string
+	CCIPOwnerCapObjectID string
 	ChainSelector        uint64
 	Subjects             []fastcurse.Subject
 }
@@ -54,7 +54,7 @@ var SuiCurseSequence = cldf_ops.NewSequence(
 		curseInput := rmn_ops.CurseUncurseChainInput{
 			CCIPPackageId:    in.CCIPAddress,
 			StateObjectId:    in.CCIPObjectRef,
-			OwnerCapObjectId: in.CCIPOwnerCapObjectId,
+			OwnerCapObjectId: in.CCIPOwnerCapObjectID,
 			Subjects:         subjectBytes,
 		}
 
@@ -111,7 +111,7 @@ var SuiUncurseSequence = cldf_ops.NewSequence(
 		uncurseInput := rmn_ops.CurseUncurseChainInput{
 			CCIPPackageId:    in.CCIPAddress,
 			StateObjectId:    in.CCIPObjectRef,
-			OwnerCapObjectId: in.CCIPOwnerCapObjectId,
+			OwnerCapObjectId: in.CCIPOwnerCapObjectID,
 			Subjects:         subjectBytes,
 		}
 

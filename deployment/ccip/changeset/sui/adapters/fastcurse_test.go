@@ -23,11 +23,11 @@ func TestInitializeSetsCCIPState(t *testing.T) {
 	ab := stubAddressBook{
 		data: map[uint64]map[string]cldf.TypeAndVersion{
 			selector: {
-				"0xCCIP_PKG":      cldf.NewTypeAndVersion(suistate.SuiCCIPType, *semver.MustParse("1.0.0")),
-				"0xCCIP_REF":      cldf.NewTypeAndVersion(suistate.SuiCCIPObjectRefType, *semver.MustParse("1.0.0")),
-				"0xCCIP_CAP":      cldf.NewTypeAndVersion(suistate.SuiCCIPOwnerCapObjectIDType, *semver.MustParse("1.0.0")),
-				"0xROUTER":        cldf.NewTypeAndVersion(suistate.SuiCCIPRouterType, *semver.MustParse("1.0.0")),
-				"0xROUTER_STATE":  cldf.NewTypeAndVersion(suistate.SuiCCIPRouterStateObjectType, *semver.MustParse("1.0.0")),
+				"0xCCIP_PKG":     cldf.NewTypeAndVersion(suistate.SuiCCIPType, *semver.MustParse("1.0.0")),
+				"0xCCIP_REF":     cldf.NewTypeAndVersion(suistate.SuiCCIPObjectRefType, *semver.MustParse("1.0.0")),
+				"0xCCIP_CAP":     cldf.NewTypeAndVersion(suistate.SuiCCIPOwnerCapObjectIDType, *semver.MustParse("1.0.0")),
+				"0xROUTER":       cldf.NewTypeAndVersion(suistate.SuiCCIPRouterType, *semver.MustParse("1.0.0")),
+				"0xROUTER_STATE": cldf.NewTypeAndVersion(suistate.SuiCCIPRouterStateObjectType, *semver.MustParse("1.0.0")),
 			},
 		},
 	}
@@ -43,7 +43,7 @@ func TestInitializeSetsCCIPState(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "0xCCIP_PKG", adapter.CCIPAddress)
 	require.Equal(t, "0xCCIP_REF", adapter.CCIPObjectRef)
-	require.Equal(t, "0xCCIP_CAP", adapter.CCIPOwnerCapObjectId)
+	require.Equal(t, "0xCCIP_CAP", adapter.CCIPOwnerCapObjectID)
 	require.Equal(t, "0xROUTER", adapter.RouterAddress)
 	require.Equal(t, "0xROUTER_STATE", adapter.RouterStateObjectID)
 }

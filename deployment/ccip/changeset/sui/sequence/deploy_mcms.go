@@ -19,7 +19,7 @@ type DeployMCMSSeqInput struct {
 }
 
 type DeployMCMSSeqOutput struct {
-	PackageId               string
+	PackageID               string
 	Objects                 mcmsops.DeployMCMSObjects
 	AcceptOwnershipProposal mcms.TimelockProposal
 }
@@ -45,7 +45,7 @@ func deploySuiMCMS(b operations.Bundle, deps sui_ops.OpTxDeps, in DeployMCMSSeqI
 	}
 
 	return DeployMCMSSeqOutput{
-		PackageId:               report.Output.PackageId,
+		PackageID:               report.Output.PackageId,
 		Objects:                 report.Output.Objects,
 		AcceptOwnershipProposal: report.Output.AcceptOwnershipProposal,
 	}, nil

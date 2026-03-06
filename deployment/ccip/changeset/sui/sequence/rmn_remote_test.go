@@ -57,7 +57,7 @@ func TestSuiCurseSequence_Success(t *testing.T) {
 	rep, err := cldf_ops.ExecuteSequence(bundle, SuiCurseSequence, blockChains, SuiCurseUncurseInput{
 		CCIPAddress:          "0xccip",
 		CCIPObjectRef:        "0xref",
-		CCIPOwnerCapObjectId: "0xcap",
+		CCIPOwnerCapObjectID: "0xcap",
 		ChainSelector:        101,
 		Subjects:             subjects,
 	})
@@ -112,7 +112,7 @@ func TestSuiUncurseSequence_Success(t *testing.T) {
 	rep, err := cldf_ops.ExecuteSequence(bundle, SuiUncurseSequence, blockChains, SuiCurseUncurseInput{
 		CCIPAddress:          "0xccip",
 		CCIPObjectRef:        "0xref",
-		CCIPOwnerCapObjectId: "0xcap",
+		CCIPOwnerCapObjectID: "0xcap",
 		ChainSelector:        202,
 		Subjects:             subjects,
 	})

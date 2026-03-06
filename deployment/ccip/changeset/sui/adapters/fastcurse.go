@@ -30,7 +30,7 @@ var (
 type CurseAdapter struct {
 	CCIPAddress          string
 	CCIPObjectRef        string
-	CCIPOwnerCapObjectId string
+	CCIPOwnerCapObjectID string
 	RouterAddress        string
 	RouterStateObjectID  string
 }
@@ -51,7 +51,7 @@ func (c *CurseAdapter) Initialize(e cldf.Environment, selector uint64) error {
 	}
 	c.CCIPAddress = state.CCIPAddress
 	c.CCIPObjectRef = state.CCIPObjectRef
-	c.CCIPOwnerCapObjectId = state.CCIPOwnerCapObjectId
+	c.CCIPOwnerCapObjectID = state.CCIPOwnerCapObjectId
 	c.RouterAddress = state.CCIPRouterAddress
 	c.RouterStateObjectID = state.CCIPRouterStateObjectID
 	return nil
@@ -120,7 +120,7 @@ func (c *CurseAdapter) Curse() *cldf_ops.Sequence[fastcurse.CurseInput, sequence
 			suiInput := suiseq.SuiCurseUncurseInput{
 				CCIPAddress:          c.CCIPAddress,
 				CCIPObjectRef:        c.CCIPObjectRef,
-				CCIPOwnerCapObjectId: c.CCIPOwnerCapObjectId,
+				CCIPOwnerCapObjectID: c.CCIPOwnerCapObjectID,
 				ChainSelector:        in.ChainSelector,
 				Subjects:             in.Subjects,
 			}
@@ -142,7 +142,7 @@ func (c *CurseAdapter) Uncurse() *cldf_ops.Sequence[fastcurse.CurseInput, sequen
 			suiInput := suiseq.SuiCurseUncurseInput{
 				CCIPAddress:          c.CCIPAddress,
 				CCIPObjectRef:        c.CCIPObjectRef,
-				CCIPOwnerCapObjectId: c.CCIPOwnerCapObjectId,
+				CCIPOwnerCapObjectID: c.CCIPOwnerCapObjectID,
 				ChainSelector:        in.ChainSelector,
 				Subjects:             in.Subjects,
 			}

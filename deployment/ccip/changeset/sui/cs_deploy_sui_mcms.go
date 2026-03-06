@@ -153,8 +153,8 @@ func (cs DeploySuiMCMS) Apply(env cldf.Environment, cfg DeploySuiMCMSConfig) (cl
 
 func storeMCMSInAddressBook(ab *cldf.AddressBookMap, chainSelector uint64, output seq.DeployMCMSSeqOutput) error {
 	typeAndVersion := cldf.NewTypeAndVersion(suistate.SuiMcmsPackageIDType, suistate.Version1_0_0)
-	if err := ab.Save(chainSelector, output.PackageId, typeAndVersion); err != nil {
-		return fmt.Errorf("failed to save MCMS package ID %s: %w", output.PackageId, err)
+	if err := ab.Save(chainSelector, output.PackageID, typeAndVersion); err != nil {
+		return fmt.Errorf("failed to save MCMS package ID %s: %w", output.PackageID, err)
 	}
 
 	typeAndVersion = cldf.NewTypeAndVersion(suistate.SuiMcmsObjectIDType, suistate.Version1_0_0)
