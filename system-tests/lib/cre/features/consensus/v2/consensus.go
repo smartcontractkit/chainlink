@@ -106,7 +106,7 @@ func createJobs(
 		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
-	command, commandErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+	command, commandErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
 	if commandErr != nil {
 		return fmt.Errorf("failed to get command for consensus capability: %w", commandErr)
 	}

@@ -266,10 +266,10 @@ jobs:
           # Do not remove Docker containers on error to allow log collection
           if [[ "${CRE_VERSION}" == "v1" ]]; then
             echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v1 --cleanup-on-error=false
+            go run . env start --with-contracts-version v1 --cleanup-on-error=false
           else
             echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
+            go run . env start --cleanup-on-error=false
           fi
 
           exit_code=$?

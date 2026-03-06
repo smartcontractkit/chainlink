@@ -105,7 +105,7 @@ func (o *LogEventTrigger) PostEnvStartup(
 			return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
 		}
 
-		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
 		if cErr != nil {
 			return errors.Wrap(cErr, "failed to get command for Read Contract capability")
 		}

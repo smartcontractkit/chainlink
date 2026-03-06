@@ -11,4 +11,5 @@ USAGE:
 OPTIONS:
    --seconds value, -s value     duration of profile capture (default: 8)
    --output_dir value, -o value  output directory of the captured profile (default: "/tmp/")
+   --vitals value, -v value      vitals to collect, can be specified multiple times. Options: 'allocs', 'block', 'cmdline', 'goroutine', 'heap', 'mutex', 'profile', 'threadcreate', 'trace'
    

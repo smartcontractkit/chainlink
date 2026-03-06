@@ -54,19 +54,6 @@ func init() {
 	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
-
-	BuildCapabilitiesCmd := &cobra.Command{
-		Use:   "build-caps",
-		Short: "Build capabilities binaries",
-		Long:  `Builds the capabilities binaries for the CRE environment`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return BuildCapabilities(cmd.Context(), config, noPrompt)
-		},
-	}
-
-	BuildCapabilitiesCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
-	BuildCapabilitiesCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
-	EnvironmentCmd.AddCommand(BuildCapabilitiesCmd)
 }
 
 // SetupConfigFile represents the full configuration loaded from setup.toml
@@ -76,7 +63,6 @@ type SetupConfigFile struct {
 	ChipIngress    *ChipIngressConfig    `toml:"chip_ingress"`
 	ChipConfig     *ChipConfigConfig     `toml:"chip_config"`
 	BillingService *BillingServiceConfig `toml:"billing_platform_service"`
-	Capabilities   CapabilitiesConfig    `toml:"capabilities"`
 	Observability  ObservabilityConfig   `toml:"observability"`
 }
 
@@ -110,12 +96,6 @@ type BillingServiceConfig struct {
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
 
-// CapabilitiesConfig contains capabilities build configuration
-type CapabilitiesConfig struct {
-	TargetPath   string   `toml:"target_path"`
-	MakeCommands []string `toml:"make_commands"`
-}
-
 // ObservabilityConfig contains observability repository configuration
 type ObservabilityConfig struct {
 	RepoURL    string `toml:"repository"`
@@ -128,7 +108,6 @@ var (
 )
 
 const DefaultSetupConfigPath = "configs/setup.toml"
-const DefaultCapabilityBinariesPath = ".binaries"
 
 type EnsureOption = string
 
@@ -576,11 +555,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
-	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
-	if capErr != nil {
-		return errors.Wrap(capErr, "failed to install capabilities")
-	}
-
 	// Print summary
 	fmt.Println()
 	logger.Info().Msg("✅ Setup Summary:")
@@ -606,10 +580,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	} else {
 		logger.Warn().Msg("   ✗ Bun is not installed")
 	}
-	if len(cfg.Capabilities.MakeCommands) > 0 {
-		logger.Info().Msg("   ✓ Capabilities binaries installed")
-		logger.Info().Msgf("     - capabilities: %s", strings.Join(installedCapabilities, ", "))
-	}
 
 	fmt.Println()
 	logger.Info().Msg("🚀 Next Steps:")
@@ -619,37 +589,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("   Optional: Add --with-plugins-docker-image to use a pre-built image with capabilities")
 	logger.Info().Msg("   Optional: Add --with-beholder to start the Beholder")
 	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
-
-	return nil
-}
-
-func BuildCapabilities(ctx context.Context, config SetupConfig, noPrompt bool) error {
-	cfg, cfgErr := ReadSetupConfig(config.ConfigPath)
-	if cfgErr != nil {
-		return errors.Wrap(cfgErr, "failed to read config")
-	}
-
-	_, ghCliErr := checkGHCli(ctx, cfg.General.MinGHCLIVersion, noPrompt)
-	if ghCliErr != nil {
-		return errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
-	}
-
-	if err := runGHSetupGit(ctx); err != nil {
-		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
-	}
-
-	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
-	if capErr != nil {
-		return errors.Wrap(capErr, "failed to install capabilities")
-	}
-
-	fmt.Println()
-	logger := framework.L
-	logger.Info().Msg("✅ Build Capabilities Summary:")
-	for _, capability := range installedCapabilities {
-		logger.Info().Msgf("   ✓ %s", capability)
-	}
-	logger.Info().Msgf("   ✓ %d capabilities installed", len(installedCapabilities))
 
 	return nil
 }
@@ -680,85 +619,6 @@ func runGHSetupGit(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func makeCapabilities(ctx context.Context, capabilitiesConfig CapabilitiesConfig, repoRootRelativePath string) ([]string, error) {
-	if len(capabilitiesConfig.MakeCommands) == 0 {
-		framework.L.Info().Msg("No make commands specified for capabilities. Skipping capabilities build.")
-		return nil, nil
-	}
-
-	logger := framework.L
-	logger.Info().Msg("🔍 Installing capabilities binaries...")
-
-	tempDir, tempErr := os.MkdirTemp(".", ".tmp-capability-binaries")
-	if tempErr != nil {
-		return nil, fmt.Errorf("failed to create temporary directory: %w", tempErr)
-	}
-
-	tempDirAbsPath, tAbsErr := filepath.Abs(tempDir)
-	if tAbsErr != nil {
-		return nil, fmt.Errorf("failed to get absolute path of temporary directory: %w", tAbsErr)
-	}
-
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
-
-	for _, makeCommand := range capabilitiesConfig.MakeCommands {
-		cmd := exec.CommandContext(ctx, "make", makeCommand)
-		cmd.Dir = repoRootRelativePath
-		// Set GOBIN to the absolute path of the target path, so that binaries are placed there
-		cmd.Env = os.Environ()
-		cmd.Env = append(cmd.Env, "GOBIN="+tempDirAbsPath)
-		// cross-compile for linux/amd64 with CGO disabled, because our Chainlink Docker images use linux/amd64
-		cmd.Env = append(cmd.Env, "CL_PLUGIN_ENVVARS=GOOS=linux GOARCH=amd64 CGO_ENABLED=0")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return nil, fmt.Errorf("failed to run make command '%s': %w", makeCommand, err)
-		}
-	}
-
-	if capabilitiesConfig.TargetPath == "" {
-		capabilitiesConfig.TargetPath = DefaultCapabilityBinariesPath
-	}
-
-	absPath, absErr := filepath.Abs(capabilitiesConfig.TargetPath)
-	if absErr != nil {
-		return nil, fmt.Errorf("failed to get absolute path of target path: %w", absErr)
-	}
-
-	if err := os.MkdirAll(absPath, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create target path: %w", err)
-	}
-
-	cmd := exec.CommandContext(ctx, "cp", "-R", tempDirAbsPath+string(os.PathSeparator)+".", absPath) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to copy binaries to target path: %w", err)
-	}
-
-	files, err := os.ReadDir(tempDirAbsPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read temporary directory: %w", err)
-	}
-
-	fmt.Println("Dir: ", tempDirAbsPath)
-
-	installedCapabilities := []string{}
-	for _, f := range files {
-		if f.Type().IsRegular() {
-			installedCapabilities = append(installedCapabilities, f.Name())
-		}
-	}
-
-	logger.Info().Msgf("  ✓ %d capabilities binaries installed in %s", len(installedCapabilities), absPath)
-
-	return installedCapabilities, nil
 }
 
 // ReadSetupConfig reads and parses the setup configuration from the given path

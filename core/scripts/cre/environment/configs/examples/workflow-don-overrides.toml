@@ -52,13 +52,13 @@
        GasLimitDefault = 700_000
        AcceptanceTimeout = '60s'
 
-    # Override binary path for a capability
+    # Override binary name for a capability (path is DefaultCapabilitiesDir + binary_name)
     [nodesets.capability_configs.read-contract-1337]
-       binary_path = "/some-other/binary_path"
+       binary_name = "readcontract"
        # values = {} # Add any required values here
 
 # [nodesets.capability_configs.http-action]
-#    binary_path = ""
+#    binary_name = "http_action"
 #    [nodesets.capability_configs.http-action.values]
 #       IncomingGlobalBurst = 20
 
