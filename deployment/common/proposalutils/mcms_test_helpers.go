@@ -91,7 +91,7 @@ func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcms
 			mcmstypes.TimelockActionBypass:   mcmsaptossdk.TimelockRoleBypasser,
 			mcmstypes.TimelockActionCancel:   mcmsaptossdk.TimelockRoleCanceller,
 		}
-		inspectorsMap[chainSel] = mcmsaptossdk.NewInspector(chain.Client, roleFromAction[proposal.Action])
+		inspectorsMap[chainSel] = mcmsaptossdk.NewInspector(chain.Client, roleFromAction[proposal.Action], false)
 	}
 
 	p, _, err := proposal.Convert(env.GetContext(), converters)
@@ -199,6 +199,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 				aptosChains[uint64(op.ChainSelector)].DeployerSigner,
 				encoder,
 				mcmsaptossdk.TimelockRoleProposer,
+				false,
 			)
 			t.Logf("[ExecuteMCMSProposalV2] Using Aptos chain with chainSelector=%d", uint64(op.ChainSelector))
 
