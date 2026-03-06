@@ -283,7 +283,7 @@ func TestEVMService(t *testing.T) {
 				TxHash:   common.Hash{},
 				TxStatus: evm.TxFatal,
 			},
-			ExpectedError: "failed get transaction status for txID",
+			ExpectedError: "failed to get transaction status for txID",
 		},
 		{
 			Name: "Success with pending status and then finalized status",
