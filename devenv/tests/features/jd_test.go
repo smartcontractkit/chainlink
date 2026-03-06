@@ -1,4 +1,4 @@
-package jd
+package features
 
 import (
 	"fmt"

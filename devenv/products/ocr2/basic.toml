@@ -12,7 +12,7 @@ instances = 1
   # amount of time we'll wait for the first feed answer, if there is no answer environment is not working
   verification_timeout_sec = 400
   # target blockchain finality depth
-  chain_finality_depth = 5
+  chain_finality_depth = 50
 
   [ocr2.gas_settings]
   # EIP1159 fee cap multiplier (default, for all transactions)

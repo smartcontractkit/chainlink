@@ -22,8 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test_name:
-          - TestMultipleJobDistributors
+        include:
+          - test_name: "TestMultipleJobDistributors"
+            env_configs: "env.toml,products/jd/multiple.toml"
+          - test_name: "TestReorgHeadTrackerFinalityViolation"
+            env_configs: "env.toml,products/reorg/finality.toml"
       fail-fast: false
     steps:
       - name: Checkout code
@@ -65,19 +68,26 @@ jobs:
         run: |
           echo "CHAINLINK_IMAGE=${{ secrets.REGISTRY_SDLC }}/chainlink:nightly-$(date +%Y%m%d)" >> $GITHUB_ENV
 
-      - name: Run default environment
+      - name: Setup environment
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
           cd cmd/cl && go install . && cd -
-          cl u
+          
+          # Use workflow dispatch env_config if provided, otherwise use matrix env_configs
+          ENV_CONFIG="${{ matrix.env_configs }}"
+          
+          echo "Setting up environment with: cl $ENV_CONFIG"
+          cl u $ENV_CONFIG
 
       - name: Run tests
         working-directory: devenv/tests/features
         env:
           CURRENT_TEST: ${{ matrix.test_name }}
         run: |
-          TEST_TO_RUN="${{ matrix.test_name }}"
+          # Use workflow dispatch test_name if provided, otherwise use matrix test_name
+          TEST_TO_RUN="${{ github.event.inputs.test_name || matrix.test_name }}"
+          
           echo "Running tests for: $CHAINLINK_IMAGE, test: $TEST_TO_RUN"
           go test -v -run "$TEST_TO_RUN"
 
