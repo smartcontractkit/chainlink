@@ -1193,8 +1193,8 @@ func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 		{
 			RemoteChainSelector: destChain,
 			OutboundIsEnabled:   true,
-			OutboundCapacity:    100000,
-			OutboundRate:        100,
+			OutboundCapacity:    10000000000, // 10 LINK – allows 1 LINK transfer, rejects 20 LINK transfer
+			OutboundRate:        1000000000,  // refills 1 LINK/sec so the bucket is full before the first send
 			InboundIsEnabled:    true,
 			InboundCapacity:     2000000000,
 			InboundRate:         100000,
@@ -1274,7 +1274,7 @@ func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
+		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"consume\") }, 1)")
 		t.Log("Expected error: ", err)
 	})
 }

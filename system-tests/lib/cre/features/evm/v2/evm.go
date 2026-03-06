@@ -42,7 +42,7 @@ import (
 
 const (
 	flag                = cre.EVMCapability
-	configTemplate      = `{"chainId":{{printf "%d" .ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%d" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%d" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%d" .}}{{end}}}`
+	configTemplate      = `{"chainId":{{printf "%d" .ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%d" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}", "deltaStage":{{printf "%d" .DeltaStage}}{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%d" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%d" .}}{{end}}}`
 	registrationRefresh = 20 * time.Second
 	registrationExpiry  = 60 * time.Second
 	deltaStage          = 500*time.Millisecond + 1*time.Second // block time + 1 second delta
@@ -392,6 +392,7 @@ func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, node
 		"NetworkFamily":       networkFamily,
 		"CreForwarderAddress": creForwarderAddress,
 		"NodeAddress":         nodeAddress,
+		"DeltaStage":          deltaStage,
 	}
 }
 
@@ -449,8 +450,6 @@ func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	return &capabilitiespb.CapabilityMethodConfig{
 		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 			RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-				TransmissionSchedule:      capabilitiespb.TransmissionSchedule_OneAtATime,
-				DeltaStage:                durationpb.New(deltaStage),
 				RequestTimeout:            durationpb.New(requestTimeout),
 				ServerMaxParallelRequests: 10,
 				RequestHasherType:         capabilitiespb.RequestHasherType_WriteReportExcludeSignatures,
@@ -463,7 +462,6 @@ func readActionConfig() *capabilitiespb.CapabilityMethodConfig {
 	return &capabilitiespb.CapabilityMethodConfig{
 		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 			RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-				TransmissionSchedule:      capabilitiespb.TransmissionSchedule_AllAtOnce,
 				RequestTimeout:            durationpb.New(requestTimeout),
 				ServerMaxParallelRequests: 10,
 				RequestHasherType:         capabilitiespb.RequestHasherType_Simple,
