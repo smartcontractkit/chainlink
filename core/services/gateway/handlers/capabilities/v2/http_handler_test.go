@@ -475,6 +475,10 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 
 	donConfig := &config.DONConfig{
 		DonId: "test-don",
+		Members: []config.NodeConfig{
+			{Name: "node1", Address: "node1"},
+			{Name: "node2", Address: "node2"},
+		},
 	}
 	mockDon := handlermocks.NewDON(t)
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
@@ -880,8 +884,9 @@ func expectSuccessfulRequest(mockHTTPClient *httpmocks.HTTPClient, mockDon *hand
 func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
 	t.Run("per-node rate limiting", func(t *testing.T) {
 		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, ServiceConfig{})
-		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(100, 100) // high global rate
-		handler.perNodeRateLimiter = limits.GlobalRateLimiter(1, 1)        // very low per-node rate to trigger limits
+		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(100, 100)    // high global rate
+		handler.perNodeRateLimiters["node1"] = limits.GlobalRateLimiter(1, 1) // very low per-node rate to trigger limits
+		handler.perNodeRateLimiters["node2"] = limits.GlobalRateLimiter(1, 1) // very low per-node rate to trigger limits
 
 		// First request should succeed
 		expectSuccessfulRequest(mockHTTPClient, mockDon, "node1")
@@ -899,8 +904,9 @@ func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
 
 	t.Run("global rate limiting", func(t *testing.T) {
 		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, ServiceConfig{})
-		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(1, 1)  // very low global rate to trigger limits
-		handler.perNodeRateLimiter = limits.GlobalRateLimiter(100, 100) // high per-node rate
+		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(1, 1)            // very low global rate to trigger limits
+		handler.perNodeRateLimiters["node1"] = limits.GlobalRateLimiter(100, 100) // high per-node rate for node1
+		handler.perNodeRateLimiters["node2"] = limits.GlobalRateLimiter(100, 100) // high per-node rate for node2
 
 		// First request should succeed
 		expectSuccessfulRequest(mockHTTPClient, mockDon, "node1")

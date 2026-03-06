@@ -47,8 +47,8 @@ type gatewayHandler struct {
 	don                   handlers.DON
 	lggr                  logger.Logger
 	httpClient            network.HTTPClient
-	globalNodeRateLimiter limits.RateLimiter // Global rate limiter shared across all incoming node requests from workflow DON
-	perNodeRateLimiter    limits.RateLimiter // Per-node rate limiter (guards against incoming load from any single node in workflow DON)
+	globalNodeRateLimiter limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
+	perNodeRateLimiters   map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
 	wg                    sync.WaitGroup
 	stopCh                services.StopChan
 	responseCache         ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
@@ -119,9 +119,13 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
 	}
-	perNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create per-node rate limiter: %w", err)
+	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
+	for _, member := range donConfig.Members {
+		rl, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create per-node rate limiter for %s: %w", member.Address, err)
+		}
+		perNodeRateLimiters[member.Address] = rl
 	}
 
 	userRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.PerWorkflow.HTTPTrigger.RateLimit)
@@ -142,7 +146,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		lggr:                  logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
 		httpClient:            httpClient,
 		globalNodeRateLimiter: globalNodeRateLimiter,
-		perNodeRateLimiter:    perNodeRateLimiter,
+		perNodeRateLimiters:   perNodeRateLimiters,
 		stopCh:                make(services.StopChan),
 		responseCache:         newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
 		triggerHandler:        triggerHandler,
@@ -199,13 +203,15 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)
 	}
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
-	nodeAllow := h.perNodeRateLimiter.Allow(ctx)
-	if !nodeAllow {
+	nodeRateLimiter, ok := h.perNodeRateLimiters[nodeAddr]
+	if !ok {
+		return fmt.Errorf("received message from unexpected node %s", nodeAddr)
+	}
+	if !nodeRateLimiter.Allow(ctx) {
 		h.metrics.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
-	globalAllow := h.globalNodeRateLimiter.Allow(ctx)
-	if !globalAllow {
+	if !h.globalNodeRateLimiter.Allow(ctx) {
 		h.metrics.IncrementGlobalThrottled(ctx, h.lggr)
 		return errors.New("global rate limit exceeded")
 	}
@@ -432,8 +438,10 @@ func (h *gatewayHandler) Close() error {
 		if err = h.globalNodeRateLimiter.Close(); err != nil {
 			h.lggr.Errorw("failed to close global node rate limiter", "err", err)
 		}
-		if err = h.perNodeRateLimiter.Close(); err != nil {
-			h.lggr.Errorw("failed to close per-node rate limiter", "err", err)
+		for nodeAddr, rl := range h.perNodeRateLimiters {
+			if err = rl.Close(); err != nil {
+				h.lggr.Errorw("failed to close per-node rate limiter", "nodeAddr", nodeAddr, "err", err)
+			}
 		}
 		close(h.stopCh)
 		h.wg.Wait()
