@@ -32,7 +32,6 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20251212213002-0a5e2f907dda
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
-	github.com/test-go/testify v1.1.4
 	github.com/umbracle/ethgo v0.1.3
 	go.uber.org/zap v1.27.1
 	golang.org/x/sync v0.19.0
