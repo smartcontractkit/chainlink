@@ -9,6 +9,7 @@ One way to generate traces locally today is with the OCR2 basic smoke test.
 ```bash
 cd devenv
 just cli && cl sh
+obs up -f
 up env.toml,products/ocr2/basic.toml,env-cl-rebuild.toml # this will rebuild the latest CL image with plugins + deploy OCR2 feed
 test ocr2 TestSmoke/rounds # run 3 rounds to get some metrics
 ```
