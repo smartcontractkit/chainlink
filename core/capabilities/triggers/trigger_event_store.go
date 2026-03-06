@@ -27,12 +27,7 @@ func (s *triggerEventStore) Insert(ctx context.Context, rec capabilities.Pending
 	const q = `
 INSERT INTO ` + triggerPendingEventsTable + ` (
   trigger_id, event_id, payload, first_at, last_sent_at, attempts
-) VALUES (
-  $1, $2, $3, $4, $5, $6
-)
-ON CONFLICT (trigger_id, event_id) DO UPDATE SET
-  payload      = EXCLUDED.payload
-`
+) VALUES ($1, $2, $3, $4, $5, $6)`
 	var lastSent sql.NullTime
 	if !rec.LastSentAt.IsZero() {
 		lastSent = sql.NullTime{Time: rec.LastSentAt, Valid: true}
