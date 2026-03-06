@@ -859,6 +859,7 @@ func (h *eventHandler) tryConfidentialEngineCreate(
 
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     h.engineLimiters,
+		FeatureFlags:                      h.featureFlags,
 		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
 
 		BeholderEmitter: h.emitter,
