@@ -31,8 +31,10 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait until we've reached depth
-	waitForBlocks := 60
-	reorgForBlocks := 50
+	waitForBlocks := 50
+	// see ../products/ocr2/basic.toml, default finality depth is 5 for local env
+	// twice max reorg depth
+	reorgForBlocks := 10
 
 	require.Eventually(t, func() bool {
 		bn, err := rpcClient.BlockNumber()
