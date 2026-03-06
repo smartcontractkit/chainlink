@@ -1,5 +1,8 @@
 # Integration Tests
 
+**DEPRECATED**: Use a new version of [developer environment](../devenv/README.md) 
+Read more about tests [here](../devenv/tests/README.md)
+
 - [Integration Tests](#integration-tests)
   - [Summary](#summary)
   - [Guidelines](#guidelines)
