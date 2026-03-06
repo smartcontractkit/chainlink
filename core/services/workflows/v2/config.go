@@ -212,6 +212,46 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	return
 }
 
+// EvictWorkflow removes per-workflow scoped state (background goroutines,
+// queues, semaphores) from all limiters for the given workflow ID.  This
+// prevents leaked goroutines and map entries from accumulating after workflows
+// are deleted.
+func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
+	evictables := []any{
+		l.ExecutionResponse,
+		l.TriggerSubscriptionTime,
+		l.TriggerRegistrationsTime,
+		l.TriggerSubscription,
+		l.TriggerEventQueue,
+		l.TriggerEventQueueTime,
+		l.ExecutionConcurrency,
+		l.WASMBinarySize,
+		l.WASMMemorySize,
+		l.WASMCompressedBinarySize,
+		l.CapabilityConcurrency,
+		l.SecretsConcurrency,
+		l.ExecutionTime,
+		l.CapabilityCallTime,
+		l.LogEvent,
+		l.LogLine,
+		l.ChainAllowed,
+		l.ChainWriteTargets,
+		l.ChainReadCalls,
+		l.ConsensusCalls,
+		l.HTTPActionCalls,
+		l.ConfidentialHTTPCalls,
+		l.SecretsCalls,
+		l.ExecutionTimestampsEnabled,
+	}
+	var errs error
+	for _, e := range evictables {
+		if err := limits.TryEvictTenant(e, workflowID); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+	return errs
+}
+
 func (l *EngineLimiters) Close() error {
 	return services.CloseAll(
 		l.ExecutionResponse,
