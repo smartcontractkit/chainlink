@@ -10,4 +10,5 @@ type Deps struct {
 	AB               *cldf.AddressBookMap
 	SuiChain         sui_ops.OpTxDeps
 	CCIPOnChainState stateview.CCIPOnChainState
+	ChainSelector    uint64
 }
