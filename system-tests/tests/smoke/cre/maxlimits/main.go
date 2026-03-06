@@ -48,10 +48,13 @@ func RunWorkflow(cfg config.Config, logger *slog.Logger, _ cre.SecretsProvider) 
 			cron.Trigger(&cron.Config{Schedule: cfg.CronSchedule}),
 			onCronTrigger,
 		),
-		cre.Handler(
+	}
+
+	if len(cfg.HTTPAuthorizedKeys) > 0 {
+		wf = append(wf, cre.Handler(
 			http.Trigger(buildHTTPTriggerConfig(cfg)),
 			onHTTPTrigger,
-		),
+		))
 	}
 
 	for _, lt := range cfg.LogTriggers {

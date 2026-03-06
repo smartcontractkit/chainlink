@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/maxlimits
 
-go 1.25.3
+go 1.25.7
 
 require (
 	github.com/ethereum/go-ethereum v1.17.0

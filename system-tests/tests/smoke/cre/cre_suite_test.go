@@ -161,6 +161,11 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteConsensusTest(t, testEnv)
 		})
+	case v2suite_config.SuiteScenarioMaxLimits:
+		t.Run("[v2] Max Limits - "+topology, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			ExecuteMaxLimitsTest(t, testEnv)
+		})
 	default:
 		require.Failf(t, "unsupported V2 suite scenario", "scenario %q is not supported by the runner", scenario.String())
 	}

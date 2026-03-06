@@ -1,4 +1,4 @@
-//go:build wasip1 && maxbinary
+//go:build wasip1
 
 package main
 
@@ -7,12 +7,9 @@ import (
 	"fmt"
 )
 
-// ballast.dat must be generated before building with -tags maxbinary:
-//
-//	dd if=/dev/urandom of=ballast.dat bs=1024 count=14336
-//
-// This produces a ~14 MB file that inflates the compressed WASM binary
-// to approach the WASMCompressedBinarySizeLimit (20 MB).
+// ballast.dat must exist before building. Use `make build` for a minimal
+// placeholder or `make build-max` for a ~14 MB file that pushes the
+// compressed WASM binary toward the 20 MB limit.
 //
 //go:embed ballast.dat
 var ballastData []byte

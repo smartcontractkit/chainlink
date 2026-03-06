@@ -12,6 +12,7 @@ const (
 	SuiteScenarioHTTPActionCRUD
 	SuiteScenarioDONTime
 	SuiteScenarioConsensus
+	SuiteScenarioMaxLimits
 	SuiteScenarioLen
 )
 
@@ -31,6 +32,8 @@ func (s SuiteScenario) String() string {
 		return "DONTime"
 	case SuiteScenarioConsensus:
 		return "Consensus"
+	case SuiteScenarioMaxLimits:
+		return "MaxLimits"
 	default:
 		return fmt.Sprintf("unknown SuiteScenario: %d", s)
 	}
@@ -68,6 +71,7 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 		Bucket: SuiteBucketB,
 		Scenarios: []SuiteScenario{
 			SuiteScenarioVaultDON,
+			SuiteScenarioMaxLimits,
 		},
 	},
 	{
