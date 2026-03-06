@@ -13,18 +13,15 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui/mcmsutil"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type DeploySuiMCMSConfig struct {
-	ChainSelectors         []uint64
-	MCMSConfigPerChain     map[uint64]commonTypes.MCMSWithTimelockConfigV2
-	TimelockConfigPerChain map[uint64]proposalutils.TimelockConfig
+	ChainSelectors     []uint64
+	MCMSConfigPerChain map[uint64]commonTypes.MCMSWithTimelockConfigV2
 }
 
 var _ cldf.ChangeSetV2[DeploySuiMCMSConfig] = DeploySuiMCMS{}
@@ -112,30 +109,6 @@ func (cs DeploySuiMCMS) Apply(env cldf.Environment, cfg DeploySuiMCMSConfig) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to store MCMS in address book for SUI chain %d: %w", chainSel, err)
 		}
 
-		// Generate MCMS proposal if timelock config is provided
-		if timelockCfg, ok := cfg.TimelockConfigPerChain[chainSel]; ok {
-			updatedSuiStates, err := suistate.LoadOnchainStatesui(env)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to reload SUI state after deploy for chain %d: %w", chainSel, err)
-			}
-			chainState := updatedSuiStates[chainSel]
-
-			mcmsOperations := []mcmstypes.BatchOperation{}
-			proposal, err := mcmsutil.GenerateProposal(
-				env,
-				chainState,
-				chainSel,
-				mcmsOperations,
-				"Deploy SUI MCMS",
-				timelockCfg,
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for SUI chain %d: %w", chainSel, err)
-			}
-			proposals = append(proposals, *proposal)
-		}
-
-		// Always include the accept ownership proposal from the deploy sequence
 		proposals = append(proposals, mcmsSeqReport.Output.AcceptOwnershipProposal)
 	}
 
