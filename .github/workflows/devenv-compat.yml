@@ -20,6 +20,11 @@ on:
         required: false
         default: "3"
         type: string
+      node-name-template:
+        description: "Template for the node name"
+        required: false
+        default: "don-node%d"
+        type: string
       versions-back:
         description: "Number of versions to go back for compatibility testing"
         required: false
@@ -59,6 +64,11 @@ on:
         required: false
         default: "3"
         type: string
+      node-name-template:
+        description: "Template for the node name"
+        required: false
+        default: "don-node%d"
+        type: string
       versions-back:
         description: "Number of versions to go back for compatibility testing"
         required: false
@@ -79,7 +89,6 @@ on:
         default: "info"
         type: string
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
@@ -94,16 +103,19 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
+    environment: "integration"
     env:
       BUILD_CMD: ${{ github.event_name == 'workflow_call' && inputs.buildcmd || github.event.inputs.buildcmd }}
       ENV_CMD: ${{ github.event_name == 'workflow_call' && inputs.envcmd || github.event.inputs.envcmd }}
       TEST_CMD: ${{ github.event_name == 'workflow_call' && inputs.testcmd || github.event.inputs.testcmd }}
       NODES: ${{ github.event_name == 'workflow_call' && inputs.nodes || github.event.inputs.nodes }}
+      NODE_NAME_TEMPLATE: ${{ github.event_name == 'workflow_call' && inputs.node-name-template || github.event.inputs.node-name-template }}
       VERSIONS_BACK: ${{ github.event_name == 'workflow_call' && inputs.versions-back || github.event.inputs.versions-back }}
       WORKING_DIR: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
       LOGS_DIR: ${{ github.event_name == 'workflow_call' && inputs.logs-directory || github.event.inputs.logs-directory }}
       CTF_LOG_LEVEL: ${{ github.event_name == 'workflow_call' && inputs.ctf-log-level || github.event.inputs.ctf-log-level }}
-    
+      # JD is required by the local CRE-based tests
+      CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -119,15 +131,22 @@ jobs:
         with:
           just-version: "1.40.0"
 
-      - name: Configure AWS credentials using OIDC
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      # We need to login to ECR to allow the test to pull the Job Distributor (main) and Chainlink (sdlc) images
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
-          aws-region: us-west-2
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
 
-      - name: Authenticate to ECR
+      - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
@@ -159,7 +178,6 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
-
       - name: Run compat test
         working-directory: ${{ env.WORKING_DIR }}
         shell: bash
@@ -179,6 +197,7 @@ jobs:
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --nodes "${NODES}" \
+            --node-name-template "${NODE_NAME_TEMPLATE}" \
             --versions-back "${VERSIONS_BACK}"
 
       - name: Upload Logs

@@ -666,9 +666,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {
-		err = creServices.SetDelegatesDeps(stdcapDelegate)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set CRE delegates dependencies: %w", err)
+		depSvc, depErr := creServices.SetDelegatesDeps(stdcapDelegate)
+		if depErr != nil {
+			return nil, fmt.Errorf("failed to set CRE delegates dependencies: %w", depErr)
+		}
+		if depSvc != nil {
+			srvcs = append(srvcs, depSvc)
 		}
 	}
 

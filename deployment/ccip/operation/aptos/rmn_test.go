@@ -213,12 +213,6 @@ func (s *stubRMNRemote) RemoveAllowedCursers(*bind.TransactOpts, []aptos.Account
 func (s *stubRMNRemote) UncurseMultiple(*bind.TransactOpts, [][]byte) (*api.PendingTransaction, error) {
 	return nil, nil
 }
-func (s *stubRMNRemote) MCMSEntrypoint(aptos.AccountAddress) (*api.PendingTransaction, error) {
-	return nil, nil
-}
-func (s *stubRMNRemote) RegisterMCMSEntrypoint() (*api.PendingTransaction, error) {
-	return nil, nil
-}
 
 // encoder methods
 type stubEncoder struct {
@@ -276,12 +270,6 @@ func (s *stubEncoder) Curse([]byte) (bind.ModuleInformation, string, []aptos.Typ
 func (s *stubEncoder) Uncurse([]byte) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }
-func (s *stubEncoder) MCMSEntrypoint(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
-	return bind.ModuleInformation{}, "", nil, nil, nil
-}
-func (s *stubEncoder) RegisterMCMSEntrypoint() (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
-	return bind.ModuleInformation{}, "", nil, nil, nil
-}
 func (s *stubEncoder) IsAllowedCurser(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }
@@ -298,5 +286,11 @@ func (s *stubEncoder) RemoveAllowedCursers([]aptos.AccountAddress) (bind.ModuleI
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }
 func (s *stubEncoder) AssertOwnerOrAllowedCurser(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) MCMSEntrypoint(aptos.AccountAddress) (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
+	return bind.ModuleInformation{}, "", nil, nil, nil
+}
+func (s *stubEncoder) RegisterMCMSEntrypoint() (bind.ModuleInformation, string, []aptos.TypeTag, [][]byte, error) {
 	return bind.ModuleInformation{}, "", nil, nil, nil
 }

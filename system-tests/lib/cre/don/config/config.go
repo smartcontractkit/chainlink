@@ -432,6 +432,12 @@ func addWorkerNodeConfig(
 		WorkflowRegistry: existingWorkflowRegistry,
 	}
 
+	if len(donMetadata.RegistryBasedLaunchAllowlist) > 0 {
+		existingConfig.Capabilities.Local = coretoml.LocalCapabilities{
+			RegistryBasedLaunchAllowlist: donMetadata.RegistryBasedLaunchAllowlist,
+		}
+	}
+
 	for _, evmChain := range commonInputs.evmChains {
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}

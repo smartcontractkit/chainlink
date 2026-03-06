@@ -47,6 +47,7 @@
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 

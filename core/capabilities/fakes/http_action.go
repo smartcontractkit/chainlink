@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,12 +19,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ httpserver.ClientCapability = (*DirectHTTPAction)(nil)
-var _ services.Service = (*DirectHTTPAction)(nil)
-var _ commonCap.ExecutableCapability = (*DirectHTTPAction)(nil)
+var (
+	_ httpserver.ClientCapability    = (*DirectHTTPAction)(nil)
+	_ services.Service               = (*DirectHTTPAction)(nil)
+	_ commonCap.ExecutableCapability = (*DirectHTTPAction)(nil)
+)
 
-const HTTPActionID = "http-actions@0.1.0"
-const HTTPActionServiceName = "HttpActionService"
+const (
+	HTTPActionID          = "http-actions@0.1.0"
+	HTTPActionServiceName = "HttpActionService"
+)
 
 var directHTTPActionInfo = commonCap.MustNewCapabilityInfo(
 	HTTPActionID,
@@ -90,9 +95,17 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 
-	// Add headers
-	for k, v := range input.GetHeaders() {
-		req.Header.Set(k, v)
+	// Add headers: prefer MultiHeaders, fall back to deprecated Headers
+	if len(input.GetMultiHeaders()) > 0 {
+		for k, v := range input.GetMultiHeaders() {
+			for _, val := range v.GetValues() {
+				req.Header.Add(k, val)
+			}
+		}
+	} else {
+		for k, v := range input.GetHeaders() { //nolint: staticcheck // deprecated
+			req.Header.Set(k, v)
+		}
 	}
 
 	// Make the HTTP request
@@ -124,18 +137,23 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 
-	// Convert headers
-	headers := make(map[string]string)
+	// Convert headers: Headers (comma-joined for backwards compat) and MultiHeaders (per capability)
+	headers := make(map[string]string, len(resp.Header))
+	multiHeaders := make(map[string]*customhttp.HeaderValues, len(resp.Header))
 	for k, v := range resp.Header {
-		// Join multiple header values with comma
+		if len(v) == 0 {
+			continue
+		}
 		headers[k] = strings.Join(v, ", ")
+		multiHeaders[k] = &customhttp.HeaderValues{Values: slices.Clone(v)}
 	}
 
 	// Create response
 	response := &customhttp.Response{
-		StatusCode: uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
-		Headers:    headers,
-		Body:       respBody,
+		StatusCode:   uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
+		Headers:      headers,
+		MultiHeaders: multiHeaders,
+		Body:         respBody,
 	}
 	responseAndMetadata := commonCap.ResponseAndMetadata[*customhttp.Response]{
 		Response:         response,
