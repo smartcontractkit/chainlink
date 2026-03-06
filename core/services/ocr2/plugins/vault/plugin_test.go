@@ -115,7 +115,8 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes.DefaultValue, infoObject.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes)
 	assert.Equal(t, cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCount.DefaultValue, infoObject.Limits.MaxPerOracleUnexpiredBlobCount)
 
-	// Verify that configProto overrides are ignored — values should remain at cresettings defaults.
+	// Verify that configProto overrides apply to BatchSize and MaxSecretsPerOwner,
+	// while other fields remain at cresettings defaults.
 	cfg = vaultcommon.ReportingPluginConfig{
 		BatchSize:                                     2,
 		MaxSecretsPerOwner:                            2,
@@ -139,8 +140,8 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	require.NoError(t, err)
 
 	typedRP = rp.(*ReportingPlugin)
-	assert.Equal(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.BatchSize.DefaultValue)
-	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
+	assert.Equal(t, 2, typedRP.cfg.BatchSize.DefaultValue)
+	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
 	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
 	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
 	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)

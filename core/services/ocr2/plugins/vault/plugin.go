@@ -205,18 +205,6 @@ func resolvePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1typ
 }
 
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
-	maxSecretsPerOwnerLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.PerOwner.VaultSecretsLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultSecretsLimit: %w", err)
-	}
-
-	batchSize := cresettings.Default.VaultPluginBatchSizeLimit
-
-	maxBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(factory, batchSize)
-	if err != nil {
-		return nil, fmt.Errorf("VaultPluginBatchSizeLimit: %w", err)
-	}
-
 	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultCiphertextSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultCiphertextSizeLimit: %w", err)
@@ -238,13 +226,10 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	}
 
 	return &ReportingPluginConfig{
-		MaxSecretsPerOwner:                maxSecretsPerOwnerLimiter,
 		MaxCiphertextLengthBytes:          maxCiphertextLengthBytesLimiter,
 		MaxIdentifierKeyLengthBytes:       maxIdentifierKeyLengthBytesLimiter,
 		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
-		BatchSize:                         batchSize,
-		MaxBatchSize:                      maxBatchSizeLimiter,
 	}, nil
 }
 
@@ -266,6 +251,25 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	cfg, err := newReportingPluginConfigLimiters(r.limitsFactory)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create reporting plugin config limiters: %w", err)
+	}
+
+	maxSecretsPerOwnerLimit := cresettings.Default.PerOwner.VaultSecretsLimit
+	if configProto.MaxSecretsPerOwner != 0 {
+		maxSecretsPerOwnerLimit.DefaultValue = int(configProto.MaxSecretsPerOwner)
+	}
+	cfg.MaxSecretsPerOwner, err = limits.MakeUpperBoundLimiter(r.limitsFactory, maxSecretsPerOwnerLimit)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max secrets per owner limiter: %w", err)
+	}
+
+	batchSize := cresettings.Default.VaultPluginBatchSizeLimit
+	if configProto.BatchSize != 0 {
+		batchSize.DefaultValue = int(configProto.BatchSize)
+	}
+	cfg.BatchSize = batchSize
+	cfg.MaxBatchSize, err = limits.MakeUpperBoundLimiter(r.limitsFactory, batchSize)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max batch size limiter: %w", err)
 	}
 
 	if configProto.DKGInstanceID == nil {
