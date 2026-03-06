@@ -378,3 +378,14 @@ type DeployTronConfig struct {
 	Qualifier      string   // Data Store qualifier for the deployed contracts, applies to all chains
 	DeployOptions  *cldf_tron.DeployOptions
 }
+
+type TriggerCREWorkflowInput struct {
+	FeedFilter []string `json:"feedFilter,omitempty" yaml:"feedFilter,omitempty"`
+}
+
+type TriggerCREWorkflowConfig struct {
+	ChainSelector uint64                   `json:"chainSelector" yaml:"chainSelector"` // EVM chain selector whose deployer key is used to sign the request
+	GatewayURL    string                   `json:"gatewayUrl" yaml:"gatewayUrl"`
+	WorkflowID    string                   `json:"workflowID" yaml:"workflowID"`
+	Input         *TriggerCREWorkflowInput `json:"input,omitempty" yaml:"input,omitempty"`
+}
