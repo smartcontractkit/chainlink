@@ -12,8 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
-	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui/sequence"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui/mcmsutil"
+	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
