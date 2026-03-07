@@ -1,5 +1,5 @@
 [capability_configs.consensus]
-  binary_path = "./binaries/consensus"
+  binary_name = "consensus"
 
 # Global values for consensus are optional - uses empty jobspec config by default
 [capability_configs.consensus.values]
@@ -10,14 +10,14 @@
 #   CustomField = "value"  # Add custom fields if needed
 
 [capability_configs.cron]
-  binary_path = "./binaries/cron"
+  binary_name = "cron"
 
 # Global config for cron is optional - uses empty config by default
 [capability_configs.cron.values]
 #   CustomField = "value"  # Add custom fields if needed
 
 [capability_configs.custom-compute]
-  # No binary_path needed - this is a built-in capability, it doesn't exist as a separate binary
+  # No binary_name needed - this is a built-in capability, it doesn't exist as a separate binary
 
 [capability_configs.custom-compute.values]
   NumWorkers = 3
@@ -27,7 +27,7 @@
   PerSenderBurst = 5
 
 [capability_configs.log-event-trigger]
-  binary_path = "./binaries/log-event-trigger"
+  binary_name = "log-event-trigger"
 
 [capability_configs.log-event-trigger.values]
   LookbackBlocks = 2000        # Default lookback blocks
@@ -38,7 +38,7 @@
 [capability_configs.evm]
   # Defaults for the EVM capability
   # These are merged with per-DON chain_overrides
-  binary_path = "./binaries/evm"
+  binary_name = "evm"
 
 [capability_configs.evm.values]
   LogTriggerPollInterval = 1500000000  # 1.5s in nanoseconds
@@ -50,7 +50,7 @@
   # NodeAddress = "0x0000000000000000000000000000000000000000"
 
 [capability_configs.read-contract]
-  binary_path = "./binaries/readcontract"
+  binary_name = "readcontract"
 
 [capability_configs.read-contract.values]
   NetworkFamily = "evm"        # EVM is the only supported family
@@ -74,10 +74,10 @@
 #   CustomField = "value"  # Add custom fields if needed
 
 [capability_configs.http-action]
-  binary_path = "./binaries/http_action"
+  binary_name = "http_action"
 
 [capability_configs.solana]
-  binary_path = "./binaries/solana"
+  binary_name = "solana"
 
 [capability_configs.http-action.values]
   # HTTP Action capability configuration
@@ -92,7 +92,7 @@
   OutgoingPerSenderRPS = 10
 
 [capability_configs.http-trigger]
-  binary_path = "./binaries/http_trigger"
+  binary_name = "http_trigger"
 
 [capability_configs.http-trigger.values]
   # HTTP Trigger capability configuration
@@ -106,7 +106,7 @@
   OutgoingPerSenderRPS = 10
 
 [capability_configs.write-evm]
-  # No binary_path needed - this is a built-in capability, it doesn't exist as a separate binary
+  # No binary_name needed - this is a built-in capability, it doesn't exist as a separate binary
 
 [capability_configs.write-evm.values]
   # EVM Workflow configuration for write capabilities
@@ -139,7 +139,7 @@
   Local = true
 
 [capability_configs.mock]
-  binary_path = "./binaries/mock"
+  binary_name = "mock"
 
 [capability_configs.mock.values]
   Port = 7777  # Default port for mock service

@@ -116,6 +116,9 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 	evmKeystore := keys.NewChainStore(keystore, cfg.EVM.ChainID.ToInt())
 
 	mailMon := mailbox.NewMonitor(c.AppID, logger.Named(c.Logger, "Mailbox"))
+	if err := mailMon.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start mailbox monitor: %w", err)
+	}
 	c.SubService(mailMon)
 
 	chain, err := legacyevm.NewTOMLChain(&cfg.EVM, legacyevm.ChainRelayOpts{

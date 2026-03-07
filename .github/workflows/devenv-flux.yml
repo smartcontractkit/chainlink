@@ -19,7 +19,7 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-    runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

@@ -547,7 +547,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          fetch-depth: 0
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:

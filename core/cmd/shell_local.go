@@ -148,6 +148,10 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Usage: "output directory of the captured profile",
 					Value: "/tmp/",
 				},
+				cli.StringSliceFlag{
+					Name:  "vitals, v",
+					Usage: "vitals to collect, can be specified multiple times. Options: 'allocs', 'block', 'cmdline', 'goroutine', 'heap', 'mutex', 'profile', 'threadcreate', 'trace'",
+				},
 			},
 			Hidden: true,
 			Before: func(_ *cli.Context) error {

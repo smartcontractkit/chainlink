@@ -38,6 +38,13 @@ func (c *creConfig) RestURL() string {
 	return *c.c.Streams.RestURL
 }
 
+func (c *creConfig) DebugMode() bool {
+	if c.c.DebugMode == nil {
+		return false // disabled by default
+	}
+	return *c.c.DebugMode
+}
+
 type workflowFetcherConfig struct {
 	url string
 }
