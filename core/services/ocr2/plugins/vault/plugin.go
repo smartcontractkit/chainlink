@@ -1350,7 +1350,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 			}
 
 			if shaSeenForOracle[sha] {
-				r.lggr.Warnw("duplicate sha found for oracle, skipping...")
+				r.lggr.Warnw("duplicate sha found for oracle, skipping...", "oracleID", oid, "sha", sha, "item", pqi, "blobHandle", bh)
 				continue
 			}
 
