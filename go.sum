@@ -1188,10 +1188,10 @@ github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 h1:FJAFgXS9
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10/go.mod h1:oiDa54M0FwxevWwyAX773lwdWvFYYlYHHQV1LQ5HpWY=
 github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-20251215152504-b1e41f508340 h1:PsjEI+5jZIz9AS4eOsLS5VpSWJINf38clXV3wryPyMk=
 github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-20251215152504-b1e41f508340/go.mod h1:P/0OSXUlFaxxD4B/P6HWbxYtIRmmWGDJAvanq19879c=
-github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260224150904-47eef37d9005 h1:TKodVxZwcHis7eWh8sRWq348p73gBSKaIVIrCO19PE0=
-github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260224150904-47eef37d9005/go.mod h1:8rUcGhjeXBoTFx2MynWgXiBWzVSB+LXd9JR6m8y2FfQ=
-github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260223142528-fe0bf6474c99 h1:hZTafPs2L9PXC+dhQZcIDKZTU6bND4Lr2esu7yhUl0c=
-github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260223142528-fe0bf6474c99/go.mod h1:vyCNAFYkDz+GAG/dcHXxfk3U9C1P2NLGLEBCmk9OzgY=
+github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260227110503-42b236799872 h1:/nhvP6cBqGLrf4JwA/1FHLxnJjFhKRP6xtXAPcpE8g0=
+github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260227110503-42b236799872/go.mod h1:5jROIH/4cgHBQn875A+E2DCqvkBtrkHs+ciedcGTjNI=
+github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260306231944-4f37e0f36d74 h1:jjRpvBoGGh4v/FSMxIMoqA3UoB0U6v3kynCG/1nzmws=
+github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260306231944-4f37e0f36d74/go.mod h1:RbSY8We8s4ac7uO7Q3cJ7f1IqnCzTD/TErVoLmXH8N8=
 github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3 h1:V22ITnWmgBAyxH+VVVo1jxm/LeJ3jcVMCVYB+zLN5mU=
 github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3/go.mod h1:u5vhpPHVUdGUni9o00MBu2aKPE0Q2DRoipAGPYD01e0=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c h1:eX7SCn5AGUGduv5OrjbVJkUSOnyeal0BtVem6zBSB2Y=
