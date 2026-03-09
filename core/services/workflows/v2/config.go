@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -129,9 +130,22 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.TriggerEventQueue, err = limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	stdQueue, err := limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return
+	}
+	ocrQueueEnabled, err := cresettings.Default.OCRTriggerEventQueueEnabled.GetOrDefault(context.Background(), lf.Settings)
+	if err != nil {
+		return
+	}
+	if ocrQueueEnabled {
+		newOCRQueue := NewOCRQueueWithInnerQueue(stdQueue)
+		l.TriggerEventQueue, err = newOCRQueue(OCRQueueDeps{Lf: lf, Cfg: &cfg})
+		if err != nil {
+			return
+		}
+	} else {
+		l.TriggerEventQueue = stdQueue
 	}
 	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
 	if err != nil {
