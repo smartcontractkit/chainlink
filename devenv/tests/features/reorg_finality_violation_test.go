@@ -65,7 +65,7 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 			l.Debug().Msgf("Resp: %v", resp)
 		}
 		l.Info().Int("Violated", violated).Int("Nodes", len(clNodes)).Msg("Checking if all nodes reported finality violation")
-		assert.Equal(c, violated, len(clNodes))
+		assert.Len(c, clNodes, violated)
 	}, timeout, poll, "not all the nodes report finality violation")
 
 	l.Info().Msg("All nodes reported finality violation")
