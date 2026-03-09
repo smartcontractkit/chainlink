@@ -171,6 +171,7 @@ const (
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {
+	t.Parallel()
 	binaryURLFactory := func(wfID string) string {
 		return "http://example.com/" + wfID + "/binary"
 	}
@@ -723,6 +724,7 @@ func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error)
 }
 
 func Test_workflowDeletedHandler(t *testing.T) {
+	t.Parallel()
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)
