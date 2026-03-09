@@ -358,7 +358,7 @@ func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQ
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              nil, // TODO: wire bootstrap peers from workflow DON (deps.DonSubscriber.WaitForDon or config)
 		ContractConfigTracker:        nil, // TODO: in-process config; need static/dynamic config from DON (no on-chain contract)
-		ContractTransmitter:          nil, // TODO: trigger queue is off-chain only; wire if libocr2 requires non-nil
+		ContractTransmitter:          triggerqueue.NewTransmitter(inner, d.lggr),
 		Database:                     nil, // TODO: wire OCR DB (e.g. NewDB(d.ds, triggerQueuePluginID, 0, d.lggr)); need unique plugin ID
 		KeyValueDatabaseFactory:      nil, // TODO: wire KV factory (e.g. kvdb.NewPebbleKeyValueDatabaseFactory(path)); path = KeyValueStoreRootDir/trigger_queue
 		LocalConfig:                  ocrtypes.LocalConfig{}, // TODO: wire LocalConfig (BlockDelta, etc.)
