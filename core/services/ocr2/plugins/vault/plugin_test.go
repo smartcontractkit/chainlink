@@ -2317,6 +2317,64 @@ func TestPlugin_ValidateObservations_IncludesAllItemsInPendingQueue(t *testing.T
 	require.NoError(t, err)
 }
 
+func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+		unmarshalBlob: mockUnmarshalBlob,
+		marshalBlob:   mockMarshalBlob,
+	}
+
+	seqNr := uint64(1)
+	kv := &kv{
+		m: make(map[string]response),
+	}
+
+	obs := &vaultcommon.Observations{
+		PendingQueueItems: [][]byte{
+			{0: 1},
+			{0: 2},
+		},
+	}
+	obsb, err := proto.Marshal(obs)
+	require.NoError(t, err)
+
+	bf := &blobber{
+		blobs: [][]byte{
+			{0: 1},
+			{0: 1},
+		},
+	}
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		kv,
+		bf,
+	)
+	require.ErrorContains(t, err, "duplicate item found in pending queue item observation")
+}
+
 func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -4815,6 +4873,103 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 
 	// Batch size is 1, so only one item should be stored.
 	assert.ElementsMatch(t, []string{"request-id"}, ids)
+}
+
+func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservationsFromOneNode(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		cfg: makeReportingPluginConfig(
+			t,
+			1,
+			pk,
+			shares[0],
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	req1 := &vaultcommon.ListSecretIdentifiersRequest{
+		Owner:     "owner",
+		Namespace: "main",
+		RequestId: "request-id",
+	}
+	areq1, err := anypb.New(req1)
+	require.NoError(t, err)
+
+	o1 := &vaultcommon.Observations{
+		PendingQueueItems: [][]byte{
+			{}, // maps to item 0 in the blobs
+			{}, // maps to item 1 in the blobs
+			{}, // maps to item 2 in the blobs
+		},
+	}
+	o1b, err := proto.Marshal(o1)
+	require.NoError(t, err)
+
+	bf := &blobber{
+		blobs: [][]byte{
+			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+				Id:   "request-id",
+				Item: areq1,
+			}),
+			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+				Id:   "request-id",
+				Item: areq1,
+			}),
+			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+				Id:   "request-id",
+				Item: areq1,
+			}),
+		},
+	}
+
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: o1b},
+		},
+		rdr,
+		bf,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Empty(t, os.Outcomes)
+
+	pq, err := NewReadStore(rdr).GetPendingQueue()
+	require.NoError(t, err)
+	assert.Empty(t, pq, 0)
+
+	ids := []string{}
+	for _, item := range pq {
+		ids = append(ids, item.Id)
+	}
+
+	// 1 oracle submitted duplicates, so skipping
+	assert.ElementsMatch(t, []string{}, ids)
 }
 
 func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *testing.T) {

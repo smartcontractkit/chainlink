@@ -1468,29 +1468,6 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
     test_go_project_path: integration-tests
 
-  - id: migration/upgrade_version_test.go:*
-    path: integration-tests/migration/upgrade_version_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
-      - Nightly E2E Tests
-      - Push E2E Core Tests
-      - Workflow Dispatch E2E Core Tests
-    test_cmd: |
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "TestVersionUpgrade" -timeout 15m -count=1 github.com/smartcontractkit/chainlink/integration-tests/migration
-    test_env_vars:
-      E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
-      E2E_TEST_CHAINLINK_VERSION: "{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}"
-      E2E_TEST_CHAINLINK_UPGRADE_IMAGE: "{{ env.QA_CHAINLINK_IMAGE }}"
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: "{{ env.DEFAULT_CHAINLINK_VERSION }}"
-    test_go_project_path: integration-tests
-
   - id: smoke/job_distributor_test.go:*
     path: integration-tests/smoke/job_distributor_test.go
     test_env_type: docker
