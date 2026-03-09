@@ -2,12 +2,14 @@ package triggerqueue
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -17,22 +19,32 @@ var errNotImplemented = errors.New("triggerqueue plugin: draft implementation, n
 var _ ocr3_1types.ReportingPlugin[[]byte] = (*ReportingPlugin)(nil)
 
 // ReportingPlugin implements OCR 3.1 ReportingPlugin for the trigger queue.
-// Draft: all methods return errors.
 type ReportingPlugin struct {
-	lggr logger.Logger
+	lggr   logger.Logger
+	buffer *v2.ObservationBuffer
 }
 
-// NewReportingPlugin creates a new ReportingPlugin. Draft: returns plugin that errors on all calls.
-func NewReportingPlugin(lggr logger.Logger) *ReportingPlugin {
-	return &ReportingPlugin{lggr: lggr.Named("TriggerQueuePlugin")}
+// NewReportingPlugin creates a new ReportingPlugin.
+func NewReportingPlugin(lggr logger.Logger, buffer *v2.ObservationBuffer) *ReportingPlugin {
+	return &ReportingPlugin{lggr: lggr.Named("TriggerQueuePlugin"), buffer: buffer}
 }
 
 func (p *ReportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Query, error) {
 	return nil, errNotImplemented
 }
 
+// Observation reads from the buffer (filled by OCRQueue.Put) and produces an observation.
+// Draft: returns minimal observation (event IDs as JSON); full impl would BroadcastBlob for payloads.
 func (p *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
-	return nil, errNotImplemented
+	events := p.buffer.TakeForObservation()
+	if len(events) == 0 {
+		return []byte("[]"), nil
+	}
+	ids := make([]string, len(events))
+	for i, ev := range events {
+		ids[i] = ev.Event().Event.ID
+	}
+	return json.Marshal(ids)
 }
 
 func (p *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) error {

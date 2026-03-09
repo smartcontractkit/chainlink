@@ -349,6 +349,7 @@ func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQ
 	if err != nil {
 		return nil, err
 	}
+	buffer := &v2.ObservationBuffer{}
 
 	// Build OCR3_1OracleArgs for the trigger queue. TODO: wire all fields and call libocr2.NewOracle.
 	ocrLogger := ocrcommon.NewOCRWrapper(d.lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
@@ -368,11 +369,11 @@ func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQ
 		OffchainConfigDigester:       nil, // TODO: in-process digester; derive config digest from DON (members, F, offchain config)
 		OffchainKeyring:              nil, // TODO: wire OCR key bundle (d.ks.Get or workflow DON key)
 		OnchainKeyring:               nil, // TODO: wire onchain keyring adapter (trigger queue may use same as vault/dontime for in-process)
-		ReportingPluginFactory:      beholderwrapper.NewReportingPluginFactory(triggerqueue.NewFactory(d.lggr), d.lggr, "triggerqueue"),
+		ReportingPluginFactory:      beholderwrapper.NewReportingPluginFactory(triggerqueue.NewFactory(d.lggr, buffer), d.lggr, "triggerqueue"),
 	}
 	_ = oracleArgs // TODO: pass to libocr2.NewOracle(oracleArgs) when all fields wired
 
-	return v2.NewOCRQueue(v2.OCRQueueDeps{Inner: inner})
+	return v2.NewOCRQueue(v2.OCRQueueDeps{Inner: inner, Buffer: buffer})
 }
 
 func (d *Delegate) BeforeJobCreated(_ job.Job) {

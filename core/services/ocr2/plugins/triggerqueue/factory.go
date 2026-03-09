@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -13,16 +14,17 @@ var _ ocr3_1types.ReportingPluginFactory[[]byte] = (*Factory)(nil)
 
 // Factory creates ReportingPlugin instances for the trigger queue.
 type Factory struct {
-	lggr logger.Logger
+	lggr   logger.Logger
+	buffer *v2.ObservationBuffer
 }
 
 // NewFactory creates a new trigger queue plugin factory.
-func NewFactory(lggr logger.Logger) *Factory {
-	return &Factory{lggr: lggr.Named("TriggerQueueFactory")}
+func NewFactory(lggr logger.Logger, buffer *v2.ObservationBuffer) *Factory {
+	return &Factory{lggr: lggr.Named("TriggerQueueFactory"), buffer: buffer}
 }
 
 func (f *Factory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	plugin := NewReportingPlugin(f.lggr)
+	plugin := NewReportingPlugin(f.lggr, f.buffer)
 	info := ocr3_1types.ReportingPluginInfo1{
 		Name: "triggerqueue",
 		Limits: ocr3_1types.ReportingPluginLimits{
