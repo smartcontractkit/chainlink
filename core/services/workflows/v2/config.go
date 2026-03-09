@@ -28,10 +28,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
+// TriggerQueueDeps holds dependencies for creating the OCR-backed trigger queue.
+// DonSubscriber enables DON sync: the queue subscribes to DON updates and reconfigures
+// the OCR oracle when members, F, or bootstrap peers change.
+type TriggerQueueDeps struct {
+	Lf            limits.Factory
+	Cfg           *cresettings.Workflows
+	DonSubscriber capabilities.DonSubscriber
+}
+
 // TriggerQueueCreator creates an OCR-backed trigger queue using the delegate's OCR infra.
 // Implemented by the OCR delegate; called by cre.go when OCRTriggerEventQueueEnabled is on.
+// DonSubscriber in deps enables DON sync: the queue stays current with dynamic DON info
+// (members, F, bootstrap peers) delivered on the subscription channel.
 type TriggerQueueCreator interface {
-	NewTriggerQueueOCRQueue(ctx context.Context, lf limits.Factory, cfg *cresettings.Workflows) (limits.QueueLimiter[EnqueuedTriggerEvent], error)
+	NewTriggerQueueOCRQueue(ctx context.Context, deps TriggerQueueDeps) (limits.QueueLimiter[EnqueuedTriggerEvent], error)
 }
 
 // NewStandardTriggerQueue creates the default in-process trigger queue.

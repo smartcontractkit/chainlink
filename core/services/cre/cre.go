@@ -894,8 +894,13 @@ func newWorkflowRegistrySyncerV2(
 	var triggerQueue limits.QueueLimiter[v2.EnqueuedTriggerEvent]
 	if ocrTriggerEventQueueEnabled && ocrTriggerQueueCreator != nil {
 		cfg := cresettings.Default.PerWorkflow
+		deps := v2.TriggerQueueDeps{
+			Lf:            lf,
+			Cfg:           &cfg,
+			DonSubscriber: workflowDonNotifier,
+		}
 		var tqErr error
-		triggerQueue, tqErr = ocrTriggerQueueCreator.NewTriggerQueueOCRQueue(context.Background(), lf, &cfg)
+		triggerQueue, tqErr = ocrTriggerQueueCreator.NewTriggerQueueOCRQueue(context.Background(), deps)
 		if tqErr != nil {
 			return nil, nil, fmt.Errorf("could not create OCR trigger queue: %w", tqErr)
 		}

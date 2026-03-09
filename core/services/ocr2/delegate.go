@@ -40,8 +40,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
@@ -51,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -91,6 +90,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/triggerqueue"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
@@ -341,12 +341,20 @@ func (d *Delegate) JobType() job.Type {
 // NewTriggerQueueOCRQueue creates the trigger queue for the workflow syncer.
 // Uses the delegate's OCR infra (DB, peer wrapper, keyring, bootstrap peers).
 // Draft: calls NewOCRQueue with Inner from NewStandardTriggerQueue; full OCR implementation is TODO.
-func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, lf limits.Factory, cfg *cresettings.Workflows) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
-	inner, err := v2.NewStandardTriggerQueue(lf, cfg)
+// DonSubscriber and CapRegistry from deps enable DON sync when the full OCR queue is implemented.
+func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQueueDeps) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
+	inner, err := v2.NewStandardTriggerQueue(deps.Lf, deps.Cfg)
 	if err != nil {
 		return nil, err
 	}
-	return v2.NewOCRQueue(v2.OCRQueueDeps{Lf: lf, Cfg: cfg, Inner: inner})
+	return v2.NewOCRQueue(v2.OCRQueueDeps{
+		Lf:            deps.Lf,
+		Cfg:           deps.Cfg,
+		PluginFactory: triggerqueue.NewReportingPlugin(d.lggr),
+		Lggr:          d.lggr,
+		DonSubscriber: deps.DonSubscriber,
+		Inner:         inner,
+	})
 }
 
 func (d *Delegate) BeforeJobCreated(_ job.Job) {
@@ -2458,7 +2466,6 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		return nil, fmt.Errorf("chain not supported for CCIP execution: %s", spec.Relay)
 	}
 	dstRid, err := spec.RelayID()
-
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
@@ -2519,7 +2526,6 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 		return nil, fmt.Errorf("chain not supported for CCIP execution: %s", spec.Relay)
 	}
 	dstRid, err := spec.RelayID()
-
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
