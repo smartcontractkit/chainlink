@@ -121,7 +121,8 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	}
 	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
 	for _, member := range donConfig.Members {
-		rl, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
+		var rl limits.RateLimiter
+		rl, err = lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create per-node rate limiter for %s: %w", member.Address, err)
 		}
